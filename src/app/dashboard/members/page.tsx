@@ -6,10 +6,10 @@ import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { User, MessageSquare, Prayer, Handshake, Pencil, Loader2, Plus, Users, NotebookPen } from 'lucide-react';
+import { User, HandHeart, Handshake, Pencil, Loader2, Plus, Users, NotebookPen } from 'lucide-react';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cellMembers as mockMembers } from '@/lib/data'; // Using mock data for now
@@ -33,7 +33,7 @@ type Note = {
 const NoteIcon = ({ type, className }: { type: Note['type'], className?: string }) => {
     switch (type) {
         case 'pedido_oracao':
-            return <Prayer className={className} />;
+            return <HandHeart className={className} />;
         case 'encontro':
             return <Handshake className={className} />;
         case 'observacao':
