@@ -1,15 +1,16 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query } from 'firebase/firestore';
-import { useFirebase } from '@/firebase';
+import { useFirebase, useMemoFirebase } from '@/firebase';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Building, User, Shield } from "lucide-react";
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { useMemo } from 'react';
 
 type User = {
   id: string;
@@ -29,8 +30,8 @@ export default function CellsPage() {
   const { firestore } = useFirebase();
 
   // Fetch all users and cells
-  const usersQuery = useMemo(() => query(collection(firestore, 'users')), [firestore]);
-  const cellsQuery = useMemo(() => query(collection(firestore, 'cells')), [firestore]);
+  const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
+  const cellsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells')) : null, [firestore]);
 
   const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
   const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>(cellsQuery);

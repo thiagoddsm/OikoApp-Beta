@@ -1,11 +1,9 @@
-// src/app/dashboard/attendance/page.tsx
 'use client';
 
 import React, { useState } from 'react';
-import { useFirebase } from '@/firebase';
+import { useFirebase, useMemoFirebase } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query } from 'firebase/firestore';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { AttendanceDashboard } from '@/components/attendance/attendance-dashboard';
@@ -16,10 +14,11 @@ export default function AttendancePage() {
   const { firestore, user } = useFirebase();
   const [activeTab, setActiveTab] = useState('register');
 
-  const cultosCollectionPath = user ? `cultos/${user.uid}/registros` : null;
-  const cultosQuery = cultosCollectionPath ? query(collection(firestore, cultosCollectionPath)) : null;
+  const cultosQuery = useMemoFirebase(() => 
+    user && firestore ? query(collection(firestore, `cultos/${user.uid}/registros`)) : null,
+    [user, firestore]
+  );
   
-  // Custom hook usage with memoization handled inside or by ensuring stable query object
   const { data: registros, isLoading } = useCollection(cultosQuery);
   
   return (

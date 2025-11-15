@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { useFirebase } from '@/firebase';
+import React, { useState } from 'react';
+import { useFirebase, useMemoFirebase } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query, where, orderBy, Timestamp } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -59,7 +59,7 @@ function NoteForm({ member, authorId }: { member: Member, authorId: string }) {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!content.trim() || !member || !authorId) return;
+        if (!content.trim() || !member || !authorId || !firestore) return;
 
         setIsSaving(true);
         const notesCollection = collection(firestore, 'member_notes');
@@ -117,8 +117,8 @@ function NoteForm({ member, authorId }: { member: Member, authorId: string }) {
 function MemberNotes({ memberId }: { memberId: string }) {
     const { firestore } = useFirebase();
 
-    const notesQuery = useMemo(() => {
-        if (!memberId) return null;
+    const notesQuery = useMemoFirebase(() => {
+        if (!firestore || !memberId) return null;
         return query(collection(firestore, 'member_notes'), where('memberId', '==', memberId), orderBy('createdAt', 'desc'));
     }, [firestore, memberId]);
 
