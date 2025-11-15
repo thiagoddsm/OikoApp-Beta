@@ -13,6 +13,7 @@ import { User, HandHeart, Handshake, Pencil, Loader2, Plus, Users, NotebookPen }
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { cellMembers as mockMembers } from '@/lib/data'; // Using mock data for now
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type Member = {
   id: string;
@@ -76,38 +77,40 @@ function NoteForm({ member, authorId }: { member: Member, authorId: string }) {
     };
 
     return (
-        <form onSubmit={handleSubmit} className="p-1">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Plus className="size-5" /> Adicionar Anotação para {member.name}
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                 <Select value={type} onValueChange={(value: Note['type']) => setType(value)}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Selecione o tipo de anotação" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="observacao">Observação</SelectItem>
-                        <SelectItem value="pedido_oracao">Pedido de Oração</SelectItem>
-                        <SelectItem value="encontro">Encontro</SelectItem>
-                    </SelectContent>
-                </Select>
-                <Textarea
-                    placeholder="Digite sua anotação aqui..."
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
-                    rows={4}
-                    required
-                />
-            </CardContent>
-            <CardFooter>
-                 <Button type="submit" disabled={isSaving || !content.trim()}>
-                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Salvar Anotação
-                </Button>
-            </CardFooter>
-        </form>
+        <Card className="flex-shrink-0">
+             <form onSubmit={handleSubmit}>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Plus className="size-5" /> Adicionar Anotação para {member.name}
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <Select value={type} onValueChange={(value: Note['type']) => setType(value)}>
+                        <SelectTrigger>
+                            <SelectValue placeholder="Selecione o tipo de anotação" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="observacao">Observação</SelectItem>
+                            <SelectItem value="pedido_oracao">Pedido de Oração</SelectItem>
+                            <SelectItem value="encontro">Encontro</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <Textarea
+                        placeholder="Digite sua anotação aqui..."
+                        value={content}
+                        onChange={(e) => setContent(e.target.value)}
+                        rows={3}
+                        required
+                    />
+                </CardContent>
+                <CardFooter>
+                    <Button type="submit" disabled={isSaving || !content.trim()}>
+                        {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Salvar Anotação
+                    </Button>
+                </CardFooter>
+            </form>
+        </Card>
     )
 }
 
@@ -130,7 +133,7 @@ function MemberNotes({ memberId }: { memberId: string }) {
     }
 
     return (
-        <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
+        <div className="space-y-4">
             {notes.map(note => (
                 <div key={note.id} className="flex items-start gap-4 p-4 rounded-lg bg-background">
                     <div className="p-2 bg-primary/10 rounded-full">
@@ -153,7 +156,7 @@ function MemberNotes({ memberId }: { memberId: string }) {
 
 export default function MembersPage() {
     const { user } = useFirebase();
-    const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+    const [selectedMember, setSelectedMember] = useState<Member | null>(mockMembers[0] || null);
 
     const members = mockMembers; // Placeholder for real member fetching logic
 
@@ -167,46 +170,51 @@ export default function MembersPage() {
                     </CardTitle>
                      <CardDescription>Selecione um membro para ver ou adicionar anotações.</CardDescription>
                 </CardHeader>
-                <CardContent className="flex-1 overflow-y-auto">
-                    <div className="space-y-2">
-                        {members.map(member => {
-                            const avatar = PlaceHolderImages.find(p => p.id === member.avatar);
-                            return (
-                                <button
-                                    key={member.id}
-                                    className={`w-full text-left p-3 rounded-lg flex items-center gap-3 transition-colors ${selectedMember?.id === member.id ? 'bg-primary/10' : 'hover:bg-muted'}`}
-                                    onClick={() => setSelectedMember(member)}
-                                >
-                                    <Avatar className="h-10 w-10">
-                                        {avatar && <AvatarImage src={avatar.imageUrl} alt={avatar.description} />}
-                                        <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                        <p className="font-semibold text-sm">{member.name}</p>
-                                        <p className="text-xs text-muted-foreground capitalize">{member.status}</p>
-                                    </div>
-                                </button>
-                            );
-                        })}
-                    </div>
+                <CardContent className="flex-1 overflow-y-auto p-2">
+                    <ScrollArea className="h-full">
+                        <div className="space-y-2 p-4">
+                            {members.map(member => {
+                                const avatar = PlaceHolderImages.find(p => p.id === member.avatar);
+                                return (
+                                    <button
+                                        key={member.id}
+                                        className={`w-full text-left p-3 rounded-lg flex items-center gap-3 transition-colors ${selectedMember?.id === member.id ? 'bg-primary/10' : 'hover:bg-muted'}`}
+                                        onClick={() => setSelectedMember(member)}
+                                    >
+                                        <Avatar className="h-10 w-10">
+                                            {avatar && <AvatarImage src={avatar.imageUrl} alt={avatar.description} />}
+                                            <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <p className="font-semibold text-sm">{member.name}</p>
+                                            <p className="text-xs text-muted-foreground capitalize">{member.status}</p>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </ScrollArea>
                 </CardContent>
             </Card>
 
             {/* Notes Section */}
-            <div className="md:col-span-2 space-y-6 h-full flex flex-col">
+            <div className="md:col-span-2 h-full flex flex-col gap-6">
                 {selectedMember && user ? (
                     <>
-                        <Card className="flex-shrink-0">
-                           <NoteForm member={selectedMember} authorId={user.uid} />
-                        </Card>
+                       <NoteForm member={selectedMember} authorId={user.uid} />
+
                         <Card className="flex-1 flex flex-col">
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
                                     <NotebookPen className="size-5" /> Histórico de {selectedMember.name}
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="flex-1 overflow-hidden">
-                                <MemberNotes memberId={selectedMember.id} />
+                            <CardContent className="flex-1 overflow-y-auto p-2">
+                                 <ScrollArea className="h-full">
+                                    <div className="p-4">
+                                        <MemberNotes memberId={selectedMember.id} />
+                                    </div>
+                                </ScrollArea>
                             </CardContent>
                         </Card>
                     </>
