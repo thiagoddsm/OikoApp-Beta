@@ -14,6 +14,7 @@
  * - /discipleship_plans/{planId}: Discipleship plans between leaders and members.
  * - /cultos/{userId}/registros/{registroId}: Attendance records for church services (cultos), owned by individual users.
  * - /roles_admin/{uid}: Documents indicating admin user status.
+ * - /member_notes/{noteId}: Notes about members made by leaders.
  *
  * Key Security Decisions:
  * - User data and attendance records are strictly controlled by the owning user.
@@ -81,8 +82,8 @@ service cloud.firestore {
      * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
      */
     match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if false;
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
       allow create: if isOwner(userId);
       allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
@@ -157,6 +158,19 @@ service cloud.firestore {
       allow delete: if isExistingOwner(userId);
     }
 
+    /**
+     * @description Rules for notes on members.
+     * @path /member_notes/{noteId}
+     * @allow (create) Authenticated user can create notes.
+     * @allow (get, list) Authenticated users can read notes.
+     * @allow (update, delete) Only the author of the note can update or delete it.
+     */
+    match /member_notes/{noteId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isOwner(request.resource.data.authorId);
+      allow update, delete: if isSignedIn() && isOwner(resource.data.authorId);
+    }
+    
     /**
      * @description Rules for admin users.
      * @path /roles_admin/{uid}

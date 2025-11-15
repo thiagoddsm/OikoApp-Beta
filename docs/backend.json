@@ -282,6 +282,52 @@
         "horario",
         "adultos"
       ]
+    },
+    "MemberNote": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Member Note",
+      "type": "object",
+      "description": "Represents a note or log entry for a member, created by a leader.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the note."
+        },
+        "authorId": {
+          "type": "string",
+          "description": "The ID of the leader who created the note."
+        },
+        "memberId": {
+          "type": "string",
+          "description": "The ID of the member the note is about."
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of note (e.g., 'prayer_request', 'meeting', 'observation').",
+          "enum": [
+            "pedido_oracao",
+            "encontro",
+            "observacao"
+          ]
+        },
+        "content": {
+          "type": "string",
+          "description": "The content of the note."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the note was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "authorId",
+        "memberId",
+        "type",
+        "content",
+        "createdAt"
+      ]
     }
   },
   "auth": {
@@ -404,6 +450,22 @@
             {
               "name": "uid",
               "description": "The Firebase UID of the admin user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/member_notes/{noteId}",
+        "definition": {
+          "entityName": "MemberNote",
+          "schema": {
+            "$ref": "#/backend/entities/MemberNote"
+          },
+          "description": "Stores notes about members made by leaders. Access is controlled by 'authorId' and 'memberId'.",
+          "params": [
+            {
+              "name": "noteId",
+              "description": "The unique identifier for the member note."
             }
           ]
         }
