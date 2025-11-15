@@ -1,0 +1,177 @@
+/**
+ * @fileoverview Firestore Security Rules for ConectarGC application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model for personal data (culto records)
+ * and employs role-based access control for administrative functions. All other collections
+ * are secured based on explicit authorization. Data shape validation is relaxed for rapid prototyping.
+ *
+ * Data Structure:
+ * - /users/{userId}: User profile information.
+ * - /cells/{cellId}: Cell group details.
+ * - /attendance_reports/{reportId}: Attendance reports for cell meetings.
+ * - /leader_tasks/{taskId}: Tasks assigned to cell leaders.
+ * - /discipleship_plans/{planId}: Discipleship plans between leaders and members.
+ * - /artifacts/{artifactId}/users/{userId}/cultos/{cultoRegistroId}: Attendance records for church services (cultos), owned by individual users.
+ * - /roles_admin/{uid}: Documents indicating admin user status.
+ *
+ * Key Security Decisions:
+ * - User data and attendance records are strictly controlled by the owning user.
+ * - Admin privileges are determined by the presence of a document in the `/roles_admin/{uid}` collection.
+ * - List operations are generally restricted to the owner of the data, except where public access is explicitly intended.
+ *
+ * Denormalization for Authorization:
+ * - No denormalization is explicitly used in these rules as ownership is enforced by data storage location
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Checks if the request is authenticated.
+     * @path N/A
+     * @allow N/A
+     * @deny N/A
+     * @principle Authentication is required for nearly all actions.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the authenticated user's ID matches the provided userId.
+     * @path N/A
+     * @allow N/A
+     * @deny N/A
+     * @principle Enforces user-based ownership.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the authenticated user's ID matches the provided userId and if the resource exists.
+     * @path N/A
+     * @allow N/A
+     * @deny N/A
+     * @principle Enforces existence check for update and delete operations.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Checks if the requesting user is an admin.
+     * @path N/A
+     * @allow N/A
+     * @deny N/A
+     * @principle Enforces role-based access control.
+     */
+    function isAdmin() {
+        return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+
+    /**
+     * @description Rules for user profiles.
+     * @path /users/{userId}
+     * @allow (create) Authenticated user can create their own profile.
+     * @deny (create) Authenticated user cannot create a profile for another user.
+     * @allow (get, list, update, delete) Owner can perform all operations on their profile.
+     * @deny (get, list, update, delete) Non-owner cannot perform any operations on another user's profile.
+     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Rules for cell group data.
+     * @path /cells/{cellId}
+     * @allow (get, list) Public read access to cell data.
+     * @deny (create, update, delete) Only admins can manage cell data.
+     */
+    match /cells/{cellId} {
+      allow get, list: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin() && resource != null;
+      allow delete: if isAdmin() && resource != null;
+    }
+
+    /**
+     * @description Rules for attendance reports.
+     * @path /attendance_reports/{reportId}
+     * @allow (get, list) Public read access to attendance reports.
+     * @deny (create, update, delete) Only admins can manage attendance reports.
+     */
+    match /attendance_reports/{reportId} {
+      allow get, list: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin() && resource != null;
+      allow delete: if isAdmin() && resource != null;
+    }
+
+    /**
+     * @description Rules for leader tasks.
+     * @path /leader_tasks/{taskId}
+     * @allow (get, list) Public read access to leader tasks.
+     * @deny (create, update, delete) Only admins can manage leader tasks.
+     */
+    match /leader_tasks/{taskId} {
+      allow get, list: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin() && resource != null;
+      allow delete: if isAdmin() && resource != null;
+    }
+
+    /**
+     * @description Rules for discipleship plans.
+     * @path /discipleship_plans/{planId}
+     * @allow (get, list) Public read access to discipleship plans.
+     * @deny (create, update, delete) Only admins can manage discipleship plans.
+     */
+    match /discipleship_plans/{planId} {
+      allow get, list: if true;
+      allow create: if isAdmin();
+      allow update: if isAdmin() && resource != null;
+      allow delete: if isAdmin() && resource != null;
+    }
+
+    /**
+     * @description Rules for attendance records for church services (cultos), owned by individual users.
+     * @path /artifacts/{artifactId}/users/{userId}/cultos/{cultoRegistroId}
+     * @allow (create) Authenticated user can create their own culto registro.
+     * @deny (create) Authenticated user cannot create a culto registro for another user.
+     * @allow (get, list, update, delete) Owner can perform all operations on their culto registro.
+     * @deny (get, list, update, delete) Non-owner cannot perform any operations on another user's culto registro.
+     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
+     */
+    match /artifacts/{artifactId}/users/{userId}/cultos/{cultoRegistroId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Rules for admin users.
+     * @path /roles_admin/{uid}
+     * @allow get: if true; // Anyone can check if a user is an admin by reading this document.
+     * @allow list: if false; // Do not allow listing of all admins
+     * @allow create: if isAdmin(); // Only another admin can grant admin privileges.
+     * @allow update: if false; // Admin privileges should not be updatable - only creatable/deletable.
+     * @allow delete: if isAdmin() && resource != null; // Only another admin can revoke admin privileges, and the document must exist.
+     */
+    match /roles_admin/{uid} {
+        allow get: if true;
+        allow list: if false;
+        allow create: if isAdmin();
+        allow update: if false;
+        allow delete: if isAdmin() && resource != null;
+    }
+  }
+}

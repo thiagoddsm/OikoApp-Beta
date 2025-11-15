@@ -1,0 +1,418 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user in the system, whether a member, leader, supervisor, or pastor.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The user's full name."
+        },
+        "phone": {
+          "type": "string",
+          "description": "The user's phone number."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address.",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "The user's role within the church (e.g., 'membro', 'lider_celula', 'supervisor', 'pastor_rede', 'admin')."
+        },
+        "celulaId": {
+          "type": "string",
+          "description": "Reference to Cell. (Relationship: Cell 1:N User) The ID of the cell the user belongs to."
+        },
+        "status": {
+          "type": "string",
+          "description": "The user's membership status (e.g., 'visitante', 'frequente', 'membro', 'em_discipulado')."
+        },
+        "lastContactLog": {
+          "type": "string",
+          "description": "Timestamp of the last contact with the user.",
+          "format": "date-time"
+        },
+        "absenceCount": {
+          "type": "number",
+          "description": "The number of times the user has been absent."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "phone",
+        "role",
+        "status"
+      ]
+    },
+    "Cell": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Cell",
+      "type": "object",
+      "description": "Represents a cell group within the church.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Cell entity."
+        },
+        "nome": {
+          "type": "string",
+          "description": "The name of the cell group."
+        },
+        "liderId": {
+          "type": "string",
+          "description": "Reference to User (Cell Leader). (Relationship: User 1:N Cell) The ID of the cell leader."
+        },
+        "supervisorId": {
+          "type": "string",
+          "description": "Reference to User (Supervisor). (Relationship: User 1:N Cell) The ID of the supervisor overseeing the cell."
+        },
+        "membros": {
+          "type": "array",
+          "description": "References to Users. (Relationship: Cell 1:N User) An array of user IDs representing the members of the cell.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "meetingTemplate": {
+          "type": "string",
+          "description": "A template for cell meeting structure"
+        },
+        "communionPlan": {
+          "type": "string",
+          "description": "The communion plan for the cell."
+        }
+      },
+      "required": [
+        "id",
+        "nome",
+        "liderId",
+        "supervisorId"
+      ]
+    },
+    "AttendanceReport": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AttendanceReport",
+      "type": "object",
+      "description": "Represents an attendance report for a cell meeting.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the AttendanceReport entity."
+        },
+        "cellId": {
+          "type": "string",
+          "description": "Reference to Cell. (Relationship: Cell 1:N AttendanceReport) The ID of the cell the report belongs to."
+        },
+        "date": {
+          "type": "string",
+          "description": "The date of the cell meeting.",
+          "format": "date-time"
+        },
+        "presentMembers": {
+          "type": "array",
+          "description": "References to Users. (Relationship: User N:N AttendanceReport) An array of user IDs representing the members present at the meeting.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "visitantes": {
+          "type": "string",
+          "description": "String with names and contact info of visitors."
+        },
+        "conversoes": {
+          "type": "number",
+          "description": "The number of conversions reported at the meeting."
+        }
+      },
+      "required": [
+        "id",
+        "cellId",
+        "date"
+      ]
+    },
+    "LeaderTask": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "LeaderTask",
+      "type": "object",
+      "description": "Represents a task assigned to a cell leader.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the LeaderTask entity."
+        },
+        "liderId": {
+          "type": "string",
+          "description": "Reference to User (Cell Leader). (Relationship: User 1:N LeaderTask) The ID of the cell leader assigned the task."
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of task (e.g., 'new_visitor_followup', 'absence_alert', 'prayer_reminder')."
+        },
+        "targetUserId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N LeaderTask) The ID of the member or visitor the task is related to."
+        },
+        "message": {
+          "type": "string",
+          "description": "The message associated with the task."
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "The due date for the task.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the task (e.g., 'pendente', 'concluido')."
+        }
+      },
+      "required": [
+        "id",
+        "liderId",
+        "type",
+        "targetUserId",
+        "message",
+        "dueDate",
+        "status"
+      ]
+    },
+    "DiscipleshipPlan": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DiscipleshipPlan",
+      "type": "object",
+      "description": "Represents a discipleship plan between a leader (mentor) and a member (disciple).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the DiscipleshipPlan entity."
+        },
+        "liderId": {
+          "type": "string",
+          "description": "Reference to User (Mentor/Leader). (Relationship: User 1:N DiscipleshipPlan) The ID of the leader/mentor."
+        },
+        "auxiliarId": {
+          "type": "string",
+          "description": "Reference to User (Disciple). (Relationship: User 1:N DiscipleshipPlan) The ID of the member being discipled."
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the discipleship plan (e.g., 'identificado', 'demonstrando', 'delegando')."
+        },
+        "checklist": {
+          "type": "string",
+          "description": "A checklist of development steps in the discipleship plan."
+        }
+      },
+      "required": [
+        "id",
+        "liderId",
+        "auxiliarId",
+        "status"
+      ]
+    },
+    "CultoRegistro": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "CultoRegistro",
+      "type": "object",
+      "description": "Represents a record of attendance and other details for a church service (culto).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the CultoRegistro entity."
+        },
+        "data": {
+          "type": "string",
+          "description": "The date of the church service.",
+          "format": "date"
+        },
+        "horario": {
+          "type": "string",
+          "description": "The time of the church service."
+        },
+        "adultos": {
+          "type": "number",
+          "description": "The number of adults attending the service."
+        },
+        "criancas": {
+          "type": "number",
+          "description": "The number of children attending the service."
+        },
+        "clima": {
+          "type": "string",
+          "description": "The weather conditions during the service."
+        },
+        "feriadoProximo": {
+          "type": "boolean",
+          "description": "Indicates whether there was a holiday near the service date."
+        },
+        "jogoFutebol": {
+          "type": "boolean",
+          "description": "Indicates whether there was a soccer game during the service time."
+        },
+        "serieMensagem": {
+          "type": "string",
+          "description": "The message series being preached during the service."
+        },
+        "apresentacaoBebe": {
+          "type": "boolean",
+          "description": "Indicates whether there was a baby presentation during the service."
+        },
+        "observacoes": {
+          "type": "string",
+          "description": "Additional observations about the service."
+        },
+        "criadoEm": {
+          "type": "string",
+          "description": "The timestamp when the record was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "data",
+        "horario",
+        "adultos"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles. The 'role' field determines user privileges. Includes 'celulaId' to link users to cells.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/cells/{cellId}",
+        "definition": {
+          "entityName": "Cell",
+          "schema": {
+            "$ref": "#/backend/entities/Cell"
+          },
+          "description": "Represents cell groups. Contains 'liderId', 'supervisorId', and a 'membros' array listing user IDs in the cell.",
+          "params": [
+            {
+              "name": "cellId",
+              "description": "The unique identifier for the cell."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/attendance_reports/{reportId}",
+        "definition": {
+          "entityName": "AttendanceReport",
+          "schema": {
+            "$ref": "#/backend/entities/AttendanceReport"
+          },
+          "description": "Stores attendance reports for cell meetings. Includes 'cellId', 'date', and 'presentMembers'.",
+          "params": [
+            {
+              "name": "reportId",
+              "description": "The unique identifier for the attendance report."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/leader_tasks/{taskId}",
+        "definition": {
+          "entityName": "LeaderTask",
+          "schema": {
+            "$ref": "#/backend/entities/LeaderTask"
+          },
+          "description": "Tracks tasks assigned to cell leaders. Includes task type, target user, due date, and status.",
+          "params": [
+            {
+              "name": "taskId",
+              "description": "The unique identifier for the leader task."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/discipleship_plans/{planId}",
+        "definition": {
+          "entityName": "DiscipleshipPlan",
+          "schema": {
+            "$ref": "#/backend/entities/DiscipleshipPlan"
+          },
+          "description": "Manages discipleship plans between leaders and members. Tracks plan status and development steps.",
+          "params": [
+            {
+              "name": "planId",
+              "description": "The unique identifier for the discipleship plan."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/artifacts/{artifactId}/users/{userId}/cultos/{cultoRegistroId}",
+        "definition": {
+          "entityName": "CultoRegistro",
+          "schema": {
+            "$ref": "#/backend/entities/CultoRegistro"
+          },
+          "description": "Stores records of attendance and other details for church services, owned by each user.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            },
+            {
+              "name": "cultoRegistroId",
+              "description": "The unique identifier for the culto registro."
+            },
+            {
+              "name": "artifactId",
+              "description": "The unique identifier for the artifact."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles_admin/{uid}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Documents in this collection represent admin users. The existence of a document signifies admin status.",
+          "params": [
+            {
+              "name": "uid",
+              "description": "The Firebase UID of the admin user."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to support the ConectarGC application, focusing on managing church cell groups and member engagement. The core principle is Authorization Independence, achieved through path-based ownership for user-specific data and denormalization of authorization information (especially cell membership) where needed.\n\n**Authorization Independence:**\n\n*   **User-Owned Data:** Attendance reports and culto registros are stored under `/users/{userId}`, granting straightforward ownership-based security. No `get()` calls are needed to verify user identity.\n*   **Collaborative Data (Cells):** While cell data itself doesn't directly involve user-level access control in the provided schema, any subcollections related to collaborative activities within a cell (hypothetically, a `/cells/{cellId}/meeting_notes` collection) would require denormalization of the `membros` array from the `/cells/{cellId}` document into each meeting note. This eliminates the need for rules to fetch cell member lists to authorize write access.\n\n**QAPs (Query Authorization Patterns):**\n\n*   **Secure List Operations:** Path-based ownership (`/users/{userId}/cultos`) inherently secures list operations. A user can only list their own culto registros.\n*   **Role-Based Access Control:** The `/roles_admin/{uid}` collection enables secure role-based authorization, allowing only admins to manage certain data (e.g., creating global announcements, modifying cell structures).\n\n**Structure Explanation:**\n\n*   `/users/{userId}`: Stores user profiles. The `role` field determines the user's privileges within the app. The `celulaId` field links users to their respective cells.\n*   `/cells/{cellId}`: Represents cell groups. Contains the `liderId` and `supervisorId` for cell management. The `membros` array lists user IDs belonging to the cell.\n*   `/attendance_reports/{reportId}`: Stores attendance reports for cell meetings. Includes `cellId`, `date`, `presentMembers`, and other relevant details.\n*   `/leader_tasks/{taskId}`: Tracks tasks assigned to cell leaders. Includes information about the task type, target user, due date, and status.\n*   `/discipleship_plans/{planId}`: Manages discipleship plans between leaders and members. Tracks the plan's status and development steps.\n*   `/users/{userId}/cultos/{cultoRegistroId}`: Stores records of attendance and other details for church services, owned by each user.\n*    `/artifacts/{artifactId}/users/{userId}/cultos/{cultoRegistroId}`: Stores records of attendance and other details for church services, owned by each user.\n\nThis structure balances security, scalability, and debuggability by adhering to the core design principles and strategy mandates."
+  }
+}
