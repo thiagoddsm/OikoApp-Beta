@@ -11,6 +11,7 @@ import {
   User,
   LogOut,
   PlusCircle,
+  CalendarCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ export default function DashboardLayout({
     { href: "/dashboard", label: "Dashboard", icon: Home },
     { href: "/dashboard/members", label: "Membros", icon: Users },
     { href: "/dashboard/cells", label: "Células", icon: Building },
+    { href: "/dashboard/attendance", label: "Presença", icon: CalendarCheck },
     { href: "/dashboard/reports", label: "Relatórios", icon: FileText },
   ];
 
