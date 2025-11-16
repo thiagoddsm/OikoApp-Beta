@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -30,9 +31,19 @@ import {
 } from "@/components/ui/sidebar";
 import { Logo } from "@/components/icons";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useFirebase } from "@/firebase";
+import { useFirebase, useDoc, useMemoFirebase } from "@/firebase";
+import { doc } from 'firebase/firestore';
 import { signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
+
+const userRoles = {
+  'pastor_senior': 'Admin Master',
+  'supervisor': 'Supervisor',
+  'lider_celula_adultos': 'Líder de Célula (Adultos)',
+  'lider_celula_kids': 'Líder de Célula (Kids)',
+  'membro': 'Membro'
+};
+
 
 export default function DashboardLayout({
   children,
@@ -40,13 +51,24 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { user, auth, isUserLoading } = useFirebase();
+  const { user, auth, firestore, isUserLoading } = useFirebase();
   const router = useRouter();
+
+  const userDocRef = useMemoFirebase(() => 
+    firestore && user ? doc(firestore, 'users', user.uid) : null, 
+    [firestore, user]
+  );
+  
+  const { data: userData } = useDoc<{ hierarchy?: { role?: string; } }>(userDocRef);
+  const userRole = userData?.hierarchy?.role;
+  const userRoleLabel = userRole ? userRoles[userRole] : 'Carregando...';
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
-      router.push('/');
+      if (auth) {
+        await signOut(auth);
+        router.push('/');
+      }
     } catch (error) {
       console.error("Logout failed", error);
     }
@@ -133,6 +155,7 @@ export default function DashboardLayout({
                   <div className="flex flex-col text-sm truncate">
                     <span className="font-semibold truncate">{user.displayName || 'Usuário'}</span>
                     <span className="text-muted-foreground text-xs truncate">{user.email || 'Sem email'}</span>
+                     {userRoleLabel && <span className="text-muted-foreground text-xs truncate font-bold capitalize">{userRoleLabel}</span>}
                   </div>
                 </div>
               ) : (
