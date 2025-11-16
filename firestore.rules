@@ -162,12 +162,14 @@ service cloud.firestore {
     /**
      * @description Rules for notes on members.
      * @path /member_notes/{noteId}
-     * @allow (create) Authenticated user can create notes.
-     * @allow (get, list) Authenticated users can read notes.
+     * @allow (create) Authenticated user can create notes for other users they have access to.
+     * @allow (get) Authenticated users can read specific notes.
+     * @allow (list) Authenticated users can query for notes related to a specific member.
      * @allow (update, delete) Only the author of the note can update or delete it.
      */
     match /member_notes/{noteId} {
-      allow read: if isSignedIn();
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && request.query.keys().hasOnly(['memberId', 'orderBy', 'limit']);
       allow create: if isSignedIn() && isOwner(request.resource.data.authorId);
       allow update, delete: if isSignedIn() && isOwner(resource.data.authorId);
     }
