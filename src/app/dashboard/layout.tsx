@@ -12,6 +12,7 @@ import {
   LogOut,
   PlusCircle,
   CalendarCheck,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,9 @@ import {
 } from "@/components/ui/sidebar";
 import { Logo } from "@/components/icons";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useFirebase } from "@/firebase";
+import { signOut } from "firebase/auth";
+import { useRouter } from "next/navigation";
 
 export default function DashboardLayout({
   children,
@@ -36,6 +40,17 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { user, auth, isUserLoading } = useFirebase();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      router.push('/');
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
+  };
 
   const menuItems = [
     { href: "/dashboard", label: "Dashboard", icon: Home },
@@ -44,6 +59,16 @@ export default function DashboardLayout({
     { href: "/dashboard/attendance", label: "Presença", icon: CalendarCheck },
     { href: "/dashboard/reports", label: "Relatórios", icon: FileText },
   ];
+  
+  const getInitials = (name: string | null | undefined) => {
+    if (!name) return 'U';
+    const names = name.split(' ');
+    if (names.length > 1) {
+      return `${names[0][0]}${names[names.length - 1][0]}`;
+    }
+    return name.substring(0, 2);
+  };
+
 
   return (
     <SidebarProvider>
@@ -95,23 +120,36 @@ export default function DashboardLayout({
                 </SidebarMenuButton>
               </SidebarMenuItem>
             <SidebarMenuItem>
-              <div className="flex items-center gap-2 p-2 rounded-md">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src="https://picsum.photos/seed/supervisor/40/40" />
-                  <AvatarFallback>SV</AvatarFallback>
-                </Avatar>
-                <div className="flex flex-col text-sm">
-                  <span className="font-semibold">Supervisor</span>
-                  <span className="text-muted-foreground text-xs">pastor@email.com</span>
+              {isUserLoading ? (
+                 <div className="flex items-center gap-2 p-2 rounded-md">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                 </div>
+              ) : user ? (
+                 <div className="flex items-center gap-2 p-2 rounded-md">
+                  <Avatar className="h-8 w-8">
+                    {user.photoURL && <AvatarImage src={user.photoURL} alt={user.displayName || 'User Avatar'} />}
+                    <AvatarFallback>{getInitials(user.displayName)}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col text-sm truncate">
+                    <span className="font-semibold truncate">{user.displayName || 'Usuário'}</span>
+                    <span className="text-muted-foreground text-xs truncate">{user.email || 'Sem email'}</span>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                 <div className="flex items-center gap-2 p-2 rounded-md">
+                    <Avatar className="h-8 w-8">
+                      <AvatarFallback>??</AvatarFallback>
+                    </Avatar>
+                     <div className="flex flex-col text-sm">
+                        <span className="font-semibold">Não conectado</span>
+                    </div>
+                  </div>
+              )}
             </SidebarMenuItem>
             <SidebarMenuItem>
-               <SidebarMenuButton asChild className="justify-start">
-                <Link href="/">
-                    <LogOut className="size-4" />
-                    <span>Sair</span>
-                </Link>
+               <SidebarMenuButton onClick={handleLogout} className="justify-start w-full">
+                  <LogOut className="size-4" />
+                  <span>Sair</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
@@ -122,7 +160,7 @@ export default function DashboardLayout({
             <SidebarTrigger className="md:hidden" />
             <div className="flex-1">
                 <h1 className="text-lg font-semibold font-headline">
-                    {menuItems.find(item => item.href === pathname)?.label || "ConectarGC"}
+                    {menuItems.find(item => pathname.startsWith(item.href) && item.href !== '/dashboard')?.label || (pathname === '/dashboard' ? 'Dashboard' : (pathname.includes('/members/') ? 'Perfil do Membro' : 'ConectarGC'))}
                 </h1>
             </div>
             <Button size="sm">Hoje</Button>
