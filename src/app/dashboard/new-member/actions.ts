@@ -10,7 +10,9 @@ const NewMemberInfoSchema = z.object({
   visitorName: z.string().min(2, { message: 'O nome do visitante deve ter pelo menos 2 caracteres.' }),
   visitorType: z.enum(['culto', 'celula'], { required_error: 'Por favor, selecione a origem do visitante.' }),
   visitorPhone: z.string().min(10, { message: 'Por favor, insira um número de telefone válido.' }),
-  leaderName: z.string(), // Nome do líder vem do usuário logado
+  responsibleName: z.string().min(2, { message: 'O nome do responsável deve ter pelo menos 2 caracteres.' }),
+  responsibleEmail: z.string().email({ message: 'Por favor, insira um email válido para o responsável.' }),
+  responsiblePhone: z.string().min(10, { message: 'Por favor, insira um telefone válido para o responsável.' }),
 });
 
 export type State = {
@@ -18,13 +20,15 @@ export type State = {
     visitorName?: string[];
     visitorType?: string[];
     visitorPhone?: string[];
-    leaderName?: string[];
+    responsibleName?: string[];
+    responsibleEmail?: string[];
+    responsiblePhone?: string[];
   };
   message?: string | null;
   tasks?: { message: string; dueDate: string; }[];
 };
 
-async function saveVisitorToFirestore(visitorData: z.infer<typeof NewMemberInfoSchema>) {
+async function saveVisitorToFirestore(visitorData: Omit<z.infer<typeof NewMemberInfoSchema>, 'responsibleName' | 'responsibleEmail' | 'responsiblePhone'>) {
     const { firestore } = initializeFirebase();
     const usersCollection = collection(firestore, 'users');
 
@@ -32,7 +36,7 @@ async function saveVisitorToFirestore(visitorData: z.infer<typeof NewMemberInfoS
         const newUserDoc = await addDoc(usersCollection, {
             name: visitorData.visitorName,
             phone: visitorData.visitorPhone,
-            email: '',
+            email: '', // Not collected from visitor in this form
             hierarchy: {
                 role: 'membro', // Default role for new entries
             },
@@ -53,7 +57,9 @@ export async function createFollowUpTasks(prevState: State, formData: FormData):
     visitorName: formData.get('visitorName'),
     visitorType: formData.get('visitorType'),
     visitorPhone: formData.get('visitorPhone'),
-    leaderName: formData.get('leaderName'),
+    responsibleName: formData.get('responsibleName'),
+    responsibleEmail: formData.get('responsibleEmail'),
+    responsiblePhone: formData.get('responsiblePhone'),
   });
 
   if (!validatedFields.success) {
@@ -63,15 +69,19 @@ export async function createFollowUpTasks(prevState: State, formData: FormData):
     };
   }
   
-  const saveResult = await saveVisitorToFirestore(validatedFields.data);
+  const { responsibleName, responsibleEmail, responsiblePhone, ...visitorData } = validatedFields.data;
+
+  const saveResult = await saveVisitorToFirestore(visitorData);
   if (!saveResult.success) {
       return { message: saveResult.error };
   }
 
   try {
     const aiPayload = {
-      ...validatedFields.data,
-      leaderPhoneNumber: 'N/A' // This is not needed for the message content anymore, but the flow expects it
+      visitorName: visitorData.visitorName,
+      visitorType: visitorData.visitorType,
+      responsibleName: responsibleName,
+      responsiblePhoneNumber: responsiblePhone,
     };
     const result = await generateNewMemberFollowUpTasks(aiPayload);
 

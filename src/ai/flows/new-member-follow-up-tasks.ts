@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview This file defines a Genkit flow for generating personalized WhatsApp follow-up tasks for new church visitors.
@@ -13,8 +14,8 @@ import {z} from 'genkit';
 const NewMemberInfoSchema = z.object({
   visitorName: z.string().describe('The name of the new visitor.'),
   visitorType: z.enum(['culto', 'celula']).describe('The type of visitor (culto for church service, celula for cell group).'),
-  leaderName: z.string().describe('The name of the cell leader.'),
-  leaderPhoneNumber: z.string().describe('The phone number of the cell leader.'),
+  responsibleName: z.string().describe("The name of the person responsible for the follow-up."),
+  responsiblePhoneNumber: z.string().describe("The phone number of the person responsible for the follow-up."),
 });
 
 export type NewMemberInfo = z.infer<typeof NewMemberInfoSchema>;
@@ -38,13 +39,13 @@ const newMemberFollowUpPrompt = ai.definePrompt({
   name: 'newMemberFollowUpPrompt',
   input: {schema: NewMemberInfoSchema},
   output: {schema: FollowUpTasksOutputSchema},
-  prompt: `You are a helpful assistant designed to generate personalized WhatsApp follow-up tasks for church leaders to connect with new visitors. Generate 3 tasks with personalized messages and due dates for the following new visitor and church leader.
+  prompt: `You are a helpful assistant designed to generate personalized WhatsApp follow-up tasks for church leaders to connect with new visitors. Generate 3 tasks with personalized messages and due dates for the following new visitor and the person responsible for the contact.
 
 The tasks should be tailored based on whether the visitor came to a church service ('culto') or a cell group ('celula').
 
 Visitor Name: {{{visitorName}}}
 Visitor Type: {{{visitorType}}}
-Leader Name: {{{leaderName}}}
+Responsible Person Name: {{{responsibleName}}}
 
 Ensure the tasks are friendly, welcoming, and aimed at building a relationship with the new visitor. The due dates should be 1 day, 1 week, and 3 weeks after the visitor's first visit. Respond using JSON format.
 `,

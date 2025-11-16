@@ -58,7 +58,6 @@ export default function NewMemberPage() {
             </CardDescription>
           </CardHeader>
           <form action={dispatch}>
-            <input type="hidden" name="leaderName" value={user?.displayName || 'Líder'} />
             <CardContent className="grid gap-6">
               <div className="grid gap-2">
                 <Label htmlFor="visitorName">Nome do Visitante</Label>
@@ -92,6 +91,31 @@ export default function NewMemberPage() {
                   <p className="text-sm font-medium text-destructive">{state.errors.visitorPhone}</p>
                 )}
               </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="responsibleName">Responsável pelo Contato (Nome)</Label>
+                <Input id="responsibleName" name="responsibleName" defaultValue={user?.displayName || ''} placeholder="Quem fez o primeiro contato?" />
+                {state.errors?.responsibleName && (
+                  <p className="text-sm font-medium text-destructive">{state.errors.responsibleName}</p>
+                )}
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="responsibleEmail">Email do Responsável</Label>
+                <Input id="responsibleEmail" name="responsibleEmail" type="email" defaultValue={user?.email || ''} placeholder="Email de quem fez o contato" />
+                {state.errors?.responsibleEmail && (
+                  <p className="text-sm font-medium text-destructive">{state.errors.responsibleEmail}</p>
+                )}
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="responsiblePhone">Telefone do Responsável</Label>
+                <Input id="responsiblePhone" name="responsiblePhone" placeholder="Telefone de quem fez o contato" />
+                {state.errors?.responsiblePhone && (
+                  <p className="text-sm font-medium text-destructive">{state.errors.responsiblePhone}</p>
+                )}
+              </div>
+
             </CardContent>
             <CardFooter>
               <SubmitButton />
