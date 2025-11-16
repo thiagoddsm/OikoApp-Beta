@@ -58,39 +58,41 @@ export default function DashboardLayout({
           <SidebarMenu>
             {menuItems.map((item) => (
               <SidebarMenuItem key={item.href}>
-                <Link href={item.href} legacyBehavior passHref>
-                  <SidebarMenuButton
-                    isActive={pathname === item.href}
-                    className="justify-start"
-                  >
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === item.href}
+                  className="justify-start"
+                >
+                  <Link href={item.href}>
                     <item.icon className="size-4" />
                     <span>{item.label}</span>
-                  </SidebarMenuButton>
-                </Link>
+                  </Link>
+                </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
              <SidebarMenuItem>
-                <Link href="/leader/new-member" legacyBehavior passHref>
-                  <SidebarMenuButton
-                    isActive={pathname === "/leader/new-member"}
-                    className="justify-start bg-accent/50 text-accent-foreground/80 hover:bg-accent hover:text-accent-foreground"
-                  >
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === "/leader/new-member"}
+                  className="justify-start bg-accent/50 text-accent-foreground/80 hover:bg-accent hover:text-accent-foreground"
+                >
+                  <Link href="/leader/new-member">
                     <PlusCircle className="size-4" />
                     <span>Novo Membro (Líder)</span>
-                  </SidebarMenuButton>
-                </Link>
+                  </Link>
+                </SidebarMenuButton>
               </SidebarMenuItem>
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
           <SidebarMenu>
              <SidebarMenuItem>
-                <Link href="/dashboard/settings" legacyBehavior passHref>
-                  <SidebarMenuButton isActive={pathname === '/dashboard/settings'} className="justify-start">
+                <SidebarMenuButton asChild isActive={pathname === '/dashboard/settings'} className="justify-start">
+                  <Link href="/dashboard/settings">
                     <Settings className="size-4" />
                     <span>Configurações</span>
-                  </SidebarMenuButton>
-                </Link>
+                  </Link>
+                </SidebarMenuButton>
               </SidebarMenuItem>
             <SidebarMenuItem>
               <div className="flex items-center gap-2 p-2 rounded-md">
@@ -105,12 +107,12 @@ export default function DashboardLayout({
               </div>
             </SidebarMenuItem>
             <SidebarMenuItem>
-               <Link href="/" legacyBehavior passHref>
-                <SidebarMenuButton className="justify-start">
+               <SidebarMenuButton asChild className="justify-start">
+                <Link href="/">
                     <LogOut className="size-4" />
                     <span>Sair</span>
-                </SidebarMenuButton>
-              </Link>
+                </Link>
+              </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarFooter>

@@ -45,11 +45,11 @@ export default function LoginPage() {
               </div>
               <Input id="password" type="password" required />
             </div>
-            <Link href="/dashboard" className="w-full">
-              <Button className="w-full">
+            <Button asChild className="w-full">
+              <Link href="/dashboard">
                 Login
-              </Button>
-            </Link>
+              </Link>
+            </Button>
             <Button variant="outline" className="w-full">
               Login com Google
             </Button>
