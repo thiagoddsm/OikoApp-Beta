@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -17,6 +17,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { updateUserProfile } from './actions';
+import { useFirebase, useMemoFirebase } from '@/firebase';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { collection, query } from 'firebase/firestore';
 
 const integrationStatusColumns = [
     { id: 'visitante_culto', title: 'SALA VIP' },
@@ -30,15 +33,40 @@ const integrationStatusColumns = [
     { id: 'lider_rede', title: 'LÍDER DE REDE' },
 ];
 
+type User = {
+  id: string;
+  name: string;
+};
+
+type Cell = {
+  id: string;
+  nome: string;
+};
+
 export function EditUserDialog({ user, open, onOpenChange }) {
   const { toast } = useToast();
+  const { firestore } = useFirebase();
   const [isSaving, setIsSaving] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
     integrationStatus: '',
+    celulaId: '',
+    supervisorId: '',
   });
+  
+  const cellsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells')) : null, [firestore]);
+  const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>(cellsQuery);
+
+  const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
+  const { data: allUsers, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
+
+  const supervisors = useMemo(() => {
+    if (!allUsers) return [];
+    return allUsers.filter(u => u.hierarchy?.role === 'supervisor' || u.hierarchy?.role === 'pastor_senior');
+  }, [allUsers]);
+
 
   useEffect(() => {
     if (user) {
@@ -46,6 +74,8 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         name: user.name || '',
         phone: user.phone || '',
         integrationStatus: user.integrationStatus || 'visitante_culto',
+        celulaId: user.hierarchy?.celulaId || '',
+        supervisorId: user.hierarchy?.supervisorId || '',
       });
     }
   }, [user, open]);
@@ -55,8 +85,8 @@ export function EditUserDialog({ user, open, onOpenChange }) {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
   
-  const handleSelectChange = (value: string) => {
-    setFormData(prev => ({ ...prev, integrationStatus: value }));
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const handleSave = async () => {
@@ -81,7 +111,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Editar Perfil do Usuário</DialogTitle>
           <DialogDescription>
@@ -117,7 +147,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
             <Label htmlFor="integrationStatus" className="text-right">
               Status
             </Label>
-            <Select value={formData.integrationStatus} onValueChange={handleSelectChange}>
+            <Select value={formData.integrationStatus} onValueChange={(v) => handleSelectChange('integrationStatus', v)}>
               <SelectTrigger className="col-span-3">
                 <SelectValue placeholder="Selecione o status" />
               </SelectTrigger>
@@ -125,6 +155,42 @@ export function EditUserDialog({ user, open, onOpenChange }) {
                 {integrationStatusColumns.map(status => (
                   <SelectItem key={status.id} value={status.id}>
                     {status.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="celulaId" className="text-right">
+              Célula
+            </Label>
+            <Select value={formData.celulaId} onValueChange={(v) => handleSelectChange('celulaId', v)}>
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder={isLoadingCells ? 'Carregando...' : 'Selecione a célula'} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Nenhuma</SelectItem>
+                {cells?.map(cell => (
+                  <SelectItem key={cell.id} value={cell.id}>
+                    {cell.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="supervisorId" className="text-right">
+              Responsável
+            </Label>
+            <Select value={formData.supervisorId} onValueChange={(v) => handleSelectChange('supervisorId', v)}>
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder={isLoadingUsers ? 'Carregando...' : 'Selecione um responsável'} />
+              </SelectTrigger>
+              <SelectContent>
+                 <SelectItem value="">Nenhum</SelectItem>
+                 {supervisors.map(sup => (
+                  <SelectItem key={sup.id} value={sup.id}>
+                    {sup.name}
                   </SelectItem>
                 ))}
               </SelectContent>

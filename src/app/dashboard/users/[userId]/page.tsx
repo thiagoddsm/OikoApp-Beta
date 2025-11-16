@@ -22,12 +22,18 @@ type UserProfile = {
   phone?: string;
   hierarchy?: {
     celulaId?: string;
+    supervisorId?: string;
   };
 };
 
 type Cell = {
     id: string;
     nome: string;
+}
+
+type Supervisor = {
+  id: string;
+  name: string;
 }
 
 const getAppId = () => (typeof window !== 'undefined' && (window as any).__app_id) ? (window as any).__app_id : 'default-app-id';
@@ -58,8 +64,16 @@ export default function UserProfilePage() {
 
   const { data: cell, isLoading: isLoadingCell } = useDoc<Cell>(cellDocRef);
 
+  const supervisorDocRef = useMemoFirebase(() => {
+    if (!firestore || !userProfile?.hierarchy?.supervisorId || !appId) return null;
+    return doc(firestore, 'users', userProfile.hierarchy.supervisorId);
+  }, [firestore, userProfile, appId]);
+
+  const { data: supervisor, isLoading: isLoadingSupervisor } = useDoc<Supervisor>(supervisorDocRef);
+
+
   const avatar = PlaceHolderImages.find(p => p.id === (userProfile?.avatar || 'avatar-1'));
-  const isLoading = isLoadingUser || !user || isLoadingCell;
+  const isLoading = isLoadingUser || !user || isLoadingCell || isLoadingSupervisor;
 
   if (isLoading) {
     return (
@@ -112,6 +126,10 @@ export default function UserProfilePage() {
                   <span className="font-semibold text-muted-foreground">Célula:</span>
                   <span>{cell?.nome || 'Nenhuma'}</span>
                </div>
+               <div className="flex flex-col">
+                  <span className="font-semibold text-muted-foreground">Responsável:</span>
+                  <span>{supervisor?.name || 'Nenhum'}</span>
+               </div>
              </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-2">
@@ -129,11 +147,13 @@ export default function UserProfilePage() {
         </Card>
       </div>
       
-      <EditUserDialog 
-        user={userProfile}
-        open={isEditDialogOpen}
-        onOpenChange={setEditDialogOpen}
-      />
+      {userProfile && (
+        <EditUserDialog 
+          user={userProfile}
+          open={isEditDialogOpen}
+          onOpenChange={setEditDialogOpen}
+        />
+      )}
     </>
   );
 }

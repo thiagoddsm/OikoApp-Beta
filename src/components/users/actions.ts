@@ -9,6 +9,8 @@ const UserProfileSchema = z.object({
   name: z.string().min(2, { message: "O nome deve ter pelo menos 2 caracteres." }),
   phone: z.string().optional(),
   integrationStatus: z.string(),
+  celulaId: z.string().optional(),
+  supervisorId: z.string().optional(),
 });
 
 export async function updateUserProfile(userId: string, data: unknown) {
@@ -17,7 +19,7 @@ export async function updateUserProfile(userId: string, data: unknown) {
   if (!validatedFields.success) {
     return {
       success: false,
-      error: "Dados inválidos: " + validatedFields.error.flatten().fieldErrors,
+      error: "Dados inválidos: " + JSON.stringify(validatedFields.error.flatten().fieldErrors),
     };
   }
 
@@ -25,7 +27,16 @@ export async function updateUserProfile(userId: string, data: unknown) {
   const userDocRef = doc(firestore, 'users', userId);
 
   try {
-    await updateDoc(userDocRef, validatedFields.data);
+    const { name, phone, integrationStatus, celulaId, supervisorId } = validatedFields.data;
+    
+    await updateDoc(userDocRef, {
+      name,
+      phone,
+      integrationStatus,
+      'hierarchy.celulaId': celulaId || null,
+      'hierarchy.supervisorId': supervisorId || null,
+    });
+
     revalidatePath(`/dashboard/users/${userId}`);
     revalidatePath(`/dashboard/users`);
     return { success: true };
