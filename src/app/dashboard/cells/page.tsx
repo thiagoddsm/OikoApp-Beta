@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import Link from 'next/link';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query, addDoc, updateDoc, doc } from 'firebase/firestore';
 import { useFirebase, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
@@ -249,7 +250,11 @@ export default function CellsPage() {
 
                   return (
                     <TableRow key={cell.id}>
-                      <TableCell className="font-medium">{cell.nome}</TableCell>
+                      <TableCell className="font-medium">
+                        <Link href={`/dashboard/cells/${cell.id}`} className="hover:underline">
+                          {cell.nome}
+                        </Link>
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Avatar className="h-8 w-8">
