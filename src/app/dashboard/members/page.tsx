@@ -12,14 +12,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { User, HandHeart, Handshake, Pencil, Loader2, Plus, Users, NotebookPen } from 'lucide-react';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { cellMembers as mockMembers } from '@/lib/data'; // Using mock data for now
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 type Member = {
   id: string;
   name: string;
-  avatar: string;
-  status: string;
+  avatar?: string;
+  integrationStatus?: string;
 };
 
 type Note = {
@@ -155,10 +154,23 @@ function MemberNotes({ memberId }: { memberId: string }) {
 }
 
 export default function MembersPage() {
-    const { user } = useFirebase();
-    const [selectedMember, setSelectedMember] = useState<Member | null>(mockMembers[0] || null);
+    const { user, firestore } = useFirebase();
+    const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
-    const members = mockMembers; // Placeholder for real member fetching logic
+    const usersQuery = useMemoFirebase(() => 
+        firestore ? query(collection(firestore, 'users')) : null,
+        [firestore]
+    );
+
+    const { data: members, isLoading: isLoadingMembers } = useCollection<Member>(usersQuery);
+
+    // Set the first member as selected by default
+    React.useEffect(() => {
+        if (!selectedMember && members && members.length > 0) {
+            setSelectedMember(members[0]);
+        }
+    }, [members, selectedMember]);
+
 
     return (
         <div className="grid md:grid-cols-3 gap-6 h-[calc(100vh-8rem)]">
@@ -166,34 +178,40 @@ export default function MembersPage() {
             <Card className="md:col-span-1 h-full flex flex-col">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                        <Users className="size-5" /> Membros da Célula
+                        <Users className="size-5" /> Membros
                     </CardTitle>
                      <CardDescription>Selecione um membro para ver ou adicionar anotações.</CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 overflow-y-auto p-2">
-                    <ScrollArea className="h-full">
-                        <div className="space-y-2 p-4">
-                            {members.map(member => {
-                                const avatar = PlaceHolderImages.find(p => p.id === member.avatar);
-                                return (
-                                    <button
-                                        key={member.id}
-                                        className={`w-full text-left p-3 rounded-lg flex items-center gap-3 transition-colors ${selectedMember?.id === member.id ? 'bg-primary/10' : 'hover:bg-muted'}`}
-                                        onClick={() => setSelectedMember(member)}
-                                    >
-                                        <Avatar className="h-10 w-10">
-                                            {avatar && <AvatarImage src={avatar.imageUrl} alt={avatar.description} />}
-                                            <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                            <p className="font-semibold text-sm">{member.name}</p>
-                                            <p className="text-xs text-muted-foreground capitalize">{member.status}</p>
-                                        </div>
-                                    </button>
-                                );
-                            })}
+                     {isLoadingMembers ? (
+                        <div className="flex items-center justify-center h-full">
+                            <Loader2 className="h-6 w-6 animate-spin" />
                         </div>
-                    </ScrollArea>
+                    ) : (
+                        <ScrollArea className="h-full">
+                            <div className="space-y-2 p-4">
+                                {members?.map(member => {
+                                    const avatar = PlaceHolderImages.find(p => p.id === (member.avatar || 'avatar-1'));
+                                    return (
+                                        <button
+                                            key={member.id}
+                                            className={`w-full text-left p-3 rounded-lg flex items-center gap-3 transition-colors ${selectedMember?.id === member.id ? 'bg-primary/10' : 'hover:bg-muted'}`}
+                                            onClick={() => setSelectedMember(member)}
+                                        >
+                                            <Avatar className="h-10 w-10">
+                                                {avatar && <AvatarImage src={avatar.imageUrl} alt={avatar.description} />}
+                                                <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                                            </Avatar>
+                                            <div>
+                                                <p className="font-semibold text-sm">{member.name}</p>
+                                                <p className="text-xs text-muted-foreground capitalize">{member.integrationStatus || 'Não definido'}</p>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </ScrollArea>
+                    )}
                 </CardContent>
             </Card>
 
@@ -218,16 +236,20 @@ export default function MembersPage() {
                             </CardContent>
                         </Card>
                     </>
-                ) : (
+                ) : !isLoadingMembers ? (
                     <Card className="h-full flex items-center justify-center">
                         <div className="text-center">
                             <User className="h-12 w-12 mx-auto text-muted-foreground" />
                             <h3 className="mt-4 text-lg font-medium">Selecione um Membro</h3>
                             <p className="mt-1 text-sm text-muted-foreground">
-                                Escolha um membro da lista ao lado para ver suas anotações.
+                                Escolha um membro da lista para ver suas anotações.
                             </p>
                         </div>
                     </Card>
+                ) : (
+                    <div className="h-full flex items-center justify-center">
+                       <Loader2 className="h-8 w-8 animate-spin" />
+                    </div>
                 )}
             </div>
         </div>
