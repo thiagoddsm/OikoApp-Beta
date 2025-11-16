@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useParams } from 'next/navigation';
 import { useFirebase, useMemoFirebase } from '@/firebase';
 import { useDoc } from '@/firebase/firestore/use-doc';
 import { useCollection } from '@/firebase/firestore/use-collection';
@@ -156,8 +157,10 @@ function MemberNotes({ memberId }: { memberId: string }) {
     );
 }
 
-export default function MemberProfilePage({ params: { memberId } }: { params: { memberId: string } }) {
+export default function MemberProfilePage() {
     const { user, firestore } = useFirebase();
+    const params = useParams();
+    const memberId = params.memberId as string;
 
     const memberDocRef = useMemoFirebase(() =>
         firestore && user && memberId ? doc(firestore, 'users', memberId) : null,
