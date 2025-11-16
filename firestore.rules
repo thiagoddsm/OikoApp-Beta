@@ -77,7 +77,8 @@ service cloud.firestore {
      * @path /users/{userId}
      * @allow (create) Authenticated user can create their own profile.
      * @deny (create) Authenticated user cannot create a profile for another user.
-     * @allow (get, list, update, delete) Owner can perform all operations on their profile.
+     * @allow (get, list) Authenticated users can read user profiles.
+     * @allow (update, delete) Owner can perform all operations on their profile.
      * @deny (get, list, update, delete) Non-owner cannot perform any operations on another user's profile.
      * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
      */
@@ -92,11 +93,11 @@ service cloud.firestore {
     /**
      * @description Rules for cell group data.
      * @path /cells/{cellId}
-     * @allow (get, list) Public read access to cell data.
+     * @allow (get, list) Authenticated users can read cell data.
      * @deny (create, update, delete) Only admins can manage cell data.
      */
     match /cells/{cellId} {
-      allow get, list: if true;
+      allow get, list: if isSignedIn();
       allow create: if isAdmin();
       allow update: if isAdmin() && resource != null;
       allow delete: if isAdmin() && resource != null;
@@ -105,11 +106,11 @@ service cloud.firestore {
     /**
      * @description Rules for attendance reports.
      * @path /attendance_reports/{reportId}
-     * @allow (get, list) Public read access to attendance reports.
+     * @allow (get, list) Authenticated users can read attendance reports.
      * @deny (create, update, delete) Only admins can manage attendance reports.
      */
     match /attendance_reports/{reportId} {
-      allow get, list: if true;
+      allow get, list: if isSignedIn();
       allow create: if isAdmin();
       allow update: if isAdmin() && resource != null;
       allow delete: if isAdmin() && resource != null;
@@ -118,11 +119,11 @@ service cloud.firestore {
     /**
      * @description Rules for leader tasks.
      * @path /leader_tasks/{taskId}
-     * @allow (get, list) Public read access to leader tasks.
+     * @allow (get, list) Authenticated users can read leader tasks.
      * @deny (create, update, delete) Only admins can manage leader tasks.
      */
     match /leader_tasks/{taskId} {
-      allow get, list: if true;
+      allow get, list: if isSignedIn();
       allow create: if isAdmin();
       allow update: if isAdmin() && resource != null;
       allow delete: if isAdmin() && resource != null;
@@ -131,11 +132,11 @@ service cloud.firestore {
     /**
      * @description Rules for discipleship plans.
      * @path /discipleship_plans/{planId}
-     * @allow (get, list) Public read access to discipleship plans.
+     * @allow (get, list) Authenticated users can read discipleship plans.
      * @deny (create, update, delete) Only admins can manage discipleship plans.
      */
     match /discipleship_plans/{planId} {
-      allow get, list: if true;
+      allow get, list: if isSignedIn();
       allow create: if isAdmin();
       allow update: if isAdmin() && resource != null;
       allow delete: if isAdmin() && resource != null;
