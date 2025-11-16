@@ -73,7 +73,7 @@ function NoteForm({ member, authorId }: { member: Member, authorId: string }) {
 
     setIsSaving(true);
     const appId = getAppId();
-    const notesCollection = collection(firestore, `member_notes`);
+    const notesCollection = collection(firestore, 'member_notes');
     
     try {
       await addDoc(notesCollection, {
