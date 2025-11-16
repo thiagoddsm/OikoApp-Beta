@@ -2,6 +2,8 @@
 
 import { z } from 'zod';
 import { generateNewMemberFollowUpTasks } from '@/ai/flows/new-member-follow-up-tasks';
+import { initializeFirebase } from '@/firebase';
+import { collection, addDoc, Timestamp } from 'firebase/firestore';
 
 // This schema should match the one in the AI flow, but with added validation messages.
 const NewMemberInfoSchema = z.object({
@@ -22,6 +24,31 @@ export type State = {
   tasks?: { message: string; dueDate: string; }[];
 };
 
+async function saveVisitorToFirestore(visitorData: z.infer<typeof NewMemberInfoSchema>) {
+    // We can't use hooks here, so we initialize a server-side instance of Firebase.
+    const { firestore } = initializeFirebase();
+    const usersCollection = collection(firestore, 'users');
+
+    try {
+        const newUserDoc = await addDoc(usersCollection, {
+            name: visitorData.visitorName,
+            phone: visitorData.leaderPhoneNumber, // Assuming leader's phone is a placeholder for visitor's contact for now
+            email: '', // Email is not collected in this form
+            hierarchy: {
+                role: 'membro', // default role
+            },
+            integrationStatus: visitorData.visitorType === 'culto' ? 'visitante_culto' : 'visitante_celula',
+            createdAt: Timestamp.now()
+        });
+        console.log("New visitor saved with ID: ", newUserDoc.id);
+        return { success: true, docId: newUserDoc.id };
+    } catch (error) {
+        console.error("Error saving visitor to Firestore:", error);
+        return { success: false, error: "Falha ao salvar visitante no banco de dados." };
+    }
+}
+
+
 export async function createFollowUpTasks(prevState: State, formData: FormData): Promise<State> {
   const validatedFields = NewMemberInfoSchema.safeParse({
     visitorName: formData.get('visitorName'),
@@ -37,14 +64,21 @@ export async function createFollowUpTasks(prevState: State, formData: FormData):
     };
   }
 
+  // First, save the visitor to Firestore
+  const saveResult = await saveVisitorToFirestore(validatedFields.data);
+  if (!saveResult.success) {
+      return { message: saveResult.error };
+  }
+
+  // Then, generate AI tasks
   try {
     const result = await generateNewMemberFollowUpTasks(validatedFields.data);
     if (result && result.followUpTasks) {
-      return { message: 'Tarefas de acompanhamento geradas com sucesso!', tasks: result.followUpTasks };
+      return { message: 'Visitante registrado e tarefas de acompanhamento geradas com sucesso!', tasks: result.followUpTasks };
     }
-    return { message: 'Não foi possível gerar as tarefas. A resposta da IA estava vazia. Tente novamente.' };
+    return { message: 'Visitante registrado, mas não foi possível gerar as tarefas. A resposta da IA estava vazia. Tente novamente.' };
   } catch (error) {
     console.error('Error generating follow-up tasks:', error);
-    return { message: 'Ocorreu um erro no servidor ao gerar as tarefas. Verifique o console para mais detalhes.' };
+    return { message: 'Visitante registrado, mas ocorreu um erro no servidor ao gerar as tarefas. Verifique o console para mais detalhes.' };
   }
 }
