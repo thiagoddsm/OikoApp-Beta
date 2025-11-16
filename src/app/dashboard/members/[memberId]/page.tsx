@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useFirebase, useMemoFirebase } from '@/firebase';
 import { useDoc } from '@/firebase/firestore/use-doc';
@@ -8,15 +8,9 @@ import { doc } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
-import { Loader2, User, ArrowLeft } from 'lucide-react';
+import { Loader2, User, ArrowLeft, Pencil } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Link from 'next/link';
-
-declare global {
-  interface Window {
-    __app_id: string;
-  }
-}
 
 type Member = {
   id: string;
@@ -25,7 +19,15 @@ type Member = {
   integrationStatus?: string;
   email?: string;
   phone?: string;
+  hierarchy?: {
+    celulaId?: string;
+  };
 };
+
+type Cell = {
+    id: string;
+    nome: string;
+}
 
 const getAppId = () => (typeof window !== 'undefined' && window.__app_id) ? window.__app_id : 'default-app-id';
 
@@ -33,18 +35,31 @@ export default function MemberProfilePage() {
   const { user, firestore } = useFirebase();
   const params = useParams();
   const memberId = params.memberId as string;
-  const appId = getAppId();
+  const [appId, setAppId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAppId(getAppId());
+  }, []);
 
   const memberDocRef = useMemoFirebase(() => {
-    return firestore && user && memberId 
+    return firestore && user && memberId && appId
       ? doc(firestore, 'users', memberId) 
       : null;
   }, [firestore, user, memberId, appId]);
 
   const { data: member, isLoading: isLoadingMember } = useDoc<Member>(memberDocRef);
-  const avatar = PlaceHolderImages.find(p => p.id === (member?.avatar || 'avatar-1'));
 
-  if (isLoadingMember || !user) {
+  const cellDocRef = useMemoFirebase(() => {
+    if (!firestore || !member?.hierarchy?.celulaId || !appId) return null;
+    return doc(firestore, 'cells', member.hierarchy.celulaId);
+  }, [firestore, member, appId]);
+
+  const { data: cell, isLoading: isLoadingCell } = useDoc<Cell>(cellDocRef);
+
+  const avatar = PlaceHolderImages.find(p => p.id === (member?.avatar || 'avatar-1'));
+  const isLoading = isLoadingMember || !user || isLoadingCell;
+
+  if (isLoading) {
     return (
       <div className="flex h-[calc(100vh-8rem)] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -70,7 +85,7 @@ export default function MemberProfilePage() {
   }
   
   return (
-    <div className="flex justify-center items-start pt-6 h-[calc(100vh-8rem)]">
+    <div className="flex justify-center items-start pt-6 h-full">
       <Card className="w-full max-w-sm">
         <CardHeader className="items-center text-center">
           <Avatar className="h-24 w-24 mb-4">
@@ -80,13 +95,27 @@ export default function MemberProfilePage() {
           <CardTitle>{member.name}</CardTitle>
           <CardDescription className="capitalize">{(member.integrationStatus || 'Não definido').replace(/_/g, ' ')}</CardDescription>
         </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-           <div className="space-y-2">
-             <p><strong>Email:</strong> {member.email || 'Não informado'}</p>
-             <p><strong>Telefone:</strong> {member.phone || 'Não informado'}</p>
+        <CardContent className="text-sm">
+           <div className="space-y-3">
+             <div className="flex flex-col">
+                <span className="font-semibold text-muted-foreground">Email:</span>
+                <span>{member.email || 'Não informado'}</span>
+             </div>
+             <div className="flex flex-col">
+                <span className="font-semibold text-muted-foreground">Telefone:</span>
+                <span>{member.phone || 'Não informado'}</span>
+             </div>
+              <div className="flex flex-col">
+                <span className="font-semibold text-muted-foreground">Célula:</span>
+                <span>{cell?.nome || 'Nenhuma'}</span>
+             </div>
            </div>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex flex-col gap-2">
+            <Button className="w-full">
+                <Pencil className="mr-2 h-4 w-4" />
+                Editar Perfil
+            </Button>
           <Button asChild variant="outline" className="w-full">
             <Link href="/dashboard/members">
               <ArrowLeft className="mr-2 h-4 w-4" />
