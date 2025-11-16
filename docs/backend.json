@@ -522,22 +522,6 @@
         }
       },
       {
-        "path": "/roles_admin/{uid}",
-        "definition": {
-          "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Documents in this collection represent admin users. The existence of a document signifies admin status.",
-          "params": [
-            {
-              "name": "uid",
-              "description": "The Firebase UID of the admin user."
-            }
-          ]
-        }
-      },
-      {
         "path": "/member_notes/{noteId}",
         "definition": {
           "entityName": "MemberNote",
@@ -554,7 +538,7 @@
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to support the ConectarGC application, focusing on managing church cell groups and member engagement. The core principle is Authorization Independence, achieved through path-based ownership for user-specific data and denormalization of authorization information (especially cell membership) where needed.\n\n**Authorization Independence:**\n\n*   **User-Owned Data:** Attendance reports and culto registros are stored under a user-specific path (`/cultos/{userId}`), granting straightforward ownership-based security. No `get()` calls are needed to verify user identity for their own data.\n*   **Collaborative Data (Cells):** While cell data itself doesn't directly involve user-level access control in the provided schema, any subcollections related to collaborative activities within a cell (hypothetically, a `/cells/{cellId}/meeting_notes` collection) would require denormalization of the `membros` array from the `/cells/{cellId}` document into each meeting note. This eliminates the need for rules to fetch cell member lists to authorize write access.\n\n**QAPs (Query Authorization Patterns):**\n\n*   **Secure List Operations:** Path-based ownership (`/cultos/{userId}/registros`) inherently secures list operations. A user can only list their own culto registros.\n*   **Role-Based Access Control:** The `/roles_admin/{uid}` collection enables secure role-based authorization, allowing only admins to manage certain data (e.g., creating global announcements, modifying cell structures).\n\n**Structure Explanation:**\n\n*   `/users/{userId}`: Stores user profiles. The `role` field determines the user's privileges within the app. The `celulaId` field links users to their respective cells.\n*   `/cells/{cellId}`: Represents cell groups. Contains the `liderId` and `supervisorId` for cell management. The `membros` array lists user IDs belonging to the cell.\n*   `/attendance_reports/{reportId}`: Stores attendance reports for cell meetings. Includes `cellId`, `date`, `presentMembers`, and other relevant details.\n*   `/leader_tasks/{taskId}`: Tracks tasks assigned to cell leaders. Includes information about the task type, target user, due date, and status.\n*   `/discipleship_plans/{planId}`: Manages discipleship plans between leaders and members. Tracks the plan's status and development steps.\n*   `/cultos/{userId}/registros/{registroId}`: Stores records of attendance and other details for church services, owned by each user. This nested structure ensures a user can only access their own records.\n\nThis structure balances security, scalability, and debuggability by adhering to the core design principles and strategy mandates."
+    "reasoning": "The Firestore structure is designed to support the ConectarGC application, focusing on managing church cell groups and member engagement. The core principle is Authorization Independence, achieved through path-based ownership for user-specific data and denormalization of authorization information (especially cell membership) where needed.\n\n**Authorization Independence:**\n\n*   **User-Owned Data:** Attendance reports and culto registros are stored under a user-specific path (`/cultos/{userId}`), granting straightforward ownership-based security. No `get()` calls are needed to verify user identity for their own data.\n*   **Collaborative Data (Cells):** While cell data itself doesn't directly involve user-level access control in the provided schema, any subcollections related to collaborative activities within a cell (hypothetically, a `/cells/{cellId}/meeting_notes` collection) would require denormalization of the `membros` array from the `/cells/{cellId}` document into each meeting note. This eliminates the need for rules to fetch cell member lists to authorize write access.\n\n**QAPs (Query Authorization Patterns):**\n\n*   **Secure List Operations:** Path-based ownership (`/cultos/{userId}/registros`) inherently secures list operations. A user can only list their own culto registros.\n*   **Role-Based Access Control:** Admin privileges are managed via the 'role' field within each user's document in the `/users` collection, enabling secure role-based authorization.\n\n**Structure Explanation:**\n\n*   `/users/{userId}`: Stores user profiles. The `hierarchy.role` field determines the user's privileges within the app. The `celulaId` field links users to their respective cells.\n*   `/cells/{cellId}`: Represents cell groups. Contains the `liderId` and `supervisorId` for cell management. The `membros` array lists user IDs belonging to the cell.\n*   `/attendance_reports/{reportId}`: Stores attendance reports for cell meetings. Includes `cellId`, `date`, `presentMembers`, and other relevant details.\n*   `/leader_tasks/{taskId}`: Tracks tasks assigned to cell leaders. Includes information about the task type, target user, due date, and status.\n*   `/discipleship_plans/{planId}`: Manages discipleship plans between leaders and members. Tracks the plan's status and development steps.\n*   `/cultos/{userId}/registros/{registroId}`: Stores records of attendance and other details for church services, owned by each user. This nested structure ensures a user can only access their own records.\n\nThis structure balances security, scalability, and debuggability by adhering to the core design principles and strategy mandates."
   }
 }
     

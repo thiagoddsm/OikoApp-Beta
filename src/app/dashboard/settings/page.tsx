@@ -1,27 +1,33 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useFirebase, useMemoFirebase } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, updateDoc } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Shield } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { useMemo } from 'react';
 
 type User = {
   id: string;
   name: string;
   email?: string;
   avatar?: string;
+  hierarchy?: {
+    role?: string;
+  }
 };
 
-type AdminRole = {
-  id: string;
+const userRoles = {
+  'pastor_senior': 'Pastor Senior',
+  'supervisor': 'Supervisor',
+  'lider_celula_adultos': 'Líder de Célula (Adultos)',
+  'lider_celula_kids': 'Líder de Célula (Kids)',
+  'membro': 'Membro'
 };
 
 export default function SettingsPage() {
@@ -33,49 +39,34 @@ export default function SettingsPage() {
     [firestore, user]
   );
   
-  const adminsQuery = useMemoFirebase(() =>
-    user ? collection(firestore, 'roles_admin') : null,
-    [firestore, user]
-  );
-
   const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
-  const { data: admins, isLoading: isLoadingAdmins } = useCollection<AdminRole>(adminsQuery);
 
-  const adminIds = useMemo(() => new Set(admins?.map(admin => admin.id)), [admins]);
+  const isLoading = isLoadingUsers || !user;
 
-  const isLoading = isLoadingUsers || isLoadingAdmins || !user;
-
-  const handleAdminToggle = async (targetUser: User, isAdmin: boolean) => {
+  const handleRoleChange = async (targetUser: User, newRole: string) => {
     if (!firestore || !user) return;
 
-    // Prohibit a user from removing their own admin rights
-    if (user.uid === targetUser.id && !isAdmin) {
+    if (user.uid === targetUser.id && (targetUser.hierarchy?.role === 'pastor_senior' || targetUser.hierarchy?.role === 'supervisor')) {
       toast({
         variant: "destructive",
         title: "Ação não permitida",
-        description: "Você não pode remover seu próprio acesso de administrador.",
+        description: "Você não pode rebaixar seu próprio perfil de acesso.",
       });
       return;
     }
 
-    const adminDocRef = doc(firestore, 'roles_admin', targetUser.id);
+    const userDocRef = doc(firestore, 'users', targetUser.id);
     
     try {
-      if (isAdmin) {
-        await setDoc(adminDocRef, {});
-        toast({
-          title: "Sucesso!",
-          description: `${targetUser.name} agora é um administrador.`,
-        });
-      } else {
-        await deleteDoc(adminDocRef);
-        toast({
-          title: "Sucesso!",
-          description: `O acesso de administrador de ${targetUser.name} foi removido.`,
-        });
-      }
+      await updateDoc(userDocRef, {
+        'hierarchy.role': newRole
+      });
+      toast({
+        title: "Sucesso!",
+        description: `O perfil de ${targetUser.name} foi atualizado para ${userRoles[newRole]}.`,
+      });
     } catch (error) {
-        console.error("Error updating admin status:", error);
+        console.error("Error updating user role:", error);
         toast({
             variant: "destructive",
             title: "Erro",
@@ -92,7 +83,7 @@ export default function SettingsPage() {
                 Perfis de Acesso
             </CardTitle>
             <CardDescription>
-                Gerencie quais usuários têm permissão de administrador no sistema.
+                Gerencie qual o nível de acesso de cada usuário no sistema.
             </CardDescription>
         </CardHeader>
         <CardContent>
@@ -106,7 +97,7 @@ export default function SettingsPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Usuário</TableHead>
-                                <TableHead className="text-right">Administrador</TableHead>
+                                <TableHead className="text-right w-[250px]">Perfil de Acesso</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -127,12 +118,20 @@ export default function SettingsPage() {
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        <Switch
-                                            checked={adminIds.has(targetUser.id)}
-                                            onCheckedChange={(isChecked) => handleAdminToggle(targetUser, isChecked)}
-                                            aria-label={`Tornar ${targetUser.name} administrador`}
-                                            disabled={targetUser.id === user.uid}
-                                        />
+                                        <Select
+                                            value={targetUser.hierarchy?.role || 'membro'}
+                                            onValueChange={(newRole) => handleRoleChange(targetUser, newRole)}
+                                            disabled={targetUser.id === user.uid && (targetUser.hierarchy?.role === 'pastor_senior' || targetUser.hierarchy?.role === 'supervisor')}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Selecione um perfil" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {Object.entries(userRoles).map(([value, label]) => (
+                                                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </TableCell>
                                 </TableRow>
                                 );

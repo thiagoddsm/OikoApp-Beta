@@ -13,16 +13,12 @@
  * - /leader_tasks/{taskId}: Tasks assigned to cell leaders.
  * - /discipleship_plans/{planId}: Discipleship plans between leaders and members.
  * - /cultos/{userId}/registros/{registroId}: Attendance records for church services (cultos), owned by individual users.
- * - /roles_admin/{uid}: Documents indicating admin user status.
  * - /member_notes/{noteId}: Notes about members made by leaders.
  *
  * Key Security Decisions:
  * - User data and attendance records are strictly controlled by the owning user.
- * - Admin privileges are determined by the presence of a document in the `/roles_admin/{uid}` collection.
+ * - Admin privileges are determined by the `hierarchy.role` field in the user's document.
  * - List operations are generally restricted to the owner of the data, except where public access is explicitly intended.
- *
- * Denormalization for Authorization:
- * - No denormalization is explicitly used in these rules as ownership is enforced by data storage location
  */
 rules_version = '2';
 service cloud.firestore {
@@ -30,10 +26,6 @@ service cloud.firestore {
 
     /**
      * @description Checks if the request is authenticated.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Authentication is required for nearly all actions.
      */
     function isSignedIn() {
       return request.auth != null;
@@ -41,10 +33,6 @@ service cloud.firestore {
 
     /**
      * @description Checks if the authenticated user's ID matches the provided userId.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Enforces user-based ownership.
      */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
@@ -52,143 +40,80 @@ service cloud.firestore {
 
     /**
      * @description Checks if the authenticated user's ID matches the provided userId and if the resource exists.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Enforces existence check for update and delete operations.
      */
     function isExistingOwner(userId) {
       return isOwner(userId) && resource != null;
     }
 
     /**
-     * @description Checks if the requesting user is an admin.
-     * @path N/A
-     * @allow N/A
-     * @deny N/A
-     * @principle Enforces role-based access control.
+     * @description Checks if the requesting user has an admin role ('pastor_senior' or 'supervisor').
      */
     function isAdmin() {
-        return exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hierarchy.role;
+      return isSignedIn() && (userRole == 'pastor_senior' || userRole == 'supervisor');
     }
 
     /**
      * @description Rules for user profiles.
      * @path /users/{userId}
-     * @allow (create) Authenticated user can create their own profile.
-     * @deny (create) Authenticated user cannot create a profile for another user.
-     * @allow (get, list) Authenticated users can read user profiles.
-     * @allow (update, delete) Owner can perform all operations on their profile.
-     * @deny (get, list, update, delete) Non-owner cannot perform any operations on another user's profile.
-     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
      */
     match /users/{userId} {
       allow get: if isSignedIn();
       allow list: if isSignedIn();
       allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      // Only admins can change roles. Owners can change other fields.
+      allow update: if (isOwner(userId) && request.resource.data.hierarchy.role == resource.data.hierarchy.role) || isAdmin();
+      allow delete: if isExistingOwner(userId) || isAdmin();
     }
 
     /**
      * @description Rules for cell group data.
-     * @path /cells/{cellId}
-     * @allow (get, list) Authenticated users can read cell data.
-     * @deny (create, update, delete) Only admins can manage cell data.
      */
     match /cells/{cellId} {
       allow get, list: if isSignedIn();
-      allow create: if isAdmin();
-      allow update: if isAdmin() && resource != null;
-      allow delete: if isAdmin() && resource != null;
+      allow create, update, delete: if isAdmin();
     }
 
     /**
      * @description Rules for attendance reports.
-     * @path /attendance_reports/{reportId}
-     * @allow (get, list) Authenticated users can read attendance reports.
-     * @deny (create, update, delete) Only admins can manage attendance reports.
      */
     match /attendance_reports/{reportId} {
       allow get, list: if isSignedIn();
-      allow create: if isAdmin();
-      allow update: if isAdmin() && resource != null;
-      allow delete: if isAdmin() && resource != null;
+      allow create, update, delete: if isAdmin();
     }
 
     /**
      * @description Rules for leader tasks.
-     * @path /leader_tasks/{taskId}
-     * @allow (get, list) Authenticated users can read leader tasks.
-     * @deny (create, update, delete) Only admins can manage leader tasks.
      */
     match /leader_tasks/{taskId} {
       allow get, list: if isSignedIn();
-      allow create: if isAdmin();
-      allow update: if isAdmin() && resource != null;
-      allow delete: if isAdmin() && resource != null;
+      allow create, update, delete: if isAdmin();
     }
 
     /**
      * @description Rules for discipleship plans.
-     * @path /discipleship_plans/{planId}
-     * @allow (get, list) Authenticated users can read discipleship plans.
-     * @deny (create, update, delete) Only admins can manage discipleship plans.
      */
     match /discipleship_plans/{planId} {
       allow get, list: if isSignedIn();
-      allow create: if isAdmin();
-      allow update: if isAdmin() && resource != null;
-      allow delete: if isAdmin() && resource != null;
+      allow create, update, delete: if isAdmin();
     }
     
     /**
      * @description Rules for attendance records for church services (cultos), owned by individual users.
-     * @path /cultos/{userId}/registros/{registroId}
-     * @allow (create) Authenticated user can create their own culto registro.
-     * @deny (create) Authenticated user cannot create a culto registro for another user.
-     * @allow (get, list, update, delete) Owner can perform all operations on their culto registro.
-     * @deny (get, list, update, delete) Non-owner cannot perform any operations on another user's culto registro.
-     * @principle Enforces document ownership for writes, restricts access to a user's own data tree.
      */
     match /cultos/{userId}/registros/{registroId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId);
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      allow get, list, create: if isOwner(userId);
+      allow update, delete: if isExistingOwner(userId);
     }
 
     /**
      * @description Rules for notes on members.
-     * @path /member_notes/{noteId}
-     * @allow (create) Authenticated user can create notes for other users they have access to.
-     * @allow (get) Authenticated users can read specific notes.
-     * @allow (list) Authenticated users can query for notes related to a specific member.
-     * @allow (update, delete) Only the author of the note can update or delete it.
      */
     match /member_notes/{noteId} {
       allow get: if isSignedIn();
       allow list: if isSignedIn() && request.query.keys().hasOnly(['memberId', 'orderBy', 'limit']);
       allow create: if isSignedIn() && isOwner(request.resource.data.authorId);
       allow update, delete: if isSignedIn() && isOwner(resource.data.authorId);
-    }
-    
-    /**
-     * @description Rules for admin users.
-     * @path /roles_admin/{uid}
-     * @allow get: if true; // Anyone can check if a user is an admin by reading this document.
-     * @allow list: if false; // Do not allow listing of all admins
-     * @allow create: if isAdmin(); // Only another admin can grant admin privileges.
-     * @allow update: if false; // Admin privileges should not be updatable - only creatable/deletable.
-     * @allow delete: if isAdmin() && resource != null; // Only another admin can revoke admin privileges, and the document must exist.
-     */
-    match /roles_admin/{uid} {
-        allow get: if true;
-        allow list: if false;
-        allow create: if isSignedIn();
-        allow update: if false;
-        allow delete: if isAdmin() && resource != null;
     }
   }
 }
