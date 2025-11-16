@@ -3,6 +3,8 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
 import { FirebaseClientProvider } from '@/firebase';
+import Script from 'next/script';
+import { firebaseConfig } from '@/firebase/config';
 
 export const metadata: Metadata = {
   title: 'ConectarGC - O Assistente do Líder',
@@ -14,9 +16,18 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const appId = firebaseConfig.appId;
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
+        <Script
+            id="__APP_ID__"
+            dangerouslySetInnerHTML={{
+              __html: `
+            window.__app_id = "${appId}";
+          `,
+            }}
+          />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
