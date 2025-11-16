@@ -2,9 +2,9 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { useFirebase, useMemoFirebase } from '@/firebase';
+import { useFirebase, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, doc, updateDoc } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -37,7 +37,7 @@ export default function SettingsPage() {
 
   const isLoading = isLoadingUsers || !user;
 
-  const handleRoleChange = async (targetUser: User, newRole: string) => {
+  const handleRoleChange = (targetUser: User, newRole: string) => {
     if (!firestore || !user) return;
 
     // Prevent a user from demoting themselves if they are the only admin/pastor
@@ -53,23 +53,14 @@ export default function SettingsPage() {
 
 
     const userDocRef = doc(firestore, 'users', targetUser.id);
+    const updateData = { 'hierarchy.role': newRole };
     
-    try {
-      await updateDoc(userDocRef, {
-        'hierarchy.role': newRole
-      });
-      toast({
-        title: "Sucesso!",
-        description: `O perfil de ${targetUser.name} foi atualizado para ${userRoles[newRole]}.`,
-      });
-    } catch (error) {
-        console.error("Error updating user role:", error);
-        toast({
-            variant: "destructive",
-            title: "Erro",
-            description: "Não foi possível atualizar o perfil de acesso.",
-        });
-    }
+    updateDocumentNonBlocking(userDocRef, updateData);
+
+    toast({
+        title: "Atualização Iniciada!",
+        description: `O perfil de ${targetUser.name} será atualizado para ${userRoles[newRole]}.`,
+    });
   };
 
   return (
