@@ -20,14 +20,16 @@ type Member = {
 };
 
 export default function MembersListPage() {
-    const { firestore } = useFirebase();
+    const { firestore, isUserLoading } = useFirebase();
 
     const usersQuery = useMemoFirebase(() => 
-        firestore ? query(collection(firestore, 'users')) : null,
-        [firestore]
+        !isUserLoading && firestore ? query(collection(firestore, 'users')) : null,
+        [firestore, isUserLoading]
     );
 
     const { data: members, isLoading: isLoadingMembers } = useCollection<Member>(usersQuery);
+
+    const isLoading = isUserLoading || isLoadingMembers;
 
     return (
         <Card className="h-[calc(100vh-8rem)] flex flex-col">
@@ -46,7 +48,7 @@ export default function MembersListPage() {
                  <CardDescription>Selecione um membro para ver seu perfil detalhado.</CardDescription>
             </CardHeader>
             <CardContent className="flex-1 overflow-y-auto p-2">
-                 {isLoadingMembers ? (
+                 {isLoading ? (
                     <div className="flex items-center justify-center h-full">
                         <Loader2 className="h-6 w-6 animate-spin" />
                     </div>
