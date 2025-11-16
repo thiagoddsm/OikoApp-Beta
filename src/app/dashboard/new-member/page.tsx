@@ -1,17 +1,17 @@
 
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { createFollowUpTasks, type State } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle, AlertCircle, Loader, MessageSquare, Calendar } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useFirebase } from "@/firebase";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -25,6 +25,7 @@ function SubmitButton() {
 
 export default function NewMemberPage() {
   const initialState: State = { message: null, errors: {} };
+  const { user } = useFirebase();
   const [state, dispatch] = useActionState(createFollowUpTasks, initialState);
   const { toast } = useToast();
 
@@ -57,6 +58,7 @@ export default function NewMemberPage() {
             </CardDescription>
           </CardHeader>
           <form action={dispatch}>
+            <input type="hidden" name="leaderName" value={user?.displayName || 'Líder'} />
             <CardContent className="grid gap-6">
               <div className="grid gap-2">
                 <Label htmlFor="visitorName">Nome do Visitante</Label>
@@ -86,16 +88,8 @@ export default function NewMemberPage() {
               <div className="grid gap-2">
                 <Label htmlFor="visitorPhone">Telefone do Visitante (com DDD)</Label>
                 <Input id="visitorPhone" name="visitorPhone" placeholder="Ex: (11) 99999-8888" />
-                 {state.errors?.leaderPhoneNumber && ( // Assuming the error key might be reused or should be specific
-                  <p className="text-sm font-medium text-destructive">{state.errors.leaderPhoneNumber}</p>
-                )}
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="leaderName">Seu Nome (Líder)</Label>
-                <Input id="leaderName" name="leaderName" placeholder="Ex: Maria Oliveira" />
-                 {state.errors?.leaderName && (
-                  <p className="text-sm font-medium text-destructive">{state.errors.leaderName}</p>
+                 {state.errors?.visitorPhone && (
+                  <p className="text-sm font-medium text-destructive">{state.errors.visitorPhone}</p>
                 )}
               </div>
             </CardContent>

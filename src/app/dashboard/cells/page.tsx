@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, query, addDoc, where } from 'firebase/firestore';
-import { useFirebase, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
+import { collection, query, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { useFirebase, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Building, User, Shield, PlusCircle } from "lucide-react";
+import { Loader2, Building, User, Shield, PlusCircle, Pencil } from "lucide-react";
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
 
@@ -34,13 +34,27 @@ type Cell = {
   membros: string[];
 };
 
-function CreateCellDialog({ open, onOpenChange, users, supervisors }) {
+function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, existingCell }) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [nome, setNome] = useState('');
   const [liderId, setLiderId] = useState('');
   const [supervisorId, setSupervisorId] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (existingCell) {
+      setNome(existingCell.nome || '');
+      setLiderId(existingCell.liderId || '');
+      setSupervisorId(existingCell.supervisorId || '');
+    } else {
+      // Reset form when switching to create mode
+      setNome('');
+      setLiderId('');
+      setSupervisorId('');
+    }
+  }, [existingCell, open]);
+  
 
   const handleSave = async () => {
     if (!nome || !liderId || !supervisorId) {
@@ -53,42 +67,53 @@ function CreateCellDialog({ open, onOpenChange, users, supervisors }) {
     }
     setIsSaving(true);
     
-    const cellsCollection = collection(firestore, 'cells');
-    
-    addDocumentNonBlocking(cellsCollection, {
+    const cellData = {
       nome,
       liderId,
       supervisorId,
-      membros: [liderId], // Leader is a member by default
-    }).then(() => {
-      toast({
-        title: "Sucesso!",
-        description: `A célula "${nome}" foi criada.`,
+    };
+
+    if (existingCell) {
+      // Update existing cell
+      const cellDocRef = doc(firestore, 'cells', existingCell.id);
+      updateDocumentNonBlocking(cellDocRef, cellData).then(() => {
+        toast({
+          title: "Sucesso!",
+          description: `A célula "${nome}" foi atualizada.`,
+        });
+        onOpenChange(false);
+      }).catch(error => {
+        console.error("Error updating cell:", error);
+      }).finally(() => {
+        setIsSaving(false);
       });
-      onOpenChange(false);
-      // Reset form
-      setNome('');
-      setLiderId('');
-      setSupervisorId('');
-    }).catch(error => {
-      console.error("Error creating cell:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Não foi possível criar a célula.",
+    } else {
+      // Create new cell
+      const cellsCollection = collection(firestore, 'cells');
+      addDocumentNonBlocking(cellsCollection, {
+        ...cellData,
+        membros: [liderId], // Leader is a member by default
+      }).then(() => {
+        toast({
+          title: "Sucesso!",
+          description: `A célula "${nome}" foi criada.`,
+        });
+        onOpenChange(false);
+      }).catch(error => {
+        console.error("Error creating cell:", error);
+      }).finally(() => {
+        setIsSaving(false);
       });
-    }).finally(() => {
-      setIsSaving(false);
-    });
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Criar Nova Célula</DialogTitle>
+          <DialogTitle>{existingCell ? 'Editar Célula' : 'Criar Nova Célula'}</DialogTitle>
           <DialogDescription>
-            Preencha as informações abaixo para criar uma nova célula.
+            {existingCell ? 'Altere as informações da célula abaixo.' : 'Preencha as informações abaixo para criar uma nova célula.'}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -146,7 +171,8 @@ function CreateCellDialog({ open, onOpenChange, users, supervisors }) {
 
 export default function CellsPage() {
   const { firestore, user } = useFirebase();
-  const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
+  const [isDialogOpen, setDialogOpen] = useState(false);
+  const [editingCell, setEditingCell] = useState<Cell | null>(null);
 
   const usersQuery = useMemoFirebase(() => 
     user && firestore ? query(collection(firestore, 'users')) : null, 
@@ -170,6 +196,16 @@ export default function CellsPage() {
     if (!users) return [];
     return users.filter(u => u.hierarchy?.role === 'supervisor' || u.hierarchy?.role === 'pastor_senior');
   }, [users]);
+
+  const handleOpenCreateDialog = () => {
+    setEditingCell(null);
+    setDialogOpen(true);
+  };
+
+  const handleOpenEditDialog = (cell: Cell) => {
+    setEditingCell(cell);
+    setDialogOpen(true);
+  };
   
   const isLoading = isLoadingUsers || isLoadingCells || !user;
 
@@ -180,10 +216,10 @@ export default function CellsPage() {
           <div>
             <CardTitle>Gestão de Células</CardTitle>
             <CardDescription>
-              Visualize e gerencie as células, líderes e supervisores.
+              Visualize, crie e edite as células, líderes e supervisores.
             </CardDescription>
           </div>
-          <Button onClick={() => setCreateDialogOpen(true)}>
+          <Button onClick={handleOpenCreateDialog}>
              <PlusCircle className="mr-2 h-4 w-4"/>
              Criar Célula
           </Button>
@@ -202,6 +238,7 @@ export default function CellsPage() {
                   <TableHead><User className="inline-block mr-2 h-4 w-4" />Líder</TableHead>
                   <TableHead><Shield className="inline-block mr-2 h-4 w-4" />Supervisor</TableHead>
                   <TableHead className="text-center">Membros</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -226,6 +263,12 @@ export default function CellsPage() {
                       <TableCell className="text-center">
                          <Badge variant="secondary">{cell.membros?.length || 0}</Badge>
                       </TableCell>
+                       <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" onClick={() => handleOpenEditDialog(cell)}>
+                          <Pencil className="h-4 w-4" />
+                          <span className="sr-only">Editar</span>
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   );
                 })}
@@ -237,11 +280,12 @@ export default function CellsPage() {
     </Card>
 
     {users && supervisors && (
-      <CreateCellDialog 
-        open={isCreateDialogOpen}
-        onOpenChange={setCreateDialogOpen}
+      <CreateOrEditCellDialog 
+        open={isDialogOpen}
+        onOpenChange={setDialogOpen}
         users={users}
         supervisors={supervisors}
+        existingCell={editingCell}
       />
     )}
     </>

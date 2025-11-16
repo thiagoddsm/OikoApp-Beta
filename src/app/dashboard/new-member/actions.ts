@@ -10,7 +10,7 @@ const NewMemberInfoSchema = z.object({
   visitorName: z.string().min(2, { message: 'O nome do visitante deve ter pelo menos 2 caracteres.' }),
   visitorType: z.enum(['culto', 'celula'], { required_error: 'Por favor, selecione a origem do visitante.' }),
   visitorPhone: z.string().min(10, { message: 'Por favor, insira um número de telefone válido.' }),
-  leaderName: z.string().min(2, { message: 'O nome do líder deve ter pelo menos 2 caracteres.' }),
+  leaderName: z.string(), // Nome do líder vem do usuário logado
 });
 
 export type State = {
