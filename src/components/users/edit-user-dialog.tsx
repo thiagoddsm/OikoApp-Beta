@@ -68,8 +68,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
 
   const supervisors = useMemo(() => {
     if (!allUsers) return [];
-    // A user can be a supervisor if their role is not 'membro'
-    return allUsers.filter(u => u.hierarchy?.role && u.hierarchy.role !== 'membro');
+    return allUsers.filter(u => u.hierarchy?.role && u.hierarchy.role !== 'membro' && u.hierarchy.role !== 'admin');
   }, [allUsers]);
 
 
@@ -91,7 +90,6 @@ export function EditUserDialog({ user, open, onOpenChange }) {
   };
   
   const handleSelectChange = (name: string, value: string) => {
-    // Treat 'null' string as an empty string for the state
     setFormData(prev => ({ ...prev, [name]: value === 'null' ? '' : value }));
   };
 
