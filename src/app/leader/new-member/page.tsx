@@ -10,6 +10,7 @@ import { useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle, AlertCircle, Loader, MessageSquare, Calendar } from "lucide-react";
 import { Logo } from "@/components/icons";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -59,7 +60,7 @@ export default function NewMemberPage() {
             </CardDescription>
           </CardHeader>
           <form action={dispatch}>
-            <CardContent className="grid gap-4">
+            <CardContent className="grid gap-6">
               <div className="grid gap-2">
                 <Label htmlFor="visitorName">Nome do Visitante</Label>
                 <Input id="visitorName" name="visitorName" placeholder="Ex: João da Silva" />
@@ -67,6 +68,24 @@ export default function NewMemberPage() {
                   <p className="text-sm font-medium text-destructive">{state.errors.visitorName}</p>
                 )}
               </div>
+
+               <div className="grid gap-3">
+                <Label>Origem do Visitante</Label>
+                <RadioGroup defaultValue="culto" name="visitorType" className="flex gap-4">
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="culto" id="r-culto" />
+                    <Label htmlFor="r-culto">Visitante do Culto (Sala VIP)</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="celula" id="r-celula" />
+                    <Label htmlFor="r-celula">Visitante de Célula (GC)</Label>
+                  </div>
+                </RadioGroup>
+                 {state.errors?.visitorType && (
+                  <p className="text-sm font-medium text-destructive">{state.errors.visitorType}</p>
+                )}
+              </div>
+
               <div className="grid gap-2">
                 <Label htmlFor="leaderName">Seu Nome (Líder)</Label>
                 <Input id="leaderName" name="leaderName" placeholder="Ex: Maria Oliveira" />

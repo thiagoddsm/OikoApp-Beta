@@ -6,6 +6,7 @@ import { generateNewMemberFollowUpTasks } from '@/ai/flows/new-member-follow-up-
 // This schema should match the one in the AI flow, but with added validation messages.
 const NewMemberInfoSchema = z.object({
   visitorName: z.string().min(2, { message: 'O nome do visitante deve ter pelo menos 2 caracteres.' }),
+  visitorType: z.enum(['culto', 'celula'], { required_error: 'Por favor, selecione a origem do visitante.' }),
   leaderName: z.string().min(2, { message: 'O nome do líder deve ter pelo menos 2 caracteres.' }),
   leaderPhoneNumber: z.string().min(10, { message: 'Por favor, insira um número de telefone válido.' }),
 });
@@ -13,6 +14,7 @@ const NewMemberInfoSchema = z.object({
 export type State = {
   errors?: {
     visitorName?: string[];
+    visitorType?: string[];
     leaderName?: string[];
     leaderPhoneNumber?: string[];
   };
@@ -23,6 +25,7 @@ export type State = {
 export async function createFollowUpTasks(prevState: State, formData: FormData): Promise<State> {
   const validatedFields = NewMemberInfoSchema.safeParse({
     visitorName: formData.get('visitorName'),
+    visitorType: formData.get('visitorType'),
     leaderName: formData.get('leaderName'),
     leaderPhoneNumber: formData.get('leaderPhoneNumber'),
   });
