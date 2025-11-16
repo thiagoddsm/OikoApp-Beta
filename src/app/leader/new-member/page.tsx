@@ -1,6 +1,7 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { createFollowUpTasks, type State } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +25,7 @@ function SubmitButton() {
 
 export default function NewMemberPage() {
   const initialState: State = { message: null, errors: {} };
-  const [state, dispatch] = useFormState(createFollowUpTasks, initialState);
+  const [state, dispatch] = useActionState(createFollowUpTasks, initialState);
   const { toast } = useToast();
 
   useEffect(() => {
