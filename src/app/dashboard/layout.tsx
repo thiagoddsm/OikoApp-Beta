@@ -14,6 +14,7 @@ import {
   PlusCircle,
   CalendarCheck,
   Loader2,
+  BarChart2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -78,8 +79,9 @@ export default function DashboardLayout({
     { href: "/dashboard", label: "Dashboard", icon: Home },
     { href: "/dashboard/members", label: "Membros", icon: Users },
     { href: "/dashboard/cells", label: "Células", icon: Building },
-    { href: "/dashboard/attendance", label: "Presença", icon: CalendarCheck },
-    { href: "/dashboard/reports", label: "Relatórios", icon: FileText },
+    { href: "/dashboard/report", label: "Relatório de Célula", icon: FileText, highlight: true },
+    { href: "/dashboard/attendance", label: "Presença Culto", icon: CalendarCheck },
+    { href: "/dashboard/reports", label: "Análises", icon: BarChart2 },
   ];
   
   const getInitials = (name: string | null | undefined) => {
@@ -108,7 +110,10 @@ export default function DashboardLayout({
                 <SidebarMenuButton
                   asChild
                   isActive={pathname === item.href}
-                  className="justify-start"
+                  className={cn(
+                    "justify-start",
+                    item.highlight && "bg-accent/50 text-accent-foreground/80 hover:bg-accent hover:text-accent-foreground"
+                  )}
                 >
                   <Link href={item.href}>
                     <item.icon className="size-4" />
@@ -121,11 +126,11 @@ export default function DashboardLayout({
                 <SidebarMenuButton
                   asChild
                   isActive={pathname === "/leader/new-member"}
-                  className="justify-start bg-accent/50 text-accent-foreground/80 hover:bg-accent hover:text-accent-foreground"
+                  className="justify-start"
                 >
                   <Link href="/leader/new-member">
                     <PlusCircle className="size-4" />
-                    <span>Novo Membro (Líder)</span>
+                    <span>Novo Visitante</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
