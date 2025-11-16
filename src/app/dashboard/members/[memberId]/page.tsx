@@ -16,6 +16,12 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Link from 'next/link';
 
+declare global {
+  interface Window {
+    __app_id: string;
+  }
+}
+
 type Member = {
   id: string;
   name: string;
@@ -52,6 +58,8 @@ const noteTypeLabels = {
   'encontro': 'Encontro',
   'observacao': 'Observação'
 };
+
+const getAppId = () => typeof window !== 'undefined' && window.__app_id ? window.__app_id : 'default-app-id';
 
 function NoteForm({ member, authorId }: { member: Member, authorId: string }) {
   const { firestore } = useFirebase();
