@@ -135,8 +135,9 @@ function MemberNotes({ memberId }: { memberId: string }) {
 
   const notesQuery = useMemoFirebase(() => {
     if (!firestore || !user || !memberId) return null;
+    const appId = getAppId();
     return query(
-      collection(firestore, `member_notes`), 
+      collection(firestore, 'member_notes'), 
       where('memberId', '==', memberId), 
       orderBy('createdAt', 'desc')
     );
@@ -180,6 +181,7 @@ export default function MemberProfilePage() {
   const memberId = params.memberId as string;
 
   const memberDocRef = useMemoFirebase(() => {
+    const appId = getAppId();
     return firestore && user && memberId 
       ? doc(firestore, 'users', memberId) 
       : null;
