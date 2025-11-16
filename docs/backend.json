@@ -23,17 +23,80 @@
           "description": "The user's email address.",
           "format": "email"
         },
-        "role": {
-          "type": "string",
-          "description": "The user's role within the church (e.g., 'membro', 'lider_celula', 'supervisor', 'pastor_rede', 'admin')."
+        "hierarchy": {
+            "type": "object",
+            "description": "Defines the user's position within the church hierarchy.",
+            "properties": {
+                "role": {
+                    "type": "string",
+                    "description": "The user's role (e.g., 'pastor_senior', 'supervisor', 'lider_celula_adultos', 'lider_celula_kids', 'membro')."
+                },
+                "celulaId": {
+                    "type": "string",
+                    "description": "The ID of the cell the user belongs to or leads."
+                },
+                "supervisorId": {
+                    "type": "string",
+                    "description": "The ID of the user's supervisor."
+                },
+                "redeId": {
+                    "type": "string",
+                    "description": "The ID of the network the user belongs to."
+                }
+            }
         },
-        "celulaId": {
+        "integrationStatus": {
           "type": "string",
-          "description": "Reference to Cell. (Relationship: Cell 1:N User) The ID of the cell the user belongs to."
+          "description": "The user's stage in the integration pipeline.",
+          "enum": ["visitante", "contatado", "visitou_celula", "em_discipulado", "membro", "lider_treinamento"]
         },
-        "status": {
-          "type": "string",
-          "description": "The user's membership status (e.g., 'visitante', 'frequente', 'membro', 'em_discipulado')."
+        "gamification": {
+            "type": "object",
+            "description": "Stores gamification data for the user, primarily for leaders.",
+            "properties": {
+                "currentStreak": {
+                    "type": "number",
+                    "description": "Current streak of on-time reports."
+                },
+                "points": {
+                    "type": "number",
+                    "description": "Total accumulated points."
+                },
+                "badges": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "description": "List of earned badges."
+                }
+            }
+        },
+        "lmsProgress": {
+            "type": "object",
+            "description": "Tracks user's progress in different Learning Management System (LMS) tracks.",
+            "properties": {
+                "trilha_lideres": { "type": "number" },
+                "trilha_fundamentos": { "type": "number" }
+            }
+        },
+        "kidsData": {
+            "type": "object",
+            "description": "Specific data for children, used for the Kids Cell module.",
+            "properties": {
+                "responsibleIds": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Array of user IDs of parents or guardians."
+                },
+                "allergies": {
+                    "type": "string",
+                    "description": "Information about the child's allergies."
+                },
+                "restrictedPickup": {
+                    "type": "string",
+                    "description": "Notes on who is restricted from picking up the child."
+                }
+            }
         },
         "lastContactLog": {
           "type": "string",
@@ -49,8 +112,8 @@
         "id",
         "name",
         "phone",
-        "role",
-        "status"
+        "hierarchy",
+        "integrationStatus"
       ]
     },
     "Cell": {
@@ -82,13 +145,19 @@
             "type": "string"
           }
         },
-        "meetingTemplate": {
-          "type": "string",
-          "description": "A template for cell meeting structure"
+        "healthStats": {
+            "type": "object",
+            "description": "Stores the calculated health score and related stats for the cell.",
+            "properties": {
+                "lastScore": { "type": "number" },
+                "healthColor": { "type": "string", "enum": ["green", "blue", "yellow", "red"] },
+                "streakRelatorios": { "type": "number" },
+                "conversionRate": { "type": "number" }
+            }
         },
-        "communionPlan": {
-          "type": "string",
-          "description": "The communion plan for the cell."
+        "linkedKidsCellId": {
+            "type": "string",
+            "description": "ID of the linked kids cell, if any."
         }
       },
       "required": [
@@ -131,6 +200,21 @@
         "conversoes": {
           "type": "number",
           "description": "The number of conversions reported at the meeting."
+        },
+        "qualitative": {
+            "type": "object",
+            "properties": {
+                "licaoMinistrada": { "type": "string" },
+                "decisoes": { "type": "string" },
+                "obs": { "type": "string" }
+            }
+        },
+        "kidsSecurity": {
+            "type": "object",
+            "properties": {
+                "checkInCount": { "type": "number" },
+                "incidents": { "type": "string" }
+            }
         }
       },
       "required": [
