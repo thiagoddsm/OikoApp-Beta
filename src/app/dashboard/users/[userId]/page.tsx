@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription }
 import { Loader2, User, ArrowLeft, Pencil } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Link from 'next/link';
+import { EditUserDialog } from '@/components/users/edit-user-dialog';
 
 type UserProfile = {
   id: string;
@@ -29,13 +30,14 @@ type Cell = {
     nome: string;
 }
 
-const getAppId = () => (typeof window !== 'undefined' && window.__app_id) ? window.__app_id : 'default-app-id';
+const getAppId = () => (typeof window !== 'undefined' && (window as any).__app_id) ? (window as any).__app_id : 'default-app-id';
 
 export default function UserProfilePage() {
   const { user, firestore } = useFirebase();
   const params = useParams();
   const userId = params.userId as string;
   const [appId, setAppId] = useState<string | null>(null);
+  const [isEditDialogOpen, setEditDialogOpen] = useState(false);
 
   useEffect(() => {
     setAppId(getAppId());
@@ -85,45 +87,53 @@ export default function UserProfilePage() {
   }
   
   return (
-    <div className="flex justify-center items-start pt-6 h-full">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="items-center text-center">
-          <Avatar className="h-24 w-24 mb-4">
-            {avatar && <AvatarImage src={avatar.imageUrl} alt={avatar.description} />}
-            <AvatarFallback className="text-3xl">{userProfile.name.charAt(0)}</AvatarFallback>
-          </Avatar>
-          <CardTitle>{userProfile.name}</CardTitle>
-          <CardDescription className="capitalize">{(userProfile.integrationStatus || 'Não definido').replace(/_/g, ' ')}</CardDescription>
-        </CardHeader>
-        <CardContent className="text-sm">
-           <div className="space-y-3">
-             <div className="flex flex-col">
-                <span className="font-semibold text-muted-foreground">Email:</span>
-                <span>{userProfile.email || 'Não informado'}</span>
+    <>
+      <div className="flex justify-center items-start pt-6 h-full">
+        <Card className="w-full max-w-sm">
+          <CardHeader className="items-center text-center">
+            <Avatar className="h-24 w-24 mb-4">
+              {avatar && <AvatarImage src={avatar.imageUrl} alt={avatar.description} />}
+              <AvatarFallback className="text-3xl">{userProfile.name.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <CardTitle>{userProfile.name}</CardTitle>
+            <CardDescription className="capitalize">{(userProfile.integrationStatus || 'Não definido').replace(/_/g, ' ')}</CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm">
+             <div className="space-y-3">
+               <div className="flex flex-col">
+                  <span className="font-semibold text-muted-foreground">Email:</span>
+                  <span>{userProfile.email || 'Não informado'}</span>
+               </div>
+               <div className="flex flex-col">
+                  <span className="font-semibold text-muted-foreground">Telefone:</span>
+                  <span>{userProfile.phone || 'Não informado'}</span>
+               </div>
+                <div className="flex flex-col">
+                  <span className="font-semibold text-muted-foreground">Célula:</span>
+                  <span>{cell?.nome || 'Nenhuma'}</span>
+               </div>
              </div>
-             <div className="flex flex-col">
-                <span className="font-semibold text-muted-foreground">Telefone:</span>
-                <span>{userProfile.phone || 'Não informado'}</span>
-             </div>
-              <div className="flex flex-col">
-                <span className="font-semibold text-muted-foreground">Célula:</span>
-                <span>{cell?.nome || 'Nenhuma'}</span>
-             </div>
-           </div>
-        </CardContent>
-        <CardFooter className="flex flex-col gap-2">
-            <Button className="w-full">
-                <Pencil className="mr-2 h-4 w-4" />
-                Editar Perfil
+          </CardContent>
+          <CardFooter className="flex flex-col gap-2">
+              <Button className="w-full" onClick={() => setEditDialogOpen(true)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Editar Perfil
+              </Button>
+            <Button asChild variant="outline" className="w-full">
+              <Link href="/dashboard/users">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Voltar para lista
+              </Link>
             </Button>
-          <Button asChild variant="outline" className="w-full">
-            <Link href="/dashboard/users">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Voltar para lista
-            </Link>
-          </Button>
-        </CardFooter>
-      </Card>
-    </div>
+          </CardFooter>
+        </Card>
+      </div>
+      
+      <EditUserDialog 
+        user={userProfile}
+        open={isEditDialogOpen}
+        onOpenChange={setEditDialogOpen}
+      />
+    </>
   );
 }
