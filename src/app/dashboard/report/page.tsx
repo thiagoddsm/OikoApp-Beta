@@ -2,8 +2,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { useFirebase, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { useCollection, useDoc } from '@/firebase/firestore';
+import { useFirebase, useMemoFirebase, addDocumentNonBlocking, useCollection, useDoc } from '@/firebase';
 import { collection, query, where, doc, Timestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
