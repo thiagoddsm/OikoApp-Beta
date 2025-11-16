@@ -27,16 +27,16 @@ type Cell = {
 };
 
 export default function CellsPage() {
-  const { firestore, isUserLoading } = useFirebase();
+  const { firestore, user } = useFirebase();
 
   // Fetch all users and cells only when user is loaded and firestore is available
   const usersQuery = useMemoFirebase(() => 
-    !isUserLoading && firestore ? query(collection(firestore, 'users')) : null, 
-    [firestore, isUserLoading]
+    user && firestore ? query(collection(firestore, 'users')) : null, 
+    [firestore, user]
   );
   const cellsQuery = useMemoFirebase(() => 
-    !isUserLoading && firestore ? query(collection(firestore, 'cells')) : null, 
-    [firestore, isUserLoading]
+    user && firestore ? query(collection(firestore, 'cells')) : null, 
+    [firestore, user]
   );
 
   const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
@@ -48,7 +48,7 @@ export default function CellsPage() {
     return new Map(users.map(user => [user.id, user]));
   }, [users]);
   
-  const isLoading = isLoadingUsers || isLoadingCells || isUserLoading;
+  const isLoading = isLoadingUsers || isLoadingCells || !user;
 
   return (
     <Card>

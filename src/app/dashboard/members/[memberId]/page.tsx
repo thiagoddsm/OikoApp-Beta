@@ -117,12 +117,12 @@ function NoteForm({ member, authorId }: { member: Member, authorId: string }) {
 }
 
 function MemberNotes({ memberId }: { memberId: string }) {
-    const { firestore } = useFirebase();
+    const { firestore, user } = useFirebase();
 
     const notesQuery = useMemoFirebase(() => {
-        if (!firestore || !memberId) return null;
+        if (!firestore || !user || !memberId) return null;
         return query(collection(firestore, 'member_notes'), where('memberId', '==', memberId), orderBy('createdAt', 'desc'));
-    }, [firestore, memberId]);
+    }, [firestore, user, memberId]);
 
     const { data: notes, isLoading } = useCollection<Note>(notesQuery);
 
@@ -161,14 +161,14 @@ export default function MemberProfilePage({ params }: { params: { memberId: stri
     const memberId = params.memberId;
 
     const memberDocRef = useMemoFirebase(() =>
-        firestore && memberId ? doc(firestore, 'users', memberId) : null,
-        [firestore, memberId]
+        firestore && user && memberId ? doc(firestore, 'users', memberId) : null,
+        [firestore, user, memberId]
     );
 
     const { data: member, isLoading: isLoadingMember } = useDoc<Member>(memberDocRef);
     const avatar = PlaceHolderImages.find(p => p.id === (member?.avatar || 'avatar-1'));
 
-    if (isLoadingMember) {
+    if (isLoadingMember || !user) {
         return (
             <div className="flex h-[calc(100vh-8rem)] items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin" />
