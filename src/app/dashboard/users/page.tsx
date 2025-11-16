@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -21,21 +22,27 @@ type User = {
 };
 
 const integrationStatusColumns = [
-    { id: 'visitante_culto', title: 'Visitantes do Culto' },
-    { id: 'visitante_celula', title: 'Visitantes de Célula' },
-    { id: 'contatado', title: 'Contatados' },
+    { id: 'visitante_culto', title: 'SALA VIP' },
+    { id: 'visitante_celula', title: 'VISITANTE EM GC' },
+    { id: 'contatado', title: 'PARTICIPANTE EM GC' },
     { id: 'em_discipulado', title: 'Em Discipulado' },
     { id: 'membro', title: 'Membros' },
-    { id: 'lider_treinamento', title: 'Líderes em Treinamento' }
+    { id: 'lider_treinamento', title: 'Líderes em Treinamento' },
+    { id: 'lider_gc', title: 'LÍDER DE GC' },
+    { id: 'lider_area', title: 'LÍDER DE ÁREA' },
+    { id: 'lider_rede', title: 'LÍDER DE REDE' },
 ];
 
 const statusLabels: { [key: string]: string } = {
-  visitante_culto: "Visitante do Culto",
-  visitante_celula: "Visitante de Célula",
-  contatado: "Contatado",
+  visitante_culto: "SALA VIP",
+  visitante_celula: "VISITANTE EM GC",
+  contatado: "PARTICIPANTE EM GC",
   em_discipulado: "Em Discipulado",
   membro: "Membro",
   lider_treinamento: "Líder em Treinamento",
+  lider_gc: "LÍDER DE GC",
+  lider_area: "LÍDER DE ÁREA",
+  lider_rede: "LÍDER DE REDE",
 };
 
 function UserCard({ user }: { user: User }) {
@@ -79,8 +86,8 @@ export default function UsersKanbanPage() {
 
         return users.reduce((acc, user) => {
             const status = user.integrationStatus || 'membro'; // Default to 'membro' if undefined
-            if (!acc[status]) {
-                 acc[status] = []; // Initialize if status is not in the predefined columns
+            if (acc[status] === undefined) {
+                 acc[status] = []; // Initialize if status is not in the predefined columns, though it should be.
             }
             if (user.name.toLowerCase().includes(searchTerm.toLowerCase())) {
                 acc[status].push(user);
