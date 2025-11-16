@@ -53,9 +53,6 @@ const noteTypeLabels = {
   'observacao': 'Observação'
 };
 
-// Helper para pegar o ID do app (necessário para as regras de segurança)
-const getAppId = () => typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
 function NoteForm({ member, authorId }: { member: Member, authorId: string }) {
   const { firestore } = useFirebase();
   const [content, setContent] = useState('');
@@ -67,10 +64,8 @@ function NoteForm({ member, authorId }: { member: Member, authorId: string }) {
     if (!content.trim() || !member || !authorId || !firestore) return;
 
     setIsSaving(true);
-    const appId = getAppId();
     
-    // CORREÇÃO: Caminho ajustado para artifacts/{appId}/public/data/member_notes
-    const notesCollection = collection(firestore, 'artifacts', appId, 'public', 'data', 'member_notes');
+    const notesCollection = collection(firestore, 'member_notes');
     
     try {
       await addDoc(notesCollection, {
@@ -132,11 +127,9 @@ function MemberNotes({ memberId }: { memberId: string }) {
 
   const notesQuery = useMemoFirebase(() => {
     if (!firestore || !user || !memberId) return null;
-    const appId = getAppId();
     
-    // CORREÇÃO: Caminho ajustado para artifacts/{appId}/public/data/member_notes
     return query(
-      collection(firestore, 'artifacts', appId, 'public', 'data', 'member_notes'), 
+      collection(firestore, 'member_notes'), 
       where('memberId', '==', memberId), 
       orderBy('createdAt', 'desc')
     );
@@ -180,10 +173,8 @@ export default function MemberProfilePage() {
   const memberId = params.memberId as string;
 
   const memberDocRef = useMemoFirebase(() => {
-    const appId = getAppId();
-    // CORREÇÃO: Caminho ajustado para artifacts/{appId}/public/data/users/{memberId}
     return firestore && user && memberId 
-      ? doc(firestore, 'artifacts', appId, 'public', 'data', 'users', memberId) 
+      ? doc(firestore, 'users', memberId) 
       : null;
   }, [firestore, user, memberId]);
 
