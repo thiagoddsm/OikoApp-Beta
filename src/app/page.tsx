@@ -1,14 +1,34 @@
+'use client';
+
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Logo } from "@/components/icons";
+import { useAuth } from '@/firebase';
+import { signInAnonymously } from 'firebase/auth';
 
 export default function LoginPage() {
   const loginImage = PlaceHolderImages.find(p => p.id === 'login-background');
+  const auth = useAuth();
+  const router = useRouter();
+
+  const handleLogin = async () => {
+    if (auth) {
+      try {
+        await signInAnonymously(auth);
+        router.push('/dashboard');
+      } catch (error) {
+        console.error("Anonymous sign-in failed", error);
+        // Handle error, e.g., show a toast message
+      }
+    }
+  };
   
   return (
     <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2">
@@ -45,10 +65,8 @@ export default function LoginPage() {
               </div>
               <Input id="password" type="password" required />
             </div>
-            <Button asChild className="w-full">
-              <Link href="/dashboard">
-                Login
-              </Link>
+            <Button onClick={handleLogin} className="w-full">
+                Login (Acesso Anônimo)
             </Button>
             <Button variant="outline" className="w-full">
               Login com Google
