@@ -69,7 +69,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
   const supervisors = useMemo(() => {
     if (!allUsers) return [];
     // A user can be a supervisor if their role is not 'membro'
-    return allUsers.filter(u => u.hierarchy?.role !== 'membro');
+    return allUsers.filter(u => u.hierarchy?.role && u.hierarchy.role !== 'membro');
   }, [allUsers]);
 
 

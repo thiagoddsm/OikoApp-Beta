@@ -40,14 +40,17 @@ export default function SettingsPage() {
   const handleRoleChange = async (targetUser: User, newRole: string) => {
     if (!firestore || !user) return;
 
-    if (user.uid === targetUser.id && targetUser.hierarchy?.role === 'pastor_senior') {
-      toast({
+    // Prevent a user from demoting themselves if they are the only admin/pastor
+    const admins = users?.filter(u => u.hierarchy?.role === 'pastor_senior' || u.hierarchy?.role === 'admin');
+    if (user.uid === targetUser.id && (targetUser.hierarchy?.role === 'pastor_senior' || targetUser.hierarchy?.role === 'admin') && admins?.length === 1) {
+       toast({
         variant: "destructive",
         title: "Ação não permitida",
-        description: "Você não pode rebaixar seu próprio perfil de acesso.",
+        description: "Você não pode remover seu próprio acesso de administrador, pois é o único.",
       });
       return;
     }
+
 
     const userDocRef = doc(firestore, 'users', targetUser.id);
     
@@ -115,7 +118,7 @@ export default function SettingsPage() {
                                         <Select
                                             value={targetUser.hierarchy?.role || 'membro'}
                                             onValueChange={(newRole) => handleRoleChange(targetUser, newRole)}
-                                            disabled={targetUser.id === user.uid && (targetUser.hierarchy?.role === 'pastor_senior')}
+                                            
                                         >
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Selecione um perfil" />

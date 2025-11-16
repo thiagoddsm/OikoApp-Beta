@@ -38,6 +38,7 @@ import { signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
 
 export const userRoles: { [key: string]: string } = {
+  'admin': 'Admin',
   'pastor_senior': 'Pastor Senior',
   'lider_rede': 'Líder de Rede',
   'lider_area': 'Líder de Área',

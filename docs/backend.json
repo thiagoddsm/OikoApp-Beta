@@ -30,7 +30,7 @@
             "properties": {
                 "role": {
                     "type": "string",
-                    "description": "The user's role (e.g., 'pastor_senior', 'lider_rede', 'lider_area', 'lider_gc', 'membro')."
+                    "description": "The user's role (e.g., 'admin', 'pastor_senior', 'lider_rede', 'lider_area', 'lider_gc', 'membro')."
                 },
                 "celulaId": {
                     "type": "string",
