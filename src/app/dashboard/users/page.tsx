@@ -20,7 +20,47 @@ type User = {
   integrationStatus?: string;
 };
 
-export default function UsersListPage() {
+const integrationStatusColumns = [
+    { id: 'visitante_culto', title: 'Visitantes do Culto' },
+    { id: 'visitante_celula', title: 'Visitantes de Célula' },
+    { id: 'contatado', title: 'Contatados' },
+    { id: 'em_discipulado', title: 'Em Discipulado' },
+    { id: 'membro', title: 'Membros' },
+    { id: 'lider_treinamento', title: 'Líderes em Treinamento' }
+];
+
+const statusLabels: { [key: string]: string } = {
+  visitante_culto: "Visitante do Culto",
+  visitante_celula: "Visitante de Célula",
+  contatado: "Contatado",
+  em_discipulado: "Em Discipulado",
+  membro: "Membro",
+  lider_treinamento: "Líder em Treinamento",
+};
+
+function UserCard({ user }: { user: User }) {
+    const avatar = PlaceHolderImages.find(p => p.id === (user.avatar || 'avatar-1'));
+    return (
+        <Link href={`/dashboard/users/${user.id}`} className="w-full text-left">
+            <Card className="mb-2 transition-all hover:shadow-md hover:border-primary/50">
+                <CardContent className="p-3 flex items-center gap-3">
+                    <Avatar className="h-10 w-10">
+                        {avatar && <AvatarImage src={avatar.imageUrl} alt={avatar.description} />}
+                        <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                        <p className="font-semibold text-sm">{user.name}</p>
+                        <p className="text-xs text-muted-foreground capitalize">
+                            {statusLabels[user.integrationStatus || ''] || 'Não definido'}
+                        </p>
+                    </div>
+                </CardContent>
+            </Card>
+        </Link>
+    );
+}
+
+export default function UsersKanbanPage() {
     const { firestore, user } = useFirebase();
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -31,97 +71,82 @@ export default function UsersListPage() {
 
     const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
     
-    const filteredUsers = useMemo(() => {
-        if (!users) return [];
-        return users.filter(user =>
-            user.name.toLowerCase().includes(searchTerm.toLowerCase())
-        );
+    const usersByStatus = useMemo(() => {
+        const initialColumns: { [key: string]: User[] } = {};
+        integrationStatusColumns.forEach(col => initialColumns[col.id] = []);
+
+        if (!users) return initialColumns;
+
+        return users.reduce((acc, user) => {
+            const status = user.integrationStatus || 'membro'; // Default to 'membro' if undefined
+            if (!acc[status]) {
+                 acc[status] = []; // Initialize if status is not in the predefined columns
+            }
+            if (user.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+                acc[status].push(user);
+            }
+            return acc;
+        }, initialColumns);
     }, [users, searchTerm]);
 
-    const loadingState = (
-        <Card className="h-[calc(100vh-8rem)] flex flex-col">
-            <CardHeader>
-                <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                        <Users className="size-5" /> Usuários
-                    </CardTitle>
-                    <Button asChild size="sm">
-                        <Link href="/dashboard/new-member">
-                            <Plus className="mr-2 h-4 w-4" />
-                            Adicionar
-                        </Link>
-                    </Button>
-                </div>
-                <CardDescription>Selecione um usuário para ver seu perfil detalhado.</CardDescription>
-                 <div className="relative mt-2">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Buscar usuários..." className="pl-8 w-full" disabled />
-                </div>
-            </CardHeader>
-            <CardContent className="flex-1 flex items-center justify-center">
-                <Loader2 className="h-6 w-6 animate-spin" />
-            </CardContent>
-        </Card>
-    );
-
     if (isLoadingUsers || !user) {
-      return loadingState;
+        return (
+            <div className="flex h-full items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+        );
     }
 
     return (
-        <Card className="h-[calc(100vh-8rem)] flex flex-col">
-            <CardHeader>
-                <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                        <Users className="size-5" /> Usuários
-                    </CardTitle>
+        <div className="flex h-full flex-col">
+            <header className="flex items-center justify-between px-2 py-2 border-b">
+                 <div>
+                    <h1 className="text-xl font-bold flex items-center gap-2">
+                        <Users className="size-5" /> Pipeline de Integração
+                    </h1>
+                     <p className="text-sm text-muted-foreground">Arraste e solte os usuários para atualizar seu status na jornada.</p>
+                 </div>
+                <div className="flex items-center gap-2">
+                    <div className="relative">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Buscar usuários..."
+                            className="pl-8 w-full"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
                     <Button asChild size="sm">
                         <Link href="/dashboard/new-member">
                             <Plus className="mr-2 h-4 w-4" />
-                            Adicionar
+                            Adicionar Usuário
                         </Link>
                     </Button>
                 </div>
-                 <CardDescription>Selecione um usuário para ver seu perfil detalhado.</CardDescription>
-                 <div className="relative mt-2">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                        placeholder="Buscar usuários..." 
-                        className="pl-8 w-full"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+            </header>
+
+            <div className="flex-1 overflow-x-auto">
+                <div className="flex h-full space-x-4 p-4">
+                    {integrationStatusColumns.map(column => (
+                        <div key={column.id} className="w-72 flex-shrink-0">
+                            <Card className="h-full flex flex-col bg-muted/50">
+                                <CardHeader className="p-4">
+                                    <CardTitle className="text-base font-medium">{column.title} ({usersByStatus[column.id]?.length || 0})</CardTitle>
+                                </CardHeader>
+                                <CardContent className="flex-1 overflow-y-auto px-2 pt-0 pb-2">
+                                     <ScrollArea className="h-full">
+                                        <div className="space-y-2 p-2">
+                                        {(usersByStatus[column.id] || []).map(userItem => (
+                                            <UserCard key={userItem.id} user={userItem} />
+                                        ))}
+                                        </div>
+                                    </ScrollArea>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    ))}
                 </div>
-            </CardHeader>
-            <CardContent className="flex-1 overflow-y-auto p-2">
-                <ScrollArea className="h-full">
-                    <div className="space-y-2 p-4">
-                        {filteredUsers && filteredUsers.length > 0 ? filteredUsers.map(userItem => {
-                            const avatar = PlaceHolderImages.find(p => p.id === (userItem.avatar || 'avatar-1'));
-                            return (
-                                <Link
-                                    key={userItem.id}
-                                    href={`/dashboard/users/${userItem.id}`}
-                                    className="w-full text-left p-3 rounded-lg flex items-center gap-3 transition-colors hover:bg-muted"
-                                >
-                                    <Avatar className="h-10 w-10">
-                                        {avatar && <AvatarImage src={avatar.imageUrl} alt={avatar.description} />}
-                                        <AvatarFallback>{userItem.name.charAt(0)}</AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                        <p className="font-semibold text-sm">{userItem.name}</p>
-                                        <p className="text-xs text-muted-foreground capitalize">{(userItem.integrationStatus || 'Não definido').replace(/_/g, ' ')}</p>
-                                    </div>
-                                </Link>
-                            );
-                        }) : (
-                          <div className="text-center py-10">
-                            <p className="text-muted-foreground">Nenhum usuário encontrado.</p>
-                          </div>
-                        )}
-                    </div>
-                </ScrollArea>
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     );
 }
