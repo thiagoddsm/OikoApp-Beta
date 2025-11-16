@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import { useFirebase, useMemoFirebase } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query, where, orderBy, Timestamp } from 'firebase/firestore';
@@ -177,9 +178,17 @@ export default function MembersPage() {
             {/* Members List */}
             <Card className="md:col-span-1 h-full flex flex-col">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Users className="size-5" /> Membros
-                    </CardTitle>
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center gap-2">
+                            <Users className="size-5" /> Membros
+                        </CardTitle>
+                        <Button asChild size="sm">
+                            <Link href="/leader/new-member">
+                                <Plus className="mr-2 h-4 w-4" />
+                                Adicionar
+                            </Link>
+                        </Button>
+                    </div>
                      <CardDescription>Selecione um membro para ver ou adicionar anotações.</CardDescription>
                 </CardHeader>
                 <CardContent className="flex-1 overflow-y-auto p-2">
@@ -204,7 +213,7 @@ export default function MembersPage() {
                                             </Avatar>
                                             <div>
                                                 <p className="font-semibold text-sm">{member.name}</p>
-                                                <p className="text-xs text-muted-foreground capitalize">{member.integrationStatus || 'Não definido'}</p>
+                                                <p className="text-xs text-muted-foreground capitalize">{(member.integrationStatus || 'Não definido').replace(/_/g, ' ')}</p>
                                             </div>
                                         </button>
                                     );
