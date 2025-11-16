@@ -29,7 +29,29 @@ export default function MembersListPage() {
 
     const { data: members, isLoading: isLoadingMembers } = useCollection<Member>(usersQuery);
 
-    const isLoading = isLoadingMembers || !user;
+    if (!user || isLoadingMembers) {
+        return (
+            <Card className="h-[calc(100vh-8rem)] flex flex-col">
+                 <CardHeader>
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center gap-2">
+                            <Users className="size-5" /> Membros
+                        </CardTitle>
+                        <Button asChild size="sm">
+                            <Link href="/leader/new-member">
+                                <Plus className="mr-2 h-4 w-4" />
+                                Adicionar
+                            </Link>
+                        </Button>
+                    </div>
+                    <CardDescription>Selecione um membro para ver seu perfil detalhado.</CardDescription>
+                </CardHeader>
+                <CardContent className="flex-1 flex items-center justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                </CardContent>
+            </Card>
+        );
+    }
 
     return (
         <Card className="h-[calc(100vh-8rem)] flex flex-col">
@@ -48,35 +70,29 @@ export default function MembersListPage() {
                  <CardDescription>Selecione um membro para ver seu perfil detalhado.</CardDescription>
             </CardHeader>
             <CardContent className="flex-1 overflow-y-auto p-2">
-                 {isLoading ? (
-                    <div className="flex items-center justify-center h-full">
-                        <Loader2 className="h-6 w-6 animate-spin" />
+                <ScrollArea className="h-full">
+                    <div className="space-y-2 p-4">
+                        {members?.map(member => {
+                            const avatar = PlaceHolderImages.find(p => p.id === (member.avatar || 'avatar-1'));
+                            return (
+                                <Link
+                                    key={member.id}
+                                    href={`/dashboard/members/${member.id}`}
+                                    className="w-full text-left p-3 rounded-lg flex items-center gap-3 transition-colors hover:bg-muted"
+                                >
+                                    <Avatar className="h-10 w-10">
+                                        {avatar && <AvatarImage src={avatar.imageUrl} alt={avatar.description} />}
+                                        <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                        <p className="font-semibold text-sm">{member.name}</p>
+                                        <p className="text-xs text-muted-foreground capitalize">{(member.integrationStatus || 'Não definido').replace(/_/g, ' ')}</p>
+                                    </div>
+                                </Link>
+                            );
+                        })}
                     </div>
-                ) : (
-                    <ScrollArea className="h-full">
-                        <div className="space-y-2 p-4">
-                            {members?.map(member => {
-                                const avatar = PlaceHolderImages.find(p => p.id === (member.avatar || 'avatar-1'));
-                                return (
-                                    <Link
-                                        key={member.id}
-                                        href={`/dashboard/members/${member.id}`}
-                                        className="w-full text-left p-3 rounded-lg flex items-center gap-3 transition-colors hover:bg-muted"
-                                    >
-                                        <Avatar className="h-10 w-10">
-                                            {avatar && <AvatarImage src={avatar.imageUrl} alt={avatar.description} />}
-                                            <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                            <p className="font-semibold text-sm">{member.name}</p>
-                                            <p className="text-xs text-muted-foreground capitalize">{(member.integrationStatus || 'Não definido').replace(/_/g, ' ')}</p>
-                                        </div>
-                                    </Link>
-                                );
-                            })}
-                        </div>
-                    </ScrollArea>
-                )}
+                </ScrollArea>
             </CardContent>
         </Card>
     );
