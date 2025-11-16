@@ -9,8 +9,8 @@ const UserProfileSchema = z.object({
   name: z.string().min(2, { message: "O nome deve ter pelo menos 2 caracteres." }),
   phone: z.string().optional(),
   integrationStatus: z.string(),
-  celulaId: z.string().optional(),
-  supervisorId: z.string().optional(),
+  celulaId: z.string().optional().nullable(),
+  supervisorId: z.string().optional().nullable(),
 });
 
 export async function updateUserProfile(userId: string, data: unknown) {

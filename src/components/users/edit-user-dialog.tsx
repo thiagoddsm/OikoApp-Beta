@@ -36,6 +36,9 @@ const integrationStatusColumns = [
 type User = {
   id: string;
   name: string;
+  hierarchy?: {
+    role?: string;
+  }
 };
 
 type Cell = {
@@ -86,7 +89,8 @@ export function EditUserDialog({ user, open, onOpenChange }) {
   };
   
   const handleSelectChange = (name: string, value: string) => {
-    setFormData(prev => ({ ...prev, [name]: value }));
+    // Treat 'null' string as an empty string for the state
+    setFormData(prev => ({ ...prev, [name]: value === 'null' ? '' : value }));
   };
 
   const handleSave = async () => {
@@ -169,7 +173,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
                 <SelectValue placeholder={isLoadingCells ? 'Carregando...' : 'Selecione a célula'} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Nenhuma</SelectItem>
+                <SelectItem value="null">Nenhuma</SelectItem>
                 {cells?.map(cell => (
                   <SelectItem key={cell.id} value={cell.id}>
                     {cell.nome}
@@ -187,7 +191,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
                 <SelectValue placeholder={isLoadingUsers ? 'Carregando...' : 'Selecione um responsável'} />
               </SelectTrigger>
               <SelectContent>
-                 <SelectItem value="">Nenhum</SelectItem>
+                 <SelectItem value="null">Nenhum</SelectItem>
                  {supervisors.map(sup => (
                   <SelectItem key={sup.id} value={sup.id}>
                     {sup.name}
