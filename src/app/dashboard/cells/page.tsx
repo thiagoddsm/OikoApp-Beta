@@ -12,7 +12,7 @@ import { Loader2, Building, User, Shield } from "lucide-react";
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useMemo } from 'react';
 
-type User = {
+type UserType = {
   id: string;
   name: string;
   avatar?: string;
@@ -26,8 +26,11 @@ type Cell = {
   membros: string[];
 };
 
+const getAppId = () => (typeof window !== 'undefined' && window.__app_id) ? window.__app_id : 'default-app-id';
+
 export default function CellsPage() {
   const { firestore, user } = useFirebase();
+  const appId = getAppId();
 
   // Fetch all users and cells only when user is loaded and firestore is available
   const usersQuery = useMemoFirebase(() => 
@@ -39,7 +42,7 @@ export default function CellsPage() {
     [firestore, user]
   );
 
-  const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
+  const { data: users, isLoading: isLoadingUsers } = useCollection<UserType>(usersQuery);
   const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>(cellsQuery);
 
   // Create a map for quick user lookup

@@ -19,13 +19,15 @@ type Member = {
   integrationStatus?: string;
 };
 
+const getAppId = () => (typeof window !== 'undefined' && window.__app_id) ? window.__app_id : 'default-app-id';
+
 export default function MembersListPage() {
     const { firestore, user } = useFirebase();
 
-    const usersQuery = useMemoFirebase(() => 
-        user && firestore ? query(collection(firestore, 'users')) : null,
-        [firestore, user]
-    );
+    const usersQuery = useMemoFirebase(() => {
+        if (!user || !firestore) return null;
+        return query(collection(firestore, 'users'));
+    }, [firestore, user]);
 
     const { data: members, isLoading: isLoadingMembers } = useCollection<Member>(usersQuery);
 

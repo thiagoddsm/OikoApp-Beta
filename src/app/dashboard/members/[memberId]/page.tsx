@@ -59,7 +59,7 @@ const noteTypeLabels = {
   'observacao': 'Observação'
 };
 
-const getAppId = () => typeof window !== 'undefined' && window.__app_id ? window.__app_id : 'default-app-id';
+const getAppId = () => (typeof window !== 'undefined' && window.__app_id) ? window.__app_id : 'default-app-id';
 
 function NoteForm({ member, authorId }: { member: Member, authorId: string }) {
   const { firestore } = useFirebase();
@@ -72,8 +72,8 @@ function NoteForm({ member, authorId }: { member: Member, authorId: string }) {
     if (!content.trim() || !member || !authorId || !firestore) return;
 
     setIsSaving(true);
-    
-    const notesCollection = collection(firestore, 'member_notes');
+    const appId = getAppId();
+    const notesCollection = collection(firestore, `member_notes`);
     
     try {
       await addDoc(notesCollection, {
@@ -135,9 +135,8 @@ function MemberNotes({ memberId }: { memberId: string }) {
 
   const notesQuery = useMemoFirebase(() => {
     if (!firestore || !user || !memberId) return null;
-    
     return query(
-      collection(firestore, 'member_notes'), 
+      collection(firestore, `member_notes`), 
       where('memberId', '==', memberId), 
       orderBy('createdAt', 'desc')
     );
