@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Shield } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { userRoles } from '@/app/dashboard/layout';
 
 type User = {
   id: string;
@@ -21,14 +22,6 @@ type User = {
   hierarchy?: {
     role?: string;
   }
-};
-
-const userRoles = {
-  'pastor_senior': 'Pastor Senior',
-  'supervisor': 'Supervisor',
-  'lider_celula_adultos': 'Líder de Célula (Adultos)',
-  'lider_celula_kids': 'Líder de Célula (Kids)',
-  'membro': 'Membro'
 };
 
 export default function SettingsPage() {
@@ -47,7 +40,7 @@ export default function SettingsPage() {
   const handleRoleChange = async (targetUser: User, newRole: string) => {
     if (!firestore || !user) return;
 
-    if (user.uid === targetUser.id && (targetUser.hierarchy?.role === 'pastor_senior' || targetUser.hierarchy?.role === 'supervisor')) {
+    if (user.uid === targetUser.id && targetUser.hierarchy?.role === 'pastor_senior') {
       toast({
         variant: "destructive",
         title: "Ação não permitida",
@@ -122,7 +115,7 @@ export default function SettingsPage() {
                                         <Select
                                             value={targetUser.hierarchy?.role || 'membro'}
                                             onValueChange={(newRole) => handleRoleChange(targetUser, newRole)}
-                                            disabled={targetUser.id === user.uid && (targetUser.hierarchy?.role === 'pastor_senior' || targetUser.hierarchy?.role === 'supervisor')}
+                                            disabled={targetUser.id === user.uid && (targetUser.hierarchy?.role === 'pastor_senior')}
                                         >
                                             <SelectTrigger>
                                                 <SelectValue placeholder="Selecione um perfil" />

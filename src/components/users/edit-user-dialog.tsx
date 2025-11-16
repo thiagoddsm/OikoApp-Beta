@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -67,7 +68,8 @@ export function EditUserDialog({ user, open, onOpenChange }) {
 
   const supervisors = useMemo(() => {
     if (!allUsers) return [];
-    return allUsers.filter(u => u.hierarchy?.role === 'supervisor' || u.hierarchy?.role === 'pastor_senior');
+    // A user can be a supervisor if their role is not 'membro'
+    return allUsers.filter(u => u.hierarchy?.role !== 'membro');
   }, [allUsers]);
 
 

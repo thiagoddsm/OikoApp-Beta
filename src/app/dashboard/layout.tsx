@@ -37,11 +37,11 @@ import { doc } from 'firebase/firestore';
 import { signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
 
-const userRoles = {
-  'pastor_senior': 'Admin Master',
-  'supervisor': 'Supervisor',
-  'lider_celula_adultos': 'Líder de Célula (Adultos)',
-  'lider_celula_kids': 'Líder de Célula (Kids)',
+export const userRoles: { [key: string]: string } = {
+  'pastor_senior': 'Pastor Senior',
+  'lider_rede': 'Líder de Rede',
+  'lider_area': 'Líder de Área',
+  'lider_gc': 'Líder de GC',
   'membro': 'Membro'
 };
 

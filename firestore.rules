@@ -46,11 +46,11 @@ service cloud.firestore {
     }
 
     /**
-     * @description Checks if the requesting user has an admin role ('pastor_senior' or 'supervisor').
+     * @description Checks if the requesting user has an admin role.
      */
     function isAdmin() {
       let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hierarchy.role;
-      return isSignedIn() && (userRole == 'pastor_senior' || userRole == 'supervisor');
+      return isSignedIn() && userRole != 'membro';
     }
 
     /**
@@ -60,7 +60,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isSignedIn();
       allow list: if isSignedIn();
-      allow create: if isOwner(userId);
+      allow create: if isOwner(userId) || isAdmin();
       // Only admins can change roles. Owners can change other fields.
       allow update: if (isOwner(userId) && request.resource.data.hierarchy.role == resource.data.hierarchy.role) || isAdmin();
       allow delete: if isExistingOwner(userId) || isAdmin();

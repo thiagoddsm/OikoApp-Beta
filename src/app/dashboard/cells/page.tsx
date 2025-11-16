@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -195,7 +196,7 @@ export default function CellsPage() {
 
   const supervisors = useMemo(() => {
     if (!users) return [];
-    return users.filter(u => u.hierarchy?.role === 'supervisor' || u.hierarchy?.role === 'pastor_senior');
+    return users.filter(u => u.hierarchy?.role && u.hierarchy.role !== 'membro');
   }, [users]);
 
   const handleOpenCreateDialog = () => {
