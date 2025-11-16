@@ -156,9 +156,8 @@ function MemberNotes({ memberId }: { memberId: string }) {
     );
 }
 
-export default function MemberProfilePage({ params }: { params: { memberId: string } }) {
+export default function MemberProfilePage({ params: { memberId } }: { params: { memberId: string } }) {
     const { user, firestore } = useFirebase();
-    const memberId = params.memberId;
 
     const memberDocRef = useMemoFirebase(() =>
         firestore && user && memberId ? doc(firestore, 'users', memberId) : null,
