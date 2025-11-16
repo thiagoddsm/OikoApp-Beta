@@ -16,11 +16,11 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 type Cell = { id: string; nome: string; membros: string[] };
-type Member = { id: string; name: string; avatar?: string };
+type UserProfile = { id: string; name: string; avatar?: string };
 
 const getAppId = () => (typeof window !== 'undefined' && (window as any).__app_id) ? (window as any).__app_id : 'default-app-id';
 
-function CellReportForm({ cell, members, leaderId }: { cell: Cell; members: Member[], leaderId: string }) {
+function CellReportForm({ cell, members, leaderId }: { cell: Cell; members: UserProfile[], leaderId: string }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -94,7 +94,7 @@ function CellReportForm({ cell, members, leaderId }: { cell: Cell; members: Memb
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><Users className="size-5 text-primary" />Presença</CardTitle>
-                    <CardDescription>Marque os membros que estiveram presentes na reunião.</CardDescription>
+                    <CardDescription>Marque os usuários que estiveram presentes na reunião.</CardDescription>
                 </CardHeader>
                 <CardContent className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                     {members.map(member => {
@@ -198,7 +198,7 @@ export default function CellReportPage() {
         return query(collection(firestore, 'users'), where('__name__', 'in', cell.membros));
     }, [firestore, cell]);
 
-    const { data: members, isLoading: isLoadingMembers } = useCollection<Member>(memberDetailsQuery);
+    const { data: members, isLoading: isLoadingMembers } = useCollection<UserProfile>(memberDetailsQuery);
 
     const isLoading = isUserLoading || isLoadingCells || isLoadingMembers;
 

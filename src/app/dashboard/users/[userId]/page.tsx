@@ -12,7 +12,7 @@ import { Loader2, User, ArrowLeft, Pencil } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Link from 'next/link';
 
-type Member = {
+type UserProfile = {
   id: string;
   name: string;
   avatar?: string;
@@ -31,33 +31,33 @@ type Cell = {
 
 const getAppId = () => (typeof window !== 'undefined' && window.__app_id) ? window.__app_id : 'default-app-id';
 
-export default function MemberProfilePage() {
+export default function UserProfilePage() {
   const { user, firestore } = useFirebase();
   const params = useParams();
-  const memberId = params.memberId as string;
+  const userId = params.userId as string;
   const [appId, setAppId] = useState<string | null>(null);
 
   useEffect(() => {
     setAppId(getAppId());
   }, []);
 
-  const memberDocRef = useMemoFirebase(() => {
-    return firestore && user && memberId && appId
-      ? doc(firestore, 'users', memberId) 
+  const userDocRef = useMemoFirebase(() => {
+    return firestore && user && userId && appId
+      ? doc(firestore, 'users', userId) 
       : null;
-  }, [firestore, user, memberId, appId]);
+  }, [firestore, user, userId, appId]);
 
-  const { data: member, isLoading: isLoadingMember } = useDoc<Member>(memberDocRef);
+  const { data: userProfile, isLoading: isLoadingUser } = useDoc<UserProfile>(userDocRef);
 
   const cellDocRef = useMemoFirebase(() => {
-    if (!firestore || !member?.hierarchy?.celulaId || !appId) return null;
-    return doc(firestore, 'cells', member.hierarchy.celulaId);
-  }, [firestore, member, appId]);
+    if (!firestore || !userProfile?.hierarchy?.celulaId || !appId) return null;
+    return doc(firestore, 'cells', userProfile.hierarchy.celulaId);
+  }, [firestore, userProfile, appId]);
 
   const { data: cell, isLoading: isLoadingCell } = useDoc<Cell>(cellDocRef);
 
-  const avatar = PlaceHolderImages.find(p => p.id === (member?.avatar || 'avatar-1'));
-  const isLoading = isLoadingMember || !user || isLoadingCell;
+  const avatar = PlaceHolderImages.find(p => p.id === (userProfile?.avatar || 'avatar-1'));
+  const isLoading = isLoadingUser || !user || isLoadingCell;
 
   if (isLoading) {
     return (
@@ -67,17 +67,17 @@ export default function MemberProfilePage() {
     );
   }
 
-  if (!member) {
+  if (!userProfile) {
     return (
       <div className="flex h-[calc(100vh-8rem)] items-center justify-center">
         <Card className="w-full max-w-md text-center p-8">
           <User className="h-12 w-12 mx-auto text-muted-foreground" />
-          <h3 className="mt-4 text-lg font-medium">Membro não encontrado</h3>
+          <h3 className="mt-4 text-lg font-medium">Usuário não encontrado</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            O membro que você está procurando não foi encontrado ou você não tem permissão para visualizá-lo.
+            O usuário que você está procurando não foi encontrado ou você não tem permissão para visualizá-lo.
           </p>
           <Button asChild className="mt-6">
-            <Link href="/dashboard/members"><ArrowLeft className="mr-2 h-4 w-4" />Voltar para Membros</Link>
+            <Link href="/dashboard/users"><ArrowLeft className="mr-2 h-4 w-4" />Voltar para Usuários</Link>
           </Button>
         </Card>
       </div>
@@ -90,20 +90,20 @@ export default function MemberProfilePage() {
         <CardHeader className="items-center text-center">
           <Avatar className="h-24 w-24 mb-4">
             {avatar && <AvatarImage src={avatar.imageUrl} alt={avatar.description} />}
-            <AvatarFallback className="text-3xl">{member.name.charAt(0)}</AvatarFallback>
+            <AvatarFallback className="text-3xl">{userProfile.name.charAt(0)}</AvatarFallback>
           </Avatar>
-          <CardTitle>{member.name}</CardTitle>
-          <CardDescription className="capitalize">{(member.integrationStatus || 'Não definido').replace(/_/g, ' ')}</CardDescription>
+          <CardTitle>{userProfile.name}</CardTitle>
+          <CardDescription className="capitalize">{(userProfile.integrationStatus || 'Não definido').replace(/_/g, ' ')}</CardDescription>
         </CardHeader>
         <CardContent className="text-sm">
            <div className="space-y-3">
              <div className="flex flex-col">
                 <span className="font-semibold text-muted-foreground">Email:</span>
-                <span>{member.email || 'Não informado'}</span>
+                <span>{userProfile.email || 'Não informado'}</span>
              </div>
              <div className="flex flex-col">
                 <span className="font-semibold text-muted-foreground">Telefone:</span>
-                <span>{member.phone || 'Não informado'}</span>
+                <span>{userProfile.phone || 'Não informado'}</span>
              </div>
               <div className="flex flex-col">
                 <span className="font-semibold text-muted-foreground">Célula:</span>
@@ -117,7 +117,7 @@ export default function MemberProfilePage() {
                 Editar Perfil
             </Button>
           <Button asChild variant="outline" className="w-full">
-            <Link href="/dashboard/members">
+            <Link href="/dashboard/users">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Voltar para lista
             </Link>

@@ -13,14 +13,14 @@ import { Loader2, Plus, Users, Search } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-type Member = {
+type User = {
   id: string;
   name: string;
   avatar?: string;
   integrationStatus?: string;
 };
 
-export default function MembersListPage() {
+export default function UsersListPage() {
     const { firestore, user } = useFirebase();
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -29,21 +29,21 @@ export default function MembersListPage() {
         return query(collection(firestore, 'users'));
     }, [firestore, user]);
 
-    const { data: members, isLoading: isLoadingMembers } = useCollection<Member>(usersQuery);
+    const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
     
-    const filteredMembers = useMemo(() => {
-        if (!members) return [];
-        return members.filter(member =>
-            member.name.toLowerCase().includes(searchTerm.toLowerCase())
+    const filteredUsers = useMemo(() => {
+        if (!users) return [];
+        return users.filter(user =>
+            user.name.toLowerCase().includes(searchTerm.toLowerCase())
         );
-    }, [members, searchTerm]);
+    }, [users, searchTerm]);
 
     const loadingState = (
         <Card className="h-[calc(100vh-8rem)] flex flex-col">
             <CardHeader>
                 <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
-                        <Users className="size-5" /> Membros
+                        <Users className="size-5" /> Usuários
                     </CardTitle>
                     <Button asChild size="sm">
                         <Link href="/dashboard/new-member">
@@ -52,10 +52,10 @@ export default function MembersListPage() {
                         </Link>
                     </Button>
                 </div>
-                <CardDescription>Selecione um membro para ver seu perfil detalhado.</CardDescription>
+                <CardDescription>Selecione um usuário para ver seu perfil detalhado.</CardDescription>
                  <div className="relative mt-2">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Buscar membros..." className="pl-8 w-full" disabled />
+                    <Input placeholder="Buscar usuários..." className="pl-8 w-full" disabled />
                 </div>
             </CardHeader>
             <CardContent className="flex-1 flex items-center justify-center">
@@ -64,7 +64,7 @@ export default function MembersListPage() {
         </Card>
     );
 
-    if (isLoadingMembers || !user) {
+    if (isLoadingUsers || !user) {
       return loadingState;
     }
 
@@ -73,7 +73,7 @@ export default function MembersListPage() {
             <CardHeader>
                 <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
-                        <Users className="size-5" /> Membros
+                        <Users className="size-5" /> Usuários
                     </CardTitle>
                     <Button asChild size="sm">
                         <Link href="/dashboard/new-member">
@@ -82,11 +82,11 @@ export default function MembersListPage() {
                         </Link>
                     </Button>
                 </div>
-                 <CardDescription>Selecione um membro para ver seu perfil detalhado.</CardDescription>
+                 <CardDescription>Selecione um usuário para ver seu perfil detalhado.</CardDescription>
                  <div className="relative mt-2">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input 
-                        placeholder="Buscar membros..." 
+                        placeholder="Buscar usuários..." 
                         className="pl-8 w-full"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -96,27 +96,27 @@ export default function MembersListPage() {
             <CardContent className="flex-1 overflow-y-auto p-2">
                 <ScrollArea className="h-full">
                     <div className="space-y-2 p-4">
-                        {filteredMembers && filteredMembers.length > 0 ? filteredMembers.map(member => {
-                            const avatar = PlaceHolderImages.find(p => p.id === (member.avatar || 'avatar-1'));
+                        {filteredUsers && filteredUsers.length > 0 ? filteredUsers.map(userItem => {
+                            const avatar = PlaceHolderImages.find(p => p.id === (userItem.avatar || 'avatar-1'));
                             return (
                                 <Link
-                                    key={member.id}
-                                    href={`/dashboard/members/${member.id}`}
+                                    key={userItem.id}
+                                    href={`/dashboard/users/${userItem.id}`}
                                     className="w-full text-left p-3 rounded-lg flex items-center gap-3 transition-colors hover:bg-muted"
                                 >
                                     <Avatar className="h-10 w-10">
                                         {avatar && <AvatarImage src={avatar.imageUrl} alt={avatar.description} />}
-                                        <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                                        <AvatarFallback>{userItem.name.charAt(0)}</AvatarFallback>
                                     </Avatar>
                                     <div>
-                                        <p className="font-semibold text-sm">{member.name}</p>
-                                        <p className="text-xs text-muted-foreground capitalize">{(member.integrationStatus || 'Não definido').replace(/_/g, ' ')}</p>
+                                        <p className="font-semibold text-sm">{userItem.name}</p>
+                                        <p className="text-xs text-muted-foreground capitalize">{(userItem.integrationStatus || 'Não definido').replace(/_/g, ' ')}</p>
                                     </div>
                                 </Link>
                             );
                         }) : (
                           <div className="text-center py-10">
-                            <p className="text-muted-foreground">Nenhum membro encontrado.</p>
+                            <p className="text-muted-foreground">Nenhum usuário encontrado.</p>
                           </div>
                         )}
                     </div>

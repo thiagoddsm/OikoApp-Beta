@@ -78,7 +78,7 @@ export default function DashboardLayout({
 
   const menuItems = [
     { href: "/dashboard", label: "Dashboard", icon: Home },
-    { href: "/dashboard/members", label: "Membros", icon: Users },
+    { href: "/dashboard/users", label: "Usuários", icon: Users },
     { href: "/dashboard/cells", label: "Células", icon: Building },
     { href: "/dashboard/report", label: "Relatório de Célula", icon: FileText, highlight: true },
     { href: "/dashboard/attendance", label: "Presença Culto", icon: CalendarCheck },
@@ -111,7 +111,7 @@ export default function DashboardLayout({
               <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton
                   asChild
-                  isActive={pathname === item.href}
+                  isActive={pathname.startsWith(item.href)}
                   className={cn(
                     "justify-start",
                     item.highlight && "bg-accent/50 text-accent-foreground/80 hover:bg-accent hover:text-accent-foreground"
@@ -178,7 +178,7 @@ export default function DashboardLayout({
             <SidebarTrigger className="md:hidden" />
             <div className="flex-1">
                 <h1 className="text-lg font-semibold font-headline">
-                    {menuItems.find(item => pathname.startsWith(item.href) && item.href !== '/dashboard')?.label || (pathname === '/dashboard' ? 'Dashboard' : (pathname.includes('/members/') ? 'Perfil do Membro' : 'ConectarGC'))}
+                    {menuItems.find(item => pathname.startsWith(item.href) && item.href !== '/dashboard')?.label || (pathname === '/dashboard' ? 'Dashboard' : (pathname.includes('/users/') ? 'Perfil do Usuário' : 'ConectarGC'))}
                 </h1>
             </div>
             <Button size="sm">Hoje</Button>

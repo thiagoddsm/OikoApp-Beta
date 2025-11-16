@@ -140,7 +140,7 @@
         },
         "membros": {
           "type": "array",
-          "description": "References to Users. (Relationship: Cell 1:N User) An array of user IDs representing the members of the cell.",
+          "description": "References to Users. (Relationship: Cell 1:N User) An array of user IDs representing the users in the cell.",
           "items": {
             "type": "string"
           }
@@ -188,7 +188,7 @@
         },
         "presentMembers": {
           "type": "array",
-          "description": "References to Users. (Relationship: User N:N AttendanceReport) An array of user IDs representing the members present at the meeting.",
+          "description": "References to Users. (Relationship: User N:N AttendanceReport) An array of user IDs representing the users present at the meeting.",
           "items": {
             "type": "string"
           }
@@ -243,7 +243,7 @@
         },
         "targetUserId": {
           "type": "string",
-          "description": "Reference to User. (Relationship: User 1:N LeaderTask) The ID of the member or visitor the task is related to."
+          "description": "Reference to User. (Relationship: User 1:N LeaderTask) The ID of the user the task is related to."
         },
         "message": {
           "type": "string",
@@ -273,7 +273,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "DiscipleshipPlan",
       "type": "object",
-      "description": "Represents a discipleship plan between a leader (mentor) and a member (disciple).",
+      "description": "Represents a discipleship plan between a leader (mentor) and a user (disciple).",
       "properties": {
         "id": {
           "type": "string",
@@ -285,7 +285,7 @@
         },
         "auxiliarId": {
           "type": "string",
-          "description": "Reference to User (Disciple). (Relationship: User 1:N DiscipleshipPlan) The ID of the member being discipled."
+          "description": "Reference to User (Disciple). (Relationship: User 1:N DiscipleshipPlan) The ID of the user being discipled."
         },
         "status": {
           "type": "string",
@@ -371,7 +371,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Member Note",
       "type": "object",
-      "description": "Represents a note or log entry for a member, created by a leader.",
+      "description": "Represents a note or log entry for a user, created by a leader.",
       "properties": {
         "id": {
           "type": "string",
@@ -383,7 +383,7 @@
         },
         "memberId": {
           "type": "string",
-          "description": "The ID of the member the note is about."
+          "description": "The ID of the user the note is about."
         },
         "type": {
           "type": "string",
@@ -492,7 +492,7 @@
           "schema": {
             "$ref": "#/backend/entities/DiscipleshipPlan"
           },
-          "description": "Manages discipleship plans between leaders and members. Tracks plan status and development steps.",
+          "description": "Manages discipleship plans between leaders and users. Tracks plan status and development steps.",
           "params": [
             {
               "name": "planId",
@@ -528,7 +528,7 @@
           "schema": {
             "$ref": "#/backend/entities/MemberNote"
           },
-          "description": "Stores notes about members made by leaders. Access is controlled by 'authorId' and 'memberId'.",
+          "description": "Stores notes about users made by leaders. Access is controlled by 'authorId' and 'memberId'.",
           "params": [
             {
               "name": "noteId",
@@ -538,7 +538,7 @@
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to support the ConectarGC application, focusing on managing church cell groups and member engagement. The core principle is Authorization Independence, achieved through path-based ownership for user-specific data and denormalization of authorization information (especially cell membership) where needed.\n\n**Authorization Independence:**\n\n*   **User-Owned Data:** Attendance reports and culto registros are stored under a user-specific path (`/cultos/{userId}`), granting straightforward ownership-based security. No `get()` calls are needed to verify user identity for their own data.\n*   **Collaborative Data (Cells):** While cell data itself doesn't directly involve user-level access control in the provided schema, any subcollections related to collaborative activities within a cell (hypothetically, a `/cells/{cellId}/meeting_notes` collection) would require denormalization of the `membros` array from the `/cells/{cellId}` document into each meeting note. This eliminates the need for rules to fetch cell member lists to authorize write access.\n\n**QAPs (Query Authorization Patterns):**\n\n*   **Secure List Operations:** Path-based ownership (`/cultos/{userId}/registros`) inherently secures list operations. A user can only list their own culto registros.\n*   **Role-Based Access Control:** Admin privileges are managed via the 'role' field within each user's document in the `/users` collection, enabling secure role-based authorization.\n\n**Structure Explanation:**\n\n*   `/users/{userId}`: Stores user profiles. The `hierarchy.role` field determines the user's privileges within the app. The `celulaId` field links users to their respective cells.\n*   `/cells/{cellId}`: Represents cell groups. Contains the `liderId` and `supervisorId` for cell management. The `membros` array lists user IDs belonging to the cell.\n*   `/attendance_reports/{reportId}`: Stores attendance reports for cell meetings. Includes `cellId`, `date`, `presentMembers`, and other relevant details.\n*   `/leader_tasks/{taskId}`: Tracks tasks assigned to cell leaders. Includes information about the task type, target user, due date, and status.\n*   `/discipleship_plans/{planId}`: Manages discipleship plans between leaders and members. Tracks the plan's status and development steps.\n*   `/cultos/{userId}/registros/{registroId}`: Stores records of attendance and other details for church services, owned by each user. This nested structure ensures a user can only access their own records.\n\nThis structure balances security, scalability, and debuggability by adhering to the core design principles and strategy mandates."
+    "reasoning": "The Firestore structure is designed to support the ConectarGC application, focusing on managing church cell groups and user engagement. The core principle is Authorization Independence, achieved through path-based ownership for user-specific data and denormalization of authorization information (especially cell membership) where needed.\n\n**Authorization Independence:**\n\n*   **User-Owned Data:** Attendance reports and culto registros are stored under a user-specific path (`/cultos/{userId}`), granting straightforward ownership-based security. No `get()` calls are needed to verify user identity for their own data.\n*   **Collaborative Data (Cells):** While cell data itself doesn't directly involve user-level access control in the provided schema, any subcollections related to collaborative activities within a cell (hypothetically, a `/cells/{cellId}/meeting_notes` collection) would require denormalization of the `membros` array from the `/cells/{cellId}` document into each meeting note. This eliminates the need for rules to fetch cell member lists to authorize write access.\n\n**QAPs (Query Authorization Patterns):**\n\n*   **Secure List Operations:** Path-based ownership (`/cultos/{userId}/registros`) inherently secures list operations. A user can only list their own culto registros.\n*   **Role-Based Access Control:** Admin privileges are managed via the 'role' field within each user's document in the `/users` collection, enabling secure role-based authorization.\n\n**Structure Explanation:**\n\n*   `/users/{userId}`: Stores user profiles. The `hierarchy.role` field determines the user's privileges within the app. The `celulaId` field links users to their respective cells.\n*   `/cells/{cellId}`: Represents cell groups. Contains the `liderId` and `supervisorId` for cell management. The `membros` array lists user IDs belonging to the cell.\n*   `/attendance_reports/{reportId}`: Stores attendance reports for cell meetings. Includes `cellId`, `date`, `presentMembers`, and other relevant details.\n*   `/leader_tasks/{taskId}`: Tracks tasks assigned to cell leaders. Includes information about the task type, target user, due date, and status.\n*   `/discipleship_plans/{planId}`: Manages discipleship plans between leaders and users. Tracks the plan's status and development steps.\n*   `/cultos/{userId}/registros/{registroId}`: Stores records of attendance and other details for church services, owned by each user. This nested structure ensures a user can only access their own records.\n\nThis structure balances security, scalability, and debuggability by adhering to the core design principles and strategy mandates."
   }
 }
     

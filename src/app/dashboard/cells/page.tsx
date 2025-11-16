@@ -238,7 +238,7 @@ export default function CellsPage() {
                   <TableHead><Building className="inline-block mr-2 h-4 w-4" />Célula</TableHead>
                   <TableHead><User className="inline-block mr-2 h-4 w-4" />Líder</TableHead>
                   <TableHead><Shield className="inline-block mr-2 h-4 w-4" />Supervisor</TableHead>
-                  <TableHead className="text-center">Membros</TableHead>
+                  <TableHead className="text-center">Usuários</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
