@@ -55,10 +55,11 @@ export default function DashboardLayout({
   const { user, auth, firestore, isUserLoading } = useFirebase();
   const router = useRouter();
 
-  const userDocRef = useMemoFirebase(() => 
-    firestore && user ? doc(firestore, 'users', user.uid) : null, 
-    [firestore, user]
-  );
+  const userDocRef = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    const appId = (window as any).__app_id || 'default-app-id';
+    return doc(firestore, 'users', user.uid);
+  }, [firestore, user]);
   
   const { data: userData } = useDoc<{ hierarchy?: { role?: string; } }>(userDocRef);
   const userRole = userData?.hierarchy?.role;
@@ -82,6 +83,7 @@ export default function DashboardLayout({
     { href: "/dashboard/report", label: "Relatório de Célula", icon: FileText, highlight: true },
     { href: "/dashboard/attendance", label: "Presença Culto", icon: CalendarCheck },
     { href: "/dashboard/reports", label: "Análises", icon: BarChart2 },
+    { href: "/dashboard/new-member", label: "Novo Visitante", icon: PlusCircle },
   ];
   
   const getInitials = (name: string | null | undefined) => {
@@ -122,18 +124,6 @@ export default function DashboardLayout({
                 </SidebarMenuButton>
               </SidebarMenuItem>
             ))}
-             <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname === "/leader/new-member"}
-                  className="justify-start"
-                >
-                  <Link href="/leader/new-member">
-                    <PlusCircle className="size-4" />
-                    <span>Novo Visitante</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
