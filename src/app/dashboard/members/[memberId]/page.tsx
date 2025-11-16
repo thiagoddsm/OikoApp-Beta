@@ -122,7 +122,11 @@ function MemberNotes({ memberId }: { memberId: string }) {
 
     const notesQuery = useMemoFirebase(() => {
         if (!firestore || !user || !memberId) return null;
-        return query(collection(firestore, 'member_notes'), where('memberId', '==', memberId), orderBy('createdAt', 'desc'));
+        return query(
+          collection(firestore, 'member_notes'), 
+          where('memberId', '==', memberId), 
+          orderBy('createdAt', 'desc')
+        );
     }, [firestore, user, memberId]);
 
     const { data: notes, isLoading } = useCollection<Note>(notesQuery);
