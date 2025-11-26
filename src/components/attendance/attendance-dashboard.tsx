@@ -46,7 +46,7 @@ export function AttendanceDashboard({ registros, loading }) {
       );
     }
     
-    return filtrados.sort((a, b) => new Date(a.data) - new Date(b.data));
+    return filtrados.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
   }, [registros, filtroDataInicio, filtroDataFim, filtroHorario, filtroSerie]);
 
   const formatarDataGrafico = (dataStr) => {

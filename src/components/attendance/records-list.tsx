@@ -62,10 +62,11 @@ export function RecordsList({ registros, loading }) {
   };
 
   const registrosOrdenados = useMemo(() => {
+    if (!registros) return [];
     return [...registros].sort((a, b) => {
       const dataA = new Date(a.data);
       const dataB = new Date(b.data);
-      return dataB - dataA;
+      return dataB.getTime() - dataA.getTime();
     });
   }, [registros]);
 
