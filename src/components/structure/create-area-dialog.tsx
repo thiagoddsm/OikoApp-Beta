@@ -17,10 +17,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
 
-export function CreateAreaDialog({ open, onOpenChange, users, redes }) {
+export function CreateAreaDialog({ open, onOpenChange, users, redes, existingArea }) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [nome, setNome] = useState('');
@@ -36,13 +36,16 @@ export function CreateAreaDialog({ open, onOpenChange, users, redes }) {
   }, [users]);
   
   useEffect(() => {
-    if (!open) {
-      // Reset form on close
+    if (existingArea) {
+      setNome(existingArea.nome || '');
+      setLiderId(existingArea.liderId || '');
+      setRedeId(existingArea.redeId || '');
+    } else {
       setNome('');
       setLiderId('');
       setRedeId('');
     }
-  }, [open]);
+  }, [existingArea, open]);
 
   const handleSave = async () => {
     if (!nome || !liderId || !redeId) {
@@ -61,28 +64,43 @@ export function CreateAreaDialog({ open, onOpenChange, users, redes }) {
       redeId,
     };
 
-    const areasCollection = collection(firestore, 'areas');
-    addDocumentNonBlocking(areasCollection, areaData).then(() => {
-      toast({
-        title: "Sucesso!",
-        description: `A área "${nome}" foi criada.`,
+    if (existingArea) {
+      const areaDocRef = doc(firestore, 'areas', existingArea.id);
+      updateDocumentNonBlocking(areaDocRef, areaData).then(() => {
+        toast({
+          title: "Sucesso!",
+          description: `A área "${nome}" foi atualizada.`,
+        });
+        onOpenChange(false);
+      }).catch(error => {
+        console.error("Error updating area:", error);
+      }).finally(() => {
+        setIsSaving(false);
       });
-      onOpenChange(false);
-    }).catch(error => {
-      console.error("Error creating area:", error);
-      // The global error handler will show the permission error toast
-    }).finally(() => {
-      setIsSaving(false);
-    });
+
+    } else {
+      const areasCollection = collection(firestore, 'areas');
+      addDocumentNonBlocking(areasCollection, areaData).then(() => {
+        toast({
+          title: "Sucesso!",
+          description: `A área "${nome}" foi criada.`,
+        });
+        onOpenChange(false);
+      }).catch(error => {
+        console.error("Error creating area:", error);
+      }).finally(() => {
+        setIsSaving(false);
+      });
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Criar Nova Área</DialogTitle>
+          <DialogTitle>{existingArea ? 'Editar Área' : 'Criar Nova Área'}</DialogTitle>
           <DialogDescription>
-            Preencha as informações abaixo para criar uma nova área de supervisão.
+            {existingArea ? 'Altere as informações da área abaixo.' : 'Preencha as informações abaixo para criar uma nova área de supervisão.'}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -129,7 +147,7 @@ export function CreateAreaDialog({ open, onOpenChange, users, redes }) {
           </DialogClose>
           <Button type="button" onClick={handleSave} disabled={isSaving}>
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Salvar Área
+            Salvar
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -17,10 +17,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
 
-export function CreateRedeDialog({ open, onOpenChange, users }) {
+export function CreateRedeDialog({ open, onOpenChange, users, existingRede }) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [nome, setNome] = useState('');
@@ -43,13 +43,17 @@ export function CreateRedeDialog({ open, onOpenChange, users }) {
   }, [users]);
   
   useEffect(() => {
-    if (!open) {
-      // Reset form on close
+    if (existingRede) {
+      setNome(existingRede.nome || '');
+      setLiderId(existingRede.liderId || '');
+      setPastorId(existingRede.pastorId || '');
+    } else {
+      // Reset form
       setNome('');
       setLiderId('');
       setPastorId('');
     }
-  }, [open]);
+  }, [existingRede, open]);
 
   const handleSave = async () => {
     if (!nome || !liderId || !pastorId) {
@@ -68,28 +72,42 @@ export function CreateRedeDialog({ open, onOpenChange, users }) {
       pastorId,
     };
 
-    const redesCollection = collection(firestore, 'redes');
-    addDocumentNonBlocking(redesCollection, redeData).then(() => {
-      toast({
-        title: "Sucesso!",
-        description: `A rede "${nome}" foi criada.`,
-      });
-      onOpenChange(false);
-    }).catch(error => {
-      console.error("Error creating network:", error);
-      // The global error handler will show the permission error toast
-    }).finally(() => {
-      setIsSaving(false);
-    });
+    if (existingRede) {
+        const redeDocRef = doc(firestore, 'redes', existingRede.id);
+        updateDocumentNonBlocking(redeDocRef, redeData).then(() => {
+            toast({
+                title: "Sucesso!",
+                description: `A rede "${nome}" foi atualizada.`
+            });
+            onOpenChange(false);
+        }).catch(error => {
+            console.error("Error updating network:", error);
+        }).finally(() => {
+            setIsSaving(false);
+        });
+    } else {
+        const redesCollection = collection(firestore, 'redes');
+        addDocumentNonBlocking(redesCollection, redeData).then(() => {
+          toast({
+            title: "Sucesso!",
+            description: `A rede "${nome}" foi criada.`,
+          });
+          onOpenChange(false);
+        }).catch(error => {
+          console.error("Error creating network:", error);
+        }).finally(() => {
+          setIsSaving(false);
+        });
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Criar Nova Rede</DialogTitle>
+          <DialogTitle>{existingRede ? 'Editar Rede' : 'Criar Nova Rede'}</DialogTitle>
           <DialogDescription>
-            Preencha as informações abaixo para criar uma nova rede.
+            {existingRede ? 'Altere as informações da rede abaixo.' : 'Preencha as informações abaixo para criar uma nova rede.'}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
@@ -136,7 +154,7 @@ export function CreateRedeDialog({ open, onOpenChange, users }) {
           </DialogClose>
           <Button type="button" onClick={handleSave} disabled={isSaving}>
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Salvar Rede
+            Salvar
           </Button>
         </DialogFooter>
       </DialogContent>

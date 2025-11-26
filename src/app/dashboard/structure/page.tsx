@@ -5,7 +5,7 @@ import React, { useState, useMemo } from 'react';
 import { useFirebase, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { Loader2, Users, Plus, Minus, Flag, PlusCircle } from "lucide-react";
+import { Loader2, Users, Plus, Minus, Flag, PlusCircle, Pencil } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { CreateRedeDialog } from '@/components/structure/create-rede-dialog';
 import { CreateAreaDialog } from '@/components/structure/create-area-dialog';
@@ -16,7 +16,7 @@ type Cell = { id: string; nome: string; liderId: string; areaId: string; redeId:
 type Area = { id: string; nome: string; liderId: string; redeId: string; };
 type Rede = { id: string; nome: string; liderId: string; pastorId: string; };
 
-const HierarchyNode = ({ node, level, children, isExpanded, onToggle }) => {
+const HierarchyNode = ({ node, level, children, isExpanded, onToggle, onEdit }) => {
     const Icon = Users;
     
     return (
@@ -43,25 +43,32 @@ const HierarchyNode = ({ node, level, children, isExpanded, onToggle }) => {
                             <p className="text-xs text-muted-foreground">NÍVEL {level} | Líder: {node.liderName}</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-4 text-xs">
-                        <div className="flex flex-col gap-1">
-                           <div className="flex items-center justify-between gap-2">
-                                <span className="text-muted-foreground">Níveis</span>
-                                <span className="font-bold bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded text-xs">{node.stats.niveis}</span>
-                           </div>
-                            <div className="flex items-center justify-between gap-2">
-                                <span className="text-muted-foreground">Grupos</span>
-                                <span className="font-bold bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded text-xs">{node.stats.grupos}</span>
-                           </div>
-                           <div className="flex items-center justify-between gap-2">
-                                <span className="text-muted-foreground">Participantes</span>
-                                <span className="font-bold bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded text-xs">{node.stats.participantes}</span>
-                           </div>
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-4 text-xs">
+                            <div className="flex flex-col gap-1">
+                               <div className="flex items-center justify-between gap-2">
+                                    <span className="text-muted-foreground">Níveis</span>
+                                    <span className="font-bold bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded text-xs">{node.stats.niveis}</span>
+                               </div>
+                                <div className="flex items-center justify-between gap-2">
+                                    <span className="text-muted-foreground">Grupos</span>
+                                    <span className="font-bold bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded text-xs">{node.stats.grupos}</span>
+                               </div>
+                               <div className="flex items-center justify-between gap-2">
+                                    <span className="text-muted-foreground">Participantes</span>
+                                    <span className="font-bold bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded text-xs">{node.stats.participantes}</span>
+                               </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Flag size={20} className="text-orange-400" />
+                                <span className="font-bold text-base text-orange-500">{node.stats.percentage.toFixed(2)}%</span>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <Flag size={20} className="text-orange-400" />
-                            <span className="font-bold text-base text-orange-500">{node.stats.percentage.toFixed(2)}%</span>
-                        </div>
+                        {onEdit && (
+                             <Button variant="ghost" size="icon" onClick={() => onEdit(node)}>
+                                <Pencil className="h-4 w-4" />
+                            </Button>
+                        )}
                     </div>
                 </Card>
             </div>
@@ -95,6 +102,7 @@ const buildHierarchy = (users, redes, areas, cells) => {
                 const redeAreaIds = redeAreas.map(a => a.id);
                 const redeCells = cells.filter(c => redeAreaIds.includes(c.areaId));
                 return {
+                    ...rede,
                     id: rede.id,
                     nome: rede.nome,
                     liderName: userMap.get(rede.liderId)?.name || 'N/A',
@@ -103,12 +111,14 @@ const buildHierarchy = (users, redes, areas, cells) => {
                     children: redeAreas.map(area => { // Nível 3: Áreas
                         const areaCells = cells.filter(c => c.areaId === area.id);
                         return {
+                            ...area,
                             id: area.id,
                             nome: area.nome,
                             liderName: userMap.get(area.liderId)?.name || 'N/A',
                             type: 'area',
                             stats: { niveis: 0, grupos: areaCells.length, participantes: areaCells.reduce((sum, c) => sum + c.membros.length, 0), percentage: 53.21 },
                             children: areaCells.map(cell => ({ // Nível 4: Células
+                                ...cell,
                                 id: cell.id,
                                 nome: cell.nome,
                                 liderName: userMap.get(cell.liderId)?.name || 'N/A',
@@ -126,7 +136,7 @@ const buildHierarchy = (users, redes, areas, cells) => {
     return hierarchy;
 };
 
-const RenderHierarchy = ({ nodes, level = 1 }) => {
+const RenderHierarchy = ({ nodes, level = 1, onEditNode }) => {
     const [expandedNodes, setExpandedNodes] = useState({});
 
     const toggleNode = (nodeId) => {
@@ -142,9 +152,10 @@ const RenderHierarchy = ({ nodes, level = 1 }) => {
                     level={level}
                     isExpanded={!!expandedNodes[node.id]}
                     onToggle={() => toggleNode(node.id)}
+                    onEdit={node.type === 'rede' || node.type === 'area' ? onEditNode : null}
                 >
                     {node.children && node.children.length > 0 && (
-                        <RenderHierarchy nodes={node.children} level={level + 1} />
+                        <RenderHierarchy nodes={node.children} level={level + 1} onEditNode={onEditNode} />
                     )}
                 </HierarchyNode>
             ))}
@@ -157,6 +168,7 @@ export default function StructurePage() {
     const { firestore, user } = useFirebase();
     const [isRedeDialogOpen, setRedeDialogOpen] = useState(false);
     const [isAreaDialogOpen, setAreaDialogOpen] = useState(false);
+    const [editingNode, setEditingNode] = useState(null);
 
     const usersQuery = useMemoFirebase(() => user ? query(collection(firestore, 'users')) : null, [firestore, user]);
     const cellsQuery = useMemoFirebase(() => user ? query(collection(firestore, 'cells')) : null, [firestore, user]);
@@ -175,6 +187,21 @@ export default function StructurePage() {
     
     const isLoading = isLoadingUsers || isLoadingCells || isLoadingAreas || isLoadingRedes || !user;
 
+    const handleEditNode = (node) => {
+        setEditingNode(node);
+        if (node.type === 'rede') {
+            setRedeDialogOpen(true);
+        } else if (node.type === 'area') {
+            setAreaDialogOpen(true);
+        }
+    };
+
+    const handleCloseDialogs = () => {
+        setEditingNode(null);
+        setRedeDialogOpen(false);
+        setAreaDialogOpen(false);
+    };
+
     return (
         <>
             <Card>
@@ -184,11 +211,11 @@ export default function StructurePage() {
                         <CardDescription>Visualize e gerencie as redes, áreas e células da igreja.</CardDescription>
                     </div>
                     <div className="flex gap-2">
-                        <Button onClick={() => setAreaDialogOpen(true)}>
+                        <Button onClick={() => { setEditingNode(null); setAreaDialogOpen(true); }}>
                             <PlusCircle className="mr-2 h-4 w-4" />
                             Criar Área
                         </Button>
-                        <Button onClick={() => setRedeDialogOpen(true)}>
+                        <Button onClick={() => { setEditingNode(null); setRedeDialogOpen(true); }}>
                             <PlusCircle className="mr-2 h-4 w-4" />
                             Criar Rede
                         </Button>
@@ -201,7 +228,7 @@ export default function StructurePage() {
                             <p className="ml-4 text-muted-foreground">Carregando estrutura...</p>
                         </div>
                     ) : (
-                        <RenderHierarchy nodes={hierarchyData} />
+                        <RenderHierarchy nodes={hierarchyData} onEditNode={handleEditNode} />
                     )}
                 </CardContent>
             </Card>
@@ -209,17 +236,19 @@ export default function StructurePage() {
             {users && (
               <CreateRedeDialog 
                 open={isRedeDialogOpen}
-                onOpenChange={setRedeDialogOpen}
+                onOpenChange={handleCloseDialogs}
                 users={users}
+                existingRede={editingNode?.type === 'rede' ? editingNode : null}
               />
             )}
 
             {users && redes && (
                  <CreateAreaDialog 
                     open={isAreaDialogOpen}
-                    onOpenChange={setAreaDialogOpen}
+                    onOpenChange={handleCloseDialogs}
                     users={users}
                     redes={redes}
+                    existingArea={editingNode?.type === 'area' ? editingNode : null}
                 />
             )}
         </>
