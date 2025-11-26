@@ -1,0 +1,15 @@
+
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Permite que qualquer usuário autenticado leia e escreva arquivos.
+    // A regra 'create' não permite sobrescrever arquivos existentes com o mesmo nome.
+    // A regra 'delete' é bloqueada para proteger os dados.
+    match /{allPaths=**} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if false; // Proíbe a atualização ou exclusão de arquivos.
+    }
+  }
+}
