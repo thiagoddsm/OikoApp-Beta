@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Building, User, Shield, PlusCircle, Pencil, Network, Map as MapIcon, AreaChart } from "lucide-react";
+import { Loader2, Building, User, Shield, PlusCircle, Pencil, Network, Map as MapIcon, AreaChart, Calendar, Clock } from "lucide-react";
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
 
@@ -36,6 +36,11 @@ type Cell = {
   areaId: string;
   redeId: string;
   membros: string[];
+  meetingDay?: string;
+  meetingTime?: string;
+  address?: {
+      street: string;
+  }
 };
 
 type Area = {
@@ -56,33 +61,42 @@ type Rede = {
 function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas, redes, existingCell }) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Form state
   const [nome, setNome] = useState('');
   const [liderId, setLiderId] = useState('');
-  const [supervisorId, setSupervisorId] = useState(''); // Area leader
-  const [areaId, setAreaId] = useState('');
   const [redeId, setRedeId] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
+  const [areaId, setAreaId] = useState('');
+  const [street, setStreet] = useState('');
+  const [meetingDay, setMeetingDay] = useState('');
+  const [meetingTime, setMeetingTime] = useState('');
 
   const availableAreas = useMemo(() => {
     if (!redeId || !areas) return [];
     return areas.filter(a => a.redeId === redeId);
   }, [redeId, areas]);
 
+  const areaMap = useMemo(() => new Map(areas?.map(a => [a.id, a]) || []), [areas]);
 
   useEffect(() => {
     if (existingCell) {
       setNome(existingCell.nome || '');
       setLiderId(existingCell.liderId || '');
-      setSupervisorId(existingCell.supervisorId || '');
       setRedeId(existingCell.redeId || '');
       setAreaId(existingCell.areaId || '');
+      setStreet(existingCell.address?.street || '');
+      setMeetingDay(existingCell.meetingDay || '');
+      setMeetingTime(existingCell.meetingTime || '');
     } else {
       // Reset form
       setNome('');
       setLiderId('');
-      setSupervisorId('');
       setAreaId('');
       setRedeId('');
+      setStreet('');
+      setMeetingDay('');
+      setMeetingTime('');
     }
   }, [existingCell, open]);
   
@@ -95,7 +109,10 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
 
 
   const handleSave = async () => {
-    if (!nome || !liderId || !supervisorId || !areaId || !redeId) {
+    const selectedArea = areaMap.get(areaId);
+    const supervisorId = selectedArea?.liderId;
+
+    if (!nome || !liderId || !areaId || !redeId || !supervisorId) {
       toast({
         variant: "destructive",
         title: "Campos obrigatórios",
@@ -110,7 +127,12 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
       liderId,
       supervisorId,
       areaId,
-      redeId
+      redeId,
+      address: {
+        street
+      },
+      meetingDay,
+      meetingTime
     };
 
     if (existingCell) {
@@ -147,7 +169,7 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{existingCell ? 'Editar Célula' : 'Criar Nova Célula'}</DialogTitle>
           <DialogDescription>
@@ -206,20 +228,36 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
                 </SelectContent>
             </Select>
           </div>
-           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="supervisor" className="text-right">
-              Líder (Área)
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="street" className="text-right">
+              Endereço
             </Label>
-            <Select value={supervisorId} onValueChange={setSupervisorId}>
+            <Input id="street" value={street} onChange={(e) => setStreet(e.target.value)} className="col-span-3" placeholder="Logradouro, Nº, Bairro"/>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="meetingDay" className="text-right">
+              Dia
+            </Label>
+             <Select value={meetingDay} onValueChange={setMeetingDay}>
                 <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Selecione um líder de área" />
+                    <SelectValue placeholder="Selecione o dia da reunião" />
                 </SelectTrigger>
                 <SelectContent>
-                    {supervisors.map(user => (
-                        <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
-                    ))}
+                    <SelectItem value="Segunda-feira">Segunda-feira</SelectItem>
+                    <SelectItem value="Terça-feira">Terça-feira</SelectItem>
+                    <SelectItem value="Quarta-feira">Quarta-feira</SelectItem>
+                    <SelectItem value="Quinta-feira">Quinta-feira</SelectItem>
+                    <SelectItem value="Sexta-feira">Sexta-feira</SelectItem>
+                    <SelectItem value="Sábado">Sábado</SelectItem>
+                    <SelectItem value="Domingo">Domingo</SelectItem>
                 </SelectContent>
             </Select>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="meetingTime" className="text-right">
+              Horário
+            </Label>
+            <Input id="meetingTime" type="time" value={meetingTime} onChange={(e) => setMeetingTime(e.target.value)} className="col-span-3"/>
           </div>
         </div>
         <DialogFooter>
@@ -301,9 +339,10 @@ export default function CellsPage() {
                 <TableRow>
                   <TableHead><Building className="inline-block mr-2 h-4 w-4" />Célula</TableHead>
                   <TableHead><User className="inline-block mr-2 h-4 w-4" />Líder (GC)</TableHead>
-                  <TableHead><Shield className="inline-block mr-2 h-4 w-4" />Líder (Área)</TableHead>
                   <TableHead><AreaChart className="inline-block mr-2 h-4 w-4" />Área</TableHead>
                   <TableHead><Network className="inline-block mr-2 h-4 w-4" />Rede</TableHead>
+                  <TableHead><Calendar className="inline-block mr-2 h-4 w-4" />Dia</TableHead>
+                  <TableHead><Clock className="inline-block mr-2 h-4 w-4" />Horário</TableHead>
                   <TableHead className="text-center">Membros</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
@@ -311,7 +350,6 @@ export default function CellsPage() {
               <TableBody>
                 {cells?.map((cell) => {
                   const leader = userMap.get(cell.liderId);
-                  const supervisor = userMap.get(cell.supervisorId);
                   const area = areaMap.get(cell.areaId);
                   const rede = redeMap.get(cell.redeId);
                   const leaderAvatar = PlaceHolderImages.find(p => p.id === (leader?.avatar || 'avatar-4'));
@@ -332,9 +370,10 @@ export default function CellsPage() {
                           <span>{leader?.name || 'Não definido'}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{supervisor?.name || 'Não definido'}</TableCell>
                       <TableCell className="text-muted-foreground">{area?.nome || 'Não definida'}</TableCell>
                       <TableCell className="text-muted-foreground">{rede?.nome || 'Não definida'}</TableCell>
+                      <TableCell className="text-muted-foreground">{cell.meetingDay || '-'}</TableCell>
+                      <TableCell className="text-muted-foreground">{cell.meetingTime || '-'}</TableCell>
                       <TableCell className="text-center">
                          <Badge variant="secondary">{cell.membros?.length || 0}</Badge>
                       </TableCell>
@@ -368,3 +407,5 @@ export default function CellsPage() {
     </>
   );
 }
+
+    

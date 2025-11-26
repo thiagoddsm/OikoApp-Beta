@@ -134,6 +134,26 @@
           "description": "Array of user IDs who are members of this cell.",
           "items": { "type": "string" }
         },
+        "address": {
+          "type": "object",
+          "description": "The meeting address for the cell.",
+          "properties": {
+            "street": { "type": "string" },
+            "city": { "type": "string" },
+            "state": { "type": "string" },
+            "zip": { "type": "string" }
+          }
+        },
+        "meetingDay": {
+          "type": "string",
+          "description": "The day of the week the cell meets.",
+          "enum": ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado", "Domingo"]
+        },
+        "meetingTime": {
+          "type": "string",
+          "description": "The time the cell meets.",
+          "format": "time"
+        },
         "healthStats": {
           "type": "object",
           "description": "Stores health score and related stats for the cell.",
@@ -506,3 +526,5 @@
     "enabled": true
   }
 }
+
+    
