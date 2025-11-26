@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Building, User, Shield, PlusCircle, Pencil } from "lucide-react";
+import { Loader2, Building, User, Shield, PlusCircle, Pencil, Network, MapArea } from "lucide-react";
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
 
@@ -32,38 +32,71 @@ type Cell = {
   id: string;
   nome: string;
   liderId: string;
-  supervisorId: string;
+  supervisorId: string; // Area Leader
+  areaId: string;
+  redeId: string;
   membros: string[];
 };
 
-function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, existingCell }) {
+type Area = {
+  id: string;
+  nome: string;
+  redeId: string;
+};
+
+type Rede = {
+  id: string;
+  nome: string;
+};
+
+
+function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas, redes, existingCell }) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [nome, setNome] = useState('');
   const [liderId, setLiderId] = useState('');
-  const [supervisorId, setSupervisorId] = useState('');
+  const [supervisorId, setSupervisorId] = useState(''); // Area leader
+  const [areaId, setAreaId] = useState('');
+  const [redeId, setRedeId] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+
+  const availableAreas = useMemo(() => {
+    if (!redeId || !areas) return [];
+    return areas.filter(a => a.redeId === redeId);
+  }, [redeId, areas]);
+
 
   useEffect(() => {
     if (existingCell) {
       setNome(existingCell.nome || '');
       setLiderId(existingCell.liderId || '');
       setSupervisorId(existingCell.supervisorId || '');
+      setRedeId(existingCell.redeId || '');
+      setAreaId(existingCell.areaId || '');
     } else {
-      // Reset form when switching to create mode
+      // Reset form
       setNome('');
       setLiderId('');
       setSupervisorId('');
+      setAreaId('');
+      setRedeId('');
     }
   }, [existingCell, open]);
   
+  useEffect(() => {
+    // Reset area if network changes and the selected area is not in the new network
+    if (areaId && !availableAreas.find(a => a.id === areaId)) {
+      setAreaId('');
+    }
+  }, [redeId, availableAreas, areaId]);
+
 
   const handleSave = async () => {
-    if (!nome || !liderId || !supervisorId) {
+    if (!nome || !liderId || !supervisorId || !areaId || !redeId) {
       toast({
         variant: "destructive",
         title: "Campos obrigatórios",
-        description: "Por favor, preencha todos os campos.",
+        description: "Por favor, preencha todos os campos, incluindo Rede e Área.",
       });
       return;
     }
@@ -73,10 +106,11 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, existi
       nome,
       liderId,
       supervisorId,
+      areaId,
+      redeId
     };
 
     if (existingCell) {
-      // Update existing cell
       const cellDocRef = doc(firestore, 'cells', existingCell.id);
       updateDocumentNonBlocking(cellDocRef, cellData).then(() => {
         toast({
@@ -90,7 +124,6 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, existi
         setIsSaving(false);
       });
     } else {
-      // Create new cell
       const cellsCollection = collection(firestore, 'cells');
       addDocumentNonBlocking(cellsCollection, {
         ...cellData,
@@ -126,8 +159,38 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, existi
             <Input id="name" value={nome} onChange={(e) => setNome(e.target.value)} className="col-span-3" placeholder="Nome da Célula"/>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="rede" className="text-right">
+              Rede
+            </Label>
+            <Select value={redeId} onValueChange={setRedeId}>
+                <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Selecione a Rede" />
+                </SelectTrigger>
+                <SelectContent>
+                    {redes.map(rede => (
+                        <SelectItem key={rede.id} value={rede.id}>{rede.nome}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="area" className="text-right">
+              Área
+            </Label>
+            <Select value={areaId} onValueChange={setAreaId} disabled={!redeId || availableAreas.length === 0}>
+                <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder={!redeId ? "Selecione uma rede primeiro" : "Selecione a Área"} />
+                </SelectTrigger>
+                <SelectContent>
+                    {availableAreas.map(area => (
+                        <SelectItem key={area.id} value={area.id}>{area.nome}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="leader" className="text-right">
-              Líder
+              Líder (GC)
             </Label>
             <Select value={liderId} onValueChange={setLiderId}>
                 <SelectTrigger className="col-span-3">
@@ -142,11 +205,11 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, existi
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="supervisor" className="text-right">
-              Supervisor
+              Líder (Área)
             </Label>
             <Select value={supervisorId} onValueChange={setSupervisorId}>
                 <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Selecione um supervisor" />
+                    <SelectValue placeholder="Selecione um líder de área" />
                 </SelectTrigger>
                 <SelectContent>
                     {supervisors.map(user => (
@@ -176,27 +239,24 @@ export default function CellsPage() {
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [editingCell, setEditingCell] = useState<Cell | null>(null);
 
-  const usersQuery = useMemoFirebase(() => 
-    user && firestore ? query(collection(firestore, 'users')) : null, 
-    [firestore, user]
-  );
-  
-  const cellsQuery = useMemoFirebase(() => 
-    user && firestore ? query(collection(firestore, 'cells')) : null, 
-    [firestore, user]
-  );
+  const usersQuery = useMemoFirebase(() => user && firestore ? query(collection(firestore, 'users')) : null, [firestore, user]);
+  const cellsQuery = useMemoFirebase(() => user && firestore ? query(collection(firestore, 'cells')) : null, [firestore, user]);
+  const areasQuery = useMemoFirebase(() => user && firestore ? query(collection(firestore, 'areas')) : null, [firestore, user]);
+  const redesQuery = useMemoFirebase(() => user && firestore ? query(collection(firestore, 'redes')) : null, [firestore, user]);
 
   const { data: users, isLoading: isLoadingUsers } = useCollection<UserType>(usersQuery);
   const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>(cellsQuery);
+  const { data: areas, isLoading: isLoadingAreas } = useCollection<Area>(areasQuery);
+  const { data: redes, isLoading: isLoadingRedes } = useCollection<Rede>(redesQuery);
 
-  const userMap = useMemo(() => {
-    if (!users) return new Map();
-    return new Map(users.map(user => [user.id, user]));
-  }, [users]);
+  const userMap = useMemo(() => new Map(users?.map(u => [u.id, u]) || []), [users]);
+  const areaMap = useMemo(() => new Map(areas?.map(a => [a.id, a]) || []), [areas]);
+  const redeMap = useMemo(() => new Map(redes?.map(r => [r.id, r]) || []), [redes]);
 
   const supervisors = useMemo(() => {
     if (!users) return [];
-    return users.filter(u => u.hierarchy?.role && u.hierarchy.role !== 'membro');
+    const supervisorRoles = ['lider_area', 'lider_rede', 'pastor_senior', 'admin'];
+    return users.filter(u => u.hierarchy?.role && supervisorRoles.includes(u.hierarchy.role));
   }, [users]);
 
   const handleOpenCreateDialog = () => {
@@ -209,7 +269,7 @@ export default function CellsPage() {
     setDialogOpen(true);
   };
   
-  const isLoading = isLoadingUsers || isLoadingCells || !user;
+  const isLoading = isLoadingUsers || isLoadingCells || isLoadingAreas || isLoadingRedes || !user;
 
   return (
     <>
@@ -218,7 +278,7 @@ export default function CellsPage() {
           <div>
             <CardTitle>Gestão de Células</CardTitle>
             <CardDescription>
-              Visualize, crie e edite as células, líderes e supervisores.
+              Visualize, crie e edite as células e sua estrutura hierárquica.
             </CardDescription>
           </div>
           <Button onClick={handleOpenCreateDialog}>
@@ -237,9 +297,11 @@ export default function CellsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead><Building className="inline-block mr-2 h-4 w-4" />Célula</TableHead>
-                  <TableHead><User className="inline-block mr-2 h-4 w-4" />Líder</TableHead>
-                  <TableHead><Shield className="inline-block mr-2 h-4 w-4" />Supervisor</TableHead>
-                  <TableHead className="text-center">Usuários</TableHead>
+                  <TableHead><User className="inline-block mr-2 h-4 w-4" />Líder (GC)</TableHead>
+                  <TableHead><Shield className="inline-block mr-2 h-4 w-4" />Líder (Área)</TableHead>
+                  <TableHead><MapArea className="inline-block mr-2 h-4 w-4" />Área</TableHead>
+                  <TableHead><Network className="inline-block mr-2 h-4 w-4" />Rede</TableHead>
+                  <TableHead className="text-center">Membros</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -247,6 +309,8 @@ export default function CellsPage() {
                 {cells?.map((cell) => {
                   const leader = userMap.get(cell.liderId);
                   const supervisor = userMap.get(cell.supervisorId);
+                  const area = areaMap.get(cell.areaId);
+                  const rede = redeMap.get(cell.redeId);
                   const leaderAvatar = PlaceHolderImages.find(p => p.id === (leader?.avatar || 'avatar-4'));
 
                   return (
@@ -266,6 +330,8 @@ export default function CellsPage() {
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">{supervisor?.name || 'Não definido'}</TableCell>
+                      <TableCell className="text-muted-foreground">{area?.nome || 'Não definida'}</TableCell>
+                      <TableCell className="text-muted-foreground">{rede?.nome || 'Não definida'}</TableCell>
                       <TableCell className="text-center">
                          <Badge variant="secondary">{cell.membros?.length || 0}</Badge>
                       </TableCell>
@@ -285,12 +351,14 @@ export default function CellsPage() {
       </CardContent>
     </Card>
 
-    {users && supervisors && (
+    {users && supervisors && areas && redes &&(
       <CreateOrEditCellDialog 
         open={isDialogOpen}
         onOpenChange={setDialogOpen}
         users={users}
         supervisors={supervisors}
+        areas={areas}
+        redes={redes}
         existingCell={editingCell}
       />
     )}

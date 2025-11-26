@@ -121,52 +121,58 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Cell",
       "type": "object",
-      "description": "Represents a cell group within the church.",
+      "description": "Represents a cell group (GC) within the church.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Cell entity."
-        },
-        "nome": {
-          "type": "string",
-          "description": "The name of the cell group."
-        },
-        "liderId": {
-          "type": "string",
-          "description": "Reference to User (Cell Leader). (Relationship: User 1:N Cell) The ID of the cell leader."
-        },
-        "supervisorId": {
-          "type": "string",
-          "description": "Reference to User (Supervisor). (Relationship: User 1:N Cell) The ID of the supervisor overseeing the cell."
-        },
+        "id": { "type": "string" },
+        "nome": { "type": "string", "description": "The name of the cell group." },
+        "liderId": { "type": "string", "description": "User ID of the Cell Leader (Líder de GC)." },
+        "supervisorId": { "type": "string", "description": "User ID of the Area Leader overseeing the cell." },
+        "areaId": { "type": "string", "description": "The ID of the Area this cell belongs to." },
+        "redeId": { "type": "string", "description": "The ID of the Rede this cell belongs to." },
         "membros": {
           "type": "array",
-          "description": "References to Users. (Relationship: Cell 1:N User) An array of user IDs representing the users in the cell.",
-          "items": {
-            "type": "string"
-          }
+          "description": "Array of user IDs who are members of this cell.",
+          "items": { "type": "string" }
         },
         "healthStats": {
-            "type": "object",
-            "description": "Stores the calculated health score and related stats for the cell.",
-            "properties": {
-                "lastScore": { "type": "number" },
-                "healthColor": { "type": "string", "enum": ["green", "blue", "yellow", "red"] },
-                "streakRelatorios": { "type": "number" },
-                "conversionRate": { "type": "number" }
-            }
+          "type": "object",
+          "description": "Stores health score and related stats for the cell.",
+          "properties": {
+            "lastScore": { "type": "number" },
+            "healthColor": { "type": "string", "enum": ["green", "blue", "yellow", "red"] },
+            "streakRelatorios": { "type": "number" },
+            "conversionRate": { "type": "number" }
+          }
         },
-        "linkedKidsCellId": {
-            "type": "string",
-            "description": "ID of the linked kids cell, if any."
-        }
+        "linkedKidsCellId": { "type": "string", "description": "ID of the linked kids cell, if any." }
       },
-      "required": [
-        "id",
-        "nome",
-        "liderId",
-        "supervisorId"
-      ]
+      "required": ["id", "nome", "liderId", "supervisorId", "areaId", "redeId"]
+    },
+    "Area": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Area",
+      "type": "object",
+      "description": "Represents a geographical or logical area containing multiple cell groups.",
+      "properties": {
+        "id": { "type": "string" },
+        "nome": { "type": "string", "description": "The name of the area." },
+        "liderId": { "type": "string", "description": "User ID of the Area Leader." },
+        "redeId": { "type": "string", "description": "The ID of the Rede this area belongs to." }
+      },
+      "required": ["id", "nome", "liderId", "redeId"]
+    },
+    "Rede": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Rede",
+      "type": "object",
+      "description": "Represents a network, a high-level grouping of multiple areas.",
+      "properties": {
+        "id": { "type": "string" },
+        "nome": { "type": "string", "description": "The name of the network." },
+        "liderId": { "type": "string", "description": "User ID of the Network Leader." },
+        "pastorId": { "type": "string", "description": "User ID of the overseeing Pastor." }
+      },
+      "required": ["id", "nome", "liderId", "pastorId"]
     },
     "AttendanceReport": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -426,119 +432,74 @@
         "path": "/users/{userId}",
         "definition": {
           "entityName": "User",
-          "schema": {
-            "$ref": "#/backend/entities/User"
-          },
-          "description": "Stores user profiles. The 'role' field determines user privileges. Includes 'celulaId' to link users to cells.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/User" },
+          "description": "Stores user profiles."
         }
       },
       {
         "path": "/cells/{cellId}",
         "definition": {
           "entityName": "Cell",
-          "schema": {
-            "$ref": "#/backend/entities/Cell"
-          },
-          "description": "Represents cell groups. Contains 'liderId', 'supervisorId', and a 'membros' array listing user IDs in the cell.",
-          "params": [
-            {
-              "name": "cellId",
-              "description": "The unique identifier for the cell."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/Cell" },
+          "description": "Represents cell groups (GCs). Contains leadership and hierarchy info."
+        }
+      },
+      {
+        "path": "/areas/{areaId}",
+        "definition": {
+          "entityName": "Area",
+          "schema": { "$ref": "#/backend/entities/Area" },
+          "description": "Groups of cells."
+        }
+      },
+      {
+        "path": "/redes/{redeId}",
+        "definition": {
+          "entityName": "Rede",
+          "schema": { "$ref": "#/backend/entities/Rede" },
+          "description": "High-level groups of areas (networks)."
         }
       },
       {
         "path": "/attendance_reports/{reportId}",
         "definition": {
           "entityName": "AttendanceReport",
-          "schema": {
-            "$ref": "#/backend/entities/AttendanceReport"
-          },
-          "description": "Stores attendance reports for cell meetings. Includes 'cellId', 'date', and 'presentMembers'.",
-          "params": [
-            {
-              "name": "reportId",
-              "description": "The unique identifier for the attendance report."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/AttendanceReport" },
+          "description": "Stores attendance reports for cell meetings."
         }
       },
       {
         "path": "/leader_tasks/{taskId}",
         "definition": {
           "entityName": "LeaderTask",
-          "schema": {
-            "$ref": "#/backend/entities/LeaderTask"
-          },
-          "description": "Tracks tasks assigned to cell leaders. Includes task type, target user, due date, and status.",
-          "params": [
-            {
-              "name": "taskId",
-              "description": "The unique identifier for the leader task."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/LeaderTask" },
+          "description": "Tracks tasks assigned to cell leaders."
         }
       },
       {
         "path": "/discipleship_plans/{planId}",
         "definition": {
           "entityName": "DiscipleshipPlan",
-          "schema": {
-            "$ref": "#/backend/entities/DiscipleshipPlan"
-          },
-          "description": "Manages discipleship plans between leaders and users. Tracks plan status and development steps.",
-          "params": [
-            {
-              "name": "planId",
-              "description": "The unique identifier for the discipleship plan."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/DiscipleshipPlan" },
+          "description": "Manages discipleship plans between leaders and users."
         }
       },
       {
         "path": "/cultos/{userId}/registros/{registroId}",
         "definition": {
           "entityName": "CultoRegistro",
-          "schema": {
-            "$ref": "#/backend/entities/CultoRegistro"
-          },
-          "description": "Stores records of attendance and other details for church services, owned by each user.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier for the user."
-            },
-            {
-              "name": "registroId",
-              "description": "The unique identifier for the culto registro."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/CultoRegistro" },
+          "description": "Stores records of attendance for church services, owned by each user."
         }
       },
       {
         "path": "/member_notes/{noteId}",
         "definition": {
           "entityName": "MemberNote",
-          "schema": {
-            "$ref": "#/backend/entities/MemberNote"
-          },
-          "description": "Stores notes about users made by leaders. Access is controlled by 'authorId' and 'memberId'.",
-          "params": [
-            {
-              "name": "noteId",
-              "description": "The unique identifier for the member note."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/MemberNote" },
+          "description": "Stores notes about users made by leaders."
         }
       }
-    ],
-    "reasoning": "The Firestore structure is designed to support the ConectarGC application, focusing on managing church cell groups and user engagement. The core principle is Authorization Independence, achieved through path-based ownership for user-specific data and denormalization of authorization information (especially cell membership) where needed.\n\n**Authorization Independence:**\n\n*   **User-Owned Data:** Attendance reports and culto registros are stored under a user-specific path (`/cultos/{userId}`), granting straightforward ownership-based security. No `get()` calls are needed to verify user identity for their own data.\n*   **Collaborative Data (Cells):** While cell data itself doesn't directly involve user-level access control in the provided schema, any subcollections related to collaborative activities within a cell (hypothetically, a `/cells/{cellId}/meeting_notes` collection) would require denormalization of the `membros` array from the `/cells/{cellId}` document into each meeting note. This eliminates the need for rules to fetch cell member lists to authorize write access.\n\n**QAPs (Query Authorization Patterns):**\n\n*   **Secure List Operations:** Path-based ownership (`/cultos/{userId}/registros`) inherently secures list operations. A user can only list their own culto registros.\n*   **Role-Based Access Control:** Admin privileges are managed via the 'role' field within each user's document in the `/users` collection, enabling secure role-based authorization.\n\n**Structure Explanation:**\n\n*   `/users/{userId}`: Stores user profiles. The `hierarchy.role` field determines the user's privileges within the app. The `celulaId` field links users to their respective cells.\n*   `/cells/{cellId}`: Represents cell groups. Contains the `liderId` and `supervisorId` for cell management. The `membros` array lists user IDs belonging to the cell.\n*   `/attendance_reports/{reportId}`: Stores attendance reports for cell meetings. Includes `cellId`, `date`, `presentMembers`, and other relevant details.\n*   `/leader_tasks/{taskId}`: Tracks tasks assigned to cell leaders. Includes information about the task type, target user, due date, and status.\n*   `/discipleship_plans/{planId}`: Manages discipleship plans between leaders and users. Tracks the plan's status and development steps.\n*   `/cultos/{userId}/registros/{registroId}`: Stores records of attendance and other details for church services, owned by each user. This nested structure ensures a user can only access their own records.\n\nThis structure balances security, scalability, and debuggability by adhering to the core design principles and strategy mandates."
+    ]
   }
 }
