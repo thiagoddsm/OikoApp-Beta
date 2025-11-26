@@ -1,14 +1,46 @@
+
 'use client';
 
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Map } from "lucide-react";
+import { Map as MapIcon, Loader2 } from "lucide-react";
+import { useFirebase, useMemoFirebase } from '@/firebase';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { collection, query } from 'firebase/firestore';
+import { MapView } from '@/components/gc/map-view';
+
+type Cell = {
+  id: string;
+  nome: string;
+  liderId: string;
+  address?: {
+      street: string;
+      lat?: number;
+      lng?: number;
+  }
+};
+
+type User = {
+  id: string;
+  name: string;
+};
 
 export default function MapPage() {
+  const { firestore, user } = useFirebase();
+
+  const cellsQuery = useMemoFirebase(() => user && firestore ? query(collection(firestore, 'cells')) : null, [firestore, user]);
+  const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>(cellsQuery);
+  
+  const usersQuery = useMemoFirebase(() => user && firestore ? query(collection(firestore, 'users')) : null, [firestore, user]);
+  const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
+
+  const isLoading = isLoadingCells || isLoadingUsers;
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Map className="size-5" />
+          <MapIcon className="size-5" />
           Mapa das Células
         </CardTitle>
         <CardDescription>
@@ -16,9 +48,16 @@ export default function MapPage() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="flex items-center justify-center h-96 border-2 border-dashed rounded-lg bg-muted">
-          <p className="text-muted-foreground">Funcionalidade de Mapa em desenvolvimento.</p>
-        </div>
+        {isLoading ? (
+          <div className="flex items-center justify-center h-96">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="ml-4 text-muted-foreground">Carregando dados do mapa...</p>
+          </div>
+        ) : (
+          <div className="h-[600px] w-full rounded-lg overflow-hidden border">
+             {cells && users && <MapView cells={cells} users={users} />}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

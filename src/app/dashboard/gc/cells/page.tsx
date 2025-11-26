@@ -42,6 +42,8 @@ type Cell = {
   meetingTime?: string;
   address?: {
       street: string;
+      lat?: number;
+      lng?: number;
   }
 };
 
@@ -71,6 +73,8 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
   const [redeId, setRedeId] = useState('');
   const [areaId, setAreaId] = useState('');
   const [street, setStreet] = useState('');
+  const [lat, setLat] = useState<number | undefined>(undefined);
+  const [lng, setLng] = useState<number | undefined>(undefined);
   const [meetingDay, setMeetingDay] = useState('');
   const [meetingTime, setMeetingTime] = useState('');
 
@@ -88,6 +92,8 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
       setRedeId(existingCell.redeId || '');
       setAreaId(existingCell.areaId || '');
       setStreet(existingCell.address?.street || '');
+      setLat(existingCell.address?.lat);
+      setLng(existingCell.address?.lng);
       setMeetingDay(existingCell.meetingDay || '');
       setMeetingTime(existingCell.meetingTime || '');
     } else {
@@ -97,6 +103,8 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
       setAreaId('');
       setRedeId('');
       setStreet('');
+      setLat(undefined);
+      setLng(undefined);
       setMeetingDay('');
       setMeetingTime('');
     }
@@ -109,6 +117,16 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
     }
   }, [redeId, availableAreas, areaId]);
 
+
+  const handleAddressSelect = (place: google.maps.places.PlaceResult | null) => {
+    if (place) {
+        setStreet(place.formatted_address || '');
+        if (place.geometry?.location) {
+            setLat(place.geometry.location.lat());
+            setLng(place.geometry.location.lng());
+        }
+    }
+  };
 
   const handleSave = async () => {
     const selectedArea = areaMap.get(areaId);
@@ -131,7 +149,9 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
       areaId,
       redeId,
       address: {
-        street
+        street,
+        lat,
+        lng,
       },
       meetingDay,
       meetingTime
@@ -228,7 +248,7 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
             <div className="col-span-3">
                 <GooglePlacesAutocomplete
                     defaultValue={street}
-                    onAddressSelect={(address) => setStreet(address?.formatted_address || '')}
+                    onAddressSelect={handleAddressSelect}
                 />
             </div>
           </div>

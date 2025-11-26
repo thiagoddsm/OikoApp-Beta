@@ -136,12 +136,11 @@
         },
         "address": {
           "type": "object",
-          "description": "The meeting address for the cell.",
+          "description": "The meeting address for the cell, including geocoordinates.",
           "properties": {
             "street": { "type": "string" },
-            "city": { "type": "string" },
-            "state": { "type": "string" },
-            "zip": { "type": "string" }
+            "lat": { "type": "number", "description": "Latitude of the address." },
+            "lng": { "type": "number", "description": "Longitude of the address." }
           }
         },
         "meetingDay": {
@@ -526,5 +525,3 @@
     "enabled": true
   }
 }
-
-    
