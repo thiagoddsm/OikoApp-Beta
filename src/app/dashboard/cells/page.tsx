@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Building, User, Shield, PlusCircle, Pencil, Network, MapArea } from "lucide-react";
+import { Loader2, Building, User, Shield, PlusCircle, Pencil, Network, Map, AreaChart } from "lucide-react";
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
 
@@ -41,12 +41,15 @@ type Cell = {
 type Area = {
   id: string;
   nome: string;
+  liderId: string;
   redeId: string;
 };
 
 type Rede = {
   id: string;
   nome: string;
+  liderId: string;
+  pastorId: string;
 };
 
 
@@ -299,7 +302,7 @@ export default function CellsPage() {
                   <TableHead><Building className="inline-block mr-2 h-4 w-4" />Célula</TableHead>
                   <TableHead><User className="inline-block mr-2 h-4 w-4" />Líder (GC)</TableHead>
                   <TableHead><Shield className="inline-block mr-2 h-4 w-4" />Líder (Área)</TableHead>
-                  <TableHead><MapArea className="inline-block mr-2 h-4 w-4" />Área</TableHead>
+                  <TableHead><AreaChart className="inline-block mr-2 h-4 w-4" />Área</TableHead>
                   <TableHead><Network className="inline-block mr-2 h-4 w-4" />Rede</TableHead>
                   <TableHead className="text-center">Membros</TableHead>
                   <TableHead className="text-right">Ações</TableHead>

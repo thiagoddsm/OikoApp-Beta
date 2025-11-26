@@ -15,6 +15,7 @@ import {
   CalendarCheck,
   Loader2,
   BarChart2,
+  Network,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -80,6 +81,7 @@ export default function DashboardLayout({
   const menuItems = [
     { href: "/dashboard", label: "Dashboard", icon: Home },
     { href: "/dashboard/users", label: "Usuários", icon: Users },
+    { href: "/dashboard/structure", label: "Estrutura", icon: Network },
     { href: "/dashboard/cells", label: "Células", icon: Building },
     { href: "/dashboard/report", label: "Relatório de Célula", icon: FileText, highlight: true },
     { href: "/dashboard/attendance", label: "Presença Culto", icon: CalendarCheck },
