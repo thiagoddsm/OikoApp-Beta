@@ -4,8 +4,12 @@
 import React, { useState, useMemo } from 'react';
 import { useFirebase, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Loader2, Users, Plus, Minus, Flag } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
+import { Loader2, Users, Plus, Minus, Flag, PlusCircle } from "lucide-react";
+import { Button } from '@/components/ui/button';
+import { CreateRedeDialog } from '@/components/structure/create-rede-dialog';
+import { CreateAreaDialog } from '@/components/structure/create-area-dialog';
+
 
 type User = { id: string; name: string; hierarchy?: { role?: string; } };
 type Cell = { id: string; nome: string; liderId: string; areaId: string; redeId: string; membros: string[] };
@@ -151,6 +155,8 @@ const RenderHierarchy = ({ nodes, level = 1 }) => {
 
 export default function StructurePage() {
     const { firestore, user } = useFirebase();
+    const [isRedeDialogOpen, setRedeDialogOpen] = useState(false);
+    const [isAreaDialogOpen, setAreaDialogOpen] = useState(false);
 
     const usersQuery = useMemoFirebase(() => user ? query(collection(firestore, 'users')) : null, [firestore, user]);
     const cellsQuery = useMemoFirebase(() => user ? query(collection(firestore, 'cells')) : null, [firestore, user]);
@@ -170,21 +176,53 @@ export default function StructurePage() {
     const isLoading = isLoadingUsers || isLoadingCells || isLoadingAreas || isLoadingRedes || !user;
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Estrutura Hierárquica</CardTitle>
-            </CardHeader>
-            <CardContent>
-                {isLoading ? (
-                    <div className="flex items-center justify-center h-48">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        <p className="ml-4 text-muted-foreground">Carregando estrutura...</p>
+        <>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle>Estrutura Hierárquica</CardTitle>
+                        <CardDescription>Visualize e gerencie as redes, áreas e células da igreja.</CardDescription>
                     </div>
-                ) : (
-                    <RenderHierarchy nodes={hierarchyData} />
-                )}
-            </CardContent>
-        </Card>
+                    <div className="flex gap-2">
+                        <Button onClick={() => setAreaDialogOpen(true)}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Criar Área
+                        </Button>
+                        <Button onClick={() => setRedeDialogOpen(true)}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Criar Rede
+                        </Button>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    {isLoading ? (
+                        <div className="flex items-center justify-center h-48">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            <p className="ml-4 text-muted-foreground">Carregando estrutura...</p>
+                        </div>
+                    ) : (
+                        <RenderHierarchy nodes={hierarchyData} />
+                    )}
+                </CardContent>
+            </Card>
+
+            {users && (
+              <CreateRedeDialog 
+                open={isRedeDialogOpen}
+                onOpenChange={setRedeDialogOpen}
+                users={users}
+              />
+            )}
+
+            {users && redes && (
+                 <CreateAreaDialog 
+                    open={isAreaDialogOpen}
+                    onOpenChange={setAreaDialogOpen}
+                    users={users}
+                    redes={redes}
+                />
+            )}
+        </>
     );
 }
 
