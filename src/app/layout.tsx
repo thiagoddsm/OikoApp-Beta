@@ -30,6 +30,12 @@ export default function RootLayout({
           `,
             }}
           />
+        {googleMapsApiKey && (
+          <Script
+            src={`https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places`}
+            strategy="beforeInteractive"
+          />
+        )}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
@@ -37,12 +43,6 @@ export default function RootLayout({
       <body className={cn(
         "min-h-screen bg-background font-body antialiased"
       )}>
-        {googleMapsApiKey && (
-          <Script
-            src={`https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places`}
-            strategy="beforeInteractive"
-          />
-        )}
         <FirebaseClientProvider>
           {children}
         </FirebaseClientProvider>

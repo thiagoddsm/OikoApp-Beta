@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -18,7 +17,8 @@ import {
   Network,
   ChevronDown,
   Building,
-  ClipboardList
+  ClipboardList,
+  Map,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -61,6 +61,7 @@ const menuItems = [
         { href: "/dashboard/gc/structure", label: "Estrutura", icon: Network },
         { href: "/dashboard/gc/cells", label: "Células", icon: Building },
         { href: "/dashboard/gc/report", label: "Relatório de Célula", icon: ClipboardList },
+        { href: "/dashboard/gc/map", label: "Mapa", icon: Map },
       ]
     },
     { href: "/dashboard/attendance", label: "Presença Culto", icon: CalendarCheck },
@@ -113,6 +114,7 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/users')) return 'Usuários';
       if (path.startsWith('/dashboard/gc/cells')) return 'Células';
       if (path.startsWith('/dashboard/gc/report')) return 'Relatório de Célula';
+      if (path.startsWith('/dashboard/gc/map')) return 'Mapa das Células';
       if (path.startsWith('/dashboard/gc')) return 'Estrutura de GC';
       if (path.startsWith('/dashboard/attendance')) return 'Presença Culto';
       if (path.startsWith('/dashboard/reports')) return 'Análises';
@@ -140,7 +142,7 @@ export default function DashboardLayout({
              {menuItems.map((item) => 
               item.subItems ? (
                 <Collapsible key={item.label} className="w-full" defaultOpen={pathname.startsWith('/dashboard/gc')}>
-                  <SidebarMenuItem className="w-full">
+                  <SidebarMenuItem asChild className="w-full">
                      <CollapsibleTrigger asChild className="w-full">
                        <SidebarMenuButton className="justify-between w-full" isActive={pathname.startsWith('/dashboard/gc')}>
                           <div className="flex items-center gap-2">
