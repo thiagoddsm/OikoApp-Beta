@@ -3,10 +3,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import React from 'react';
 import {
   Home,
   Users,
-  Building,
   FileText,
   Settings,
   User,
@@ -16,6 +16,9 @@ import {
   Loader2,
   BarChart2,
   Network,
+  ChevronDown,
+  Building,
+  ClipboardList
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -31,6 +34,7 @@ import {
   SidebarInset,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Logo } from "@/components/icons";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useFirebase, useDoc, useMemoFirebase } from "@/firebase";
@@ -47,6 +51,23 @@ export const userRoles: { [key: string]: string } = {
   'membro': 'Membro'
 };
 
+const menuItems = [
+    { href: "/dashboard", label: "Dashboard", icon: Home },
+    { href: "/dashboard/users", label: "Usuários", icon: Users },
+    { 
+      label: "GC", 
+      icon: Network,
+      subItems: [
+        { href: "/dashboard/gc/structure", label: "Estrutura", icon: Network },
+        { href: "/dashboard/gc/cells", label: "Células", icon: Building },
+        { href: "/dashboard/gc/report", label: "Relatório de Célula", icon: ClipboardList },
+      ]
+    },
+    { href: "/dashboard/attendance", label: "Presença Culto", icon: CalendarCheck },
+    { href: "/dashboard/reports", label: "Análises", icon: BarChart2 },
+    { href: "/dashboard/new-member", label: "Novo Visitante", icon: PlusCircle },
+];
+
 
 export default function DashboardLayout({
   children,
@@ -59,7 +80,6 @@ export default function DashboardLayout({
 
   const userDocRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
-    const appId = (window as any).__app_id || 'default-app-id';
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
   
@@ -77,15 +97,6 @@ export default function DashboardLayout({
       console.error("Logout failed", error);
     }
   };
-
-  const menuItems = [
-    { href: "/dashboard", label: "Dashboard", icon: Home },
-    { href: "/dashboard/users", label: "Usuários", icon: Users },
-    { href: "/dashboard/gc", label: "GC", icon: Network },
-    { href: "/dashboard/attendance", label: "Presença Culto", icon: CalendarCheck },
-    { href: "/dashboard/reports", label: "Análises", icon: BarChart2 },
-    { href: "/dashboard/new-member", label: "Novo Visitante", icon: PlusCircle },
-  ];
   
   const getInitials = (name: string | null | undefined) => {
     if (!name) return 'U';
@@ -97,12 +108,20 @@ export default function DashboardLayout({
   };
 
   const getPageTitle = (path: string) => {
-      const defaultTitle = menuItems.find(item => path.startsWith(item.href) && item.href !== '/dashboard')?.label;
       if (path === '/dashboard') return 'Dashboard';
       if (path.startsWith('/dashboard/users/')) return 'Perfil do Usuário';
+      if (path.startsWith('/dashboard/users')) return 'Usuários';
       if (path.startsWith('/dashboard/gc/cells')) return 'Células';
       if (path.startsWith('/dashboard/gc/report')) return 'Relatório de Célula';
       if (path.startsWith('/dashboard/gc')) return 'Estrutura de GC';
+      if (path.startsWith('/dashboard/attendance')) return 'Presença Culto';
+      if (path.startsWith('/dashboard/reports')) return 'Análises';
+      if (path.startsWith('/dashboard/new-member')) return 'Novo Visitante';
+
+      const defaultTitle = menuItems
+        .flatMap(item => item.subItems ? item.subItems : [item])
+        .find(item => path.startsWith(item.href))?.label;
+        
       return defaultTitle || 'ConectarGC';
   };
 
@@ -118,23 +137,46 @@ export default function DashboardLayout({
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
-            {menuItems.map((item) => (
-              <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname.startsWith(item.href)}
-                  className={cn(
-                    "justify-start",
-                    item.highlight && "bg-accent/50 text-accent-foreground/80 hover:bg-accent hover:text-accent-foreground"
-                  )}
-                >
-                  <Link href={item.href}>
-                    <item.icon className="size-4" />
-                    <span>{item.label}</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            ))}
+             {menuItems.map((item) => 
+              item.subItems ? (
+                <Collapsible key={item.label} className="w-full" defaultOpen={pathname.startsWith('/dashboard/gc')}>
+                  <SidebarMenuItem className="w-full">
+                     <CollapsibleTrigger className="w-full">
+                       <SidebarMenuButton className="justify-between w-full" isActive={pathname.startsWith('/dashboard/gc')}>
+                          <div className="flex items-center gap-2">
+                            <item.icon className="size-4" />
+                            <span>{item.label}</span>
+                          </div>
+                          <ChevronDown className="size-4 transition-transform [&[data-state=open]]:rotate-180" />
+                       </SidebarMenuButton>
+                     </CollapsibleTrigger>
+                  </SidebarMenuItem>
+                  <CollapsibleContent>
+                    <SidebarMenu className="pl-6">
+                      {item.subItems.map(subItem => (
+                         <SidebarMenuItem key={subItem.href}>
+                            <SidebarMenuButton asChild isActive={pathname === subItem.href} className="justify-start h-8">
+                              <Link href={subItem.href}>
+                                <subItem.icon className="size-4" />
+                                <span>{subItem.label}</span>
+                              </Link>
+                            </SidebarMenuButton>
+                          </SidebarMenuItem>
+                      ))}
+                    </SidebarMenu>
+                  </CollapsibleContent>
+                </Collapsible>
+              ) : (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton asChild isActive={pathname === item.href} className="justify-start">
+                    <Link href={item.href}>
+                      <item.icon className="size-4" />
+                      <span>{item.label}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )
+            )}
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
