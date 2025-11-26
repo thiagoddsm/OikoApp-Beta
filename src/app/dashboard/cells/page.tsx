@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Building, User, Shield, PlusCircle, Pencil, Network, Map, AreaChart } from "lucide-react";
+import { Loader2, Building, User, Shield, PlusCircle, Pencil, Network, Map as MapIcon, AreaChart } from "lucide-react";
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
 
