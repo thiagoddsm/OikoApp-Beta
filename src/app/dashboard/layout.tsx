@@ -81,9 +81,7 @@ export default function DashboardLayout({
   const menuItems = [
     { href: "/dashboard", label: "Dashboard", icon: Home },
     { href: "/dashboard/users", label: "Usuários", icon: Users },
-    { href: "/dashboard/structure", label: "Estrutura", icon: Network },
-    { href: "/dashboard/cells", label: "Células", icon: Building },
-    { href: "/dashboard/report", label: "Relatório de Célula", icon: FileText, highlight: true },
+    { href: "/dashboard/gc", label: "GC", icon: Network },
     { href: "/dashboard/attendance", label: "Presença Culto", icon: CalendarCheck },
     { href: "/dashboard/reports", label: "Análises", icon: BarChart2 },
     { href: "/dashboard/new-member", label: "Novo Visitante", icon: PlusCircle },
@@ -96,6 +94,16 @@ export default function DashboardLayout({
       return `${names[0][0]}${names[names.length - 1][0]}`;
     }
     return name.substring(0, 2);
+  };
+
+  const getPageTitle = (path: string) => {
+      const defaultTitle = menuItems.find(item => path.startsWith(item.href) && item.href !== '/dashboard')?.label;
+      if (path === '/dashboard') return 'Dashboard';
+      if (path.startsWith('/dashboard/users/')) return 'Perfil do Usuário';
+      if (path.startsWith('/dashboard/gc/cells')) return 'Células';
+      if (path.startsWith('/dashboard/gc/report')) return 'Relatório de Célula';
+      if (path.startsWith('/dashboard/gc')) return 'Estrutura de GC';
+      return defaultTitle || 'ConectarGC';
   };
 
 
@@ -181,7 +189,7 @@ export default function DashboardLayout({
             <SidebarTrigger className="md:hidden" />
             <div className="flex-1">
                 <h1 className="text-lg font-semibold font-headline">
-                    {menuItems.find(item => pathname.startsWith(item.href) && item.href !== '/dashboard')?.label || (pathname === '/dashboard' ? 'Dashboard' : (pathname.includes('/users/') ? 'Perfil do Usuário' : 'ConectarGC'))}
+                    {getPageTitle(pathname)}
                 </h1>
             </div>
             <Button size="sm">Hoje</Button>

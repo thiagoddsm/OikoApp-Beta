@@ -1,3 +1,4 @@
+
 'use client';
 
 import DashboardSaude from '@/components/dashboard/health-dashboard';

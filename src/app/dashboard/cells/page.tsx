@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Building, User, Shield, PlusCircle, Pencil, Network, MapPin, AreaChart, Calendar, Clock } from "lucide-react";
+import { Loader2, Building, User, Pencil, Network, MapPin, AreaChart, Calendar, Clock, PlusCircle } from "lucide-react";
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
 
@@ -154,8 +154,6 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
       });
     }
     
-    // Since the updates are non-blocking, we optimistically close and reset.
-    // Errors will be caught by the global error handler.
     setIsSaving(false);
     onOpenChange(false);
   };
@@ -351,7 +349,7 @@ export default function CellsPage() {
                   return (
                     <TableRow key={cell.id}>
                       <TableCell className="font-medium">
-                        <Link href={`/dashboard/cells/${cell.id}`} className="hover:underline">
+                        <Link href={`/dashboard/gc/cells/${cell.id}`} className="hover:underline">
                           {cell.nome}
                         </Link>
                       </TableCell>
