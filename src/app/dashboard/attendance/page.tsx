@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { AttendanceDashboard } from '@/components/attendance/attendance-dashboard';
 import { RecordsList } from '@/components/attendance/records-list';
 import { RegisterForm } from '@/components/attendance/register-form';
+import { ImportTab } from '@/components/attendance/import-tab';
 
 export default function AttendancePage() {
   const { firestore, user } = useFirebase();
@@ -27,13 +28,14 @@ export default function AttendancePage() {
           <CardHeader>
               <CardTitle>Registro de Presença nos Cultos</CardTitle>
               <CardDescription>
-                  Alterne entre registrar uma nova frequência e visualizar o painel de dados.
+                  Alterne entre registrar uma nova frequência, importar dados ou visualizar o painel.
               </CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="register">Registrar</TabsTrigger>
+                <TabsTrigger value="import">Importar</TabsTrigger>
                 <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
               </TabsList>
               <TabsContent value="register">
@@ -41,6 +43,9 @@ export default function AttendancePage() {
                 <div className="mt-8">
                   <RecordsList registros={registros || []} loading={isLoading} />
                 </div>
+              </TabsContent>
+               <TabsContent value="import">
+                <ImportTab />
               </TabsContent>
               <TabsContent value="dashboard">
                 <AttendanceDashboard registros={registros || []} loading={isLoading} />
