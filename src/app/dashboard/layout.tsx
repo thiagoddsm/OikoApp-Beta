@@ -142,7 +142,7 @@ export default function DashboardLayout({
              {menuItems.map((item) => 
               item.subItems ? (
                 <Collapsible key={item.label} className="w-full" defaultOpen={pathname.startsWith('/dashboard/gc')}>
-                  <SidebarMenuItem asChild className="w-full">
+                  <SidebarMenuItem className="w-full">
                      <CollapsibleTrigger asChild className="w-full">
                        <SidebarMenuButton className="justify-between w-full" isActive={pathname.startsWith('/dashboard/gc')}>
                           <div className="flex items-center gap-2">
