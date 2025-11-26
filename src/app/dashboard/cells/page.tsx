@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Building, User, Shield, PlusCircle, Pencil, Network, Map as MapIcon, AreaChart, Calendar, Clock } from "lucide-react";
+import { Loader2, Building, User, Shield, PlusCircle, Pencil, Network, MapPin, AreaChart, Calendar, Clock } from "lucide-react";
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
 
@@ -137,34 +137,27 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
 
     if (existingCell) {
       const cellDocRef = doc(firestore, 'cells', existingCell.id);
-      updateDocumentNonBlocking(cellDocRef, cellData).then(() => {
-        toast({
+      updateDocumentNonBlocking(cellDocRef, cellData);
+      toast({
           title: "Sucesso!",
           description: `A célula "${nome}" foi atualizada.`,
-        });
-        onOpenChange(false);
-      }).catch(error => {
-        console.error("Error updating cell:", error);
-      }).finally(() => {
-        setIsSaving(false);
       });
     } else {
       const cellsCollection = collection(firestore, 'cells');
       addDocumentNonBlocking(cellsCollection, {
         ...cellData,
         membros: [liderId], // Leader is a member by default
-      }).then(() => {
-        toast({
+      });
+      toast({
           title: "Sucesso!",
           description: `A célula "${nome}" foi criada.`,
-        });
-        onOpenChange(false);
-      }).catch(error => {
-        console.error("Error creating cell:", error);
-      }).finally(() => {
-        setIsSaving(false);
       });
     }
+    
+    // Since the updates are non-blocking, we optimistically close and reset.
+    // Errors will be caught by the global error handler.
+    setIsSaving(false);
+    onOpenChange(false);
   };
 
   return (
@@ -407,5 +400,3 @@ export default function CellsPage() {
     </>
   );
 }
-
-    
