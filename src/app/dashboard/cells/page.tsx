@@ -334,6 +334,7 @@ export default function CellsPage() {
                   <TableHead><User className="inline-block mr-2 h-4 w-4" />Líder (GC)</TableHead>
                   <TableHead><AreaChart className="inline-block mr-2 h-4 w-4" />Área</TableHead>
                   <TableHead><Network className="inline-block mr-2 h-4 w-4" />Rede</TableHead>
+                  <TableHead><MapPin className="inline-block mr-2 h-4 w-4" />Endereço</TableHead>
                   <TableHead><Calendar className="inline-block mr-2 h-4 w-4" />Dia</TableHead>
                   <TableHead><Clock className="inline-block mr-2 h-4 w-4" />Horário</TableHead>
                   <TableHead className="text-center">Membros</TableHead>
@@ -365,6 +366,19 @@ export default function CellsPage() {
                       </TableCell>
                       <TableCell className="text-muted-foreground">{area?.nome || 'Não definida'}</TableCell>
                       <TableCell className="text-muted-foreground">{rede?.nome || 'Não definida'}</TableCell>
+                      <TableCell className="text-muted-foreground max-w-[200px] truncate">
+                        {cell.address?.street ? (
+                            <a 
+                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cell.address.street)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:underline"
+                                title={cell.address.street}
+                            >
+                                {cell.address.street}
+                            </a>
+                        ) : '-'}
+                      </TableCell>
                       <TableCell className="text-muted-foreground">{cell.meetingDay || '-'}</TableCell>
                       <TableCell className="text-muted-foreground">{cell.meetingTime || '-'}</TableCell>
                       <TableCell className="text-center">
