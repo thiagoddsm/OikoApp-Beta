@@ -17,6 +17,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const appId = firebaseConfig.appId;
+  const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
@@ -35,6 +37,12 @@ export default function RootLayout({
       <body className={cn(
         "min-h-screen bg-background font-body antialiased"
       )}>
+        {googleMapsApiKey && (
+          <Script
+            src={`https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places`}
+            strategy="beforeInteractive"
+          />
+        )}
         <FirebaseClientProvider>
           {children}
         </FirebaseClientProvider>
