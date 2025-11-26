@@ -22,6 +22,9 @@ export function AttendanceDashboard({ registros, loading }) {
   const [filtroDataFim, setFiltroDataFim] = useState('');
   const [filtroHorario, setFiltroHorario] = useState('todos');
   const [filtroSerie, setFiltroSerie] = useState('');
+  const [filtroFeriado, setFiltroFeriado] = useState('todos'); // 'todos', 'sim', 'nao'
+  const [filtroJogo, setFiltroJogo] = useState('todos'); // 'todos', 'sim', 'nao'
+  const [filtroBebe, setFiltroBebe] = useState('todos'); // 'todos', 'sim', 'nao'
 
   const registrosFiltrados = useMemo(() => {
     let filtrados = [...registros];
@@ -45,9 +48,18 @@ export function AttendanceDashboard({ registros, loading }) {
         r.serieMensagem && r.serieMensagem.toLowerCase().includes(filtroSerie.toLowerCase())
       );
     }
+    if (filtroFeriado !== 'todos') {
+        filtrados = filtrados.filter(r => (r.feriadoProximo || false) === (filtroFeriado === 'sim'));
+    }
+    if (filtroJogo !== 'todos') {
+        filtrados = filtrados.filter(r => (r.jogoFutebol || false) === (filtroJogo === 'sim'));
+    }
+    if (filtroBebe !== 'todos') {
+        filtrados = filtrados.filter(r => (r.apresentacaoBebe || false) === (filtroBebe === 'sim'));
+    }
     
     return filtrados.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
-  }, [registros, filtroDataInicio, filtroDataFim, filtroHorario, filtroSerie]);
+  }, [registros, filtroDataInicio, filtroDataFim, filtroHorario, filtroSerie, filtroFeriado, filtroJogo, filtroBebe]);
 
   const formatarDataGrafico = (dataStr) => {
     if(!dataStr) return "";
@@ -171,6 +183,36 @@ export function AttendanceDashboard({ registros, loading }) {
             onChange={e => setFiltroSerie(e.target.value)}
             placeholder="Buscar por Série..."
           />
+           <Select value={filtroFeriado} onValueChange={setFiltroFeriado}>
+              <SelectTrigger>
+                  <SelectValue placeholder="Feriado próximo?" />
+              </SelectTrigger>
+              <SelectContent>
+                  <SelectItem value="todos">Feriado? (Todos)</SelectItem>
+                  <SelectItem value="sim">Sim</SelectItem>
+                  <SelectItem value="nao">Não</SelectItem>
+              </SelectContent>
+          </Select>
+          <Select value={filtroJogo} onValueChange={setFiltroJogo}>
+              <SelectTrigger>
+                  <SelectValue placeholder="Jogo no horário?" />
+              </SelectTrigger>
+              <SelectContent>
+                  <SelectItem value="todos">Jogo? (Todos)</SelectItem>
+                  <SelectItem value="sim">Sim</SelectItem>
+                  <SelectItem value="nao">Não</SelectItem>
+              </SelectContent>
+          </Select>
+          <Select value={filtroBebe} onValueChange={setFiltroBebe}>
+              <SelectTrigger>
+                  <SelectValue placeholder="Apresentação de bebê?" />
+              </SelectTrigger>
+              <SelectContent>
+                  <SelectItem value="todos">Bebê? (Todos)</SelectItem>
+                  <SelectItem value="sim">Sim</SelectItem>
+                  <SelectItem value="nao">Não</SelectItem>
+              </SelectContent>
+          </Select>
         </CardContent>
       </Card>
       
