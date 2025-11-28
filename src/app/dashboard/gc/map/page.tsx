@@ -25,7 +25,10 @@ type User = {
   name: string;
 };
 
-export default function MapPage({ apiKey }: { apiKey?: string }) {
+// Acessa a API key do ambiente, que é segura para ser usada no lado do cliente pois foi prefixada com NEXT_PUBLIC_
+const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+export default function MapPage() {
   const { firestore, user } = useFirebase();
 
   const cellsQuery = useMemoFirebase(() => user && firestore ? query(collection(firestore, 'cells')) : null, [firestore, user]);
