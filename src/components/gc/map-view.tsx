@@ -23,15 +23,15 @@ type User = {
 interface MapViewProps {
   cells: Cell[];
   users: User[];
+  apiKey?: string;
 }
 
-export function MapView({ cells, users }: MapViewProps) {
+export function MapView({ cells, users, apiKey }: MapViewProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const userMap = new Map(users.map(u => [u.id, u]));
 
   useEffect(() => {
-    if (!mapRef.current || !window.google || !window.google.maps) {
-      console.warn("Map container or Google Maps script not ready.");
+    if (!apiKey || !mapRef.current || !window.google || !window.google.maps) {
       return;
     }
 
@@ -72,9 +72,9 @@ export function MapView({ cells, users }: MapViewProps) {
 
     initMap();
 
-  }, [cells, users, userMap]);
+  }, [cells, users, userMap, apiKey]);
 
-  if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+  if (!apiKey) {
       return (
           <div className="flex flex-col items-center justify-center h-full bg-muted/50 p-8 text-center">
               <Loader2 className="h-8 w-8 animate-spin text-destructive mb-4" />
