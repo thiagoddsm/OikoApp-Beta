@@ -25,7 +25,7 @@ type User = {
   name: string;
 };
 
-export default function MapPage() {
+export default function MapPage({ apiKey }: { apiKey?: string }) {
   const { firestore, user } = useFirebase();
 
   const cellsQuery = useMemoFirebase(() => user && firestore ? query(collection(firestore, 'cells')) : null, [firestore, user]);
@@ -55,7 +55,7 @@ export default function MapPage() {
           </div>
         ) : (
           <div className="h-[600px] w-full rounded-lg overflow-hidden border">
-             {cells && users && <MapView cells={cells} users={users} apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY} />}
+             {cells && users && <MapView cells={cells} users={users} apiKey={apiKey} />}
           </div>
         )}
       </CardContent>
