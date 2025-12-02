@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useRef } from 'react';
@@ -58,10 +57,10 @@ export function MapView({ cells, users, apiKey }: MapViewProps) {
           marker.addListener('click', () => {
             const leaderName = userMap.get(cell.liderId)?.name || 'Líder não encontrado';
             infoWindow.setContent(`
-              <div style="font-family: sans-serif;">
+              <div style="font-family: sans-serif; color: #333;">
                 <h3 style="margin: 0; font-weight: bold;">${cell.nome}</h3>
                 <p style="margin: 4px 0 0;">Líder: ${leaderName}</p>
-                <p style="margin: 4px 0 0; font-size: 0.8em;">${cell.address?.street}</p>
+                <p style="margin: 4px 0 0; font-size: 0.8em; color: #666;">${cell.address?.street}</p>
               </div>
             `);
             infoWindow.open(map, marker);
@@ -72,7 +71,7 @@ export function MapView({ cells, users, apiKey }: MapViewProps) {
 
     initMap();
 
-  }, [cells, users, userMap, apiKey]);
+  }, [cells, userMap, apiKey]);
 
   if (!apiKey) {
       return (
