@@ -43,7 +43,7 @@ service cloud.firestore {
      * @description Checks if the authenticated user's ID matches the provided userId and if the resource exists.
      */
     function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
+      return isOwner(userId) && exists(/databases/$(database)/documents/users/$(userId));
     }
 
     /**
@@ -56,9 +56,7 @@ service cloud.firestore {
     }
     
      /**
-     * @description Checks if the requesting user has any leadership role.
-     * This function now checks the existing user resource data, which is more efficient
-     * and avoids circular dependency issues.
+     * @description Checks if the requesting user has any leadership role (not a 'membro').
      */
     function isAnyLeader() {
        return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hierarchy.role != 'membro';

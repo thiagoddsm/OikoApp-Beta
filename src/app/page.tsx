@@ -29,7 +29,8 @@ export default function LoginPage() {
         const userDoc = await getDoc(userDocRef);
 
         if (!userDoc.exists()) {
-          // If user document doesn't exist, create it with a default 'membro' role
+          // If user document doesn't exist, create it with a default 'membro' role.
+          // The document ID is the user's UID from Authentication.
           await setDoc(userDocRef, {
             name: user.displayName || 'Novo Usuário',
             email: user.email || '',
@@ -39,7 +40,6 @@ export default function LoginPage() {
             },
             integrationStatus: 'visitante_culto',
             createdAt: serverTimestamp(),
-            id: user.uid,
           });
         }
         
