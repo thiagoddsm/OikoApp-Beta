@@ -4,16 +4,13 @@
 import { z } from 'zod';
 import { generateNewMemberFollowUpTasks } from '@/ai/flows/new-member-follow-up-tasks';
 import { initializeFirebase } from '@/firebase';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, doc, getDoc } from 'firebase/firestore';
 
 const NewMemberInfoSchema = z.object({
   visitorName: z.string().min(2, { message: 'O nome do visitante deve ter pelo menos 2 caracteres.' }),
   visitorType: z.enum(['culto', 'celula'], { required_error: 'Por favor, selecione a origem do visitante.' }),
   visitorPhone: z.string().min(10, { message: 'Por favor, insira um número de telefone válido.' }),
-  responsibleName: z.string().min(2, { message: 'O nome do responsável deve ter pelo menos 2 caracteres.' }),
-  // Email/Phone for responsible person are for the AI, not for creating a user
-  responsibleEmail: z.string().email({ message: 'Por favor, insira um email válido para o responsável.' }).optional(),
-  responsiblePhone: z.string().min(10, { message: 'Por favor, insira um telefone válido para o responsável.' }),
+  responsibleUserId: z.string().min(1, { message: 'Por favor, selecione um responsável válido.' }),
 });
 
 export type State = {
@@ -21,9 +18,7 @@ export type State = {
     visitorName?: string[];
     visitorType?: string[];
     visitorPhone?: string[];
-    responsibleName?: string[];
-    responsibleEmail?: string[];
-    responsiblePhone?: string[];
+    responsibleUserId?: string[];
   };
   message?: string | null;
   tasks?: { message: string; dueDate: string; }[];
@@ -58,9 +53,7 @@ export async function createFollowUpTasks(prevState: State, formData: FormData):
     visitorName: formData.get('visitorName'),
     visitorType: formData.get('visitorType'),
     visitorPhone: formData.get('visitorPhone'),
-    responsibleName: formData.get('responsibleName'),
-    responsibleEmail: formData.get('responsibleEmail'),
-    responsiblePhone: formData.get('responsiblePhone'),
+    responsibleUserId: formData.get('responsibleUserId'),
   });
 
   if (!validatedFields.success) {
@@ -70,7 +63,19 @@ export async function createFollowUpTasks(prevState: State, formData: FormData):
     };
   }
   
-  const { responsibleName, responsibleEmail, responsiblePhone, ...visitorData } = validatedFields.data;
+  const { firestore } = initializeFirebase();
+
+  // Fetch responsible user details
+  const responsibleUserDocRef = doc(firestore, 'users', validatedFields.data.responsibleUserId);
+  const responsibleUserDoc = await getDoc(responsibleUserDocRef);
+
+  if (!responsibleUserDoc.exists()) {
+      return { message: "Erro: O usuário responsável selecionado não foi encontrado." };
+  }
+  const responsibleUser = responsibleUserDoc.data();
+
+
+  const { responsibleUserId, ...visitorData } = validatedFields.data;
 
   // This form now only registers a person (disciple), not a user with login.
   const saveResult = await saveVisitorToFirestore(visitorData);
@@ -82,8 +87,8 @@ export async function createFollowUpTasks(prevState: State, formData: FormData):
     const aiPayload = {
       visitorName: visitorData.visitorName,
       visitorType: visitorData.visitorType,
-      responsibleName: responsibleName,
-      responsiblePhoneNumber: responsiblePhone,
+      responsibleName: responsibleUser.name || 'Líder',
+      responsiblePhoneNumber: responsibleUser.phone || 'N/A',
     };
     const result = await generateNewMemberFollowUpTasks(aiPayload);
 

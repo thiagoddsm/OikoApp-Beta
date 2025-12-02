@@ -11,7 +11,19 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle, AlertCircle, Loader, MessageSquare, Calendar } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useFirebase } from "@/firebase";
+import { useFirebase, useCollection, useMemoFirebase } from "@/firebase";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { collection, query } from "firebase/firestore";
+
+type UserType = {
+  id: string;
+  name: string;
+  phone?: string;
+  hierarchy?: {
+    role?: string;
+  }
+};
+
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -25,9 +37,34 @@ function SubmitButton() {
 
 export default function NewMemberPage() {
   const initialState: State = { message: null, errors: {} };
-  const { user } = useFirebase();
+  const { user, firestore, isUserLoading } = useFirebase();
   const [state, dispatch] = useActionState(createFollowUpTasks, initialState);
   const { toast } = useToast();
+  const [responsibleUserId, setResponsibleUserId] = useState('');
+
+  // 1. Fetch all users
+  const usersQuery = useMemoFirebase(
+    () => (firestore ? query(collection(firestore, "users")) : null),
+    [firestore]
+  );
+  const { data: allUsers, isLoading: isLoadingUsers } = useCollection<UserType>(usersQuery);
+
+  // 2. Filter to get only leaders
+  const leaders = useMemo(() => {
+    if (!allUsers) return [];
+    return allUsers.filter(u => u.hierarchy?.role && u.hierarchy.role !== 'membro');
+  }, [allUsers]);
+
+  // 3. Set the default responsible user to the logged-in user if they are a leader
+  useEffect(() => {
+    if (user && leaders.length > 0) {
+      const loggedInLeader = leaders.find(leader => leader.id === user.uid);
+      if (loggedInLeader) {
+        setResponsibleUserId(loggedInLeader.id);
+      }
+    }
+  }, [user, leaders]);
+
 
   useEffect(() => {
     if (state.message) {
@@ -46,6 +83,8 @@ export default function NewMemberPage() {
       }
     }
   }, [state, toast]);
+  
+  const isLoading = isUserLoading || isLoadingUsers;
 
   return (
     <div className="flex justify-center">
@@ -91,20 +130,26 @@ export default function NewMemberPage() {
                   <p className="text-sm font-medium text-destructive">{state.errors.visitorPhone}</p>
                 )}
               </div>
+              
+              {/* Hidden input to pass leader ID */}
+              <input type="hidden" name="responsibleUserId" value={responsibleUserId} />
 
               <div className="grid gap-2">
-                <Label htmlFor="responsibleName">Responsável pelo Contato (Seu Nome)</Label>
-                <Input id="responsibleName" name="responsibleName" defaultValue={user?.displayName || ''} placeholder="Quem fez o primeiro contato?" />
-                {state.errors?.responsibleName && (
-                  <p className="text-sm font-medium text-destructive">{state.errors.responsibleName}</p>
-                )}
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="responsiblePhone">Seu Telefone (Responsável)</Label>
-                <Input id="responsiblePhone" name="responsiblePhone" placeholder="Seu telefone para a IA usar nas mensagens" />
-                {state.errors?.responsiblePhone && (
-                  <p className="text-sm font-medium text-destructive">{state.errors.responsiblePhone}</p>
+                <Label htmlFor="responsibleName">Responsável pelo Contato</Label>
+                 <Select name="responsibleUserId" value={responsibleUserId} onValueChange={setResponsibleUserId} disabled={isLoading}>
+                    <SelectTrigger>
+                        <SelectValue placeholder={isLoading ? "Carregando líderes..." : "Selecione um responsável"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {leaders.map((leader) => (
+                            <SelectItem key={leader.id} value={leader.id}>
+                                {leader.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+                {state.errors?.responsibleUserId && (
+                  <p className="text-sm font-medium text-destructive">{state.errors.responsibleUserId}</p>
                 )}
               </div>
 
