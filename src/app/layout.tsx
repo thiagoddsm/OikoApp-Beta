@@ -7,7 +7,7 @@ import Script from 'next/script';
 import { firebaseConfig } from '@/firebase/config';
 
 export const metadata: Metadata = {
-  title: 'ConectarGC - O Assistente do Líder',
+  title: 'Integrapp - O Assistente do Líder',
   description: 'Um assistente proativo para discipulado intencional.',
 };
 
