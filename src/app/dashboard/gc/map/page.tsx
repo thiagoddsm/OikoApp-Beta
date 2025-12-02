@@ -58,7 +58,7 @@ export default function MapPage() {
           </div>
         ) : (
           <div className="h-[600px] w-full rounded-lg overflow-hidden border">
-             {cells && users && <MapView cells={cells} users={users} apiKey={apiKey} />}
+             <MapView cells={cells || []} users={users || []} apiKey={apiKey} />
           </div>
         )}
       </CardContent>
