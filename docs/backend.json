@@ -107,10 +107,13 @@
         "absenceCount": {
           "type": "number",
           "description": "The number of times the user has been absent."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
         }
       },
       "required": [
-        "id",
         "name",
         "phone",
         "hierarchy",
@@ -525,3 +528,5 @@
     "enabled": true
   }
 }
+
+    

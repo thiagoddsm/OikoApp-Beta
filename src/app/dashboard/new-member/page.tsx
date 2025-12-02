@@ -24,6 +24,11 @@ type UserType = {
   }
 };
 
+type CellType = {
+  id: string;
+  nome: string;
+};
+
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -40,7 +45,11 @@ export default function NewMemberPage() {
   const { user, firestore, isUserLoading } = useFirebase();
   const [state, dispatch] = useActionState(createFollowUpTasks, initialState);
   const { toast } = useToast();
+  
   const [responsibleUserId, setResponsibleUserId] = useState('');
+  const [visitorType, setVisitorType] = useState('culto');
+  const [cellId, setCellId] = useState('');
+
 
   // 1. Fetch all users
   const usersQuery = useMemoFirebase(
@@ -48,14 +57,22 @@ export default function NewMemberPage() {
     [firestore]
   );
   const { data: allUsers, isLoading: isLoadingUsers } = useCollection<UserType>(usersQuery);
+  
+  // 2. Fetch all cells
+  const cellsQuery = useMemoFirebase(
+    () => (firestore ? query(collection(firestore, "cells")) : null),
+    [firestore]
+  );
+  const { data: allCells, isLoading: isLoadingCells } = useCollection<CellType>(cellsQuery);
 
-  // 2. Filter to get only leaders
+
+  // 3. Filter to get only leaders
   const leaders = useMemo(() => {
     if (!allUsers) return [];
     return allUsers.filter(u => u.hierarchy?.role && u.hierarchy.role !== 'membro');
   }, [allUsers]);
 
-  // 3. Set the default responsible user to the logged-in user if they are a leader
+  // 4. Set the default responsible user to the logged-in user if they are a leader
   useEffect(() => {
     if (user && leaders.length > 0) {
       const loggedInLeader = leaders.find(leader => leader.id === user.uid);
@@ -84,7 +101,7 @@ export default function NewMemberPage() {
     }
   }, [state, toast]);
   
-  const isLoading = isUserLoading || isLoadingUsers;
+  const isLoading = isUserLoading || isLoadingUsers || isLoadingCells;
 
   return (
     <div className="flex justify-center">
@@ -108,7 +125,7 @@ export default function NewMemberPage() {
 
                <div className="grid gap-3">
                 <Label>Origem do Contato</Label>
-                <RadioGroup defaultValue="culto" name="visitorType" className="flex gap-4">
+                <RadioGroup name="visitorType" value={visitorType} onValueChange={setVisitorType} className="flex gap-4">
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="culto" id="r-culto" />
                     <Label htmlFor="r-culto">Visitante do Culto (Sala VIP)</Label>
@@ -123,6 +140,27 @@ export default function NewMemberPage() {
                 )}
               </div>
               
+              {visitorType === 'celula' && (
+                <div className="grid gap-2">
+                    <Label htmlFor="cellId">Célula Visitada</Label>
+                    <Select name="cellId" value={cellId} onValueChange={setCellId} disabled={isLoading}>
+                        <SelectTrigger>
+                            <SelectValue placeholder={isLoading ? "Carregando células..." : "Selecione uma célula"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {allCells?.map((cell) => (
+                                <SelectItem key={cell.id} value={cell.id}>
+                                    {cell.nome}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                     {state.errors?.cellId && (
+                      <p className="text-sm font-medium text-destructive">{state.errors.cellId}</p>
+                    )}
+                </div>
+              )}
+              
               <div className="grid gap-2">
                 <Label htmlFor="visitorPhone">Telefone do Discípulo (com DDD)</Label>
                 <Input id="visitorPhone" name="visitorPhone" placeholder="Ex: (11) 99999-8888" />
@@ -131,11 +169,8 @@ export default function NewMemberPage() {
                 )}
               </div>
               
-              {/* Hidden input to pass leader ID */}
-              <input type="hidden" name="responsibleUserId" value={responsibleUserId} />
-
               <div className="grid gap-2">
-                <Label htmlFor="responsibleName">Responsável pelo Contato</Label>
+                <Label htmlFor="responsibleUserId">Responsável pelo Contato</Label>
                  <Select name="responsibleUserId" value={responsibleUserId} onValueChange={setResponsibleUserId} disabled={isLoading}>
                     <SelectTrigger>
                         <SelectValue placeholder={isLoading ? "Carregando líderes..." : "Selecione um responsável"} />
@@ -207,3 +242,5 @@ export default function NewMemberPage() {
     </div>
   );
 }
+
+    

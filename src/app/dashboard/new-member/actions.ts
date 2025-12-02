@@ -11,6 +11,7 @@ const NewMemberInfoSchema = z.object({
   visitorType: z.enum(['culto', 'celula'], { required_error: 'Por favor, selecione a origem do visitante.' }),
   visitorPhone: z.string().min(10, { message: 'Por favor, insira um número de telefone válido.' }),
   responsibleUserId: z.string().min(1, { message: 'Por favor, selecione um responsável válido.' }),
+  cellId: z.string().optional().nullable(),
 });
 
 export type State = {
@@ -19,12 +20,13 @@ export type State = {
     visitorType?: string[];
     visitorPhone?: string[];
     responsibleUserId?: string[];
+    cellId?: string[];
   };
   message?: string | null;
   tasks?: { message: string; dueDate: string; }[];
 };
 
-async function saveVisitorToFirestore(visitorData: Pick<z.infer<typeof NewMemberInfoSchema>, 'visitorName' | 'visitorPhone' | 'visitorType'>) {
+async function saveVisitorToFirestore(visitorData: z.infer<typeof NewMemberInfoSchema>) {
     const { firestore } = initializeFirebase();
     const usersCollection = collection(firestore, 'users');
 
@@ -35,6 +37,7 @@ async function saveVisitorToFirestore(visitorData: Pick<z.infer<typeof NewMember
             email: '', // Not a login user, so no email needed
             hierarchy: {
                 role: 'membro', // Default role for any person in the system
+                celulaId: visitorData.cellId || null,
             },
             integrationStatus: visitorData.visitorType === 'culto' ? 'visitante_culto' : 'visitante_celula',
             createdAt: Timestamp.now()
@@ -49,11 +52,14 @@ async function saveVisitorToFirestore(visitorData: Pick<z.infer<typeof NewMember
 
 
 export async function createFollowUpTasks(prevState: State, formData: FormData): Promise<State> {
+  const visitorType = formData.get('visitorType');
+  
   const validatedFields = NewMemberInfoSchema.safeParse({
     visitorName: formData.get('visitorName'),
-    visitorType: formData.get('visitorType'),
+    visitorType: visitorType,
     visitorPhone: formData.get('visitorPhone'),
     responsibleUserId: formData.get('responsibleUserId'),
+    cellId: visitorType === 'celula' ? formData.get('cellId') : null,
   });
 
   if (!validatedFields.success) {
@@ -74,10 +80,8 @@ export async function createFollowUpTasks(prevState: State, formData: FormData):
   }
   const responsibleUser = responsibleUserDoc.data();
 
+  const visitorData = validatedFields.data;
 
-  const { responsibleUserId, ...visitorData } = validatedFields.data;
-
-  // This form now only registers a person (disciple), not a user with login.
   const saveResult = await saveVisitorToFirestore(visitorData);
   if (!saveResult.success) {
       return { message: saveResult.error };
@@ -86,7 +90,7 @@ export async function createFollowUpTasks(prevState: State, formData: FormData):
   try {
     const aiPayload = {
       visitorName: visitorData.visitorName,
-      visitorType: visitorData.visitorType,
+      visitorType: visitorData.visitorType as 'culto' | 'celula',
       responsibleName: responsibleUser.name || 'Líder',
       responsiblePhoneNumber: responsibleUser.phone || 'N/A',
     };
@@ -101,3 +105,5 @@ export async function createFollowUpTasks(prevState: State, formData: FormData):
     return { message: 'Pessoa registrada, mas ocorreu um erro no servidor ao gerar as tarefas.' };
   }
 }
+
+    
