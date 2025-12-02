@@ -3,8 +3,9 @@
 
 import { z } from 'zod';
 import { generateNewMemberFollowUpTasks } from '@/ai/flows/new-member-follow-up-tasks';
-import { initializeFirebase } from '@/firebase';
+import { initializeFirebase, addDocumentNonBlocking } from '@/firebase';
 import { collection, addDoc, Timestamp, doc, getDoc } from 'firebase/firestore';
+import { revalidatePath } from 'next/cache';
 
 const NewMemberInfoSchema = z.object({
   visitorName: z.string().min(2, { message: 'O nome do visitante deve ter pelo menos 2 caracteres.' }),
@@ -29,25 +30,24 @@ export type State = {
 async function saveVisitorToFirestore(visitorData: z.infer<typeof NewMemberInfoSchema>) {
     const { firestore } = initializeFirebase();
     const usersCollection = collection(firestore, 'users');
+    const newUser = {
+        name: visitorData.visitorName,
+        phone: visitorData.visitorPhone,
+        email: '',
+        hierarchy: {
+            role: 'membro',
+            celulaId: visitorData.cellId || null,
+        },
+        integrationStatus: visitorData.visitorType === 'culto' ? 'visitante_culto' : 'visitante_celula',
+        createdAt: Timestamp.now()
+    };
 
-    try {
-        const newUserDoc = await addDoc(usersCollection, {
-            name: visitorData.visitorName,
-            phone: visitorData.visitorPhone,
-            email: '', // Not a login user, so no email needed
-            hierarchy: {
-                role: 'membro', // Default role for any person in the system
-                celulaId: visitorData.cellId || null,
-            },
-            integrationStatus: visitorData.visitorType === 'culto' ? 'visitante_culto' : 'visitante_celula',
-            createdAt: Timestamp.now()
-        });
-        console.log("New person registered with ID: ", newUserDoc.id);
-        return { success: true, docId: newUserDoc.id };
-    } catch (error) {
-        console.error("Error saving visitor to Firestore:", error);
-        return { success: false, error: "Falha ao registrar pessoa no banco de dados." };
-    }
+    // Use a função non-blocking que já possui o tratamento de erro contextualizado
+    const newUserDoc = await addDocumentNonBlocking(usersCollection, newUser);
+
+    // O erro de permissão será capturado globalmente, então podemos ser otimistas aqui.
+    // Se a promessa for rejeitada, o `catch` no `createFollowUpTasks` irá pegar.
+    return { success: true, docId: newUserDoc?.id };
 }
 
 
@@ -70,24 +70,32 @@ export async function createFollowUpTasks(prevState: State, formData: FormData):
   }
   
   const { firestore } = initializeFirebase();
-
-  // Fetch responsible user details
-  const responsibleUserDocRef = doc(firestore, 'users', validatedFields.data.responsibleUserId);
-  const responsibleUserDoc = await getDoc(responsibleUserDocRef);
-
-  if (!responsibleUserDoc.exists()) {
-      return { message: "Erro: O usuário responsável selecionado não foi encontrado." };
-  }
-  const responsibleUser = responsibleUserDoc.data();
-
   const visitorData = validatedFields.data;
 
-  const saveResult = await saveVisitorToFirestore(visitorData);
-  if (!saveResult.success) {
-      return { message: saveResult.error };
+  // Fetch responsible user details
+  let responsibleUser;
+  try {
+    const responsibleUserDocRef = doc(firestore, 'users', visitorData.responsibleUserId);
+    const responsibleUserDoc = await getDoc(responsibleUserDocRef);
+    if (!responsibleUserDoc.exists()) {
+        return { message: "Erro: O usuário responsável selecionado não foi encontrado." };
+    }
+    responsibleUser = responsibleUserDoc.data();
+  } catch (error) {
+     return { message: "Erro ao buscar dados do responsável. Verifique suas permissões." };
   }
 
+
   try {
+    const saveResult = await saveVisitorToFirestore(visitorData);
+    
+    if (!saveResult.success) {
+        // Embora o erro de permissão seja global, podemos ter outros erros
+        return { message: "Falha ao registrar pessoa no banco de dados." };
+    }
+
+    revalidatePath('/dashboard/users');
+
     const aiPayload = {
       visitorName: visitorData.visitorName,
       visitorType: visitorData.visitorType as 'culto' | 'celula',
@@ -100,10 +108,12 @@ export async function createFollowUpTasks(prevState: State, formData: FormData):
       return { message: 'Pessoa registrada e tarefas de acompanhamento geradas com sucesso!', tasks: result.followUpTasks };
     }
     return { message: 'Pessoa registrada, mas não foi possível gerar as tarefas. A resposta da IA estava vazia.' };
-  } catch (error) {
-    console.error('Error generating follow-up tasks:', error);
-    return { message: 'Pessoa registrada, mas ocorreu um erro no servidor ao gerar as tarefas.' };
+
+  } catch (error: any) {
+    // Se addDocumentNonBlocking falhar, a promise será rejeitada e cairá aqui.
+    // No entanto, o erro de permissão já terá sido emitido globalmente.
+    // Podemos retornar uma mensagem genérica aqui, pois o erro detalhado aparecerá no overlay.
+    console.error('Error in createFollowUpTasks:', error);
+    return { message: 'Ocorreu um erro ao salvar o visitante. Verifique o console de desenvolvimento para o erro de permissão.' };
   }
 }
-
-    
