@@ -53,7 +53,7 @@ export const userRoles: { [key: string]: string } = {
 
 const menuItems = [
     { href: "/dashboard", label: "Dashboard", icon: Home },
-    { href: "/dashboard/users", label: "Usuários", icon: Users },
+    { href: "/dashboard/users", label: "Integração", icon: Users },
     { 
       label: "GC", 
       icon: Network,
@@ -111,7 +111,7 @@ export default function DashboardLayout({
   const getPageTitle = (path: string) => {
       if (path === '/dashboard') return 'Dashboard';
       if (path.startsWith('/dashboard/users/')) return 'Perfil do Usuário';
-      if (path.startsWith('/dashboard/users')) return 'Usuários';
+      if (path.startsWith('/dashboard/users')) return 'Integração';
       if (path.startsWith('/dashboard/gc/cells')) return 'Células';
       if (path.startsWith('/dashboard/gc/report')) return 'Relatório de Célula';
       if (path.startsWith('/dashboard/gc/map')) return 'Mapa das Células';
