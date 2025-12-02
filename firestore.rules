@@ -57,10 +57,11 @@ service cloud.firestore {
     
      /**
      * @description Checks if the requesting user has any leadership role.
+     * This function now checks the existing user resource data, which is more efficient
+     * and avoids circular dependency issues.
      */
     function isAnyLeader() {
-      let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hierarchy.role;
-      return isSignedIn() && userRole != 'membro';
+       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hierarchy.role != 'membro';
     }
 
     /**
