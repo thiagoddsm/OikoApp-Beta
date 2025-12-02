@@ -53,25 +53,38 @@ service cloud.firestore {
       let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hierarchy.role;
       return isSignedIn() && (userRole == 'pastor_senior' || userRole == 'admin');
     }
+    
+     /**
+     * @description Checks if the requesting user has any leadership role.
+     */
+    function isAnyLeader() {
+      let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hierarchy.role;
+      return isSignedIn() && userRole != 'membro';
+    }
 
     /**
      * @description Rules for user profiles.
      * @path /users/{userId}
      */
     match /users/{userId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
-      allow create: if isOwner(userId) || isAdmin();
-      // Only admins can change roles. Owners can change other fields.
+      // Allow read only to self or to any leader/admin.
+      allow get: if isOwner(userId) || isAnyLeader();
+      // Allow listing only for leaders/admins.
+      allow list: if isAnyLeader();
+      // Allow creating a new user document only if the user is creating their own record.
+      allow create: if isOwner(userId);
+      // Only admins can change roles. Owners can't change their own role.
       allow update: if (isOwner(userId) && request.resource.data.hierarchy.role == resource.data.hierarchy.role) || isAdmin();
-      allow delete: if isExistingOwner(userId) || isAdmin();
+      // Only admins can delete users.
+      allow delete: if isAdmin();
     }
 
     /**
      * @description Rules for cell group data.
+     * Leaders can read, admins can write.
      */
     match /cells/{cellId} {
-      allow get, list: if isSignedIn();
+      allow get, list: if isAnyLeader();
       allow create, update, delete: if isAdmin();
     }
 
@@ -79,7 +92,7 @@ service cloud.firestore {
      * @description Rules for area data.
      */
     match /areas/{areaId} {
-      allow get, list: if isSignedIn();
+      allow get, list: if isAnyLeader();
       allow create, update, delete: if isAdmin();
     }
     
@@ -87,7 +100,7 @@ service cloud.firestore {
      * @description Rules for rede data.
      */
     match /redes/{redeId} {
-      allow get, list: if isSignedIn();
+      allow get, list: if isAnyLeader();
       allow create, update, delete: if isAdmin();
     }
 
@@ -95,42 +108,44 @@ service cloud.firestore {
      * @description Rules for attendance reports.
      */
     match /attendance_reports/{reportId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isAdmin();
+      allow get, list: if isAnyLeader();
+      allow create, update, delete: if isAnyLeader();
     }
 
     /**
      * @description Rules for leader tasks.
      */
     match /leader_tasks/{taskId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isAdmin();
+      // Allow a leader to manage their own tasks.
+      allow get, list: if isOwner(get(/databases/$(database)/documents/leader_tasks/$(taskId)).data.liderId) || isAdmin();
+      allow create: if isOwner(request.resource.data.liderId) || isAdmin();
+      allow update, delete: if isOwner(resource.data.liderId) || isAdmin();
     }
 
     /**
      * @description Rules for discipleship plans.
      */
     match /discipleship_plans/{planId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isAdmin();
+      allow get, list: if isAnyLeader();
+      allow create, update, delete: if isAnyLeader();
     }
     
     /**
      * @description Rules for attendance records for church services (cultos), owned by individual users.
      */
     match /cultos/{userId}/registros/{registroId} {
-      allow get, list, create: if isOwner(userId);
-      allow update, delete: if isExistingOwner(userId);
+      allow get, list, create: if isOwner(userId) || isAdmin();
+      allow update, delete: if isExistingOwner(userId) || isAdmin();
     }
 
     /**
      * @description Rules for notes on members.
      */
     match /member_notes/{noteId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn() && request.query.get('memberId') != null;
-      allow create: if isSignedIn() && isOwner(request.resource.data.authorId);
-      allow update, delete: if isSignedIn() && isOwner(resource.data.authorId);
+      allow get: if isAnyLeader();
+      allow list: if isAnyLeader() && request.query.get('memberId') != null;
+      allow create: if isAnyLeader() && isOwner(request.resource.data.authorId);
+      allow update, delete: if isAnyLeader() && isOwner(resource.data.authorId);
     }
   }
 }

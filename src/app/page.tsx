@@ -8,20 +8,43 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Logo } from "@/components/icons";
-import { useAuth } from '@/firebase';
+import { useAuth, useFirebase } from '@/firebase';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function LoginPage() {
   const loginImage = PlaceHolderImages.find(p => p.id === 'login-background');
-  const auth = useAuth();
+  const { auth, firestore } = useFirebase();
   const router = useRouter();
 
   const handleGoogleLogin = async () => {
-    if (auth) {
+    if (auth && firestore) {
       try {
         const provider = new GoogleAuthProvider();
-        await signInWithPopup(auth, provider);
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+
+        // After successful sign-in, check if user exists in Firestore
+        const userDocRef = doc(firestore, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (!userDoc.exists()) {
+          // If user document doesn't exist, create it with a default 'membro' role
+          await setDoc(userDocRef, {
+            name: user.displayName || 'Novo Usuário',
+            email: user.email || '',
+            phone: user.phoneNumber || '',
+            hierarchy: {
+              role: 'membro', // Default restricted role
+            },
+            integrationStatus: 'visitante_culto',
+            createdAt: serverTimestamp(),
+            id: user.uid,
+          });
+        }
+        
         router.push('/dashboard');
+
       } catch (error) {
         console.error("Google sign-in failed", error);
         // Handle error, e.g., show a toast message

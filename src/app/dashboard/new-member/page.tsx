@@ -18,7 +18,7 @@ function SubmitButton() {
   return (
     <Button type="submit" className="w-full" disabled={pending}>
       {pending ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : null}
-      Gerar Tarefas e Salvar Visitante
+      Gerar Tarefas e Salvar Pessoa
     </Button>
   );
 }
@@ -52,15 +52,15 @@ export default function NewMemberPage() {
       <div className="w-full max-w-2xl">
         <Card className="w-full">
           <CardHeader>
-            <CardTitle>Registrar Novo Visitante</CardTitle>
+            <CardTitle>Registrar Nova Pessoa (Discípulo)</CardTitle>
             <CardDescription>
-              Insira as informações do visitante. Nosso assistente de IA irá gerar tarefas de acompanhamento personalizadas para você e salvar o contato no sistema.
+              Insira as informações do visitante ou novo convertido. O sistema salvará o contato e nosso assistente de IA irá gerar tarefas de acompanhamento.
             </CardDescription>
           </CardHeader>
           <form action={dispatch}>
             <CardContent className="grid gap-6">
               <div className="grid gap-2">
-                <Label htmlFor="visitorName">Nome do Visitante</Label>
+                <Label htmlFor="visitorName">Nome do Discípulo</Label>
                 <Input id="visitorName" name="visitorName" placeholder="Ex: João da Silva" />
                 {state.errors?.visitorName && (
                   <p className="text-sm font-medium text-destructive">{state.errors.visitorName}</p>
@@ -68,7 +68,7 @@ export default function NewMemberPage() {
               </div>
 
                <div className="grid gap-3">
-                <Label>Origem do Visitante</Label>
+                <Label>Origem do Contato</Label>
                 <RadioGroup defaultValue="culto" name="visitorType" className="flex gap-4">
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="culto" id="r-culto" />
@@ -85,7 +85,7 @@ export default function NewMemberPage() {
               </div>
               
               <div className="grid gap-2">
-                <Label htmlFor="visitorPhone">Telefone do Visitante (com DDD)</Label>
+                <Label htmlFor="visitorPhone">Telefone do Discípulo (com DDD)</Label>
                 <Input id="visitorPhone" name="visitorPhone" placeholder="Ex: (11) 99999-8888" />
                  {state.errors?.visitorPhone && (
                   <p className="text-sm font-medium text-destructive">{state.errors.visitorPhone}</p>
@@ -93,7 +93,7 @@ export default function NewMemberPage() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="responsibleName">Responsável pelo Contato (Nome)</Label>
+                <Label htmlFor="responsibleName">Responsável pelo Contato (Seu Nome)</Label>
                 <Input id="responsibleName" name="responsibleName" defaultValue={user?.displayName || ''} placeholder="Quem fez o primeiro contato?" />
                 {state.errors?.responsibleName && (
                   <p className="text-sm font-medium text-destructive">{state.errors.responsibleName}</p>
@@ -101,16 +101,8 @@ export default function NewMemberPage() {
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="responsibleEmail">Email do Responsável</Label>
-                <Input id="responsibleEmail" name="responsibleEmail" type="email" defaultValue={user?.email || ''} placeholder="Email de quem fez o contato" />
-                {state.errors?.responsibleEmail && (
-                  <p className="text-sm font-medium text-destructive">{state.errors.responsibleEmail}</p>
-                )}
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="responsiblePhone">Telefone do Responsável</Label>
-                <Input id="responsiblePhone" name="responsiblePhone" placeholder="Telefone de quem fez o contato" />
+                <Label htmlFor="responsiblePhone">Seu Telefone (Responsável)</Label>
+                <Input id="responsiblePhone" name="responsiblePhone" placeholder="Seu telefone para a IA usar nas mensagens" />
                 {state.errors?.responsiblePhone && (
                   <p className="text-sm font-medium text-destructive">{state.errors.responsiblePhone}</p>
                 )}

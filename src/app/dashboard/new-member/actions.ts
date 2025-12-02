@@ -11,7 +11,8 @@ const NewMemberInfoSchema = z.object({
   visitorType: z.enum(['culto', 'celula'], { required_error: 'Por favor, selecione a origem do visitante.' }),
   visitorPhone: z.string().min(10, { message: 'Por favor, insira um número de telefone válido.' }),
   responsibleName: z.string().min(2, { message: 'O nome do responsável deve ter pelo menos 2 caracteres.' }),
-  responsibleEmail: z.string().email({ message: 'Por favor, insira um email válido para o responsável.' }),
+  // Email/Phone for responsible person are for the AI, not for creating a user
+  responsibleEmail: z.string().email({ message: 'Por favor, insira um email válido para o responsável.' }).optional(),
   responsiblePhone: z.string().min(10, { message: 'Por favor, insira um telefone válido para o responsável.' }),
 });
 
@@ -28,7 +29,7 @@ export type State = {
   tasks?: { message: string; dueDate: string; }[];
 };
 
-async function saveVisitorToFirestore(visitorData: Omit<z.infer<typeof NewMemberInfoSchema>, 'responsibleName' | 'responsibleEmail' | 'responsiblePhone'>) {
+async function saveVisitorToFirestore(visitorData: Pick<z.infer<typeof NewMemberInfoSchema>, 'visitorName' | 'visitorPhone' | 'visitorType'>) {
     const { firestore } = initializeFirebase();
     const usersCollection = collection(firestore, 'users');
 
@@ -36,18 +37,18 @@ async function saveVisitorToFirestore(visitorData: Omit<z.infer<typeof NewMember
         const newUserDoc = await addDoc(usersCollection, {
             name: visitorData.visitorName,
             phone: visitorData.visitorPhone,
-            email: '', // Not collected from visitor in this form
+            email: '', // Not a login user, so no email needed
             hierarchy: {
-                role: 'membro', // Default role for new entries
+                role: 'membro', // Default role for any person in the system
             },
             integrationStatus: visitorData.visitorType === 'culto' ? 'visitante_culto' : 'visitante_celula',
             createdAt: Timestamp.now()
         });
-        console.log("New visitor saved with ID: ", newUserDoc.id);
+        console.log("New person registered with ID: ", newUserDoc.id);
         return { success: true, docId: newUserDoc.id };
     } catch (error) {
         console.error("Error saving visitor to Firestore:", error);
-        return { success: false, error: "Falha ao salvar visitante no banco de dados." };
+        return { success: false, error: "Falha ao registrar pessoa no banco de dados." };
     }
 }
 
@@ -71,6 +72,7 @@ export async function createFollowUpTasks(prevState: State, formData: FormData):
   
   const { responsibleName, responsibleEmail, responsiblePhone, ...visitorData } = validatedFields.data;
 
+  // This form now only registers a person (disciple), not a user with login.
   const saveResult = await saveVisitorToFirestore(visitorData);
   if (!saveResult.success) {
       return { message: saveResult.error };
@@ -86,11 +88,11 @@ export async function createFollowUpTasks(prevState: State, formData: FormData):
     const result = await generateNewMemberFollowUpTasks(aiPayload);
 
     if (result && result.followUpTasks) {
-      return { message: 'Visitante registrado e tarefas de acompanhamento geradas com sucesso!', tasks: result.followUpTasks };
+      return { message: 'Pessoa registrada e tarefas de acompanhamento geradas com sucesso!', tasks: result.followUpTasks };
     }
-    return { message: 'Visitante registrado, mas não foi possível gerar as tarefas. A resposta da IA estava vazia.' };
+    return { message: 'Pessoa registrada, mas não foi possível gerar as tarefas. A resposta da IA estava vazia.' };
   } catch (error) {
     console.error('Error generating follow-up tasks:', error);
-    return { message: 'Visitante registrado, mas ocorreu um erro no servidor ao gerar as tarefas.' };
+    return { message: 'Pessoa registrada, mas ocorreu um erro no servidor ao gerar as tarefas.' };
   }
 }
