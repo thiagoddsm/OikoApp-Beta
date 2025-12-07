@@ -17,10 +17,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { updateUserProfile } from './actions';
-import { useFirebase, useMemoFirebase } from '@/firebase';
+import { useFirebase, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, query } from 'firebase/firestore';
+import { collection, query, doc } from 'firebase/firestore';
 
 const integrationStatusColumns = [
     { id: 'visitante_culto', title: 'SALA VIP' },
@@ -94,22 +93,45 @@ export function EditUserDialog({ user, open, onOpenChange }) {
   };
 
   const handleSave = async () => {
+    if (!firestore) {
+        toast({
+            variant: 'destructive',
+            title: 'Erro',
+            description: 'Serviço de banco de dados não disponível.',
+        });
+        return;
+    }
     setIsSaving(true);
-    const result = await updateUserProfile(user.id, formData);
-    setIsSaving(false);
+    
+    const userDocRef = doc(firestore, 'users', user.id);
+    const { name, phone, integrationStatus, celulaId, supervisorId } = formData;
+    const updateData = {
+        name,
+        phone,
+        integrationStatus,
+        'hierarchy.celulaId': celulaId || null,
+        'hierarchy.supervisorId': supervisorId || null,
+    };
 
-    if (result.success) {
-      toast({
-        title: 'Sucesso!',
-        description: 'O perfil do usuário foi atualizado.',
-      });
-      onOpenChange(false);
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'Erro',
-        description: result.error || 'Não foi possível atualizar o perfil.',
-      });
+    try {
+        updateDocumentNonBlocking(userDocRef, updateData);
+        
+        toast({
+            title: 'Sucesso!',
+            description: 'O perfil do usuário será atualizado em breve.',
+        });
+        
+        onOpenChange(false);
+    } catch (error) {
+        // O erro de permissão será capturado pelo error-emitter global.
+        // Podemos opcionalmente mostrar um erro genérico aqui também.
+        toast({
+            variant: 'destructive',
+            title: 'Erro ao Salvar',
+            description: 'Não foi possível iniciar a atualização. Verifique suas permissões.',
+        });
+    } finally {
+        setIsSaving(false);
     }
   };
 
