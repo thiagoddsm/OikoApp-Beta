@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { useFirebase, useMemoFirebase, useCollection, addDocumentNonBlocking, useDoc } from '@/firebase';
-import { collection, query, where, Timestamp, orderBy, doc } from 'firebase/firestore';
+import { useFirebase, useCollection, addDocumentNonBlocking, useDoc } from '@/firebase';
+import { Timestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,12 +27,7 @@ type UserProfile = {
 
 // Componente para buscar e exibir o nome do autor de forma isolada
 function AuthorName({ authorId }: { authorId: string }) {
-    const { firestore } = useFirebase();
-    const authorDocRef = useMemoFirebase(() => {
-        return firestore ? doc(firestore, 'users', authorId) : null;
-    }, [firestore, authorId]);
-    
-    const { data: author, isLoading } = useDoc<UserProfile>(authorDocRef);
+    const { data: author, isLoading } = useDoc<UserProfile>(`users/${authorId}`);
 
     if (isLoading) {
         return <span className="text-muted-foreground">...</span>;
@@ -76,20 +71,16 @@ export function DiscipleshipNotes({ memberId }: { memberId: string }) {
     const [noteType, setNoteType] = useState('encontro');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const notesQuery = useMemoFirebase(() => {
-        if (!firestore || !memberId) return null;
-        return query(
-            collection(firestore, 'member_notes'),
-            where('memberId', '==', memberId),
-            orderBy('createdAt', 'desc')
-        );
-    }, [firestore, memberId]);
+    const { data: notes, isLoading: isLoadingNotes } = useCollection<MemberNote>(
+        'member_notes',
+        [{ field: 'memberId', operator: '==', value: memberId }],
+        [{ field: 'createdAt', direction: 'desc' }]
+    );
 
-    const { data: notes, isLoading: isLoadingNotes } = useCollection<MemberNote>(notesQuery);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!user || !noteContent.trim()) return;
+        if (!user || !noteContent.trim() || !firestore) return;
 
         setIsSubmitting(true);
         

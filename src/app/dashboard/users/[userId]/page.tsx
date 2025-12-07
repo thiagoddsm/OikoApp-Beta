@@ -2,9 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useFirebase, useMemoFirebase } from '@/firebase';
-import { useDoc } from '@/firebase/firestore/use-doc';
-import { doc } from 'firebase/firestore';
+import { useFirebase, useMemoFirebase, useDoc } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -58,35 +56,23 @@ function UserInfoItem({ icon: Icon, label, value }) {
 }
 
 export default function UserProfilePage() {
-  const { user, firestore } = useFirebase();
   const params = useParams();
-  const router = useRouter();
   const userId = params.userId as string;
+
   const [isEditDialogOpen, setEditDialogOpen] = useState(false);
 
-  const userDocRef = useMemoFirebase(() => {
-    return firestore && userId ? doc(firestore, 'users', userId) : null;
-  }, [firestore, userId]);
-
-  const { data: userProfile, isLoading: isLoadingUser } = useDoc<UserProfile>(userDocRef);
-
-  const cellDocRef = useMemoFirebase(() => {
-    if (!firestore || !userProfile?.hierarchy?.celulaId) return null;
-    return doc(firestore, 'cells', userProfile.hierarchy.celulaId);
-  }, [firestore, userProfile?.hierarchy?.celulaId]);
-
-  const { data: cell, isLoading: isLoadingCell } = useDoc<Cell>(cellDocRef);
-
-  const supervisorDocRef = useMemoFirebase(() => {
-    if (!firestore || !userProfile?.hierarchy?.supervisorId) return null;
-    return doc(firestore, 'users', userProfile.hierarchy.supervisorId);
-  }, [firestore, userProfile?.hierarchy?.supervisorId]);
-
-  const { data: supervisor, isLoading: isLoadingSupervisor } = useDoc<Supervisor>(supervisorDocRef);
-
+  const { data: userProfile, isLoading: isLoadingUser } = useDoc<UserProfile>(`users/${userId}`);
+  
+  const { data: cell, isLoading: isLoadingCell } = useDoc<Cell>(
+    userProfile?.hierarchy?.celulaId ? `cells/${userProfile.hierarchy.celulaId}` : null
+  );
+  
+  const { data: supervisor, isLoading: isLoadingSupervisor } = useDoc<Supervisor>(
+    userProfile?.hierarchy?.supervisorId ? `users/${userProfile.hierarchy.supervisorId}` : null
+  );
 
   const avatar = PlaceHolderImages.find(p => p.id === (userProfile?.avatar || 'avatar-1'));
-  const isLoading = isLoadingUser || !user || isLoadingCell || isLoadingSupervisor;
+  const isLoading = isLoadingUser || isLoadingCell || isLoadingSupervisor;
 
   if (isLoading) {
     return (

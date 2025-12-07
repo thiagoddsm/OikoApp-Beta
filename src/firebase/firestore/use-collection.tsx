@@ -8,107 +8,113 @@ import {
   FirestoreError,
   QuerySnapshot,
   CollectionReference,
+  collection,
+  query,
+  where,
+  orderBy,
+  limit,
+  WhereFilterOp,
 } from 'firebase/firestore';
+import { useFirebase, useMemoFirebase } from '@/firebase';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
-/** Utility type to add an 'id' field to a given type T. */
 export type WithId<T> = T & { id: string };
 
-/**
- * Interface for the return value of the useCollection hook.
- * @template T Type of the document data.
- */
 export interface UseCollectionResult<T> {
-  data: WithId<T>[] | null; // Document data with ID, or null.
-  isLoading: boolean;       // True if loading.
-  error: FirestoreError | Error | null; // Error object, or null.
+  data: WithId<T>[] | null;
+  isLoading: boolean;
+  error: FirestoreError | Error | null;
 }
 
-/* Internal implementation of Query:
-  https://github.com/firebase/firebase-js-sdk/blob/c5f08a9bc5da0d2b0207802c972d53724ccef055/packages/firestore/src/lite-api/reference.ts#L143
-*/
-export interface InternalQuery extends Query<DocumentData> {
-  _query: {
-    path: {
-      canonicalString(): string;
-      toString(): string;
-    }
-  }
-}
+export type QueryConstraint = {
+  field: string;
+  operator: WhereFilterOp;
+  value: any;
+};
+
+export type OrderConstraint = {
+  field: string;
+  direction: 'asc' | 'desc';
+};
 
 /**
  * React hook to subscribe to a Firestore collection or query in real-time.
- * Handles nullable references/queries.
- * 
+ * It builds the query internally to ensure reference stability.
  *
- * IMPORTANT! YOU MUST MEMOIZE the inputted memoizedTargetRefOrQuery or BAD THINGS WILL HAPPEN
- * use useMemo to memoize it per React guidence.  Also make sure that it's dependencies are stable
- * references
- *  
- * @template T Optional type for document data. Defaults to any.
- * @param {CollectionReference<DocumentData> | Query<DocumentData> | null | undefined} targetRefOrQuery -
- * The Firestore CollectionReference or Query. Waits if null/undefined.
+ * @template T Type for document data.
+ * @param {string | null} path - The path to the collection. Hook is dormant if null.
+ * @param {QueryConstraint[]} [constraints=[]] - An array of 'where' clauses.
+ * @param {OrderConstraint[]} [order=[]] - An array of 'orderBy' clauses.
+ * @param {number} [limitBy] - The 'limit' for the query.
  * @returns {UseCollectionResult<T>} Object with data, isLoading, error.
  */
 export function useCollection<T = any>(
-    memoizedTargetRefOrQuery: ((CollectionReference<DocumentData> | Query<DocumentData>) & {__memo?: boolean})  | null | undefined,
+  path: string | null,
+  constraints: QueryConstraint[] = [],
+  order: OrderConstraint[] = [],
+  limitBy?: number
 ): UseCollectionResult<T> {
-  type ResultItemType = WithId<T>;
-  type StateDataType = ResultItemType[] | null;
-
-  const [data, setData] = useState<StateDataType>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const { firestore } = useFirebase();
+  const [data, setData] = useState<WithId<T>[] | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
+  // Memoize dependency arrays to prevent re-renders
+  const memoizedConstraints = JSON.stringify(constraints);
+  const memoizedOrder = JSON.stringify(order);
+
   useEffect(() => {
-    if (!memoizedTargetRefOrQuery) {
-      setData(null);
+    if (!firestore || !path) {
       setIsLoading(false);
-      setError(null);
+      setData(null);
       return;
     }
 
     setIsLoading(true);
-    setError(null);
+    let q: Query = collection(firestore, path);
 
-    // Directly use memoizedTargetRefOrQuery as it's assumed to be the final query
+    const parsedConstraints = JSON.parse(memoizedConstraints);
+    if (parsedConstraints.length > 0) {
+      const whereClauses = parsedConstraints.map(c => where(c.field, c.operator, c.value));
+      q = query(q, ...whereClauses);
+    }
+    
+    const parsedOrder = JSON.parse(memoizedOrder);
+    if (parsedOrder.length > 0) {
+        const orderClauses = parsedOrder.map(o => orderBy(o.field, o.direction));
+        q = query(q, ...orderClauses);
+    }
+
+    if (limitBy) {
+      q = query(q, limit(limitBy));
+    }
+    
     const unsubscribe = onSnapshot(
-      memoizedTargetRefOrQuery,
+      q,
       (snapshot: QuerySnapshot<DocumentData>) => {
-        const results: ResultItemType[] = [];
-        for (const doc of snapshot.docs) {
-          results.push({ ...(doc.data() as T), id: doc.id });
-        }
+        const results: WithId<T>[] = snapshot.docs.map(doc => ({
+          ...(doc.data() as T),
+          id: doc.id,
+        }));
         setData(results);
         setError(null);
         setIsLoading(false);
       },
-      (error: FirestoreError) => {
-        // This logic extracts the path from either a ref or a query
-        const path: string =
-          memoizedTargetRefOrQuery.type === 'collection'
-            ? (memoizedTargetRefOrQuery as CollectionReference).path
-            : (memoizedTargetRefOrQuery as unknown as InternalQuery)._query.path.canonicalString()
-
+      (err: FirestoreError) => {
         const contextualError = new FirestorePermissionError({
           operation: 'list',
-          path,
-        })
-
-        setError(contextualError)
-        setData(null)
-        setIsLoading(false)
-
-        // trigger global error propagation
+          path: path,
+        });
+        setError(contextualError);
+        setData(null);
+        setIsLoading(false);
         errorEmitter.emit('permission-error', contextualError);
       }
     );
 
     return () => unsubscribe();
-  }, [memoizedTargetRefOrQuery]); // Re-run if the target query/reference changes.
-  if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
-    throw new Error(memoizedTargetRefOrQuery + ' was not properly memoized using useMemoFirebase');
-  }
+  }, [firestore, path, memoizedConstraints, memoizedOrder, limitBy]);
+
   return { data, isLoading, error };
 }
