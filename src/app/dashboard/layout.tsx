@@ -47,6 +47,7 @@ import { PendingAccess } from "@/components/auth/pending-access";
 export const userRoles: { [key: string]: string } = {
   'admin': 'Admin',
   'pastor_senior': 'Pastor Senior',
+  'secretaria': 'Secretaria',
   'lider_rede': 'Líder de Rede',
   'lider_area': 'Líder de Área',
   'lider_gc': 'Líder de GC',
@@ -273,3 +274,5 @@ export default function DashboardLayout({
     </SidebarProvider>
   );
 }
+
+    

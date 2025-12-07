@@ -49,7 +49,7 @@
         "integrationStatus": {
           "type": "string",
           "description": "The user's stage in the integration pipeline, differentiating between church and cell visitors.",
-          "enum": ["visitante_culto", "visitante_celula", "contatado", "em_discipulado", "membro", "lider_treinamento", "lider_gc", "lider_area", "lider_rede", "pastor_senior", "admin"]
+          "enum": ["visitante_culto", "visitante_celula", "contatado", "em_discipulado", "membro", "lider_treinamento", "lider_gc", "lider_area", "lider_rede", "pastor_senior", "secretaria", "admin"]
         },
         "gamification": {
             "type": "object",
