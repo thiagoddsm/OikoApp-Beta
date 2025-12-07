@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { useFirebase, useMemoFirebase, useCollection, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, Timestamp, orderBy } from 'firebase/firestore';
+import { useFirebase, useMemoFirebase, useCollection, addDocumentNonBlocking, useDoc } from '@/firebase';
+import { collection, query, where, Timestamp, orderBy, doc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,12 +20,29 @@ type MemberNote = {
     createdAt: Timestamp;
 };
 
-type User = {
+type UserProfile = {
     id: string;
     name: string;
 };
 
-function NoteCard({ note, authorName }: { note: MemberNote, authorName: string }) {
+// Componente para buscar e exibir o nome do autor de forma isolada
+function AuthorName({ authorId }: { authorId: string }) {
+    const { firestore } = useFirebase();
+    const authorDocRef = useMemoFirebase(() => {
+        return firestore ? doc(firestore, 'users', authorId) : null;
+    }, [firestore, authorId]);
+    
+    const { data: author, isLoading } = useDoc<UserProfile>(authorDocRef);
+
+    if (isLoading) {
+        return <span className="text-muted-foreground">...</span>;
+    }
+
+    return <>{author?.name || 'Desconhecido'}</>;
+}
+
+
+function NoteCard({ note }: { note: MemberNote }) {
     const noteDate = note.createdAt?.toDate();
     const formattedDate = noteDate ? formatDistanceToNow(noteDate, { addSuffix: true, locale: ptBR }) : 'data desconhecida';
 
@@ -42,7 +59,7 @@ function NoteCard({ note, authorName }: { note: MemberNote, authorName: string }
             <div className="ml-4 space-y-2">
                 <div className="flex justify-between items-center">
                     <p className="text-sm font-semibold">
-                       {noteTypes[note.type] || 'Anotação'} por {authorName}
+                       {noteTypes[note.type] || 'Anotação'} por <AuthorName authorId={note.authorId} />
                     </p>
                     <p className="text-xs text-muted-foreground">{formattedDate}</p>
                 </div>
@@ -70,20 +87,6 @@ export function DiscipleshipNotes({ memberId }: { memberId: string }) {
 
     const { data: notes, isLoading: isLoadingNotes } = useCollection<MemberNote>(notesQuery);
 
-    const authorIds = useMemo(() => {
-        if (!notes) return [];
-        return [...new Set(notes.map(note => note.authorId))];
-    }, [notes]);
-
-    const authorsQuery = useMemoFirebase(() => {
-        if (!firestore || authorIds.length === 0) return null;
-        return query(collection(firestore, 'users'), where('__name__', 'in', authorIds));
-    }, [firestore, authorIds]);
-
-    const { data: authors, isLoading: isLoadingAuthors } = useCollection<User>(authorsQuery);
-    
-    const authorMap = useMemo(() => new Map(authors?.map(a => [a.id, a.name]) || []), [authors]);
-    
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!user || !noteContent.trim()) return;
@@ -111,8 +114,6 @@ export function DiscipleshipNotes({ memberId }: { memberId: string }) {
             setIsSubmitting(false);
         }
     };
-
-    const isLoading = isLoadingNotes || isLoadingAuthors;
 
     return (
         <Card>
@@ -147,12 +148,12 @@ export function DiscipleshipNotes({ memberId }: { memberId: string }) {
                 </form>
 
                 <div className="space-y-6">
-                    {isLoading && (
+                    {isLoadingNotes && (
                         <div className="flex items-center justify-center h-24">
                             <Loader2 className="h-6 w-6 animate-spin text-primary" />
                         </div>
                     )}
-                    {!isLoading && notes?.length === 0 && (
+                    {!isLoadingNotes && notes?.length === 0 && (
                          <div className="text-center text-muted-foreground py-8">
                             <MessageSquare className="mx-auto h-8 w-8 mb-2" />
                             <p>Nenhuma anotação ainda.</p>
@@ -160,7 +161,7 @@ export function DiscipleshipNotes({ memberId }: { memberId: string }) {
                         </div>
                     )}
                     {notes?.map(note => (
-                        <NoteCard key={note.id} note={note} authorName={authorMap.get(note.authorId) || 'Desconhecido'} />
+                        <NoteCard key={note.id} note={note} />
                     ))}
                 </div>
             </CardContent>
