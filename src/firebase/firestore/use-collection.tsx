@@ -7,7 +7,6 @@ import {
   DocumentData,
   FirestoreError,
   QuerySnapshot,
-  CollectionReference,
   collection,
   query,
   where,
@@ -15,7 +14,7 @@ import {
   limit,
   WhereFilterOp,
 } from 'firebase/firestore';
-import { useFirebase, useMemoFirebase } from '@/firebase';
+import { useFirebase } from '@/firebase';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -74,20 +73,27 @@ export function useCollection<T = any>(
     setIsLoading(true);
     let q: Query = collection(firestore, path);
 
-    const parsedConstraints = JSON.parse(memoizedConstraints);
-    if (parsedConstraints.length > 0) {
-      const whereClauses = parsedConstraints.map(c => where(c.field, c.operator, c.value));
-      q = query(q, ...whereClauses);
-    }
-    
-    const parsedOrder = JSON.parse(memoizedOrder);
-    if (parsedOrder.length > 0) {
-        const orderClauses = parsedOrder.map(o => orderBy(o.field, o.direction));
-        q = query(q, ...orderClauses);
-    }
-
-    if (limitBy) {
-      q = query(q, limit(limitBy));
+    try {
+      const parsedConstraints = JSON.parse(memoizedConstraints);
+      if (parsedConstraints.length > 0) {
+        const whereClauses = parsedConstraints.map(c => where(c.field, c.operator, c.value));
+        q = query(q, ...whereClauses);
+      }
+      
+      const parsedOrder = JSON.parse(memoizedOrder);
+      if (parsedOrder.length > 0) {
+          const orderClauses = parsedOrder.map(o => orderBy(o.field, o.direction));
+          q = query(q, ...orderClauses);
+      }
+  
+      if (limitBy) {
+        q = query(q, limit(limitBy));
+      }
+    } catch(e) {
+        console.error("Failed to build query:", e);
+        setError(e as Error);
+        setIsLoading(false);
+        return;
     }
     
     const unsubscribe = onSnapshot(

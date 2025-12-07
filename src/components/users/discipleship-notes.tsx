@@ -1,17 +1,16 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { useFirebase, useCollection, addDocumentNonBlocking, useDoc } from '@/firebase';
-import { Timestamp } from 'firebase/firestore';
+import React, { useState } from 'react';
+import { useCollection, addDocumentNonBlocking, useDoc, useFirebase } from '@/firebase';
+import { Timestamp, collection } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Send, MessageSquare, Calendar, User, FilePlus } from 'lucide-react';
+import { Loader2, MessageSquare, FilePlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { collection } from 'firebase/firestore';
 
 type MemberNote = {
     id: string;

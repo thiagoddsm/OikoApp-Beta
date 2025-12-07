@@ -2,7 +2,6 @@
     
 import { useState, useEffect } from 'react';
 import {
-  DocumentReference,
   onSnapshot,
   DocumentData,
   FirestoreError,
@@ -52,32 +51,38 @@ export function useDoc<T = any>(
     setIsLoading(true);
     setError(null);
     
-    const docRef = doc(firestore, path);
+    try {
+        const docRef = doc(firestore, path);
 
-    const unsubscribe = onSnapshot(
-      docRef,
-      (snapshot: DocumentSnapshot<DocumentData>) => {
-        if (snapshot.exists()) {
-          setData({ ...(snapshot.data() as T), id: snapshot.id });
-        } else {
-          setData(null);
-        }
-        setError(null);
-        setIsLoading(false);
-      },
-      (err: FirestoreError) => {
-        const contextualError = new FirestorePermissionError({
-          operation: 'get',
-          path: path,
-        })
-        setError(contextualError);
-        setData(null);
-        setIsLoading(false);
-        errorEmitter.emit('permission-error', contextualError);
-      }
-    );
+        const unsubscribe = onSnapshot(
+          docRef,
+          (snapshot: DocumentSnapshot<DocumentData>) => {
+            if (snapshot.exists()) {
+              setData({ ...(snapshot.data() as T), id: snapshot.id });
+            } else {
+              setData(null);
+            }
+            setError(null);
+            setIsLoading(false);
+          },
+          (err: FirestoreError) => {
+            const contextualError = new FirestorePermissionError({
+              operation: 'get',
+              path: path,
+            })
+            setError(contextualError);
+            setData(null);
+            setIsLoading(false);
+            errorEmitter.emit('permission-error', contextualError);
+          }
+        );
 
-    return () => unsubscribe();
+        return () => unsubscribe();
+    } catch(e) {
+        console.error("Failed to create document reference:", e);
+        setError(e as Error);
+        setIsLoading(false);
+    }
   }, [firestore, path]);
 
   return { data, isLoading, error };

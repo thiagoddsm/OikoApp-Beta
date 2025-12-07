@@ -2,8 +2,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { useFirebase, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, query, where, orderBy, limit } from 'firebase/firestore';
+import { useFirebase, useCollection } from '@/firebase';
 import {
   Card,
   CardContent,
@@ -68,19 +67,18 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export default function DashboardPage() {
-  const { firestore, user } = useFirebase();
-
-  // Queries
-  const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
-  const reportsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'attendance_reports'), orderBy('date', 'desc')) : null, [firestore]);
-  const cellsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells')) : null, [firestore]);
-  const cultosQuery = useMemoFirebase(() => user ? query(collection(firestore, `cultos/${user.uid}/registros`), orderBy('data', 'desc'), limit(8)) : null, [user, firestore]);
+  const { user } = useFirebase();
 
   // Data fetching
-  const { data: users, isLoading: loadingUsers } = useCollection<User>(usersQuery);
-  const { data: reports, isLoading: loadingReports } = useCollection<AttendanceReport>(reportsQuery);
-  const { data: cells, isLoading: loadingCells } = useCollection<Cell>(cellsQuery);
-  const { data: cultos, isLoading: loadingCultos } = useCollection<CultoRegistro>(cultosQuery);
+  const { data: users, isLoading: loadingUsers } = useCollection<User>('users');
+  const { data: reports, isLoading: loadingReports } = useCollection<AttendanceReport>('attendance_reports', [], [{field: 'date', direction: 'desc'}]);
+  const { data: cells, isLoading: loadingCells } = useCollection<Cell>('cells');
+  const { data: cultos, isLoading: loadingCultos } = useCollection<CultoRegistro>(
+    user ? `cultos/${user.uid}/registros` : null,
+    [],
+    [{ field: 'data', direction: 'desc' }],
+    8
+  );
   
   const isLoading = loadingUsers || loadingReports || loadingCells || loadingCultos;
 
@@ -318,5 +316,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    

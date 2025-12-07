@@ -9,9 +9,9 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { AlertCircle, Loader } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, errorEmitter, FirestorePermissionError } from "@/firebase";
+import { useFirebase, useCollection, addDocumentNonBlocking } from "@/firebase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { collection, query, doc, getDoc, Timestamp } from "firebase/firestore";
+import { collection, Timestamp } from "firebase/firestore";
 
 type UserType = {
   id: string;
@@ -28,7 +28,7 @@ type CellType = {
 };
 
 export default function NewMemberPage() {
-  const { user, firestore, isUserLoading } = useFirebase();
+  const { user, isUserLoading } = useFirebase();
   const { toast } = useToast();
   
   const [visitorName, setVisitorName] = useState('');
@@ -40,17 +40,8 @@ export default function NewMemberPage() {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const usersQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, "users")) : null),
-    [firestore]
-  );
-  const { data: allUsers, isLoading: isLoadingUsers } = useCollection<UserType>(usersQuery);
-  
-  const cellsQuery = useMemoFirebase(
-    () => (firestore ? query(collection(firestore, "cells")) : null),
-    [firestore]
-  );
-  const { data: allCells, isLoading: isLoadingCells } = useCollection<CellType>(cellsQuery);
+  const { data: allUsers, isLoading: isLoadingUsers } = useCollection<UserType>("users");
+  const { data: allCells, isLoading: isLoadingCells } = useCollection<CellType>("cells");
 
   const leaders = useMemo(() => {
     if (!allUsers) return [];
@@ -71,6 +62,7 @@ export default function NewMemberPage() {
     setError(null);
 
     startTransition(async () => {
+      const { firestore } = await import('@/firebase');
       if (!firestore) {
         setError("O serviço de banco de dados não está disponível.");
         return;

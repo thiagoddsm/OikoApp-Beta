@@ -4,8 +4,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, query, addDoc, updateDoc, doc } from 'firebase/firestore';
-import { useFirebase, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -294,19 +294,13 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
 
 
 export default function CellsPage() {
-  const { firestore, user } = useFirebase();
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [editingCell, setEditingCell] = useState<Cell | null>(null);
 
-  const usersQuery = useMemoFirebase(() => user && firestore ? query(collection(firestore, 'users')) : null, [firestore, user]);
-  const cellsQuery = useMemoFirebase(() => user && firestore ? query(collection(firestore, 'cells')) : null, [firestore, user]);
-  const areasQuery = useMemoFirebase(() => user && firestore ? query(collection(firestore, 'areas')) : null, [firestore, user]);
-  const redesQuery = useMemoFirebase(() => user && firestore ? query(collection(firestore, 'redes')) : null, [firestore, user]);
-
-  const { data: users, isLoading: isLoadingUsers } = useCollection<UserType>(usersQuery);
-  const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>(cellsQuery);
-  const { data: areas, isLoading: isLoadingAreas } = useCollection<Area>(areasQuery);
-  const { data: redes, isLoading: isLoadingRedes } = useCollection<Rede>(redesQuery);
+  const { data: users, isLoading: isLoadingUsers } = useCollection<UserType>('users');
+  const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>('cells');
+  const { data: areas, isLoading: isLoadingAreas } = useCollection<Area>('areas');
+  const { data: redes, isLoading: isLoadingRedes } = useCollection<Rede>('redes');
 
   const userMap = useMemo(() => new Map(users?.map(u => [u.id, u]) || []), [users]);
   const areaMap = useMemo(() => new Map(areas?.map(a => [a.id, a]) || []), [areas]);
@@ -328,7 +322,7 @@ export default function CellsPage() {
     setDialogOpen(true);
   };
   
-  const isLoading = isLoadingUsers || isLoadingCells || isLoadingAreas || isLoadingRedes || !user;
+  const isLoading = isLoadingUsers || isLoadingCells || isLoadingAreas || isLoadingRedes;
 
   return (
     <>
@@ -439,5 +433,4 @@ export default function CellsPage() {
     </>
   );
 }
-
     

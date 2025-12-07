@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useFirebase, useMemoFirebase } from '@/firebase';
+import { useFirebase } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, query } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { AttendanceDashboard } from '@/components/attendance/attendance-dashboard';
@@ -12,15 +11,10 @@ import { RegisterForm } from '@/components/attendance/register-form';
 import { ImportTab } from '@/components/attendance/import-tab';
 
 export default function AttendancePage() {
-  const { firestore, user } = useFirebase();
+  const { user } = useFirebase();
   const [activeTab, setActiveTab] = useState('register');
 
-  const cultosQuery = useMemoFirebase(() => 
-    user && firestore ? query(collection(firestore, `cultos/${user.uid}/registros`)) : null,
-    [user, firestore]
-  );
-  
-  const { data: registros, isLoading } = useCollection(cultosQuery);
+  const { data: registros, isLoading } = useCollection(user ? `cultos/${user.uid}/registros` : null);
   
   return (
     <div className="space-y-6">

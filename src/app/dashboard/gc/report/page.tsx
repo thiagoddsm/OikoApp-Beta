@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { useFirebase, useMemoFirebase, addDocumentNonBlocking, useCollection, useDoc } from '@/firebase';
+import { useFirebase, addDocumentNonBlocking, useCollection, useDoc } from '@/firebase';
 import { collection, query, where, doc, Timestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -180,24 +180,20 @@ function CellReportForm({ cell, members, leaderId }: { cell: Cell; members: User
 
 
 export default function CellReportPage() {
-    const { firestore, user, isUserLoading } = useFirebase();
+    const { user, isUserLoading } = useFirebase();
     
     // Encontrar a célula liderada pelo usuário logado
-    const leaderCellQuery = useMemoFirebase(() => {
-        if (!firestore || !user) return null;
-        return query(collection(firestore, 'cells'), where('liderId', '==', user.uid));
-    }, [firestore, user]);
-
-    const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>(leaderCellQuery);
+    const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>(
+        user ? 'cells' : null,
+        user ? [{ field: 'liderId', operator: '==', value: user.uid }] : []
+    );
     const cell = cells?.[0];
 
     // Buscar os detalhes dos membros da célula encontrada
-    const memberDetailsQuery = useMemoFirebase(() => {
-        if (!firestore || !cell || cell.membros.length === 0) return null;
-        return query(collection(firestore, 'users'), where('__name__', 'in', cell.membros));
-    }, [firestore, cell]);
-
-    const { data: members, isLoading: isLoadingMembers } = useCollection<UserProfile>(memberDetailsQuery);
+    const { data: members, isLoading: isLoadingMembers } = useCollection<UserProfile>(
+        cell && cell.membros.length > 0 ? 'users' : null,
+        cell && cell.membros.length > 0 ? [{ field: '__name__', operator: 'in', value: cell.membros }] : []
+    );
 
     const isLoading = isUserLoading || isLoadingCells || isLoadingMembers;
 

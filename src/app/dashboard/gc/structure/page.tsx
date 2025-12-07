@@ -2,8 +2,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { useFirebase, useMemoFirebase, useCollection } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
+import { useCollection } from '@/firebase';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Loader2, Users, Plus, Minus, Flag, PlusCircle, Pencil } from "lucide-react";
 import { Button } from '@/components/ui/button';
@@ -165,27 +164,21 @@ const RenderHierarchy = ({ nodes, level = 1, onEditNode }) => {
 
 
 export default function StructurePage() {
-    const { firestore, user } = useFirebase();
     const [isRedeDialogOpen, setRedeDialogOpen] = useState(false);
     const [isAreaDialogOpen, setAreaDialogOpen] = useState(false);
     const [editingNode, setEditingNode] = useState(null);
 
-    const usersQuery = useMemoFirebase(() => user ? query(collection(firestore, 'users')) : null, [firestore, user]);
-    const cellsQuery = useMemoFirebase(() => user ? query(collection(firestore, 'cells')) : null, [firestore, user]);
-    const areasQuery = useMemoFirebase(() => user ? query(collection(firestore, 'areas')) : null, [firestore, user]);
-    const redesQuery = useMemoFirebase(() => user ? query(collection(firestore, 'redes')) : null, [firestore, user]);
-
-    const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
-    const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>(cellsQuery);
-    const { data: areas, isLoading: isLoadingAreas } = useCollection<Area>(areasQuery);
-    const { data: redes, isLoading: isLoadingRedes } = useCollection<Rede>(redesQuery);
+    const { data: users, isLoading: isLoadingUsers } = useCollection<User>('users');
+    const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>('cells');
+    const { data: areas, isLoading: isLoadingAreas } = useCollection<Area>('areas');
+    const { data: redes, isLoading: isLoadingRedes } = useCollection<Rede>('redes');
 
     const hierarchyData = useMemo(() => {
         if (!users || !redes || !areas || !cells) return [];
         return buildHierarchy(users, redes, areas, cells);
     }, [users, redes, areas, cells]);
     
-    const isLoading = isLoadingUsers || isLoadingCells || isLoadingAreas || isLoadingRedes || !user;
+    const isLoading = isLoadingUsers || isLoadingCells || isLoadingAreas || isLoadingRedes;
 
     const handleEditNode = (node) => {
         setEditingNode(node);
