@@ -3,7 +3,7 @@
 
 import { z } from 'zod';
 import { generateNewMemberFollowUpTasks } from '@/ai/flows/new-member-follow-up-tasks';
-import { initializeFirebase, addDocumentNonBlocking } from '@/firebase';
+import { initializeFirebase, addDocumentNonBlocking, errorEmitter, FirestorePermissionError } from '@/firebase';
 import { collection, addDoc, Timestamp, doc, getDoc } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 
@@ -73,24 +73,28 @@ export async function createFollowUpTasks(prevState: State, formData: FormData):
   const visitorData = validatedFields.data;
 
   // Fetch responsible user details
-  let responsibleUser;
+  const responsibleUserDocRef = doc(firestore, 'users', visitorData.responsibleUserId);
+
   try {
-    const responsibleUserDocRef = doc(firestore, 'users', visitorData.responsibleUserId);
-    const responsibleUserDoc = await getDoc(responsibleUserDocRef);
+    const responsibleUserDoc = await getDoc(responsibleUserDocRef).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+          path: responsibleUserDocRef.path,
+          operation: 'get',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        // Throw a new error to be caught by the outer try/catch block
+        throw new Error("Erro ao buscar dados do responsável. Verifique suas permissões.");
+    });
+    
     if (!responsibleUserDoc.exists()) {
         return { message: "Erro: O usuário responsável selecionado não foi encontrado." };
     }
-    responsibleUser = responsibleUserDoc.data();
-  } catch (error) {
-     return { message: "Erro ao buscar dados do responsável. Verifique suas permissões." };
-  }
+    const responsibleUser = responsibleUserDoc.data();
 
-
-  try {
+    // The rest of the logic on success
     const saveResult = await saveVisitorToFirestore(visitorData);
     
     if (!saveResult.success) {
-        // Embora o erro de permissão seja global, podemos ter outros erros
         return { message: "Falha ao registrar pessoa no banco de dados." };
     }
 
@@ -110,10 +114,9 @@ export async function createFollowUpTasks(prevState: State, formData: FormData):
     return { message: 'Pessoa registrada, mas não foi possível gerar as tarefas. A resposta da IA estava vazia.' };
 
   } catch (error: any) {
-    // Se addDocumentNonBlocking falhar, a promise será rejeitada e cairá aqui.
-    // No entanto, o erro de permissão já terá sido emitido globalmente.
-    // Podemos retornar uma mensagem genérica aqui, pois o erro detalhado aparecerá no overlay.
+    // This will now catch the re-thrown error from the .catch() block
     console.error('Error in createFollowUpTasks:', error);
-    return { message: 'Ocorreu um erro ao salvar o visitante. Verifique o console de desenvolvimento para o erro de permissão.' };
+    // Return the specific message from the thrown error
+    return { message: error.message || 'Ocorreu um erro. Verifique o console de desenvolvimento.' };
   }
 }
