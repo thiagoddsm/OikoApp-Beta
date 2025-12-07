@@ -52,14 +52,15 @@ service cloud.firestore {
      */
     function isAdmin() {
       let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hierarchy.role;
-      return isSignedIn() && (userRole == 'pastor_senior' || userRole == 'admin');
+      return isSignedIn() && (userRole == 'pastor_senior' || userRole == 'admin' || userRole == 'secretaria');
     }
     
      /**
      * @description Checks if the requesting user has any leadership role (not a 'membro').
      */
     function isAnyLeader() {
-       return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hierarchy.role != 'membro';
+       let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hierarchy.role;
+       return isSignedIn() && userRole != 'membro';
     }
 
     /**
@@ -71,8 +72,8 @@ service cloud.firestore {
       allow get: if isAnyLeader();
       // Allow listing only for leaders/admins.
       allow list: if isAnyLeader();
-      // Allow a leader to create a doc for anyone.
-      allow create: if isAnyLeader();
+      // Allow a user to create their own document.
+      allow create: if isOwner(userId);
       // Only admins can change roles. Owners can't change their own role.
       allow update: if (isOwner(userId) && request.resource.data.hierarchy.role == resource.data.hierarchy.role) || isAdmin();
       // Only admins can delete users.
@@ -149,5 +150,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
