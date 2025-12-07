@@ -1,17 +1,19 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useFirebase, useMemoFirebase } from '@/firebase';
 import { useDoc } from '@/firebase/firestore/use-doc';
 import { doc } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
-import { Loader2, User, ArrowLeft, Pencil } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, User, ArrowLeft, Pencil, MapPin, Phone, Mail, Calendar, UserSquare, VenetianMask, Building, Users } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Link from 'next/link';
 import { EditUserDialog } from '@/components/users/edit-user-dialog';
+import { DiscipleshipNotes } from '@/components/users/discipleship-notes';
 
 type UserProfile = {
   id: string;
@@ -20,6 +22,12 @@ type UserProfile = {
   integrationStatus?: string;
   email?: string;
   phone?: string;
+  dataNascimento?: string;
+  sexo?: string;
+  estadoCivil?: string;
+  address?: {
+    street?: string;
+  };
   hierarchy?: {
     celulaId?: string;
     supervisorId?: string;
@@ -38,9 +46,23 @@ type Supervisor = {
 
 const getAppId = () => (typeof window !== 'undefined' && (window as any).__app_id) ? (window as any).__app_id : 'default-app-id';
 
+function UserInfoItem({ icon: Icon, label, value }) {
+  if (!value) return null;
+  return (
+    <div className="flex items-start gap-3">
+      <Icon className="size-4 text-muted-foreground mt-1 shrink-0" />
+      <div className="flex flex-col">
+        <span className="text-xs text-muted-foreground">{label}</span>
+        <span className="text-sm font-medium">{value}</span>
+      </div>
+    </div>
+  );
+}
+
 export default function UserProfilePage() {
   const { user, firestore } = useFirebase();
   const params = useParams();
+  const router = useRouter();
   const userId = params.userId as string;
   const [appId, setAppId] = useState<string | null>(null);
   const [isEditDialogOpen, setEditDialogOpen] = useState(false);
@@ -102,37 +124,32 @@ export default function UserProfilePage() {
   
   return (
     <>
-      <div className="flex justify-center items-start pt-6 h-full">
-        <Card className="w-full max-w-sm">
-          <CardHeader className="items-center text-center">
-            <Avatar className="h-24 w-24 mb-4">
-              {avatar && <AvatarImage src={avatar.imageUrl} alt={avatar.description} />}
-              <AvatarFallback className="text-3xl">{userProfile.name.charAt(0)}</AvatarFallback>
-            </Avatar>
-            <CardTitle>{userProfile.name}</CardTitle>
-            <CardDescription className="capitalize">{(userProfile.integrationStatus || 'Não definido').replace(/_/g, ' ')}</CardDescription>
-          </CardHeader>
-          <CardContent className="text-sm">
-             <div className="space-y-3">
-               <div className="flex flex-col">
-                  <span className="font-semibold text-muted-foreground">Email:</span>
-                  <span>{userProfile.email || 'Não informado'}</span>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-full">
+        {/* Coluna do Perfil */}
+        <div className="md:col-span-1">
+           <Card className="w-full">
+            <CardHeader className="items-center text-center">
+              <Avatar className="h-24 w-24 mb-4">
+                {avatar && <AvatarImage src={avatar.imageUrl} alt={avatar.description} />}
+                <AvatarFallback className="text-3xl">{userProfile.name.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <CardTitle>{userProfile.name}</CardTitle>
+              <CardDescription className="capitalize">{(userProfile.integrationStatus || 'Não definido').replace(/_/g, ' ')}</CardDescription>
+            </CardHeader>
+            <CardContent className="text-sm">
+               <div className="space-y-4">
+                  <UserInfoItem icon={Mail} label="Email" value={userProfile.email} />
+                  <UserInfoItem icon={Phone} label="Telefone" value={userProfile.phone} />
+                  <UserInfoItem icon={Calendar} label="Data de Nascimento" value={userProfile.dataNascimento} />
+                  <UserInfoItem icon={UserSquare} label="Sexo" value={userProfile.sexo} />
+                  <UserInfoItem icon={VenetianMask} label="Estado Civil" value={userProfile.estadoCivil} />
+                  <UserInfoItem icon={MapPin} label="Endereço" value={userProfile.address?.street} />
+                  <UserInfoItem icon={Building} label="Célula" value={cell?.nome} />
+                  <UserInfoItem icon={Users} label="Responsável" value={supervisor?.name} />
                </div>
-               <div className="flex flex-col">
-                  <span className="font-semibold text-muted-foreground">Telefone:</span>
-                  <span>{userProfile.phone || 'Não informado'}</span>
-               </div>
-                <div className="flex flex-col">
-                  <span className="font-semibold text-muted-foreground">Célula:</span>
-                  <span>{cell?.nome || 'Nenhuma'}</span>
-               </div>
-               <div className="flex flex-col">
-                  <span className="font-semibold text-muted-foreground">Responsável:</span>
-                  <span>{supervisor?.name || 'Nenhum'}</span>
-               </div>
-             </div>
-          </CardContent>
-          <CardFooter className="flex flex-col gap-2">
+            </CardContent>
+          </Card>
+           <div className="flex flex-col gap-2 mt-4">
               <Button className="w-full" onClick={() => setEditDialogOpen(true)}>
                   <Pencil className="mr-2 h-4 w-4" />
                   Editar Perfil
@@ -143,8 +160,34 @@ export default function UserProfilePage() {
                 Voltar para lista
               </Link>
             </Button>
-          </CardFooter>
-        </Card>
+          </div>
+        </div>
+
+        {/* Coluna das Abas */}
+        <div className="md:col-span-2">
+            <Tabs defaultValue="discipleship" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="discipleship">Discipulado</TabsTrigger>
+                    <TabsTrigger value="history">Histórico</TabsTrigger>
+                </TabsList>
+                <TabsContent value="discipleship">
+                    <DiscipleshipNotes memberId={userId} />
+                </TabsContent>
+                <TabsContent value="history">
+                     <Card>
+                        <CardHeader>
+                            <CardTitle>Histórico</CardTitle>
+                            <CardDescription>Histórico de interações e mudanças de status do membro.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                           <div className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
+                                <p className="text-muted-foreground">Em construção...</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+            </Tabs>
+        </div>
       </div>
       
       {userProfile && (

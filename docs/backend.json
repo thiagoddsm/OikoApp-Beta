@@ -24,6 +24,30 @@
           "description": "The user's email address.",
           "format": "email"
         },
+        "dataNascimento": {
+          "type": "string",
+          "description": "The user's date of birth.",
+          "format": "date"
+        },
+        "sexo": {
+          "type": "string",
+          "description": "The user's gender.",
+          "enum": ["Masculino", "Feminino"]
+        },
+        "estadoCivil": {
+          "type": "string",
+          "description": "The user's marital status.",
+          "enum": ["Solteiro(a)", "Casado(a)", "Divorciado(a)", "Viúvo(a)"]
+        },
+        "address": {
+          "type": "object",
+          "description": "The user's home address.",
+          "properties": {
+            "street": { "type": "string" },
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          }
+        },
         "hierarchy": {
             "type": "object",
             "description": "Defines the user's position within the church hierarchy.",
@@ -528,5 +552,3 @@
     "enabled": true
   }
 }
-
-    

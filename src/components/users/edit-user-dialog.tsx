@@ -22,9 +22,9 @@ import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query, doc } from 'firebase/firestore';
 
 const integrationStatusColumns = [
-    { id: 'visitante_culto', title: 'Sala Vip' },
-    { id: 'visitante_celula', title: 'Visitante em GC' },
-    { id: 'contatado', title: 'Participante em GC' },
+    { id: 'visitante_culto', title: 'Visitante (Culto)' },
+    { id: 'visitante_celula', title: 'Visitante (Célula)' },
+    { id: 'contatado', title: 'Contatado' },
     { id: 'em_discipulado', title: 'Em Discipulado' },
     { id: 'membro', title: 'Membro' },
     { id: 'lider_treinamento', title: 'Líder em Treinamento' },
@@ -54,6 +54,11 @@ export function EditUserDialog({ user, open, onOpenChange }) {
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
+    email: '',
+    dataNascimento: '',
+    sexo: '',
+    estadoCivil: '',
+    addressStreet: '',
     integrationStatus: '',
     celulaId: '',
     supervisorId: '',
@@ -76,6 +81,11 @@ export function EditUserDialog({ user, open, onOpenChange }) {
       setFormData({
         name: user.name || '',
         phone: user.phone || '',
+        email: user.email || '',
+        dataNascimento: user.dataNascimento || '',
+        sexo: user.sexo || '',
+        estadoCivil: user.estadoCivil || '',
+        addressStreet: user.address?.street || '',
         integrationStatus: user.integrationStatus || 'visitante_culto',
         celulaId: user.hierarchy?.celulaId || '',
         supervisorId: user.hierarchy?.supervisorId || '',
@@ -104,13 +114,18 @@ export function EditUserDialog({ user, open, onOpenChange }) {
     setIsSaving(true);
     
     const userDocRef = doc(firestore, 'users', user.id);
-    const { name, phone, integrationStatus, celulaId, supervisorId } = formData;
+    
     const updateData = {
-        name,
-        phone,
-        integrationStatus,
-        'hierarchy.celulaId': celulaId || null,
-        'hierarchy.supervisorId': supervisorId || null,
+        name: formData.name,
+        phone: formData.phone,
+        email: formData.email,
+        dataNascimento: formData.dataNascimento,
+        sexo: formData.sexo,
+        estadoCivil: formData.estadoCivil,
+        'address.street': formData.addressStreet,
+        integrationStatus: formData.integrationStatus,
+        'hierarchy.celulaId': formData.celulaId || null,
+        'hierarchy.supervisorId': formData.supervisorId || null,
     };
 
     try {
@@ -123,8 +138,6 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         
         onOpenChange(false);
     } catch (error) {
-        // O erro de permissão será capturado pelo error-emitter global.
-        // Podemos opcionalmente mostrar um erro genérico aqui também.
         toast({
             variant: 'destructive',
             title: 'Erro ao Salvar',
@@ -144,7 +157,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
             Altere as informações abaixo e clique em salvar.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="name" className="text-right">
               Nome
@@ -165,6 +178,74 @@ export function EditUserDialog({ user, open, onOpenChange }) {
               id="phone"
               name="phone"
               value={formData.phone}
+              onChange={handleInputChange}
+              className="col-span-3"
+            />
+          </div>
+           <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="email" className="text-right">
+              Email
+            </Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              className="col-span-3"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="dataNascimento" className="text-right">
+              Nascimento
+            </Label>
+            <Input
+              id="dataNascimento"
+              name="dataNascimento"
+              type="date"
+              value={formData.dataNascimento}
+              onChange={handleInputChange}
+              className="col-span-3"
+            />
+          </div>
+           <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="sexo" className="text-right">
+              Sexo
+            </Label>
+            <Select value={formData.sexo} onValueChange={(v) => handleSelectChange('sexo', v)}>
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder="Selecione o sexo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Masculino">Masculino</SelectItem>
+                <SelectItem value="Feminino">Feminino</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+           <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="estadoCivil" className="text-right">
+              Estado Civil
+            </Label>
+            <Select value={formData.estadoCivil} onValueChange={(v) => handleSelectChange('estadoCivil', v)}>
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder="Selecione o estado civil" />
+              </SelectTrigger>
+              <SelectContent>
+                 <SelectItem value="Solteiro(a)">Solteiro(a)</SelectItem>
+                 <SelectItem value="Casado(a)">Casado(a)</SelectItem>
+                 <SelectItem value="Divorciado(a)">Divorciado(a)</SelectItem>
+                 <SelectItem value="Viúvo(a)">Viúvo(a)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+           <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="addressStreet" className="text-right">
+              Endereço
+            </Label>
+            <Input
+              id="addressStreet"
+              name="addressStreet"
+              value={formData.addressStreet}
               onChange={handleInputChange}
               className="col-span-3"
             />
