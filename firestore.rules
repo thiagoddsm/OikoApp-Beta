@@ -72,8 +72,8 @@ service cloud.firestore {
       allow get: if isAnyLeader();
       // Allow listing only for leaders/admins.
       allow list: if isAnyLeader();
-      // Allow a user to create their own document.
-      allow create: if isOwner(userId);
+      // Allow a user to create their own document OR allow any leader to create a new user.
+      allow create: if isOwner(userId) || isAnyLeader();
       // Only admins can change roles. Owners can't change their own role.
       allow update: if (isOwner(userId) && request.resource.data.hierarchy.role == resource.data.hierarchy.role) || isAdmin();
       // Only admins can delete users.
