@@ -44,8 +44,6 @@ type Supervisor = {
   name: string;
 }
 
-const getAppId = () => (typeof window !== 'undefined' && (window as any).__app_id) ? (window as any).__app_id : 'default-app-id';
-
 function UserInfoItem({ icon: Icon, label, value }) {
   if (!value) return null;
   return (
@@ -64,32 +62,25 @@ export default function UserProfilePage() {
   const params = useParams();
   const router = useRouter();
   const userId = params.userId as string;
-  const [appId, setAppId] = useState<string | null>(null);
   const [isEditDialogOpen, setEditDialogOpen] = useState(false);
 
-  useEffect(() => {
-    setAppId(getAppId());
-  }, []);
-
   const userDocRef = useMemoFirebase(() => {
-    return firestore && user && userId && appId
-      ? doc(firestore, 'users', userId) 
-      : null;
-  }, [firestore, user, userId, appId]);
+    return firestore && userId ? doc(firestore, 'users', userId) : null;
+  }, [firestore, userId]);
 
   const { data: userProfile, isLoading: isLoadingUser } = useDoc<UserProfile>(userDocRef);
 
   const cellDocRef = useMemoFirebase(() => {
-    if (!firestore || !userProfile?.hierarchy?.celulaId || !appId) return null;
+    if (!firestore || !userProfile?.hierarchy?.celulaId) return null;
     return doc(firestore, 'cells', userProfile.hierarchy.celulaId);
-  }, [firestore, userProfile, appId]);
+  }, [firestore, userProfile?.hierarchy?.celulaId]);
 
   const { data: cell, isLoading: isLoadingCell } = useDoc<Cell>(cellDocRef);
 
   const supervisorDocRef = useMemoFirebase(() => {
-    if (!firestore || !userProfile?.hierarchy?.supervisorId || !appId) return null;
+    if (!firestore || !userProfile?.hierarchy?.supervisorId) return null;
     return doc(firestore, 'users', userProfile.hierarchy.supervisorId);
-  }, [firestore, userProfile, appId]);
+  }, [firestore, userProfile?.hierarchy?.supervisorId]);
 
   const { data: supervisor, isLoading: isLoadingSupervisor } = useDoc<Supervisor>(supervisorDocRef);
 
