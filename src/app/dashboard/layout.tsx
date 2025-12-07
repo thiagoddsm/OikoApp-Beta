@@ -41,6 +41,8 @@ import { useFirebase, useDoc, useMemoFirebase } from "@/firebase";
 import { doc } from 'firebase/firestore';
 import { signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
+import { PendingAccess } from "@/components/auth/pending-access";
+
 
 export const userRoles: { [key: string]: string } = {
   'admin': 'Admin',
@@ -84,7 +86,7 @@ export default function DashboardLayout({
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);
   
-  const { data: userData } = useDoc<{ hierarchy?: { role?: string; } }>(userDocRef);
+  const { data: userData, isLoading: isUserDataLoading } = useDoc<{ hierarchy?: { role?: string; } }>(userDocRef);
   const userRole = userData?.hierarchy?.role;
   const userRoleLabel = userRole ? userRoles[userRole] : 'Carregando...';
 
@@ -126,6 +128,27 @@ export default function DashboardLayout({
         
       return defaultTitle || 'Integrapp';
   };
+  
+  const isLoading = isUserLoading || isUserDataLoading;
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    // Not logged in, redirect to login page
+    // Using a meta refresh for client-side redirection after initial render
+    return <meta httpEquiv="refresh" content="0;url=/" />;
+  }
+  
+  // If user is loaded and has the 'membro' role, show the pending access screen
+  if (userRole === 'membro') {
+    return <PendingAccess userName={user.displayName} onLogout={handleLogout} />;
+  }
 
 
   return (

@@ -1,10 +1,9 @@
-
 'use client';
 
 import React, { useMemo } from 'react';
 import { useFirebase, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, doc } from 'firebase/firestore';
+import { collection, query, doc } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -29,7 +28,7 @@ export default function SettingsPage() {
   const { toast } = useToast();
 
   const usersQuery = useMemoFirebase(() => 
-    user ? collection(firestore, 'users') : null,
+    user ? query(collection(firestore, 'users')) : null,
     [firestore, user]
   );
   
