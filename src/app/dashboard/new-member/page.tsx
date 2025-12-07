@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, useEffect, useMemo, useTransition } from "react";
-import { createFollowUpTasks, type State } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,7 +13,6 @@ import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, er
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { collection, query, doc, getDoc, Timestamp } from "firebase/firestore";
 import { generateNewMemberFollowUpTasks } from "@/ai/flows/new-member-follow-up-tasks";
-import { revalidatePath } from "next/cache";
 
 type UserType = {
   id: string;
