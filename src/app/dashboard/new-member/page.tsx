@@ -1,8 +1,7 @@
 
 "use client";
 
-import { useActionState, useEffect, useState, useMemo } from "react";
-import { useFormStatus } from "react-dom";
+import { useState, useEffect, useMemo, useTransition } from "react";
 import { createFollowUpTasks, type State } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,9 +10,11 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { CheckCircle, AlertCircle, Loader, MessageSquare, Calendar } from "lucide-react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useFirebase, useCollection, useMemoFirebase } from "@/firebase";
+import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, errorEmitter, FirestorePermissionError } from "@/firebase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { collection, query } from "firebase/firestore";
+import { collection, query, doc, getDoc, Timestamp } from "firebase/firestore";
+import { generateNewMemberFollowUpTasks } from "@/ai/flows/new-member-follow-up-tasks";
+import { revalidatePath } from "next/cache";
 
 type UserType = {
   id: string;
@@ -29,26 +30,19 @@ type CellType = {
   nome: string;
 };
 
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" className="w-full" disabled={pending}>
-      {pending ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : null}
-      Gerar Tarefas e Salvar Pessoa
-    </Button>
-  );
-}
-
 export default function NewMemberPage() {
-  const initialState: State = { message: null, errors: {} };
   const { user, firestore, isUserLoading } = useFirebase();
-  const [state, dispatch] = useActionState(createFollowUpTasks, initialState);
   const { toast } = useToast();
   
+  const [visitorName, setVisitorName] = useState('');
+  const [visitorPhone, setVisitorPhone] = useState('');
   const [responsibleUserId, setResponsibleUserId] = useState('');
   const [visitorType, setVisitorType] = useState('culto');
   const [cellId, setCellId] = useState('');
+
+  const [isPending, startTransition] = useTransition();
+  const [tasks, setTasks] = useState<{ message: string; dueDate: string; }[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
 
   // 1. Fetch all users
@@ -64,7 +58,6 @@ export default function NewMemberPage() {
     [firestore]
   );
   const { data: allCells, isLoading: isLoadingCells } = useCollection<CellType>(cellsQuery);
-
 
   // 3. Filter to get only leaders
   const leaders = useMemo(() => {
@@ -82,24 +75,78 @@ export default function NewMemberPage() {
     }
   }, [user, leaders]);
 
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+    setTasks(null);
 
-  useEffect(() => {
-    if (state.message) {
-      if (state.tasks) {
-        toast({
-          title: "Sucesso!",
-          description: state.message,
-          variant: "default",
-        });
-      } else {
-        toast({
-          title: "Erro",
-          description: state.message,
-          variant: "destructive",
-        });
+    startTransition(async () => {
+      if (!firestore) {
+        setError("O serviço de banco de dados não está disponível.");
+        return;
       }
-    }
-  }, [state, toast]);
+      
+      const responsibleUserDocRef = doc(firestore, 'users', responsibleUserId);
+      
+      try {
+        const responsibleUserDoc = await getDoc(responsibleUserDocRef).catch(serverError => {
+            const permissionError = new FirestorePermissionError({
+              path: responsibleUserDocRef.path,
+              operation: 'get',
+            });
+            errorEmitter.emit('permission-error', permissionError);
+            throw new Error("Erro de permissão ao buscar dados do responsável.");
+        });
+
+        if (!responsibleUserDoc.exists()) {
+          setError("Erro: O usuário responsável selecionado não foi encontrado.");
+          toast({ title: "Erro", description: "O usuário responsável selecionado não foi encontrado.", variant: "destructive" });
+          return;
+        }
+
+        const responsibleUser = responsibleUserDoc.data() as UserType;
+
+        // Save new user
+        const usersCollection = collection(firestore, 'users');
+        const newUser = {
+            name: visitorName,
+            phone: visitorPhone,
+            email: '',
+            hierarchy: {
+                role: 'membro',
+                celulaId: cellId || null,
+            },
+            integrationStatus: visitorType === 'culto' ? 'visitante_culto' : 'visitante_celula',
+            createdAt: Timestamp.now()
+        };
+        
+        await addDocumentNonBlocking(usersCollection, newUser);
+
+        const aiPayload = {
+          visitorName: visitorName,
+          visitorType: visitorType as 'culto' | 'celula',
+          responsibleName: responsibleUser.name || 'Líder',
+          responsiblePhoneNumber: responsibleUser.phone || 'N/A',
+        };
+
+        const result = await generateNewMemberFollowUpTasks(aiPayload);
+        
+        if (result && result.followUpTasks) {
+          setTasks(result.followUpTasks);
+          toast({ title: "Sucesso!", description: 'Pessoa registrada e tarefas de acompanhamento geradas com sucesso!' });
+        } else {
+          setError('Pessoa registrada, mas não foi possível gerar as tarefas. A resposta da IA estava vazia.');
+          toast({ title: "Aviso", description: 'Pessoa registrada, mas não foi possível gerar as tarefas. A resposta da IA estava vazia.', variant: "destructive" });
+        }
+
+      } catch (e: any) {
+        // Errors emitted by FirestorePermissionError will be caught here if they are thrown
+        // The global listener will also catch it and show the overlay
+        setError(e.message || "Ocorreu um erro desconhecido.");
+        console.error("Form submission error:", e);
+      }
+    });
+  };
   
   const isLoading = isUserLoading || isLoadingUsers || isLoadingCells;
 
@@ -113,14 +160,11 @@ export default function NewMemberPage() {
               Insira as informações do visitante ou novo convertido. O sistema salvará o contato e nosso assistente de IA irá gerar tarefas de acompanhamento.
             </CardDescription>
           </CardHeader>
-          <form action={dispatch}>
+          <form onSubmit={handleSubmit}>
             <CardContent className="grid gap-6">
               <div className="grid gap-2">
                 <Label htmlFor="visitorName">Nome do Discípulo</Label>
-                <Input id="visitorName" name="visitorName" placeholder="Ex: João da Silva" />
-                {state.errors?.visitorName && (
-                  <p className="text-sm font-medium text-destructive">{state.errors.visitorName}</p>
-                )}
+                <Input id="visitorName" name="visitorName" placeholder="Ex: João da Silva" value={visitorName} onChange={(e) => setVisitorName(e.target.value)} required />
               </div>
 
                <div className="grid gap-3">
@@ -135,9 +179,6 @@ export default function NewMemberPage() {
                     <Label htmlFor="r-celula">Visitante de Célula (GC)</Label>
                   </div>
                 </RadioGroup>
-                 {state.errors?.visitorType && (
-                  <p className="text-sm font-medium text-destructive">{state.errors.visitorType}</p>
-                )}
               </div>
               
               {visitorType === 'celula' && (
@@ -155,23 +196,17 @@ export default function NewMemberPage() {
                             ))}
                         </SelectContent>
                     </Select>
-                     {state.errors?.cellId && (
-                      <p className="text-sm font-medium text-destructive">{state.errors.cellId}</p>
-                    )}
                 </div>
               )}
               
               <div className="grid gap-2">
                 <Label htmlFor="visitorPhone">Telefone do Discípulo (com DDD)</Label>
-                <Input id="visitorPhone" name="visitorPhone" placeholder="Ex: (11) 99999-8888" />
-                 {state.errors?.visitorPhone && (
-                  <p className="text-sm font-medium text-destructive">{state.errors.visitorPhone}</p>
-                )}
+                <Input id="visitorPhone" name="visitorPhone" placeholder="Ex: (11) 99999-8888" value={visitorPhone} onChange={(e) => setVisitorPhone(e.target.value)} required/>
               </div>
               
               <div className="grid gap-2">
                 <Label htmlFor="responsibleUserId">Responsável pelo Contato</Label>
-                 <Select name="responsibleUserId" value={responsibleUserId} onValueChange={setResponsibleUserId} disabled={isLoading}>
+                 <Select name="responsibleUserId" value={responsibleUserId} onValueChange={setResponsibleUserId} disabled={isLoading} required>
                     <SelectTrigger>
                         <SelectValue placeholder={isLoading ? "Carregando líderes..." : "Selecione um responsável"} />
                     </SelectTrigger>
@@ -183,23 +218,23 @@ export default function NewMemberPage() {
                         ))}
                     </SelectContent>
                 </Select>
-                {state.errors?.responsibleUserId && (
-                  <p className="text-sm font-medium text-destructive">{state.errors.responsibleUserId}</p>
-                )}
               </div>
 
             </CardContent>
             <CardFooter>
-              <SubmitButton />
+              <Button type="submit" className="w-full" disabled={isPending || isLoading}>
+                {isPending ? <Loader className="mr-2 h-4 w-4 animate-spin" /> : null}
+                Gerar Tarefas e Salvar Pessoa
+              </Button>
             </CardFooter>
           </form>
         </Card>
 
-        {state.tasks && state.tasks.length > 0 && (
+        {tasks && tasks.length > 0 && (
           <div className="mt-8">
             <h2 className="text-2xl font-bold text-center mb-4 font-headline">Suas Tarefas de Acompanhamento!</h2>
             <div className="grid gap-4">
-              {state.tasks.map((task, index) => (
+              {tasks.map((task, index) => (
                 <Card key={index} className="bg-card">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
@@ -225,15 +260,15 @@ export default function NewMemberPage() {
           </div>
         )}
 
-        {state.message && !state.tasks && (
+        {error && (
              <div className="mt-8">
                 <Card className="border-destructive bg-destructive/10">
                     <CardHeader className="flex-row items-center gap-3 space-y-0">
                          <AlertCircle className="h-6 w-6 text-destructive" />
-                        <CardTitle className="text-destructive">Falha ao Gerar Tarefas</CardTitle>
+                        <CardTitle className="text-destructive">Ocorreu um erro</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-destructive">{state.message}</p>
+                        <p className="text-destructive">{error}</p>
                     </CardContent>
                 </Card>
             </div>
@@ -242,5 +277,3 @@ export default function NewMemberPage() {
     </div>
   );
 }
-
-    
