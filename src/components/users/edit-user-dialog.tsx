@@ -22,15 +22,15 @@ import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query, doc } from 'firebase/firestore';
 
 const integrationStatusColumns = [
-    { id: 'visitante_culto', title: 'SALA VIP' },
-    { id: 'visitante_celula', title: 'VISITANTE EM GC' },
-    { id: 'contatado', title: 'PARTICIPANTE EM GC' },
+    { id: 'visitante_culto', title: 'Sala Vip' },
+    { id: 'visitante_celula', title: 'Visitante em GC' },
+    { id: 'contatado', title: 'Participante em GC' },
     { id: 'em_discipulado', title: 'Em Discipulado' },
     { id: 'membro', title: 'Membro' },
     { id: 'lider_treinamento', title: 'Líder em Treinamento' },
-    { id: 'lider_gc', title: 'LÍDER DE GC' },
-    { id: 'lider_area', title: 'LÍDER DE ÁREA' },
-    { id: 'lider_rede', title: 'LÍDER DE REDE' },
+    { id: 'lider_gc', title: 'Líder de GC' },
+    { id: 'lider_area', title: 'Líder de Área' },
+    { id: 'lider_rede', title: 'Líder de Rede' },
 ];
 
 type User = {

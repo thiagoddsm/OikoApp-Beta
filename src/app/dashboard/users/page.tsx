@@ -22,27 +22,27 @@ type User = {
 };
 
 const integrationStatusColumns = [
-    { id: 'visitante_culto', title: 'SALA VIP' },
-    { id: 'visitante_celula', title: 'VISITANTE EM GC' },
-    { id: 'contatado', title: 'PARTICIPANTE EM GC' },
+    { id: 'visitante_culto', title: 'Sala Vip' },
+    { id: 'visitante_celula', title: 'Visitante em GC' },
+    { id: 'contatado', title: 'Participante em GC' },
     { id: 'em_discipulado', title: 'Em Discipulado' },
-    { id: 'membro', title: 'Membros' },
-    { id: 'lider_treinamento', title: 'Líderes em Treinamento' },
-    { id: 'lider_gc', title: 'LÍDER DE GC' },
-    { id: 'lider_area', title: 'LÍDER DE ÁREA' },
-    { id: 'lider_rede', title: 'LÍDER DE REDE' },
+    { id: 'membro', title: 'Membro' },
+    { id: 'lider_treinamento', title: 'Líder em Treinamento' },
+    { id: 'lider_gc', title: 'Líder de GC' },
+    { id: 'lider_area', title: 'Líder de Área' },
+    { id: 'lider_rede', title: 'Líder de Rede' },
 ];
 
 const statusLabels: { [key: string]: string } = {
-  visitante_culto: "SALA VIP",
-  visitante_celula: "VISITANTE EM GC",
-  contatado: "PARTICIPANTE EM GC",
+  visitante_culto: "Sala Vip",
+  visitante_celula: "Visitante em GC",
+  contatado: "Participante em GC",
   em_discipulado: "Em Discipulado",
   membro: "Membro",
   lider_treinamento: "Líder em Treinamento",
-  lider_gc: "LÍDER DE GC",
-  lider_area: "LÍDER DE ÁREA",
-  lider_rede: "LÍDER DE REDE",
+  lider_gc: "Líder de GC",
+  lider_area: "Líder de Área",
+  lider_rede: "Líder de Rede",
 };
 
 function UserCard({ user }: { user: User }) {
