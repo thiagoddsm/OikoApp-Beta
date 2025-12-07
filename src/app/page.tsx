@@ -6,10 +6,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Logo } from "@/components/icons";
-import { useAuth, useFirebase } from '@/firebase';
+import { useFirebase } from '@/firebase';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
@@ -57,19 +56,26 @@ export default function LoginPage() {
     <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2">
       <div className="flex items-center justify-center py-12">
         <div className="mx-auto grid w-[350px] gap-6">
-          <div className="grid gap-2 text-center">
+          <div className="grid gap-4 text-center">
             <div className="flex justify-center items-center gap-2 mb-4">
               <Logo className="h-8 w-8 text-primary" />
               <h1 className="text-3xl font-bold font-headline">Integrapp</h1>
             </div>
+            <h2 className="text-2xl font-bold">Boas-vindas!</h2>
             <p className="text-balance text-muted-foreground">
-              Entre com sua conta Google para continuar
+              Crie sua conta ou faça login para continuar.
             </p>
           </div>
           <div className="grid gap-4">
-            <Button onClick={handleGoogleLogin} variant="outline" className="w-full">
-              Sign in
+            <Button onClick={handleGoogleLogin} className="w-full">
+              Criar conta com Google
             </Button>
+             <div className="text-center text-sm">
+              Já tem uma conta?{" "}
+              <button onClick={handleGoogleLogin} className="underline font-semibold">
+                Acesse aqui
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -88,3 +94,4 @@ export default function LoginPage() {
     </div>
   );
 }
+
