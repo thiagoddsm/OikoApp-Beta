@@ -19,6 +19,7 @@ import {
   Building,
   ClipboardList,
   Map,
+  Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -69,6 +70,7 @@ const menuItems = [
     },
     { href: "/dashboard/attendance", label: "Presença Culto", icon: CalendarCheck },
     { href: "/dashboard/reports", label: "Análises", icon: BarChart2 },
+    { href: "/dashboard/notifications", label: "Notificações", icon: Send },
     { href: "/dashboard/new-member", label: "Novo Visitante", icon: PlusCircle },
 ];
 
@@ -121,6 +123,7 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/gc')) return 'Estrutura de GC';
       if (path.startsWith('/dashboard/attendance')) return 'Presença Culto';
       if (path.startsWith('/dashboard/reports')) return 'Análises';
+      if (path.startsWith('/dashboard/notifications')) return 'Notificações';
       if (path.startsWith('/dashboard/new-member')) return 'Novo Visitante';
 
       const defaultTitle = menuItems
@@ -274,5 +277,3 @@ export default function DashboardLayout({
     </SidebarProvider>
   );
 }
-
-    
