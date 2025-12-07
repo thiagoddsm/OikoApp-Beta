@@ -142,7 +142,14 @@ export default function DashboardLayout({
   if (!user) {
     // Not logged in, redirect to login page
     // Using a meta refresh for client-side redirection after initial render
-    return <meta httpEquiv="refresh" content="0;url=/" />;
+    if (typeof window !== 'undefined') {
+        router.push('/');
+    }
+    return (
+         <div className="flex h-screen w-full items-center justify-center">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        </div>
+    );
   }
   
   // If user is loaded and has the 'membro' role, show the pending access screen
