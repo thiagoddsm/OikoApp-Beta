@@ -68,7 +68,7 @@ service cloud.firestore {
      */
     match /users/{userId} {
       // Allow read only to self or to any leader/admin.
-      allow get: if isOwner(userId) || isAnyLeader();
+      allow get: if isAnyLeader();
       // Allow listing only for leaders/admins.
       allow list: if isAnyLeader();
       // Allow a leader to create a doc for anyone.
