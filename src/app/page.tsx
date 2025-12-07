@@ -1,3 +1,4 @@
+
 'use client';
 
 import Image from "next/image";
@@ -67,7 +68,7 @@ export default function LoginPage() {
           </div>
           <div className="grid gap-4">
             <Button onClick={handleGoogleLogin} variant="outline" className="w-full">
-              Login com Google
+              Sign in
             </Button>
           </div>
         </div>
