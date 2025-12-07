@@ -11,6 +11,7 @@ import { Loader2, Send, MessageSquare, Calendar, User, FilePlus } from 'lucide-r
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { collection } from 'firebase/firestore';
 
 type MemberNote = {
     id: string;
@@ -27,7 +28,9 @@ type UserProfile = {
 
 // Componente para buscar e exibir o nome do autor de forma isolada
 function AuthorName({ authorId }: { authorId: string }) {
-    const { data: author, isLoading } = useDoc<UserProfile>(`users/${authorId}`);
+    const { data: author, isLoading } = useDoc<UserProfile>(
+        authorId ? `users/${authorId}` : null
+    );
 
     if (isLoading) {
         return <span className="text-muted-foreground">...</span>;
