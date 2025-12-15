@@ -1,8 +1,6 @@
-
 'use client';
 
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React from 'react';
 import { Button } from "@/components/ui/button";
@@ -45,7 +43,11 @@ export default function LoginPage() {
         
         router.push('/dashboard');
 
-      } catch (error) {
+      } catch (error: any) {
+        // Don't log error if user cancels the popup
+        if (error.code === 'auth/cancelled-popup-request') {
+          return;
+        }
         console.error("Google sign-in failed", error);
         // Handle error, e.g., show a toast message
       }
@@ -94,4 +96,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
