@@ -17,6 +17,15 @@ const horariosCultos = [
   "Quinta - 20:00"
 ];
 
+const timestampToDateString = (timestamp) => {
+    if (!timestamp?.seconds) return '';
+    const date = new Date(timestamp.seconds * 1000);
+    // Add timezone offset to prevent date from shifting
+    const offset = date.getTimezoneOffset() * 60000;
+    const adjustedDate = new Date(date.getTime() + offset);
+    return adjustedDate.toISOString().split('T')[0];
+};
+
 export function AttendanceDashboard({ registros, loading }) {
   const [filtroDataInicio, setFiltroDataInicio] = useState('');
   const [filtroDataFim, setFiltroDataFim] = useState('');
@@ -31,10 +40,12 @@ export function AttendanceDashboard({ registros, loading }) {
 
     try {
       if (filtroDataInicio) {
-        filtrados = filtrados.filter(r => r.data >= filtroDataInicio);
+        const startTimestamp = new Date(filtroDataInicio).getTime() / 1000;
+        filtrados = filtrados.filter(r => r.data.seconds >= startTimestamp);
       }
       if (filtroDataFim) {
-        filtrados = filtrados.filter(r => r.data <= filtroDataFim);
+        const endTimestamp = new Date(filtroDataFim).getTime() / 1000;
+        filtrados = filtrados.filter(r => r.data.seconds <= endTimestamp);
       }
     } catch (e) {
       console.error("Erro ao filtrar data:", e);
@@ -58,14 +69,13 @@ export function AttendanceDashboard({ registros, loading }) {
         filtrados = filtrados.filter(r => (r.apresentacaoBebe || false) === (filtroBebe === 'sim'));
     }
     
-    return filtrados.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+    return filtrados.sort((a, b) => a.data.seconds - b.data.seconds);
   }, [registros, filtroDataInicio, filtroDataFim, filtroHorario, filtroSerie, filtroFeriado, filtroJogo, filtroBebe]);
 
-  const formatarDataGrafico = (dataStr) => {
-    if(!dataStr) return "";
-    const [ano, mes, dia] = dataStr.split('-');
-    if(!dia || !mes) return dataStr;
-    return `${dia}/${mes}`;
+  const formatarDataGrafico = (timestamp) => {
+    if(!timestamp?.seconds) return "";
+    const date = new Date(timestamp.seconds * 1000);
+    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' });
   };
 
   const dadosGraficoLinha = useMemo(() => {

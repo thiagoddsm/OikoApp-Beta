@@ -55,18 +55,18 @@ export function RecordsList({ registros, loading }) {
     setIdToDelete(null);
   };
 
-  const formatarData = (dataStr) => {
-    if (!dataStr) return '-';
-    const [ano, mes, dia] = dataStr.split('-');
-    return `${dia}/${mes}/${ano}`;
+  const formatarData = (timestamp) => {
+    if (!timestamp?.seconds) return '-';
+    const date = new Date(timestamp.seconds * 1000);
+    return date.toLocaleDateString('pt-BR', {timeZone: 'UTC'});
   };
 
   const registrosOrdenados = useMemo(() => {
     if (!registros) return [];
     return [...registros].sort((a, b) => {
-      const dataA = new Date(a.data);
-      const dataB = new Date(b.data);
-      return dataB.getTime() - dataA.getTime();
+      const dataA = a.data?.seconds || 0;
+      const dataB = b.data?.seconds || 0;
+      return dataB - dataA;
     });
   }, [registros]);
 

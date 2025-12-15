@@ -38,7 +38,7 @@ export function RegisterForm() {
   const [observacoes, setObservacoes] = useState('');
   const [salvando, setSalvando] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
       toast({ title: "Erro", description: "Usuário não autenticado.", variant: "destructive" });
@@ -52,12 +52,19 @@ export function RegisterForm() {
       toast({ title: "Erro de Validação", description: "Por favor, insira um número válido de crianças.", variant: "destructive" });
       return;
     }
+    if (!data) {
+       toast({ title: "Erro de Validação", description: "Por favor, selecione uma data.", variant: "destructive" });
+      return;
+    }
 
     setSalvando(true);
+    
+    // The time should be set to noon to avoid timezone issues when converting back.
+    const dateAsTimestamp = Timestamp.fromDate(new Date(`${data}T12:00:00`));
 
     const collectionRef = collection(firestore, `cultos/${user.uid}/registros`);
     addDocumentNonBlocking(collectionRef, {
-      data,
+      data: dateAsTimestamp,
       horario,
       adultos: Number(adultos),
       criancas: Number(criancas || 0),
@@ -135,15 +142,15 @@ export function RegisterForm() {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
           <div className="flex items-center space-x-2">
-            <Checkbox id="feriadoProximo" checked={feriadoProximo} onCheckedChange={setFeriadoProximo} />
+            <Checkbox id="feriadoProximo" checked={feriadoProximo} onCheckedChange={setFeriadoProximo as (checked: boolean) => void} />
             <Label htmlFor="feriadoProximo" className="font-medium">Feriado Próximo?</Label>
           </div>
           <div className="flex items-center space-x-2">
-            <Checkbox id="jogoFutebol" checked={jogoFutebol} onCheckedChange={setJogoFutebol} />
+            <Checkbox id="jogoFutebol" checked={jogoFutebol} onCheckedChange={setJogoFutebol as (checked: boolean) => void} />
             <Label htmlFor="jogoFutebol" className="font-medium">Jogo no Horário?</Label>
           </div>
           <div className="flex items-center space-x-2">
-            <Checkbox id="apresentacaoBebe" checked={apresentacaoBebe} onCheckedChange={setApresentacaoBebe} />
+            <Checkbox id="apresentacaoBebe" checked={apresentacaoBebe} onCheckedChange={setApresentacaoBebe as (checked: boolean) => void} />
             <Label htmlFor="apresentacaoBebe" className="font-medium">Apresentação de Bebê?</Label>
           </div>
       </div>
