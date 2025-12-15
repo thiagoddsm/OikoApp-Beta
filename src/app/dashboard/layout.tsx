@@ -38,7 +38,7 @@ import {
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Logo } from "@/components/icons";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useFirebase, useDoc, useMemoFirebase } from "@/firebase";
+import { useFirebase, useDoc } from "@/firebase";
 import { doc } from 'firebase/firestore';
 import { signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
@@ -84,12 +84,7 @@ export default function DashboardLayout({
   const { user, auth, firestore, isUserLoading } = useFirebase();
   const router = useRouter();
 
-  const userDocRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [firestore, user]);
-  
-  const { data: userData, isLoading: isUserDataLoading } = useDoc<{ hierarchy?: { role?: string; } }>(userDocRef);
+  const { data: userData, isLoading: isUserDataLoading } = useDoc<{ hierarchy?: { role?: string; } }>(user ? `users/${user.uid}`: null);
   const userRole = userData?.hierarchy?.role;
   const userRoleLabel = userRole ? userRoles[userRole] : 'Carregando...';
 
@@ -130,7 +125,7 @@ export default function DashboardLayout({
         .flatMap(item => item.subItems ? item.subItems : [item])
         .find(item => path.startsWith(item.href))?.label;
         
-      return defaultTitle || 'Integrapp';
+      return defaultTitle || 'OikoApp';
   };
   
   const isLoading = isUserLoading || isUserDataLoading;
@@ -168,7 +163,7 @@ export default function DashboardLayout({
         <SidebarHeader>
           <div className="flex items-center gap-2">
             <Logo className="size-7 text-primary" />
-            <span className="text-lg font-semibold font-headline">Integrapp</span>
+            <span className="text-lg font-semibold font-headline">OikoApp</span>
           </div>
         </SidebarHeader>
         <SidebarContent>

@@ -61,7 +61,7 @@ export default function LoginPage() {
           <div className="grid gap-4 text-center">
             <div className="flex justify-center items-center gap-2 mb-4">
               <Logo className="h-8 w-8 text-primary" />
-              <h1 className="text-3xl font-bold font-headline">Integrapp</h1>
+              <h1 className="text-3xl font-bold font-headline">OikoApp</h1>
             </div>
             <h2 className="text-2xl font-bold">Boas-vindas!</h2>
             <p className="text-balance text-muted-foreground">

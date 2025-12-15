@@ -51,7 +51,7 @@ export default function NewMemberPage() {
       <div className="w-full max-w-2xl">
          <div className="flex justify-center items-center gap-2 mb-6">
             <Logo className="h-8 w-8 text-primary" />
-            <h1 className="text-3xl font-bold font-headline">Integrapp</h1>
+            <h1 className="text-3xl font-bold font-headline">OikoApp</h1>
         </div>
         <Card className="w-full">
           <CardHeader>

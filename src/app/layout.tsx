@@ -1,4 +1,5 @@
 import type {Metadata} from 'next';
+import { PT_Sans } from 'next/font/google'
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
@@ -6,8 +7,14 @@ import { FirebaseClientProvider } from '@/firebase';
 import Script from 'next/script';
 import { firebaseConfig } from '@/firebase/config';
 
+const ptSans = PT_Sans({
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  variable: '--font-body',
+});
+
 export const metadata: Metadata = {
-  title: 'Integrapp - O Assistente do Líder',
+  title: 'OikoApp - O Assistente do Líder',
   description: 'Um assistente proativo para discipulado intencional.',
 };
 
@@ -36,12 +43,10 @@ export default function RootLayout({
             strategy="beforeInteractive"
           />
         )}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=PT+Sans:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
       </head>
       <body className={cn(
-        "min-h-screen bg-background font-body antialiased"
+        "min-h-screen bg-background font-body antialiased",
+        ptSans.variable
       )}>
         <FirebaseClientProvider>
           {children}
