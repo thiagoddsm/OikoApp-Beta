@@ -11,7 +11,7 @@ service cloud.firestore {
 
     // Master admin UID
     function isMasterAdmin() {
-      return request.auth.uid == '9Sm2pIH1zlOj9k8D8EcLS3bkKad2';
+      return request.auth.uid == '9Sm2pIH1zIOj9k8D8EcLS3bkKad2';
     }
 
     function isOwner(userId) {
@@ -113,6 +113,12 @@ service cloud.firestore {
         // Member can see own notes, leaders can see notes of their members
         // This rule is complex and might need refinement based on hierarchy
         allow read, write: if isSignedIn();
+    }
+    
+    match /cells/{cellId} {
+        allow read: if isSignedIn();
+        allow create, update: if hasRole('gc_leader') || hasRole('admin');
+        allow delete: if hasRole('admin');
     }
   }
 }
