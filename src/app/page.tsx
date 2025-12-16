@@ -33,10 +33,12 @@ export default function LoginPage() {
             name: user.displayName || 'Novo Usuário',
             email: user.email || '',
             phone: user.phoneNumber || '',
-            hierarchy: {
-              role: 'membro', // Default restricted role
+            roles: ['member'],
+            journey: {
+              td: false,
+              baptism: false,
+              membership_course: false,
             },
-            integrationStatus: 'visitante_culto',
             createdAt: serverTimestamp(),
           });
         }
@@ -45,7 +47,7 @@ export default function LoginPage() {
 
       } catch (error: any) {
         // Don't log error if user cancels the popup
-        if (error.code === 'auth/cancelled-popup-request') {
+        if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
           return;
         }
         console.error("Google sign-in failed", error);
@@ -61,7 +63,7 @@ export default function LoginPage() {
           <div className="grid gap-4 text-center">
             <div className="flex justify-center items-center gap-2 mb-4">
               <Logo className="h-8 w-8 text-primary" />
-              <h1 className="text-3xl font-bold font-headline">OikoApp</h1>
+              <h1 className="text-3xl font-bold">IBM Core</h1>
             </div>
             <h2 className="text-2xl font-bold">Boas-vindas!</h2>
             <p className="text-balance text-muted-foreground">
@@ -70,7 +72,7 @@ export default function LoginPage() {
           </div>
           <div className="grid gap-4">
             <Button onClick={handleGoogleLogin} className="w-full">
-              Criar conta com Google
+              Entrar com Google
             </Button>
              <div className="text-center text-sm">
               Já tem uma conta?{" "}

@@ -14,8 +14,8 @@ const ptSans = PT_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'OikoApp - O Assistente do Líder',
-  description: 'Um assistente proativo para discipulado intencional.',
+  title: 'IBM Core - O Sistema Operacional da Igreja',
+  description: 'Um sistema para garantir que a Organização sirva ao Organismo.',
 };
 
 export default function RootLayout({

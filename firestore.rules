@@ -1,156 +1,92 @@
 
-/**
- * @fileoverview Firestore Security Rules for ConectarGC application.
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for personal data (culto records)
- * and employs role-based access control for administrative functions. All other collections
- * are secured based on explicit authorization. Data shape validation is relaxed for rapid prototyping.
- *
- * Data Structure:
- * - /users/{userId}: User profile information.
- * - /cells/{cellId}: Cell group details.
- * - /attendance_reports/{reportId}: Attendance reports for cell meetings.
- * - /leader_tasks/{taskId}: Tasks assigned to cell leaders.
- * - /discipleship_plans/{planId}: Discipleship plans between leaders and members.
- * - /cultos/{userId}/registros/{registroId}: Attendance records for church services (cultos), owned by individual users.
- * - /member_notes/{noteId}: Notes about members made by leaders.
- * - /goals/{goalId}: KPI goals for the church.
- */
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * @description Checks if the request is authenticated.
-     */
+    // --- Helper Functions ---
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * @description Checks if the authenticated user's ID matches the provided userId.
-     */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
-
-    /**
-     * @description Checks if the authenticated user's ID matches the provided userId and if the resource exists.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && exists(/databases/$(database)/documents/users/$(userId));
-    }
-
-    /**
-     * @description Checks if the requesting user has an admin role.
-     * Admin roles are 'pastor_senior' or 'admin'.
-     */
-    function isAdmin() {
-      let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hierarchy.role;
-      return isSignedIn() && (userRole == 'pastor_senior' || userRole == 'admin' || userRole == 'secretaria');
+    
+    function getUserData(userId) {
+        return get(/databases/$(database)/documents/users/$(userId)).data;
     }
     
-     /**
-     * @description Checks if the requesting user has any leadership role (not a 'membro').
-     */
-    function isAnyLeader() {
-       let userRole = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hierarchy.role;
-       return isSignedIn() && userRole != 'membro';
+    function hasRole(role) {
+        return isSignedIn() && getUserData(request.auth.uid).roles.hasAny([role, 'admin', 'pastor']);
     }
 
-    /**
-     * @description Rules for user profiles.
-     * @path /users/{userId}
-     */
+    // --- Collection Rules ---
+
+    // USER: Public read, owner write.
     match /users/{userId} {
-      // Allow read only to self or to any leader/admin.
-      allow get: if isAnyLeader() || isOwner(userId);
-      // Allow listing only for leaders/admins.
-      allow list: if isAnyLeader();
-      // Allow a user to create their own document.
+      allow read: if isSignedIn();
       allow create: if isSignedIn();
-      // Only admins can change roles. Owners can't change their own role.
-      allow update: if (isOwner(userId) && request.resource.data.hierarchy.role == resource.data.hierarchy.role) || isAdmin();
+      allow update: if isOwner(userId) || hasRole('admin');
       // Only admins can delete users.
-      allow delete: if isAdmin();
+      allow delete: if hasRole('admin');
     }
 
-    /**
-     * @description Rules for cell group data.
-     * Leaders can read, admins can write.
-     */
-    match /cells/{cellId} {
-      allow get, list: if isAnyLeader();
-      allow create, update, delete: if isAdmin();
+    // GROUPS (GCs): Authenticated read, leader/admin write.
+    match /groups/{groupId} {
+      allow read: if isSignedIn();
+      allow create, update: if hasRole('gc_leader');
+      allow delete: if hasRole('admin');
     }
 
-    /**
-     * @description Rules for area data.
-     */
-    match /areas/{areaId} {
-      allow get, list: if isAnyLeader();
-      allow create, update, delete: if isAdmin();
+    // REPORTS: Leader/admin only.
+    match /reports/{reportId} {
+      allow read, write: if hasRole('gc_leader');
     }
     
-    /**
-     * @description Rules for rede data.
-     */
-    match /redes/{redeId} {
-      allow get, list: if isAnyLeader();
-      allow create, update, delete: if isAdmin();
-    }
-
-    /**
-     * @description Rules for attendance reports.
-     */
-    match /attendance_reports/{reportId} {
-      allow get, list: if isAnyLeader();
-      allow create, update, delete: if isAnyLeader();
-    }
-
-    /**
-     * @description Rules for leader tasks.
-     */
-    match /leader_tasks/{taskId} {
-      // Allow a leader to manage their own tasks.
-      allow get, list: if isOwner(get(/databases/$(database)/documents/leader_tasks/$(taskId)).data.liderId) || isAdmin();
-      allow create: if isOwner(request.resource.data.liderId) || isAdmin();
-      allow update, delete: if isOwner(resource.data.liderId) || isAdmin();
-    }
-
-    /**
-     * @description Rules for discipleship plans.
-     */
-    match /discipleship_plans/{planId} {
-      allow get, list: if isAnyLeader();
-      allow create, update, delete: if isAnyLeader();
+    // TEAMS: Authenticated read, team leader/admin write.
+    match /teams/{teamId} {
+        allow read: if isSignedIn();
+        allow create, update: if hasRole('team_leader');
+        allow delete: if hasRole('admin');
     }
     
-    /**
-     * @description Rules for attendance records for church services (cultos), owned by individual users.
-     */
-    match /cultos/{userId}/registros/{registroId} {
-      allow list, get: if isOwner(userId) || isAdmin();
-      allow create: if isSignedIn();
-      allow update, delete: if isExistingOwner(userId) || isAdmin();
+    // ROSTERS (Escalas): Authenticated read, team leader/admin write.
+    match /rosters/{rosterId} {
+        allow read: if isSignedIn();
+        // A user can update their own status (accept/decline)
+        allow update: if hasRole('team_leader') || request.auth.uid == request.resource.data.positions[0].assignedTo;
+        allow create: if hasRole('team_leader');
+        allow delete: if hasRole('admin');
     }
 
-    /**
-     * @description Rules for notes on members.
-     */
-    match /member_notes/{noteId} {
-      allow get, list: if isAnyLeader();
-      allow create: if isAnyLeader() && isOwner(request.resource.data.authorId);
-      allow update, delete: if isAnyLeader() && isOwner(resource.data.authorId);
+    // EVENTS: Authenticated read, admin write.
+    match /events/{eventId} {
+      allow read: if isSignedIn();
+      allow write: if hasRole('admin');
     }
     
-    /**
-     * @description Rules for KPI goals.
-     * Only admins can read or write goals.
-     */
-    match /goals/{goalId} {
-      allow get, list, create, update, delete: if isAdmin();
+    // RUN SHEETS: Authenticated read, admin write.
+    match /run_sheets/{sheetId} {
+      allow read: if isSignedIn();
+      allow write: if hasRole('admin');
+    }
+
+    // BUDGET REQUESTS: Requester can create/read, admin can read/update.
+    match /budget_requests/{reqId} {
+        allow read: if isOwner(resource.data.requesterId) || hasRole('admin');
+        allow create: if isOwner(request.resource.data.requesterId);
+        allow update: if hasRole('admin'); // Only admin can approve/reject
+        allow delete: if hasRole('admin');
+    }
+    
+    // SOCIAL: Admin/pastor only.
+    match /beneficiaries/{beneId} {
+        allow read, write: if hasRole('pastor');
+    }
+    
+    match /social_actions/{actionId} {
+        allow read, write: if hasRole('pastor');
     }
   }
 }

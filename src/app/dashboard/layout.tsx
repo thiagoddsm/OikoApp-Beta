@@ -7,13 +7,10 @@ import React from 'react';
 import {
   Home,
   Users,
-  FileText,
   Settings,
   User,
   LogOut,
   PlusCircle,
-  CalendarCheck,
-  Loader2,
   BarChart2,
   Network,
   ChevronDown,
@@ -22,6 +19,9 @@ import {
   Map,
   Send,
   TrendingUp,
+  HeartHandshake,
+  CalendarDays,
+  CalendarCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -41,7 +41,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Logo } from "@/components/icons";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useFirebase, useDoc } from "@/firebase";
-import { doc } from 'firebase/firestore';
 import { signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { PendingAccess } from "@/components/auth/pending-access";
@@ -49,19 +48,18 @@ import { PendingAccess } from "@/components/auth/pending-access";
 
 export const userRoles: { [key: string]: string } = {
   'admin': 'Admin',
-  'pastor_senior': 'Pastor Senior',
-  'secretaria': 'Secretaria',
-  'lider_rede': 'Líder de Rede',
-  'lider_area': 'Líder de Área',
-  'lider_gc': 'Líder de GC',
-  'membro': 'Membro'
+  'pastor': 'Pastor',
+  'gc_leader': 'Líder de GC',
+  'team_leader': 'Líder de Equipe',
+  'member': 'Membro',
+  'volunteer': 'Voluntário'
 };
 
 const menuItems = [
     { href: "/dashboard", label: "Dashboard", icon: Home },
-    { href: "/dashboard/users", label: "Integração", icon: Users },
+    { href: "/dashboard/users", label: "Pessoas (CRM)", icon: Users },
     { 
-      label: "GC", 
+      label: "GCs & Discipulado", 
       icon: Network,
       subItems: [
         { href: "/dashboard/gc/structure", label: "Estrutura", icon: Network },
@@ -70,11 +68,10 @@ const menuItems = [
         { href: "/dashboard/gc/map", label: "Mapa", icon: Map },
       ]
     },
-    { href: "/dashboard/attendance", label: "Presença Culto", icon: CalendarCheck },
-    { href: "/dashboard/goals", label: "Metas", icon: TrendingUp },
-    { href: "/dashboard/reports", label: "Análises", icon: BarChart2 },
-    { href: "/dashboard/notifications", label: "Notificações", icon: Send },
-    { href: "/dashboard/new-member", label: "Novo Visitante", icon: PlusCircle },
+    { href: "/dashboard/volunteering", label: "Voluntariado", icon: HeartHandshake },
+    { href: "/dashboard/events", label: "Eventos", icon: CalendarDays },
+    { href: "/dashboard/social", label: "Ação Social", icon: Users },
+    { href: "/dashboard/goals", label: "Metas (KPIs)", icon: TrendingUp },
 ];
 
 
@@ -84,12 +81,12 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { user, auth, firestore, isUserLoading } = useFirebase();
+  const { user, auth } = useFirebase();
   const router = useRouter();
 
-  const { data: userData, isLoading: isUserDataLoading } = useDoc<{ hierarchy?: { role?: string; } }>(user ? `users/${user.uid}`: null);
-  const userRole = userData?.hierarchy?.role;
-  const userRoleLabel = userRole ? userRoles[userRole] : 'Carregando...';
+  const { data: userData, isLoading: isUserDataLoading } = useDoc<{ roles?: string[]; }>(user ? `users/${user.uid}`: null);
+  const userPrimaryRole = userData?.roles?.[0] || 'member';
+  const userRoleLabel = userRoles[userPrimaryRole] || 'Membro';
 
   const handleLogout = async () => {
     try {
@@ -113,50 +110,32 @@ export default function DashboardLayout({
 
   const getPageTitle = (path: string) => {
       if (path === '/dashboard') return 'Dashboard';
-      if (path.startsWith('/dashboard/users/')) return 'Perfil do Usuário';
-      if (path.startsWith('/dashboard/users')) return 'Integração';
-      if (path.startsWith('/dashboard/gc/cells')) return 'Células';
-      if (path.startsWith('/dashboard/gc/report')) return 'Relatório de Célula';
-      if (path.startsWith('/dashboard/gc/map')) return 'Mapa das Células';
-      if (path.startsWith('/dashboard/gc')) return 'Estrutura de GC';
-      if (path.startsWith('/dashboard/attendance')) return 'Presença Culto';
+      if (path.startsWith('/dashboard/users')) return 'Pessoas e Jornada';
+      if (path.startsWith('/dashboard/gc')) return 'GCs e Discipulado';
+      if (path.startsWith('/dashboard/volunteering')) return 'Voluntariado e Escalas';
+      if (path.startsWith('/dashboard/events')) return 'Eventos e Produção';
+      if (path.startsWith('/dashboard/social')) return 'Ação Social';
       if (path.startsWith('/dashboard/goals')) return 'Metas e KPIs';
-      if (path.startsWith('/dashboard/reports')) return 'Análises';
-      if (path.startsWith('/dashboard/notifications')) return 'Notificações';
-      if (path.startsWith('/dashboard/new-member')) return 'Novo Visitante';
 
       const defaultTitle = menuItems
         .flatMap(item => item.subItems ? item.subItems : [item])
         .find(item => path.startsWith(item.href))?.label;
         
-      return defaultTitle || 'OikoApp';
+      return defaultTitle || 'IBM Core';
   };
   
-  const isLoading = isUserLoading || isUserDataLoading;
+  const isLoading = isUserDataLoading;
 
-  if (isLoading) {
+  if (!user && typeof window !== 'undefined') {
+    router.push('/');
     return (
       <div className="flex h-screen w-full items-center justify-center">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <Logo className="h-12 w-12 animate-pulse text-primary" />
       </div>
     );
   }
-
-  if (!user) {
-    // Not logged in, redirect to login page
-    // Using a meta refresh for client-side redirection after initial render
-    if (typeof window !== 'undefined') {
-        router.push('/');
-    }
-    return (
-         <div className="flex h-screen w-full items-center justify-center">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        </div>
-    );
-  }
   
-  // If user is loaded and has the 'membro' role, show the pending access screen
-  if (userRole === 'membro') {
+  if (user && userPrimaryRole === 'member' && !isLoading) {
     return <PendingAccess userName={user.displayName} onLogout={handleLogout} />;
   }
 
@@ -167,7 +146,7 @@ export default function DashboardLayout({
         <SidebarHeader>
           <div className="flex items-center gap-2">
             <Logo className="size-7 text-primary" />
-            <span className="text-lg font-semibold font-headline">OikoApp</span>
+            <span className="text-lg font-semibold">IBM Core</span>
           </div>
         </SidebarHeader>
         <SidebarContent>
@@ -175,7 +154,7 @@ export default function DashboardLayout({
              {menuItems.map((item) => 
               item.subItems ? (
                 <Collapsible key={item.label} className="w-full" defaultOpen={pathname.startsWith('/dashboard/gc')}>
-                  <SidebarMenuItem className="w-full">
+                  <SidebarMenuItem>
                      <CollapsibleTrigger asChild className="w-full">
                        <SidebarMenuButton className="justify-between w-full" isActive={pathname.startsWith('/dashboard/gc')}>
                           <div className="flex items-center gap-2">
@@ -225,9 +204,13 @@ export default function DashboardLayout({
                 </SidebarMenuButton>
               </SidebarMenuItem>
             <SidebarMenuItem>
-              {isUserLoading ? (
+              {isLoading ? (
                  <div className="flex items-center gap-2 p-2 rounded-md">
-                  <Loader2 className="h-8 w-8 animate-spin" />
+                   <Avatar className="h-8 w-8 bg-muted animate-pulse" />
+                   <div className="flex flex-col gap-1">
+                      <div className="h-3 w-20 bg-muted animate-pulse rounded"/>
+                      <div className="h-3 w-12 bg-muted animate-pulse rounded"/>
+                   </div>
                  </div>
               ) : user ? (
                  <div className="flex items-center gap-2 p-2 rounded-md">
@@ -242,14 +225,7 @@ export default function DashboardLayout({
                   </div>
                 </div>
               ) : (
-                 <div className="flex items-center gap-2 p-2 rounded-md">
-                    <Avatar className="h-8 w-8">
-                      <AvatarFallback>??</AvatarFallback>
-                    </Avatar>
-                     <div className="flex flex-col text-sm">
-                        <span className="font-semibold">Não conectado</span>
-                    </div>
-                  </div>
+                 <div />
               )}
             </SidebarMenuItem>
             <SidebarMenuItem>
@@ -265,7 +241,7 @@ export default function DashboardLayout({
         <header className="flex h-14 items-center gap-4 border-b bg-background/95 px-6 backdrop-blur-sm sticky top-0 z-30">
             <SidebarTrigger className="md:hidden" />
             <div className="flex-1">
-                <h1 className="text-lg font-semibold font-headline">
+                <h1 className="text-lg font-semibold">
                     {getPageTitle(pathname)}
                 </h1>
             </div>
