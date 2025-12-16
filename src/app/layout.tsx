@@ -14,7 +14,7 @@ const ptSans = PT_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'IBM Core - O Sistema Operacional da Igreja',
+  title: 'OikoApp - O Sistema Operacional da Igreja',
   description: 'Um sistema para garantir que a Organização sirva ao Organismo.',
 };
 

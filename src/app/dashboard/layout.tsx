@@ -121,7 +121,7 @@ export default function DashboardLayout({
         .flatMap(item => item.subItems ? item.subItems : [item])
         .find(item => path.startsWith(item.href))?.label;
         
-      return defaultTitle || 'IBM Core';
+      return defaultTitle || 'OikoApp';
   };
   
   const isLoading = isUserDataLoading;
@@ -146,7 +146,7 @@ export default function DashboardLayout({
         <SidebarHeader>
           <div className="flex items-center gap-2">
             <Logo className="size-7 text-primary" />
-            <span className="text-lg font-semibold">IBM Core</span>
+            <span className="text-lg font-semibold">OikoApp</span>
           </div>
         </SidebarHeader>
         <SidebarContent>

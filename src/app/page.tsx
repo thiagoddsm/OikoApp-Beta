@@ -12,8 +12,8 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function LoginPage() {
   const loginImage = PlaceHolderImages.find(p => p.id === 'login-background');
-  const { auth, firestore } = useFirebase();
   const router = useRouter();
+  const { auth, firestore } = useFirebase();
 
   const handleGoogleLogin = async () => {
     if (auth && firestore) {
@@ -63,7 +63,7 @@ export default function LoginPage() {
           <div className="grid gap-4 text-center">
             <div className="flex justify-center items-center gap-2 mb-4">
               <Logo className="h-8 w-8 text-primary" />
-              <h1 className="text-3xl font-bold">IBM Core</h1>
+              <h1 className="text-3xl font-bold">OikoApp</h1>
             </div>
             <h2 className="text-2xl font-bold">Boas-vindas!</h2>
             <p className="text-balance text-muted-foreground">
