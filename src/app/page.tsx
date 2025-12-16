@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Logo } from "@/components/icons";
 import { useFirebase } from '@/firebase';
-import { Auth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { Auth, GoogleAuthProvider, signInWithPopup, User } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs, query, limit, Firestore } from 'firebase/firestore';
 
 const handleGoogleLogin = async (auth: Auth, firestore: Firestore, router: ReturnType<typeof useRouter>) => {
@@ -25,6 +25,8 @@ const handleGoogleLogin = async (auth: Auth, firestore: Firestore, router: Retur
         const usersCollectionQuery = query(collection(firestore, 'users'), limit(1));
         const usersSnapshot = await getDocs(usersCollectionQuery);
         const isFirstUser = usersSnapshot.empty;
+        
+        // The first user to sign up is automatically an admin.
         const userRole = isFirstUser ? ['admin'] : ['member'];
 
         await setDoc(userDocRef, {
@@ -45,6 +47,7 @@ const handleGoogleLogin = async (auth: Auth, firestore: Firestore, router: Retur
 
     } catch (error: any) {
       if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
+        // User cancelled the login popup, do nothing.
         return;
       }
       console.error("Google sign-in failed", error);

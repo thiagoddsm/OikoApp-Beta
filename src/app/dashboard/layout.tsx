@@ -85,8 +85,13 @@ export default function DashboardLayout({
   const router = useRouter();
 
   const { data: userData, isLoading: isUserDataLoading } = useDoc<{ roles?: string[]; }>(user ? `users/${user.uid}`: null);
-  const userPrimaryRole = userData?.roles?.[0] || 'member';
+  
+  const userRolesList = userData?.roles || ['member'];
+  const userPrimaryRole = userRolesList[0];
   const userRoleLabel = userRoles[userPrimaryRole] || 'Membro';
+  
+  // Check if the user has admin-like privileges
+  const hasAccess = userRolesList.includes('admin') || userRolesList.includes('pastor');
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -141,7 +146,7 @@ export default function DashboardLayout({
     );
   }
   
-  if (user && userPrimaryRole === 'member' && !isLoading) {
+  if (user && !hasAccess && !isLoading) {
     return <PendingAccess userName={user.displayName} onLogout={handleLogout} />;
   }
 
