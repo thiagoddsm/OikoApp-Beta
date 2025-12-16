@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Home,
   Users,
@@ -81,12 +81,19 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { user, auth } = useFirebase();
+  const { user, auth, isUserLoading } = useFirebase();
   const router = useRouter();
 
   const { data: userData, isLoading: isUserDataLoading } = useDoc<{ roles?: string[]; }>(user ? `users/${user.uid}`: null);
   const userPrimaryRole = userData?.roles?.[0] || 'member';
   const userRoleLabel = userRoles[userPrimaryRole] || 'Membro';
+
+  useEffect(() => {
+    if (!isUserLoading && !user) {
+      router.push('/');
+    }
+  }, [isUserLoading, user, router]);
+
 
   const handleLogout = async () => {
     try {
@@ -124,10 +131,9 @@ export default function DashboardLayout({
       return defaultTitle || 'OikoApp';
   };
   
-  const isLoading = isUserDataLoading;
+  const isLoading = isUserLoading || isUserDataLoading;
 
-  if (!user && typeof window !== 'undefined') {
-    router.push('/');
+  if (isLoading || !user) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Logo className="h-12 w-12 animate-pulse text-primary" />
