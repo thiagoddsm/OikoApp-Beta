@@ -1,7 +1,7 @@
 
 'use client';
 import React, { useMemo } from 'react';
-import { useCollection } from '@/firebase';
+import { useFirebase, useCollection } from '@/firebase';
 import KpiDashboard from '@/components/goals/kpi-dashboard';
 import { Loader2 } from 'lucide-react';
 
@@ -14,14 +14,23 @@ type Goal = {
     monthlyActuals?: number[];
 };
 
+type CultoRegistro = {
+  id: string;
+  adultos: number;
+  criancas?: number;
+  data: { seconds: number, nanoseconds: number }; 
+};
+
+
 export default function GoalsPage() {
+    const { user } = useFirebase();
     const { data: goals, isLoading: isLoadingGoals } = useCollection<Goal>('goals');
     
     // Supondo que você queira os dados do ano atual
     const currentYear = new Date().getFullYear();
 
     const { data: cells, isLoading: isLoadingCells } = useCollection('cells');
-    const { data: cultos, isLoading: isLoadingCultos } = useCollection('cultos');
+    const { data: cultos, isLoading: isLoadingCultos } = useCollection<CultoRegistro>(user ? `cultos/${user.uid}/registros` : null);
     const { data: reports, isLoading: isLoadingReports } = useCollection('attendance_reports');
     const { data: users, isLoading: isLoadingUsers } = useCollection('users');
 
@@ -58,8 +67,8 @@ export default function GoalsPage() {
         const monthlyCounts = Array(12).fill(0);
 
         cultos?.forEach(culto => {
-            const date = new Date(culto.data);
-            if (date.getFullYear() === currentYear) {
+            const date = culto.data?.toDate();
+            if (date && date.getFullYear() === currentYear) {
                 const month = date.getMonth();
                 monthlyAttendance[month] += (culto.adultos || 0) + (culto.criancas || 0);
                 monthlyCounts[month] += 1;
