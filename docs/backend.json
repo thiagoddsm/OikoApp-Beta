@@ -369,7 +369,7 @@
         "data": {
           "type": "string",
           "description": "The date of the church service.",
-          "format": "date"
+          "format": "date-time"
         },
         "horario": {
           "type": "string",
@@ -465,6 +465,29 @@
         "content",
         "createdAt"
       ]
+    },
+     "Goal": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Goal",
+      "type": "object",
+      "description": "Represents a KPI goal for a specific year.",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the Goal, typically 'kpi_name_year'." },
+        "kpi": { "type": "string", "description": "The name of the Key Performance Indicator." },
+        "year": { "type": "number", "description": "The year the goal is for." },
+        "target": { "type": "number", "description": "The overall annual target for the KPI." },
+        "monthlyTargets": {
+          "type": "array",
+          "description": "Array of 12 numbers representing the target for each month.",
+          "items": { "type": "number" }
+        },
+        "monthlyActuals": {
+          "type": "array",
+          "description": "Array of 12 numbers representing the actual value achieved each month.",
+          "items": { "type": "number" }
+        }
+      },
+      "required": ["id", "kpi", "year", "target"]
     }
   },
   "auth": {
@@ -544,6 +567,14 @@
           "entityName": "MemberNote",
           "schema": { "$ref": "#/backend/entities/MemberNote" },
           "description": "Stores notes about users made by leaders."
+        }
+      },
+      {
+        "path": "/goals/{goalId}",
+        "definition": {
+          "entityName": "Goal",
+          "schema": { "$ref": "#/backend/entities/Goal" },
+          "description": "Stores KPI goals for the church."
         }
       }
     ]

@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -20,6 +21,7 @@ import {
   ClipboardList,
   Map,
   Send,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -69,6 +71,7 @@ const menuItems = [
       ]
     },
     { href: "/dashboard/attendance", label: "Presença Culto", icon: CalendarCheck },
+    { href: "/dashboard/goals", label: "Metas", icon: TrendingUp },
     { href: "/dashboard/reports", label: "Análises", icon: BarChart2 },
     { href: "/dashboard/notifications", label: "Notificações", icon: Send },
     { href: "/dashboard/new-member", label: "Novo Visitante", icon: PlusCircle },
@@ -117,6 +120,7 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/gc/map')) return 'Mapa das Células';
       if (path.startsWith('/dashboard/gc')) return 'Estrutura de GC';
       if (path.startsWith('/dashboard/attendance')) return 'Presença Culto';
+      if (path.startsWith('/dashboard/goals')) return 'Metas e KPIs';
       if (path.startsWith('/dashboard/reports')) return 'Análises';
       if (path.startsWith('/dashboard/notifications')) return 'Notificações';
       if (path.startsWith('/dashboard/new-member')) return 'Novo Visitante';

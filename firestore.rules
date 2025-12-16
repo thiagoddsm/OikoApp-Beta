@@ -15,11 +15,7 @@
  * - /discipleship_plans/{planId}: Discipleship plans between leaders and members.
  * - /cultos/{userId}/registros/{registroId}: Attendance records for church services (cultos), owned by individual users.
  * - /member_notes/{noteId}: Notes about members made by leaders.
- *
- * Key Security Decisions:
- * - User data and attendance records are strictly controlled by the owning user.
- * - Admin privileges are determined by the `hierarchy.role` field in the user's document.
- * - List operations are generally restricted to the owner of the data, except where public access is explicitly intended.
+ * - /goals/{goalId}: KPI goals for the church.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -72,7 +68,7 @@ service cloud.firestore {
       allow get: if isAnyLeader() || isOwner(userId);
       // Allow listing only for leaders/admins.
       allow list: if isAnyLeader();
-      // Allow a user to create their own document OR allow any leader to create a new user.
+      // Allow a user to create their own document.
       allow create: if isSignedIn();
       // Only admins can change roles. Owners can't change their own role.
       allow update: if (isOwner(userId) && request.resource.data.hierarchy.role == resource.data.hierarchy.role) || isAdmin();
@@ -136,7 +132,7 @@ service cloud.firestore {
      */
     match /cultos/{userId}/registros/{registroId} {
       allow list, get: if isOwner(userId) || isAdmin();
-      allow create: if isSignedIn() && isOwner(userId);
+      allow create: if isSignedIn();
       allow update, delete: if isExistingOwner(userId) || isAdmin();
     }
 
@@ -144,10 +140,17 @@ service cloud.firestore {
      * @description Rules for notes on members.
      */
     match /member_notes/{noteId} {
-      allow get: if isAnyLeader();
-      allow list: if isAnyLeader();
+      allow get, list: if isAnyLeader();
       allow create: if isAnyLeader() && isOwner(request.resource.data.authorId);
       allow update, delete: if isAnyLeader() && isOwner(resource.data.authorId);
+    }
+    
+    /**
+     * @description Rules for KPI goals.
+     * Only admins can read or write goals.
+     */
+    match /goals/{goalId} {
+      allow get, list, create, update, delete: if isAdmin();
     }
   }
 }
