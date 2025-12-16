@@ -65,16 +65,33 @@ service cloud.firestore {
         allow delete: if hasRole('admin');
     }
 
-    // EVENTS: Authenticated read, admin write.
-    match /events/{eventId} {
+    // CULTOS & EVENTOS: Authenticated read, admin write.
+    match /cultos/{cultoId} {
       allow read: if isSignedIn();
       allow write: if hasRole('admin');
+      
+      match /louvores/{louvorId} {
+        allow read: if isSignedIn();
+        allow write: if hasRole('admin');
+      }
+      match /liturgias/{liturgiaId} {
+        allow read: if isSignedIn();
+        allow write: if hasRole('admin');
+      }
     }
     
-    // RUN SHEETS: Authenticated read, admin write.
-    match /run_sheets/{sheetId} {
+    match /eventos/{eventoId} {
       allow read: if isSignedIn();
       allow write: if hasRole('admin');
+
+      match /programacoes/{programacaoId} {
+        allow read: if isSignedIn();
+        allow write: if hasRole('admin');
+      }
+      match /convidados/{convidadoId} {
+        allow read: if isSignedIn();
+        allow write: if hasRole('admin');
+      }
     }
 
     // BUDGET REQUESTS: Requester can create/read, admin can read/update.

@@ -112,47 +112,75 @@
         },
         "required": ["teamId", "date"]
     },
-    "Event": {
-        "title": "Event",
+    "Culto": {
+        "title": "Culto",
         "type": "object",
-        "description": "A church event, from a regular service to a large conference.",
+        "description": "Briefing de um culto, com título, tema, data, pregador e equipes.",
         "properties": {
             "title": { "type": "string" },
+            "theme": { "type": "string" },
             "date": { "type": "string", "format": "date-time" },
-            "type": { "type": "string", "enum": ["service", "conference", "meeting", "celebration"] },
-            "run_sheet_id": { "type": "string" },
-            "volunteers": { "type": "object" },
-            "metrics": {
-                "type": "object",
-                "properties": {
-                    "attendance_count": { "type": "number" },
-                    "conversions": { "type": "number" }
-                }
-            }
+            "preacher": { "type": "string" },
+            "teams": { "type": "object" }
         },
-        "required": ["title", "date", "type"]
+        "required": ["title", "date"]
     },
-    "RunSheet": {
-        "title": "Run Sheet",
+    "Louvor": {
+        "title": "Louvor",
         "type": "object",
-        "description": "Minute-by-minute schedule for an event.",
+        "description": "Música de louvor dentro de um culto.",
         "properties": {
-            "eventId": { "type": "string" },
-            "items": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "time": { "type": "string" },
-                        "item": { "type": "string" },
-                        "duration": { "type": "number" },
-                        "team": { "type": "string" },
-                        "notes": { "type": "string" }
-                    }
-                }
-            }
+            "cultoId": { "type": "string" },
+            "name": { "type": "string" },
+            "key": { "type": "string" },
+            "singer": { "type": "string" }
         },
-        "required": ["eventId", "items"]
+        "required": ["cultoId", "name"]
+    },
+    "Liturgia": {
+        "title": "Liturgia",
+        "type": "object",
+        "description": "Momento específico na ordem do culto.",
+        "properties": {
+            "cultoId": { "type": "string" },
+            "moment_name": { "type": "string" },
+            "details": { "type": "string" }
+        },
+        "required": ["cultoId", "moment_name"]
+    },
+    "Evento": {
+        "title": "Evento",
+        "type": "object",
+        "description": "Briefing de um evento geral.",
+        "properties": {
+            "title": { "type": "string" },
+            "theme": { "type": "string" },
+            "description": { "type": "string" },
+            "location": { "type": "string" }
+        },
+        "required": ["title"]
+    },
+    "Programacao": {
+        "title": "Programacao",
+        "type": "object",
+        "description": "Atividade agendada dentro de um evento.",
+        "properties": {
+            "eventoId": { "type": "string" },
+            "activity_name": { "type": "string" },
+            "time": { "type": "string" }
+        },
+        "required": ["eventoId", "activity_name"]
+    },
+    "Convidado": {
+        "title": "Convidado",
+        "type": "object",
+        "description": "Palestrante ou convidado especial de um evento.",
+        "properties": {
+            "eventoId": { "type": "string" },
+            "name": { "type": "string" },
+            "role": { "type": "string" }
+        },
+        "required": ["eventoId", "name"]
     },
     "BudgetRequest": {
         "title": "Budget Request",
@@ -195,7 +223,7 @@
     }
   },
   "auth": {
-    "providers": ["google.com", "password"]
+    "providers": ["password", "anonymous"]
   },
   "firestore": {
     "structure": [
@@ -204,8 +232,12 @@
       { "path": "/reports/{reportId}", "definition": { "schema": { "$ref": "#/entities/Report" } } },
       { "path": "/teams/{teamId}", "definition": { "schema": { "$ref": "#/entities/Team" } } },
       { "path": "/rosters/{rosterId}", "definition": { "schema": { "$ref": "#/entities/Roster" } } },
-      { "path": "/events/{eventId}", "definition": { "schema": { "$ref": "#/entities/Event" } } },
-      { "path": "/run_sheets/{sheetId}", "definition": { "schema": { "$ref": "#/entities/RunSheet" } } },
+      { "path": "/cultos/{cultoId}", "definition": { "schema": { "$ref": "#/entities/Culto" } } },
+      { "path": "/cultos/{cultoId}/louvores/{louvorId}", "definition": { "schema": { "$ref": "#/entities/Louvor" } } },
+      { "path": "/cultos/{cultoId}/liturgias/{liturgiaId}", "definition": { "schema": { "$ref": "#/entities/Liturgia" } } },
+      { "path": "/eventos/{eventoId}", "definition": { "schema": { "$ref": "#/entities/Evento" } } },
+      { "path": "/eventos/{eventoId}/programacoes/{programacaoId}", "definition": { "schema": { "$ref": "#/entities/Programacao" } } },
+      { "path": "/eventos/{eventoId}/convidados/{convidadoId}", "definition": { "schema": { "$ref": "#/entities/Convidado" } } },
       { "path": "/budget_requests/{reqId}", "definition": { "schema": { "$ref": "#/entities/BudgetRequest" } } },
       { "path": "/beneficiaries/{beneId}", "definition": { "schema": { "$ref": "#/entities/Beneficiary" } } },
       { "path": "/social_actions/{actionId}", "definition": { "schema": { "$ref": "#/entities/SocialAction" } } }
