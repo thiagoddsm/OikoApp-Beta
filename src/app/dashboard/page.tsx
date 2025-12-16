@@ -32,6 +32,7 @@ import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Timestamp } from 'firebase/firestore';
 
 type User = {
   id: string;
@@ -44,7 +45,7 @@ type AttendanceReport = {
   id: string;
   cellId: string;
   conversoes?: number;
-  date: { seconds: number; nanoseconds: number };
+  date: Timestamp;
   leaderId: string;
 };
 type Cell = {
@@ -56,7 +57,7 @@ type CultoRegistro = {
   id: string;
   adultos: number;
   criancas?: number;
-  data: string; // "YYYY-MM-DD"
+  data: Timestamp;
 };
 
 const chartConfig = {
@@ -101,10 +102,13 @@ export default function DashboardPage() {
 
   const attendanceData = useMemo(() => {
     if (!cultos) return [];
-    return [...cultos].reverse().map(culto => ({
-      name: new Date(culto.data).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-      total: culto.adultos + (culto.criancas || 0)
-    }));
+    return [...cultos].reverse().map(culto => {
+        const date = culto.data?.toDate ? culto.data.toDate() : new Date();
+        return {
+            name: date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' }),
+            total: culto.adultos + (culto.criancas || 0)
+        }
+    });
   }, [cultos]);
   
   const careAlerts = useMemo(() => {
@@ -124,8 +128,8 @@ export default function DashboardPage() {
       let reportStatus: 'on-time' | 'late' | 'missing' = 'missing';
       let lastReportDate = 'Nenhum relatório';
 
-      if (lastReport) {
-        const reportDate = new Date(lastReport.date.seconds * 1000);
+      if (lastReport && lastReport.date) {
+        const reportDate = lastReport.date.toDate();
         const daysSinceReport = (new Date().getTime() - reportDate.getTime()) / (1000 * 3600 * 24);
         lastReportDate = formatDistanceToNow(reportDate, { addSuffix: true, locale: ptBR });
         

@@ -4,6 +4,7 @@ import React, { useMemo } from 'react';
 import { useFirebase, useCollection } from '@/firebase';
 import KpiDashboard from '@/components/goals/kpi-dashboard';
 import { Loader2 } from 'lucide-react';
+import { Timestamp } from 'firebase/firestore';
 
 type Goal = {
     id: string;
@@ -18,7 +19,7 @@ type CultoRegistro = {
   id: string;
   adultos: number;
   criancas?: number;
-  data: { seconds: number, nanoseconds: number }; 
+  data: Timestamp; 
 };
 
 
@@ -41,7 +42,7 @@ export default function GoalsPage() {
             const monthly = Array(12).fill(0);
             if (!collection) return monthly;
             collection.forEach(item => {
-                const date = item[dateField]?.toDate();
+                const date = item[dateField]?.toDate ? item[dateField].toDate() : null;
                 if (date && date.getFullYear() === currentYear) {
                     const month = date.getMonth();
                     monthly[month] += 1;
@@ -54,7 +55,7 @@ export default function GoalsPage() {
              const monthly = Array(12).fill(0);
             if (!collection) return monthly;
             collection.forEach(item => {
-                const date = item[dateField]?.toDate();
+                const date = item[dateField]?.toDate ? item[dateField].toDate() : null;
                 if (date && date.getFullYear() === currentYear) {
                     const month = date.getMonth();
                     monthly[month] += (item[valueField] || 0);
@@ -67,7 +68,7 @@ export default function GoalsPage() {
         const monthlyCounts = Array(12).fill(0);
 
         cultos?.forEach(culto => {
-            const date = culto.data?.toDate();
+            const date = culto.data?.toDate ? culto.data.toDate() : null;
             if (date && date.getFullYear() === currentYear) {
                 const month = date.getMonth();
                 monthlyAttendance[month] += (culto.adultos || 0) + (culto.criancas || 0);
