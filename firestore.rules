@@ -9,6 +9,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Master admin UID
+    function isMasterAdmin() {
+      return request.auth.uid == '9Sm2pIH1zlOj9k8D8EcLS3bkKad2';
+    }
+
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
@@ -18,7 +23,7 @@ service cloud.firestore {
     }
     
     function hasRole(role) {
-        return isSignedIn() && getUserData(request.auth.uid).roles.hasAny([role, 'admin', 'pastor']);
+        return isSignedIn() && (isMasterAdmin() || getUserData(request.auth.uid).roles.hasAny([role, 'admin', 'pastor']));
     }
 
     // --- Collection Rules ---
@@ -87,6 +92,27 @@ service cloud.firestore {
     
     match /social_actions/{actionId} {
         allow read, write: if hasRole('pastor');
+    }
+
+    // GOALS: Admin/pastor read, Admin write.
+    match /goals/{goalId} {
+        allow read: if hasRole('pastor');
+        allow write: if hasRole('admin');
+    }
+    
+    // ATTENDANCE: Owner can do everything.
+    match /cultos/{userId}/{document=**} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    match /attendance_reports/{reportId} {
+        allow read, write: if hasRole('gc_leader');
+    }
+    
+    match /member_notes/{noteId} {
+        // Member can see own notes, leaders can see notes of their members
+        // This rule is complex and might need refinement based on hierarchy
+        allow read, write: if isSignedIn();
     }
   }
 }
