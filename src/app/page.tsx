@@ -8,32 +8,37 @@ import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Logo } from "@/components/icons";
 import { useFirebase } from '@/firebase';
 import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs, query, limit } from 'firebase/firestore';
 
 export default function LoginPage() {
   const loginImage = PlaceHolderImages.find(p => p.id === 'login-background');
   const router = useRouter();
-  const { auth, firestore } = useFirebase();
-
+  
   const handleGoogleLogin = async () => {
+    const { auth, firestore } = useFirebase();
     if (auth && firestore) {
       try {
         const provider = new GoogleAuthProvider();
         const result = await signInWithPopup(auth, provider);
         const user = result.user;
 
-        // After successful sign-in, check if user exists in Firestore
         const userDocRef = doc(firestore, 'users', user.uid);
         const userDoc = await getDoc(userDocRef);
 
         if (!userDoc.exists()) {
-          // If user document doesn't exist, create it with a default 'membro' role.
-          // The document ID is the user's UID from Authentication.
+          // Check if this is the very first user in the collection
+          const usersCollectionQuery = query(collection(firestore, 'users'), limit(1));
+          const usersSnapshot = await getDocs(usersCollectionQuery);
+          const isFirstUser = usersSnapshot.empty;
+
+          // Assign 'admin' role if it's the first user, otherwise 'member'
+          const userRole = isFirstUser ? ['admin'] : ['member'];
+
           await setDoc(userDocRef, {
             name: user.displayName || 'Novo Usuário',
             email: user.email || '',
             phone: user.phoneNumber || '',
-            roles: ['member'],
+            roles: userRole,
             journey: {
               td: false,
               baptism: false,
@@ -46,12 +51,10 @@ export default function LoginPage() {
         router.push('/dashboard');
 
       } catch (error: any) {
-        // Don't log error if user cancels the popup
         if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
           return;
         }
         console.error("Google sign-in failed", error);
-        // Handle error, e.g., show a toast message
       }
     }
   };
