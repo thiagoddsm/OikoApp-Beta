@@ -86,8 +86,8 @@ export default function DashboardLayout({
 
   const { data: userData, isLoading: isUserDataLoading } = useDoc<{ roles?: string[]; }>(user ? `users/${user.uid}`: null);
   
-  const userRolesList = userData?.roles || ['member'];
-  const userPrimaryRole = userRolesList[0];
+  const userRolesList = userData?.roles || [];
+  const userPrimaryRole = userRolesList[0] || 'member';
   const userRoleLabel = userRoles[userPrimaryRole] || 'Membro';
   
   // Check if the user has admin-like privileges
@@ -146,7 +146,7 @@ export default function DashboardLayout({
     );
   }
   
-  if (user && !hasAccess && !isLoading) {
+  if (!hasAccess) {
     return <PendingAccess userName={user.displayName} onLogout={handleLogout} />;
   }
 
