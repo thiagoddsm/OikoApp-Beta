@@ -1,3 +1,4 @@
+
 // src/components/attendance/attendance-dashboard.tsx
 'use client';
 
@@ -144,15 +145,20 @@ export function AttendanceDashboard({ registros, loading }) {
   }, [registrosFiltrados]);
 
   const stats = useMemo(() => {
+      // Filtra registros que de fato tiveram contagem
+      const registrosValidosParaMedia = registrosFiltrados.filter(r => (r.adultos + (r.criancas || 0)) > 0);
+
       const totalAdultos = registrosFiltrados.reduce((acc, r) => acc + r.adultos, 0);
       const totalCriancas = registrosFiltrados.reduce((acc, r) => acc + (r.criancas || 0), 0);
-      const totalGeral = totalAdultos + totalCriancas;
-      const count = registrosFiltrados.length;
+      
+      const totalGeralMedia = registrosValidosParaMedia.reduce((acc, r) => acc + r.adultos + (r.criancas || 0), 0);
+      const countMedia = registrosValidosParaMedia.length;
+
       return {
-          count: count,
+          count: registrosFiltrados.length,
           totalAdultos: totalAdultos,
           totalCriancas: totalCriancas,
-          mediaGeral: count > 0 ? Math.round(totalGeral / count) : 0
+          mediaGeral: countMedia > 0 ? Math.round(totalGeralMedia / countMedia) : 0
       }
   }, [registrosFiltrados]);
 
