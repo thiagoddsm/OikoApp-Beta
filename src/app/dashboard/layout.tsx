@@ -32,6 +32,7 @@ import {
   Church,
   CheckSquare,
   Upload,
+  CalendarCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -83,7 +84,8 @@ const menuItems = [
       label: "Serviço",
       icon: HeartHandshake,
       subItems: [
-        { href: "/dashboard/volunteering", label: "Voluntariado", icon: HeartHandshake },
+        { href: "/dashboard/volunteering", label: "Equipes", icon: Users },
+        { href: "/dashboard/volunteering/schedule", label: "Escalas", icon: CalendarCog },
       ]
     },
     { 
@@ -207,7 +209,8 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/users')) return 'Pessoas e Jornada';
       if (path.startsWith('/dashboard/gc')) return 'GCs e Discipulado';
       if (path.startsWith('/dashboard/attendance')) return 'Frequência nos Cultos';
-      if (path.startsWith('/dashboard/volunteering')) return 'Serviço e Voluntariado';
+      if (path.startsWith('/dashboard/volunteering/schedule')) return 'Escalas de Voluntários';
+      if (path.startsWith('/dashboard/volunteering')) return 'Equipes de Voluntários';
       if (path.startsWith('/dashboard/teaching')) return 'Ensino';
       if (path.startsWith('/dashboard/events')) return 'Eventos e Produção';
       if (path.startsWith('/dashboard/patrimony')) return 'Gestão de Patrimônio';
