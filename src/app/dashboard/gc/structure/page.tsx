@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useFirebase, useCollection, deleteDocumentNonBlocking } from '@/firebase';
 import { doc, collection, query, where, getDocs } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
@@ -61,11 +61,28 @@ const HierarchyNode = ({ node, level, children, isExpanded, onToggle, onEdit, on
                     <div className="flex items-center gap-2">
                         <div className="flex items-center gap-4 text-xs">
                            <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                {node.type === 'pastor' && (
+                                   <>
+                                    <span className="text-muted-foreground">Redes</span>
+                                    <span className="font-bold text-right">{node.stats.directChildren}</span>
+                                   </>
+                                )}
+                               {node.type === 'rede' && (
+                                   <>
+                                    <span className="text-muted-foreground">Áreas</span>
+                                    <span className="font-bold text-right">{node.stats.directChildren}</span>
+                                   </>
+                               )}
+                               {node.type === 'area' && (
+                                   <>
+                                    <span className="text-muted-foreground">GCs</span>
+                                    <span className="font-bold text-right">{node.stats.directChildren}</span>
+                                   </>
+                               )}
+                               
                                {node.type !== 'cell' && (
                                    <>
-                                    <span className="text-muted-foreground">{statLabels[node.type]}</span>
-                                    <span className="font-bold text-right">{node.stats.directChildren}</span>
-                                    <span className="text-muted-foreground">GCs</span>
+                                    <span className="text-muted-foreground">Total GCs</span>
                                     <span className="font-bold text-right">{node.stats.totalCells}</span>
                                    </>
                                )}
@@ -362,5 +379,4 @@ export default function StructurePage() {
             )}
         </>
     );
-
-    
+}
