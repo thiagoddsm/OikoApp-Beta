@@ -30,6 +30,7 @@ import {
   CalendarPlus,
   Briefcase,
   Church,
+  CheckSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -74,6 +75,7 @@ const menuItems = [
         { href: "/dashboard/gc/cells", label: "Células", icon: Building },
         { href: "/dashboard/gc/report", label: "Relatório de Célula", icon: ClipboardList },
         { href: "/dashboard/gc/map", label: "Mapa", icon: Map },
+        { href: "/dashboard/attendance", label: "Frequência (Culto)", icon: CheckSquare },
       ]
     },
     {
@@ -201,6 +203,7 @@ export default function DashboardLayout({
       if (path === '/dashboard') return 'Dashboard';
       if (path.startsWith('/dashboard/users')) return 'Pessoas e Jornada';
       if (path.startsWith('/dashboard/gc')) return 'GCs e Discipulado';
+      if (path.startsWith('/dashboard/attendance')) return 'Frequência nos Cultos';
       if (path.startsWith('/dashboard/volunteering')) return 'Serviço e Voluntariado';
       if (path.startsWith('/dashboard/teaching')) return 'Ensino';
       if (path.startsWith('/dashboard/events')) return 'Eventos e Produção';
@@ -220,7 +223,7 @@ export default function DashboardLayout({
   }
   
   const userRolesList = userData?.roles || [];
-  const hasAccess = userRolesList.includes('admin') || userRolesList.includes('pastor');
+  const hasAccess = userRolesList.includes('admin') || userRolesList.includes('pastor') || userRolesList.includes('lider_rede');
 
   if (user && !hasAccess) {
     return <PendingAccess userName={user.displayName} onLogout={handleLogout} />;
