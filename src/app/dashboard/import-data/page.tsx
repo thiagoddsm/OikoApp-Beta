@@ -2,8 +2,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, Timestamp } from 'firebase/firestore';
+import { useFirebase, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
+import { collection, Timestamp, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Loader2, Upload, CheckCircle } from 'lucide-react';
@@ -38,7 +38,11 @@ export default function ImportDataPage() {
     setImportCount(0);
     let count = 0;
 
-    const collectionRef = collection(firestore, `cultos/${user.uid}/registros`);
+    const parentDocRef = doc(firestore, `cultos/${user.uid}`);
+    const collectionRef = collection(parentDocRef, 'registros');
+
+    // Ensure parent document exists to avoid "document does not exist" in console
+    setDocumentNonBlocking(parentDocRef, { lastImported: Timestamp.now() }, { merge: true });
 
     // Use Promise.all to wait for all non-blocking writes to be queued
     const importPromises = historicalData.map(record => {
