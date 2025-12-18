@@ -27,6 +27,7 @@ import {
   BookOpen,
   UserCheck as UserCheckIcon,
   Users2,
+  CalendarPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -83,7 +84,14 @@ const menuItems = [
       ]
     },
     { href: "/dashboard/volunteering", label: "Voluntariado", icon: HeartHandshake },
-    { href: "/dashboard/events", label: "Eventos", icon: CalendarDays },
+    { 
+      label: "Eventos", 
+      icon: CalendarDays,
+      subItems: [
+        { href: "/dashboard/events", label: "Cultos e Eventos", icon: CalendarCheck },
+        { href: "/dashboard/events/reservations", label: "Reservas de Sala", icon: CalendarPlus },
+      ]
+    },
     { href: "/dashboard/patrimony", label: "Patrimônio", icon: ScanLine },
     { href: "/dashboard/social", label: "Ação Social", icon: Users },
     { href: "/dashboard/goals", label: "Metas (KPIs)", icon: TrendingUp },
@@ -145,7 +153,7 @@ export default function DashboardLayout({
 
       const defaultTitle = menuItems
         .flatMap(item => item.subItems ? item.subItems : [item])
-        .find(item => path.startsWith(item.href))?.label;
+        .find(item => item && item.href && path.startsWith(item.href))?.label;
         
       return defaultTitle || 'OikoApp';
   };
@@ -186,14 +194,14 @@ export default function DashboardLayout({
           <SidebarContent>
             <SidebarMenu>
               {menuItems.map((item) => {
-                const isCollapsibleOpen = item.subItems?.some(sub => pathname.startsWith(sub.href));
+                const isCollapsibleOpen = item.subItems?.some(sub => sub && sub.href && pathname.startsWith(sub.href));
                 return item.subItems ? (
                   <Collapsible key={item.label} className="w-full" defaultOpen={isCollapsibleOpen}>
                     <SidebarMenuItem>
                       <CollapsibleTrigger asChild className="w-full">
                         <SidebarMenuButton className="justify-between w-full" isActive={isCollapsibleOpen}>
                             <div className="flex items-center gap-2">
-                              <item.icon className="size-4" />
+                              {item.icon && <item.icon className="size-4" />}
                               <span>{item.label}</span>
                             </div>
                             <ChevronDown className="size-4 transition-transform [&[data-state=open]]:rotate-180" />
@@ -203,27 +211,31 @@ export default function DashboardLayout({
                     <CollapsibleContent>
                       <SidebarMenu className="pl-6">
                         {item.subItems.map(subItem => (
-                          <SidebarMenuItem key={subItem.href}>
-                              <SidebarMenuButton asChild isActive={pathname === subItem.href} className="justify-start h-8">
-                                <Link href={subItem.href}>
-                                  <subItem.icon className="size-4" />
-                                  <span>{subItem.label}</span>
-                                </Link>
-                              </SidebarMenuButton>
-                            </SidebarMenuItem>
+                          subItem && subItem.href && (
+                            <SidebarMenuItem key={subItem.href}>
+                                <SidebarMenuButton asChild isActive={pathname === subItem.href} className="justify-start h-8">
+                                  <Link href={subItem.href}>
+                                    {subItem.icon && <subItem.icon className="size-4" />}
+                                    <span>{subItem.label}</span>
+                                  </Link>
+                                </SidebarMenuButton>
+                              </SidebarMenuItem>
+                          )
                         ))}
                       </SidebarMenu>
                     </CollapsibleContent>
                   </Collapsible>
                 ) : (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild isActive={pathname === item.href} className="justify-start">
-                      <Link href={item.href}>
-                        <item.icon className="size-4" />
-                        <span>{item.label}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                  item.href && (
+                    <SidebarMenuItem key={item.href}>
+                      <SidebarMenuButton asChild isActive={pathname === item.href} className="justify-start">
+                        <Link href={item.href}>
+                          {item.icon && <item.icon className="size-4" />}
+                          <span>{item.label}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )
                 )
               })}
             </SidebarMenu>

@@ -172,5 +172,13 @@ service cloud.firestore {
             allow write: if hasRole('admin');
         }
     }
+
+    // ROOM RESERVATIONS: User can create/read their own, admin can manage all.
+    match /room_reservations/{reservationId} {
+        allow read: if isSignedIn();
+        allow create: if isOwner(request.resource.data.requesterId);
+        allow update: if hasRole('admin');
+        allow delete: if isOwner(resource.data.requesterId) || hasRole('admin');
+    }
   }
 }

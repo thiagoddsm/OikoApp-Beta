@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -5,7 +6,7 @@ import { useCollection } from '@/firebase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, PlusCircle, Calendar, Mic, Clapperboard, Star } from 'lucide-react';
+import { Loader2, PlusCircle, CalendarCheck, Star } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -56,8 +57,8 @@ function CultosList() {
                         <CardDescription>{formatDate(culto.date)}</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-2">
-                        {culto.theme && <p className="text-sm"><Mic className="inline-block mr-2 h-4 w-4 text-muted-foreground"/>Tema: {culto.theme}</p>}
-                        {culto.preacher && <p className="text-sm"><Mic className="inline-block mr-2 h-4 w-4 text-muted-foreground"/>Pregador: {culto.preacher}</p>}
+                        {culto.theme && <p className="text-sm">Tema: {culto.theme}</p>}
+                        {culto.preacher && <p className="text-sm">Pregador: {culto.preacher}</p>}
                     </CardContent>
                 </Card>
             ))}
@@ -100,7 +101,7 @@ export default function EventsPage() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Calendar className="size-5" />
+          <CalendarCheck className="size-5" />
           Eventos & Produção
         </CardTitle>
         <CardDescription>
@@ -112,7 +113,7 @@ export default function EventsPage() {
           <div className="flex justify-between items-center mb-4">
             <TabsList>
               <TabsTrigger value="cultos">
-                <Clapperboard className="mr-2 size-4" />
+                <CalendarCheck className="mr-2 size-4" />
                 Cultos
               </TabsTrigger>
               <TabsTrigger value="eventos">
