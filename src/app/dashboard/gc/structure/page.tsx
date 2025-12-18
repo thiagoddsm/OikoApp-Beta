@@ -80,9 +80,9 @@ const buildHierarchy = (users, redes, areas, cells) => {
     const userMap = new Map(users.map(u => [u.id, u]));
     let hierarchy = [];
 
-    const pastors = users.filter(u => u.hierarchy?.role === 'pastor_senior');
+    const pastors = users.filter(u => u.hierarchy?.role === 'pastor_senior' || u.hierarchy?.role === 'admin');
     
-    // Nível 1: Pastores
+    // Nível 1: Pastores/Admins
     hierarchy = pastors.map(pastor => {
         const pastorRedes = redes.filter(r => r.pastorId === pastor.id);
         const pastorRedeIds = pastorRedes.map(r => r.id);
@@ -92,7 +92,7 @@ const buildHierarchy = (users, redes, areas, cells) => {
 
         return {
             id: pastor.id,
-            nome: 'Pastor',
+            nome: pastor.hierarchy?.role === 'admin' ? 'Administrador' : 'Pastor Sênior',
             liderName: pastor.name,
             type: 'pastor',
             stats: { niveis: 4, grupos: pastorCells.length, participantes: pastorCells.reduce((sum, c) => sum + c.membros.length, 0), percentage: 56.74 },
@@ -221,7 +221,14 @@ export default function StructurePage() {
                             <p className="ml-4 text-muted-foreground">Carregando estrutura...</p>
                         </div>
                     ) : (
-                        <RenderHierarchy nodes={hierarchyData} onEditNode={handleEditNode} />
+                         hierarchyData.length > 0 ? (
+                            <RenderHierarchy nodes={hierarchyData} onEditNode={handleEditNode} />
+                        ) : (
+                            <div className="text-center py-10 text-muted-foreground">
+                                <p>Nenhuma hierarquia encontrada.</p>
+                                <p className="text-sm">Para começar, vá para <strong>Configurações</strong> e defina um usuário como <strong>Admin</strong> ou <strong>Pastor Sênior</strong>.</p>
+                            </div>
+                        )
                     )}
                 </CardContent>
             </Card>

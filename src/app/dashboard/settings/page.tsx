@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo } from 'react';
@@ -11,7 +12,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Shield } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { userRoles } from '@/app/dashboard/layout';
+
+export const userRoles: { [key: string]: string } = {
+  'admin': 'Admin',
+  'pastor_senior': 'Pastor Sênior',
+  'pastor': 'Pastor',
+  'lider_rede': 'Líder de Rede',
+  'lider_area': 'Líder de Área',
+  'gc_leader': 'Líder de GC',
+  'team_leader': 'Líder de Equipe',
+  'member': 'Membro',
+  'volunteer': 'Voluntário'
+};
 
 type User = {
   id: string;
