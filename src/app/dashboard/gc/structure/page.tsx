@@ -2,12 +2,15 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { useCollection } from '@/firebase';
+import { useFirebase, useCollection, deleteDocumentNonBlocking } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { Loader2, Users, Plus, Minus, Flag, PlusCircle, Pencil } from "lucide-react";
+import { Loader2, Users, Plus, Minus, Flag, PlusCircle, Pencil, Trash2 } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { CreateRedeDialog } from '@/components/structure/create-rede-dialog';
 import { CreateAreaDialog } from '@/components/structure/create-area-dialog';
+import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 
 type User = { id: string; name: string; hierarchy?: { role?: string; } };
@@ -15,7 +18,7 @@ type Cell = { id: string; nome: string; liderId: string; areaId: string; redeId:
 type Area = { id: string; nome: string; liderId: string; redeId: string; };
 type Rede = { id: string; nome: string; liderId: string; pastorId: string; };
 
-const HierarchyNode = ({ node, level, children, isExpanded, onToggle, onEdit }) => {
+const HierarchyNode = ({ node, level, children, isExpanded, onToggle, onEdit, onDelete }) => {
     const Icon = Users;
     
     return (
@@ -42,7 +45,7 @@ const HierarchyNode = ({ node, level, children, isExpanded, onToggle, onEdit }) 
                             <p className="text-xs text-muted-foreground">NÍVEL {level} | Líder: {node.liderName}</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
                         <div className="flex items-center gap-4 text-xs">
                             <div className="flex flex-col gap-1">
                                <div className="flex items-center justify-between gap-2">
@@ -66,6 +69,11 @@ const HierarchyNode = ({ node, level, children, isExpanded, onToggle, onEdit }) 
                         {onEdit && (
                              <Button variant="ghost" size="icon" onClick={() => onEdit(node)}>
                                 <Pencil className="h-4 w-4" />
+                            </Button>
+                        )}
+                        {onDelete && (
+                            <Button variant="ghost" size="icon" onClick={() => onDelete(node)}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                         )}
                     </div>
@@ -151,7 +159,7 @@ const buildHierarchy = (users, redes, areas, cells) => {
     return [rootNode]; // Retorna a hierarquia como uma matriz com um único item raiz
 };
 
-const RenderHierarchy = ({ nodes, level = 1, onEditNode }) => {
+const RenderHierarchy = ({ nodes, level = 1, onEditNode, onDeleteNode }) => {
     const [expandedNodes, setExpandedNodes] = useState({});
 
     const toggleNode = (nodeId) => {
@@ -168,9 +176,10 @@ const RenderHierarchy = ({ nodes, level = 1, onEditNode }) => {
                     isExpanded={!!expandedNodes[node.id]}
                     onToggle={() => toggleNode(node.id)}
                     onEdit={node.type === 'rede' || node.type === 'area' ? onEditNode : null}
+                    onDelete={node.type === 'rede' || node.type === 'area' ? onDeleteNode : null}
                 >
                     {node.children && node.children.length > 0 && (
-                        <RenderHierarchy nodes={node.children} level={level + 1} onEditNode={onEditNode} />
+                        <RenderHierarchy nodes={node.children} level={level + 1} onEditNode={onEditNode} onDeleteNode={onDeleteNode}/>
                     )}
                 </HierarchyNode>
             ))}
@@ -180,9 +189,13 @@ const RenderHierarchy = ({ nodes, level = 1, onEditNode }) => {
 
 
 export default function StructurePage() {
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
     const [isRedeDialogOpen, setRedeDialogOpen] = useState(false);
     const [isAreaDialogOpen, setAreaDialogOpen] = useState(false);
     const [editingNode, setEditingNode] = useState(null);
+    const [nodeToDelete, setNodeToDelete] = useState(null);
+    const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
     const { data: users, isLoading: isLoadingUsers } = useCollection<User>('users');
     const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>('cells');
@@ -203,6 +216,28 @@ export default function StructurePage() {
         } else if (node.type === 'area') {
             setAreaDialogOpen(true);
         }
+    };
+    
+    const handleDeleteNode = (node) => {
+        setNodeToDelete(node);
+        setDeleteDialogOpen(true);
+    };
+
+    const confirmDelete = () => {
+        if (!nodeToDelete || !firestore) return;
+
+        const collectionName = nodeToDelete.type === 'rede' ? 'redes' : 'areas';
+        const docRef = doc(firestore, collectionName, nodeToDelete.id);
+
+        deleteDocumentNonBlocking(docRef);
+
+        toast({
+            title: "Exclusão iniciada",
+            description: `O item "${nodeToDelete.nome}" será excluído em breve.`,
+        });
+
+        setDeleteDialogOpen(false);
+        setNodeToDelete(null);
     };
 
     const handleCloseDialogs = () => {
@@ -238,7 +273,7 @@ export default function StructurePage() {
                         </div>
                     ) : (
                          hierarchyData.length > 0 ? (
-                            <RenderHierarchy nodes={hierarchyData} onEditNode={handleEditNode} />
+                            <RenderHierarchy nodes={hierarchyData} onEditNode={handleEditNode} onDeleteNode={handleDeleteNode} />
                         ) : (
                             <div className="text-center py-10 text-muted-foreground">
                                 <p>Nenhuma hierarquia encontrada.</p>
@@ -265,6 +300,16 @@ export default function StructurePage() {
                     users={users}
                     redes={redes}
                     existingArea={editingNode?.type === 'area' ? editingNode : null}
+                />
+            )}
+            
+            {nodeToDelete && (
+                <DeleteConfirmationDialog
+                    open={isDeleteDialogOpen}
+                    onOpenChange={setDeleteDialogOpen}
+                    onConfirm={confirmDelete}
+                    itemName={nodeToDelete.nome}
+                    itemType={nodeToDelete.type === 'rede' ? 'Rede' : 'Área'}
                 />
             )}
         </>
