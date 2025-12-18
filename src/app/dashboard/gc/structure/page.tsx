@@ -5,7 +5,7 @@ import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, deleteDocumentNonBlocking } from '@/firebase';
 import { doc, collection, query, where, getDocs } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { Loader2, Users, Plus, Minus, Flag, PlusCircle, Pencil, Trash2 } from "lucide-react";
+import { Loader2, Users, Plus, Minus, Flag, PlusCircle, Pencil, Trash2, Network, AreaChart, Building2 } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { CreateRedeDialog } from '@/components/structure/create-rede-dialog';
 import { CreateAreaDialog } from '@/components/structure/create-area-dialog';
@@ -19,7 +19,20 @@ type Area = { id: string; nome: string; liderId: string; redeId: string; };
 type Rede = { id: string; nome: string; liderId: string; pastorId: string; };
 
 const HierarchyNode = ({ node, level, children, isExpanded, onToggle, onEdit, onDelete }) => {
-    const Icon = Users;
+    const icons = {
+        pastor: Network,
+        rede: AreaChart,
+        area: Building2,
+        cell: Users
+    };
+    const Icon = icons[node.type] || Users;
+
+    const statLabels = {
+        pastor: 'Redes',
+        rede: 'Áreas',
+        area: 'GCs',
+        cell: 'Membros'
+    };
     
     return (
         <div style={{ marginLeft: `${level > 1 ? (level -1) * 1.5 : 0}rem` }}>
@@ -42,39 +55,37 @@ const HierarchyNode = ({ node, level, children, isExpanded, onToggle, onEdit, on
                         </div>
                         <div>
                             <p className="font-bold text-sm uppercase">{node.nome}</p>
-                            <p className="text-xs text-muted-foreground">NÍVEL {level} | Líder: {node.liderName}</p>
+                            <p className="text-xs text-muted-foreground">{node.type !== 'cell' ? `Líder: ${node.liderName}` : `Membros: ${node.stats.participantes}`}</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
                         <div className="flex items-center gap-4 text-xs">
-                            <div className="flex flex-col gap-1">
-                               <div className="flex items-center justify-between gap-2">
-                                    <span className="text-muted-foreground">Níveis</span>
-                                    <span className="font-bold bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded text-xs">{node.stats.niveis}</span>
-                               </div>
-                                <div className="flex items-center justify-between gap-2">
-                                    <span className="text-muted-foreground">Grupos</span>
-                                    <span className="font-bold bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded text-xs">{node.stats.grupos}</span>
-                               </div>
-                               <div className="flex items-center justify-between gap-2">
-                                    <span className="text-muted-foreground">Participantes</span>
-                                    <span className="font-bold bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded text-xs">{node.stats.participantes}</span>
-                               </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Flag size={20} className="text-orange-400" />
-                                <span className="font-bold text-base text-orange-500">{node.stats.percentage.toFixed(2)}%</span>
+                           <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                               {node.type !== 'cell' && (
+                                   <>
+                                    <span className="text-muted-foreground">{statLabels[node.type]}</span>
+                                    <span className="font-bold text-right">{node.stats.directChildren}</span>
+                                    <span className="text-muted-foreground">GCs</span>
+                                    <span className="font-bold text-right">{node.stats.totalCells}</span>
+                                   </>
+                               )}
+                               <span className="text-muted-foreground">Participantes</span>
+                               <span className="font-bold text-right">{node.stats.participantes}</span>
                             </div>
                         </div>
-                        {onEdit && (
-                             <Button variant="ghost" size="icon" onClick={() => onEdit(node)}>
-                                <Pencil className="h-4 w-4" />
-                            </Button>
-                        )}
-                        {onDelete && (
-                            <Button variant="ghost" size="icon" onClick={() => onDelete(node)}>
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                        {(onEdit || onDelete) && (
+                            <div className="flex items-center">
+                                {onEdit && (
+                                    <Button variant="ghost" size="icon" onClick={() => onEdit(node)}>
+                                        <Pencil className="h-4 w-4" />
+                                    </Button>
+                                )}
+                                {onDelete && (
+                                    <Button variant="ghost" size="icon" onClick={() => onDelete(node)}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                )}
+                            </div>
                         )}
                     </div>
                 </Card>
@@ -94,73 +105,81 @@ const buildHierarchy = (users, redes, areas, cells) => {
         return []; // If there's no senior pastor or admin, there's no hierarchy to show
     }
 
-    // 2. Build the hierarchy from a single root node, using all networks, areas, and cells.
+    const cellNodes = cells.map(cell => ({
+        ...cell,
+        type: 'cell',
+        liderName: userMap.get(cell.liderId)?.name || 'N/A',
+        stats: {
+            directChildren: 0,
+            totalCells: 1,
+            participantes: cell.membros?.length || 0,
+        },
+        children: []
+    }));
+
+    const areaNodes = areas.map(area => {
+        const areaCells = cellNodes.filter(c => c.areaId === area.id);
+        const participantes = areaCells.reduce((sum, c) => sum + c.stats.participantes, 0);
+        return {
+            ...area,
+            type: 'area',
+            liderName: userMap.get(area.liderId)?.name || 'N/A',
+            stats: {
+                directChildren: areaCells.length,
+                totalCells: areaCells.length,
+                participantes: participantes,
+            },
+            children: areaCells
+        };
+    });
+
+    const redeNodes = redes.map(rede => {
+        const redeAreas = areaNodes.filter(a => a.redeId === rede.id);
+        const participantes = redeAreas.reduce((sum, a) => sum + a.stats.participantes, 0);
+        const totalCells = redeAreas.reduce((sum, a) => sum + a.stats.totalCells, 0);
+        return {
+            ...rede,
+            type: 'rede',
+            liderName: userMap.get(rede.liderId)?.name || 'N/A',
+            stats: {
+                directChildren: redeAreas.length,
+                totalCells: totalCells,
+                participantes: participantes,
+            },
+            children: redeAreas
+        };
+    });
+
+    const totalParticipantes = redeNodes.reduce((sum, r) => sum + r.stats.participantes, 0);
+    const totalCells = redeNodes.reduce((sum, r) => sum + r.stats.totalCells, 0);
+
+    // 2. Build the hierarchy from a single root node
     const rootNode = {
         id: seniorPastor.id,
-        nome: seniorPastor.hierarchy?.role === 'admin' ? 'Administrador' : 'Pastor Sênior',
+        nome: seniorPastor.hierarchy?.role === 'admin' ? 'Igreja' : 'Pastor Sênior',
         liderName: seniorPastor.name,
         type: 'pastor',
         stats: { 
-            niveis: 4, 
-            grupos: cells.length, 
-            participantes: cells.reduce((sum, c) => sum + (c.membros?.length || 0), 0), 
-            percentage: 56.74 
+            directChildren: redeNodes.length,
+            totalCells: totalCells,
+            participantes: totalParticipantes,
         },
-        children: redes.map(rede => { // Level 2: Networks
-            const redeAreas = areas.filter(a => a.redeId === rede.id);
-            const redeAreaIds = redeAreas.map(a => a.id);
-            const redeCells = cells.filter(c => redeAreaIds.includes(c.areaId));
-            return {
-                ...rede,
-                id: rede.id,
-                nome: rede.nome,
-                liderName: userMap.get(rede.liderId)?.name || 'N/A',
-                type: 'rede',
-                stats: { 
-                    niveis: 0, 
-                    grupos: redeCells.length, 
-                    participantes: redeCells.reduce((sum, c) => sum + (c.membros?.length || 0), 0), 
-                    percentage: 55.07 
-                },
-                children: redeAreas.map(area => { // Level 3: Areas
-                    const areaCells = cells.filter(c => c.areaId === area.id);
-                    return {
-                        ...area,
-                        id: area.id,
-                        nome: area.nome,
-                        liderName: userMap.get(area.liderId)?.name || 'N/A',
-                        type: 'area',
-                        stats: { 
-                            niveis: 0, 
-                            grupos: areaCells.length, 
-                            participantes: areaCells.reduce((sum, c) => sum + (c.membros?.length || 0), 0), 
-                            percentage: 53.21 
-                        },
-                        children: areaCells.map(cell => ({ // Level 4: Cells
-                            ...cell,
-                            id: cell.id,
-                            nome: cell.nome,
-                            liderName: userMap.get(cell.liderId)?.name || 'N/A',
-                            type: 'cell',
-                            stats: { 
-                                niveis: 0, 
-                                grupos: 1, 
-                                participantes: cell.membros?.length || 0, 
-                                percentage: 60.00 
-                            },
-                            children: [],
-                        }))
-                    }
-                })
-            }
-        })
+        children: redeNodes
     };
 
-    return [rootNode]; // Return the hierarchy as an array with a single root item
+    return [rootNode];
 };
 
 const RenderHierarchy = ({ nodes, level = 1, onEditNode, onDeleteNode }) => {
     const [expandedNodes, setExpandedNodes] = useState({});
+
+    // Expand the first level by default
+    useEffect(() => {
+        if (level === 1 && nodes.length > 0) {
+            setExpandedNodes(prev => ({ ...prev, [nodes[0].id]: true }));
+        }
+    }, [nodes, level]);
+
 
     const toggleNode = (nodeId) => {
         setExpandedNodes(prev => ({ ...prev, [nodeId]: !prev[nodeId] }));
@@ -231,9 +250,12 @@ export default function StructurePage() {
             const areasQuery = query(collection(firestore, 'areas'), where('redeId', '==', nodeToDelete.id));
             try {
                 const areasSnapshot = await getDocs(areasQuery);
+                const deletePromises = [];
                 areasSnapshot.forEach(areaDoc => {
-                    deleteDocumentNonBlocking(doc(firestore, 'areas', areaDoc.id));
+                    deletePromises.push(deleteDocumentNonBlocking(doc(firestore, 'areas', areaDoc.id)));
                 });
+                
+                await Promise.all(deletePromises);
 
                 // After queuing area deletions, delete the network itself
                 const redeDocRef = doc(firestore, 'redes', nodeToDelete.id);
@@ -278,7 +300,7 @@ export default function StructurePage() {
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
                         <CardTitle>Estrutura Hierárquica</CardTitle>
-                        <CardDescription>Visualize e gerencie as redes, áreas e células da igreja.</CardDescription>
+                        <CardDescription>Visualize e gerencie as redes, áreas e GCs da igreja.</CardDescription>
                     </div>
                     <div className="flex gap-2">
                         <Button onClick={() => { setEditingNode(null); setAreaDialogOpen(true); }}>
@@ -340,4 +362,5 @@ export default function StructurePage() {
             )}
         </>
     );
-}
+
+    
