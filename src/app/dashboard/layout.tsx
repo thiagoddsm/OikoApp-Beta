@@ -22,7 +22,11 @@ import {
   HeartHandshake,
   CalendarDays,
   CalendarCheck,
-  ScanLine
+  ScanLine,
+  GraduationCap,
+  BookOpen,
+  UserCheck as UserCheckIcon,
+  Users2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -67,6 +71,15 @@ const menuItems = [
         { href: "/dashboard/gc/cells", label: "Células", icon: Building },
         { href: "/dashboard/gc/report", label: "Relatório de Célula", icon: ClipboardList },
         { href: "/dashboard/gc/map", label: "Mapa", icon: Map },
+      ]
+    },
+    { 
+      label: "Ensino", 
+      icon: GraduationCap,
+      subItems: [
+        { href: "/dashboard/teaching/courses", label: "Cursos e Turmas", icon: BookOpen },
+        { href: "/dashboard/teaching/teachers", label: "Professores", icon: UserCheckIcon },
+        { href: "/dashboard/teaching/students", label: "Alunos", icon: Users2 },
       ]
     },
     { href: "/dashboard/volunteering", label: "Voluntariado", icon: HeartHandshake },
@@ -123,6 +136,7 @@ export default function DashboardLayout({
       if (path === '/dashboard') return 'Dashboard';
       if (path.startsWith('/dashboard/users')) return 'Pessoas e Jornada';
       if (path.startsWith('/dashboard/gc')) return 'GCs e Discipulado';
+      if (path.startsWith('/dashboard/teaching')) return 'Módulo de Ensino';
       if (path.startsWith('/dashboard/volunteering')) return 'Voluntariado e Escalas';
       if (path.startsWith('/dashboard/events')) return 'Eventos e Produção';
       if (path.startsWith('/dashboard/patrimony')) return 'Gestão de Patrimônio';
@@ -171,12 +185,13 @@ export default function DashboardLayout({
           </SidebarHeader>
           <SidebarContent>
             <SidebarMenu>
-              {menuItems.map((item) => 
-                item.subItems ? (
-                  <Collapsible key={item.label} className="w-full" defaultOpen={pathname.startsWith('/dashboard/gc')}>
+              {menuItems.map((item) => {
+                const isCollapsibleOpen = item.subItems?.some(sub => pathname.startsWith(sub.href));
+                return item.subItems ? (
+                  <Collapsible key={item.label} className="w-full" defaultOpen={isCollapsibleOpen}>
                     <SidebarMenuItem>
                       <CollapsibleTrigger asChild className="w-full">
-                        <SidebarMenuButton className="justify-between w-full" isActive={pathname.startsWith('/dashboard/gc')}>
+                        <SidebarMenuButton className="justify-between w-full" isActive={isCollapsibleOpen}>
                             <div className="flex items-center gap-2">
                               <item.icon className="size-4" />
                               <span>{item.label}</span>
@@ -210,7 +225,7 @@ export default function DashboardLayout({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )
-              )}
+              })}
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter>

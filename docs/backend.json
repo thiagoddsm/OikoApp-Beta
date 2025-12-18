@@ -238,6 +238,40 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "category", "status", "qrCodeValue", "createdAt"]
+    },
+    "Ministry": {
+      "title": "Ministry",
+      "type": "object",
+      "description": "Represents a teaching ministry like IBM College, Wave, or DIS.",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the ministry (e.g., 'IBM College')." },
+        "description": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "Course": {
+      "title": "Course",
+      "type": "object",
+      "description": "Represents a course within a ministry.",
+      "properties": {
+        "ministryId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "required": ["ministryId", "name"]
+    },
+    "Class": {
+      "title": "Class",
+      "type": "object",
+      "description": "Represents a specific class or group for a course.",
+      "properties": {
+        "courseId": { "type": "string" },
+        "name": { "type": "string", "description": "Name of the class (e.g., 'Turma de Sábado')." },
+        "teacherId": { "type": "string" },
+        "students": { "type": "array", "items": { "type": "string" } },
+        "schedule": { "type": "string", "description": "e.g., 'Sábados, 10:00 - 12:00'" }
+      },
+      "required": ["courseId", "name"]
     }
   },
   "auth": {
@@ -259,7 +293,10 @@
       { "path": "/budget_requests/{reqId}", "definition": { "schema": { "$ref": "#/entities/BudgetRequest" } } },
       { "path": "/beneficiaries/{beneId}", "definition": { "schema": { "$ref": "#/entities/Beneficiary" } } },
       { "path": "/social_actions/{actionId}", "definition": { "schema": { "$ref": "#/entities/SocialAction" } } },
-      { "path": "/patrimonio/{patrimonioId}", "definition": { "schema": { "$ref": "#/entities/Patrimonio" } } }
+      { "path": "/patrimonio/{patrimonioId}", "definition": { "schema": { "$ref": "#/entities/Patrimonio" } } },
+      { "path": "/ministries/{ministryId}", "definition": { "schema": { "$ref": "#/entities/Ministry" } } },
+      { "path": "/courses/{courseId}", "definition": { "schema": { "$ref": "#/entities/Course" } } },
+      { "path": "/courses/{courseId}/classes/{classId}", "definition": { "schema": { "$ref": "#/entities/Class" } } }
     ]
   }
 }
