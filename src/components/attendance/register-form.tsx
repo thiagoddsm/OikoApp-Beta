@@ -18,7 +18,8 @@ const horariosCultos = [
   "Domingo - 10:15",
   "Domingo - 17:30",
   "Domingo - 19:30",
-  "Quinta - 20:00"
+  "Quinta - 20:00",
+  "Evento"
 ];
 const opcoesClima = ["Ensolarado", "Nublado", "Chuvoso", "Frio", "Agradável"];
 
