@@ -36,8 +36,18 @@ export function DeleteConfirmationDialog({
           <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
           <AlertDialogDescription>
             Esta ação não pode ser desfeita. Isso excluirá permanentemente a {itemType.toLowerCase()} <span className="font-bold">{itemName}</span>.
-            <br/><br/>
-            <strong>Atenção:</strong> Se esta {itemType.toLowerCase()} contiver outros itens (como áreas ou células), eles não serão excluídos, mas ficarão sem um item pai.
+            {itemType === 'Rede' && (
+              <>
+                <br/><br/>
+                <strong className="text-destructive">ATENÇÃO:</strong> Todas as áreas dentro desta rede também serão excluídas. As células dentro dessas áreas ficarão sem uma área pai.
+              </>
+            )}
+             {itemType === 'Área' && (
+              <>
+                <br/><br/>
+                <strong>Atenção:</strong> As células dentro desta área não serão excluídas, mas ficarão sem uma área pai.
+              </>
+            )}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

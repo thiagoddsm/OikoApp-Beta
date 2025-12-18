@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, deleteDocumentNonBlocking } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { doc, collection, query, where, getDocs } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Loader2, Users, Plus, Minus, Flag, PlusCircle, Pencil, Trash2 } from "lucide-react";
 import { Button } from '@/components/ui/button';
@@ -87,14 +87,14 @@ const HierarchyNode = ({ node, level, children, isExpanded, onToggle, onEdit, on
 const buildHierarchy = (users, redes, areas, cells) => {
     const userMap = new Map(users.map(u => [u.id, u]));
 
-    // 1. Encontrar o Pastor Sênior ou o primeiro Admin como raiz da hierarquia
+    // 1. Find the Senior Pastor or the first Admin as the root of the hierarchy
     const seniorPastor = users.find(u => u.hierarchy?.role === 'pastor_senior') || users.find(u => u.hierarchy?.role === 'admin');
     
     if (!seniorPastor) {
-        return []; // Se não houver pastor sênior ou admin, não há hierarquia para mostrar
+        return []; // If there's no senior pastor or admin, there's no hierarchy to show
     }
 
-    // 2. Montar a hierarquia a partir de um único nó raiz, usando todas as redes, areas, e cells.
+    // 2. Build the hierarchy from a single root node, using all networks, areas, and cells.
     const rootNode = {
         id: seniorPastor.id,
         nome: seniorPastor.hierarchy?.role === 'admin' ? 'Administrador' : 'Pastor Sênior',
@@ -106,7 +106,7 @@ const buildHierarchy = (users, redes, areas, cells) => {
             participantes: cells.reduce((sum, c) => sum + (c.membros?.length || 0), 0), 
             percentage: 56.74 
         },
-        children: redes.map(rede => { // Nível 2: Redes
+        children: redes.map(rede => { // Level 2: Networks
             const redeAreas = areas.filter(a => a.redeId === rede.id);
             const redeAreaIds = redeAreas.map(a => a.id);
             const redeCells = cells.filter(c => redeAreaIds.includes(c.areaId));
@@ -122,7 +122,7 @@ const buildHierarchy = (users, redes, areas, cells) => {
                     participantes: redeCells.reduce((sum, c) => sum + (c.membros?.length || 0), 0), 
                     percentage: 55.07 
                 },
-                children: redeAreas.map(area => { // Nível 3: Áreas
+                children: redeAreas.map(area => { // Level 3: Areas
                     const areaCells = cells.filter(c => c.areaId === area.id);
                     return {
                         ...area,
@@ -136,7 +136,7 @@ const buildHierarchy = (users, redes, areas, cells) => {
                             participantes: areaCells.reduce((sum, c) => sum + (c.membros?.length || 0), 0), 
                             percentage: 53.21 
                         },
-                        children: areaCells.map(cell => ({ // Nível 4: Células
+                        children: areaCells.map(cell => ({ // Level 4: Cells
                             ...cell,
                             id: cell.id,
                             nome: cell.nome,
@@ -156,7 +156,7 @@ const buildHierarchy = (users, redes, areas, cells) => {
         })
     };
 
-    return [rootNode]; // Retorna a hierarquia como uma matriz com um único item raiz
+    return [rootNode]; // Return the hierarchy as an array with a single root item
 };
 
 const RenderHierarchy = ({ nodes, level = 1, onEditNode, onDeleteNode }) => {
@@ -223,19 +223,45 @@ export default function StructurePage() {
         setDeleteDialogOpen(true);
     };
 
-    const confirmDelete = () => {
+    const confirmDelete = async () => {
         if (!nodeToDelete || !firestore) return;
+    
+        if (nodeToDelete.type === 'rede') {
+            // Cascade delete: delete areas within the network first
+            const areasQuery = query(collection(firestore, 'areas'), where('redeId', '==', nodeToDelete.id));
+            try {
+                const areasSnapshot = await getDocs(areasQuery);
+                areasSnapshot.forEach(areaDoc => {
+                    deleteDocumentNonBlocking(doc(firestore, 'areas', areaDoc.id));
+                });
 
-        const collectionName = nodeToDelete.type === 'rede' ? 'redes' : 'areas';
-        const docRef = doc(firestore, collectionName, nodeToDelete.id);
+                // After queuing area deletions, delete the network itself
+                const redeDocRef = doc(firestore, 'redes', nodeToDelete.id);
+                deleteDocumentNonBlocking(redeDocRef);
+                
+                toast({
+                    title: "Exclusão em Cascata Iniciada",
+                    description: `A rede "${nodeToDelete.nome}" e todas as suas áreas serão excluídas.`,
+                });
 
-        deleteDocumentNonBlocking(docRef);
+            } catch (error) {
+                 toast({
+                    variant: "destructive",
+                    title: "Erro na Exclusão em Cascata",
+                    description: "Não foi possível buscar as áreas para exclusão.",
+                });
+            }
 
-        toast({
-            title: "Exclusão iniciada",
-            description: `O item "${nodeToDelete.nome}" será excluído em breve.`,
-        });
-
+        } else if (nodeToDelete.type === 'area') {
+            // Just delete the area
+            const docRef = doc(firestore, 'areas', nodeToDelete.id);
+            deleteDocumentNonBlocking(docRef);
+            toast({
+                title: "Exclusão Iniciada",
+                description: `A área "${nodeToDelete.nome}" será excluída em breve.`,
+            });
+        }
+    
         setDeleteDialogOpen(false);
         setNodeToDelete(null);
     };
