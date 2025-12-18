@@ -46,6 +46,16 @@
       },
       "required": ["name", "email", "roles", "createdAt"]
     },
+    "UserPermission": {
+      "title": "User Permission",
+      "type": "object",
+      "description": "Controls what a user can do in the system.",
+      "properties": {
+        "canManageTeams": { "type": "boolean" },
+        "canManageSchedules": { "type": "boolean" },
+        "canViewAdminDashboard": { "type": "boolean" }
+      }
+    },
     "Group": {
       "title": "Group",
       "type": "object",
@@ -83,13 +93,42 @@
     "Team": {
         "title": "Team",
         "type": "object",
-        "description": "A volunteer team (e.g., Media, Worship, Kids).",
+        "description": "A volunteer team (e.g., Alpha, Bravo) for rotation.",
         "properties": {
             "name": { "type": "string" },
-            "leaderId": { "type": "string" },
             "members": { "type": "array", "items": { "type": "string" } }
         },
-        "required": ["name", "leaderId"]
+        "required": ["name"]
+    },
+    "AreaOfService": {
+      "title": "Area of Service",
+      "type": "object",
+      "description": "A specific area where volunteers serve (e.g., Media, Worship, Kids).",
+      "properties": {
+        "name": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "TeamSchedule": {
+      "title": "Team Schedule",
+      "type": "object",
+      "description": "The rotation schedule for teams across weeks.",
+      "properties": {
+        "weekNumber": { "type": "number" },
+        "teamId": { "type": "string" }
+      },
+      "required": ["weekNumber", "teamId"]
+    },
+    "SavedSchedule": {
+      "title": "Saved Schedule",
+      "type": "object",
+      "description": "A generated monthly schedule for a specific area and month.",
+      "properties": {
+        "areaId": { "type": "string" },
+        "month": { "type": "string", "description": "e.g., '2024-08'" },
+        "schedule": { "type": "object", "description": "Complex object representing the full schedule."}
+      },
+      "required": ["areaId", "month"]
     },
     "Roster": {
         "title": "Roster",
@@ -296,9 +335,13 @@
   "firestore": {
     "structure": [
       { "path": "/users/{userId}", "definition": { "schema": { "$ref": "#/entities/User" } } },
+      { "path": "/user_permissions/{userId}", "definition": { "schema": { "$ref": "#/entities/UserPermission" } } },
       { "path": "/groups/{groupId}", "definition": { "schema": { "$ref": "#/entities/Group" } } },
       { "path": "/reports/{reportId}", "definition": { "schema": { "$ref": "#/entities/Report" } } },
       { "path": "/teams/{teamId}", "definition": { "schema": { "$ref": "#/entities/Team" } } },
+      { "path": "/areas_of_service/{areaId}", "definition": { "schema": { "$ref": "#/entities/AreaOfService" } } },
+      { "path": "/team_schedules/{scheduleId}", "definition": { "schema": { "$ref": "#/entities/TeamSchedule" } } },
+      { "path": "/saved_schedules/{scheduleId}", "definition": { "schema": { "$ref": "#/entities/SavedSchedule" } } },
       { "path": "/rosters/{rosterId}", "definition": { "schema": { "$ref": "#/entities/Roster" } } },
       { "path": "/cultos/{cultoId}", "definition": { "schema": { "$ref": "#/entities/Culto" } } },
       { "path": "/cultos/{cultoId}/louvores/{louvorId}", "definition": { "schema": { "$ref": "#/entities/Louvor" } } },
@@ -317,3 +360,5 @@
     ]
   }
 }
+
+    

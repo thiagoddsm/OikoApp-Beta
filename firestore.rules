@@ -21,20 +21,33 @@ service cloud.firestore {
     function getUserData(userId) {
         return get(/databases/$(database)/documents/users/$(userId)).data;
     }
+
+    function getUserPermissions(userId) {
+        return get(/databases/$(database)/documents/user_permissions/$(userId)).data;
+    }
     
     function hasRole(role) {
         return isSignedIn() && (isMasterAdmin() || getUserData(request.auth.uid).roles.hasAny([role, 'admin', 'pastor']));
     }
 
+    function hasPermission(permission) {
+        return isSignedIn() && (isMasterAdmin() || getUserPermissions(request.auth.uid)[permission] == true);
+    }
+
     // --- Collection Rules ---
 
-    // USER: Public read, owner write.
+    // USER: Public read, owner write. Admins can manage permissions.
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
       allow update: if isOwner(userId) || hasRole('admin');
       // Only admins can delete users.
       allow delete: if hasRole('admin');
+    }
+
+    match /user_permissions/{userId} {
+        allow read: if isSignedIn();
+        allow write: if hasRole('admin'); // Only admins can change permissions
     }
 
     // GROUPS (GCs): Authenticated read, leader/admin write.
@@ -49,21 +62,35 @@ service cloud.firestore {
       allow read, write: if hasRole('gc_leader');
     }
     
-    // TEAMS: Authenticated read, team leader/admin write.
+    // --- VOLUNTEERING MODULE ---
     match /teams/{teamId} {
         allow read: if isSignedIn();
-        allow create, update: if hasRole('team_leader');
-        allow delete: if hasRole('admin');
+        allow write: if hasPermission('canManageTeams');
     }
-    
-    // ROSTERS (Escalas): Authenticated read, team leader/admin write.
+
+    match /areas_of_service/{areaId} {
+        allow read: if isSignedIn();
+        allow write: if hasPermission('canManageTeams');
+    }
+
     match /rosters/{rosterId} {
         allow read: if isSignedIn();
         // A user can update their own status (accept/decline)
-        allow update: if hasRole('team_leader') || request.auth.uid == request.resource.data.positions[0].assignedTo;
-        allow create: if hasRole('team_leader');
-        allow delete: if hasRole('admin');
+        allow update: if hasPermission('canManageSchedules') || request.auth.uid == request.resource.data.positions[0].assignedTo;
+        allow create: if hasPermission('canManageSchedules');
+        allow delete: if hasPermission('canManageSchedules');
     }
+
+    match /team_schedules/{scheduleId} {
+        allow read: if isSignedIn();
+        allow write: if hasPermission('canManageSchedules');
+    }
+
+    match /saved_schedules/{scheduleId} {
+        allow read: if isSignedIn();
+        allow write: if hasPermission('canManageSchedules');
+    }
+
 
     // CULTOS & EVENTOS: Authenticated read, admin write.
     match /cultos/{cultoId} {
@@ -182,3 +209,5 @@ service cloud.firestore {
     }
   }
 }
+
+    
