@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -220,6 +221,23 @@
             "description": { "type": "string" }
         },
         "required": ["beneficiaryId", "date", "type"]
+    },
+    "Patrimonio": {
+      "title": "Patrimonio",
+      "type": "object",
+      "description": "Represents a physical asset of the church.",
+      "properties": {
+        "name": { "type": "string", "description": "Name of the asset." },
+        "description": { "type": "string", "description": "Optional description." },
+        "category": { "type": "string", "description": "e.g., Mobiliário, Eletrônicos, Cabos" },
+        "location": { "type": "string", "description": "e.g., Depósito, Sala 1, Auditório" },
+        "status": { "type": "string", "enum": ["disponivel", "emprestado", "em_manutencao"] },
+        "qrCodeValue": { "type": "string", "description": "The unique value stored in the QR code, typically the document ID." },
+        "lastCheckedOutBy": { "type": "string", "description": "User ID of the person who last checked out the item." },
+        "lastCheckedOutDate": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "category", "status", "qrCodeValue", "createdAt"]
     }
   },
   "auth": {
@@ -240,7 +258,8 @@
       { "path": "/eventos/{eventoId}/convidados/{convidadoId}", "definition": { "schema": { "$ref": "#/entities/Convidado" } } },
       { "path": "/budget_requests/{reqId}", "definition": { "schema": { "$ref": "#/entities/BudgetRequest" } } },
       { "path": "/beneficiaries/{beneId}", "definition": { "schema": { "$ref": "#/entities/Beneficiary" } } },
-      { "path": "/social_actions/{actionId}", "definition": { "schema": { "$ref": "#/entities/SocialAction" } } }
+      { "path": "/social_actions/{actionId}", "definition": { "schema": { "$ref": "#/entities/SocialAction" } } },
+      { "path": "/patrimonio/{patrimonioId}", "definition": { "schema": { "$ref": "#/entities/Patrimonio" } } }
     ]
   }
 }

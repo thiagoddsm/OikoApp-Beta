@@ -21,7 +21,8 @@ import {
   TrendingUp,
   HeartHandshake,
   CalendarDays,
-  CalendarCheck
+  CalendarCheck,
+  ScanLine
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -70,6 +71,7 @@ const menuItems = [
     },
     { href: "/dashboard/volunteering", label: "Voluntariado", icon: HeartHandshake },
     { href: "/dashboard/events", label: "Eventos", icon: CalendarDays },
+    { href: "/dashboard/patrimony", label: "Patrimônio", icon: ScanLine },
     { href: "/dashboard/social", label: "Ação Social", icon: Users },
     { href: "/dashboard/goals", label: "Metas (KPIs)", icon: TrendingUp },
 ];
@@ -123,6 +125,7 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/gc')) return 'GCs e Discipulado';
       if (path.startsWith('/dashboard/volunteering')) return 'Voluntariado e Escalas';
       if (path.startsWith('/dashboard/events')) return 'Eventos e Produção';
+      if (path.startsWith('/dashboard/patrimony')) return 'Gestão de Patrimônio';
       if (path.startsWith('/dashboard/social')) return 'Ação Social';
       if (path.startsWith('/dashboard/goals')) return 'Metas e KPIs';
 
