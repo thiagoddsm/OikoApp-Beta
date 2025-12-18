@@ -28,6 +28,8 @@ import {
   UserCheck as UserCheckIcon,
   Users2,
   CalendarPlus,
+  Briefcase,
+  Church,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -63,39 +65,94 @@ export const userRoles: { [key: string]: string } = {
 
 const menuItems = [
     { href: "/dashboard", label: "Dashboard", icon: Home },
-    { href: "/dashboard/users", label: "Pessoas (CRM)", icon: Users },
     { 
-      label: "GCs & Discipulado", 
-      icon: Network,
+      label: "GCs", 
+      icon: Users,
       subItems: [
+        { href: "/dashboard/users", label: "Pessoas (CRM)", icon: Users },
         { href: "/dashboard/gc/structure", label: "Estrutura", icon: Network },
         { href: "/dashboard/gc/cells", label: "Células", icon: Building },
         { href: "/dashboard/gc/report", label: "Relatório de Célula", icon: ClipboardList },
         { href: "/dashboard/gc/map", label: "Mapa", icon: Map },
       ]
     },
-    { 
-      label: "Ensino", 
-      icon: GraduationCap,
+    {
+      label: "Serviço",
+      icon: HeartHandshake,
       subItems: [
-        { href: "/dashboard/teaching/courses", label: "Cursos e Turmas", icon: BookOpen },
-        { href: "/dashboard/teaching/teachers", label: "Professores", icon: UserCheckIcon },
-        { href: "/dashboard/teaching/students", label: "Alunos", icon: Users2 },
+        { href: "/dashboard/volunteering", label: "Voluntariado", icon: HeartHandshake },
       ]
     },
-    { href: "/dashboard/volunteering", label: "Voluntariado", icon: HeartHandshake },
     { 
-      label: "Eventos", 
-      icon: CalendarDays,
+      label: "Ministerial", 
+      icon: Church,
       subItems: [
-        { href: "/dashboard/events", label: "Cultos e Eventos", icon: CalendarCheck },
-        { href: "/dashboard/events/reservations", label: "Reservas de Sala", icon: CalendarPlus },
+        { 
+            label: "Ensino", 
+            icon: GraduationCap,
+            subItems: [
+              { href: "/dashboard/teaching/courses", label: "Cursos e Turmas", icon: BookOpen },
+              { href: "/dashboard/teaching/teachers", label: "Professores", icon: UserCheckIcon },
+              { href: "/dashboard/teaching/students", label: "Alunos", icon: Users2 },
+            ]
+        },
+        { 
+            label: "Eventos", 
+            icon: CalendarDays,
+            subItems: [
+              { href: "/dashboard/events", label: "Cultos e Eventos", icon: CalendarCheck },
+              { href: "/dashboard/events/reservations", label: "Reservas de Sala", icon: CalendarPlus },
+            ]
+        },
+        { href: "/dashboard/patrimony", label: "Patrimônio", icon: ScanLine },
+        { href: "/dashboard/social", label: "Ação Social", icon: Users },
+        { href: "/dashboard/goals", label: "Metas (KPIs)", icon: TrendingUp },
       ]
     },
-    { href: "/dashboard/patrimony", label: "Patrimônio", icon: ScanLine },
-    { href: "/dashboard/social", label: "Ação Social", icon: Users },
-    { href: "/dashboard/goals", label: "Metas (KPIs)", icon: TrendingUp },
 ];
+
+function renderMenuItems(items: any[], pathname: string, level = 0) {
+  return items.map((item) => {
+    const isCollapsibleOpen = item.subItems?.some(sub => sub.href && pathname.startsWith(sub.href)) || item.subItems?.some(sub => sub.subItems?.some(subsub => subsub.href && pathname.startsWith(subsub.href)));
+    
+    if (item.subItems) {
+      return (
+        <Collapsible key={item.label} className="w-full" defaultOpen={isCollapsibleOpen}>
+          <SidebarMenuItem>
+            <CollapsibleTrigger asChild className="w-full">
+              <SidebarMenuButton className="justify-between w-full" isActive={isCollapsibleOpen}>
+                  <div className="flex items-center gap-2">
+                    {item.icon && <item.icon className="size-4" />}
+                    <span>{item.label}</span>
+                  </div>
+                  <ChevronDown className="size-4 transition-transform [&[data-state=open]]:rotate-180" />
+              </SidebarMenuButton>
+            </CollapsibleTrigger>
+          </SidebarMenuItem>
+          <CollapsibleContent>
+            <SidebarMenu className={cn(level > 0 ? "pl-6" : "pl-6")}>
+              {renderMenuItems(item.subItems, pathname, level + 1)}
+            </SidebarMenu>
+          </CollapsibleContent>
+        </Collapsible>
+      );
+    }
+    
+    if (item.href) {
+      return (
+        <SidebarMenuItem key={item.href}>
+          <SidebarMenuButton asChild isActive={pathname === item.href} className="justify-start">
+            <Link href={item.href}>
+              {item.icon && <item.icon className="size-4" />}
+              <span>{item.label}</span>
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      );
+    }
+    return null;
+  });
+}
 
 
 export default function DashboardLayout({
@@ -109,11 +166,9 @@ export default function DashboardLayout({
 
   const { data: userData, isLoading: isUserDataLoading } = useDoc<{ roles?: string[]; }>(user ? `users/${user.uid}`: null);
   
-  // This is the key: wait for both auth and user data to be loaded.
   const isLoading = isUserLoading || isUserDataLoading;
 
   useEffect(() => {
-    // Redirect if loading is finished and there's no user.
     if (!isLoading && !user) {
       router.push('/');
     }
@@ -141,24 +196,21 @@ export default function DashboardLayout({
   };
 
   const getPageTitle = (path: string) => {
+      // This is a simple implementation. For a more robust solution,
+      // you might want to traverse the menuItems array recursively.
       if (path === '/dashboard') return 'Dashboard';
       if (path.startsWith('/dashboard/users')) return 'Pessoas e Jornada';
       if (path.startsWith('/dashboard/gc')) return 'GCs e Discipulado';
-      if (path.startsWith('/dashboard/teaching')) return 'Módulo de Ensino';
-      if (path.startsWith('/dashboard/volunteering')) return 'Voluntariado e Escalas';
+      if (path.startsWith('/dashboard/volunteering')) return 'Serviço e Voluntariado';
+      if (path.startsWith('/dashboard/teaching')) return 'Ensino';
       if (path.startsWith('/dashboard/events')) return 'Eventos e Produção';
       if (path.startsWith('/dashboard/patrimony')) return 'Gestão de Patrimônio';
       if (path.startsWith('/dashboard/social')) return 'Ação Social';
       if (path.startsWith('/dashboard/goals')) return 'Metas e KPIs';
-
-      const defaultTitle = menuItems
-        .flatMap(item => item.subItems ? item.subItems : [item])
-        .find(item => item && item.href && path.startsWith(item.href))?.label;
         
-      return defaultTitle || 'OikoApp';
+      return 'OikoApp';
   };
   
-  // Show loading screen while waiting for user data.
   if (isLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
@@ -167,17 +219,13 @@ export default function DashboardLayout({
     );
   }
   
-  // After loading, if user exists, check roles.
   const userRolesList = userData?.roles || [];
   const hasAccess = userRolesList.includes('admin') || userRolesList.includes('pastor');
 
-  // If user is loaded but has no access, show pending screen.
   if (user && !hasAccess) {
     return <PendingAccess userName={user.displayName} onLogout={handleLogout} />;
   }
 
-  // If user is loaded and has access, render the full layout.
-  // A check for `user` is also included here to handle the brief moment before redirection.
   if (user && hasAccess) {
     const userPrimaryRole = userRolesList[0] || 'member';
     const userRoleLabel = userRoles[userPrimaryRole] || 'Membro';
@@ -193,51 +241,7 @@ export default function DashboardLayout({
           </SidebarHeader>
           <SidebarContent>
             <SidebarMenu>
-              {menuItems.map((item) => {
-                const isCollapsibleOpen = item.subItems?.some(sub => sub && sub.href && pathname.startsWith(sub.href));
-                return item.subItems ? (
-                  <Collapsible key={item.label} className="w-full" defaultOpen={isCollapsibleOpen}>
-                    <SidebarMenuItem>
-                      <CollapsibleTrigger asChild className="w-full">
-                        <SidebarMenuButton className="justify-between w-full" isActive={isCollapsibleOpen}>
-                            <div className="flex items-center gap-2">
-                              {item.icon && <item.icon className="size-4" />}
-                              <span>{item.label}</span>
-                            </div>
-                            <ChevronDown className="size-4 transition-transform [&[data-state=open]]:rotate-180" />
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                    </SidebarMenuItem>
-                    <CollapsibleContent>
-                      <SidebarMenu className="pl-6">
-                        {item.subItems.map(subItem => (
-                          subItem && subItem.href && (
-                            <SidebarMenuItem key={subItem.href}>
-                                <SidebarMenuButton asChild isActive={pathname === subItem.href} className="justify-start h-8">
-                                  <Link href={subItem.href}>
-                                    {subItem.icon && <subItem.icon className="size-4" />}
-                                    <span>{subItem.label}</span>
-                                  </Link>
-                                </SidebarMenuButton>
-                              </SidebarMenuItem>
-                          )
-                        ))}
-                      </SidebarMenu>
-                    </CollapsibleContent>
-                  </Collapsible>
-                ) : (
-                  item.href && (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton asChild isActive={pathname === item.href} className="justify-start">
-                        <Link href={item.href}>
-                          {item.icon && <item.icon className="size-4" />}
-                          <span>{item.label}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  )
-                )
-              })}
+              {renderMenuItems(menuItems, pathname)}
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter>
@@ -288,7 +292,6 @@ export default function DashboardLayout({
     );
   }
 
-  // If loading is done and there's no user, show loading while redirecting.
   return (
       <div className="flex h-screen w-full items-center justify-center">
         <Logo className="h-12 w-12 animate-pulse text-primary" />
