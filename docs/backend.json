@@ -11,8 +11,8 @@
         "phone": { "type": "string" },
         "roles": {
           "type": "array",
-          "items": { "type": "string" },
-          "description": "User roles (e.g., 'admin', 'pastor', 'gc_leader', 'member')."
+          "items": { "type": "string", "enum": ["admin", "pastor", "lider_rede", "lider_area", "gc_leader", "team_leader", "member", "volunteer"] },
+          "description": "User roles."
         },
         "familyId": { "type": "string", "description": "ID linking users of the same family." },
         "journey": {
@@ -360,3 +360,5 @@
     ]
   }
 }
+
+    
