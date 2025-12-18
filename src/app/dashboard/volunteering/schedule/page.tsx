@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, CalendarCog, FileDown, Bell } from 'lucide-react';
 import { SchedulePreview } from '@/components/volunteering/schedule-preview';
 import { getMonth, getYear, lastDayOfMonth } from 'date-fns';
+import { Input } from '@/components/ui/input';
 
 type Team = {
   id: string;
