@@ -65,6 +65,8 @@ const HierarchyNode = ({ node, level, children, isExpanded, onToggle, onEdit, on
                                    <>
                                     <span className="text-muted-foreground">Redes</span>
                                     <span className="font-bold text-right">{node.stats.directChildren}</span>
+                                    <span className="text-muted-foreground">Total Áreas</span>
+                                    <span className="font-bold text-right">{node.stats.totalAreas}</span>
                                    </>
                                 )}
                                {node.type === 'rede' && (
@@ -169,6 +171,7 @@ const buildHierarchy = (users, redes, areas, cells) => {
 
     const totalParticipantes = redeNodes.reduce((sum, r) => sum + r.stats.participantes, 0);
     const totalCells = redeNodes.reduce((sum, r) => sum + r.stats.totalCells, 0);
+    const totalAreas = areaNodes.length;
 
     // 2. Build the hierarchy from a single root node
     const rootNode = {
@@ -180,6 +183,7 @@ const buildHierarchy = (users, redes, areas, cells) => {
             directChildren: redeNodes.length,
             totalCells: totalCells,
             participantes: totalParticipantes,
+            totalAreas: totalAreas,
         },
         children: redeNodes
     };
