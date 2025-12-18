@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -82,14 +81,14 @@ export function TeamFormDialog({ open, onOpenChange, allUsers, existingTeam }: T
       updateDocumentNonBlocking(teamDocRef, teamData);
       toast({
         title: "Sucesso!",
-        description: `A equipe "${name}" foi atualizada.`,
+        description: `A equipe "${name}" será atualizada em breve.`,
       });
     } else {
       const teamsCollection = collection(firestore, 'teams');
       addDocumentNonBlocking(teamsCollection, teamData);
       toast({
         title: "Sucesso!",
-        description: `A equipe "${name}" foi criada.`,
+        description: `A equipe "${name}" será criada em breve.`,
       });
     }
 
