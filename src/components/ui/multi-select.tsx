@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -109,7 +108,7 @@ export function MultiSelect({
                         e.preventDefault();
                         e.stopPropagation();
                         }}
-                        onSelect={(_value) => {
+                        onSelect={() => {
                         setInputValue('');
                         onChange((prev) => [...prev, option.value]);
                         }}
@@ -127,4 +126,3 @@ export function MultiSelect({
     </Command>
   );
 }
-
