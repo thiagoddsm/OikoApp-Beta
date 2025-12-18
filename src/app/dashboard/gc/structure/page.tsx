@@ -78,61 +78,88 @@ const HierarchyNode = ({ node, level, children, isExpanded, onToggle, onEdit }) 
 
 const buildHierarchy = (users, redes, areas, cells) => {
     const userMap = new Map(users.map(u => [u.id, u]));
-    let hierarchy = [];
 
-    const pastors = users.filter(u => u.hierarchy?.role === 'pastor_senior' || u.hierarchy?.role === 'admin');
+    // 1. Encontrar o Pastor Sênior ou o primeiro Admin como raiz da hierarquia
+    const seniorPastor = users.find(u => u.hierarchy?.role === 'pastor_senior') || users.find(u => u.hierarchy?.role === 'admin');
     
-    // Nível 1: Pastores/Admins
-    hierarchy = pastors.map(pastor => {
-        const pastorRedes = redes.filter(r => r.pastorId === pastor.id);
-        const pastorRedeIds = pastorRedes.map(r => r.id);
-        const pastorAreas = areas.filter(a => pastorRedeIds.includes(a.redeId));
-        const pastorAreaIds = pastorAreas.map(a => a.id);
-        const pastorCells = cells.filter(c => pastorAreaIds.includes(c.areaId));
+    if (!seniorPastor) {
+        return []; // Se não houver pastor sênior ou admin, não há hierarquia para mostrar
+    }
 
-        return {
-            id: pastor.id,
-            nome: pastor.hierarchy?.role === 'admin' ? 'Administrador' : 'Pastor Sênior',
-            liderName: pastor.name,
-            type: 'pastor',
-            stats: { niveis: 4, grupos: pastorCells.length, participantes: pastorCells.reduce((sum, c) => sum + c.membros.length, 0), percentage: 56.74 },
-            children: pastorRedes.map(rede => { // Nível 2: Redes
-                const redeAreas = areas.filter(a => a.redeId === rede.id);
-                const redeAreaIds = redeAreas.map(a => a.id);
-                const redeCells = cells.filter(c => redeAreaIds.includes(c.areaId));
-                return {
-                    ...rede,
-                    id: rede.id,
-                    nome: rede.nome,
-                    liderName: userMap.get(rede.liderId)?.name || 'N/A',
-                    type: 'rede',
-                    stats: { niveis: 0, grupos: redeCells.length, participantes: redeCells.reduce((sum, c) => sum + c.membros.length, 0), percentage: 55.07 },
-                    children: redeAreas.map(area => { // Nível 3: Áreas
-                        const areaCells = cells.filter(c => c.areaId === area.id);
-                        return {
-                            ...area,
-                            id: area.id,
-                            nome: area.nome,
-                            liderName: userMap.get(area.liderId)?.name || 'N/A',
-                            type: 'area',
-                            stats: { niveis: 0, grupos: areaCells.length, participantes: areaCells.reduce((sum, c) => sum + c.membros.length, 0), percentage: 53.21 },
-                            children: areaCells.map(cell => ({ // Nível 4: Células
-                                ...cell,
-                                id: cell.id,
-                                nome: cell.nome,
-                                liderName: userMap.get(cell.liderId)?.name || 'N/A',
-                                type: 'cell',
-                                stats: { niveis: 0, grupos: 1, participantes: cell.membros.length, percentage: 60.00 },
-                                children: [],
-                            }))
-                        }
-                    })
-                }
-            })
-        }
-    });
+    // 2. Filtrar redes que pertencem a QUALQUER pastor ou admin principal
+    const mainLeadersIds = users
+        .filter(u => u.hierarchy?.role === 'pastor_senior' || u.hierarchy?.role === 'admin')
+        .map(u => u.id);
 
-    return hierarchy;
+    const pastorRedes = redes.filter(r => mainLeadersIds.includes(r.pastorId));
+    const pastorRedeIds = pastorRedes.map(r => r.id);
+    const pastorAreas = areas.filter(a => pastorRedeIds.includes(a.redeId));
+    const pastorAreaIds = pastorAreas.map(a => a.id);
+    const pastorCells = cells.filter(c => pastorAreaIds.includes(c.areaId));
+
+    // 3. Montar a hierarquia a partir de um único nó raiz
+    const rootNode = {
+        id: seniorPastor.id,
+        nome: seniorPastor.hierarchy?.role === 'admin' ? 'Administrador' : 'Pastor Sênior',
+        liderName: seniorPastor.name,
+        type: 'pastor',
+        stats: { 
+            niveis: 4, 
+            grupos: pastorCells.length, 
+            participantes: pastorCells.reduce((sum, c) => sum + (c.membros?.length || 0), 0), 
+            percentage: 56.74 
+        },
+        children: pastorRedes.map(rede => { // Nível 2: Redes
+            const redeAreas = areas.filter(a => a.redeId === rede.id);
+            const redeAreaIds = redeAreas.map(a => a.id);
+            const redeCells = cells.filter(c => redeAreaIds.includes(c.areaId));
+            return {
+                ...rede,
+                id: rede.id,
+                nome: rede.nome,
+                liderName: userMap.get(rede.liderId)?.name || 'N/A',
+                type: 'rede',
+                stats: { 
+                    niveis: 0, 
+                    grupos: redeCells.length, 
+                    participantes: redeCells.reduce((sum, c) => sum + (c.membros?.length || 0), 0), 
+                    percentage: 55.07 
+                },
+                children: redeAreas.map(area => { // Nível 3: Áreas
+                    const areaCells = cells.filter(c => c.areaId === area.id);
+                    return {
+                        ...area,
+                        id: area.id,
+                        nome: area.nome,
+                        liderName: userMap.get(area.liderId)?.name || 'N/A',
+                        type: 'area',
+                        stats: { 
+                            niveis: 0, 
+                            grupos: areaCells.length, 
+                            participantes: areaCells.reduce((sum, c) => sum + (c.membros?.length || 0), 0), 
+                            percentage: 53.21 
+                        },
+                        children: areaCells.map(cell => ({ // Nível 4: Células
+                            ...cell,
+                            id: cell.id,
+                            nome: cell.nome,
+                            liderName: userMap.get(cell.liderId)?.name || 'N/A',
+                            type: 'cell',
+                            stats: { 
+                                niveis: 0, 
+                                grupos: 1, 
+                                participantes: cell.membros?.length || 0, 
+                                percentage: 60.00 
+                            },
+                            children: [],
+                        }))
+                    }
+                })
+            }
+        })
+    };
+
+    return [rootNode]; // Retorna a hierarquia como uma matriz com um único item raiz
 };
 
 const RenderHierarchy = ({ nodes, level = 1, onEditNode }) => {
