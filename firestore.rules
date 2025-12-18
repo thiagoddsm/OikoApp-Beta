@@ -144,5 +144,11 @@ service cloud.firestore {
         allow create, update: if hasRole('lider_rede') || hasRole('admin');
         allow delete: if hasRole('admin');
     }
+
+    match /areas/{areaId} {
+        allow read: if isSignedIn();
+        allow create, update: if hasRole('lider_area') || hasRole('admin');
+        allow delete: if hasRole('admin');
+    }
   }
 }
