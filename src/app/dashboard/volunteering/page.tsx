@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, PlusCircle, Pencil, Trash2, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { TeamFormDialog } from '@/components/volunteering/team-form-dialog';
+import TeamFormDialog from '@/components/volunteering/team-form-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 

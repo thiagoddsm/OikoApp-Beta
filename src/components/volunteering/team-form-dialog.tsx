@@ -1,7 +1,6 @@
-
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -31,7 +30,7 @@ interface TeamFormDialogProps {
   existingTeam: Team | null;
 }
 
-export function TeamFormDialog({ open, onOpenChange, allUsers, existingTeam }: TeamFormDialogProps) {
+export default function TeamFormDialog({ open, onOpenChange, allUsers, existingTeam }: TeamFormDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [name, setName] = useState('');
