@@ -86,18 +86,7 @@ const buildHierarchy = (users, redes, areas, cells) => {
         return []; // Se não houver pastor sênior ou admin, não há hierarquia para mostrar
     }
 
-    // 2. Filtrar redes que pertencem a QUALQUER pastor ou admin principal
-    const mainLeadersIds = users
-        .filter(u => u.hierarchy?.role === 'pastor_senior' || u.hierarchy?.role === 'admin')
-        .map(u => u.id);
-
-    const pastorRedes = redes.filter(r => mainLeadersIds.includes(r.pastorId));
-    const pastorRedeIds = pastorRedes.map(r => r.id);
-    const pastorAreas = areas.filter(a => pastorRedeIds.includes(a.redeId));
-    const pastorAreaIds = pastorAreas.map(a => a.id);
-    const pastorCells = cells.filter(c => pastorAreaIds.includes(c.areaId));
-
-    // 3. Montar a hierarquia a partir de um único nó raiz
+    // 2. Montar a hierarquia a partir de um único nó raiz, usando todas as redes, areas, e cells.
     const rootNode = {
         id: seniorPastor.id,
         nome: seniorPastor.hierarchy?.role === 'admin' ? 'Administrador' : 'Pastor Sênior',
@@ -105,11 +94,11 @@ const buildHierarchy = (users, redes, areas, cells) => {
         type: 'pastor',
         stats: { 
             niveis: 4, 
-            grupos: pastorCells.length, 
-            participantes: pastorCells.reduce((sum, c) => sum + (c.membros?.length || 0), 0), 
+            grupos: cells.length, 
+            participantes: cells.reduce((sum, c) => sum + (c.membros?.length || 0), 0), 
             percentage: 56.74 
         },
-        children: pastorRedes.map(rede => { // Nível 2: Redes
+        children: redes.map(rede => { // Nível 2: Redes
             const redeAreas = areas.filter(a => a.redeId === rede.id);
             const redeAreaIds = redeAreas.map(a => a.id);
             const redeCells = cells.filter(c => redeAreaIds.includes(c.areaId));
