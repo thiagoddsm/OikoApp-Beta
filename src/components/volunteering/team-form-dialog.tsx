@@ -62,6 +62,14 @@ export function TeamFormDialog({ open, onOpenChange, allUsers, existingTeam }: T
       });
       return;
     }
+    if (!firestore) {
+        toast({
+            variant: "destructive",
+            title: "Erro de Conexão",
+            description: "Não foi possível conectar ao banco de dados.",
+        });
+        return;
+    }
     setIsSaving(true);
     
     const teamData = {
@@ -105,8 +113,8 @@ export function TeamFormDialog({ open, onOpenChange, allUsers, existingTeam }: T
             </Label>
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" placeholder="Ex: Mídia, Louvor, Recepção" />
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="members" className="text-right pt-2 self-start">
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label htmlFor="members" className="text-right pt-2">
               Membros
             </Label>
             <div className="col-span-3">
