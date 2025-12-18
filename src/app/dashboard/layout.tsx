@@ -31,6 +31,7 @@ import {
   Briefcase,
   Church,
   CheckSquare,
+  Upload,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -111,6 +112,8 @@ const menuItems = [
         { href: "/dashboard/goals", label: "Metas (KPIs)", icon: TrendingUp },
       ]
     },
+    // Temporary item for data import
+    { href: "/dashboard/import-data", label: "Importar Dados", icon: Upload },
 ];
 
 function renderMenuItems(items: any[], pathname: string, level = 0) {
@@ -210,6 +213,7 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/patrimony')) return 'Gestão de Patrimônio';
       if (path.startsWith('/dashboard/social')) return 'Ação Social';
       if (path.startsWith('/dashboard/goals')) return 'Metas e KPIs';
+      if (path.startsWith('/dashboard/import-data')) return 'Importação de Dados';
         
       return 'OikoApp';
   };
