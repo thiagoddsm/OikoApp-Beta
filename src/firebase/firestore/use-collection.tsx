@@ -71,9 +71,11 @@ export function useCollection<T = any>(
     }
 
     setIsLoading(true);
-    let q: Query = collection(firestore, path);
-
+    
+    let q: Query;
     try {
+      q = collection(firestore, path);
+      
       const parsedConstraints = JSON.parse(memoizedConstraints);
       if (parsedConstraints.length > 0) {
         const whereClauses = parsedConstraints.map(c => where(c.field, c.operator, c.value));
