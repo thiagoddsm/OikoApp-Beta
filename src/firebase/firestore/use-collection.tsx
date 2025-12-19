@@ -64,16 +64,17 @@ export function useCollection<T = any>(
   const memoizedOrder = JSON.stringify(order);
 
   useEffect(() => {
-    // Reset state and set loading to true initially for every path/query change
-    setIsLoading(true);
-    setData(null);
-    setError(null);
-
+    // This hook can be called with a null path when a dependency is not yet ready.
     // If firestore or path are not available, set loading to false and exit.
     if (!firestore || !path) {
       setIsLoading(false);
+      setData(null);
+      setError(null);
       return;
     }
+    
+    setIsLoading(true);
+    setError(null);
     
     let unsubscribe = () => {};
 
