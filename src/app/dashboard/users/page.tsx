@@ -3,9 +3,7 @@
 
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { useFirebase, useMemoFirebase } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { collection, query } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -68,15 +66,9 @@ function UserCard({ user }: { user: User }) {
 }
 
 export default function UsersKanbanPage() {
-    const { firestore, user } = useFirebase();
     const [searchTerm, setSearchTerm] = useState('');
 
-    const usersQuery = useMemoFirebase(() => {
-        if (!user || !firestore) return null;
-        return query(collection(firestore, 'users'));
-    }, [firestore, user]);
-
-    const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
+    const { data: users, isLoading: isLoadingUsers } = useCollection<User>('users');
     
     const usersByStatus = useMemo(() => {
         const initialColumns: { [key: string]: User[] } = {};
@@ -96,7 +88,7 @@ export default function UsersKanbanPage() {
         }, initialColumns);
     }, [users, searchTerm]);
 
-    if (isLoadingUsers || !user) {
+    if (isLoadingUsers) {
         return (
             <div className="flex h-full items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin" />
