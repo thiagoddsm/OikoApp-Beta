@@ -74,8 +74,8 @@ export function DiscipleshipNotes({ memberId }: { memberId: string }) {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const { data: notes, isLoading: isLoadingNotes } = useCollection<MemberNote>(
-        'member_notes',
-        [{ field: 'memberId', operator: '==', value: memberId }],
+        memberId ? 'member_notes' : null,
+        memberId ? [{ field: 'memberId', operator: '==', value: memberId }] : [],
         [{ field: 'createdAt', direction: 'desc' }]
     );
 
