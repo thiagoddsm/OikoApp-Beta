@@ -19,6 +19,7 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
 import { GooglePlacesAutocomplete } from '@/components/common/google-places-autocomplete';
 import { Input } from '@/components/ui/input';
+import { MultiSelect } from '@/components/ui/multi-select';
 
 
 type UserType = {
@@ -77,6 +78,11 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
   const [lng, setLng] = useState<number | undefined>(undefined);
   const [meetingDay, setMeetingDay] = useState('');
   const [meetingTime, setMeetingTime] = useState('');
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+
+  const userOptions = useMemo(() => 
+    users.map(user => ({ value: user.id, label: user.name })), 
+  [users]);
 
   const availableAreas = useMemo(() => {
     if (!redeId || !areas) return [];
@@ -96,6 +102,7 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
       setLng(existingCell.address?.lng);
       setMeetingDay(existingCell.meetingDay || '');
       setMeetingTime(existingCell.meetingTime || '');
+      setSelectedMembers(existingCell.membros || []);
     } else {
       // Reset form
       setNome('');
@@ -107,6 +114,7 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
       setLng(undefined);
       setMeetingDay('');
       setMeetingTime('');
+      setSelectedMembers([]);
     }
   }, [existingCell, open]);
   
@@ -116,6 +124,13 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
       setAreaId('');
     }
   }, [redeId, availableAreas, areaId]);
+
+  useEffect(() => {
+    // Auto-add leader to members if not already there, and prevent removal
+    if (liderId && !selectedMembers.includes(liderId)) {
+        setSelectedMembers(prev => [...prev, liderId]);
+    }
+  }, [liderId, selectedMembers]);
 
 
   const handleAddressSelect = (place: google.maps.places.PlaceResult | null) => {
@@ -141,6 +156,8 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
       return;
     }
     setIsSaving(true);
+
+    const finalMembers = [...new Set([liderId, ...selectedMembers])];
     
     const cellData = {
       nome,
@@ -148,6 +165,7 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
       supervisorId,
       areaId,
       redeId,
+      membros: finalMembers,
       address: {
         street,
         lat,
@@ -166,10 +184,7 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
       });
     } else {
       const cellsCollection = collection(firestore, 'cells');
-      addDocumentNonBlocking(cellsCollection, {
-        ...cellData,
-        membros: [liderId], // Leader is a member by default
-      });
+      addDocumentNonBlocking(cellsCollection, cellData);
       toast({
           title: "Sucesso!",
           description: `A célula "${nome}" foi criada.`,
@@ -182,14 +197,14 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{existingCell ? 'Editar Célula' : 'Criar Nova Célula'}</DialogTitle>
           <DialogDescription>
             {existingCell ? 'Altere as informações da célula abaixo.' : 'Preencha as informações abaixo para criar uma nova célula.'}
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
+        <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="name" className="text-right">
               Nome
@@ -240,6 +255,19 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
                     ))}
                 </SelectContent>
             </Select>
+          </div>
+           <div className="grid grid-cols-4 items-start gap-4">
+            <Label htmlFor="members" className="text-right pt-2">
+              Membros
+            </Label>
+            <div className="col-span-3">
+                <MultiSelect
+                    options={userOptions.filter(u => u.value !== liderId)} // Leader can't be removed from members list
+                    selected={selectedMembers.filter(m => m !== liderId)} // Don't show leader in the badge list, as they are implicitly a member
+                    onChange={newMembers => setSelectedMembers([...newMembers, liderId])}
+                    placeholder="Selecione os membros..."
+                />
+            </div>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="street" className="text-right">
@@ -433,6 +461,4 @@ export default function CellsPage() {
     </>
   );
 }
-    
-
     
