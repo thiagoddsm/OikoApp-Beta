@@ -370,7 +370,7 @@ export default function CellsPage() {
                   return (
                     <TableRow key={cell.id}>
                       <TableCell className="font-medium">
-                        <Link href={`/dashboard/gc/cells/${cell.id}`} className="hover:underline">
+                        <Link href={`/dashboard/cells/${cell.id}`} className="hover:underline">
                           {cell.nome}
                         </Link>
                       </TableCell>
@@ -433,4 +433,6 @@ export default function CellsPage() {
     </>
   );
 }
+    
+
     
