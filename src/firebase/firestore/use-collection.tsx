@@ -64,13 +64,16 @@ export function useCollection<T = any>(
   const memoizedOrder = JSON.stringify(order);
 
   useEffect(() => {
+    // CRITICAL: Immediately exit if firestore or path are not available.
     if (!firestore || !path) {
       setIsLoading(false);
       setData(null);
+      setError(null);
       return;
     }
 
     setIsLoading(true);
+    setError(null);
     
     let q: Query;
     try {
