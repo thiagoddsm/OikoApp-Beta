@@ -28,7 +28,7 @@ type CellType = {
 };
 
 export default function NewMemberPage() {
-  const { user, isUserLoading } = useFirebase();
+  const { user, firestore, isUserLoading } = useFirebase();
   const { toast } = useToast();
   
   const [visitorName, setVisitorName] = useState('');
@@ -57,17 +57,16 @@ export default function NewMemberPage() {
     }
   }, [user, leaders]);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
 
+    if (!firestore) {
+      setError("O serviço de banco de dados não está disponível.");
+      return;
+    }
+
     startTransition(async () => {
-      const { firestore } = await import('@/firebase');
-      if (!firestore) {
-        setError("O serviço de banco de dados não está disponível.");
-        return;
-      }
-      
       try {
         const usersCollection = collection(firestore, 'users');
         const newUser = {
@@ -83,7 +82,7 @@ export default function NewMemberPage() {
             createdAt: Timestamp.now()
         };
         
-        await addDocumentNonBlocking(usersCollection, newUser);
+        addDocumentNonBlocking(usersCollection, newUser);
 
         toast({ title: "Sucesso!", description: 'Nova pessoa registrada com sucesso!' });
         
@@ -92,7 +91,6 @@ export default function NewMemberPage() {
         setVisitorPhone('');
         setCellId('');
         setVisitorType('culto');
-
 
       } catch (e: any) {
         setError(e.message || "Ocorreu um erro desconhecido.");
