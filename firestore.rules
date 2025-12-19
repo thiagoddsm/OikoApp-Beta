@@ -160,9 +160,8 @@ service cloud.firestore {
     }
     
     match /member_notes/{noteId} {
-        // Member can see own notes, leaders can see notes of their members
-        // This rule is complex and might need refinement based on hierarchy
-        allow read, write: if isSignedIn();
+        // Allow a user to read/write notes they have created.
+        allow read, write: if isSignedIn() && request.auth.uid == resource.data.authorId;
     }
     
     match /cells/{cellId} {
