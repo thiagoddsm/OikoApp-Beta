@@ -64,20 +64,21 @@ export function useCollection<T = any>(
   const memoizedOrder = JSON.stringify(order);
 
   useEffect(() => {
-    // CRITICAL: Immediately exit if firestore or path are not available.
+    // Reset state and set loading to true initially for every path/query change
+    setIsLoading(true);
+    setData(null);
+    setError(null);
+
+    // If firestore or path are not available, set loading to false and exit.
     if (!firestore || !path) {
       setIsLoading(false);
-      setData(null);
-      setError(null);
       return;
     }
-
-    setIsLoading(true);
-    setError(null);
     
-    let q: Query;
+    let unsubscribe = () => {};
+
     try {
-      q = collection(firestore, path);
+      let q: Query = collection(firestore, path);
       
       const parsedConstraints = JSON.parse(memoizedConstraints);
       if (parsedConstraints.length > 0) {
@@ -94,35 +95,35 @@ export function useCollection<T = any>(
       if (limitBy) {
         q = query(q, limit(limitBy));
       }
+      
+      unsubscribe = onSnapshot(
+        q,
+        (snapshot: QuerySnapshot<DocumentData>) => {
+          const results: WithId<T>[] = snapshot.docs.map(doc => ({
+            ...(doc.data() as T),
+            id: doc.id,
+          }));
+          setData(results);
+          setError(null);
+          setIsLoading(false);
+        },
+        (err: FirestoreError) => {
+          const contextualError = new FirestorePermissionError({
+            operation: 'list',
+            path: path,
+          });
+          setError(contextualError);
+          setData(null);
+          setIsLoading(false);
+          errorEmitter.emit('permission-error', contextualError);
+        }
+      );
+
     } catch(e) {
         console.error("Failed to build query:", e);
         setError(e as Error);
         setIsLoading(false);
-        return;
     }
-    
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot: QuerySnapshot<DocumentData>) => {
-        const results: WithId<T>[] = snapshot.docs.map(doc => ({
-          ...(doc.data() as T),
-          id: doc.id,
-        }));
-        setData(results);
-        setError(null);
-        setIsLoading(false);
-      },
-      (err: FirestoreError) => {
-        const contextualError = new FirestorePermissionError({
-          operation: 'list',
-          path: path,
-        });
-        setError(contextualError);
-        setData(null);
-        setIsLoading(false);
-        errorEmitter.emit('permission-error', contextualError);
-      }
-    );
 
     return () => unsubscribe();
   }, [firestore, path, memoizedConstraints, memoizedOrder, limitBy]);
