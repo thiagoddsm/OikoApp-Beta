@@ -34,6 +34,7 @@ import {
   Upload,
   CalendarCog,
   Bot,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -79,6 +80,7 @@ const menuItems = [
         { href: "/dashboard/gc/report", label: "Relatório de Célula", icon: ClipboardList },
         { href: "/dashboard/gc/map", label: "Mapa", icon: Map },
         { href: "/dashboard/attendance", label: "Frequência (Culto)", icon: CheckSquare },
+        { href: "/dashboard/notifications", label: "Comunicação", icon: MessageSquare },
       ]
     },
     {
@@ -220,6 +222,7 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/goals')) return 'Metas e KPIs';
       if (path.startsWith('/dashboard/ai-agent')) return 'Agente IA';
       if (path.startsWith('/dashboard/import-data')) return 'Importação de Dados';
+      if (path.startsWith('/dashboard/notifications')) return 'Central de Notificações';
         
       return 'OikoApp';
   };

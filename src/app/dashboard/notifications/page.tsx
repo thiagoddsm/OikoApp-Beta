@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -21,22 +22,21 @@ function WhatsappSender() {
         e.preventDefault();
         setIsLoading(true);
 
-        // Simulação de chamada de API
-        await new Promise(resolve => setTimeout(resolve, 1500));
-
         try {
-            // Aqui iria a chamada para a API route:
-            // const response = await fetch('/api/notifications/send', {
-            //   method: 'POST',
-            //   headers: { 'Content-Type': 'application/json' },
-            //   body: JSON.stringify({ channel: 'whatsapp', audience: targetAudience, message }),
-            // });
-            // if (!response.ok) throw new Error('Falha no envio');
-            // const result = await response.json();
+            const response = await fetch('/api/notifications/send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ channel: 'whatsapp', audience: targetAudience, message }),
+            });
+            if (!response.ok) {
+              const result = await response.json();
+              throw new Error(result.error || 'Falha no envio');
+            }
+            const result = await response.json();
 
             toast({
                 title: "Envio Agendado!",
-                description: `Sua mensagem para "${targetAudience}" foi enviada para a fila de processamento.`
+                description: result.message || `Sua mensagem para "${targetAudience}" foi enviada para a fila de processamento.`
             });
             setMessage('');
             
@@ -44,7 +44,7 @@ function WhatsappSender() {
              toast({
                 variant: 'destructive',
                 title: "Erro no Envio",
-                description: "Não foi possível processar o envio. Tente novamente."
+                description: (error as Error).message || "Não foi possível processar o envio. Tente novamente."
             });
         } finally {
             setIsLoading(false);
@@ -60,7 +60,7 @@ function WhatsappSender() {
                         <SelectValue placeholder="Selecione o público" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="all">Todos os Membros</SelectItem>
+                        <SelectItem value="all_members">Todos os Membros</SelectItem>
                         <SelectItem value="all_leaders">Todos os Líderes</SelectItem>
                         <SelectItem value="network_leaders">Líderes de Rede</SelectItem>
                         <SelectItem value="area_leaders">Líderes de Área</SelectItem>

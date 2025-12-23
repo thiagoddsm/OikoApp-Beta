@@ -1,3 +1,4 @@
+
 // src/app/api/notifications/send/route.ts
 import { NextResponse } from 'next/server';
 
