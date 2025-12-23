@@ -33,6 +33,7 @@ import {
   CheckSquare,
   Upload,
   CalendarCog,
+  Bot,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -112,6 +113,7 @@ const menuItems = [
         { href: "/dashboard/patrimony", label: "Patrimônio", icon: ScanLine },
         { href: "/dashboard/social", label: "Ação Social", icon: Users },
         { href: "/dashboard/goals", label: "Metas (KPIs)", icon: TrendingUp },
+        { href: "/dashboard/ai-agent", label: "Agente IA", icon: Bot },
       ]
     },
     // Temporary item for data import
@@ -216,6 +218,7 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/patrimony')) return 'Gestão de Patrimônio';
       if (path.startsWith('/dashboard/social')) return 'Ação Social';
       if (path.startsWith('/dashboard/goals')) return 'Metas e KPIs';
+      if (path.startsWith('/dashboard/ai-agent')) return 'Agente IA';
       if (path.startsWith('/dashboard/import-data')) return 'Importação de Dados';
         
       return 'OikoApp';
