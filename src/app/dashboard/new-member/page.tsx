@@ -27,6 +27,18 @@ type CellType = {
   nome: string;
 };
 
+const integrationStatusOptions = [
+  { id: 'visitante_nao_crente', title: 'Visitante (Não Crente)' },
+  { id: 'novo_convertido', title: 'Novo Convertido' },
+  { id: 'recem_chegado', title: 'Recém Chegado (de outra igreja)' },
+  { id: 'em_discipulado_td', title: 'Em Discipulado (TD)' },
+  { id: 'batizado_transferido', title: 'Batizado/Transferido' },
+  { id: 'em_gc', title: 'Participando de GC' },
+  { id: 'curso_membros', title: 'Fazendo Curso de Membros' },
+  { id: 'servindo', title: 'Servindo em Ministério' },
+  { id: 'lider_gc', title: 'Líder de GC' }
+];
+
 export default function NewMemberPage() {
   const { user, firestore, isUserLoading } = useFirebase();
   const { toast } = useToast();
@@ -34,7 +46,7 @@ export default function NewMemberPage() {
   const [visitorName, setVisitorName] = useState('');
   const [visitorPhone, setVisitorPhone] = useState('');
   const [responsibleUserId, setResponsibleUserId] = useState('');
-  const [visitorType, setVisitorType] = useState('culto');
+  const [integrationStatus, setIntegrationStatus] = useState('visitante_nao_crente');
   const [cellId, setCellId] = useState('');
 
   const [isPending, startTransition] = useTransition();
@@ -45,7 +57,8 @@ export default function NewMemberPage() {
 
   const leaders = useMemo(() => {
     if (!allUsers) return [];
-    return allUsers.filter(u => u.hierarchy?.role && u.hierarchy.role !== 'membro');
+    const leaderRoles = ['lider_gc', 'lider_area', 'lider_rede', 'pastor', 'admin'];
+    return allUsers.filter(u => u.hierarchy?.role && leaderRoles.includes(u.hierarchy.role));
   }, [allUsers]);
 
   useEffect(() => {
@@ -78,7 +91,7 @@ export default function NewMemberPage() {
                 celulaId: cellId || null,
                 supervisorId: responsibleUserId || null,
             },
-            integrationStatus: visitorType === 'culto' ? 'visitante_culto' : 'visitante_celula',
+            integrationStatus: integrationStatus,
             createdAt: Timestamp.now()
         };
         
@@ -90,7 +103,7 @@ export default function NewMemberPage() {
         setVisitorName('');
         setVisitorPhone('');
         setCellId('');
-        setVisitorType('culto');
+        setIntegrationStatus('visitante_nao_crente');
 
       } catch (e: any) {
         setError(e.message || "Ocorreu um erro desconhecido.");
@@ -106,9 +119,9 @@ export default function NewMemberPage() {
       <div className="w-full max-w-2xl">
         <Card className="w-full">
           <CardHeader>
-            <CardTitle>Registrar Nova Pessoa (Discípulo)</CardTitle>
+            <CardTitle>Registrar Nova Pessoa (Jornada)</CardTitle>
             <CardDescription>
-              Insira as informações do visitante ou novo convertido para salvá-lo em sua base de dados.
+              Insira as informações e o estágio da jornada do novo membro.
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleSubmit}>
@@ -118,23 +131,26 @@ export default function NewMemberPage() {
                 <Input id="visitorName" name="visitorName" placeholder="Ex: João da Silva" value={visitorName} onChange={(e) => setVisitorName(e.target.value)} required />
               </div>
 
-               <div className="grid gap-3">
-                <Label>Origem do Contato</Label>
-                <RadioGroup name="visitorType" value={visitorType} onValueChange={setVisitorType} className="flex gap-4">
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="culto" id="r-culto" />
-                    <Label htmlFor="r-culto">Visitante do Culto (Sala VIP)</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="celula" id="r-celula" />
-                    <Label htmlFor="r-celula">Visitante de Célula (GC)</Label>
-                  </div>
-                </RadioGroup>
+               <div className="grid gap-2">
+                <Label htmlFor="integrationStatus">Estágio na Jornada</Label>
+                <Select name="integrationStatus" value={integrationStatus} onValueChange={setIntegrationStatus} required>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Selecione o estágio atual" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {integrationStatusOptions.map((status) => (
+                            <SelectItem key={status.id} value={status.id}>
+                                {status.title}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
               </div>
+
               
-              {visitorType === 'celula' && (
+              {(integrationStatus === 'em_gc' || integrationStatus === 'lider_gc') && (
                 <div className="grid gap-2">
-                    <Label htmlFor="cellId">Célula Visitada</Label>
+                    <Label htmlFor="cellId">Célula (GC)</Label>
                     <Select name="cellId" value={cellId} onValueChange={setCellId} disabled={isLoading}>
                         <SelectTrigger>
                             <SelectValue placeholder={isLoading ? "Carregando células..." : "Selecione uma célula"} />

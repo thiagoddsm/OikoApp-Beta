@@ -19,28 +19,28 @@ type User = {
   integrationStatus?: string;
 };
 
-const integrationStatusColumns = [
-    { id: 'visitante_culto', title: 'Sala Vip' },
-    { id: 'visitante_celula', title: 'Visitante em GC' },
-    { id: 'contatado', title: 'Participante em GC' },
-    { id: 'em_discipulado', title: 'Em Discipulado' },
-    { id: 'membro', title: 'Membro' },
-    { id: 'lider_treinamento', title: 'Líder em Treinamento' },
+const journeyColumns = [
+    { id: 'visitante_nao_crente', title: 'Visitante' },
+    { id: 'novo_convertido', title: 'Novo Convertido' },
+    { id: 'recem_chegado', title: 'Recém Chegado' },
+    { id: 'em_discipulado_td', title: 'TD' },
+    { id: 'batizado_transferido', title: 'Batizado' },
+    { id: 'em_gc', title: 'Em GC' },
+    { id: 'curso_membros', title: 'Curso Membros' },
+    { id: 'servindo', title: 'Servindo' },
     { id: 'lider_gc', title: 'Líder de GC' },
-    { id: 'lider_area', title: 'Líder de Área' },
-    { id: 'lider_rede', title: 'Líder de Rede' },
 ];
 
 const statusLabels: { [key: string]: string } = {
-  visitante_culto: "Sala Vip",
-  visitante_celula: "Visitante em GC",
-  contatado: "Participante em GC",
-  em_discipulado: "Em Discipulado",
-  membro: "Membro",
-  lider_treinamento: "Líder em Treinamento",
+  visitante_nao_crente: "Visitante",
+  novo_convertido: "Novo Convertido",
+  recem_chegado: "Recém Chegado",
+  em_discipulado_td: "Em Discipulado (TD)",
+  batizado_transferido: "Batizado / Transferido",
+  em_gc: "Em GC",
+  curso_membros: "Curso de Membros",
+  servindo: "Servindo",
   lider_gc: "Líder de GC",
-  lider_area: "Líder de Área",
-  lider_rede: "Líder de Rede",
 };
 
 function UserCard({ user }: { user: User }) {
@@ -72,14 +72,14 @@ export default function UsersKanbanPage() {
     
     const usersByStatus = useMemo(() => {
         const initialColumns: { [key: string]: User[] } = {};
-        integrationStatusColumns.forEach(col => initialColumns[col.id] = []);
+        journeyColumns.forEach(col => initialColumns[col.id] = []);
 
         if (!users) return initialColumns;
 
         return users.reduce((acc, user) => {
-            const status = user.integrationStatus || 'membro'; // Default to 'membro' if undefined
+            const status = user.integrationStatus || 'visitante_nao_crente'; 
             if (acc[status] === undefined) {
-                 acc[status] = []; // Initialize if status is not in the predefined columns, though it should be.
+                 acc[status] = [];
             }
             if (user.name.toLowerCase().includes(searchTerm.toLowerCase())) {
                 acc[status].push(user);
@@ -101,9 +101,9 @@ export default function UsersKanbanPage() {
             <header className="flex items-center justify-between px-2 py-2 border-b">
                  <div>
                     <h1 className="text-xl font-bold flex items-center gap-2">
-                        <Users className="size-5" /> Pipeline de Integração
+                        <Users className="size-5" /> Trilha de Crescimento
                     </h1>
-                     <p className="text-sm text-muted-foreground">Arraste e solte os usuários para atualizar seu status na jornada.</p>
+                     <p className="text-sm text-muted-foreground">Arraste e solte os usuários para atualizar seu estágio na jornada.</p>
                  </div>
                 <div className="flex items-center gap-2">
                     <div className="relative">
@@ -118,7 +118,7 @@ export default function UsersKanbanPage() {
                     <Button asChild size="sm">
                         <Link href="/dashboard/new-member">
                             <Plus className="mr-2 h-4 w-4" />
-                            Adicionar Usuário
+                            Adicionar Pessoa
                         </Link>
                     </Button>
                 </div>
@@ -126,7 +126,7 @@ export default function UsersKanbanPage() {
 
             <div className="flex-1 overflow-x-auto">
                 <div className="flex h-full space-x-4 p-4">
-                    {integrationStatusColumns.map(column => (
+                    {journeyColumns.map(column => (
                         <div key={column.id} className="w-72 flex-shrink-0">
                             <Card className="h-full flex flex-col bg-muted/50">
                                 <CardHeader className="p-4">

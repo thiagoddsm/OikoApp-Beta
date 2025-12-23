@@ -35,6 +35,7 @@ import {
   CalendarCog,
   Bot,
   MessageSquare,
+  Footprints,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -74,7 +75,7 @@ const menuItems = [
       label: "GCs", 
       icon: Users,
       subItems: [
-        { href: "/dashboard/users", label: "Pessoas (CRM)", icon: Users },
+        { href: "/dashboard/users", label: "Jornada (CRM)", icon: Footprints },
         { href: "/dashboard/gc/structure", label: "Estrutura", icon: Network },
         { href: "/dashboard/gc/cells", label: "Células", icon: Building },
         { href: "/dashboard/gc/report", label: "Relatório de Célula", icon: ClipboardList },
@@ -99,6 +100,7 @@ const menuItems = [
             label: "Ensino", 
             icon: GraduationCap,
             subItems: [
+              { href: "/dashboard/teaching/discipleship-trail", label: "Trilho de Discipulado", icon: Footprints },
               { href: "/dashboard/teaching/courses", label: "Cursos e Turmas", icon: BookOpen },
               { href: "/dashboard/teaching/teachers", label: "Professores", icon: UserCheckIcon },
               { href: "/dashboard/teaching/students", label: "Alunos", icon: Users2 },
@@ -210,7 +212,7 @@ export default function DashboardLayout({
       // This is a simple implementation. For a more robust solution,
       // you might want to traverse the menuItems array recursively.
       if (path === '/dashboard') return 'Dashboard';
-      if (path.startsWith('/dashboard/users')) return 'Pessoas e Jornada';
+      if (path.startsWith('/dashboard/users')) return 'Jornada do Membro (CRM)';
       if (path.startsWith('/dashboard/gc')) return 'GCs e Discipulado';
       if (path.startsWith('/dashboard/attendance')) return 'Frequência nos Cultos';
       if (path.startsWith('/dashboard/volunteering/schedule')) return 'Escalas de Voluntários';

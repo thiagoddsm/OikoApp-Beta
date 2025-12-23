@@ -21,16 +21,16 @@ import { useFirebase, useMemoFirebase, updateDocumentNonBlocking } from '@/fireb
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query, doc } from 'firebase/firestore';
 
-const integrationStatusColumns = [
-    { id: 'visitante_culto', title: 'Visitante (Culto)' },
-    { id: 'visitante_celula', title: 'Visitante (Célula)' },
-    { id: 'contatado', title: 'Contatado' },
-    { id: 'em_discipulado', title: 'Em Discipulado' },
-    { id: 'membro', title: 'Membro' },
-    { id: 'lider_treinamento', title: 'Líder em Treinamento' },
-    { id: 'lider_gc', title: 'Líder de GC' },
-    { id: 'lider_area', title: 'Líder de Área' },
-    { id: 'lider_rede', title: 'Líder de Rede' },
+const journeyColumns = [
+    { id: 'visitante_nao_crente', title: 'Visitante (Não Crente)' },
+    { id: 'novo_convertido', title: 'Novo Convertido' },
+    { id: 'recem_chegado', title: 'Recém Chegado (de outra igreja)' },
+    { id: 'em_discipulado_td', title: 'Em Discipulado (TD)' },
+    { id: 'batizado_transferido', title: 'Batizado/Transferido' },
+    { id: 'em_gc', title: 'Participando de GC' },
+    { id: 'curso_membros', title: 'Fazendo Curso de Membros' },
+    { id: 'servindo', title: 'Servindo em Ministério' },
+    { id: 'lider_gc', title: 'Líder de GC' }
 ];
 
 type User = {
@@ -72,7 +72,8 @@ export function EditUserDialog({ user, open, onOpenChange }) {
 
   const supervisors = useMemo(() => {
     if (!allUsers) return [];
-    return allUsers.filter(u => u.hierarchy?.role && u.hierarchy.role !== 'membro' && u.hierarchy.role !== 'admin');
+    const leaderRoles = ['lider_gc', 'lider_area', 'lider_rede', 'pastor', 'admin'];
+    return allUsers.filter(u => u.hierarchy?.role && leaderRoles.includes(u.hierarchy.role));
   }, [allUsers]);
 
 
@@ -86,7 +87,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         sexo: user.sexo || '',
         estadoCivil: user.estadoCivil || '',
         addressStreet: user.address?.street || '',
-        integrationStatus: user.integrationStatus || 'visitante_culto',
+        integrationStatus: user.integrationStatus || 'visitante_nao_crente',
         celulaId: user.hierarchy?.celulaId || '',
         supervisorId: user.hierarchy?.supervisorId || '',
       });
@@ -252,14 +253,14 @@ export function EditUserDialog({ user, open, onOpenChange }) {
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="integrationStatus" className="text-right">
-              Status
+              Jornada
             </Label>
             <Select value={formData.integrationStatus} onValueChange={(v) => handleSelectChange('integrationStatus', v)}>
               <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="Selecione o status" />
+                <SelectValue placeholder="Selecione o estágio" />
               </SelectTrigger>
               <SelectContent>
-                {integrationStatusColumns.map(status => (
+                {journeyColumns.map(status => (
                   <SelectItem key={status.id} value={status.id}>
                     {status.title}
                   </SelectItem>
