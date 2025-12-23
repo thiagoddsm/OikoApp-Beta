@@ -114,6 +114,7 @@ const menuItems = [
               { href: "/dashboard/events/reservations", label: "Reservas de Sala", icon: CalendarPlus },
             ]
         },
+        { href: "/dashboard/finance", label: "Financeiro", icon: Briefcase },
         { href: "/dashboard/patrimony", label: "Patrimônio", icon: ScanLine },
         { href: "/dashboard/social", label: "Ação Social", icon: Users },
         { href: "/dashboard/goals", label: "Metas (KPIs)", icon: TrendingUp },
@@ -225,6 +226,7 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/ai-agent')) return 'Agente IA';
       if (path.startsWith('/dashboard/import-data')) return 'Importação de Dados';
       if (path.startsWith('/dashboard/notifications')) return 'Central de Notificações';
+      if (path.startsWith('/dashboard/finance')) return 'Gestão Financeira';
         
       return 'OikoApp';
   };
