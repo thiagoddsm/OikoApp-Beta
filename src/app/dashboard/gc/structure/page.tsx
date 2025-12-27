@@ -11,6 +11,7 @@ import { CreateRedeDialog } from '@/components/structure/create-rede-dialog';
 import { CreateAreaDialog } from '@/components/structure/create-area-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 
 type User = { id: string; name: string; hierarchy?: { role?: string; } };
@@ -27,92 +28,65 @@ const HierarchyNode = ({ node, level, children, isExpanded, onToggle, onEdit, on
     };
     const Icon = icons[node.type] || Users;
 
-    const statLabels = {
-        pastor: 'Redes',
-        rede: 'Áreas',
-        area: 'GCs',
-        cell: 'Membros'
-    };
-    
-    return (
-        <div style={{ marginLeft: `${level > 1 ? (level -1) * 1.5 : 0}rem` }}>
-             <div className="relative flex items-center">
-                 {level > 1 && (
-                    <div className="absolute -left-5 h-full">
-                        <div className="h-1/2 w-px bg-gray-300"></div>
-                        <div className="h-1/2 w-4 border-b border-l border-gray-300 rounded-bl-lg"></div>
-                    </div>
-                )}
+    const hasChildren = node.children && node.children.length > 0;
 
-                <Card className="flex-1 flex items-center justify-between p-3 my-1 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex items-center gap-3">
-                         <button onClick={onToggle} className="p-1 rounded-full hover:bg-gray-100">
-                           {children && (isExpanded ? <Minus size={16} /> : <Plus size={16} />)}
-                           {!children && <span className="w-4"></span>}
-                        </button>
-                        <div className={`flex items-center justify-center h-10 w-10 rounded-lg bg-primary/10 text-primary`}>
+    return (
+        <div className="flex items-start">
+            {/* The main node card */}
+            <Card className="flex-shrink-0 w-64 my-2 shadow-sm hover:shadow-lg transition-shadow border-l-4 border-primary">
+                <div className="p-3">
+                    <div className="flex items-start justify-between">
+                         <div className={`flex items-center justify-center h-10 w-10 rounded-lg bg-primary/10 text-primary`}>
                             <Icon size={20} />
                         </div>
-                        <div>
-                            <p className="font-bold text-sm uppercase">{node.nome}</p>
-                            <p className="text-xs text-muted-foreground">{node.type !== 'cell' ? `Líder: ${node.liderName}` : `Membros: ${node.stats.participantes}`}</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-4 text-xs">
-                           <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                                {node.type === 'pastor' && (
-                                   <>
-                                    <span className="text-muted-foreground">Redes</span>
-                                    <span className="font-bold text-right">{node.stats.directChildren}</span>
-                                    <span className="text-muted-foreground">Total Áreas</span>
-                                    <span className="font-bold text-right">{node.stats.totalAreas}</span>
-                                   </>
-                                )}
-                               {node.type === 'rede' && (
-                                   <>
-                                    <span className="text-muted-foreground">Áreas</span>
-                                    <span className="font-bold text-right">{node.stats.directChildren}</span>
-                                   </>
-                               )}
-                               {node.type === 'area' && (
-                                   <>
-                                    <span className="text-muted-foreground">GCs</span>
-                                    <span className="font-bold text-right">{node.stats.directChildren}</span>
-                                   </>
-                               )}
-                               
-                               {node.type !== 'cell' && (
-                                   <>
-                                    <span className="text-muted-foreground">Total GCs</span>
-                                    <span className="font-bold text-right">{node.stats.totalCells}</span>
-                                   </>
-                               )}
-                               <span className="text-muted-foreground">Participantes</span>
-                               <span className="font-bold text-right">{node.stats.participantes}</span>
-                            </div>
-                        </div>
-                        {(onEdit || onDelete) && (
-                            <div className="flex items-center">
-                                {onEdit && (
-                                    <Button variant="ghost" size="icon" onClick={() => onEdit(node)}>
-                                        <Pencil className="h-4 w-4" />
-                                    </Button>
-                                )}
-                                {onDelete && (
-                                    <Button variant="ghost" size="icon" onClick={() => onDelete(node)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                )}
-                            </div>
+                         {hasChildren && (
+                            <button onClick={onToggle} className="p-1 rounded-full hover:bg-gray-100 -mr-1 -mt-1">
+                                {isExpanded ? <Minus size={16} /> : <Plus size={16} />}
+                            </button>
                         )}
                     </div>
-                </Card>
-            </div>
-             {isExpanded && children && <div className="mt-1">{children}</div>}
+                    <div className="mt-2">
+                        <p className="font-bold text-sm uppercase">{node.nome}</p>
+                        <p className="text-xs text-muted-foreground truncate">{node.liderName}</p>
+                    </div>
+                     <div className="text-xs mt-3 space-y-1">
+                        {node.type !== 'cell' && (
+                            <div className="flex justify-between items-center">
+                                <span className="text-muted-foreground">Sub-níveis:</span>
+                                <span className="font-bold">{node.stats.directChildren}</span>
+                            </div>
+                        )}
+                        <div className="flex justify-between items-center">
+                            <span className="text-muted-foreground">Participantes:</span>
+                            <span className="font-bold">{node.stats.participantes}</span>
+                        </div>
+                     </div>
+                </div>
+                 {(onEdit || onDelete) && (
+                    <div className="flex items-center justify-end border-t bg-gray-50 px-2 py-1">
+                        {onEdit && (
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onEdit(node)}>
+                                <Pencil className="h-3 w-3" />
+                            </Button>
+                        )}
+                        {onDelete && (
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onDelete(node)}>
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                            </Button>
+                        )}
+                    </div>
+                )}
+            </Card>
+
+            {/* Children nodes */}
+            {isExpanded && hasChildren && (
+                <div className="flex flex-col justify-center pl-8 pt-2 border-l-2 border-gray-300 ml-4">
+                    {children}
+                </div>
+            )}
         </div>
-    )
-}
+    );
+};
 
 const buildHierarchy = (users, redes, areas, cells) => {
     const userMap = new Map(users.map(u => [u.id, u]));
@@ -130,7 +104,6 @@ const buildHierarchy = (users, redes, areas, cells) => {
         liderName: userMap.get(cell.liderId)?.name || 'N/A',
         stats: {
             directChildren: 0,
-            totalCells: 1,
             participantes: cell.membros?.length || 0,
         },
         children: []
@@ -145,7 +118,6 @@ const buildHierarchy = (users, redes, areas, cells) => {
             liderName: userMap.get(area.liderId)?.name || 'N/A',
             stats: {
                 directChildren: areaCells.length,
-                totalCells: areaCells.length,
                 participantes: participantes,
             },
             children: areaCells
@@ -155,14 +127,12 @@ const buildHierarchy = (users, redes, areas, cells) => {
     const redeNodes = redes.map(rede => {
         const redeAreas = areaNodes.filter(a => a.redeId === rede.id);
         const participantes = redeAreas.reduce((sum, a) => sum + a.stats.participantes, 0);
-        const totalCells = redeAreas.reduce((sum, a) => sum + a.stats.totalCells, 0);
         return {
             ...rede,
             type: 'rede',
             liderName: userMap.get(rede.liderId)?.name || 'N/A',
             stats: {
                 directChildren: redeAreas.length,
-                totalCells: totalCells,
                 participantes: participantes,
             },
             children: redeAreas
@@ -170,8 +140,6 @@ const buildHierarchy = (users, redes, areas, cells) => {
     });
 
     const totalParticipantes = redeNodes.reduce((sum, r) => sum + r.stats.participantes, 0);
-    const totalCells = redeNodes.reduce((sum, r) => sum + r.stats.totalCells, 0);
-    const totalAreas = areaNodes.length;
 
     // 2. Build the hierarchy from a single root node
     const rootNode = {
@@ -181,9 +149,7 @@ const buildHierarchy = (users, redes, areas, cells) => {
         type: 'pastor',
         stats: { 
             directChildren: redeNodes.length,
-            totalCells: totalCells,
             participantes: totalParticipantes,
-            totalAreas: totalAreas,
         },
         children: redeNodes
     };
@@ -196,10 +162,12 @@ const RenderHierarchy = ({ nodes, level = 1, onEditNode, onDeleteNode }) => {
 
     // Expand the first level by default
     useEffect(() => {
-        if (level === 1 && nodes.length > 0) {
-            setExpandedNodes(prev => ({ ...prev, [nodes[0].id]: true }));
+        if (nodes.length > 0) {
+            const initialExpanded = {};
+            nodes.forEach(node => initialExpanded[node.id] = true);
+            setExpandedNodes(initialExpanded);
         }
-    }, [nodes, level]);
+    }, [nodes]);
 
 
     const toggleNode = (nodeId) => {
@@ -207,7 +175,7 @@ const RenderHierarchy = ({ nodes, level = 1, onEditNode, onDeleteNode }) => {
     };
 
     return (
-        <div>
+        <div className={cn("flex flex-col", level > 1 ? "ml-4 pl-4 border-l-2" : "")}>
             {nodes.map(node => (
                 <HierarchyNode
                     key={node.id}
@@ -334,7 +302,7 @@ export default function StructurePage() {
                         </Button>
                     </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="overflow-x-auto p-4">
                     {isLoading ? (
                         <div className="flex items-center justify-center h-48">
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -342,7 +310,9 @@ export default function StructurePage() {
                         </div>
                     ) : (
                          hierarchyData.length > 0 ? (
-                            <RenderHierarchy nodes={hierarchyData} onEditNode={handleEditNode} onDeleteNode={handleDeleteNode} />
+                            <div className="inline-block min-w-full">
+                                <RenderHierarchy nodes={hierarchyData} onEditNode={handleEditNode} onDeleteNode={handleDeleteNode} />
+                            </div>
                         ) : (
                             <div className="text-center py-10 text-muted-foreground">
                                 <p>Nenhuma hierarquia encontrada.</p>
@@ -384,3 +354,5 @@ export default function StructurePage() {
         </>
     );
 }
+
+    
