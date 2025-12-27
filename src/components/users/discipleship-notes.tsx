@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -18,6 +19,7 @@ type MemberNote = {
     content: string;
     type: string;
     createdAt: Timestamp;
+    memberId: string;
 };
 
 type UserProfile = {
