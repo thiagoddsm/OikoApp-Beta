@@ -105,7 +105,6 @@ const menuItems = [
             label: "Ensino", 
             icon: GraduationCap,
             subItems: [
-              { href: "/dashboard/teaching/discipleship-trail", label: "Trilho de Discipulado", icon: Footprints },
               { href: "/dashboard/teaching/courses", label: "Cursos e Turmas", icon: BookOpen },
               { href: "/dashboard/teaching/teachers", label: "Professores", icon: UserCheckIcon },
               { href: "/dashboard/teaching/students", label: "Alunos", icon: Users2 },
@@ -225,7 +224,6 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/attendance')) return 'Frequência nos Cultos';
       if (path.startsWith('/dashboard/volunteering/schedule')) return 'Escalas de Voluntários';
       if (path.startsWith('/dashboard/volunteering')) return 'Equipes de Voluntários';
-      if (path.startsWith('/dashboard/teaching/discipleship-trail')) return 'Trilho de Discipulado';
       if (path.startsWith('/dashboard/teaching/wave')) return 'Wave - Escola de Música';
       if (path.startsWith('/dashboard/teaching')) return 'Ensino';
       if (path.startsWith('/dashboard/events/retreat')) return 'Retiro de Líderes';

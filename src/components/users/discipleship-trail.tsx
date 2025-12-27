@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -243,67 +244,67 @@ function renderJourney() {
         const isLocked = appState.currentLevelIndex < index;
 
         let opacityClass = isLocked ? "opacity-50 grayscale pointer-events-none" : "opacity-100";
-        let borderClass = isActive ? \`border-\${step.color}-500 ring-2 ring-\${step.color}-100\` : "border-slate-200";
+        let borderClass = isActive ? `border-${step.color}-500 ring-2 ring-${step.color}-100` : "border-slate-200";
         if (isPast) borderClass = "border-green-500 bg-green-50";
 
         const meetingsPct = (state.meetingsCount / step.requirements.meetingsTotal) * 100;
         const stepDiv = document.createElement('div');
-        stepDiv.className = \`relative pl-14 transition-all duration-500 \${opacityClass}\`;
-        stepDiv.id = \`step-\${step.id}\`;
+        stepDiv.className = `relative pl-14 transition-all duration-500 ${opacityClass}`;
+        stepDiv.id = `step-${step.id}`;
 
-        stepDiv.innerHTML = \`
+        stepDiv.innerHTML = `
             <div class="absolute left-0 top-6 w-12 h-12 rounded-full border-4 border-white shadow-md flex items-center justify-center z-10 
-                \${isActive ? \`bg-\${step.color}-600 text-white animate-pulse-ring\` : (isPast ? 'bg-green-500 text-white' : 'bg-slate-300 text-slate-500')}">
-                <span class="material-symbols-outlined text-xl">\${isPast ? 'check' : (isLocked ? 'lock' : step.icon)}</span>
+                ${isActive ? `bg-${step.color}-600 text-white animate-pulse-ring` : (isPast ? 'bg-green-500 text-white' : 'bg-slate-300 text-slate-500')}">
+                <span class="material-symbols-outlined text-xl">${isPast ? 'check' : (isLocked ? 'lock' : step.icon)}</span>
             </div>
-            <div class="bg-white rounded-2xl p-5 shadow-sm border \${borderClass} transition-all">
+            <div class="bg-white rounded-2xl p-5 shadow-sm border ${borderClass} transition-all">
                 <div class="flex justify-between items-start mb-4">
                     <div>
-                        <h3 class="font-bold text-slate-800 text-lg leading-tight">\${step.title}</h3>
-                        <div class="text-xs font-semibold uppercase tracking-wide text-\${step.color}-600 mt-1">Alvo: \${step.targetRole}</div>
+                        <h3 class="font-bold text-slate-800 text-lg leading-tight">${step.title}</h3>
+                        <div class="text-xs font-semibold uppercase tracking-wide text-${step.color}-600 mt-1">Alvo: ${step.targetRole}</div>
                     </div>
-                    <div class="text-[10px] px-2 py-1 bg-slate-100 rounded text-slate-500 font-bold border border-slate-200">\${step.requirements.type}</div>
+                    <div class="text-[10px] px-2 py-1 bg-slate-100 rounded text-slate-500 font-bold border border-slate-200">${step.requirements.type}</div>
                 </div>
-                \${step.description ? \`<p class="text-xs text-slate-500 mb-4 bg-slate-50 p-2 rounded border border-slate-100 italic">💡 \${step.description}</p>\` : ''}
+                ${step.description ? `<p class="text-xs text-slate-500 mb-4 bg-slate-50 p-2 rounded border border-slate-100 italic">💡 ${step.description}</p>` : ''}
                 <div class="space-y-4">
                     <div>
                         <div class="flex justify-between text-xs mb-1">
-                            <span class="font-bold text-slate-600">Discipulado (\${step.requirements.type})</span>
-                            <span class="text-slate-400">\${state.meetingsCount}/\${step.requirements.meetingsTotal}</span>
+                            <span class="font-bold text-slate-600">Discipulado (${step.requirements.type})</span>
+                            <span class="text-slate-400">${state.meetingsCount}/${step.requirements.meetingsTotal}</span>
                         </div>
-                        <div class="h-3 bg-slate-100 rounded-full overflow-hidden cursor-pointer group relative" onclick="\${isActive ? \`registerMeeting(\${step.id})\` : ''}">
-                            <div class="h-full bg-\${step.color}-500 progress-bar-transition group-hover:bg-\${step.color}-400" style="width: \${meetingsPct}%"></div>
-                            \${isActive && state.meetingsCount < step.requirements.meetingsTotal ? \`<div class="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">+ REGISTRAR</div>\` : ''}
+                        <div class="h-3 bg-slate-100 rounded-full overflow-hidden cursor-pointer group relative" onclick="${isActive ? `registerMeeting(${step.id})` : ''}">
+                            <div class="h-full bg-${step.color}-500 progress-bar-transition group-hover:bg-${step.color}-400" style="width: ${meetingsPct}%"></div>
+                            ${isActive && state.meetingsCount < step.requirements.meetingsTotal ? `<div class="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">+ REGISTRAR</div>` : ''}
                         </div>
                         <p class="text-[10px] text-slate-400 mt-1">Clique na barra para registrar um encontro.</p>
                     </div>
-                    <div class="flex items-center justify-between p-3 rounded-lg border \${state.courseCompleted ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'} cursor-pointer hover:shadow-sm transition-all" onclick="\${isActive ? \`toggleCourse(\${step.id})\` : ''}">
+                    <div class="flex items-center justify-between p-3 rounded-lg border ${state.courseCompleted ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'} cursor-pointer hover:shadow-sm transition-all" onclick="${isActive ? `toggleCourse(${step.id})` : ''}">
                         <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded-full flex items-center justify-center \${state.courseCompleted ? 'bg-green-500 text-white' : 'bg-slate-200 text-slate-400'}">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center ${state.courseCompleted ? 'bg-green-500 text-white' : 'bg-slate-200 text-slate-400'}">
                                 <span class="material-symbols-outlined text-sm">school</span>
                             </div>
                             <div>
-                                <div class="text-xs font-bold text-slate-700">Curso: \${step.requirements.courseName}</div>
-                                <div class="text-[10px] text-slate-500">\${state.courseCompleted ? 'Concluído' : 'Toque para concluir'}</div>
+                                <div class="text-xs font-bold text-slate-700">Curso: ${step.requirements.courseName}</div>
+                                <div class="text-[10px] text-slate-500">${state.courseCompleted ? 'Concluído' : 'Toque para concluir'}</div>
                             </div>
                         </div>
-                        \${state.courseCompleted ? '<span class="material-symbols-outlined text-green-500">check_circle</span>' : ''}
+                        ${state.courseCompleted ? '<span class="material-symbols-outlined text-green-500">check_circle</span>' : ''}
                     </div>
-                    <div id="approvals-area-\${step.id}" class="\${canShowApprovals(step.id) ? 'block' : 'hidden'} animate-fade-in pt-2 border-t border-slate-100 grid grid-cols-2 gap-2">
-                        <button onclick="toggleApproval(\${step.id}, 'mentor')" class="p-2 rounded-lg border text-center transition-all \${state.mentorApproved ? 'bg-green-100 border-green-300 text-green-800' : 'bg-white border-dashed border-slate-300 text-slate-400 hover:border-indigo-300 hover:text-indigo-500'}">
+                    <div id="approvals-area-${step.id}" class="${canShowApprovals(step.id) ? 'block' : 'hidden'} animate-fade-in pt-2 border-t border-slate-100 grid grid-cols-2 gap-2">
+                        <button onclick="toggleApproval(${step.id}, 'mentor')" class="p-2 rounded-lg border text-center transition-all ${state.mentorApproved ? 'bg-green-100 border-green-300 text-green-800' : 'bg-white border-dashed border-slate-300 text-slate-400 hover:border-indigo-300 hover:text-indigo-500'}">
                             <div class="text-[10px] uppercase font-bold mb-1">Mentor</div>
-                            <span class="material-symbols-outlined text-xl">\${state.mentorApproved ? 'verified' : 'person_add'}</span>
+                            <span class="material-symbols-outlined text-xl">${state.mentorApproved ? 'verified' : 'person_add'}</span>
                         </button>
-                        <button onclick="toggleApproval(\${step.id}, 'supervisor')" class="p-2 rounded-lg border text-center transition-all \${state.supervisorApproved ? 'bg-green-100 border-green-300 text-green-800' : 'bg-white border-dashed border-slate-300 text-slate-400 hover:border-indigo-300 hover:text-indigo-500'}">
+                        <button onclick="toggleApproval(${step.id}, 'supervisor')" class="p-2 rounded-lg border text-center transition-all ${state.supervisorApproved ? 'bg-green-100 border-green-300 text-green-800' : 'bg-white border-dashed border-slate-300 text-slate-400 hover:border-indigo-300 hover:text-indigo-500'}">
                             <div class="text-[10px] uppercase font-bold mb-1">Supervisor</div>
-                            <span class="material-symbols-outlined text-xl">\${state.supervisorApproved ? 'verified_user' : 'shield_person'}</span>
+                            <span class="material-symbols-outlined text-xl">${state.supervisorApproved ? 'verified_user' : 'shield_person'}</span>
                         </button>
                     </div>
-                    \${isActive ? \`<button id="btn-promote-\${step.id}" onclick="attemptPromotion(\${step.id})" disabled class="w-full py-3 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 mt-2 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed bg-gradient-to-r from-\${step.color}-600 to-\${step.color}-500 text-white hover:shadow-lg hover:scale-[1.02]"><span class="material-symbols-outlined text-base">lock</span> PROMOVER PARA \${step.targetRole.toUpperCase()}</button>\` : ''}
-                    \${isPast ? \`<div class="w-full py-2 bg-green-100 text-green-700 text-xs font-bold rounded-lg text-center flex items-center justify-center gap-1"><span class="material-symbols-outlined text-sm">history</span>FASE CONCLUÍDA</div>\` : ''}
+                    ${isActive ? `<button id="btn-promote-${step.id}" onclick="attemptPromotion(${step.id})" disabled class="w-full py-3 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 mt-2 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed bg-gradient-to-r from-${step.color}-600 to-${step.color}-500 text-white hover:shadow-lg hover:scale-[1.02]"><span class="material-symbols-outlined text-base">lock</span> PROMOVER PARA ${step.targetRole.toUpperCase()}</button>` : ''}
+                    ${isPast ? `<div class="w-full py-2 bg-green-100 text-green-700 text-xs font-bold rounded-lg text-center flex items-center justify-center gap-1"><span class="material-symbols-outlined text-sm">history</span>FASE CONCLUÍDA</div>` : ''}
                 </div>
             </div>
-        \`;
+        `;
         container.appendChild(stepDiv);
     });
     checkUnlockConditions();
@@ -340,7 +341,7 @@ function checkUnlockConditions() {
     journeyConfig.forEach((step, index) => {
         if (index !== appState.currentLevelIndex) return;
         const state = appState.stepsData[step.id];
-        const btn = document.getElementById(\`btn-promote-\${step.id}\`);
+        const btn = document.getElementById(`btn-promote-${step.id}`);
         if (!btn) return;
         const allMet = state.courseCompleted && state.meetingsCount >= step.requirements.meetingsTotal && state.mentorApproved && state.supervisorApproved;
         if (allMet) {
@@ -353,7 +354,7 @@ function checkUnlockConditions() {
             if (!state.courseCompleted) label = "FALTA CURSO";
             else if (state.meetingsCount < 7) label = "FALTAM ENCONTROS";
             else label = "AGUARDANDO APROVAÇÕES";
-            btn.innerHTML = \`<span class="material-symbols-outlined text-base">lock</span> \${label}\`;
+            btn.innerHTML = `<span class="material-symbols-outlined text-base">lock</span> ${label}`;
             btn.classList.remove('animate-pulse');
         }
     });
@@ -377,7 +378,7 @@ function updateGlobalHeader() {
     document.getElementById('user-avatar-level').textContent = (appState.currentLevelIndex + 1).toString();
     const totalSteps = journeyConfig.length;
     const progress = (appState.currentLevelIndex / totalSteps) * 100;
-    document.getElementById('global-progress-bar').style.width = \`\${progress}%\`;
+    document.getElementById('global-progress-bar').style.width = `${progress}%`;
 }
 
 function showLevelUpModal(newRole) {
@@ -445,7 +446,7 @@ window.copyCode = copyCode;
 initApp();
 `;
 
-export default function DiscipleshipTrailPage() {
+export function DiscipleshipTrail() {
   return (
     <>
       <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,1,0" rel="stylesheet" />

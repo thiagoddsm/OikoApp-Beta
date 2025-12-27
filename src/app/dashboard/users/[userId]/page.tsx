@@ -1,18 +1,19 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import React, { useState } from 'react';
+import { useParams } from 'next/navigation';
 import { useDoc } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, User, ArrowLeft, Pencil, MapPin, Phone, Mail, Calendar, UserSquare, VenetianMask, Building, Users } from 'lucide-react';
+import { Loader2, User, ArrowLeft, Pencil, MapPin, Phone, Mail, Calendar, UserSquare, VenetianMask, Building, Users, Footprints } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Link from 'next/link';
 import { EditUserDialog } from '@/components/users/edit-user-dialog';
 import { DiscipleshipNotes } from '@/components/users/discipleship-notes';
+import { DiscipleshipTrail } from '@/components/users/discipleship-trail';
 
 type UserProfile = {
   id: string;
@@ -158,12 +159,24 @@ export default function UserProfilePage() {
         {/* Coluna das Abas */}
         <div className="md:col-span-2">
             <Tabs defaultValue="discipleship" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="discipleship">Discipulado</TabsTrigger>
+                    <TabsTrigger value="trail">Trilha de Discipulado</TabsTrigger>
                     <TabsTrigger value="history">Histórico</TabsTrigger>
                 </TabsList>
                 <TabsContent value="discipleship">
                     <DiscipleshipNotes memberId={userId} />
+                </TabsContent>
+                 <TabsContent value="trail">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Footprints/>Trilha de Discipulado</CardTitle>
+                        <CardDescription>Acompanhe e gerencie o progresso individual na jornada de crescimento.</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <DiscipleshipTrail />
+                      </CardContent>
+                    </Card>
                 </TabsContent>
                 <TabsContent value="history">
                      <Card>
