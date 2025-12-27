@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { useDoc, useCollection } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -77,12 +77,15 @@ export default function UserProfilePage() {
 
   const { data: userProfile, isLoading: isLoadingUser } = useDoc<UserProfile>(`users/${userId}`);
   
+  const cellId = userProfile?.hierarchy?.celulaId;
+  const supervisorId = userProfile?.hierarchy?.supervisorId;
+
   const { data: cell, isLoading: isLoadingCell } = useDoc<Cell>(
-    userProfile?.hierarchy?.celulaId ? `cells/${userProfile.hierarchy.celulaId}` : null
+    cellId ? `cells/${cellId}` : null
   );
   
   const { data: supervisor, isLoading: isLoadingSupervisor } = useDoc<Supervisor>(
-    userProfile?.hierarchy?.supervisorId ? `users/${userProfile.hierarchy.supervisorId}` : null
+    supervisorId ? `users/${supervisorId}` : null
   );
 
   const { data: allUsers, isLoading: isLoadingAllUsers } = useCollection<UserProfile>('users');
