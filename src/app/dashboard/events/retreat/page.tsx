@@ -4,160 +4,7 @@ import React from 'react';
 import Script from 'next/script';
 
 const retreatHtmlContent = `
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Retiro IBM 2026: Cronograma & Trilha</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
-        
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc;
-        }
-        
-        /* --- ESTILOS GERAIS --- */
-        .card-shadow {
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        
-        .card-shadow:hover {
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-            transform: translateY(-2px);
-        }
-
-        .active-tab {
-            border-bottom: 3px solid #0ea5e9;
-            color: #0ea5e9;
-            font-weight: 700;
-            background-color: #f0f9ff;
-        }
-
-        .inactive-tab {
-            border-bottom: 3px solid transparent;
-            color: #64748b;
-        }
-
-        /* --- ANIMAÇÕES DE DETALHES --- */
-        .details-content {
-            max-height: 0;
-            opacity: 0;
-            overflow: hidden;
-            transition: all 0.5s ease-in-out;
-        }
-        
-        .details-open {
-            max-height: 2000px;
-            opacity: 1;
-            margin-top: 1rem;
-            padding-top: 1rem;
-            border-top: 1px solid #e2e8f0;
-        }
-
-        .chevron-icon {
-            transition: transform 0.3s ease;
-        }
-
-        .rotate-180 {
-            transform: rotate(180deg);
-        }
-
-        /* --- LINHAS DO TEMPO --- */
-        .timeline-line {
-            position: absolute;
-            left: 24px;
-            top: 0;
-            bottom: 0;
-            width: 2px;
-            background-color: #e2e8f0;
-            z-index: 0;
-        }
-
-        .metro-line {
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 4px;
-            height: 100%;
-            background: linear-gradient(to bottom, #94a3b8 0%, #0ea5e9 25%, #f43f5e 50%, #8b5cf6 75%, #10b981 100%);
-            z-index: 0;
-            border-radius: 4px;
-        }
-
-        /* --- TAGS E BADGES (SISTEMA DE CORES) --- */
-        .badge-base {
-            display: inline-flex;
-            align-items: center;
-            font-size: 0.65rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            padding: 3px 8px;
-            border-radius: 4px;
-            margin-right: 6px;
-            margin-bottom: 6px;
-            letter-spacing: 0.025em;
-        }
-
-        /* STATUS (Verde) - O que eu sou */
-        .badge-status {
-            background-color: #ecfdf5; /* emerald-50 */
-            color: #047857; /* emerald-700 */
-            border: 1px solid #a7f3d0; /* emerald-200 */
-        }
-
-        /* CURSO (Azul) - O que eu estudo */
-        .badge-course {
-            background-color: #eef2ff; /* indigo-50 */
-            color: #4338ca; /* indigo-700 */
-            border: 1px solid #c7d2fe; /* indigo-200 */
-        }
-
-        /* DISCIPULADO (Laranja) - Com quem eu ando (7 Passos) */
-        .badge-discipulado {
-            background-color: #fffbeb; /* amber-50 */
-            color: #b45309; /* amber-700 */
-            border: 1px solid #fde68a; /* amber-200 */
-        }
-
-        .info-row {
-            display: flex;
-            align-items: flex-start;
-            margin-bottom: 8px;
-            font-size: 0.85rem;
-            color: #475569;
-        }
-        
-        .info-row i {
-            width: 20px;
-            margin-top: 3px;
-            flex-shrink: 0;
-        }
-
-        /* Animação do anel central */
-        @keyframes pulse-ring {
-            0% { transform: scale(0.8); opacity: 0.5; }
-            100% { transform: scale(2); opacity: 0; }
-        }
-        
-        .animate-ring::before {
-            content: '';
-            position: absolute;
-            left: 0; top: 0;
-            width: 100%; height: 100%;
-            border-radius: 50%;
-            background-color: inherit;
-            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
-            z-index: -1;
-        }
-    </style>
-</head>
-<body class="text-gray-800">
-
+<div id="retreat-container">
     <!-- Header -->
     <header class="bg-gradient-to-r from-slate-900 to-slate-800 text-white pb-6 pt-8 px-4 shadow-lg sticky top-0 z-50">
         <div class="max-w-4xl mx-auto text-center">
@@ -850,63 +697,214 @@ const retreatHtmlContent = `
         </div>
 
     </main>
-    <script>
-        function switchTab(tabId) {
-            const contents = document.querySelectorAll('.tab-content');
-            contents.forEach(content => content.classList.add('hidden'));
-            
-            const tabs = ['day1', 'day2', 'trilha'];
-            tabs.forEach(t => {
-                const btn = document.getElementById('tab-' + t);
-                if (btn) {
-                    btn.classList.remove('active-tab');
-                    btn.classList.add('inactive-tab');
-                    if(t === 'trilha') {
-                        btn.classList.remove('bg-slate-50', 'text-sky-700');
-                    }
-                }
-            });
-
-            const activeContent = document.getElementById('content-' + tabId);
-            if (activeContent) {
-                activeContent.classList.remove('hidden');
-            }
-            
-            const activeBtn = document.getElementById('tab-' + tabId);
-            if (activeBtn) {
-                activeBtn.classList.remove('inactive-tab');
-                activeBtn.classList.add('active-tab');
-            }
-        }
-
-        function toggleDetails(id) {
-            const element = document.getElementById(id);
-            const icon = document.getElementById('icon-' + id);
-            
-            if (element && icon) {
-                if (element.classList.contains('details-open')) {
-                    element.classList.remove('details-open');
-                    icon.classList.remove('rotate-180');
-                } else {
-                    element.classList.add('details-open');
-                    icon.classList.add('rotate-180');
-                }
-            }
-        }
-    <\/script>
-</body>
-</html>
+</div>
 `;
+
+const retreatScript = `
+    function switchTab(tabId) {
+        const container = document.getElementById('retreat-container');
+        if (!container) return;
+
+        const contents = container.querySelectorAll('.tab-content');
+        contents.forEach(content => content.classList.add('hidden'));
+        
+        const tabs = ['day1', 'day2', 'trilha'];
+        tabs.forEach(t => {
+            const btn = container.querySelector('#tab-' + t);
+            if (btn) {
+                btn.classList.remove('active-tab');
+                btn.classList.add('inactive-tab');
+                if(t === 'trilha') {
+                    btn.classList.remove('bg-slate-50', 'text-sky-700');
+                }
+            }
+        });
+
+        const activeContent = container.querySelector('#content-' + tabId);
+        if (activeContent) {
+            activeContent.classList.remove('hidden');
+        }
+        
+        const activeBtn = container.querySelector('#tab-' + tabId);
+        if (activeBtn) {
+            activeBtn.classList.remove('inactive-tab');
+            activeBtn.classList.add('active-tab');
+        }
+    }
+
+    function toggleDetails(id) {
+        const container = document.getElementById('retreat-container');
+        if (!container) return;
+
+        const element = container.querySelector('#' + id);
+        const icon = container.querySelector('#icon-' + id);
+        
+        if (element && icon) {
+            if (element.classList.contains('details-open')) {
+                element.classList.remove('details-open');
+                icon.classList.remove('rotate-180');
+            } else {
+                element.classList.add('details-open');
+                icon.classList.add('rotate-180');
+            }
+        }
+    }
+`;
+
 
 export default function RetreatPage() {
     return (
-        <div className="w-full h-full">
-            <iframe
-                srcDoc={retreatHtmlContent}
-                title="Retiro IBM 2026: Cronograma & Trilha"
-                className="w-full h-full border-0"
-                style={{ height: 'calc(100vh - 10rem)' }} // Adjust height to fit viewport minus header
-            />
+        <div className="w-full">
+            <style>
+                {`
+                /* --- ESTILOS GERAIS --- */
+                .card-shadow {
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                }
+                
+                .card-shadow:hover {
+                    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+                    transform: translateY(-2px);
+                }
+
+                .active-tab {
+                    border-bottom: 3px solid #0ea5e9;
+                    color: #0ea5e9;
+                    font-weight: 700;
+                    background-color: #f0f9ff;
+                }
+
+                .inactive-tab {
+                    border-bottom: 3px solid transparent;
+                    color: #64748b;
+                }
+
+                /* --- ANIMAÇÕES DE DETALHES --- */
+                .details-content {
+                    max-height: 0;
+                    opacity: 0;
+                    overflow: hidden;
+                    transition: all 0.5s ease-in-out;
+                }
+                
+                .details-open {
+                    max-height: 2000px;
+                    opacity: 1;
+                    margin-top: 1rem;
+                    padding-top: 1rem;
+                    border-top: 1px solid #e2e8f0;
+                }
+
+                .chevron-icon {
+                    transition: transform 0.3s ease;
+                }
+
+                .rotate-180 {
+                    transform: rotate(180deg);
+                }
+
+                /* --- LINHAS DO TEMPO --- */
+                .timeline-line {
+                    position: absolute;
+                    left: 24px;
+                    top: 0;
+                    bottom: 0;
+                    width: 2px;
+                    background-color: #e2e8f0;
+                    z-index: 0;
+                }
+
+                .metro-line {
+                    position: absolute;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    width: 4px;
+                    height: 100%;
+                    background: linear-gradient(to bottom, #94a3b8 0%, #0ea5e9 25%, #f43f5e 50%, #8b5cf6 75%, #10b981 100%);
+                    z-index: 0;
+                    border-radius: 4px;
+                }
+
+                /* --- TAGS E BADGES (SISTEMA DE CORES) --- */
+                .badge-base {
+                    display: inline-flex;
+                    align-items: center;
+                    font-size: 0.65rem;
+                    font-weight: 800;
+                    text-transform: uppercase;
+                    padding: 3px 8px;
+                    border-radius: 4px;
+                    margin-right: 6px;
+                    margin-bottom: 6px;
+                    letter-spacing: 0.025em;
+                }
+
+                /* STATUS (Verde) - O que eu sou */
+                .badge-status {
+                    background-color: #ecfdf5; /* emerald-50 */
+                    color: #047857; /* emerald-700 */
+                    border: 1px solid #a7f3d0; /* emerald-200 */
+                }
+
+                /* CURSO (Azul) - O que eu estudo */
+                .badge-course {
+                    background-color: #eef2ff; /* indigo-50 */
+                    color: #4338ca; /* indigo-700 */
+                    border: 1px solid #c7d2fe; /* indigo-200 */
+                }
+
+                /* DISCIPULADO (Laranja) - Com quem eu ando (7 Passos) */
+                .badge-discipulado {
+                    background-color: #fffbeb; /* amber-50 */
+                    color: #b45309; /* amber-700 */
+                    border: 1px solid #fde68a; /* amber-200 */
+                }
+
+                .info-row {
+                    display: flex;
+                    align-items: flex-start;
+                    margin-bottom: 8px;
+                    font-size: 0.85rem;
+                    color: #475569;
+                }
+                
+                .info-row i {
+                    width: 20px;
+                    margin-top: 3px;
+                    flex-shrink: 0;
+                }
+
+                /* Animação do anel central */
+                @keyframes pulse-ring {
+                    0% { transform: scale(0.8); opacity: 0.5; }
+                    100% { transform: scale(2); opacity: 0; }
+                }
+                
+                .animate-ring::before {
+                    content: '';
+                    position: absolute;
+                    left: 0; top: 0;
+                    width: 100%; height: 100%;
+                    border-radius: 50%;
+                    background-color: inherit;
+                    animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+                    z-index: -1;
+                }
+                #retreat-container {
+                    font-family: 'Inter', sans-serif;
+                    background-color: #f8fafc;
+                    color: #334155;
+                }
+                #retreat-container a { color: #0ea5e9; }
+                #retreat-container i { line-height: 1; }
+                `}
+            </style>
+            <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet" />
+            <div dangerouslySetInnerHTML={{ __html: retreatHtmlContent }} />
+            <Script id="retreat-script" strategy="lazyOnload">
+                {retreatScript}
+            </Script>
         </div>
     );
 }
