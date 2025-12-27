@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -851,69 +850,63 @@ const retreatHtmlContent = `
         </div>
 
     </main>
+    <script>
+        function switchTab(tabId) {
+            const contents = document.querySelectorAll('.tab-content');
+            contents.forEach(content => content.classList.add('hidden'));
+            
+            const tabs = ['day1', 'day2', 'trilha'];
+            tabs.forEach(t => {
+                const btn = document.getElementById('tab-' + t);
+                if (btn) {
+                    btn.classList.remove('active-tab');
+                    btn.classList.add('inactive-tab');
+                    if(t === 'trilha') {
+                        btn.classList.remove('bg-slate-50', 'text-sky-700');
+                    }
+                }
+            });
+
+            const activeContent = document.getElementById('content-' + tabId);
+            if (activeContent) {
+                activeContent.classList.remove('hidden');
+            }
+            
+            const activeBtn = document.getElementById('tab-' + tabId);
+            if (activeBtn) {
+                activeBtn.classList.remove('inactive-tab');
+                activeBtn.classList.add('active-tab');
+            }
+        }
+
+        function toggleDetails(id) {
+            const element = document.getElementById(id);
+            const icon = document.getElementById('icon-' + id);
+            
+            if (element && icon) {
+                if (element.classList.contains('details-open')) {
+                    element.classList.remove('details-open');
+                    icon.classList.remove('rotate-180');
+                } else {
+                    element.classList.add('details-open');
+                    icon.classList.add('rotate-180');
+                }
+            }
+        }
+    <\/script>
 </body>
 </html>
 `;
 
 export default function RetreatPage() {
     return (
-        <>
-            <div className="w-full h-full">
-                <iframe
-                    srcDoc={retreatHtmlContent}
-                    title="Retiro IBM 2026: Cronograma & Trilha"
-                    className="w-full h-full border-0"
-                    style={{ height: 'calc(100vh - 10rem)' }} // Adjust height to fit viewport minus header
-                />
-            </div>
-            <Script id="retreat-script">
-                {`
-                    function switchTab(tabId) {
-                        const contents = document.querySelectorAll('.tab-content');
-                        contents.forEach(content => content.classList.add('hidden'));
-                        
-                        const tabs = ['day1', 'day2', 'trilha'];
-                        tabs.forEach(t => {
-                            const btn = document.getElementById('tab-' + t);
-                            if (btn) {
-                                btn.classList.remove('active-tab');
-                                btn.classList.add('inactive-tab');
-                                if(t === 'trilha') {
-                                    btn.classList.remove('bg-slate-50', 'text-sky-700');
-                                    btn.classList.add('text-gray-500'); 
-                                }
-                            }
-                        });
-
-                        const activeContent = document.getElementById('content-' + tabId);
-                        if (activeContent) {
-                            activeContent.classList.remove('hidden');
-                        }
-                        
-                        const activeBtn = document.getElementById('tab-' + tabId);
-                        if (activeBtn) {
-                            activeBtn.classList.remove('inactive-tab');
-                            activeBtn.classList.add('active-tab');
-                        }
-                    }
-
-                    function toggleDetails(id) {
-                        const element = document.getElementById(id);
-                        const icon = document.getElementById('icon-' + id);
-                        
-                        if (element && icon) {
-                            if (element.classList.contains('details-open')) {
-                                element.classList.remove('details-open');
-                                icon.classList.remove('rotate-180');
-                            } else {
-                                element.classList.add('details-open');
-                                icon.classList.add('rotate-180');
-                            }
-                        }
-                    }
-                `}
-            </Script>
-        </>
+        <div className="w-full h-full">
+            <iframe
+                srcDoc={retreatHtmlContent}
+                title="Retiro IBM 2026: Cronograma & Trilha"
+                className="w-full h-full border-0"
+                style={{ height: 'calc(100vh - 10rem)' }} // Adjust height to fit viewport minus header
+            />
+        </div>
     );
 }
-
