@@ -5,447 +5,437 @@ import React from 'react';
 import Script from 'next/script';
 
 const pageHTML = `
-<div class="bg-slate-100 min-h-screen pb-24">
+<div class="bg-slate-100 min-h-screen pb-20">
 
-    <!-- HUD / Header Gamificado -->
-    <header class="fixed top-0 w-full bg-slate-900 text-white z-40 shadow-xl border-b border-slate-700">
-        <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
-            
-            <!-- User Profile -->
-            <div class="flex items-center gap-3">
-                <div class="relative">
-                    <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center font-bold text-sm border-2 border-white" id="user-avatar-level">1</div>
-                    <div class="absolute -bottom-1 -right-1 bg-yellow-400 text-slate-900 text-[10px] font-bold px-1 rounded-full border border-slate-900">
-                        Lvl
-                    </div>
-                </div>
-                <div>
-                    <h1 class="text-sm font-bold text-indigo-100" id="user-current-role">Visitante</h1>
-                    <div class="w-24 h-2 bg-slate-700 rounded-full mt-1 overflow-hidden">
-                        <div class="h-full bg-indigo-500 progress-bar-transition" id="global-progress-bar" style="width: 0%;"></div>
-                    </div>
-                </div>
+    <!-- Navbar / Header -->
+    <header class="bg-indigo-900 text-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-bold tracking-tight flex items-center gap-2">
+                    <span class="material-symbols-outlined text-yellow-400">route</span>
+                    TRILHA IBM 2026
+                </h1>
+                <p class="text-indigo-200 text-xs uppercase tracking-widest font-semibold mt-1">"Do banco para o serviço"</p>
             </div>
-
-            <!-- Actions -->
-            <div class="flex items-center gap-2">
-                <button onclick="window.showSourceModal()" class="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors" title="Ver Código">
-                    <span class="material-symbols-outlined text-sm">code</span>
-                </button>
-                <button onclick="window.resetApp()" class="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors" title="Resetar">
-                    <span class="material-symbols-outlined text-sm">restart_alt</span>
+            <div class="flex items-center gap-3">
+                <button class="bg-indigo-700 hover:bg-indigo-600 text-white text-sm font-medium py-2 px-4 rounded-lg flex items-center gap-2 transition-colors border border-indigo-500 shadow-sm" onclick="window.showSourceModal()">
+                    <span class="material-symbols-outlined text-base">code</span>
+                    Ver HTML &amp; Copiar
                 </button>
             </div>
         </div>
     </header>
 
-    <!-- Main Content -->
-    <main class="pt-20 px-4 max-w-md mx-auto space-y-6">
-
-        <!-- Introduction Card -->
-        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 mt-4">
-            <h2 class="text-slate-800 font-bold text-lg flex items-center gap-2">
-                <span class="material-symbols-outlined text-indigo-600">rocket_launch</span>
-                Sua Jornada
-            </h2>
-            <p class="text-xs text-slate-500 mt-1">Complete os requisitos técnicos (Cursos) e pastorais (Discipulado) para desbloquear novos níveis de liderança.</p>
+    <!-- Context & Philosophy Section -->
+    <section class="bg-white border-b border-slate-200 py-8">
+        <div class="max-w-4xl mx-auto px-4 text-center">
+            <blockquote class="text-xl md:text-2xl font-semibold text-slate-700 italic mb-4">
+                "Transformar o Membro Consumidor no Membro Abençoador."
+            </blockquote>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8 text-left max-w-3xl mx-auto">
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="material-symbols-outlined text-indigo-600">verified</span>
+                        <h3 class="font-bold text-slate-800">Fiel</h3>
+                    </div>
+                    <p class="text-sm text-slate-600">Cumpre o que promete, tem constância nos propósitos.</p>
+                </div>
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="material-symbols-outlined text-indigo-600">handshake</span>
+                        <h3 class="font-bold text-slate-800">Disponível</h3>
+                    </div>
+                    <p class="text-sm text-slate-600">Prioriza o Reino e o serviço ao próximo.</p>
+                </div>
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="material-symbols-outlined text-indigo-600">school</span>
+                        <h3 class="font-bold text-slate-800">Ensinável</h3>
+                    </div>
+                    <p class="text-sm text-slate-600">Aceita correção, direção e mentoria.</p>
+                </div>
+            </div>
         </div>
+    </section>
 
-        <!-- Render Container for Steps -->
-        <div id="journey-container" class="space-y-6 relative"></div>
+    <!-- Legend -->
+    <div class="sticky top-[72px] z-40 bg-slate-50/95 backdrop-blur border-b border-slate-200 py-3 shadow-sm">
+        <div class="max-w-5xl mx-auto px-4 flex flex-wrap justify-center gap-3 md:gap-6 text-xs font-bold uppercase tracking-wide">
+            <div class="flex items-center gap-1.5 bg-white px-2 py-1 rounded border border-slate-200">
+                <span class="w-3 h-3 rounded-full bg-indigo-600"></span> Status / Cargo
+            </div>
+            <div class="flex items-center gap-1.5 bg-white px-2 py-1 rounded border border-slate-200">
+                <span class="w-3 h-3 rounded-full bg-emerald-500"></span> Curso / Teoria
+            </div>
+            <div class="flex items-center gap-1.5 bg-white px-2 py-1 rounded border border-slate-200">
+                <span class="w-3 h-3 rounded-full bg-amber-500"></span> Discipulado
+            </div>
+        </div>
+    </div>
+
+    <!-- Timeline Container -->
+    <main class="max-w-5xl mx-auto px-4 py-12 relative overflow-hidden">
+        
+        <!-- The Central Line (Metro Style) -->
+        <div class="absolute left-4 md:left-1/2 top-0 bottom-0 w-1 md:w-2 bg-slate-200 -ml-0.5 md:-ml-1 z-0 rounded-full"></div>
+
+        <!-- Render Target for JS -->
+        <div class="space-y-8 md:space-y-0 relative" id="timeline-render">
+            <!-- Items will be injected here -->
+        </div>
 
     </main>
 
-    <!-- Level Up Modal Overlay -->
-    <div id="levelup-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm transition-opacity duration-300 opacity-0 hidden">
-        <div class="bg-white w-full max-w-sm mx-4 rounded-3xl p-8 text-center relative overflow-hidden transform transition-transform duration-300 scale-90" id="levelup-card">
-            <!-- Background Glow -->
-            <div class="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-indigo-50 to-white -z-10"></div>
-            
-            <div class="w-24 h-24 bg-yellow-400 rounded-full mx-auto mb-4 flex items-center justify-center shadow-lg animate-bounce">
-                <span class="material-symbols-outlined text-5xl text-yellow-900">military_tech</span>
-            </div>
-            
-            <h2 class="text-3xl font-black text-slate-800 mb-2 uppercase italic">Promovido!</h2>
-            <p class="text-slate-600 text-sm mb-6">Você alcançou o nível <span id="modal-new-role" class="font-bold text-indigo-600">Novo Convertido</span></p>
-            
-            <div class="space-y-2 mb-6">
-                <div class="flex justify-between text-xs font-bold text-slate-400 uppercase">
-                    <span>Fiel</span>
-                    <span class="text-green-500">✓</span>
-                </div>
-                <div class="flex justify-between text-xs font-bold text-slate-400 uppercase">
-                    <span>Disponível</span>
-                    <span class="text-green-500">✓</span>
-                </div>
-                <div class="flex justify-between text-xs font-bold text-slate-400 uppercase">
-                    <span>Ensinável</span>
-                    <span class="text-green-500">✓</span>
-                </div>
-            </div>
-
-            <button onclick="window.closeLevelUp()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-transform active:scale-95">
-                Continuar Jornada
-            </button>
-        </div>
-    </div>
-
     <!-- Source Code Modal -->
-    <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 hidden" id="source-modal">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl h-[80vh] flex flex-col mx-4">
-            <div class="flex items-center justify-between p-4 border-b">
-                <h3 class="font-bold text-slate-800">Código Fonte</h3>
-                <button onclick="document.getElementById('source-modal').classList.add('hidden')"><span class="material-symbols-outlined">close</span></button>
+    <div id="source-modal" class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm modal-enter hidden">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl h-[80vh] flex flex-col mx-4 overflow-hidden">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-indigo-600">code</span>
+                    Código Fonte HTML
+                </h3>
+                <button onclick="window.closeSourceModal()" class="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-full hover:bg-slate-200">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
             </div>
-            <textarea id="source-code-area" class="flex-1 bg-slate-900 text-green-400 p-4 font-mono text-xs resize-none" readonly></textarea>
-            <div class="p-4 border-t bg-slate-50">
-                <button onclick="window.copyCode()" class="w-full bg-indigo-600 text-white py-2 rounded-lg font-bold hover:bg-indigo-700">Copiar HTML</button>
+            <!-- Modal Body -->
+            <div class="flex-1 p-0 relative bg-slate-900 overflow-hidden">
+                <textarea id="source-code-area" class="w-full h-full bg-slate-900 text-green-400 font-mono text-sm p-4 resize-none focus:outline-none" readonly></textarea>
+            </div>
+            <!-- Modal Footer -->
+            <div class="p-4 border-t border-slate-200 bg-white flex justify-end gap-3">
+                <button onclick="window.closeSourceModal()" class="px-4 py-2 text-slate-600 font-semibold hover:bg-slate-100 rounded-lg transition-colors">
+                    Fechar
+                </button>
+                <button onclick="window.copyToClipboard()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-sm flex items-center gap-2 transition-colors">
+                    <span class="material-symbols-outlined text-lg">content_copy</span>
+                    Copiar Código
+                </button>
             </div>
         </div>
     </div>
-</div>
+
+    <!-- Copy Success Toast -->
+    <div class="fixed bottom-5 right-5 bg-slate-800 text-white px-6 py-3 rounded-lg shadow-xl transform translate-y-24 transition-transform duration-300 flex items-center gap-3 z-[110]" id="toast">
+        <span class="material-symbols-outlined text-green-400">check_circle</span>
+        <div>
+            <p class="font-bold text-sm">Copiado com Sucesso!</p>
+            <p class="text-xs text-slate-400">O código está na sua área de transferência.</p>
+        </div>
+    </div>
+
 `;
 
 const pageScript = `
-// --- CONFIGURAÇÃO DA TRILHA (Baseado no Manual) ---
-const journeyConfig = [
-    {
-        id: 1,
-        title: "Rumo ao Batismo",
-        targetRole: "Novo Convertido",
-        currentRoleLabel: "Visitante",
-        color: "green",
-        icon: "favorite",
-        requirements: {
-            type: "Quinzenal",
-            meetingsTotal: 7,
-            courseName: "Integração (Boas Vindas)",
-            hasCourse: true
-        }
-    },
-    {
-        id: 2,
-        title: "Fundamentos da Fé",
-        targetRole: "Membro",
-        currentRoleLabel: "Novo Convertido",
-        color: "teal",
-        icon: "water_drop",
-        requirements: {
-            type: "Quinzenal",
-            meetingsTotal: 7,
-            courseName: "Curso Imersão (Batismo)",
-            hasCourse: true
-        }
-    },
-    {
-        id: 3,
-        title: "Consolidação e Serviço",
-        targetRole: "Consolidado",
-        currentRoleLabel: "Membro",
-        color: "blue",
-        icon: "spa",
-        description: "Entrar no Ministério de Celebração é obrigatório nesta fase.",
-        requirements: {
-            type: "Mensal",
-            meetingsTotal: 7,
-            courseName: "Curso Cresça",
-            hasCourse: true
-        }
-    },
-    {
-        id: 4,
-        title: "Treinamento de Liderança",
-        targetRole: "Co-Líder",
-        currentRoleLabel: "Consolidado",
-        color: "indigo",
-        icon: "supervisor_account",
-        requirements: {
-            type: "Mensal",
-            meetingsTotal: 7,
-            courseName: "Lidere 1",
-            hasCourse: true
-        }
-    },
-    {
-        id: 5,
-        title: "Gestão de Pequeno Grupo",
-        targetRole: "Líder de GC",
-        currentRoleLabel: "Co-Líder",
-        color: "purple",
-        icon: "groups",
-        requirements: {
-            type: "Mensal",
-            meetingsTotal: 7,
-            courseName: "Lidere 2",
-            hasCourse: true
-        }
-    },
-    {
-        id: 6,
-        title: "Supervisão de Área",
-        targetRole: "Líder de Área",
-        currentRoleLabel: "Líder de GC",
-        color: "violet",
-        icon: "map",
-        requirements: {
-            type: "Mensal",
-            meetingsTotal: 7,
-            courseName: "Supervisione 1",
-            hasCourse: true
-        }
-    },
-    {
-        id: 7,
-        title: "Gestão de Rede",
-        targetRole: "Líder de Rede",
-        currentRoleLabel: "Líder de Área",
-        color: "fuchsia",
-        icon: "hub",
-        requirements: {
-            type: "Mensal",
-            meetingsTotal: 7,
-            courseName: "Supervisione 2",
-            hasCourse: true
-        }
-    }
-];
+        // --- DATA SOURCE (Based on Manual IBM 2026) ---
+        const timelineData = [
+            // FASE 1
+            {
+                id: 1,
+                phase: "FASE 1: ENTRADA E CONVERSÃO",
+                phaseColor: "bg-indigo-100 text-indigo-800",
+                title: "NOVO CONVERTIDO",
+                type: "status", // status, course, discipulado
+                badges: [
+                    { label: "STATUS", type: "status" },
+                    { label: "RITMO QUINZENAL", type: "neutral" }
+                ],
+                icon: "favorite",
+                details: {
+                    objective: "Acolhimento e apresentação clara do evangelho.",
+                    duration: "7 Encontros Quinzenais (~3,5 meses)",
+                    responsible: "Co-Líder ou Consolidador",
+                    criteria: "Decisão por Cristo e vínculo inicial."
+                }
+            },
+            // FASE 2
+            {
+                id: 2,
+                phase: "FASE 2: FUNDAMENTOS",
+                phaseColor: "bg-sky-100 text-sky-800",
+                title: "BATISMO",
+                subtitle: "Curso: Imersão",
+                type: "course",
+                badges: [
+                    { label: "CURSO IMERSÃO", type: "course" }
+                ],
+                icon: "water_drop",
+                details: {
+                    objective: "Entendimento sobre Salvação, Batismo e Ceia.",
+                    duration: "7 Encontros Quinzenais",
+                    responsible: "Liderança de Ensino",
+                    criteria: "Conclusão do curso e Batismo nas águas (Testemunho Público)."
+                }
+            },
+            {
+                id: 3,
+                phase: "FASE 2: FUNDAMENTOS",
+                phaseColor: "bg-sky-100 text-sky-800",
+                title: "MEMBRO",
+                subtitle: "Curso de Membros + GC Ativo",
+                type: "status",
+                badges: [
+                    { label: "STATUS", type: "status" },
+                    { label: "CURSO MEMBROS", type: "course" }
+                ],
+                icon: "badge",
+                details: {
+                    objective: "Compreensão da visão, cultura e mordomia da IBM.",
+                    duration: "7 Encontros Quinzenais",
+                    responsible: "Liderança GC / Ensino",
+                    criteria: "OBRIGATÓRIO estar ativo em um GC. Conclusão EAD ou Mentoria."
+                }
+            },
+            // FASE 3
+            {
+                id: 4,
+                phase: "FASE 3: CONSOLIDAÇÃO E LIDERANÇA",
+                phaseColor: "bg-emerald-100 text-emerald-800",
+                title: "CONSOLIDAÇÃO",
+                subtitle: "Curso: Cresça",
+                type: "course",
+                badges: [
+                    { label: "CURSO CRESÇA", type: "course" },
+                    { label: "RITMO MENSAL", type: "neutral" }
+                ],
+                icon: "spa",
+                details: {
+                    objective: "Cura Interior, Paternidade de Deus e Fundamentos da Fé.",
+                    duration: "7 Encontros Mensais",
+                    responsible: "Líder de GC",
+                    criteria: "Começar a servir em alguma área se ainda não o faz."
+                }
+            },
+            {
+                id: 5,
+                phase: "FASE 3: CONSOLIDAÇÃO E LIDERANÇA",
+                phaseColor: "bg-emerald-100 text-emerald-800",
+                title: "COLÍDER",
+                type: "discipulado",
+                badges: [
+                    { label: "MENTORIA", type: "discipulado" },
+                    { label: "PRÁTICA", type: "neutral" }
+                ],
+                icon: "group_add",
+                details: {
+                    objective: "'Fazer com outros'. Acompanhar o líder em tudo.",
+                    duration: "7 Encontros Mensais",
+                    responsible: "Mentor: Líder de GC",
+                    criteria: "Adotar/Cuidar de um 'Não Alcançado' ou Novo Convertido."
+                }
+            },
+            {
+                id: 6,
+                phase: "FASE 3: CONSOLIDAÇÃO E LIDERANÇA",
+                phaseColor: "bg-emerald-100 text-emerald-800",
+                title: "LÍDER 1 (DESCOBERTA)",
+                subtitle: "Curso Opcional: Molde de Servo",
+                type: "status",
+                badges: [
+                    { label: "STATUS", type: "status" },
+                    { label: "VOCACIONAL", type: "course" }
+                ],
+                icon: "person_search",
+                details: {
+                    objective: "Descoberta de vocação específica e dons espirituais.",
+                    duration: "Variável",
+                    responsible: "Supervisão",
+                    criteria: "Ter concluído a Consolidação + Validação F.D.E (Fiel, Disponível, Ensinável)."
+                }
+            },
+            {
+                id: 7,
+                phase: "FASE 3: CONSOLIDAÇÃO E LIDERANÇA",
+                phaseColor: "bg-emerald-100 text-emerald-800",
+                title: "LÍDER DE GC (LIDERE 2)",
+                subtitle: "Pré-requisito para Líder de Ministério",
+                type: "status",
+                badges: [
+                    { label: "STATUS", type: "status" },
+                    { label: "CURSO LIDERE 2", type: "course" }
+                ],
+                icon: "groups",
+                details: {
+                    objective: "Liderar um pequeno grupo e formar novos discípulos.",
+                    duration: "7 Encontros Mensais",
+                    responsible: "Supervisor de Área",
+                    criteria: "Dupla Validação (Mentor + Supervisor). Obrigatório para assumir Ministérios."
+                }
+            },
+            // FASE 4
+            {
+                id: 8,
+                phase: "FASE 4: SUPERVISÃO E GESTÃO",
+                phaseColor: "bg-purple-100 text-purple-800",
+                title: "LÍDER DE ÁREA",
+                subtitle: "Curso: Supervisione 1",
+                type: "status",
+                badges: [
+                    { label: "STATUS", type: "status" },
+                    { label: "GESTÃO", type: "course" }
+                ],
+                icon: "map",
+                details: {
+                    objective: "Gestão de múltiplos GCs e cuidado de líderes.",
+                    duration: "7 Encontros Mensais",
+                    responsible: "Líder de Rede",
+                    criteria: "Resultados consistentes na multiplicação de GCs."
+                }
+            },
+            {
+                id: 9,
+                phase: "FASE 4: SUPERVISÃO E GESTÃO",
+                phaseColor: "bg-purple-100 text-purple-800",
+                title: "LÍDER DE REDE",
+                subtitle: "Curso: Supervisione 2",
+                type: "status",
+                badges: [
+                    { label: "STATUS", type: "status" },
+                    { label: "ESTRATÉGIA", type: "course" }
+                ],
+                icon: "hub",
+                details: {
+                    objective: "Estratégia de rede e formação de supervisores.",
+                    duration: "7 Encontros Mensais",
+                    responsible: "Pastor",
+                    criteria: "Formação de líderes de área."
+                }
+            },
+            {
+                id: 10,
+                phase: "FASE 4: SUPERVISÃO E GESTÃO",
+                phaseColor: "bg-purple-100 text-purple-800",
+                title: "PASTOR",
+                subtitle: "Curso: Avance (Teológico)",
+                type: "status",
+                badges: [
+                    { label: "ORDENAÇÃO", type: "status" },
+                    { label: "TEOLOGIA", type: "course" }
+                ],
+                icon: "church",
+                details: {
+                    objective: "Apascentar o rebanho e direção espiritual.",
+                    duration: "Contínuo",
+                    responsible: "Presbitério",
+                    criteria: "Discipulado Mensal Contínuo (sem prazo de término)."
+                }
+            }
+        ];
 
-// --- ESTADO DA APLICAÇÃO ---
-let appState = {
-    currentLevelIndex: 0, 
-    stepsData: {} 
-};
+        // --- RENDER LOGIC ---
+        function renderTimeline() {
+            const container = document.getElementById('timeline-render');
+            if (!container) return;
+            container.innerHTML = '';
+            let lastPhase = "";
 
-window.initApp = function() {
-    appState.stepsData = {};
-    journeyConfig.forEach((step, index) => {
-        appState.stepsData[step.id] = {
-            meetingsCount: 0,
-            courseCompleted: false,
-            mentorApproved: false,
-            supervisorApproved: false,
-            isUnlocked: index === 0,
-            isCompleted: false
-        };
-    });
-    renderJourney();
-    updateGlobalHeader();
-}
+            timelineData.forEach((item, index) => {
+                const isEven = index % 2 === 0;
+                
+                let mainColor = "border-indigo-500 text-indigo-600";
+                
+                if (item.type === 'course') {
+                    mainColor = "border-emerald-500 text-emerald-600";
+                } else if (item.type === 'discipulado') {
+                    mainColor = "border-amber-500 text-amber-600";
+                }
 
-function renderJourney() {
-    const container = document.getElementById('journey-container');
-    if (!container) return;
-    container.innerHTML = '<div class="absolute left-6 top-4 bottom-4 w-1 bg-slate-200 -z-10 rounded-full"></div>';
+                if (item.phase !== lastPhase) {
+                    const phaseHeader = document.createElement('div');
+                    phaseHeader.className = "col-span-2 flex justify-center py-4 relative z-10";
+                    phaseHeader.innerHTML = \`<span class="px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest shadow-sm \${item.phaseColor} border border-white">\${item.phase}</span>\`;
+                    container.appendChild(phaseHeader);
+                    lastPhase = item.phase;
+                }
 
-    journeyConfig.forEach((step, index) => {
-        const state = appState.stepsData[step.id];
-        const isActive = appState.currentLevelIndex === index;
-        const isPast = appState.currentLevelIndex > index;
-        const isLocked = appState.currentLevelIndex < index;
+                const wrapper = document.createElement('div');
+                wrapper.className = 'md:grid md:grid-cols-2 w-full';
 
-        let opacityClass = isLocked ? "opacity-50 grayscale pointer-events-none" : "opacity-100";
-        let borderClass = isActive ? \`border-\${step.color}-500 ring-2 ring-\${step.color}-100\` : "border-slate-200";
-        if (isPast) borderClass = "border-green-500 bg-green-50";
+                const badgeColors = {
+                    status: "bg-indigo-100 text-indigo-700 border-indigo-200",
+                    course: "bg-emerald-100 text-emerald-700 border-emerald-200",
+                    discipulado: "bg-amber-100 text-amber-700 border-amber-200",
+                    neutral: "bg-slate-100 text-slate-600"
+                };
 
-        const meetingsPct = (state.meetingsCount / step.requirements.meetingsTotal) * 100;
-        const stepDiv = document.createElement('div');
-        stepDiv.className = \`relative pl-14 transition-all duration-500 \${opacityClass}\`;
-        stepDiv.id = \`step-\${step.id}\`;
-        
-        const colorClasses = {
-            border: \`border-\${step.color}-500\`,
-            ring: \`ring-\${step.color}-100\`,
-            bg: \`bg-\${step.color}-500\`,
-            bgHover: \`group-hover:bg-\${step.color}-400\`,
-            bgGradientFrom: \`from-\${step.color}-600\`,
-            bgGradientTo: \`to-\${step.color}-500\`,
-            text: \`text-\${step.color}-600\`,
-        };
-        
-        borderClass = isActive ? \`\${colorClasses.border} ring-2 \${colorClasses.ring}\` : "border-slate-200";
-        if (isPast) borderClass = "border-green-500 bg-green-50";
+                const badgesHTML = item.badges.map(badge => 
+                    \`<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase border \${badgeColors[badge.type]}">\${badge.label}</span>\`
+                ).join('');
 
-
-        stepDiv.innerHTML = \`
-            <div class="absolute left-0 top-6 w-12 h-12 rounded-full border-4 border-white shadow-md flex items-center justify-center z-10 
-                \${isActive ? \`bg-\${step.color}-600 text-white animate-pulse-ring\` : (isPast ? 'bg-green-500 text-white' : 'bg-slate-300 text-slate-500')}\`>
-                <span class="material-symbols-outlined text-xl">\${isPast ? 'check' : (isLocked ? 'lock' : step.icon)}</span>
-            </div>
-            <div class="bg-white rounded-2xl p-5 shadow-sm border \${borderClass} transition-all">
-                <div class="flex justify-between items-start mb-4">
-                    <div>
-                        <h3 class="font-bold text-slate-800 text-lg leading-tight">\${step.title}</h3>
-                        <div class="text-xs font-semibold uppercase tracking-wide \${colorClasses.text} mt-1">Alvo: \${step.targetRole}</div>
-                    </div>
-                    <div class="text-[10px] px-2 py-1 bg-slate-100 rounded text-slate-500 font-bold border border-slate-200">\${step.requirements.type}</div>
-                </div>
-                \${step.description ? \`<p class="text-xs text-slate-500 mb-4 bg-slate-50 p-2 rounded border border-slate-100 italic">💡 \${step.description}</p>\` : ''}
-                <div class="space-y-4">
-                    <div>
-                        <div class="flex justify-between text-xs mb-1">
-                            <span class="font-bold text-slate-600">Discipulado (\${step.requirements.type})</span>
-                            <span class="text-slate-400">\${state.meetingsCount}/\${step.requirements.meetingsTotal}</span>
-                        </div>
-                        <div class="h-3 bg-slate-100 rounded-full overflow-hidden cursor-pointer group relative" onclick="\${isActive ? \`window.registerMeeting(\${step.id})\` : ''}">
-                            <div class="h-full \${colorClasses.bg} progress-bar-transition \${colorClasses.bgHover}" style="width: \${meetingsPct}%"></div>
-                            \${isActive && state.meetingsCount < step.requirements.meetingsTotal ? \`<div class="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">+ REGISTRAR</div>\` : ''}
-                        </div>
-                        <p class="text-[10px] text-slate-400 mt-1">Clique na barra para registrar um encontro.</p>
-                    </div>
-                    <div class="flex items-center justify-between p-3 rounded-lg border \${state.courseCompleted ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'} cursor-pointer hover:shadow-sm transition-all" onclick="\${isActive ? \`window.toggleCourse(\${step.id})\` : ''}">
-                        <div class="flex items-center gap-3">
-                            <div class="w-8 h-8 rounded-full flex items-center justify-center \${state.courseCompleted ? 'bg-green-500 text-white' : 'bg-slate-200 text-slate-400'}">
-                                <span class="material-symbols-outlined text-sm">school</span>
+                const cardHTML = \`
+                    <div class="\${isEven ? 'md:text-right pr-8' : 'md:text-left pl-8 md:col-start-2'} pl-12 md:pl-0 py-2 relative group">
+                        <div class="absolute top-6 \${isEven ? 'md:-right-5 -left-[5px]' : 'md:-left-5 -left-[5px]'} w-4 h-4 rounded-full bg-white border-4 \${mainColor.split(' ')[0]} z-20 shadow-sm group-hover:scale-125 transition-transform duration-300"></div>
+                        <div class="hidden md:block absolute top-7 \${isEven ? 'right-0' : 'left-0'} w-8 h-1 bg-slate-200 group-hover:bg-slate-300 transition-colors"></div>
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-shadow cursor-pointer overflow-hidden relative" onclick="window.toggleDetails(\${item.id})">
+                            <div class="absolute left-0 top-0 bottom-0 w-1.5 \${mainColor.split(' ')[0]}"></div>
+                            <div class="p-5">
+                                <div class="flex items-start \${isEven ? 'md:justify-end' : 'md:justify-start'} justify-between gap-3 mb-2">
+                                    <div class="flex-1 \${isEven ? 'md:order-1' : ''}">
+                                        <div class="flex items-center gap-2 \${isEven ? 'md:flex-row-reverse' : ''}">
+                                            <h3 class="font-bold text-lg text-slate-800">\${item.title}</h3>
+                                            <span class="material-symbols-outlined \${mainColor.split(' ')[1]}">\${item.icon}</span>
+                                        </div>
+                                        \${item.subtitle ? \`<p class="text-sm text-slate-500 font-medium">\${item.subtitle}</p>\` : ''}
+                                    </div>
+                                    <span class="material-symbols-outlined text-slate-300 transition-transform duration-300 transform" id="arrow-\${item.id}">expand_more</span>
+                                </div>
+                                <div class="flex flex-wrap gap-2 mt-3 \${isEven ? 'md:justify-end' : 'justify-start'}">\${badgesHTML}</div>
                             </div>
-                            <div>
-                                <div class="text-xs font-bold text-slate-700">Curso: \${step.requirements.courseName}</div>
-                                <div class="text-[10px] text-slate-500">\${state.courseCompleted ? 'Concluído' : 'Toque para concluir'}</div>
+                            <div class="details-wrapper bg-slate-50 border-t border-slate-100" id="details-\${item.id}">
+                                <div class="details-content p-5 text-left text-sm text-slate-600 space-y-3">
+                                    <div class="grid grid-cols-1 gap-3">
+                                        <div><span class="block text-xs font-bold text-slate-400 uppercase">Objetivo</span><p>\${item.details.objective}</p></div>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <div><span class="block text-xs font-bold text-slate-400 uppercase">Duração</span><p>\${item.details.duration}</p></div>
+                                            <div><span class="block text-xs font-bold text-slate-400 uppercase">Responsável</span><p>\${item.details.responsible}</p></div>
+                                        </div>
+                                        <div class="bg-white p-3 rounded border border-slate-200 border-l-4 border-l-slate-400"><span class="block text-xs font-bold text-slate-400 uppercase mb-1">Critério de Avanço</span><p class="font-medium text-slate-700">\${item.details.criteria}</p></div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        \${state.courseCompleted ? '<span class="material-symbols-outlined text-green-500">check_circle</span>' : ''}
                     </div>
-                    <div id="approvals-area-\${step.id}" class="\${canShowApprovals(step.id) ? 'block' : 'hidden'} animate-fade-in pt-2 border-t border-slate-100 grid grid-cols-2 gap-2">
-                        <button onclick="window.toggleApproval(\${step.id}, 'mentor')" class="p-2 rounded-lg border text-center transition-all \${state.mentorApproved ? 'bg-green-100 border-green-300 text-green-800' : 'bg-white border-dashed border-slate-300 text-slate-400 hover:border-indigo-300 hover:text-indigo-500'}">
-                            <div class="text-[10px] uppercase font-bold mb-1">Mentor</div>
-                            <span class="material-symbols-outlined text-xl">\${state.mentorApproved ? 'verified' : 'person_add'}</span>
-                        </button>
-                        <button onclick="window.toggleApproval(\${step.id}, 'supervisor')" class="p-2 rounded-lg border text-center transition-all \${state.supervisorApproved ? 'bg-green-100 border-green-300 text-green-800' : 'bg-white border-dashed border-slate-300 text-slate-400 hover:border-indigo-300 hover:text-indigo-500'}">
-                            <div class="text-[10px] uppercase font-bold mb-1">Supervisor</div>
-                            <span class="material-symbols-outlined text-xl">\${state.supervisorApproved ? 'verified_user' : 'shield_person'}</span>
-                        </button>
-                    </div>
-                    \${isActive ? \`<button id="btn-promote-\${step.id}" onclick="window.attemptPromotion(\${step.id})" disabled class="w-full py-3 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 mt-2 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed bg-gradient-to-r \${colorClasses.bgGradientFrom} \${colorClasses.bgGradientTo} text-white hover:shadow-lg hover:scale-[1.02]"><span class="material-symbols-outlined text-base">lock</span> PROMOVER PARA \${step.targetRole.toUpperCase()}</button>\` : ''}
-                    \${isPast ? \`<div class="w-full py-2 bg-green-100 text-green-700 text-xs font-bold rounded-lg text-center flex items-center justify-center gap-1"><span class="material-symbols-outlined text-sm">history</span>FASE CONCLUÍDA</div>\` : ''}
-                </div>
-            </div>
-        \`;
-        container.appendChild(stepDiv);
-    });
-    checkUnlockConditions();
-}
+                \`;
+                 wrapper.innerHTML = cardHTML;
+                 container.appendChild(wrapper);
 
-window.registerMeeting = function(stepId) {
-    const stepConfig = journeyConfig.find(c => c.id === stepId);
-    const state = appState.stepsData[stepId];
-    if (state.meetingsCount < stepConfig.requirements.meetingsTotal) {
-        state.meetingsCount++;
-        renderJourney();
-    }
-}
-
-window.toggleCourse = function(stepId) {
-    appState.stepsData[stepId].courseCompleted = !appState.stepsData[stepId].courseCompleted;
-    renderJourney();
-}
-
-function canShowApprovals(stepId) {
-    const stepConfig = journeyConfig.find(c => c.id === stepId);
-    const state = appState.stepsData[stepId];
-    return state.courseCompleted && state.meetingsCount >= stepConfig.requirements.meetingsTotal;
-}
-
-window.toggleApproval = function(stepId, type) {
-    const state = appState.stepsData[stepId];
-    if (type === 'mentor') state.mentorApproved = !state.mentorApproved;
-    if (type === 'supervisor') state.supervisorApproved = !state.supervisorApproved;
-    renderJourney();
-}
-
-function checkUnlockConditions() {
-    journeyConfig.forEach((step, index) => {
-        if (index !== appState.currentLevelIndex) return;
-        const state = appState.stepsData[step.id];
-        const btn = document.getElementById(\`btn-promote-\${step.id}\`);
-        if (!btn) return;
-        const allMet = state.courseCompleted && state.meetingsCount >= step.requirements.meetingsTotal && state.mentorApproved && state.supervisorApproved;
-        if (allMet) {
-            btn.disabled = false;
-            btn.innerHTML = '<span class="material-symbols-outlined animate-bounce">verified</span> CONFIRMAR PROMOÇÃO';
-            btn.classList.add('animate-pulse');
-        } else {
-            btn.disabled = true;
-            let label = "BLOQUEADO: ";
-            if (!state.courseCompleted) label = "FALTA CURSO";
-            else if (state.meetingsCount < 7) label = "FALTAM ENCONTROS";
-            else label = "AGUARDANDO APROVAÇÕES";
-            btn.innerHTML = \`<span class="material-symbols-outlined text-base">lock</span> \${label}\`;
-            btn.classList.remove('animate-pulse');
+            });
         }
-    });
-}
+        
+        window.toggleDetails = function(id) {
+            const card = document.querySelector(\`#details-\${id}\`).parentElement;
+            const arrow = document.getElementById(\`arrow-\${id}\`);
+            card.classList.toggle('card-expanded');
+            arrow.classList.toggle('rotate-180');
+        }
 
-window.attemptPromotion = function(stepId) {
-    const stepConfig = journeyConfig.find(c => c.id === stepId);
-    if (!stepConfig) return;
-    launchConfetti();
-    showLevelUpModal(stepConfig.targetRole);
-    appState.stepsData[stepId].isCompleted = true;
-    appState.currentLevelIndex++;
-    updateGlobalHeader();
-    setTimeout(renderJourney, 500);
-}
+        window.showSourceModal = function() {
+            const modal = document.getElementById('source-modal');
+            const textarea = document.getElementById('source-code-area');
+            if (textarea) textarea.value = document.documentElement.outerHTML;
+            if (modal) modal.classList.remove('hidden');
+        }
 
-function updateGlobalHeader() {
-    const currentConfig = journeyConfig[appState.currentLevelIndex];
-    const roleName = currentConfig ? currentConfig.currentRoleLabel : journeyConfig[journeyConfig.length - 1].targetRole;
-    document.getElementById('user-current-role').textContent = roleName;
-    document.getElementById('user-avatar-level').textContent = (appState.currentLevelIndex + 1).toString();
-    const totalSteps = journeyConfig.length;
-    const progress = (appState.currentLevelIndex / totalSteps) * 100;
-    document.getElementById('global-progress-bar').style.width = \`\${progress}%\`;
-}
+        window.closeSourceModal = function() {
+            document.getElementById('source-modal').classList.add('hidden');
+        }
 
-function showLevelUpModal(newRole) {
-    const modal = document.getElementById('levelup-modal');
-    const card = document.getElementById('levelup-card');
-    document.getElementById('modal-new-role').textContent = newRole;
-    if (modal) {
-      modal.classList.remove('hidden');
-      setTimeout(() => {
-          modal.classList.remove('opacity-0');
-          if(card) card.classList.remove('scale-90');
-      }, 10);
-    }
-}
+        window.copyToClipboard = function() {
+            const textarea = document.getElementById("source-code-area");
+            if(textarea) {
+                textarea.select();
+                document.execCommand("copy");
+                const toast = document.getElementById('toast');
+                toast.classList.remove('translate-y-24');
+                setTimeout(() => {
+                    toast.classList.add('translate-y-24');
+                }, 3000);
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', renderTimeline);
 
-window.closeLevelUp = function() {
-    const modal = document.getElementById('levelup-modal');
-    const card = document.getElementById('levelup-card');
-    if(modal) modal.classList.add('opacity-0');
-    if(card) card.classList.add('scale-90');
-    setTimeout(() => {
-        if(modal) modal.classList.add('hidden');
-    }, 300);
-}
-
-function launchConfetti() {
-    if(typeof confetti === 'function') {
-        confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#4f46e5', '#a855f7', '#fbbf24'] });
-    }
-}
-
-window.resetApp = function() {
-    if(confirm("Reiniciar todo o progresso?")) {
-        appState.currentLevelIndex = 0;
-        window.initApp();
-    }
-}
-
-window.showSourceModal = function() {
-    const modal = document.getElementById('source-modal');
-    const textarea = document.getElementById('source-code-area');
-    if (textarea) textarea.value = document.documentElement.outerHTML;
-    if (modal) modal.classList.remove('hidden');
-}
-
-window.copyCode = function() {
-    const textarea = document.getElementById("source-code-area");
-    if(textarea) {
-        textarea.select();
-        document.execCommand("copy");
-        alert("HTML copiado com sucesso!");
-    }
-}
 `;
 
 export function DiscipleshipTrail() {
@@ -454,39 +444,28 @@ export function DiscipleshipTrail() {
       <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,1,0" rel="stylesheet" />
       <style>
         {`
-        @keyframes pulse-ring {
-            0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(79, 70, 229, 0); }
-            100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(79, 70, 229, 0); }
+        .details-wrapper {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows 0.3s ease-out;
         }
-        .animate-pulse-ring {
-            animation: pulse-ring 2s infinite;
+        .details-content {
+            overflow: hidden;
         }
-        .progress-bar-transition {
-            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        .card-expanded .details-wrapper {
+            grid-template-rows: 1fr;
         }
-        .locked-step {
-            filter: grayscale(1);
-            opacity: 0.7;
-            pointer-events: none;
+        .rotate-180 {
+            transform: rotate(180deg);
         }
+        .modal-enter { opacity: 0; pointer-events: none; transform: scale(0.95); }
+        .modal-enter-active { opacity: 1; pointer-events: auto; transform: scale(1); transition: all 0.2s ease-out; }
         `}
       </style>
       <div dangerouslySetInnerHTML={{ __html: pageHTML }} />
-      <Script id="confetti-script" src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js" strategy="lazyOnload"></Script>
       <Script id="discipleship-trail-script" strategy="lazyOnload">
         {pageScript}
-      </Script>
-      <Script id="init-discipleship-trail" strategy="lazyOnload">
-        {`
-          if (document.readyState === 'complete') {
-            window.initApp();
-          } else {
-            window.addEventListener('load', window.initApp);
-          }
-        `}
       </Script>
     </>
   );
 }
-
