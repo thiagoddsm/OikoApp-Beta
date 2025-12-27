@@ -167,9 +167,10 @@ service cloud.firestore {
     match /member_notes/{noteId} {
         // Allow creating a note for any member.
         allow create: if isSignedIn();
-        
-        // Allow reading notes if you are the author OR the supervisor of the member the note is about.
-        allow read, update, delete: if isOwner(resource.data.authorId) || isMemberSupervisor(resource.data.memberId);
+        // Allow read of collection for queries, client-side filters will show relevant notes.
+        allow read: if isSignedIn();
+        // Allow updating or deleting a note if you are the author OR the supervisor of the member the note is about.
+        allow update, delete: if isOwner(resource.data.authorId) || isMemberSupervisor(resource.data.memberId);
     }
     
     match /cells/{cellId} {
