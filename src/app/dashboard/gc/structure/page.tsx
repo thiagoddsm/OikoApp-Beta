@@ -4,14 +4,19 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useFirebase, useCollection, deleteDocumentNonBlocking } from '@/firebase';
 import { doc, collection, query, where, getDocs } from 'firebase/firestore';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
-import { Loader2, Users, Plus, Minus, Flag, PlusCircle, Pencil, Trash2, Network, AreaChart, Building2 } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
+import { Loader2, Users, Plus, Minus, ChevronDown, PlusCircle, Pencil, Trash2, Network, AreaChart, Building2 } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { CreateRedeDialog } from '@/components/structure/create-rede-dialog';
 import { CreateAreaDialog } from '@/components/structure/create-area-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 
 
 type User = { id: string; name: string; hierarchy?: { role?: string; } };
@@ -19,37 +24,33 @@ type Cell = { id: string; nome: string; liderId: string; areaId: string; redeId:
 type Area = { id: string; nome: string; liderId: string; redeId: string; };
 type Rede = { id: string; nome: string; liderId: string; pastorId: string; };
 
-const HierarchyNode = ({ node, level, children, isExpanded, onToggle, onEdit, onDelete }) => {
-    const icons = {
-        pastor: Network,
-        rede: AreaChart,
-        area: Building2,
-        cell: Users
-    };
-    const Icon = icons[node.type] || Users;
+const nodeIcons = {
+    pastor: { icon: Network, color: 'bg-indigo-100 text-indigo-600' },
+    rede: { icon: AreaChart, color: 'bg-sky-100 text-sky-600' },
+    area: { icon: Building2, color: 'bg-amber-100 text-amber-600' },
+    cell: { icon: Users, color: 'bg-emerald-100 text-emerald-600' },
+};
 
-    const hasChildren = node.children && node.children.length > 0;
+const NodeCard = ({ node, onEdit, onDelete, children, onToggle, isExpanded, hasChildren, isRoot }) => {
+    const { icon: Icon, color } = nodeIcons[node.type] || nodeIcons.cell;
 
     return (
-        <div className="flex items-start">
-            {/* The main node card */}
-            <Card className="flex-shrink-0 w-64 my-2 shadow-sm hover:shadow-lg transition-shadow border-l-4 border-primary">
-                <div className="p-3">
-                    <div className="flex items-start justify-between">
-                         <div className={`flex items-center justify-center h-10 w-10 rounded-lg bg-primary/10 text-primary`}>
-                            <Icon size={20} />
-                        </div>
-                         {hasChildren && (
-                            <button onClick={onToggle} className="p-1 rounded-full hover:bg-gray-100 -mr-1 -mt-1">
-                                {isExpanded ? <Minus size={16} /> : <Plus size={16} />}
-                            </button>
-                        )}
+        <div className="relative flex flex-col items-center">
+            {/* Vertical line connecting to parent */}
+            {!isRoot && <div className="absolute top-0 -mt-2 h-2 w-0.5 bg-slate-300"></div>}
+
+            <Card className="w-64 shadow-md hover:shadow-xl transition-shadow duration-300 z-10 bg-card">
+                 <CardHeader className="flex flex-row items-center gap-3 p-4">
+                    <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", color)}>
+                        <Icon className="h-5 w-5" />
                     </div>
-                    <div className="mt-2">
-                        <p className="font-bold text-sm uppercase">{node.nome}</p>
-                        <p className="text-xs text-muted-foreground truncate">{node.liderName}</p>
+                    <div className="flex-1 truncate">
+                        <CardTitle className="text-base truncate">{node.nome}</CardTitle>
+                        <CardDescription className="text-xs truncate">{node.liderName}</CardDescription>
                     </div>
-                     <div className="text-xs mt-3 space-y-1">
+                 </CardHeader>
+                 <CardContent className="px-4 pb-4 pt-0">
+                    <div className="text-xs space-y-1.5">
                         {node.type !== 'cell' && (
                             <div className="flex justify-between items-center">
                                 <span className="text-muted-foreground">Sub-níveis:</span>
@@ -61,28 +62,38 @@ const HierarchyNode = ({ node, level, children, isExpanded, onToggle, onEdit, on
                             <span className="font-bold">{node.stats.participantes}</span>
                         </div>
                      </div>
-                </div>
-                 {(onEdit || onDelete) && (
-                    <div className="flex items-center justify-end border-t bg-gray-50 px-2 py-1">
-                        {onEdit && (
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onEdit(node)}>
-                                <Pencil className="h-3 w-3" />
+                 </CardContent>
+                 {(onEdit || onDelete || (hasChildren)) && (
+                    <CardFooter className="bg-slate-50 p-1 flex justify-end items-center">
+                         {onEdit && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(node)}>
+                                <Pencil className="h-4 w-4" />
                             </Button>
                         )}
                         {onDelete && (
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onDelete(node)}>
-                                <Trash2 className="h-3 w-3 text-destructive" />
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDelete(node)}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                         )}
-                    </div>
-                )}
+                         {hasChildren && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onToggle}>
+                                <ChevronDown className={cn("h-4 w-4 transition-transform", isExpanded && "rotate-180")} />
+                            </Button>
+                        )}
+                    </CardFooter>
+                 )}
             </Card>
-
-            {/* Children nodes */}
+            
             {isExpanded && hasChildren && (
-                <div className="flex flex-col justify-center pl-8 pt-2 border-l-2 border-gray-300 ml-4">
-                    {children}
-                </div>
+                <>
+                    {/* Vertical line going down from card */}
+                    <div className="absolute top-full h-4 w-0.5 bg-slate-300"></div>
+                     {/* Horizontal line spreading to children */}
+                    <div className="absolute top-full mt-4 h-0.5 w-full bg-slate-300"></div>
+                    <div className="mt-8 flex justify-center gap-8 w-full">
+                        {children}
+                    </div>
+                </>
             )}
         </div>
     );
@@ -91,12 +102,8 @@ const HierarchyNode = ({ node, level, children, isExpanded, onToggle, onEdit, on
 const buildHierarchy = (users, redes, areas, cells) => {
     const userMap = new Map(users.map(u => [u.id, u]));
 
-    // 1. Find the Senior Pastor or the first Admin as the root of the hierarchy
     const seniorPastor = users.find(u => u.hierarchy?.role === 'pastor_senior') || users.find(u => u.hierarchy?.role === 'admin');
-    
-    if (!seniorPastor) {
-        return []; // If there's no senior pastor or admin, there's no hierarchy to show
-    }
+    if (!seniorPastor) return null;
 
     const cellNodes = cells.map(cell => ({
         ...cell,
@@ -141,11 +148,10 @@ const buildHierarchy = (users, redes, areas, cells) => {
 
     const totalParticipantes = redeNodes.reduce((sum, r) => sum + r.stats.participantes, 0);
 
-    // 2. Build the hierarchy from a single root node
-    const rootNode = {
+    return {
         id: seniorPastor.id,
-        nome: seniorPastor.hierarchy?.role === 'admin' ? 'Igreja' : 'Pastor Sênior',
-        liderName: seniorPastor.name,
+        nome: 'Igreja Batista Manancial',
+        liderName: `Pastor Sênior: ${seniorPastor.name}`,
         type: 'pastor',
         stats: { 
             directChildren: redeNodes.length,
@@ -153,44 +159,39 @@ const buildHierarchy = (users, redes, areas, cells) => {
         },
         children: redeNodes
     };
-
-    return [rootNode];
 };
 
-const RenderHierarchy = ({ nodes, level = 1, onEditNode, onDeleteNode }) => {
-    const [expandedNodes, setExpandedNodes] = useState({});
-
-    // Expand the first level by default
-    useEffect(() => {
-        if (nodes.length > 0) {
-            const initialExpanded = {};
-            nodes.forEach(node => initialExpanded[node.id] = true);
-            setExpandedNodes(initialExpanded);
-        }
-    }, [nodes]);
-
-
-    const toggleNode = (nodeId) => {
-        setExpandedNodes(prev => ({ ...prev, [nodeId]: !prev[nodeId] }));
-    };
+const RenderNode = ({ node, onEditNode, onDeleteNode, isRoot = false }) => {
+    const [isExpanded, setIsExpanded] = useState(isRoot);
+    const hasChildren = node.children && node.children.length > 0;
 
     return (
-        <div className={cn("flex flex-col", level > 1 ? "ml-4 pl-4 border-l-2" : "")}>
-            {nodes.map(node => (
-                <HierarchyNode
-                    key={node.id}
-                    node={node}
-                    level={level}
-                    isExpanded={!!expandedNodes[node.id]}
-                    onToggle={() => toggleNode(node.id)}
-                    onEdit={node.type === 'rede' || node.type === 'area' ? onEditNode : null}
-                    onDelete={node.type === 'rede' || node.type === 'area' ? onDeleteNode : null}
-                >
-                    {node.children && node.children.length > 0 && (
-                        <RenderHierarchy nodes={node.children} level={level + 1} onEditNode={onEditNode} onDeleteNode={onDeleteNode}/>
-                    )}
-                </HierarchyNode>
-            ))}
+        <div className="flex flex-col items-center">
+            <NodeCard
+                node={node}
+                isExpanded={isExpanded}
+                hasChildren={hasChildren}
+                onToggle={() => setIsExpanded(!isExpanded)}
+                onEdit={node.type === 'rede' || node.type === 'area' ? onEditNode : null}
+                onDelete={node.type === 'rede' || node.type === 'area' ? onDeleteNode : null}
+                isRoot={isRoot}
+            >
+            </NodeCard>
+            {isExpanded && hasChildren && (
+                 <div className="flex justify-center gap-8 w-full relative pt-8">
+                     {/* Horizontal connector line */}
+                    {node.children.length > 1 && <div className="absolute top-10 h-0.5 bg-slate-300 left-1/4 right-1/4"></div>}
+                    
+                    {node.children.map(childNode => (
+                         <RenderNode 
+                             key={childNode.id} 
+                             node={childNode} 
+                             onEditNode={onEditNode} 
+                             onDeleteNode={onDeleteNode}
+                         />
+                    ))}
+                </div>
+            )}
         </div>
     );
 };
@@ -211,7 +212,7 @@ export default function StructurePage() {
     const { data: redes, isLoading: isLoadingRedes } = useCollection<Rede>('redes');
 
     const hierarchyData = useMemo(() => {
-        if (!users || !redes || !areas || !cells) return [];
+        if (!users || !redes || !areas || !cells) return null;
         return buildHierarchy(users, redes, areas, cells);
     }, [users, redes, areas, cells]);
     
@@ -302,16 +303,16 @@ export default function StructurePage() {
                         </Button>
                     </div>
                 </CardHeader>
-                <CardContent className="overflow-x-auto p-4">
+                <CardContent className="overflow-x-auto p-8 bg-slate-50/50 min-h-[60vh]">
                     {isLoading ? (
                         <div className="flex items-center justify-center h-48">
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
                             <p className="ml-4 text-muted-foreground">Carregando estrutura...</p>
                         </div>
                     ) : (
-                         hierarchyData.length > 0 ? (
-                            <div className="inline-block min-w-full">
-                                <RenderHierarchy nodes={hierarchyData} onEditNode={handleEditNode} onDeleteNode={handleDeleteNode} />
+                         hierarchyData ? (
+                            <div className="flex justify-center">
+                                <RenderNode node={hierarchyData} isRoot={true} onEditNode={handleEditNode} onDeleteNode={handleDeleteNode} />
                             </div>
                         ) : (
                             <div className="text-center py-10 text-muted-foreground">
@@ -355,4 +356,3 @@ export default function StructurePage() {
     );
 }
 
-    
