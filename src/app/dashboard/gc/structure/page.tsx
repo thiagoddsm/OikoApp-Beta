@@ -150,7 +150,7 @@ const buildHierarchy = (users, redes, areas, cells) => {
 
     return {
         id: seniorPastor.id,
-        nome: 'Igreja Batista Manancial',
+        nome: 'Igreja Batista da Manhã',
         liderName: `Pastor Sênior: ${seniorPastor.name}`,
         type: 'pastor',
         stats: { 
@@ -355,4 +355,3 @@ export default function StructurePage() {
         </>
     );
 }
-
