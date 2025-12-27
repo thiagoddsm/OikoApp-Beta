@@ -88,24 +88,21 @@ export function DiscipleshipNotes({ memberId }: { memberId: string }) {
         
         const notesCollection = collection(firestore, 'member_notes');
         
-        try {
-            await addDocumentNonBlocking(notesCollection, {
-                authorId: user.uid,
-                memberId,
-                type: noteType,
-                content: noteContent,
-                createdAt: Timestamp.now(),
-            });
-            toast({
-                title: "Sucesso!",
-                description: "Sua anotação foi salva.",
-            });
-            setNoteContent('');
-        } catch (error) {
-            console.error("Error submitting note: ", error);
-        } finally {
-            setIsSubmitting(false);
-        }
+        const noteData = {
+            authorId: user.uid,
+            memberId,
+            type: noteType,
+            content: noteContent,
+            createdAt: Timestamp.now(),
+        };
+
+        addDocumentNonBlocking(notesCollection, noteData);
+        toast({
+            title: "Sucesso!",
+            description: "Sua anotação foi salva.",
+        });
+        setNoteContent('');
+        setIsSubmitting(false);
     };
 
     return (

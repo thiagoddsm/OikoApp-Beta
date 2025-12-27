@@ -33,6 +33,11 @@ service cloud.firestore {
     function hasPermission(permission) {
         return isSignedIn() && (isMasterAdmin() || getUserPermissions(request.auth.uid)[permission] == true);
     }
+    
+    function isMemberSupervisor(memberId) {
+        let memberData = getUserData(memberId);
+        return memberData.hierarchy.supervisorId == request.auth.uid;
+    }
 
     // --- Collection Rules ---
 
@@ -160,8 +165,11 @@ service cloud.firestore {
     }
     
     match /member_notes/{noteId} {
-        // Allow a user to read/write notes they have created.
-        allow read, write: if isSignedIn() && request.auth.uid == resource.data.authorId;
+        // Allow creating a note for any member.
+        allow create: if isSignedIn();
+        
+        // Allow reading notes if you are the author OR the supervisor of the member the note is about.
+        allow read, update, delete: if isOwner(resource.data.authorId) || isMemberSupervisor(resource.data.memberId);
     }
     
     match /cells/{cellId} {
