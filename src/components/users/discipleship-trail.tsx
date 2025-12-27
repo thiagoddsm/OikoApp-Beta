@@ -29,10 +29,10 @@ const pageHTML = `
 
             <!-- Actions -->
             <div class="flex items-center gap-2">
-                <button onclick="showSourceModal()" class="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors" title="Ver Código">
+                <button onclick="window.showSourceModal()" class="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors" title="Ver Código">
                     <span class="material-symbols-outlined text-sm">code</span>
                 </button>
-                <button onclick="resetApp()" class="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors" title="Resetar">
+                <button onclick="window.resetApp()" class="p-2 bg-slate-800 rounded-lg hover:bg-slate-700 transition-colors" title="Resetar">
                     <span class="material-symbols-outlined text-sm">restart_alt</span>
                 </button>
             </div>
@@ -84,7 +84,7 @@ const pageHTML = `
                 </div>
             </div>
 
-            <button onclick="closeLevelUp()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-transform active:scale-95">
+            <button onclick="window.closeLevelUp()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 transition-transform active:scale-95">
                 Continuar Jornada
             </button>
         </div>
@@ -99,7 +99,7 @@ const pageHTML = `
             </div>
             <textarea id="source-code-area" class="flex-1 bg-slate-900 text-green-400 p-4 font-mono text-xs resize-none" readonly></textarea>
             <div class="p-4 border-t bg-slate-50">
-                <button onclick="copyCode()" class="w-full bg-indigo-600 text-white py-2 rounded-lg font-bold hover:bg-indigo-700">Copiar HTML</button>
+                <button onclick="window.copyCode()" class="w-full bg-indigo-600 text-white py-2 rounded-lg font-bold hover:bg-indigo-700">Copiar HTML</button>
             </div>
         </div>
     </div>
@@ -216,7 +216,7 @@ let appState = {
     stepsData: {} 
 };
 
-function initApp() {
+window.initApp = function() {
     appState.stepsData = {};
     journeyConfig.forEach((step, index) => {
         appState.stepsData[step.id] = {
@@ -251,6 +251,20 @@ function renderJourney() {
         const stepDiv = document.createElement('div');
         stepDiv.className = \`relative pl-14 transition-all duration-500 \${opacityClass}\`;
         stepDiv.id = \`step-\${step.id}\`;
+        
+        const colorClasses = {
+            border: \`border-\${step.color}-500\`,
+            ring: \`ring-\${step.color}-100\`,
+            bg: \`bg-\${step.color}-500\`,
+            bgHover: \`group-hover:bg-\${step.color}-400\`,
+            bgGradientFrom: \`from-\${step.color}-600\`,
+            bgGradientTo: \`to-\${step.color}-500\`,
+            text: \`text-\${step.color}-600\`,
+        };
+        
+        borderClass = isActive ? \`\${colorClasses.border} ring-2 \${colorClasses.ring}\` : "border-slate-200";
+        if (isPast) borderClass = "border-green-500 bg-green-50";
+
 
         stepDiv.innerHTML = \`
             <div class="absolute left-0 top-6 w-12 h-12 rounded-full border-4 border-white shadow-md flex items-center justify-center z-10 
@@ -261,7 +275,7 @@ function renderJourney() {
                 <div class="flex justify-between items-start mb-4">
                     <div>
                         <h3 class="font-bold text-slate-800 text-lg leading-tight">\${step.title}</h3>
-                        <div class="text-xs font-semibold uppercase tracking-wide text-\${step.color}-600 mt-1">Alvo: \${step.targetRole}</div>
+                        <div class="text-xs font-semibold uppercase tracking-wide \${colorClasses.text} mt-1">Alvo: \${step.targetRole}</div>
                     </div>
                     <div class="text-[10px] px-2 py-1 bg-slate-100 rounded text-slate-500 font-bold border border-slate-200">\${step.requirements.type}</div>
                 </div>
@@ -272,13 +286,13 @@ function renderJourney() {
                             <span class="font-bold text-slate-600">Discipulado (\${step.requirements.type})</span>
                             <span class="text-slate-400">\${state.meetingsCount}/\${step.requirements.meetingsTotal}</span>
                         </div>
-                        <div class="h-3 bg-slate-100 rounded-full overflow-hidden cursor-pointer group relative" onclick="\${isActive ? \`registerMeeting(\${step.id})\` : ''}">
-                            <div class="h-full bg-\${step.color}-500 progress-bar-transition group-hover:bg-\${step.color}-400" style="width: \${meetingsPct}%"></div>
+                        <div class="h-3 bg-slate-100 rounded-full overflow-hidden cursor-pointer group relative" onclick="\${isActive ? \`window.registerMeeting(\${step.id})\` : ''}">
+                            <div class="h-full \${colorClasses.bg} progress-bar-transition \${colorClasses.bgHover}" style="width: \${meetingsPct}%"></div>
                             \${isActive && state.meetingsCount < step.requirements.meetingsTotal ? \`<div class="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">+ REGISTRAR</div>\` : ''}
                         </div>
                         <p class="text-[10px] text-slate-400 mt-1">Clique na barra para registrar um encontro.</p>
                     </div>
-                    <div class="flex items-center justify-between p-3 rounded-lg border \${state.courseCompleted ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'} cursor-pointer hover:shadow-sm transition-all" onclick="\${isActive ? \`toggleCourse(\${step.id})\` : ''}">
+                    <div class="flex items-center justify-between p-3 rounded-lg border \${state.courseCompleted ? 'bg-green-50 border-green-200' : 'bg-slate-50 border-slate-200'} cursor-pointer hover:shadow-sm transition-all" onclick="\${isActive ? \`window.toggleCourse(\${step.id})\` : ''}">
                         <div class="flex items-center gap-3">
                             <div class="w-8 h-8 rounded-full flex items-center justify-center \${state.courseCompleted ? 'bg-green-500 text-white' : 'bg-slate-200 text-slate-400'}">
                                 <span class="material-symbols-outlined text-sm">school</span>
@@ -291,16 +305,16 @@ function renderJourney() {
                         \${state.courseCompleted ? '<span class="material-symbols-outlined text-green-500">check_circle</span>' : ''}
                     </div>
                     <div id="approvals-area-\${step.id}" class="\${canShowApprovals(step.id) ? 'block' : 'hidden'} animate-fade-in pt-2 border-t border-slate-100 grid grid-cols-2 gap-2">
-                        <button onclick="toggleApproval(\${step.id}, 'mentor')" class="p-2 rounded-lg border text-center transition-all \${state.mentorApproved ? 'bg-green-100 border-green-300 text-green-800' : 'bg-white border-dashed border-slate-300 text-slate-400 hover:border-indigo-300 hover:text-indigo-500'}">
+                        <button onclick="window.toggleApproval(\${step.id}, 'mentor')" class="p-2 rounded-lg border text-center transition-all \${state.mentorApproved ? 'bg-green-100 border-green-300 text-green-800' : 'bg-white border-dashed border-slate-300 text-slate-400 hover:border-indigo-300 hover:text-indigo-500'}">
                             <div class="text-[10px] uppercase font-bold mb-1">Mentor</div>
                             <span class="material-symbols-outlined text-xl">\${state.mentorApproved ? 'verified' : 'person_add'}</span>
                         </button>
-                        <button onclick="toggleApproval(\${step.id}, 'supervisor')" class="p-2 rounded-lg border text-center transition-all \${state.supervisorApproved ? 'bg-green-100 border-green-300 text-green-800' : 'bg-white border-dashed border-slate-300 text-slate-400 hover:border-indigo-300 hover:text-indigo-500'}">
+                        <button onclick="window.toggleApproval(\${step.id}, 'supervisor')" class="p-2 rounded-lg border text-center transition-all \${state.supervisorApproved ? 'bg-green-100 border-green-300 text-green-800' : 'bg-white border-dashed border-slate-300 text-slate-400 hover:border-indigo-300 hover:text-indigo-500'}">
                             <div class="text-[10px] uppercase font-bold mb-1">Supervisor</div>
                             <span class="material-symbols-outlined text-xl">\${state.supervisorApproved ? 'verified_user' : 'shield_person'}</span>
                         </button>
                     </div>
-                    \${isActive ? \`<button id="btn-promote-\${step.id}" onclick="attemptPromotion(\${step.id})" disabled class="w-full py-3 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 mt-2 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed bg-gradient-to-r from-\${step.color}-600 to-\${step.color}-500 text-white hover:shadow-lg hover:scale-[1.02]"><span class="material-symbols-outlined text-base">lock</span> PROMOVER PARA \${step.targetRole.toUpperCase()}</button>\` : ''}
+                    \${isActive ? \`<button id="btn-promote-\${step.id}" onclick="window.attemptPromotion(\${step.id})" disabled class="w-full py-3 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 mt-2 disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed bg-gradient-to-r \${colorClasses.bgGradientFrom} \${colorClasses.bgGradientTo} text-white hover:shadow-lg hover:scale-[1.02]"><span class="material-symbols-outlined text-base">lock</span> PROMOVER PARA \${step.targetRole.toUpperCase()}</button>\` : ''}
                     \${isPast ? \`<div class="w-full py-2 bg-green-100 text-green-700 text-xs font-bold rounded-lg text-center flex items-center justify-center gap-1"><span class="material-symbols-outlined text-sm">history</span>FASE CONCLUÍDA</div>\` : ''}
                 </div>
             </div>
@@ -310,7 +324,7 @@ function renderJourney() {
     checkUnlockConditions();
 }
 
-function registerMeeting(stepId) {
+window.registerMeeting = function(stepId) {
     const stepConfig = journeyConfig.find(c => c.id === stepId);
     const state = appState.stepsData[stepId];
     if (state.meetingsCount < stepConfig.requirements.meetingsTotal) {
@@ -319,7 +333,7 @@ function registerMeeting(stepId) {
     }
 }
 
-function toggleCourse(stepId) {
+window.toggleCourse = function(stepId) {
     appState.stepsData[stepId].courseCompleted = !appState.stepsData[stepId].courseCompleted;
     renderJourney();
 }
@@ -330,7 +344,7 @@ function canShowApprovals(stepId) {
     return state.courseCompleted && state.meetingsCount >= stepConfig.requirements.meetingsTotal;
 }
 
-function toggleApproval(stepId, type) {
+window.toggleApproval = function(stepId, type) {
     const state = appState.stepsData[stepId];
     if (type === 'mentor') state.mentorApproved = !state.mentorApproved;
     if (type === 'supervisor') state.supervisorApproved = !state.supervisorApproved;
@@ -360,7 +374,7 @@ function checkUnlockConditions() {
     });
 }
 
-function attemptPromotion(stepId) {
+window.attemptPromotion = function(stepId) {
     const stepConfig = journeyConfig.find(c => c.id === stepId);
     if (!stepConfig) return;
     launchConfetti();
@@ -394,7 +408,7 @@ function showLevelUpModal(newRole) {
     }
 }
 
-function closeLevelUp() {
+window.closeLevelUp = function() {
     const modal = document.getElementById('levelup-modal');
     const card = document.getElementById('levelup-card');
     if(modal) modal.classList.add('opacity-0');
@@ -410,21 +424,21 @@ function launchConfetti() {
     }
 }
 
-function resetApp() {
+window.resetApp = function() {
     if(confirm("Reiniciar todo o progresso?")) {
         appState.currentLevelIndex = 0;
-        initApp();
+        window.initApp();
     }
 }
 
-function showSourceModal() {
+window.showSourceModal = function() {
     const modal = document.getElementById('source-modal');
     const textarea = document.getElementById('source-code-area');
     if (textarea) textarea.value = document.documentElement.outerHTML;
     if (modal) modal.classList.remove('hidden');
 }
 
-function copyCode() {
+window.copyCode = function() {
     const textarea = document.getElementById("source-code-area");
     if(textarea) {
         textarea.select();
@@ -432,18 +446,6 @@ function copyCode() {
         alert("HTML copiado com sucesso!");
     }
 }
-
-// Attach functions to window to be accessible from inline event handlers
-window.registerMeeting = registerMeeting;
-window.toggleCourse = toggleCourse;
-window.toggleApproval = toggleApproval;
-window.attemptPromotion = attemptPromotion;
-window.closeLevelUp = closeLevelUp;
-window.resetApp = resetApp;
-window.showSourceModal = showSourceModal;
-window.copyCode = copyCode;
-
-initApp();
 `;
 
 export function DiscipleshipTrail() {
@@ -475,6 +477,16 @@ export function DiscipleshipTrail() {
       <Script id="discipleship-trail-script" strategy="lazyOnload">
         {pageScript}
       </Script>
+      <Script id="init-discipleship-trail" strategy="lazyOnload">
+        {`
+          if (document.readyState === 'complete') {
+            window.initApp();
+          } else {
+            window.addEventListener('load', window.initApp);
+          }
+        `}
+      </Script>
     </>
   );
 }
+
