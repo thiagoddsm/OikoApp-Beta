@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -695,10 +696,9 @@ const retreatHtmlContent = `
 
             </div>
         </div>
-
     </main>
 </div>
-`;
+`
 
 const retreatScript = `
     function switchTab(tabId) {
@@ -758,6 +758,11 @@ export default function RetreatPage() {
             <style>
                 {`
                 /* --- ESTILOS GERAIS --- */
+                #retreat-container {
+                    font-family: 'Inter', sans-serif;
+                    background-color: #f8fafc;
+                    color: #334155;
+                }
                 .card-shadow {
                     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
                     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -789,7 +794,7 @@ export default function RetreatPage() {
                 }
                 
                 .details-open {
-                    max-height: 2000px;
+                    max-height: 2000px; /* Large enough for any content */
                     opacity: 1;
                     margin-top: 1rem;
                     padding-top: 1rem;
@@ -825,6 +830,10 @@ export default function RetreatPage() {
                     z-index: 0;
                     border-radius: 4px;
                 }
+                 .step-card {
+                     transition: all 0.3s ease-in-out;
+                 }
+
 
                 /* --- TAGS E BADGES (SISTEMA DE CORES) --- */
                 .badge-base {
@@ -891,12 +900,7 @@ export default function RetreatPage() {
                     animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
                     z-index: -1;
                 }
-                #retreat-container {
-                    font-family: 'Inter', sans-serif;
-                    background-color: #f8fafc;
-                    color: #334155;
-                }
-                #retreat-container a { color: #0ea5e9; }
+                
                 #retreat-container i { line-height: 1; }
                 `}
             </style>
@@ -908,3 +912,4 @@ export default function RetreatPage() {
         </div>
     );
 }
+
