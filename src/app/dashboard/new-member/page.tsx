@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { AlertCircle, Loader } from "lucide-react";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useFirebase, useCollection, addDocumentNonBlocking } from "@/firebase";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { collection, Timestamp } from "firebase/firestore";
@@ -27,16 +26,16 @@ type CellType = {
   nome: string;
 };
 
-const integrationStatusOptions = [
-  { id: 'visitante_nao_crente', title: 'Visitante (Não Crente)' },
-  { id: 'novo_convertido', title: 'Novo Convertido' },
-  { id: 'recem_chegado', title: 'Recém Chegado (de outra igreja)' },
-  { id: 'em_discipulado_td', title: 'Em Discipulado (TD)' },
-  { id: 'batizado_transferido', title: 'Batizado/Transferido' },
-  { id: 'em_gc', title: 'Participando de GC' },
-  { id: 'curso_membros', title: 'Fazendo Curso de Membros' },
-  { id: 'servindo', title: 'Servindo em Ministério' },
-  { id: 'lider_gc', title: 'Líder de GC' }
+const journeyColumns = [
+    { id: 'visitante_nao_crente', title: 'Visitante (Não Crente)' },
+    { id: 'novo_convertido', title: 'Novo Convertido' },
+    { id: 'recem_chegado', title: 'Recém Chegado (de outra igreja)' },
+    { id: 'em_discipulado_td', title: 'Em Discipulado (TD)' },
+    { id: 'batizado_transferido', title: 'Batizado/Transferido' },
+    { id: 'em_gc', title: 'Participando de GC' },
+    { id: 'curso_membros', title: 'Fazendo Curso de Membros' },
+    { id: 'servindo', title: 'Servindo em Ministério' },
+    { id: 'lider_gc', title: 'Líder de GC' }
 ];
 
 export default function NewMemberPage() {
@@ -86,8 +85,8 @@ export default function NewMemberPage() {
             name: visitorName,
             phone: visitorPhone,
             email: '',
+            roles: ['member'],
             hierarchy: {
-                role: 'membro',
                 celulaId: cellId || null,
                 supervisorId: responsibleUserId || null,
             },
@@ -138,7 +137,7 @@ export default function NewMemberPage() {
                         <SelectValue placeholder="Selecione o estágio atual" />
                     </SelectTrigger>
                     <SelectContent>
-                        {integrationStatusOptions.map((status) => (
+                        {journeyColumns.map((status) => (
                             <SelectItem key={status.id} value={status.id}>
                                 {status.title}
                             </SelectItem>

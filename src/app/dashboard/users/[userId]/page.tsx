@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -55,6 +56,18 @@ function UserInfoItem({ icon: Icon, label, value }) {
   );
 }
 
+const statusLabels: { [key: string]: string } = {
+  visitante_nao_crente: "Visitante (Não Crente)",
+  novo_convertido: "Novo Convertido",
+  recem_chegado: "Recém Chegado",
+  em_discipulado_td: "Em Discipulado (TD)",
+  batizado_transferido: "Batizado / Transferido",
+  em_gc: "Em GC",
+  curso_membros: "Curso de Membros",
+  servindo: "Servindo",
+  lider_gc: "Líder de GC",
+};
+
 export default function UserProfilePage() {
   const params = useParams();
   const userId = params.userId as string;
@@ -111,7 +124,9 @@ export default function UserProfilePage() {
                 <AvatarFallback className="text-3xl">{userProfile.name.charAt(0)}</AvatarFallback>
               </Avatar>
               <CardTitle>{userProfile.name}</CardTitle>
-              <CardDescription className="capitalize">{(userProfile.integrationStatus || 'Não definido').replace(/_/g, ' ')}</CardDescription>
+              <CardDescription className="capitalize">
+                {statusLabels[userProfile.integrationStatus || ''] || 'Não definido'}
+              </CardDescription>
             </CardHeader>
             <CardContent className="text-sm">
                <div className="space-y-4">

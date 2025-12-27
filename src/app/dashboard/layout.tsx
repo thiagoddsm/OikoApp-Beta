@@ -63,7 +63,10 @@ import { PendingAccess } from "@/components/auth/pending-access";
 
 export const userRoles: { [key: string]: string } = {
   'admin': 'Admin',
+  'pastor_senior': 'Pastor Sênior',
   'pastor': 'Pastor',
+  'lider_rede': 'Líder de Rede',
+  'lider_area': 'Líder de Área',
   'gc_leader': 'Líder de GC',
   'team_leader': 'Líder de Equipe',
   'member': 'Membro',
@@ -220,6 +223,7 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/attendance')) return 'Frequência nos Cultos';
       if (path.startsWith('/dashboard/volunteering/schedule')) return 'Escalas de Voluntários';
       if (path.startsWith('/dashboard/volunteering')) return 'Equipes de Voluntários';
+      if (path.startsWith('/dashboard/teaching/discipleship-trail')) return 'Trilho de Discipulado';
       if (path.startsWith('/dashboard/teaching')) return 'Ensino';
       if (path.startsWith('/dashboard/events/retreat')) return 'Retiro de Líderes';
       if (path.startsWith('/dashboard/events')) return 'Eventos e Produção';
@@ -243,7 +247,7 @@ export default function DashboardLayout({
   }
   
   const userRolesList = userData?.roles || [];
-  const hasAccess = userRolesList.includes('admin') || userRolesList.includes('pastor') || userRolesList.includes('lider_rede');
+  const hasAccess = userRolesList.length > 0 && userRolesList[0] !== 'member';
 
   if (user && !hasAccess) {
     return <PendingAccess userName={user.displayName} onLogout={handleLogout} />;

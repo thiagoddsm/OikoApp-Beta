@@ -2,7 +2,6 @@
 'use client';
 
 import { UnderConstruction } from '@/components/common/under-construction';
-import { Footprints } from 'lucide-react';
 
 export default function DiscipleshipTrailPage() {
   return (
