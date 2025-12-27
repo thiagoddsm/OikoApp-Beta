@@ -3,7 +3,7 @@
 
 import React, { useState } from 'react';
 import { useParams } from 'next/navigation';
-import { useDoc } from '@/firebase';
+import { useDoc, useCollection } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -85,8 +85,11 @@ export default function UserProfilePage() {
     userProfile?.hierarchy?.supervisorId ? `users/${userProfile.hierarchy.supervisorId}` : null
   );
 
+  const { data: allUsers, isLoading: isLoadingAllUsers } = useCollection<UserProfile>('users');
+
+
   const avatar = PlaceHolderImages.find(p => p.id === (userProfile?.avatar || 'avatar-1'));
-  const isLoading = isLoadingUser || isLoadingCell || isLoadingSupervisor;
+  const isLoading = isLoadingUser || isLoadingCell || isLoadingSupervisor || isLoadingAllUsers;
 
   if (isLoading) {
     return (
@@ -165,7 +168,7 @@ export default function UserProfilePage() {
                     <TabsTrigger value="history">Histórico</TabsTrigger>
                 </TabsList>
                 <TabsContent value="discipleship">
-                    <DiscipleshipNotes memberId={userId} />
+                    <DiscipleshipNotes memberId={userId} allUsers={allUsers || []} />
                 </TabsContent>
                  <TabsContent value="trail">
                     <Card>

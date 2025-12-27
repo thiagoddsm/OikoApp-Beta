@@ -1,8 +1,8 @@
 
 'use client';
 
-import React, { useState } from 'react';
-import { useCollection, addDocumentNonBlocking, useDoc, useFirebase } from '@/firebase';
+import React, { useState, useMemo } from 'react';
+import { useCollection, addDocumentNonBlocking, useFirebase } from '@/firebase';
 import { Timestamp, collection } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,21 +27,7 @@ type UserProfile = {
     name: string;
 };
 
-// Componente para buscar e exibir o nome do autor de forma isolada
-function AuthorName({ authorId }: { authorId: string }) {
-    const { data: author, isLoading } = useDoc<UserProfile>(
-        authorId ? `users/${authorId}` : null
-    );
-
-    if (isLoading) {
-        return <span className="text-muted-foreground">...</span>;
-    }
-
-    return <>{author?.name || 'Desconhecido'}</>;
-}
-
-
-function NoteCard({ note }: { note: MemberNote }) {
+function NoteCard({ note, authorName }: { note: MemberNote, authorName: string }) {
     const noteDate = note.createdAt?.toDate();
     const formattedDate = noteDate ? formatDistanceToNow(noteDate, { addSuffix: true, locale: ptBR }) : 'data desconhecida';
 
@@ -58,7 +44,7 @@ function NoteCard({ note }: { note: MemberNote }) {
             <div className="ml-4 space-y-2">
                 <div className="flex justify-between items-center">
                     <p className="text-sm font-semibold">
-                       {noteTypes[note.type] || 'Anotação'} por <AuthorName authorId={note.authorId} />
+                       {noteTypes[note.type] || 'Anotação'} por {authorName}
                     </p>
                     <p className="text-xs text-muted-foreground">{formattedDate}</p>
                 </div>
@@ -68,7 +54,7 @@ function NoteCard({ note }: { note: MemberNote }) {
     );
 }
 
-export function DiscipleshipNotes({ memberId }: { memberId: string }) {
+export function DiscipleshipNotes({ memberId, allUsers }: { memberId: string; allUsers: UserProfile[] }) {
     const { firestore, user } = useFirebase();
     const { toast } = useToast();
     const [noteContent, setNoteContent] = useState('');
@@ -76,11 +62,12 @@ export function DiscipleshipNotes({ memberId }: { memberId: string }) {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const { data: notes, isLoading: isLoadingNotes } = useCollection<MemberNote>(
-        memberId ? 'member_notes' : null,
-        memberId ? [{ field: 'memberId', operator: '==', value: memberId }] : [],
+        'member_notes',
+        [{ field: 'memberId', operator: '==', value: memberId }],
         [{ field: 'createdAt', direction: 'desc' }]
     );
-
+    
+    const userMap = useMemo(() => new Map(allUsers.map(u => [u.id, u.name])), [allUsers]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -153,7 +140,7 @@ export function DiscipleshipNotes({ memberId }: { memberId: string }) {
                         </div>
                     )}
                     {notes?.map(note => (
-                        <NoteCard key={note.id} note={note} />
+                        <NoteCard key={note.id} note={note} authorName={userMap.get(note.authorId) || 'Desconhecido'}/>
                     ))}
                 </div>
             </CardContent>
