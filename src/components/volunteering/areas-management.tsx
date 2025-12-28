@@ -1,10 +1,6 @@
-
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useCollection, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { doc, collection } from 'firebase/firestore';
-import { useFirebase } from '@/firebase/provider';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,25 +9,39 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Loader2, PlusCircle, Pencil, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
+import { useVolunteering } from '@/contexts/volunteering-context'; // Import the hook
 
 type AreaOfService = {
   id: string;
   name: string;
 };
 
-function AreaFormDialog({ open, onOpenChange, existingArea, onSave }) {
+function AreaFormDialog({ open, onOpenChange, existingArea }) {
+  const { addArea, updateArea } = useVolunteering();
   const [name, setName] = useState(existingArea?.name || '');
   const [isSaving, setIsSaving] = useState(false);
+  const { toast } = useToast();
 
-  useEffect(() => {
+  React.useEffect(() => {
     setName(existingArea?.name || '');
   }, [existingArea, open]);
 
   const handleSave = async () => {
     setIsSaving(true);
-    await onSave({ ...existingArea, name });
-    setIsSaving(false);
-    onOpenChange(false);
+    try {
+      if (existingArea) {
+        await updateArea(existingArea.id, { name });
+        toast({ title: 'Área atualizada!', description: `A área "${name}" foi salva.` });
+      } else {
+        await addArea({ name });
+        toast({ title: 'Área criada!', description: `A área "${name}" foi adicionada.` });
+      }
+      onOpenChange(false);
+    } catch (error) {
+       toast({ variant: 'destructive', title: 'Erro ao salvar', description: (error as Error).message });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -60,37 +70,11 @@ function AreaFormDialog({ open, onOpenChange, existingArea, onSave }) {
 }
 
 export default function AreasManagement() {
-  const { firestore } = useFirebase();
-  const { toast } = useToast();
-  const { data: areas, isLoading } = useCollection<AreaOfService>('areas_of_service');
-
+  const { areas, deleteArea, isLoading } = useVolunteering();
   const [isFormOpen, setFormOpen] = useState(false);
   const [isDeleteOpen, setDeleteOpen] = useState(false);
   const [selectedArea, setSelectedArea] = useState<AreaOfService | null>(null);
-
-  const handleSave = (areaData: Partial<AreaOfService>) => {
-    if (!firestore) return;
-    if (areaData.id) {
-      // Update
-      const docRef = doc(firestore, 'areas_of_service', areaData.id);
-      updateDocumentNonBlocking(docRef, { name: areaData.name });
-      toast({ title: 'Área atualizada!', description: `A área "${areaData.name}" foi salva.` });
-    } else {
-      // Create
-      const collRef = collection(firestore, 'areas_of_service');
-      addDocumentNonBlocking(collRef, { name: areaData.name });
-      toast({ title: 'Área criada!', description: `A área "${areaData.name}" foi adicionada.` });
-    }
-  };
-
-  const handleDelete = () => {
-    if (!selectedArea || !firestore) return;
-    const docRef = doc(firestore, 'areas_of_service', selectedArea.id);
-    deleteDocumentNonBlocking(docRef);
-    toast({ title: 'Área excluída!', description: `A área "${selectedArea.name}" será removida.` });
-    setDeleteOpen(false);
-    setSelectedArea(null);
-  };
+  const { toast } = useToast();
 
   const openCreateDialog = () => {
     setSelectedArea(null);
@@ -105,6 +89,18 @@ export default function AreasManagement() {
   const openDeleteDialog = (area: AreaOfService) => {
     setSelectedArea(area);
     setDeleteOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!selectedArea) return;
+    try {
+        await deleteArea(selectedArea.id);
+        toast({ title: 'Área excluída!', description: `A área "${selectedArea.name}" foi removida com sucesso.` });
+    } catch(error) {
+        toast({ variant: 'destructive', title: 'Erro ao excluir', description: (error as Error).message });
+    }
+    setDeleteOpen(false);
+    setSelectedArea(null);
   };
 
   return (
@@ -161,7 +157,6 @@ export default function AreasManagement() {
           open={isFormOpen}
           onOpenChange={setFormOpen}
           existingArea={selectedArea}
-          onSave={handleSave}
         />
       )}
 
@@ -169,7 +164,7 @@ export default function AreasManagement() {
         <DeleteConfirmationDialog
           open={isDeleteOpen}
           onOpenChange={setDeleteOpen}
-          onConfirm={handleDelete}
+          onConfirm={confirmDelete}
           itemName={selectedArea.name}
           itemType="Área de Serviço"
         />

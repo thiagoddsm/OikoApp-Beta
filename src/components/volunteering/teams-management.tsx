@@ -1,9 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { useCollection, deleteDocumentNonBlocking } from '@/firebase';
-import { doc } from 'firebase/firestore';
-import { useFirebase } from '@/firebase/provider';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -11,27 +8,17 @@ import { Loader2, PlusCircle, Pencil, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TeamFormDialog } from '@/components/volunteering/team-form-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
+import { useVolunteering } from '@/contexts/volunteering-context'; // Import the hook
 
 type Team = {
   id: string;
   name: string;
-  members: string[]; // array of user IDs
-  areaIds: string[]; // array of area IDs
-};
-
-type User = {
-  id: string;
-  name: string;
-  avatar?: string;
-};
-
-type AreaOfService = {
-  id: string;
-  name: string;
+  members: string[];
+  areaIds: string[];
 };
 
 export default function TeamsManagement() {
-  const { firestore } = useFirebase();
+  const { teams, deleteTeam, areas, isLoading } = useVolunteering();
   const { toast } = useToast();
 
   const [isTeamDialogOpen, setTeamDialogOpen] = useState(false);
@@ -39,11 +26,7 @@ export default function TeamsManagement() {
   const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [teamToDelete, setTeamToDelete] = useState<Team | null>(null);
 
-  const { data: teams, isLoading: isLoadingTeams } = useCollection<Team>('teams');
-  const { data: users, isLoading: isLoadingUsers } = useCollection<User>('users');
-  const { data: areas, isLoading: isLoadingAreas } = useCollection<AreaOfService>('areas_of_service');
-
-  const areaMap = useMemo(() => new Map(areas?.map(area => [area.id, area])), [areas]);
+  const areaMap = React.useMemo(() => new Map(areas?.map(area => [area.id, area])), [areas]);
 
   const handleCreateTeam = () => {
     setEditingTeam(null);
@@ -60,22 +43,24 @@ export default function TeamsManagement() {
     setDeleteDialogOpen(true);
   };
 
-  const confirmDelete = () => {
-    if (!teamToDelete || !firestore) return;
-
-    const docRef = doc(firestore, 'teams', teamToDelete.id);
-    deleteDocumentNonBlocking(docRef);
-
-    toast({
-      title: "Exclusão Agendada",
-      description: `A equipe "${teamToDelete.name}" será excluída.`,
-    });
-
+  const confirmDelete = async () => {
+    if (!teamToDelete) return;
+    try {
+        await deleteTeam(teamToDelete.id);
+        toast({
+          title: "Exclusão Agendada",
+          description: `A equipe "${teamToDelete.name}" será excluída.`,
+        });
+    } catch(error) {
+         toast({
+          variant: "destructive",
+          title: "Erro ao Excluir",
+          description: (error as Error).message,
+        });
+    }
     setDeleteDialogOpen(false);
     setTeamToDelete(null);
   };
-  
-  const isLoading = isLoadingTeams || isLoadingUsers || isLoadingAreas;
 
   return (
     <>
@@ -143,7 +128,6 @@ export default function TeamsManagement() {
         <TeamFormDialog
             open={isTeamDialogOpen}
             onOpenChange={setTeamDialogOpen}
-            allAreas={areas || []}
             existingTeam={editingTeam}
         />
       )}

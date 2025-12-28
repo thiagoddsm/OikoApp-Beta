@@ -7,14 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
-import { MultiSelect } from '@/components/ui/multi-select';
-
-type AreaOfService = {
-  id: string;
-  name: string;
-};
+import { MultiSelect, OptionType } from '@/components/ui/multi-select';
+import { useVolunteering } from '@/contexts/volunteering-context';
 
 type Team = {
   id: string;
@@ -26,12 +20,11 @@ type Team = {
 interface TeamFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  allAreas: AreaOfService[];
   existingTeam: Team | null;
 }
 
-export function TeamFormDialog({ open, onOpenChange, allAreas, existingTeam }: TeamFormDialogProps) {
-  const { firestore } = useFirebase();
+export function TeamFormDialog({ open, onOpenChange, existingTeam }: TeamFormDialogProps) {
+  const { addTeam, updateTeam, areas } = useVolunteering();
   const { toast } = useToast();
   const [name, setName] = useState('');
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
@@ -47,10 +40,11 @@ export function TeamFormDialog({ open, onOpenChange, allAreas, existingTeam }: T
     }
   }, [existingTeam, open]);
 
-  const areaOptions = allAreas.map(area => ({
-    value: area.id,
-    label: area.name,
-  }));
+  const areaOptions: OptionType[] = React.useMemo(() => 
+    areas.map(area => ({
+      value: area.id,
+      label: area.name,
+    })), [areas]);
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -61,14 +55,7 @@ export function TeamFormDialog({ open, onOpenChange, allAreas, existingTeam }: T
       });
       return;
     }
-    if (!firestore) {
-        toast({
-            variant: "destructive",
-            title: "Erro de Conexão",
-            description: "Não foi possível conectar ao banco de dados.",
-        });
-        return;
-    }
+    
     setIsSaving(true);
     
     const teamData = {
@@ -77,24 +64,26 @@ export function TeamFormDialog({ open, onOpenChange, allAreas, existingTeam }: T
       members: existingTeam?.members || [],
     };
 
-    if (existingTeam) {
-      const teamDocRef = doc(firestore, 'teams', existingTeam.id);
-      updateDocumentNonBlocking(teamDocRef, teamData);
-      toast({
-        title: "Sucesso!",
-        description: `A equipe "${name}" será atualizada em breve.`,
-      });
-    } else {
-      const teamsCollection = collection(firestore, 'teams');
-      addDocumentNonBlocking(teamsCollection, teamData);
-      toast({
-        title: "Sucesso!",
-        description: `A equipe "${name}" será criada em breve.`,
-      });
+    try {
+        if (existingTeam) {
+          await updateTeam(existingTeam.id, teamData);
+          toast({
+            title: "Sucesso!",
+            description: `A equipe "${name}" foi atualizada.`,
+          });
+        } else {
+          await addTeam(teamData);
+          toast({
+            title: "Sucesso!",
+            description: `A equipe "${name}" foi criada.`,
+          });
+        }
+        onOpenChange(false);
+    } catch(error) {
+        toast({ variant: "destructive", title: "Erro ao Salvar", description: (error as Error).message });
+    } finally {
+        setIsSaving(false);
     }
-
-    setIsSaving(false);
-    onOpenChange(false);
   };
 
   return (
@@ -111,7 +100,7 @@ export function TeamFormDialog({ open, onOpenChange, allAreas, existingTeam }: T
             <Label htmlFor="name" className="text-right">
               Nome
             </Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" placeholder="Ex: Mídia, Louvor, Recepção" />
+            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" placeholder="Ex: Equipe Alfa" />
           </div>
           <div className="grid grid-cols-4 items-start gap-4">
             <Label htmlFor="areas" className="text-right pt-2">
