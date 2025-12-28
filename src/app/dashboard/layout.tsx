@@ -97,6 +97,7 @@ const menuItems = [
       subItems: [
         { href: "/dashboard/volunteering", label: "Áreas de Serviço", icon: HandHelping },
         { href: "/dashboard/volunteering/teams", label: "Equipes", icon: Shield },
+        { href: "/dashboard/volunteering/events", label: "Eventos", icon: CalendarCheck },
       ]
     },
     { 
@@ -225,6 +226,7 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/gc')) return 'GCs e Discipulado';
       if (path.startsWith('/dashboard/attendance')) return 'Frequência nos Cultos';
       if (path.startsWith('/dashboard/volunteering/teams')) return 'Gerenciar Equipes';
+      if (path.startsWith('/dashboard/volunteering/events')) return 'Gerenciar Eventos';
       if (path.startsWith('/dashboard/volunteering')) return 'Gerenciar Áreas de Serviço';
       if (path.startsWith('/dashboard/teaching/wave')) return 'Wave - Escola de Música';
       if (path.startsWith('/dashboard/teaching')) return 'Ensino';

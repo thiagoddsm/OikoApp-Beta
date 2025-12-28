@@ -17,17 +17,30 @@ export type AreaOfService = {
 export type Team = {
   id: string;
   name: string;
+  areaIds?: string[];
+  members?: string[];
 };
 
 export type User = {
-    id: string;
-    name: string;
-    phone?: string;
-    email?: string;
+  id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+}
+
+export type VolunteeringEvent = {
+  id: string;
+  name: string;
+  frequency: 'semanal' | 'pontual';
+  time: string;
+  dayOfWeek?: string;
+  date?: string;
+  requiredAreas?: { areaId: string; quantity: number }[];
 }
 
 type AreaData = Omit<AreaOfService, 'id'>;
 type TeamData = Omit<Team, 'id'>;
+type EventData = Omit<VolunteeringEvent, 'id'>;
 
 
 // --- CONTEXT DEFINITION ---
@@ -36,17 +49,23 @@ interface VolunteeringContextType {
   areas: AreaOfService[];
   users: User[];
   teams: Team[];
+  events: VolunteeringEvent[];
   isLoading: boolean;
   
   // Functions for Areas
   addArea: (data: AreaData) => Promise<void>;
-  updateArea: (id: string, data: AreaData) => Promise<void>;
+  updateArea: (id: string, data: Partial<AreaData>) => Promise<void>;
   deleteArea: (id: string) => Promise<void>;
 
   // Functions for Teams
   addTeam: (data: TeamData) => Promise<void>;
   updateTeam: (id: string, data: Partial<TeamData>) => Promise<void>;
   deleteTeam: (id: string) => Promise<void>;
+
+  // Functions for Events
+  addEvent: (data: EventData) => Promise<void>;
+  updateEvent: (id: string, data: Partial<EventData>) => Promise<void>;
+  deleteEvent: (id: string) => Promise<void>;
 }
 
 const VolunteeringContext = createContext<VolunteeringContextType | undefined>(undefined);
@@ -59,9 +78,10 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { data: areas, isLoading: loadingAreas } = useCollection<AreaOfService>('areas_of_service');
   const { data: teams, isLoading: loadingTeams } = useCollection<Team>('teams');
   const { data: users, isLoading: loadingUsers } = useCollection<User>('users');
+  const { data: events, isLoading: loadingEvents } = useCollection<VolunteeringEvent>('volunteering_events');
 
 
-  const isLoading = loadingAreas || loadingTeams || loadingUsers;
+  const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents;
 
   // --- AREA FUNCTIONS ---
   const addArea = async (data: AreaData) => {
@@ -71,7 +91,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     toast({ title: 'Sucesso', description: `Área "${data.name}" será criada.` });
   };
 
-  const updateArea = async (id: string, data: AreaData) => {
+  const updateArea = async (id: string, data: Partial<AreaData>) => {
     if(!firestore) return;
     const areaDoc = doc(firestore, 'areas_of_service', id);
     updateDocumentNonBlocking(areaDoc, data);
@@ -81,10 +101,31 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const deleteArea = async (areaId: string) => {
     if (!firestore) return;
     
-    const areaRef = doc(firestore, 'areas_of_service', areaId);
-    deleteDocumentNonBlocking(areaRef);
-    
-    toast({ title: 'Sucesso', description: 'A área de serviço será excluída.' });
+    const batch = writeBatch(firestore);
+
+    // 1. Find all teams that reference this area and remove the reference
+    const teamsQuery = query(collection(firestore, 'teams'), where('areaIds', 'array-contains', areaId));
+    try {
+        const teamsSnapshot = await getDocs(teamsQuery);
+        teamsSnapshot.forEach(teamDoc => {
+            batch.update(teamDoc.ref, {
+                areaIds: arrayRemove(areaId)
+            });
+        });
+        
+        // 2. Delete the area document itself
+        const areaRef = doc(firestore, 'areas_of_service', areaId);
+        batch.delete(areaRef);
+
+        // 3. Commit the batch
+        await batch.commit();
+
+        toast({ title: 'Sucesso', description: 'A área de serviço foi excluída e as equipes foram atualizadas.' });
+
+    } catch (error) {
+        console.error("Failed to delete area and update teams:", error);
+        toast({ title: 'Erro', description: 'Não foi possível excluir a área. Verifique o console.', variant: 'destructive' });
+    }
   };
 
   // --- TEAM FUNCTIONS ---
@@ -108,12 +149,34 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     deleteDocumentNonBlocking(teamDoc);
     toast({ title: 'Sucesso', description: 'A equipe será excluída.' });
   };
-
+  
+  // --- EVENT FUNCTIONS ---
+  const addEvent = async (data: EventData) => {
+    if(!firestore) return;
+    const eventsCollection = collection(firestore, 'volunteering_events');
+    addDocumentNonBlocking(eventsCollection, data);
+    toast({ title: 'Sucesso', description: `Evento "${data.name}" será criado.` });
+  };
+  
+  const updateEvent = async (id: string, data: Partial<EventData>) => {
+    if(!firestore) return;
+    const eventDoc = doc(firestore, 'volunteering_events', id);
+    updateDocumentNonBlocking(eventDoc, data);
+    toast({ title: 'Sucesso', description: `Evento será atualizado.` });
+  };
+  
+  const deleteEvent = async (id: string) => {
+    if(!firestore) return;
+    const eventDoc = doc(firestore, 'volunteering_events', id);
+    deleteDocumentNonBlocking(eventDoc);
+    toast({ title: 'Sucesso', description: 'O evento será excluído.' });
+  };
 
   const value = useMemo(() => ({
     areas: areas || [],
     teams: teams || [],
     users: users || [],
+    events: events || [],
     isLoading,
     addArea,
     updateArea,
@@ -121,7 +184,10 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     addTeam,
     updateTeam,
     deleteTeam,
-  }), [areas, teams, users, isLoading]);
+    addEvent,
+    updateEvent,
+    deleteEvent,
+  }), [areas, teams, users, events, isLoading]);
 
   return (
     <VolunteeringContext.Provider value={value}>
