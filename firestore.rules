@@ -79,8 +79,8 @@ service cloud.firestore {
     }
     
     match /volunteering_events/{eventId} {
-        allow read: if isSignedIn();
-        allow write: if hasPermission('canManageSchedules');
+        allow get, list: if isSignedIn();
+        allow create, update, delete: if hasPermission('canManageSchedules');
     }
 
     match /rosters/{rosterId} {
