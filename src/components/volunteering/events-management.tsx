@@ -1,14 +1,50 @@
-
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useVolunteering, type VolunteeringEvent } from '@/contexts/volunteering-context';
+import { useFirebase } from '@/firebase';
+import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Loader2, PlusCircle, MoreHorizontal, Pencil, Trash2, Copy } from 'lucide-react';
+import { Loader2, PlusCircle, MoreHorizontal, Pencil, Trash2, Copy, FlaskConical } from 'lucide-react';
 import { CreateEventDialog } from './create-event-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
+
+function FirestoreWriteTestButton() {
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+    const [isTesting, setIsTesting] = useState(false);
+
+    const handleTestWrite = async () => {
+        if (!firestore) {
+            toast({ variant: 'destructive', title: 'Erro', description: 'Firestore não está disponível.' });
+            return;
+        }
+        setIsTesting(true);
+        try {
+            const testCollection = collection(firestore, 'test_writes');
+            await addDoc(testCollection, {
+                message: 'Hello Firestore!',
+                timestamp: Timestamp.now(),
+            });
+            toast({ variant: 'default', title: 'Sucesso!', description: 'Documento de teste escrito na coleção "test_writes".' });
+        } catch (error: any) {
+            console.error("Firestore test write failed:", error);
+            toast({ variant: 'destructive', title: 'Falha na Escrita', description: `Erro: ${error.message}` });
+        } finally {
+            setIsTesting(false);
+        }
+    };
+
+    return (
+        <Button onClick={handleTestWrite} variant="outline" size="sm" disabled={isTesting}>
+            {isTesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FlaskConical className="mr-2 h-4 w-4" />}
+            Teste de Escrita
+        </Button>
+    );
+}
 
 export function EventsManagement() {
   const { events, areas, isLoading, deleteEvent } = useVolunteering();
@@ -63,10 +99,13 @@ export function EventsManagement() {
     <>
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold">Lista de Eventos</h3>
-        <Button onClick={handleAdd} size="sm">
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Adicionar Evento
-        </Button>
+        <div className="flex items-center gap-2">
+            <FirestoreWriteTestButton />
+            <Button onClick={handleAdd} size="sm">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Adicionar Evento
+            </Button>
+        </div>
       </div>
       <div className="rounded-lg border">
         <Table>

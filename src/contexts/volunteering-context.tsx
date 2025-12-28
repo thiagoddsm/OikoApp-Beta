@@ -76,11 +76,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { data: areas, isLoading: loadingAreas } = useCollection<AreaOfService>('areas_of_service');
   const { data: teams, isLoading: loadingTeams } = useCollection<Team>('teams');
   const { data: users, isLoading: loadingUsers } = useCollection<User>('users');
-  
-  // Temporarily disable fetching events to bypass permission error
-  const events: VolunteeringEvent[] = [];
-  const loadingEvents = false;
-  // const { data: events, isLoading: loadingEvents } = useCollection<VolunteeringEvent>('volunteering_events');
+  const { data: events, isLoading: loadingEvents } = useCollection<VolunteeringEvent>('volunteering_events');
 
 
   const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents;
@@ -89,14 +85,14 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const addArea = async (data: AreaData) => {
     if(!firestore) return;
     const areasCollection = collection(firestore, 'areas_of_service');
-    // addDocumentNonBlocking(areasCollection, data);
+    addDocumentNonBlocking(areasCollection, data);
     toast({ title: 'Sucesso', description: `Área "${data.name}" será criada.` });
   };
 
   const updateArea = async (id: string, data: Partial<AreaData>) => {
     if(!firestore) return;
     const areaDoc = doc(firestore, 'areas_of_service', id);
-    // updateDocumentNonBlocking(areaDoc, data);
+    updateDocumentNonBlocking(areaDoc, data);
     toast({ title: 'Sucesso', description: `Área "${data.name}" será atualizada.` });
   };
   
@@ -105,38 +101,38 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     
     // This logic is temporarily disabled to prevent permission errors.
     
-    // const batch = writeBatch(firestore);
-    // const areaRef = doc(firestore, 'areas_of_service', areaId);
-    // batch.delete(areaRef);
+    const batch = writeBatch(firestore);
+    const areaRef = doc(firestore, 'areas_of_service', areaId);
+    batch.delete(areaRef);
 
-    // try {
-    //     await batch.commit();
+    try {
+        await batch.commit();
         toast({ title: 'Sucesso', description: 'A área de serviço foi excluída.' });
-    // } catch (error) {
-    //     console.error("Failed to delete area:", error);
-    //     toast({ title: 'Erro', description: 'Não foi possível excluir a área. Verifique o console.', variant: 'destructive' });
-    // }
+    } catch (error) {
+        console.error("Failed to delete area:", error);
+        toast({ title: 'Erro', description: 'Não foi possível excluir a área. Verifique o console.', variant: 'destructive' });
+    }
   };
 
   // --- TEAM FUNCTIONS ---
   const addTeam = async (data: TeamData) => {
     if(!firestore) return;
     const teamsCollection = collection(firestore, 'teams');
-    // addDocumentNonBlocking(teamsCollection, data);
+    addDocumentNonBlocking(teamsCollection, data);
     toast({ title: 'Sucesso', description: `Equipe "${data.name}" será criada.` });
   };
 
   const updateTeam = async (id: string, data: Partial<TeamData>) => {
     if(!firestore) return;
     const teamDoc = doc(firestore, 'teams', id);
-    // updateDocumentNonBlocking(teamDoc, data);
+    updateDocumentNonBlocking(teamDoc, data);
     toast({ title: 'Sucesso', description: `Equipe será atualizada.` });
   };
 
   const deleteTeam = async (id: string) => {
     if(!firestore) return;
     const teamDoc = doc(firestore, 'teams', id);
-    // deleteDocumentNonBlocking(teamDoc);
+    deleteDocumentNonBlocking(teamDoc);
     toast({ title: 'Sucesso', description: 'A equipe será excluída.' });
   };
   
@@ -144,21 +140,21 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const addEvent = async (data: EventData) => {
     if(!firestore) return;
     const eventsCollection = collection(firestore, 'volunteering_events');
-    // addDocumentNonBlocking(eventsCollection, data);
+    addDocumentNonBlocking(eventsCollection, data);
     toast({ title: 'Sucesso', description: `Evento "${data.name}" será criado.` });
   };
   
   const updateEvent = async (id: string, data: Partial<EventData>) => {
     if(!firestore) return;
     const eventDoc = doc(firestore, 'volunteering_events', id);
-    // updateDocumentNonBlocking(eventDoc, data);
+    updateDocumentNonBlocking(eventDoc, data);
     toast({ title: 'Sucesso', description: `Evento será atualizado.` });
   };
   
   const deleteEvent = async (id: string) => {
     if(!firestore) return;
     const eventDoc = doc(firestore, 'volunteering_events', id);
-    // deleteDocumentNonBlocking(eventDoc);
+    deleteDocumentNonBlocking(eventDoc);
     toast({ title: 'Sucesso', description: 'O evento será excluído.' });
   };
 
