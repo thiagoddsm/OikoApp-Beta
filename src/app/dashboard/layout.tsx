@@ -93,8 +93,6 @@ const menuItems = [
       label: "Serviço",
       icon: HeartHandshake,
       subItems: [
-        { href: "/dashboard/volunteering", label: "Equipes", icon: Users },
-        { href: "/dashboard/volunteering/schedule", label: "Escalas", icon: CalendarCog },
       ]
     },
     { 
