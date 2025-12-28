@@ -11,13 +11,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { MultiSelect } from '@/components/ui/multi-select';
-import { cn } from '@/lib/utils';
-
-type User = {
-  id: string;
-  name: string;
-  avatar?: string;
-};
 
 type AreaOfService = {
   id: string;
@@ -34,36 +27,26 @@ type Team = {
 interface TeamFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  allUsers: User[];
   allAreas: AreaOfService[];
   existingTeam: Team | null;
 }
 
-export function TeamFormDialog({ open, onOpenChange, allUsers, allAreas, existingTeam }: TeamFormDialogProps) {
+export function TeamFormDialog({ open, onOpenChange, allAreas, existingTeam }: TeamFormDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [name, setName] = useState('');
-  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [focusedSelect, setFocusedSelect] = useState<'areas' | 'members' | null>(null);
 
   useEffect(() => {
     if (existingTeam) {
       setName(existingTeam.name || '');
-      setSelectedMembers(existingTeam.members || []);
       setSelectedAreas(existingTeam.areaIds || []);
     } else {
       setName('');
-      setSelectedMembers([]);
       setSelectedAreas([]);
     }
   }, [existingTeam, open]);
-
-  const userOptions = allUsers.map(user => ({
-    value: user.id,
-    label: user.name,
-  }));
 
   const areaOptions = allAreas.map(area => ({
     value: area.id,
@@ -91,8 +74,9 @@ export function TeamFormDialog({ open, onOpenChange, allUsers, allAreas, existin
     
     const teamData = {
       name,
-      members: selectedMembers,
       areaIds: selectedAreas,
+      // Keep existing members when editing, or initialize as empty for new teams
+      members: existingTeam?.members || [],
     };
 
     if (existingTeam) {
@@ -121,7 +105,7 @@ export function TeamFormDialog({ open, onOpenChange, allUsers, allAreas, existin
         <DialogHeader>
           <DialogTitle>{existingTeam ? 'Editar Equipe' : 'Criar Nova Equipe'}</DialogTitle>
           <DialogDescription>
-            {existingTeam ? 'Altere as informações da equipe abaixo.' : 'Preencha o nome, selecione as áreas e os membros para criar a equipe.'}
+            Defina o nome da equipe e a(s) área(s) de serviço onde ela atuará.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-6 py-4">
@@ -131,10 +115,7 @@ export function TeamFormDialog({ open, onOpenChange, allUsers, allAreas, existin
             </Label>
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" placeholder="Ex: Mídia, Louvor, Recepção" />
           </div>
-          <div 
-            className={cn("grid grid-cols-4 items-start gap-4", focusedSelect === 'areas' ? 'z-20' : 'z-10')}
-            onFocus={() => setFocusedSelect('areas')}
-          >
+          <div className="grid grid-cols-4 items-start gap-4">
             <Label htmlFor="areas" className="text-right pt-2">
               Áreas
             </Label>
@@ -144,22 +125,6 @@ export function TeamFormDialog({ open, onOpenChange, allUsers, allAreas, existin
                     selected={selectedAreas}
                     onChange={setSelectedAreas}
                     placeholder="Selecione as áreas de serviço..."
-                />
-            </div>
-          </div>
-           <div 
-            className={cn("grid grid-cols-4 items-start gap-4", focusedSelect === 'members' ? 'z-20' : 'z-10')}
-            onFocus={() => setFocusedSelect('members')}
-          >
-            <Label htmlFor="members" className="text-right pt-2">
-              Membros
-            </Label>
-            <div className="col-span-3">
-                <MultiSelect
-                    options={userOptions}
-                    selected={selectedMembers}
-                    onChange={setSelectedMembers}
-                    placeholder="Selecione os voluntários..."
                 />
             </div>
           </div>

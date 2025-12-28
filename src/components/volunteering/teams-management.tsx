@@ -7,13 +7,11 @@ import { doc } from 'firebase/firestore';
 import { useFirebase } from '@/firebase/provider';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, PlusCircle, Pencil, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TeamFormDialog } from '@/components/volunteering/team-form-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 type Team = {
   id: string;
@@ -46,7 +44,6 @@ export default function TeamsManagement() {
   const { data: users, isLoading: isLoadingUsers } = useCollection<User>('users');
   const { data: areas, isLoading: isLoadingAreas } = useCollection<AreaOfService>('areas_of_service');
 
-  const userMap = useMemo(() => new Map(users?.map(user => [user.id, user])), [users]);
   const areaMap = useMemo(() => new Map(areas?.map(area => [area.id, area])), [areas]);
 
   const handleCreateTeam = () => {
@@ -101,8 +98,7 @@ export default function TeamsManagement() {
               <TableRow>
                 <TableHead>Nome da Equipe</TableHead>
                 <TableHead>Áreas de Serviço</TableHead>
-                <TableHead>Membros</TableHead>
-                <TableHead className="text-right">Total</TableHead>
+                <TableHead className="text-right">Membros</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
@@ -117,26 +113,6 @@ export default function TeamsManagement() {
                           const area = areaMap.get(areaId);
                           return area ? <Badge key={areaId} variant="outline">{area.name}</Badge> : null;
                         })}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex -space-x-2 overflow-hidden">
-                        {team.members?.slice(0, 5).map(memberId => {
-                            const member = userMap.get(memberId);
-                            if (!member) return null;
-                            const avatar = PlaceHolderImages.find(p => p.id === (member.avatar || 'avatar-1'));
-                            return (
-                                <Avatar key={member.id} className="inline-block h-8 w-8 rounded-full ring-2 ring-background">
-                                    {avatar && <AvatarImage src={avatar.imageUrl} alt={member.name} />}
-                                    <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                            );
-                        })}
-                        {team.members?.length > 5 && (
-                            <Avatar className="relative flex h-8 w-8 items-center justify-center rounded-full bg-muted-foreground text-xs font-medium text-background ring-2 ring-background">
-                                +{team.members.length - 5}
-                            </Avatar>
-                        )}
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
@@ -154,7 +130,7 @@ export default function TeamsManagement() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
+                  <TableCell colSpan={4} className="h-24 text-center">
                     Nenhuma equipe encontrada. Comece criando uma nova.
                   </TableCell>
                 </TableRow>
@@ -168,7 +144,6 @@ export default function TeamsManagement() {
         <TeamFormDialog
             open={isTeamDialogOpen}
             onOpenChange={setTeamDialogOpen}
-            allUsers={users || []}
             allAreas={areas || []}
             existingTeam={editingTeam}
         />
