@@ -17,7 +17,6 @@ export type AreaOfService = {
 export type Team = {
   id: string;
   name: string;
-  areaIds: string[];
 };
 
 export type User = {
@@ -28,6 +27,7 @@ export type User = {
 }
 
 type AreaData = Omit<AreaOfService, 'id'>;
+type TeamData = Omit<Team, 'id'>;
 
 
 // --- CONTEXT DEFINITION ---
@@ -42,6 +42,11 @@ interface VolunteeringContextType {
   addArea: (data: AreaData) => Promise<void>;
   updateArea: (id: string, data: AreaData) => Promise<void>;
   deleteArea: (id: string) => Promise<void>;
+
+  // Functions for Teams
+  addTeam: (data: TeamData) => Promise<void>;
+  updateTeam: (id: string, data: Partial<TeamData>) => Promise<void>;
+  deleteTeam: (id: string) => Promise<void>;
 }
 
 const VolunteeringContext = createContext<VolunteeringContextType | undefined>(undefined);
@@ -74,49 +79,34 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   };
   
   const deleteArea = async (areaId: string) => {
-    if (!firestore || !teams) {
-        toast({ variant: 'destructive', title: 'Erro', description: 'Dados das equipes ainda não carregados.' });
-        return;
-    }
-    const batch = writeBatch(firestore);
-
-    // This is the logic for removing the area from the 'areas' array in each user document,
-    // which seems to be what was described in the "ScaleMaster" explanation.
-    // However, the current data model for 'User' in backend.json doesn't have an 'areas' array.
-    // I will implement the logic for teams, as that is the current data model.
-    // If the User model is updated, this logic should be updated as well.
-    const usersWithAreaQuery = query(collection(firestore, 'users'), where('areas', 'array-contains', areaId));
-     try {
-        const userSnapshot = await getDocs(usersWithAreaQuery);
-        userSnapshot.forEach(userDoc => {
-            const userRef = doc(firestore, 'users', userDoc.id);
-            batch.update(userRef, { areas: arrayRemove(areaId) });
-        });
-    } catch (error) {
-        console.error("Error querying users for area deletion:", error);
-    }
-
-
-    // 1. Remove the areaId from all teams that have it
-    teams.forEach(team => {
-        if (team.areaIds?.includes(areaId)) {
-            const teamRef = doc(firestore, 'teams', team.id);
-            const updatedAreaIds = team.areaIds.filter(id => id !== areaId);
-            batch.update(teamRef, { areaIds: updatedAreaIds });
-        }
-    });
-
-    // 2. Delete the area itself
+    if (!firestore) return;
+    
     const areaRef = doc(firestore, 'areas_of_service', areaId);
-    batch.delete(areaRef);
+    deleteDocumentNonBlocking(areaRef);
+    
+    toast({ title: 'Sucesso', description: 'A área de serviço será excluída.' });
+  };
 
-    try {
-        await batch.commit();
-        toast({ title: 'Sucesso', description: 'Área excluída e desvinculada de equipes e usuários.' });
-    } catch (error) {
-        console.error("Error deleting area and updating teams: ", error);
-        toast({ variant: 'destructive', title: 'Erro na Exclusão', description: 'Não foi possível concluir a operação.' });
-    }
+  // --- TEAM FUNCTIONS ---
+  const addTeam = async (data: TeamData) => {
+    if(!firestore) return;
+    const teamsCollection = collection(firestore, 'teams');
+    addDocumentNonBlocking(teamsCollection, data);
+    toast({ title: 'Sucesso', description: `Equipe "${data.name}" será criada.` });
+  };
+
+  const updateTeam = async (id: string, data: Partial<TeamData>) => {
+    if(!firestore) return;
+    const teamDoc = doc(firestore, 'teams', id);
+    updateDocumentNonBlocking(teamDoc, data);
+    toast({ title: 'Sucesso', description: `Equipe será atualizada.` });
+  };
+
+  const deleteTeam = async (id: string) => {
+    if(!firestore) return;
+    const teamDoc = doc(firestore, 'teams', id);
+    deleteDocumentNonBlocking(teamDoc);
+    toast({ title: 'Sucesso', description: 'A equipe será excluída.' });
   };
 
 
@@ -128,9 +118,9 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     addArea,
     updateArea,
     deleteArea,
-    addTeam: async () => {}, // Placeholder
-    updateTeam: async () => {}, // Placeholder
-    deleteTeam: async () => {}, // Placeholder
+    addTeam,
+    updateTeam,
+    deleteTeam,
   }), [areas, teams, users, isLoading]);
 
   return (
@@ -148,5 +138,3 @@ export function useVolunteering() {
   }
   return context;
 }
-
-    
