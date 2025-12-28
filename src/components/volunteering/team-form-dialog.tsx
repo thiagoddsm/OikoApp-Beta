@@ -1,6 +1,7 @@
+
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -17,39 +18,54 @@ type User = {
   avatar?: string;
 };
 
+type AreaOfService = {
+  id: string;
+  name: string;
+};
+
 type Team = {
   id: string;
   name: string;
   members: string[];
+  areaIds: string[];
 };
 
 interface TeamFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   allUsers: User[];
+  allAreas: AreaOfService[];
   existingTeam: Team | null;
 }
 
-export default function TeamFormDialog({ open, onOpenChange, allUsers, existingTeam }: TeamFormDialogProps) {
+export default function TeamFormDialog({ open, onOpenChange, allUsers, allAreas, existingTeam }: TeamFormDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [name, setName] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (existingTeam) {
       setName(existingTeam.name || '');
       setSelectedMembers(existingTeam.members || []);
+      setSelectedAreas(existingTeam.areaIds || []);
     } else {
       setName('');
       setSelectedMembers([]);
+      setSelectedAreas([]);
     }
   }, [existingTeam, open]);
 
   const userOptions = allUsers.map(user => ({
     value: user.id,
     label: user.name,
+  }));
+
+  const areaOptions = allAreas.map(area => ({
+    value: area.id,
+    label: area.name,
   }));
 
   const handleSave = async () => {
@@ -74,6 +90,7 @@ export default function TeamFormDialog({ open, onOpenChange, allUsers, existingT
     const teamData = {
       name,
       members: selectedMembers,
+      areaIds: selectedAreas,
     };
 
     if (existingTeam) {
@@ -102,7 +119,7 @@ export default function TeamFormDialog({ open, onOpenChange, allUsers, existingT
         <DialogHeader>
           <DialogTitle>{existingTeam ? 'Editar Equipe' : 'Criar Nova Equipe'}</DialogTitle>
           <DialogDescription>
-            {existingTeam ? 'Altere as informações da equipe abaixo.' : 'Preencha o nome e selecione os membros para criar a equipe.'}
+            {existingTeam ? 'Altere as informações da equipe abaixo.' : 'Preencha o nome, selecione as áreas e os membros para criar a equipe.'}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-6 py-4">
@@ -111,6 +128,19 @@ export default function TeamFormDialog({ open, onOpenChange, allUsers, existingT
               Nome
             </Label>
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" placeholder="Ex: Mídia, Louvor, Recepção" />
+          </div>
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label htmlFor="areas" className="text-right pt-2">
+              Áreas
+            </Label>
+            <div className="col-span-3">
+                <MultiSelect
+                    options={areaOptions}
+                    selected={selectedAreas}
+                    onChange={setSelectedAreas}
+                    placeholder="Selecione as áreas de serviço..."
+                />
+            </div>
           </div>
           <div className="grid grid-cols-4 items-start gap-4">
             <Label htmlFor="members" className="text-right pt-2">

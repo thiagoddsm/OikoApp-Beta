@@ -1,6 +1,7 @@
+
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useFirebase, addDocumentNonBlocking } from '@/firebase';
 import { collection } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -17,6 +18,7 @@ import { useCollection } from '@/firebase/firestore/use-collection';
 type Team = {
   id: string;
   name: string;
+  areaIds: string[];
 };
 
 type AreaOfService = {
@@ -60,15 +62,20 @@ export default function SchedulePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isNotifying, setIsNotifying] = useState(false);
 
-  const { data: teams, isLoading: loadingTeams } = useCollection<Team>('teams');
+  const { data: allTeams, isLoading: loadingTeams } = useCollection<Team>('teams');
   const { data: areas, isLoading: loadingAreas } = useCollection<AreaOfService>('areas_of_service');
   
+  const teamsInArea = useMemo(() => {
+    if (!allTeams || !selectedArea) return [];
+    return allTeams.filter(team => team.areaIds?.includes(selectedArea));
+  }, [allTeams, selectedArea]);
+
   const handleGenerateSchedule = () => {
-    if (!selectedArea || !selectedMonth || !teams || teams.length === 0) {
+    if (!selectedArea || !selectedMonth || !teamsInArea || teamsInArea.length === 0) {
       toast({
         variant: 'destructive',
         title: 'Faltam informações',
-        description: 'Por favor, selecione uma área, um mês e certifique-se de que existem equipes cadastradas.',
+        description: 'Selecione uma área com equipes associadas e um mês para gerar a escala.',
       });
       return;
     }
@@ -80,7 +87,7 @@ export default function SchedulePage() {
     
     let teamIndex = 0;
     const schedule = sundays.map(sunday => {
-      const team = teams[teamIndex % teams.length];
+      const team = teamsInArea[teamIndex % teamsInArea.length];
       teamIndex++;
       return {
         date: sunday,

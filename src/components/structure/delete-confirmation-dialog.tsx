@@ -29,25 +29,43 @@ export function DeleteConfirmationDialog({
   itemName,
   itemType,
 }: DeleteConfirmationDialogProps) {
+  
+  const getWarningMessage = () => {
+    switch (itemType) {
+      case 'Rede':
+        return (
+          <>
+            <br/><br/>
+            <strong className="text-destructive">ATENÇÃO:</strong> Todas as áreas dentro desta rede também serão excluídas. As células dentro dessas áreas ficarão sem uma área pai.
+          </>
+        );
+      case 'Área':
+         return (
+          <>
+            <br/><br/>
+            <strong>Atenção:</strong> As células dentro desta área não serão excluídas, mas ficarão sem uma área pai.
+          </>
+        );
+      case 'Área de Serviço':
+        return (
+          <>
+            <br/><br/>
+            <strong>Atenção:</strong> As equipes associadas a esta área não serão excluídas, mas o vínculo será removido.
+          </>
+        )
+      default:
+        return null;
+    }
+  }
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
           <AlertDialogDescription>
-            Esta ação não pode ser desfeita. Isso excluirá permanentemente a {itemType.toLowerCase()} <span className="font-bold">{itemName}</span>.
-            {itemType === 'Rede' && (
-              <>
-                <br/><br/>
-                <strong className="text-destructive">ATENÇÃO:</strong> Todas as áreas dentro desta rede também serão excluídas. As células dentro dessas áreas ficarão sem uma área pai.
-              </>
-            )}
-             {itemType === 'Área' && (
-              <>
-                <br/><br/>
-                <strong>Atenção:</strong> As células dentro desta área não serão excluídas, mas ficarão sem uma área pai.
-              </>
-            )}
+            Esta ação não pode ser desfeita. Isso excluirá permanentemente o item <span className="font-bold">{itemType}: {itemName}</span>.
+            {getWarningMessage()}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
