@@ -2,7 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
@@ -40,7 +48,7 @@ export function TeamFormDialog({ open, onOpenChange, existingTeam }: TeamFormDia
     }
   }, [existingTeam, open]);
 
-  const areaOptions: OptionType[] = React.useMemo(() => 
+  const areaOptions: OptionType[] = React.useMemo(() =>
     areas.map(area => ({
       value: area.id,
       label: area.name,
@@ -55,34 +63,35 @@ export function TeamFormDialog({ open, onOpenChange, existingTeam }: TeamFormDia
       });
       return;
     }
-    
+
     setIsSaving(true);
-    
+
     const teamData = {
       name,
       areaIds: selectedAreas,
+      // Member management is deferred as per user request
       members: existingTeam?.members || [],
     };
 
     try {
-        if (existingTeam) {
-          await updateTeam(existingTeam.id, teamData);
-          toast({
-            title: "Sucesso!",
-            description: `A equipe "${name}" foi atualizada.`,
-          });
-        } else {
-          await addTeam(teamData);
-          toast({
-            title: "Sucesso!",
-            description: `A equipe "${name}" foi criada.`,
-          });
-        }
-        onOpenChange(false);
-    } catch(error) {
-        toast({ variant: "destructive", title: "Erro ao Salvar", description: (error as Error).message });
+      if (existingTeam) {
+        await updateTeam(existingTeam.id, teamData);
+        toast({
+          title: "Sucesso!",
+          description: `A equipe "${name}" foi atualizada.`,
+        });
+      } else {
+        await addTeam(teamData);
+        toast({
+          title: "Sucesso!",
+          description: `A equipe "${name}" foi criada.`,
+        });
+      }
+      onOpenChange(false);
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erro ao Salvar", description: (error as Error).message });
     } finally {
-        setIsSaving(false);
+      setIsSaving(false);
     }
   };
 
@@ -92,29 +101,27 @@ export function TeamFormDialog({ open, onOpenChange, existingTeam }: TeamFormDia
         <DialogHeader>
           <DialogTitle>{existingTeam ? 'Editar Equipe' : 'Criar Nova Equipe'}</DialogTitle>
           <DialogDescription>
-            Defina o nome da equipe e a(s) área(s) de serviço onde ela atuará.
+            Defina o nome da equipe e a(s) área(s) de serviço onde ela atuará. A gestão de membros será feita em outra tela.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-6 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="name" className="text-right">
-              Nome
+          <div className="space-y-2">
+            <Label htmlFor="name">
+              Nome da Equipe
             </Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" placeholder="Ex: Equipe Alfa" />
+            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Equipe Alfa" />
           </div>
-          <div className="grid grid-cols-4 items-start gap-4">
-            <Label htmlFor="areas" className="text-right pt-2">
-              Áreas
+          <div className="space-y-2">
+            <Label htmlFor="areas">
+              Áreas de Serviço
             </Label>
-            <div className="col-span-3">
-              <MultiSelect
+             <MultiSelect
                 options={areaOptions}
                 selected={selectedAreas}
                 onChange={setSelectedAreas}
                 placeholder="Selecione as áreas..."
                 className="w-full"
               />
-            </div>
           </div>
         </div>
         <DialogFooter>
