@@ -38,6 +38,7 @@ import {
   Footprints,
   FileText,
   Waves,
+  HandHelping,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -93,6 +94,7 @@ const menuItems = [
       label: "Serviço",
       icon: HeartHandshake,
       subItems: [
+        { href: "/dashboard/volunteering", label: "Áreas de Serviço", icon: HandHelping },
       ]
     },
     { 
@@ -220,8 +222,7 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/users')) return 'Jornada do Membro (CRM)';
       if (path.startsWith('/dashboard/gc')) return 'GCs e Discipulado';
       if (path.startsWith('/dashboard/attendance')) return 'Frequência nos Cultos';
-      if (path.startsWith('/dashboard/volunteering/schedule')) return 'Escalas de Voluntários';
-      if (path.startsWith('/dashboard/volunteering')) return 'Equipes de Voluntários';
+      if (path.startsWith('/dashboard/volunteering')) return 'Voluntariado';
       if (path.startsWith('/dashboard/teaching/wave')) return 'Wave - Escola de Música';
       if (path.startsWith('/dashboard/teaching')) return 'Ensino';
       if (path.startsWith('/dashboard/events/retreat')) return 'Retiro de Líderes';
