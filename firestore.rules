@@ -77,6 +77,11 @@ service cloud.firestore {
         allow read: if isSignedIn();
         allow write: if hasPermission('canManageTeams');
     }
+    
+    match /volunteering_events/{eventId} {
+        allow read: if isSignedIn();
+        allow write: if hasPermission('canManageSchedules');
+    }
 
     match /rosters/{rosterId} {
         allow read: if isSignedIn();
