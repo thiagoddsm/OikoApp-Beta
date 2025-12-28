@@ -32,21 +32,23 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
   }, [open, existingArea]);
 
   useEffect(() => {
-    if (leaderId) {
+    if (leaderId && leaderId !== 'null') {
       const selectedLeader = users.find(u => u.id === leaderId);
       if (selectedLeader) {
         setLeaderContact(selectedLeader.phone || selectedLeader.email || '');
       }
+    } else {
+        setLeaderContact('');
     }
   }, [leaderId, users]);
 
-  const handleSubmit = async () => {
+  const handleSave = async () => {
     if (!name.trim()) return;
     setIsSaving(true);
     
     const areaData = {
       name,
-      leaderId,
+      leaderId: leaderId === 'null' ? '' : leaderId,
       leaderContact,
     };
 
@@ -64,9 +66,9 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{existingArea ? 'Editar Área' : 'Criar Nova Área de Serviço'}</DialogTitle>
+          <DialogTitle>{existingArea ? 'Editar Área de Serviço' : 'Criar Nova Área de Serviço'}</DialogTitle>
           <DialogDescription>
-            Defina o nome para a área de serviço e, opcionalmente, um líder.
+            Defina o nome da área de serviço e, opcionalmente, vincule um líder e suas informações de contato.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -87,7 +89,7 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
                 <SelectValue placeholder="Selecione um líder" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Nenhum</SelectItem>
+                <SelectItem value="null">Nenhum</SelectItem>
                 {users.map(user => (
                   <SelectItem key={user.id} value={user.id}>
                     {user.name}
@@ -110,7 +112,7 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
           <DialogClose asChild>
             <Button variant="outline">Cancelar</Button>
           </DialogClose>
-          <Button onClick={handleSubmit} disabled={isSaving || !name.trim()}>
+          <Button onClick={handleSave} disabled={isSaving || !name.trim()}>
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Salvar
           </Button>
@@ -119,5 +121,3 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
     </Dialog>
   );
 }
-
-    
