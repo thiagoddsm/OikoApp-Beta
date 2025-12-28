@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -20,8 +19,8 @@ type AreaOfService = {
 type Team = {
   id: string;
   name: string;
-  members: string[];
-  areaIds: string[];
+  members: string[]; // array of user IDs
+  areaIds: string[]; // array of area IDs
 };
 
 interface TeamFormDialogProps {
@@ -75,7 +74,6 @@ export function TeamFormDialog({ open, onOpenChange, allAreas, existingTeam }: T
     const teamData = {
       name,
       areaIds: selectedAreas,
-      // Keep existing members when editing, or initialize as empty for new teams
       members: existingTeam?.members || [],
     };
 
@@ -120,12 +118,13 @@ export function TeamFormDialog({ open, onOpenChange, allAreas, existingTeam }: T
               Áreas
             </Label>
             <div className="col-span-3">
-                <MultiSelect
-                    options={areaOptions}
-                    selected={selectedAreas}
-                    onChange={setSelectedAreas}
-                    placeholder="Selecione as áreas de serviço..."
-                />
+              <MultiSelect
+                options={areaOptions}
+                selected={selectedAreas}
+                onChange={setSelectedAreas}
+                placeholder="Selecione as áreas..."
+                className="w-full"
+              />
             </div>
           </div>
         </div>
