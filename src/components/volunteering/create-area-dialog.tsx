@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface CreateAreaDialogProps {
   open: boolean;
@@ -15,24 +16,46 @@ interface CreateAreaDialogProps {
 }
 
 export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAreaDialogProps) {
-  const { addArea, updateArea } = useVolunteering();
+  const { users, addArea, updateArea, isLoading } = useVolunteering();
+  
   const [name, setName] = useState('');
+  const [leaderId, setLeaderId] = useState('');
+  const [leaderContact, setLeaderContact] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
       setName(existingArea?.name || '');
+      setLeaderId(existingArea?.leaderId || '');
+      setLeaderContact(existingArea?.leaderContact || '');
     }
   }, [open, existingArea]);
+
+  useEffect(() => {
+    if (leaderId) {
+      const selectedLeader = users.find(u => u.id === leaderId);
+      if (selectedLeader) {
+        setLeaderContact(selectedLeader.phone || selectedLeader.email || '');
+      }
+    }
+  }, [leaderId, users]);
 
   const handleSubmit = async () => {
     if (!name.trim()) return;
     setIsSaving(true);
+    
+    const areaData = {
+      name,
+      leaderId,
+      leaderContact,
+    };
+
     if (existingArea) {
-      await updateArea(existingArea.id, name);
+      await updateArea(existingArea.id, areaData);
     } else {
-      await addArea(name);
+      await addArea(areaData);
     }
+
     setIsSaving(false);
     onOpenChange(false);
   };
@@ -41,25 +64,53 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{existingArea ? 'Editar Área' : 'Criar Nova Área'}</DialogTitle>
+          <DialogTitle>{existingArea ? 'Editar Área' : 'Criar Nova Área de Serviço'}</DialogTitle>
           <DialogDescription>
-            Defina o nome para a área de serviço. Ex: Mídia, Recepção, Infantil.
+            Defina o nome para a área de serviço e, opcionalmente, um líder.
           </DialogDescription>
         </DialogHeader>
-        <div className="py-4">
-          <Label htmlFor="area-name">Nome da Área</Label>
-          <Input
-            id="area-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Ex: Louvor"
-          />
+        <div className="space-y-4 py-4">
+          <div>
+            <Label htmlFor="area-name">Nome da Área</Label>
+            <Input
+              id="area-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ex: Mídia"
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="leader-id">Líder (Opcional)</Label>
+            <Select value={leaderId} onValueChange={setLeaderId} disabled={isLoading}>
+              <SelectTrigger id="leader-id">
+                <SelectValue placeholder="Selecione um líder" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Nenhum</SelectItem>
+                {users.map(user => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+           <div>
+            <Label htmlFor="leader-contact">Contato do Líder (Opcional)</Label>
+            <Input
+              id="leader-contact"
+              value={leaderContact}
+              onChange={(e) => setLeaderContact(e.target.value)}
+              placeholder="Telefone ou e-mail"
+            />
+          </div>
         </div>
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="outline">Cancelar</Button>
           </DialogClose>
-          <Button onClick={handleSubmit} disabled={isSaving}>
+          <Button onClick={handleSubmit} disabled={isSaving || !name.trim()}>
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Salvar
           </Button>
@@ -68,3 +119,5 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
     </Dialog>
   );
 }
+
+    

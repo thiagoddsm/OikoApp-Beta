@@ -105,7 +105,9 @@
       "type": "object",
       "description": "A specific area where volunteers serve (e.g., Media, Worship, Kids).",
       "properties": {
-        "name": { "type": "string" }
+        "name": { "type": "string" },
+        "leaderId": { "type": "string", "description": "User ID of the area leader." },
+        "leaderContact": { "type": "string", "description": "Contact info for the leader." }
       },
       "required": ["name"]
     },

@@ -1,18 +1,21 @@
 
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useVolunteering, type AreaOfService } from '@/contexts/volunteering-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
-import { Loader2, PlusCircle, Pencil, Trash2 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Loader2, PlusCircle, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { CreateAreaDialog } from './create-area-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 
 export function AreasManagement() {
-  const { areas, isLoading, deleteArea } = useVolunteering();
+  const { areas, users, isLoading, deleteArea } = useVolunteering();
   const [isFormOpen, setFormOpen] = useState(false);
   const [isDeleteOpen, setDeleteOpen] = useState(false);
   const [selectedArea, setSelectedArea] = useState<AreaOfService | null>(null);
+
+  const userMap = useMemo(() => new Map(users.map(u => [u.id, u])), [users]);
 
   const handleEdit = (area: AreaOfService) => {
     setSelectedArea(area);
@@ -40,7 +43,7 @@ export function AreasManagement() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-8">
+      <div className="flex items-center justify-center p-8 h-64">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -48,9 +51,10 @@ export function AreasManagement() {
 
   return (
     <>
-      <div className="flex justify-end mb-4">
-        <Button onClick={handleAdd}>
-          <PlusCircle className="mr-2" />
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold">Lista de Áreas de Serviço</h3>
+        <Button onClick={handleAdd} size="sm">
+          <PlusCircle className="mr-2 h-4 w-4" />
           Adicionar Área
         </Button>
       </div>
@@ -58,24 +62,50 @@ export function AreasManagement() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Nome da Área</TableHead>
-              <TableHead className="text-right w-32">Ações</TableHead>
+              <TableHead>Nome</TableHead>
+              <TableHead>Líder</TableHead>
+              <TableHead>Contato do Líder</TableHead>
+              <TableHead className="text-right w-[100px]">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {areas.map((area) => (
-              <TableRow key={area.id}>
-                <TableCell className="font-medium">{area.name}</TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" onClick={() => handleEdit(area)}>
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(area)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+            {areas.length === 0 ? (
+                <TableRow>
+                    <TableCell colSpan={4} className="h-24 text-center">
+                        Nenhuma área de serviço cadastrada.
+                    </TableCell>
+                </TableRow>
+            ) : (
+                areas.map((area) => {
+                const leader = area.leaderId ? userMap.get(area.leaderId) : null;
+                return (
+                  <TableRow key={area.id}>
+                    <TableCell className="font-medium">{area.name}</TableCell>
+                    <TableCell>{leader?.name || '-'}</TableCell>
+                    <TableCell>{area.leaderContact || leader?.phone || leader?.email || '-'}</TableCell>
+                    <TableCell className="text-right">
+                       <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <span className="sr-only">Abrir menu</span>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEdit(area)}>
+                              <Pencil className="mr-2 h-4 w-4" />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDelete(area)} className="text-destructive">
+                               <Trash2 className="mr-2 h-4 w-4" />
+                              Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                )
+            }))}
           </TableBody>
         </Table>
       </div>
@@ -98,3 +128,5 @@ export function AreasManagement() {
     </>
   );
 }
+
+    
