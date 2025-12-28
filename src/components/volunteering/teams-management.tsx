@@ -1,14 +1,15 @@
+
 'use client';
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, PlusCircle, Pencil, Trash2 } from 'lucide-react';
+import { Loader2, PlusCircle, Pencil, Trash2, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { TeamFormDialog } from '@/components/volunteering/team-form-dialog';
+import { useVolunteering } from '@/contexts/volunteering-context';
+import { TeamFormDialog } from './team-form-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
-import { useVolunteering } from '@/contexts/volunteering-context'; // Import the hook
 
 type Team = {
   id: string;
@@ -23,54 +24,51 @@ export default function TeamsManagement() {
 
   const [isTeamDialogOpen, setTeamDialogOpen] = useState(false);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
-  const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [teamToDelete, setTeamToDelete] = useState<Team | null>(null);
 
   const areaMap = React.useMemo(() => new Map(areas?.map(area => [area.id, area])), [areas]);
 
-  const handleCreateTeam = () => {
+  const handleCreate = () => {
     setEditingTeam(null);
     setTeamDialogOpen(true);
   };
 
-  const handleEditTeam = (team: Team) => {
+  const handleEdit = (team: Team) => {
     setEditingTeam(team);
     setTeamDialogOpen(true);
   };
 
-  const handleDeleteTeam = (team: Team) => {
+  const handleDelete = (team: Team) => {
     setTeamToDelete(team);
-    setDeleteDialogOpen(true);
   };
 
   const confirmDelete = async () => {
     if (!teamToDelete) return;
     try {
-        await deleteTeam(teamToDelete.id);
-        toast({
-          title: "Exclusão Agendada",
-          description: `A equipe "${teamToDelete.name}" será excluída.`,
-        });
-    } catch(error) {
-         toast({
-          variant: "destructive",
-          title: "Erro ao Excluir",
-          description: (error as Error).message,
-        });
+      await deleteTeam(teamToDelete.id);
+      toast({
+        title: "Exclusão Agendada",
+        description: `A equipe "${teamToDelete.name}" será excluída.`,
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Erro ao Excluir",
+        description: (error as Error).message,
+      });
     }
-    setDeleteDialogOpen(false);
     setTeamToDelete(null);
   };
 
   return (
     <>
       <div className="flex items-center justify-end mb-4">
-          <Button onClick={handleCreateTeam}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Criar Equipe
-          </Button>
+        <Button onClick={handleCreate}>
+          <PlusCircle className="mr-2" />
+          Criar Equipe
+        </Button>
       </div>
-      
+
       {isLoading ? (
         <div className="flex items-center justify-center h-48">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -80,10 +78,10 @@ export default function TeamsManagement() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Nome da Equipe</TableHead>
+                <TableHead><Users className="inline-block mr-2" />Nome da Equipe</TableHead>
                 <TableHead>Áreas de Serviço</TableHead>
                 <TableHead className="text-right">Membros</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
+                <TableHead className="text-right w-[120px]">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -103,11 +101,11 @@ export default function TeamsManagement() {
                       <Badge variant="secondary">{team.members?.length || 0}</Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => handleEditTeam(team)}>
-                        <Pencil className="h-4 w-4" />
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(team)}>
+                        <Pencil />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteTeam(team)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                      <Button variant="ghost" size="icon" onClick={() => handleDelete(team)}>
+                        <Trash2 className="text-destructive" />
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -115,7 +113,7 @@ export default function TeamsManagement() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={4} className="h-24 text-center">
-                    Nenhuma equipe encontrada. Comece criando uma nova.
+                    Nenhuma equipe encontrada.
                   </TableCell>
                 </TableRow>
               )}
@@ -123,22 +121,22 @@ export default function TeamsManagement() {
           </Table>
         </div>
       )}
-      
+
       {isTeamDialogOpen && (
         <TeamFormDialog
-            open={isTeamDialogOpen}
-            onOpenChange={setTeamDialogOpen}
-            existingTeam={editingTeam}
+          open={isTeamDialogOpen}
+          onOpenChange={setTeamDialogOpen}
+          existingTeam={editingTeam}
         />
       )}
-      
+
       {teamToDelete && (
         <DeleteConfirmationDialog
-            open={isDeleteDialogOpen}
-            onOpenChange={setDeleteDialogOpen}
-            onConfirm={confirmDelete}
-            itemName={teamToDelete.name}
-            itemType="Equipe"
+          open={!!teamToDelete}
+          onOpenChange={() => setTeamToDelete(null)}
+          onConfirm={confirmDelete}
+          itemName={teamToDelete.name}
+          itemType="Equipe"
         />
       )}
     </>

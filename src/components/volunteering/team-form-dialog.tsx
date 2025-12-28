@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -69,8 +70,7 @@ export function TeamFormDialog({ open, onOpenChange, existingTeam }: TeamFormDia
     const teamData = {
       name,
       areaIds: selectedAreas,
-      // Member management is deferred as per user request
-      members: existingTeam?.members || [],
+      members: existingTeam?.members || [], // Keep existing members
     };
 
     try {
@@ -101,7 +101,7 @@ export function TeamFormDialog({ open, onOpenChange, existingTeam }: TeamFormDia
         <DialogHeader>
           <DialogTitle>{existingTeam ? 'Editar Equipe' : 'Criar Nova Equipe'}</DialogTitle>
           <DialogDescription>
-            Defina o nome da equipe e a(s) área(s) de serviço onde ela atuará. A gestão de membros será feita em outra tela.
+            Defina o nome da equipe e a(s) área(s) de serviço onde ela atuará.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-6 py-4">
@@ -115,13 +115,13 @@ export function TeamFormDialog({ open, onOpenChange, existingTeam }: TeamFormDia
             <Label htmlFor="areas">
               Áreas de Serviço
             </Label>
-             <MultiSelect
-                options={areaOptions}
-                selected={selectedAreas}
-                onChange={setSelectedAreas}
-                placeholder="Selecione as áreas..."
-                className="w-full"
-              />
+            <MultiSelect
+              options={areaOptions}
+              selected={selectedAreas}
+              onChange={setSelectedAreas}
+              placeholder="Selecione as áreas..."
+              className="w-full"
+            />
           </div>
         </div>
         <DialogFooter>
@@ -129,7 +129,7 @@ export function TeamFormDialog({ open, onOpenChange, existingTeam }: TeamFormDia
             <Button type="button" variant="secondary">Cancelar</Button>
           </DialogClose>
           <Button type="button" onClick={handleSave} disabled={isSaving}>
-            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isSaving && <Loader2 className="mr-2" />}
             Salvar Equipe
           </Button>
         </DialogFooter>
