@@ -38,7 +38,7 @@ interface TeamFormDialogProps {
   existingTeam: Team | null;
 }
 
-export default function TeamFormDialog({ open, onOpenChange, allUsers, allAreas, existingTeam }: TeamFormDialogProps) {
+export function TeamFormDialog({ open, onOpenChange, allUsers, allAreas, existingTeam }: TeamFormDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [name, setName] = useState('');
