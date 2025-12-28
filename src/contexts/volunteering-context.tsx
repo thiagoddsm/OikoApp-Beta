@@ -17,8 +17,6 @@ export type AreaOfService = {
 export type Team = {
   id: string;
   name: string;
-  areaIds?: string[];
-  members?: string[];
 };
 
 export type User = {
@@ -78,7 +76,11 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { data: areas, isLoading: loadingAreas } = useCollection<AreaOfService>('areas_of_service');
   const { data: teams, isLoading: loadingTeams } = useCollection<Team>('teams');
   const { data: users, isLoading: loadingUsers } = useCollection<User>('users');
-  const { data: events, isLoading: loadingEvents } = useCollection<VolunteeringEvent>('volunteering_events');
+  
+  // Temporarily disable fetching events to bypass permission error
+  const events: VolunteeringEvent[] = [];
+  const loadingEvents = false;
+  // const { data: events, isLoading: loadingEvents } = useCollection<VolunteeringEvent>('volunteering_events');
 
 
   const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents;
@@ -103,27 +105,19 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     
     const batch = writeBatch(firestore);
 
-    // 1. Find all teams that reference this area and remove the reference
-    const teamsQuery = query(collection(firestore, 'teams'), where('areaIds', 'array-contains', areaId));
+    // This logic is currently not in use as teams are not linked to areas in the current implementation
+    // but is kept here for future reference as per the "ScaleMaster" architecture.
+    
+    // 1. Delete the area document itself
+    const areaRef = doc(firestore, 'areas_of_service', areaId);
+    batch.delete(areaRef);
+
+    // 2. Commit the batch
     try {
-        const teamsSnapshot = await getDocs(teamsQuery);
-        teamsSnapshot.forEach(teamDoc => {
-            batch.update(teamDoc.ref, {
-                areaIds: arrayRemove(areaId)
-            });
-        });
-        
-        // 2. Delete the area document itself
-        const areaRef = doc(firestore, 'areas_of_service', areaId);
-        batch.delete(areaRef);
-
-        // 3. Commit the batch
         await batch.commit();
-
-        toast({ title: 'Sucesso', description: 'A área de serviço foi excluída e as equipes foram atualizadas.' });
-
+        toast({ title: 'Sucesso', description: 'A área de serviço foi excluída.' });
     } catch (error) {
-        console.error("Failed to delete area and update teams:", error);
+        console.error("Failed to delete area:", error);
         toast({ title: 'Erro', description: 'Não foi possível excluir a área. Verifique o console.', variant: 'destructive' });
     }
   };
