@@ -17,6 +17,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  PopoverPortal,
 } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
 
@@ -54,9 +55,7 @@ function MultiSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={`w-full justify-between h-auto ${
-            selected.length > 1 ? "h-full" : "h-10"
-          }`}
+          className={cn("w-full justify-between h-auto", className, selected.length > 1 ? "h-full" : "h-10")}
           onClick={() => setOpen(!open)}
         >
           <div className="flex gap-1 flex-wrap">
@@ -84,39 +83,41 @@ function MultiSelect({
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0">
-        <Command className={className}>
-          <CommandInput placeholder="Buscar..." />
-          <CommandList>
-            <CommandEmpty>Nenhuma opção encontrada.</CommandEmpty>
-            <CommandGroup>
-              {options.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  onSelect={() => {
-                    onChange(
-                      selected.includes(option.value)
-                        ? selected.filter((item) => item !== option.value)
-                        : [...selected, option.value]
-                    )
-                    setOpen(true)
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      selected.includes(option.value)
-                        ? "opacity-100"
-                        : "opacity-0"
-                    )}
-                  />
-                  {option.label}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
+      <PopoverPortal>
+        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+          <Command className={className}>
+            <CommandInput placeholder="Buscar..." />
+            <CommandList>
+              <CommandEmpty>Nenhuma opção encontrada.</CommandEmpty>
+              <CommandGroup>
+                {options.map((option) => (
+                  <CommandItem
+                    key={option.value}
+                    onSelect={() => {
+                      onChange(
+                        selected.includes(option.value)
+                          ? selected.filter((item) => item !== option.value)
+                          : [...selected, option.value]
+                      )
+                      setOpen(true)
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        selected.includes(option.value)
+                          ? "opacity-100"
+                          : "opacity-0"
+                      )}
+                    />
+                    {option.label}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </PopoverPortal>
     </Popover>
   )
 }
