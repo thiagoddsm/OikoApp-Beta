@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { MultiSelect } from '@/components/ui/multi-select';
+import { cn } from '@/lib/utils';
 
 type User = {
   id: string;
@@ -45,6 +46,7 @@ export function TeamFormDialog({ open, onOpenChange, allUsers, allAreas, existin
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [selectedAreas, setSelectedAreas] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [focusedSelect, setFocusedSelect] = useState<'areas' | 'members' | null>(null);
 
   useEffect(() => {
     if (existingTeam) {
@@ -129,7 +131,10 @@ export function TeamFormDialog({ open, onOpenChange, allUsers, allAreas, existin
             </Label>
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" placeholder="Ex: Mídia, Louvor, Recepção" />
           </div>
-          <div className="grid grid-cols-4 items-start gap-4">
+          <div 
+            className={cn("grid grid-cols-4 items-start gap-4", focusedSelect === 'areas' ? 'z-20' : 'z-10')}
+            onFocus={() => setFocusedSelect('areas')}
+          >
             <Label htmlFor="areas" className="text-right pt-2">
               Áreas
             </Label>
@@ -142,7 +147,10 @@ export function TeamFormDialog({ open, onOpenChange, allUsers, allAreas, existin
                 />
             </div>
           </div>
-          <div className="grid grid-cols-4 items-start gap-4">
+           <div 
+            className={cn("grid grid-cols-4 items-start gap-4", focusedSelect === 'members' ? 'z-20' : 'z-10')}
+            onFocus={() => setFocusedSelect('members')}
+          >
             <Label htmlFor="members" className="text-right pt-2">
               Membros
             </Label>
