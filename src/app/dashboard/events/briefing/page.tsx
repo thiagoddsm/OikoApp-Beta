@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Church, Clapperboard, Info, List, Music, Users2, ClipboardList, Briefcase, Image as ImageIcon, Sync, Edit, Eye, Printer, Code, X, ChevronUp, ChevronDown, Trash2, Plus, Restaurant, Speaker, Check, FileCopy, CheckCircle, TheaterComedy } from 'lucide-react';
+import { Church, Clapperboard, Info, List, Music, Users2, ClipboardList, Briefcase, Image as ImageIcon, Sync, Edit, Eye, Printer, Code, X, ChevronUp, ChevronDown, Trash2, Plus, UtensilsCrossed, Speaker, Check, FileCopy, CheckCircle, TheaterComedy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -319,7 +319,7 @@ export default function BriefingProPage() {
                         <div>
                             <h3 className="text-sm font-bold uppercase text-slate-400 border-b border-slate-200 pb-2 mb-4">Logística</h3>
                             <div className="bg-slate-50 p-4 rounded-lg text-sm space-y-4 border border-slate-100">
-                                {data.logistica.alimentacao && <div><strong className="block text-slate-900 mb-1 flex items-center gap-2"><Restaurant className="size-4 text-slate-400"/> Alimentação</strong><p className="text-slate-600 ml-6">{data.logistica.alimentacao}</p></div>}
+                                {data.logistica.alimentacao && <div><strong className="block text-slate-900 mb-1 flex items-center gap-2"><UtensilsCrossed className="size-4 text-slate-400"/> Alimentação</strong><p className="text-slate-600 ml-6">{data.logistica.alimentacao}</p></div>}
                                 {data.logistica.equipamentos && <div><strong className="block text-slate-900 mb-1 flex items-center gap-2"><Speaker className="size-4 text-slate-400"/> Equipamentos</strong><p className="text-slate-600 ml-6">{data.logistica.equipamentos}</p></div>}
                             </div>
                         </div>
