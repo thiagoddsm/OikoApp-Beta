@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Church, Clapperboard, Info, List, Music, Groups, ClipboardList, LocalShipping, Image as ImageIcon, Sync, Edit, Eye, Print, Code, X, ChevronUp, ChevronDown, Trash2, Plus, Restaurant, Speaker, Check, FileCopy, CheckCircle, TheaterComedy } from 'lucide-react';
+import { Church, Clapperboard, Info, List, Music, Users2, ClipboardList, LocalShipping, Image as ImageIcon, Sync, Edit, Eye, Print, Code, X, ChevronUp, ChevronDown, Trash2, Plus, Restaurant, Speaker, Check, FileCopy, CheckCircle, TheaterComedy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -192,7 +192,7 @@ export default function BriefingProPage() {
                   </div>
 
                   <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-                      <SectionHeader icon={Groups} title="Escala de Equipes" />
+                      <SectionHeader icon={Users2} title="Escala de Equipes" />
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {Object.keys(data.equipes).map(role => ( <div key={role}><Label className="text-xs capitalize">{role}</Label><Input value={data.equipes[role]} onChange={e => setData(p => ({...p, equipes: {...p.equipes, [role]: e.target.value}}))} /></div> ))}
                       </div>
@@ -379,3 +379,6 @@ export default function BriefingProPage() {
 }
 
 
+
+
+    
