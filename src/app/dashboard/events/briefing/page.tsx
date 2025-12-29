@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Church, Clapperboard, Info, List, Music, Users2, ClipboardList, Briefcase, Image as ImageIcon, Sync, Edit, Eye, Printer, Code, X, ChevronUp, ChevronDown, Trash2, Plus, UtensilsCrossed, Speaker, Check, FileCopy, CheckCircle, TheaterComedy } from 'lucide-react';
+import { Church, Clapperboard, Info, List, Music, Users2, ClipboardList, Briefcase, Image as ImageIcon, Sync, Edit, Eye, Printer, Code, X, ChevronUp, ChevronDown, Trash2, Plus, UtensilsCrossed, Speaker, Check, FileCopy, CheckCircle, Theater } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -353,7 +353,7 @@ export default function BriefingProPage() {
                 </div>
                 <div className="flex items-center bg-slate-800 rounded-lg p-1 gap-1">
                     <Button onClick={() => switchTemplate('culto')} variant={data.type === 'culto' ? 'default' : 'ghost'} size="sm" className={cn(data.type === 'culto' && "bg-brand-600 text-white shadow")}> <Church className="mr-2 size-4"/> Culto</Button>
-                    <Button onClick={() => switchTemplate('evento')} variant={data.type === 'evento' ? 'default' : 'ghost'} size="sm" className={cn(data.type === 'evento' && "bg-indigo-600 text-white shadow")}> <TheaterComedy className="mr-2 size-4"/> Evento</Button>
+                    <Button onClick={() => switchTemplate('evento')} variant={data.type === 'evento' ? 'default' : 'ghost'} size="sm" className={cn(data.type === 'evento' && "bg-indigo-600 text-white shadow")}> <Theater className="mr-2 size-4"/> Evento</Button>
                 </div>
                 <div className="flex items-center gap-2 md:gap-3">
                     <div className="lg:hidden flex bg-slate-800 rounded-lg p-1">
@@ -377,10 +377,3 @@ export default function BriefingProPage() {
         </div>
     );
 }
-
-
-
-
-    
-
-    
