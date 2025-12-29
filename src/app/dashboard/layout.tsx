@@ -119,7 +119,7 @@ const menuItems = [
             icon: CalendarDays,
             subItems: [
               { href: "/dashboard/events", label: "Cultos e Eventos", icon: CalendarCheck },
-              { href: "/dashboard/events/retreat", label: "Retiro de Líderes", icon: FileText },
+              { href: "/dashboard/events/briefing", label: "Briefing Pro", icon: FileText },
               { href: "/dashboard/events/reservations", label: "Reservas de Sala", icon: CalendarPlus },
             ]
         },
@@ -230,7 +230,7 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/volunteering')) return 'Gerenciar Áreas de Serviço';
       if (path.startsWith('/dashboard/teaching/wave')) return 'Wave - Escola de Música';
       if (path.startsWith('/dashboard/teaching')) return 'Ensino';
-      if (path.startsWith('/dashboard/events/retreat')) return 'Retiro de Líderes';
+      if (path.startsWith('/dashboard/events/briefing')) return 'Briefing Pro';
       if (path.startsWith('/dashboard/events')) return 'Eventos e Produção';
       if (path.startsWith('/dashboard/patrimony')) return 'Gestão de Patrimônio';
       if (path.startsWith('/dashboard/social')) return 'Ação Social';
