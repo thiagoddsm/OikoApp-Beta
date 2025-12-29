@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Church, Clapperboard, Info, List, Music, Users2, ClipboardList, Briefcase, Image as ImageIcon, Sync, Edit, Eye, Print, Code, X, ChevronUp, ChevronDown, Trash2, Plus, Restaurant, Speaker, Check, FileCopy, CheckCircle, TheaterComedy } from 'lucide-react';
+import { Church, Clapperboard, Info, List, Music, Users2, ClipboardList, Briefcase, Image as ImageIcon, Sync, Edit, Eye, Printer, Code, X, ChevronUp, ChevronDown, Trash2, Plus, Restaurant, Speaker, Check, FileCopy, CheckCircle, TheaterComedy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -360,7 +360,7 @@ export default function BriefingProPage() {
                         <Button onClick={() => setViewMode('edit')} variant={viewMode === 'edit' ? 'secondary' : 'ghost'} size="icon"><Edit /></Button>
                         <Button onClick={() => setViewMode('preview')} variant={viewMode === 'preview' ? 'secondary' : 'ghost'} size="icon"><Eye /></Button>
                     </div>
-                    <Button onClick={() => window.print()} variant="outline" className="bg-white/10 text-white hover:bg-white/20 border-white/20"> <Print className="mr-2" /> <span className="hidden sm:inline">Imprimir / PDF</span></Button>
+                    <Button onClick={() => window.print()} variant="outline" className="bg-white/10 text-white hover:bg-white/20 border-white/20"> <Printer className="mr-2" /> <span className="hidden sm:inline">Imprimir / PDF</span></Button>
                 </div>
             </nav>
             <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
