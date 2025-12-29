@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Church, Clapperboard, Info, List, Music, Users2, ClipboardList, LocalShipping, Image as ImageIcon, Sync, Edit, Eye, Print, Code, X, ChevronUp, ChevronDown, Trash2, Plus, Restaurant, Speaker, Check, FileCopy, CheckCircle, TheaterComedy } from 'lucide-react';
+import { Church, Clapperboard, Info, List, Music, Users2, ClipboardList, Briefcase, Image as ImageIcon, Sync, Edit, Eye, Print, Code, X, ChevronUp, ChevronDown, Trash2, Plus, Restaurant, Speaker, Check, FileCopy, CheckCircle, TheaterComedy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -229,7 +229,7 @@ export default function BriefingProPage() {
                   </div>
 
                   <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-                      <SectionHeader icon={LocalShipping} title="Logística & Convidados" />
+                      <SectionHeader icon={Briefcase} title="Logística & Convidados" />
                       <div className="space-y-4">
                           <InputGroup label="Alimentação"><Textarea rows={2} value={data.logistica.alimentacao} onChange={e => setData(p => ({...p, logistica: {...p.logistica, alimentacao: e.target.value}}))} /></InputGroup>
                           <InputGroup label="Equipamentos"><Textarea rows={2} value={data.logistica.equipamentos} onChange={e => setData(p => ({...p, logistica: {...p.logistica, equipamentos: e.target.value}}))} /></InputGroup>
@@ -380,5 +380,7 @@ export default function BriefingProPage() {
 
 
 
+
+    
 
     
