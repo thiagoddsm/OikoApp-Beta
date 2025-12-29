@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Church, Clapperboard, Info, List, Music, Groups, ClipboardList, EventNote, LocalShipping, Image as ImageIcon, Sync, Edit, Eye, Print, Code, X, ChevronUp, ChevronDown, Trash2, Plus, Restaurant, Speaker, Check, FileCopy, CheckCircle, TheaterComedy } from 'lucide-react';
+import { Church, Clapperboard, Info, List, Music, Groups, ClipboardList, LocalShipping, Image as ImageIcon, Sync, Edit, Eye, Print, Code, X, ChevronUp, ChevronDown, Trash2, Plus, Restaurant, Speaker, Check, FileCopy, CheckCircle, TheaterComedy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -213,7 +213,7 @@ export default function BriefingProPage() {
           ) : (
               <>
                   <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-                      <SectionHeader icon={EventNote} title="Programação (Timeline)" action={<Button size="sm" onClick={() => setData(p => ({...p, programacao: [...p.programacao, {id: Date.now(), hora: "", atividade: "", detalhes: ""}]}))}>+ Item</Button>} />
+                      <SectionHeader icon={List} title="Programação (Timeline)" action={<Button size="sm" onClick={() => setData(p => ({...p, programacao: [...p.programacao, {id: Date.now(), hora: "", atividade: "", detalhes: ""}]}))}>+ Item</Button>} />
                       <div className="space-y-3">
                           {data.programacao.map((item, idx) => (
                               <div key={item.id} className="flex gap-3 items-start p-3 bg-indigo-50/30 rounded-lg border border-indigo-100">
@@ -377,4 +377,5 @@ export default function BriefingProPage() {
         </div>
     );
 }
+
 
