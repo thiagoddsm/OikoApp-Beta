@@ -139,6 +139,89 @@
       },
       "required": ["name", "frequency", "time"]
     },
+    "Briefing": {
+      "title": "Briefing",
+      "type": "object",
+      "description": "Represents a complete briefing for a church service or event, used by Briefing Pro V3.",
+      "properties": {
+        "cultInfo": {
+          "type": "object",
+          "properties": {
+            "titulo": { "type": "string" },
+            "tema": { "type": "string" },
+            "date": { "type": "string", "format": "date" },
+            "startTime": { "type": "string", "format": "time" },
+            "pregador": { "type": "string" },
+            "dirigente": { "type": "string" },
+            "local": { "type": "string" }
+          }
+        },
+        "staff": {
+          "type": "object",
+          "properties": {
+            "coordenador": { "type": "string" },
+            "som": { "type": "string" },
+            "projecao": { "type": "string" },
+            "iluminacao": { "type": "string" },
+            "transmissao": { "type": "string" },
+            "recepcao": { "type": "string" }
+          }
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "duration": { "type": "number" },
+              "responsible": { "type": "string" },
+              "description": { "type": "string" },
+              "colors": {
+                "type": "object",
+                "properties": {
+                  "item": { "type": "string" }
+                }
+              },
+              "technical": {
+                "type": "object",
+                "properties": {
+                  "lighting": { "type": "string" },
+                  "sound": { "type": "string" },
+                  "projection": { "type": "string" }
+                }
+              },
+              "completed": { "type": "boolean" }
+            }
+          }
+        },
+        "obsDepartamentos": {
+          "type": "object",
+          "properties": {
+            "midia": { "type": "string" },
+            "musica": { "type": "string" },
+            "staff": { "type": "string" },
+            "diaconato": { "type": "string" }
+          }
+        },
+        "liveState": {
+            "type": "object",
+            "properties": {
+                "currentItemIndex": { "type": "number" },
+                "isRunning": { "type": "boolean" },
+                "itemStartTime": { "type": ["number", "null"] },
+                "accumulatedTime": { "type": "number" },
+                "alert": { 
+                    "type": ["object", "null"],
+                    "properties": {
+                        "message": { "type": "string" },
+                        "time": { "type": "number" }
+                    }
+                }
+            }
+        }
+      }
+    },
     "TeamSchedule": {
       "title": "Team Schedule",
       "type": "object",
@@ -371,6 +454,7 @@
       { "path": "/teams/{teamId}", "definition": { "schema": { "$ref": "#/entities/Team" } } },
       { "path": "/areas_of_service/{areaId}", "definition": { "schema": { "$ref": "#/entities/AreaOfService" } } },
       { "path": "/volunteering_events/{eventId}", "definition": { "schema": { "$ref": "#/entities/VolunteeringEvent" } } },
+      { "path": "/briefings/{briefingId}", "definition": { "schema": { "$ref": "#/entities/Briefing" } } },
       { "path": "/team_schedules/{scheduleId}", "definition": { "schema": { "$ref": "#/entities/TeamSchedule" } } },
       { "path": "/saved_schedules/{scheduleId}", "definition": { "schema": { "$ref": "#/entities/SavedSchedule" } } },
       { "path": "/rosters/{rosterId}", "definition": { "schema": { "$ref": "#/entities/Roster" } } },

@@ -1,382 +1,448 @@
-
 'use client';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 
-import React, { useState, useEffect } from 'react';
-import { Church, Clapperboard, Info, List, Music, Users2, ClipboardList, Briefcase, Image as ImageIcon, Sync, Edit, Eye, Printer, Code, X, ChevronUp, ChevronDown, Trash2, Plus, UtensilsCrossed, Speaker, Check, FileCopy, CheckCircle, Theater } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-
-
-// --- DATA TEMPLATES ---
-const TEMPLATE_CULTO = {
-  type: 'culto',
-  info: {
-    titulo: "Culto da Virada",
-    tema: "O que almejamos para 2026?",
-    data: "2025-12-31",
-    horario: "21:30",
-    pregador: "Pr. Hugo Campos",
-    dirigente: "Louvor + Pastores",
-    local: "Templo Principal",
-    bannerImage: "https://images.unsplash.com/photo-1594791353343-85121401340a?q=80&w=1920"
-  },
-  equipes: {
-    coordenador: "",
-    saude: "Equipe Alpha",
-    sonoplastia: "Mesa 1",
-    projecao: "Multimídia",
-    transmissao: "Live",
-    recepcao: "Diaconato"
-  },
-  louvor: [
-      { id: 1, musica: "Tempo de Festa", tom: "G", cantor: "Ana" },
-      { id: 2, musica: "Louve", tom: "D", cantor: "Ana" },
-      { id: 3, musica: "No meio dos louvores", tom: "A", cantor: "Pedro" },
-      { id: 4, musica: "Algo novo vindo", tom: "E", cantor: "Pedro" },
-      { id: 5, musica: "Santo Pra Sempre", tom: "C", cantor: "Todos" }
-  ],
-  liturgia: [
-      { id: 1, momento: "Cronômetro", responsavel: "Mídia", obs: "21:25 (5 min)" },
-      { id: 2, momento: "Abertura / Louvor", responsavel: "Min. Louvor", obs: "21:30 - Tempo de festa, Louve" },
-      { id: 3, momento: "Palavra de Gratidão", responsavel: "Pr. Juliano", obs: "21:45" },
-      { id: 4, momento: "Vídeo Retrospectiva", responsavel: "Mídia", obs: "21:50 - Confirmar arquivo" },
-      { id: 5, momento: "Louvor", responsavel: "Min. Louvor", obs: "21:55 - Algo novo, Santo pra sempre" },
-      { id: 6, momento: "Reflexão", responsavel: "Pr. Marcio", obs: "22:10" },
-      { id: 7, momento: "A VIRADA", responsavel: "Todos", obs: "23:59 - Contagem" }
-  ],
-  obsDepartamentos: {
-      midia: "- Haverá thumb específica para projeção?\\n- Haverá slide na pregação?",
-      musica: "- Banda posicionada: 21:00\\n- Música ambiente (Spotify): 21:10",
-      staff: "- Coordenador geral definido?",
-      diaconato: "- Água e microfone para pregadores."
-  }
+// --- ICONS (SVG Paths) ---
+const Icon = ({ name, size = 20, className = "" }) => {
+    const paths = {
+        edit: <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />,
+        play_arrow: <path d="m5 3 14 9-14 9V3z" />,
+        pause: <path d="M6 4h4v16H6zm8 0h4v16h-4z" />,
+        description: <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" />,
+        add: <path d="M12 5v14M5 12h14" />,
+        delete: <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />,
+        error: <><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></>,
+        print: <><polyline points="6 9 6 2 18 2 18 9" /><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" /><rect x="6" y="14" width="12" height="8" /></>,
+        save: <><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" /><polyline points="17 21 17 13 7 13 7 21" /><polyline points="7 3 7 8 15 8" /></>,
+        skip_next: <><polygon points="5 4 15 12 5 20 5 4" /><line x1="19" y1="5" x2="19" y2="19" /></>
+    };
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            {paths[name] || <circle cx="12" cy="12" r="10" />}
+        </svg>
+    );
 };
-const TEMPLATE_EVENTO = {
-  type: 'evento',
-  info: {
-    titulo: "Conferência Criativamente",
-    tema: "Ideias do Céu",
-    data: new Date().toISOString().split('T')[0],
-    horario: "14:00",
-    local: "Auditório & Hall",
-    descricao: "Um encontro dedicado a despertar, ativar e celebrar a criatividade. Nosso propósito é proporcionar um ambiente de inspiração.",
-    bannerImage: "https://images.unsplash.com/photo-1516534775068-ba3e7458af70?q=80&w=1920"
-  },
-  programacao: [
-      { id: 1, hora: "14:00", atividade: "Oficinas | Criativos em Ação", detalhes: "Conteúdos práticos (Salas 1-3)" },
-      { id: 2, hora: "17:00", atividade: "Coffee Break", detalhes: "Hall Principal" },
-      { id: 3, hora: "19:00", atividade: "Celebração Final", detalhes: "Auditório Principal" }
-  ],
-  convidados: [
-      { id: 1, nome: "Fulano de Tal", papel: "Palestrante", obs: "Chegada 13h." },
-      { id: 2, nome: "Banda Guest", papel: "Música", obs: "Soundcheck 16h." }
-  ],
-  logistica: {
-    alimentacao: "Coffee break para 200 pessoas.",
-    equipamentos: "Telão de LED, 4 Microfones sem fio.",
-    staff: "Chegada da equipe às 12h."
-  }
-};
-
-const SectionHeader = ({ icon: Icon, title, action }) => (
-    <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
-        <h3 className="font-bold text-gray-700 flex items-center gap-2">
-            <Icon className="text-brand-600 size-5" />
-            {title}
-        </h3>
-        {action}
-    </div>
-);
-const InputGroup = ({ label, children }) => (
-    <div className="mb-3">
-        <label className="block text-xs font-bold text-gray-500 uppercase mb-1 tracking-wide">{label}</label>
-        {children}
-    </div>
-);
 
 
 export default function BriefingProPage() {
-    const [viewMode, setViewMode] = useState('split');
-    const [data, setData] = useState(TEMPLATE_CULTO);
+    const [activeTab, setActiveTab] = useState('planning');
+    // For now, we will manage state locally. Firebase integration will be added later.
+    const [isLoading, setIsLoading] = useState(false);
+    const [now, setNow] = useState(new Date());
+    
+    // --- MOCK STATE ---
+    const [state, setState] = useState({
+        items: [
+            { id: '1', title: 'Cronômetro', duration: 5, responsible: 'Mídia', description: 'Contagem regressiva visual', colors: { item: '#334155' }, technical: { lighting: 'Pre-show', sound: 'Background', projection: 'Timer 5min' }, completed: false },
+            { id: '2', title: 'Abertura: Louvor', duration: 15, responsible: 'Min. Louvor', description: 'Tempo de festa, Louve, No meio dos louvores', colors: { item: '#4f46e5' }, technical: { lighting: 'Wash Colorido', sound: 'Mix Banda', projection: 'Lyrics' }, completed: false },
+            { id: '3', title: 'Palavra de gratidão', duration: 5, responsible: 'Pr Juliano', description: 'Momento de agradecimento pelo ano', colors: { item: '#0891b2' }, technical: { lighting: 'Foco Púlpito', sound: 'Mic Pr Juliano', projection: 'Nome Pr Juliano' }, completed: false },
+        ],
+        cultInfo: { titulo: 'Culto da Virada', tema: 'O que almejamos para 2026?', date: '2025-12-31', startTime: '21:25', pregador: 'Pr Hugo Campos', dirigente: 'Louvor + Pastores', local: 'Templo Sede' },
+        staff: { coordenador: 'A definir', som: 'A definir', projecao: 'A definir', iluminacao: 'A definir', transmissao: 'A definir', recepcao: 'A definir' },
+        obsDepartamentos: { midia: '- Vídeo retrospectiva: confirmar formato.\n- Contagem regressiva sincronizada.', musica: '- Setlist confirmada.\n- Pad de fundo para orações.', staff: 'Saúde: Equipe de plantão.', diaconato: 'Preparação dos elementos da ceia.' },
+        liveState: { currentItemIndex: 0, isRunning: false, itemStartTime: null, accumulatedTime: 0, alert: null }
+    });
 
     useEffect(() => {
-        const handleResize = () => {
-            if (window.innerWidth < 1024) setViewMode('edit');
-            else setViewMode('split');
-        };
-        window.addEventListener('resize', handleResize);
-        handleResize(); 
-        return () => window.removeEventListener('resize', handleResize);
+        const timerId = setInterval(() => setNow(new Date()), 1000);
+        return () => clearInterval(timerId);
     }, []);
 
-    const switchTemplate = (type) => {
-        if (confirm("Trocar de template irá perder as alterações não salvas. Continuar?")) {
-            setData(type === 'culto' ? TEMPLATE_CULTO : TEMPLATE_EVENTO);
-        }
+    // Placeholder for sync function
+    const sync = async (updater) => {
+        console.log("Syncing state (placeholder)...");
+        setState(typeof updater === 'function' ? updater(state) : updater);
     };
 
-    const updateInfo = (f, v) => setData(p => ({ ...p, info: { ...p.info, [f]: v } }));
+    const calculateStartTimes = useCallback((items, start) => {
+        let curr = new Date(`1970-01-01T${start || '00:00'}:00`);
+        return items.map(it => {
+            const st = isNaN(curr.getTime()) ? '--:--' : curr.toTimeString().slice(0, 5);
+            curr.setMinutes(curr.getMinutes() + (Number(it.duration) || 0));
+            return { ...it, startTime: st };
+        });
+    }, []);
+
+    const handleCultInfo = (f, v) => {
+        sync(prev => {
+            const newInfo = { ...prev.cultInfo, [f]: v };
+            if (f === 'startTime') {
+                return { ...prev, cultInfo: newInfo, items: calculateStartTimes(prev.items, v) };
+            }
+            return { ...prev, cultInfo: newInfo };
+        });
+    };
+
+     const handleNext = () => {
+        if (state.liveState.currentItemIndex >= state.items.length - 1) return;
+        const nextIdx = state.liveState.currentItemIndex + 1;
+        const newItems = state.items.map((it, idx) => idx === state.liveState.currentItemIndex ? { ...it, completed: true } : it);
+        sync({
+            ...state,
+            items: newItems,
+            liveState: { ...state.liveState, currentItemIndex: nextIdx, isRunning: true, itemStartTime: Date.now(), accumulatedTime: 0 }
+        });
+    };
+
+    const toggleTimer = () => {
+        const itemStartTime = state.liveState.itemStartTime;
+        if (state.liveState.isRunning) {
+            const elapsed = itemStartTime ? (Date.now() - itemStartTime) / 1000 : 0;
+            sync({
+                ...state,
+                liveState: { ...state.liveState, isRunning: false, accumulatedTime: state.liveState.accumulatedTime + elapsed, itemStartTime: null }
+            });
+        } else {
+            sync({ ...state, liveState: { ...state.liveState, isRunning: true, itemStartTime: Date.now() } });
+        }
+    };
     
-    const removeItem = (listKey, id) => setData(p => ({ ...p, [listKey]: p[listKey].filter(i => i.id !== id) }));
-    const updateItem = (listKey, id, f, v) => setData(p => ({ ...p, [listKey]: p[listKey].map(i => i.id === id ? { ...i, [f]: v } : i) }));
-    const moveItem = (listKey, index, direction) => {
-        const newList = [...data[listKey]];
-        if (direction === -1 && index > 0) {
-            [newList[index], newList[index-1]] = [newList[index-1], newList[index]];
-        } else if (direction === 1 && index < newList.length - 1) {
-            [newList[index], newList[index+1]] = [newList[index+1], newList[index]];
-        }
-        setData(p => ({ ...p, [listKey]: newList }));
+    const formatTime = (s) => {
+        const abs = Math.abs(Math.floor(s));
+        return `${s < 0 ? '-' : ''}${String(Math.floor(abs / 60)).padStart(2, '0')}:${String(abs % 60).padStart(2, '0')}`;
     };
 
-    const renderEditor = () => (
-      <div className="p-4 md:p-6 space-y-8 pb-20">
-          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-              <SectionHeader icon={Info} title="Informações Básicas" />
-              <div className="space-y-4">
-                  <InputGroup label="Título do Evento">
-                      <Input value={data.info.titulo} onChange={e => updateInfo('titulo', e.target.value)} />
-                  </InputGroup>
-                  <InputGroup label="Tema / Slogan">
-                      <Input value={data.info.tema} onChange={e => updateInfo('tema', e.target.value)} />
-                  </InputGroup>
-                  <div className="grid grid-cols-2 gap-4">
-                      <InputGroup label="Data"><Input type="date" value={data.info.data} onChange={e => updateInfo('data', e.target.value)} /></InputGroup>
-                      <InputGroup label="Horário"><Input type="time" value={data.info.horario} onChange={e => updateInfo('horario', e.target.value)} /></InputGroup>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                      <InputGroup label="Local"><Input value={data.info.local} onChange={e => updateInfo('local', e.target.value)} /></InputGroup>
-                      {data.type === 'culto' && <InputGroup label="Pregador"><Input value={data.info.pregador} onChange={e => updateInfo('pregador', e.target.value)} /></InputGroup>}
-                  </div>
-                  {data.type === 'evento' && <InputGroup label="Descrição"><Textarea value={data.info.descricao} onChange={e => updateInfo('descricao', e.target.value)} /></InputGroup>}
-              </div>
-          </div>
-
-          {data.type === 'culto' ? (
-              <>
-                  <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-                      <SectionHeader icon={List} title="Liturgia (Ordem)" action={ <Button size="sm" onClick={() => setData(p => ({...p, liturgia: [...p.liturgia, {id: Date.now(), momento: "", responsavel: "", obs: ""}]}))}><Plus className="mr-2 size-4" /> Adicionar</Button> } />
-                      <div className="space-y-3">
-                          {data.liturgia.map((item, idx) => (
-                              <div key={item.id} className="group bg-gray-50 hover:bg-white border border-transparent hover:border-gray-200 p-2 rounded-lg transition-shadow shadow-sm hover:shadow-md flex gap-2 items-start">
-                                  <div className="flex flex-col gap-1 mt-1 text-gray-300">
-                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveItem('liturgia', idx, -1)}><ChevronUp className="size-4"/></Button>
-                                      <span className="text-xs font-mono text-center font-bold text-gray-400 h-6 flex items-center justify-center">{idx+1}</span>
-                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveItem('liturgia', idx, 1)}><ChevronDown className="size-4"/></Button>
-                                  </div>
-                                  <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-2">
-                                      <div className="md:col-span-4"><Input placeholder="Momento" value={item.momento} onChange={e => updateItem('liturgia', item.id, 'momento', e.target.value)} /></div>
-                                      <div className="md:col-span-3"><Input placeholder="Responsável" value={item.responsavel} onChange={e => updateItem('liturgia', item.id, 'responsavel', e.target.value)} /></div>
-                                      <div className="md:col-span-5"><Input placeholder="Obs / Detalhes" value={item.obs} onChange={e => updateItem('liturgia', item.id, 'obs', e.target.value)} /></div>
-                                  </div>
-                                  <Button variant="ghost" size="icon" className="text-gray-400 hover:text-red-500 h-8 w-8" onClick={() => removeItem('liturgia', item.id)}><Trash2 className="size-4"/></Button>
-                              </div>
-                          ))}
-                      </div>
-                  </div>
-
-                  <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-                      <SectionHeader icon={Music} title="Setlist de Louvor" action={<Button size="sm" onClick={() => setData(p => ({...p, louvor: [...p.louvor, {id: Date.now(), musica: "", tom: "", cantor: ""}]}))}><Plus className="mr-2 size-4" /> Adicionar</Button>} />
-                      <div className="space-y-2">
-                          {data.louvor.map((item, idx) => (
-                              <div key={item.id} className="flex gap-2 items-center bg-gray-50 p-2 rounded-lg border border-gray-100">
-                                  <span className="w-6 text-center text-xs font-bold text-gray-400">{idx+1}</span>
-                                  <Input placeholder="Música" className="flex-1" value={item.musica} onChange={e => updateItem('louvor', item.id, 'musica', e.target.value)} />
-                                  <Input placeholder="Tom" className="w-16 text-center" value={item.tom} onChange={e => updateItem('louvor', item.id, 'tom', e.target.value)} />
-                                  <Input placeholder="Cantor(a)" className="w-24" value={item.cantor} onChange={e => updateItem('louvor', item.id, 'cantor', e.target.value)} />
-                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-red-500" onClick={() => removeItem('louvor', item.id)}><X className="size-4"/></Button>
-                              </div>
-                          ))}
-                      </div>
-                  </div>
-
-                  <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-                      <SectionHeader icon={Users2} title="Escala de Equipes" />
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {Object.keys(data.equipes).map(role => ( <div key={role}><Label className="text-xs capitalize">{role}</Label><Input value={data.equipes[role]} onChange={e => setData(p => ({...p, equipes: {...p.equipes, [role]: e.target.value}}))} /></div> ))}
-                      </div>
-                  </div>
-
-                   <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-                      <SectionHeader icon={ClipboardList} title="Notas Departamentais" />
-                      <div className="grid grid-cols-1 gap-4">
-                          {Object.keys(data.obsDepartamentos).map(dept => (
-                              <div key={dept} className={`p-3 rounded-lg border ${dept === 'midia' ? 'bg-orange-50 border-orange-100' : dept === 'musica' ? 'bg-blue-50 border-blue-100' : 'bg-gray-50 border-gray-100'}`}>
-                                  <Label className={`text-xs font-bold uppercase block mb-1 ${dept === 'midia' ? 'text-orange-600' : dept === 'musica' ? 'text-blue-600' : 'text-gray-600'}`}>{dept}</Label>
-                                  <Textarea rows={3} className="bg-white/50 border-transparent focus:bg-white focus:border-gray-200 resize-none" value={data.obsDepartamentos[dept]} onChange={e => setData(p => ({...p, obsDepartamentos: {...p.obsDepartamentos, [dept]: e.target.value}}))} />
-                              </div>
-                          ))}
-                      </div>
-                  </div>
-              </>
-          ) : (
-              <>
-                  <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-                      <SectionHeader icon={List} title="Programação (Timeline)" action={<Button size="sm" onClick={() => setData(p => ({...p, programacao: [...p.programacao, {id: Date.now(), hora: "", atividade: "", detalhes: ""}]}))}>+ Item</Button>} />
-                      <div className="space-y-3">
-                          {data.programacao.map((item, idx) => (
-                              <div key={item.id} className="flex gap-3 items-start p-3 bg-indigo-50/30 rounded-lg border border-indigo-100">
-                                  <Input type="time" className="w-24 bg-white" value={item.hora} onChange={e => updateItem('programacao', item.id, 'hora', e.target.value)} />
-                                  <div className="flex-1 space-y-2">
-                                      <Input type="text" placeholder="Nome da Atividade" className="font-bold" value={item.atividade} onChange={e => updateItem('programacao', item.id, 'atividade', e.target.value)} />
-                                      <Input type="text" placeholder="Detalhes / Local" className="text-xs" value={item.detalhes} onChange={e => updateItem('programacao', item.id, 'detalhes', e.target.value)} />
-                                  </div>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-red-500" onClick={() => removeItem('programacao', item.id)}><X className="size-4"/></Button>
-                              </div>
-                          ))}
-                      </div>
-                  </div>
-
-                  <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-200">
-                      <SectionHeader icon={Briefcase} title="Logística & Convidados" />
-                      <div className="space-y-4">
-                          <InputGroup label="Alimentação"><Textarea rows={2} value={data.logistica.alimentacao} onChange={e => setData(p => ({...p, logistica: {...p.logistica, alimentacao: e.target.value}}))} /></InputGroup>
-                          <InputGroup label="Equipamentos"><Textarea rows={2} value={data.logistica.equipamentos} onChange={e => setData(p => ({...p, logistica: {...p.logistica, equipamentos: e.target.value}}))} /></InputGroup>
-                      </div>
-                  </div>
-              </>
-          )}
-      </div>
-  );
-
-    const PreviewCulto = () => (
-        <div className="p-8 md:p-12 relative h-full flex flex-col font-sans">
-            <div className="flex flex-col md:flex-row justify-between items-start border-b-2 border-slate-900 pb-6 mb-8 gap-4">
-                <div className="w-full md:w-2/3">
-                    <h1 className="text-3xl md:text-4xl font-serif font-bold uppercase tracking-tight text-slate-900 leading-none mb-2">{data.info.titulo}</h1>
-                    <p className="text-lg md:text-xl text-slate-600 italic font-serif">{data.info.tema}</p>
-                </div>
-                <div className="text-left md:text-right w-full md:w-1/3">
-                    <div className="bg-slate-900 text-white inline-block px-4 py-1 mb-2 font-bold uppercase tracking-widest text-xs">Briefing de Culto</div>
-                    <div className="text-xl font-bold">{new Date(data.info.data + 'T00:00:00').toLocaleDateString('pt-BR', { timeZone: 'UTC' })}</div>
-                    <div className="text-lg text-slate-500">{data.info.horario}h • {data.info.local}</div>
-                </div>
-            </div>
-            {data.info.bannerImage && <div className="w-full h-48 mb-8 overflow-hidden rounded-lg shadow-sm border"><img src={data.info.bannerImage} alt="Theme Banner" className="w-full h-full object-cover" /></div>}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 flex-1">
-                <div className="lg:col-span-4 space-y-8 lg:border-r lg:border-slate-100 lg:pr-6">
-                    <div className="bg-slate-50 p-5 rounded-lg border">
-                        <h3 className="font-bold uppercase text-xs text-slate-400 mb-4 tracking-wider">Liderança & Púlpito</h3>
-                        <div className="space-y-3">
-                            <div><span className="block text-xs text-slate-400 uppercase">Pregador</span><span className="font-bold text-slate-800 text-lg">{data.info.pregador || "-"}</span></div>
-                            <div><span className="block text-xs text-slate-400 uppercase">Dirigente</span><span className="font-medium text-slate-700">{data.info.dirigente || "-"}</span></div>
-                        </div>
+    const PaperView = ({ state }) => {
+        const { cultInfo, staff, items, obsDepartamentos } = state;
+        return (
+            <div className="paper-view font-sans">
+                <div className="flex justify-between items-start border-b-4 border-slate-900 pb-6 mb-8 text-slate-900">
+                    <div className="flex-1">
+                        <h1 className="text-4xl font-serif font-bold uppercase tracking-tight leading-tight">{cultInfo.titulo}</h1>
+                        <p className="text-xl text-slate-600 italic font-serif mt-1">{cultInfo.tema}</p>
                     </div>
-                    <div>
-                        <h3 className="font-bold text-slate-900 uppercase text-sm border-b-2 border-slate-200 pb-2 mb-4">Escala Técnica</h3>
-                        <ul className="text-sm space-y-3">{Object.entries(data.equipes).map(([key, value]) => <li key={key} className="flex flex-col"><span className="capitalize text-slate-400 text-xs font-bold">{key}</span><span className="font-semibold text-slate-700">{value || "-"}</span></li>)}</ul>
-                    </div>
-                    <div>
-                        <h3 className="font-bold uppercase text-sm border-b-2 border-indigo-600 text-indigo-900 pb-2 mb-4">Louvor (Setlist)</h3>
-                        <ul className="space-y-3">{data.louvor.map((musica, i) => <li key={i} className="flex items-center gap-3"><span className="bg-indigo-50 text-indigo-700 font-bold text-xs w-6 h-6 flex items-center justify-center rounded-full shrink-0">{i+1}</span><div className="leading-tight"><div className="font-bold text-sm text-slate-800">{musica.musica}</div><div className="text-xs text-slate-400">{musica.cantor} {musica.tom && `• Tom: ${musica.tom}`}</div></div></li>)}</ul>
+                    <div className="text-right">
+                        <div className="bg-slate-900 text-white px-4 py-1 mb-2 font-bold uppercase tracking-widest text-[10px] inline-block">Briefing de Evento</div>
+                        <div className="text-xl font-bold">{cultInfo.date ? new Date(cultInfo.date + 'T00:00:00').toLocaleDateString('pt-BR') : ''}</div>
+                        <div className="text-lg text-slate-500">{cultInfo.startTime}h • {cultInfo.local || 'Auditório'}</div>
                     </div>
                 </div>
-                <div className="lg:col-span-8 space-y-8">
-                    <div>
-                        <h3 className="font-bold uppercase text-sm border-b-2 border-slate-900 pb-2 mb-4 flex justify-between items-center"><span>Ordem do Culto</span><span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500 font-normal">Minuto a Minuto</span></h3>
-                        <div className="relative border-l-2 border-slate-200 ml-2 space-y-0">{data.liturgia.map((item, i) => <div key={i} className="ml-6 relative py-2 group"><div className="absolute -left-[31px] top-4 bg-white border-2 border-slate-300 w-4 h-4 rounded-full group-first:bg-slate-900 group-first:border-slate-900 group-last:bg-red-500 group-last:border-red-500"></div><div className="flex justify-between items-baseline border-b border-slate-100 pb-2 mb-2"><div><span className="font-bold text-slate-800 text-base mr-3">{item.momento}</span><span className="text-sm text-slate-500">{item.responsavel}</span></div></div><div className="text-xs text-slate-400 italic bg-slate-50 inline-block px-2 py-1 rounded">{item.obs || "..."}</div></div>)}</div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8 bg-slate-50 p-6 rounded-xl border border-slate-200 break-inside-avoid">
-                        <div className="col-span-1 sm:col-span-2 mb-1 border-b border-slate-200 pb-2"><h4 className="font-bold text-xs uppercase text-slate-400 tracking-wider">Notas Departamentais</h4></div>
-                        {data.obsDepartamentos.midia && <div className="text-xs"><strong className="text-orange-600 block mb-1 uppercase">Mídia</strong><p className="text-slate-600 whitespace-pre-line leading-relaxed">{data.obsDepartamentos.midia}</p></div>}
-                        {data.obsDepartamentos.musica && <div className="text-xs"><strong className="text-blue-600 block mb-1 uppercase">Música</strong><p className="text-slate-600 whitespace-pre-line leading-relaxed">{data.obsDepartamentos.musica}</p></div>}
-                        {data.obsDepartamentos.staff && <div className="text-xs"><strong className="text-green-600 block mb-1 uppercase">Staff</strong><p className="text-slate-600 whitespace-pre-line leading-relaxed">{data.obsDepartamentos.staff}</p></div>}
-                        {data.obsDepartamentos.diaconato && <div className="text-xs"><strong className="text-purple-600 block mb-1 uppercase">Púlpito</strong><p className="text-slate-600 whitespace-pre-line leading-relaxed">{data.obsDepartamentos.diaconato}</p></div>}
-                    </div>
-                </div>
-            </div>
-            <div className="mt-auto pt-6 border-t border-slate-200 text-center text-[10px] text-slate-400 uppercase tracking-widest">Gerado por Briefing Pro • {new Date().getFullYear()}</div>
-        </div>
-    );
 
-    const PreviewEvento = () => (
-        <div className="p-0 relative font-sans h-full flex flex-col">
-             <div className={`relative ${data.info.bannerImage ? 'h-64' : 'h-40 bg-slate-900'} w-full text-white flex flex-col justify-end p-8 overflow-hidden`}>
-                {data.info.bannerImage && <><div className="absolute inset-0 bg-cover bg-center z-0" style={{backgroundImage: `url(${data.info.bannerImage})`}}></div><div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-transparent z-10"></div></>}
-                <div className="relative z-20 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-                    <div>
-                        <span className="bg-yellow-400 text-slate-900 text-xs font-bold px-2 py-1 uppercase tracking-widest rounded-sm mb-2 inline-block">Briefing de Evento</span>
-                        <h1 className="text-3xl md:text-4xl font-extrabold leading-none">{data.info.titulo}</h1>
-                        <p className="text-lg md:text-xl text-slate-300 font-light mt-1">{data.info.tema}</p>
-                    </div>
-                    <div className="text-left md:text-right border-t md:border-t-0 md:border-l border-white/20 pt-2 md:pt-0 md:pl-6">
-                        <div className="font-bold text-xl">{data.info.horario}</div>
-                        <div className="text-slate-300">{new Date(data.info.data).toLocaleDateString()}</div>
-                    </div>
-                </div>
-            </div>
-            <div className="p-6 md:p-10 flex-1">
-                <div className="mb-8"><p className="text-lg text-slate-700 leading-relaxed font-serif italic border-l-4 border-yellow-400 pl-4 bg-slate-50 py-4 pr-4 rounded-r">"{data.info.descricao || "Sem descrição."}"</p></div>
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                    <div className="lg:col-span-7">
-                        <h3 className="text-sm font-bold uppercase text-indigo-600 border-b-2 border-indigo-600 pb-2 mb-6">Programação</h3>
-                        <div className="space-y-6">
-                            {data.programacao.map((item, i) => <div key={i} className="flex gap-4 group"><div className="w-16 text-right pt-1"><span className="block font-mono font-bold text-slate-900 text-lg leading-none">{item.hora}</span></div><div className="relative flex-1 bg-white border border-slate-100 p-4 rounded-lg shadow-sm border-l-4 border-l-indigo-500"><h4 className="font-bold text-lg text-slate-800 leading-none mb-1">{item.atividade}</h4><p className="text-slate-500 text-sm">{item.detalhes}</p></div></div>)}
-                        </div>
-                    </div>
-                    <div className="lg:col-span-5 space-y-8">
-                        <div>
-                            <h3 className="text-sm font-bold uppercase text-slate-400 border-b border-slate-200 pb-2 mb-4">Logística</h3>
-                            <div className="bg-slate-50 p-4 rounded-lg text-sm space-y-4 border border-slate-100">
-                                {data.logistica.alimentacao && <div><strong className="block text-slate-900 mb-1 flex items-center gap-2"><UtensilsCrossed className="size-4 text-slate-400"/> Alimentação</strong><p className="text-slate-600 ml-6">{data.logistica.alimentacao}</p></div>}
-                                {data.logistica.equipamentos && <div><strong className="block text-slate-900 mb-1 flex items-center gap-2"><Speaker className="size-4 text-slate-400"/> Equipamentos</strong><p className="text-slate-600 ml-6">{data.logistica.equipamentos}</p></div>}
+                <div className="grid grid-cols-12 gap-8 mb-10 text-slate-900">
+                    <div className="col-span-4 space-y-6">
+                        <section>
+                            <h3 className="font-black uppercase text-[10px] text-slate-400 mb-3 border-b border-slate-100 pb-1">Responsáveis</h3>
+                            <div className="space-y-2 text-sm">
+                                <p><strong className="text-slate-400 uppercase text-[10px]">Mensagem:</strong> {cultInfo.pregador || '-'}</p>
+                                <p><strong className="text-slate-400 uppercase text-[10px]">Direção:</strong> {cultInfo.dirigente || '-'}</p>
                             </div>
-                        </div>
-                        <div>
-                            <h3 className="text-sm font-bold uppercase text-slate-400 border-b border-slate-200 pb-2 mb-4">Convidados</h3>
-                            <ul className="space-y-3">{data.convidados.map((c, i) => <li key={i} className="flex items-start gap-3"><div className="bg-purple-100 text-purple-600 rounded-full w-8 h-8 flex items-center justify-center font-bold text-xs shrink-0">{c.nome.charAt(0)}</div><div><div className="font-bold text-slate-800">{c.nome}</div><div className="text-xs uppercase font-bold text-purple-500">{c.papel}</div><div className="text-xs text-slate-500 mt-1">{c.obs}</div></div></li>)}</ul>
+                        </section>
+                        <section>
+                            <h3 className="font-black uppercase text-[10px] text-slate-400 mb-3 border-b border-slate-100 pb-1 text-slate-900">Equipe Técnica</h3>
+                            <div className="space-y-1 text-sm">
+                                {Object.entries(staff).map(([k, v]) => (
+                                    <p key={k}><strong className="capitalize text-slate-400 text-[10px] uppercase">{k}:</strong> {v || '-'}</p>
+                                ))}
+                            </div>
+                        </section>
+                    </div>
+
+                    <div className="col-span-8">
+                        <h3 className="font-black uppercase text-[10px] text-slate-400 mb-4 border-b border-slate-100 pb-1 tracking-widest">Liturgia Minuto a Minuto</h3>
+                        <div className="space-y-4">
+                            {items.map((it, i) => (
+                                <div key={it.id} className="flex gap-4 items-start border-b border-slate-50 pb-2">
+                                    <span className="font-mono font-bold text-slate-300 w-12 text-sm">{it.startTime}</span>
+                                    <div className="flex-1">
+                                        <div className="flex justify-between">
+                                            <span className="font-bold text-slate-800">{it.title}</span>
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase">{it.responsible || 'Equipa'}</span>
+                                        </div>
+                                        <p className="text-xs text-slate-500 italic mt-0.5">{it.description}</p>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-6 bg-slate-50 p-6 rounded-lg border border-slate-100 text-slate-900">
+                    {Object.entries(obsDepartamentos).map(([k, v]) => v && (
+                        <div key={k} className="text-xs">
+                            <strong className="uppercase text-slate-400 mb-1 block text-[10px] tracking-widest">{k}</strong>
+                            <p className="text-slate-600 whitespace-pre-line leading-relaxed">{v as string}</p>
+                        </div>
+                    ))}
                 </div>
             </div>
-        </div>
-    );
-    
+        );
+    };
+
+    const TimerLogic = ({ duration, liveState }) => {
+        const [elapsed, setElapsed] = useState(liveState.accumulatedTime);
+        useEffect(() => {
+            if (!liveState.isRunning || !liveState.itemStartTime) {
+                setElapsed(liveState.accumulatedTime);
+                return;
+            }
+            const i = setInterval(() => {
+                setElapsed(liveState.accumulatedTime + (Date.now() - liveState.itemStartTime) / 1000);
+            }, 200);
+            return () => clearInterval(i);
+        }, [liveState.isRunning, liveState.itemStartTime, liveState.accumulatedTime]);
+        
+        return formatTime((duration * 60) - elapsed);
+    };
+
+    const currentItem = state.items[state.liveState.currentItemIndex];
+    const nextItem = state.items[state.liveState.currentItemIndex + 1];
+
+    if(isLoading) {
+        return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin" /></div>
+    }
+
     return (
-        <div className="flex flex-col h-screen bg-gray-100 text-slate-800">
-             <style>{`
-                .paper-view { width: 210mm; min-height: 297mm; background: white; margin: 2rem auto; }
-                @media print {
-                  .no-print { display: none !important; }
-                  .paper-view { box-shadow: none !important; margin: 0; border: none; width: 100%; min-height: auto; }
-                  @page { margin: 0; size: A4; }
-                  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                }
-                .animate-fade-in { animation: fadeIn 0.3s ease; }
-                @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-            `}</style>
-            <nav className="bg-slate-900 text-white h-16 shrink-0 flex items-center justify-between px-4 md:px-6 shadow-md z-50 no-print">
-                <div className="flex items-center gap-3">
-                    <div className="bg-gradient-to-tr from-teal-500 to-blue-600 text-white w-8 h-8 rounded-lg flex items-center justify-center shadow-lg"><Clapperboard className="size-5" /></div>
-                    <div><h1 className="font-bold text-lg tracking-tight leading-none">Briefing<span className="text-teal-300">Pro</span></h1><span className="text-[10px] text-slate-400 uppercase tracking-widest">Event Planner</span></div>
-                </div>
-                <div className="flex items-center bg-slate-800 rounded-lg p-1 gap-1">
-                    <Button onClick={() => switchTemplate('culto')} variant={data.type === 'culto' ? 'default' : 'ghost'} size="sm" className={cn(data.type === 'culto' && "bg-brand-600 text-white shadow")}> <Church className="mr-2 size-4"/> Culto</Button>
-                    <Button onClick={() => switchTemplate('evento')} variant={data.type === 'evento' ? 'default' : 'ghost'} size="sm" className={cn(data.type === 'evento' && "bg-indigo-600 text-white shadow")}> <Theater className="mr-2 size-4"/> Evento</Button>
-                </div>
-                <div className="flex items-center gap-2 md:gap-3">
-                    <div className="lg:hidden flex bg-slate-800 rounded-lg p-1">
-                        <Button onClick={() => setViewMode('edit')} variant={viewMode === 'edit' ? 'secondary' : 'ghost'} size="icon"><Edit /></Button>
-                        <Button onClick={() => setViewMode('preview')} variant={viewMode === 'preview' ? 'secondary' : 'ghost'} size="icon"><Eye /></Button>
+        <>
+        <style>{`
+            body { font-family: 'Inter', sans-serif; background-color: #020617; color: #f8fafc; }
+            .font-mono { font-family: 'JetBrains Mono', monospace; }
+            .font-serif { font-family: 'Playfair Display', serif; }
+            .glass { background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.05); }
+            @media screen {
+                .paper-view { width: 210mm; min-height: 297mm; background: white; color: #0f172a; box-shadow: 0 0 50px rgba(0,0,0,0.5); margin: 2rem auto; padding: 20mm; border-radius: 4px; }
+            }
+            @media print {
+                .no-print { display: none !important; }
+                body { background: white; color: black; }
+                .paper-view { width: 100%; margin: 0; box-shadow: none; padding: 10mm; }
+            }
+            .timer-display { font-size: clamp(3rem, 12vw, 10rem); font-weight: 900; line-height: 1; }
+            input[type="color"] { -webkit-appearance: none; border: none; width: 28px; height: 28px; cursor: pointer; background: transparent; }
+            input[type="color"]::-webkit-color-swatch { border-radius: 6px; border: 2px solid rgba(255,255,255,0.1); }
+            .no-scrollbar::-webkit-scrollbar { display: none; }
+            @keyframes fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+            .animate-fade-in { animation: fade-in 0.4s ease-out forwards; }
+        `}</style>
+        <div className="min-h-screen flex flex-col h-screen overflow-hidden">
+            <nav className="glass h-16 shrink-0 flex items-center justify-between px-6 z-50 no-print shadow-2xl">
+                <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                        <Icon name="description" className="text-white" size={24} />
                     </div>
-                    <Button onClick={() => window.print()} variant="outline" className="bg-white/10 text-white hover:bg-white/20 border-white/20"> <Printer className="mr-2" /> <span className="hidden sm:inline">Imprimir / PDF</span></Button>
+                    <div>
+                        <h1 className="text-lg font-black uppercase tracking-tighter leading-none">Church Pro</h1>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">V3 Core Engine</p>
+                    </div>
+                </div>
+
+                <div className="flex bg-slate-900/50 p-1 rounded-2xl border border-white/5">
+                    {[{ id: 'planning', label: 'Planejamento', icon: 'edit' }, { id: 'live', label: 'Ao Vivo', icon: 'play_arrow' }, { id: 'roteiro', label: 'Roteiro', icon: 'description' }].map(tab => (
+                        <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`px-6 py-2 rounded-xl flex items-center gap-2 text-xs font-black uppercase transition-all ${activeTab === tab.id ? 'bg-indigo-600 text-white shadow-xl scale-105' : 'text-slate-500 hover:text-slate-300'}`}>
+                            <Icon name={tab.icon} size={14} /> {tab.label}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="flex items-center gap-4">
+                    <div className="text-right mr-2 hidden md:block">
+                        <div className="text-xl font-mono font-bold text-indigo-400 leading-none">{now.toLocaleTimeString('pt-BR')}</div>
+                        <div className="text-[10px] text-slate-600 font-bold uppercase">Relógio Local</div>
+                    </div>
                 </div>
             </nav>
-            <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-                <div className={cn("lg:w-5/12 lg:max-w-lg border-r border-gray-200 bg-gray-50/50 overflow-y-auto no-print", viewMode === 'preview' && 'hidden lg:flex')}>
-                    <div className="p-4 md:p-6 pb-0"><h2 className="text-2xl font-bold text-slate-800 mb-1">Editor</h2><p className="text-sm text-slate-500">Preencha os detalhes para gerar o documento.</p></div>
-                    {renderEditor()}
-                </div>
-                <div className={cn("flex-1 bg-gray-200/80 overflow-y-auto p-4 md:p-8", viewMode === 'edit' && 'hidden lg:flex')}>
-                    <div className="paper-view shadow-lg rounded-lg overflow-hidden">
-                        {data.type === 'culto' ? <PreviewCulto /> : <PreviewEvento />}
+
+            <main className="flex-1 overflow-y-auto no-scrollbar relative p-4 md:p-8">
+                {activeTab === 'planning' && (
+                    <div className="max-w-6xl mx-auto space-y-8 animate-fade-in no-print">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="md:col-span-2 glass p-8 rounded-[2.5rem] space-y-6">
+                                <h2 className="text-2xl font-black mb-6">Informações Gerais</h2>
+                                <div className="grid grid-cols-2 gap-6">
+                                    <div className="col-span-2 md:col-span-1">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase block mb-1 tracking-widest">Título</label>
+                                        <input className="w-full bg-slate-800/50 border border-white/5 p-3 rounded-xl focus:border-indigo-500 outline-none font-bold text-slate-100" value={state.cultInfo.titulo} onChange={e => handleCultInfo('titulo', e.target.value)} />
+                                    </div>
+                                    <div className="col-span-2 md:col-span-1">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase block mb-1 tracking-widest">Início</label>
+                                        <input type="time" className="w-full bg-slate-800/50 border border-white/5 p-3 rounded-xl text-indigo-400 font-mono font-bold" value={state.cultInfo.startTime} onChange={e => handleCultInfo('startTime', e.target.value)} />
+                                    </div>
+                                    <div className="col-span-2 md:col-span-1">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase block mb-1 tracking-widest">Direção</label>
+                                        <input className="w-full bg-slate-800/50 border border-white/5 p-3 rounded-xl" value={state.cultInfo.dirigente} onChange={e => handleCultInfo('dirigente', e.target.value)} />
+                                    </div>
+                                    <div className="col-span-2 md:col-span-1">
+                                        <label className="text-[10px] font-black text-slate-500 uppercase block mb-1 tracking-widest">Mensagem</label>
+                                        <input className="w-full bg-slate-800/50 border border-white/5 p-3 rounded-xl" value={state.cultInfo.pregador} onChange={e => handleCultInfo('pregador', e.target.value)} />
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="glass p-8 rounded-[2.5rem]">
+                                <h2 className="text-lg font-black mb-6 uppercase text-slate-500 tracking-widest">Escala Técnica</h2>
+                                <div className="space-y-4">
+                                    {Object.keys(state.staff).map(role => (
+                                        <div key={role} className="flex flex-col">
+                                            <label className="text-[10px] font-bold text-slate-600 uppercase mb-1 tracking-wider">{role}</label>
+                                            <input className="bg-transparent border-b border-white/10 text-sm py-1 outline-none focus:border-indigo-500 text-slate-300" value={state.staff[role]} onChange={e => sync(p => ({...p, staff: {...p.staff, [role]: e.target.value}}))} placeholder="Responsável" />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="glass p-8 rounded-[2.5rem]">
+                            <div className="flex justify-between items-center mb-8">
+                                <h2 className="text-2xl font-black">Ordem de Liturgia</h2>
+                                <button onClick={() => {
+                                    const newItem = { id: crypto.randomUUID(), title: 'Novo Momento', duration: 10, responsible: '', description: '', colors: { item: '#4f46e5' }, technical: { lighting: '', sound: '', projection: '' }, completed: false };
+                                    sync(p => ({ ...p, items: calculateStartTimes([...p.items, newItem], p.cultInfo.startTime) }));
+                                }} className="bg-indigo-600 text-white px-6 py-2 rounded-xl font-black text-xs uppercase flex items-center gap-2 hover:bg-indigo-500 transition-all">
+                                    <Icon name="add" size={14} /> Adicionar
+                                </button>
+                            </div>
+
+                            <div className="space-y-4">
+                                {state.items.map((it, idx) => (
+                                    <div key={it.id} className="p-6 bg-slate-950/40 rounded-3xl border border-white/5 hover:border-white/10 transition-colors group relative">
+                                        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+                                            <div className="md:col-span-1 text-center">
+                                                <span className="text-xs font-mono font-bold text-indigo-500 block mb-2">{it.startTime}</span>
+                                                <input type="color" value={it.colors.item} onChange={e => sync(p => ({ ...p, items: p.items.map(x => x.id === it.id ? { ...x, colors: { ...x.colors, item: e.target.value } } : x) }))} title="Cor Identificadora" />
+                                            </div>
+                                            <div className="md:col-span-4">
+                                                <input className="w-full bg-transparent text-xl font-black outline-none text-slate-100" value={it.title} onChange={e => sync(p => ({ ...p, items: p.items.map(x => x.id === it.id ? { ...x, title: e.target.value } : x) }))} />
+                                                <input className="w-full bg-transparent text-xs font-bold text-slate-500 outline-none uppercase mt-1" placeholder="RESPONSÁVEL" value={it.responsible} onChange={e => sync(p => ({ ...p, items: p.items.map(x => x.id === it.id ? { ...x, responsible: e.target.value } : x) }))} />
+                                            </div>
+                                            <div className="md:col-span-1">
+                                                <div className="flex items-center gap-2 bg-black/40 p-2 rounded-xl border border-white/5">
+                                                    <input type="number" className="bg-transparent w-8 text-center font-bold text-sm text-indigo-400" value={it.duration} onChange={e => sync(p => {
+                                                        const newItems = p.items.map(x => x.id === it.id ? { ...x, duration: Number(e.target.value) } : x);
+                                                        return { ...p, items: calculateStartTimes(newItems, p.cultInfo.startTime) };
+                                                    })} />
+                                                    <span className="text-[9px] font-black text-slate-600 uppercase">min</span>
+                                                </div>
+                                            </div>
+                                            <div className="md:col-span-5 grid grid-cols-3 gap-2">
+                                                {['lighting', 'sound', 'projection'].map(techKey => (
+                                                    <input key={techKey} placeholder={techKey.toUpperCase()} className="bg-white/5 border border-white/5 rounded-lg p-2 text-[10px] outline-none focus:border-indigo-500/50 text-slate-400" value={it.technical[techKey]} onChange={e => sync(p => ({ ...p, items: p.items.map(x => x.id === it.id ? { ...x, technical: { ...x.technical, [techKey]: e.target.value } } : x) }))} title={techKey.toUpperCase()} />
+                                                ))}
+                                            </div>
+                                            <div className="md:col-span-1 text-right">
+                                                <button onClick={() => sync(p => ({ ...p, items: calculateStartTimes(p.items.filter(x => x.id !== it.id), p.cultInfo.startTime) }))} className="p-2 text-slate-700 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
+                                                    <Icon name="delete" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+                
+                {activeTab === 'live' && (
+                     <div className="max-w-7xl mx-auto h-full flex flex-col gap-8 no-print animate-fade-in">
+                        {(() => {
+                           
+                            return (
+                                <div className="grid grid-cols-12 gap-8 flex-1">
+                                    <div className="col-span-12 lg:col-span-8 glass p-8 md:p-12 rounded-[3.5rem] flex flex-col justify-between border-2 border-white/5 relative overflow-hidden shadow-2xl">
+                                        <div className="flex justify-between items-start">
+                                            <div className="animate-fade-in" key={currentItem?.id}>
+                                                <span className="bg-indigo-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase mb-4 inline-block shadow-lg">Ativo</span>
+                                                <h2 className="text-4xl md:text-6xl font-black leading-tight text-white tracking-tight">{currentItem?.title || 'FIM DO EVENTO'}</h2>
+                                                <p className="text-xl md:text-2xl text-slate-400 font-medium italic mt-2">{currentItem?.responsible || '-'}</p>
+                                            </div>
+                                            <div className="flex gap-4">
+                                                <button onClick={toggleTimer} className={`p-6 rounded-3xl transition-all shadow-2xl hover:scale-105 active:scale-95 ${state.liveState.isRunning ? 'bg-amber-500 text-white' : 'bg-emerald-600 text-white'}`}>
+                                                    <Icon name={state.liveState.isRunning ? 'pause' : 'play_arrow'} size={40} />
+                                                </button>
+                                                <button onClick={handleNext} className="p-6 bg-indigo-600 text-white rounded-3xl hover:bg-indigo-500 hover:scale-105 active:scale-95 shadow-2xl">
+                                                    <Icon name="skip_next" size={40} />
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div className="text-center py-6 md:py-10">
+                                            <div className={`timer-display font-mono tracking-tighter text-emerald-500`}>
+                                                <TimerLogic duration={currentItem?.duration || 0} liveState={state.liveState} />
+                                            </div>
+                                            <p className="text-slate-600 font-black uppercase tracking-[0.5em] text-xs md:text-sm mt-4">Tempo Restante</p>
+                                        </div>
+
+                                        <div className="bg-white/5 p-6 rounded-3xl border border-white/5 text-slate-300 mt-4">
+                                            <h4 className="text-[10px] font-black uppercase text-indigo-400 mb-2 tracking-widest">Notas Atuais</h4>
+                                            <p className="text-lg md:text-xl font-medium leading-relaxed italic">"{currentItem?.description || 'Prosseguir conforme planejado.'}"</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="col-span-12 lg:col-span-4 flex flex-col gap-6 text-slate-200">
+                                        <div className="glass p-8 rounded-[2.5rem] flex-1 border border-white/5">
+                                            <h3 className="text-slate-500 font-black text-xs uppercase tracking-widest mb-10">Escala Técnica Ativa</h3>
+                                            <div className="space-y-12">
+                                                {[
+                                                    { l: 'Iluminação', v: currentItem?.technical?.lighting, c: currentItem?.colors?.item },
+                                                    { l: 'Projeção', v: currentItem?.technical?.projection, c: '#0ea5e9' },
+                                                    { l: 'Sonoplastia', v: currentItem?.technical?.sound, c: null }
+                                                ].map((t, i) => (
+                                                    <div key={i} className="flex gap-6 items-start">
+                                                        {t.c ? (
+                                                            <div className="w-14 h-14 rounded-2xl border-4 border-white/10 shrink-0 shadow-2xl" style={{backgroundColor: t.c}}></div>
+                                                        ) : (
+                                                            <div className="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center shrink-0 border border-white/5 text-slate-600"><Icon name="description" size={28}/></div>
+                                                        )}
+                                                        <div className="min-w-0">
+                                                            <span className="text-slate-600 font-black text-[10px] uppercase block tracking-widest mb-1">{t.l}</span>
+                                                            <p className="text-xl font-bold truncate text-slate-200">{t.v || '-'}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-amber-500/10 border border-amber-500/10 p-8 rounded-[2.5rem] h-1/3 shadow-xl">
+                                            <span className="text-amber-500 font-black text-[10px] uppercase tracking-widest mb-4 block">A Seguir</span>
+                                            {nextItem ? (
+                                                <div className="animate-fade-in">
+                                                    <h4 className="text-2xl md:text-3xl font-black leading-tight text-slate-100">{nextItem.title}</h4>
+                                                    <p className="text-slate-500 text-sm mt-1 uppercase font-bold">{nextItem.responsible || '-'}</p>
+                                                </div>
+                                            ) : <p className="text-slate-700 italic font-bold">Agenda Concluída</p>}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                    </div>
+                )}
+
+                {activeTab === 'roteiro' && (
+                    <div className="animate-fade-in no-scrollbar overflow-y-auto pb-20">
+                        <div className="max-w-[210mm] mx-auto">
+                            <PaperView state={state} />
+                            <div className="flex justify-center mt-12 no-print">
+                                <button onClick={() => window.print()} className="bg-white text-slate-900 px-10 py-5 rounded-2xl font-black flex items-center gap-3 shadow-2xl hover:scale-105 transition-transform">
+                                    <Icon name="print" /> IMPRIMIR ROTEIRO / PDF
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </main>
+
+            {state.liveState.alert && (
+                <div className="fixed top-20 left-1/2 -translate-x-1/2 w-[95%] max-w-4xl bg-red-600 text-white p-10 rounded-[3rem] shadow-[0_0_120px_rgba(220,38,38,0.6)] z-[100] flex items-center gap-10 animate-bounce border-8 border-white/20">
+                    <div className="p-5 bg-white/20 rounded-full shrink-0">
+                        <Icon name="error" size={60} />
+                    </div>
+                    <div>
+                        <span className="text-xs font-black uppercase tracking-[0.5em] opacity-70">Mensagem da Direção</span>
+                        <h2 className="text-4xl md:text-6xl font-black uppercase leading-tight mt-2">{state.liveState.alert.message}</h2>
                     </div>
                 </div>
+            )}
+            
+            <div className="fixed bottom-8 right-8 no-print group">
+                <button onClick={() => {
+                    const msg = prompt("Mensagem para a equipe:");
+                    if (msg) {
+                        sync(p => ({ ...p, liveState: { ...p.liveState, alert: { message: msg, time: Date.now() } } }));
+                        setTimeout(() => sync(p => ({ ...p, liveState: { ...p.liveState, alert: null } })), 10000);
+                    }
+                }} className="w-16 h-16 bg-red-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all">
+                    <Icon name="error" size={32} />
+                </button>
             </div>
         </div>
+        </>
     );
-}
-
+};
