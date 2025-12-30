@@ -1,10 +1,9 @@
-
 'use client';
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { HardHat, School, Banknote, User, Music, Waves } from 'lucide-react';
+import { School, Banknote, User, Music, Waves } from 'lucide-react';
 import { UnderConstruction } from '@/components/common/under-construction';
 
 
