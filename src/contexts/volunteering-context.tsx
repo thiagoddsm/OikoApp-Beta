@@ -36,9 +36,23 @@ export type VolunteeringEvent = {
   requiredAreas?: { areaId: string; quantity: number }[];
 }
 
+export type RoomReservation = {
+    id: string;
+    eventName: string;
+    requesterId: string;
+    room: string;
+    startDateTime: any; // Using `any` to be compatible with Firestore Timestamp
+    endDateTime: any;
+    status: 'pending' | 'approved' | 'rejected';
+    notes?: string;
+    createdAt: any;
+}
+
+
 type AreaData = Omit<AreaOfService, 'id'>;
 type TeamData = Omit<Team, 'id'>;
 type EventData = Omit<VolunteeringEvent, 'id'>;
+type ReservationData = Omit<RoomReservation, 'id'>;
 
 
 // --- CONTEXT DEFINITION ---
@@ -48,6 +62,7 @@ interface VolunteeringContextType {
   users: User[];
   teams: Team[];
   events: VolunteeringEvent[];
+  reservations: RoomReservation[];
   isLoading: boolean;
   
   // Functions for Areas
@@ -64,6 +79,11 @@ interface VolunteeringContextType {
   addEvent: (data: EventData) => Promise<void>;
   updateEvent: (id: string, data: Partial<EventData>) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
+  
+  // Functions for Reservations
+  addReservation: (data: ReservationData) => Promise<void>;
+  updateReservation: (id: string, data: Partial<ReservationData>) => Promise<void>;
+  deleteReservation: (id: string) => Promise<void>;
 }
 
 const VolunteeringContext = createContext<VolunteeringContextType | undefined>(undefined);
@@ -77,9 +97,10 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { data: teams, isLoading: loadingTeams } = useCollection<Team>('teams');
   const { data: users, isLoading: loadingUsers } = useCollection<User>('users');
   const { data: events, isLoading: loadingEvents } = useCollection<VolunteeringEvent>('volunteering_events');
+  const { data: reservations, isLoading: loadingReservations } = useCollection<RoomReservation>('room_reservations');
 
 
-  const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents;
+  const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents || loadingReservations;
 
   // --- AREA FUNCTIONS ---
   const addArea = async (data: AreaData) => {
@@ -98,8 +119,6 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   
   const deleteArea = async (areaId: string) => {
     if (!firestore) return;
-    
-    // This logic is temporarily disabled to prevent permission errors.
     
     const batch = writeBatch(firestore);
     const areaRef = doc(firestore, 'areas_of_service', areaId);
@@ -158,11 +177,35 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     toast({ title: 'Sucesso', description: 'O evento será excluído.' });
   };
 
+  // --- RESERVATION FUNCTIONS ---
+  const addReservation = async (data: ReservationData) => {
+    if(!firestore) return;
+    const reservationsCollection = collection(firestore, 'room_reservations');
+    addDocumentNonBlocking(reservationsCollection, data);
+    toast({ title: 'Sucesso', description: `Reserva para "${data.eventName}" foi solicitada.` });
+  };
+
+  const updateReservation = async (id: string, data: Partial<ReservationData>) => {
+      if(!firestore) return;
+      const reservationDoc = doc(firestore, 'room_reservations', id);
+      updateDocumentNonBlocking(reservationDoc, data);
+      toast({ title: 'Sucesso', description: `Reserva será atualizada.` });
+  };
+
+  const deleteReservation = async (id: string) => {
+      if(!firestore) return;
+      const reservationDoc = doc(firestore, 'room_reservations', id);
+      deleteDocumentNonBlocking(reservationDoc);
+      toast({ title: 'Sucesso', description: 'A reserva será excluída.' });
+  };
+
+
   const value = useMemo(() => ({
     areas: areas || [],
     teams: teams || [],
     users: users || [],
     events: events || [],
+    reservations: reservations || [],
     isLoading,
     addArea,
     updateArea,
@@ -173,7 +216,10 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     addEvent,
     updateEvent,
     deleteEvent,
-  }), [areas, teams, users, events, isLoading]);
+    addReservation,
+    updateReservation,
+    deleteReservation,
+  }), [areas, teams, users, events, reservations, isLoading]);
 
   return (
     <VolunteeringContext.Provider value={value}>
