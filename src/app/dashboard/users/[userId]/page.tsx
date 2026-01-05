@@ -218,7 +218,7 @@ export default function UserProfilePage() {
                     <CardDescription>Acompanhe e gerencie o progresso individual na jornada de crescimento.</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <DiscipleshipTrail />
+                    <DiscipleshipTrail currentStatusId={userProfile.integrationStatus} />
                   </CardContent>
                 </Card>
             </TabsContent>
