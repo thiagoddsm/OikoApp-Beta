@@ -24,6 +24,11 @@ service cloud.firestore {
     match /room_reservations/{reservationId} {
       allow read, write: if isSignedIn();
     }
+    
+    // Allow signed-in users to read/write member notes.
+    match /member_notes/{noteId} {
+      allow read, write: if isSignedIn();
+    }
 
     // --- Liberal Rules for Development ---
     // Allow any signed-in user to read and write to any other document as a fallback.
