@@ -14,7 +14,7 @@ import { Loader2, Plus, Users, Search } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import NewMemberPage from '../new-member/page';
 
 type User = {
@@ -153,6 +153,12 @@ export default function UsersKanbanPage() {
                         </Button>
                       </DialogTrigger>
                       <DialogContent className="sm:max-w-2xl">
+                          <DialogHeader>
+                            <DialogTitle>Registrar Nova Pessoa na Jornada</DialogTitle>
+                            <DialogDescription>
+                                Insira as informações do novo discípulo para adicioná-lo à trilha de discipulado.
+                            </DialogDescription>
+                          </DialogHeader>
                           <NewMemberPage />
                       </DialogContent>
                     </Dialog>
