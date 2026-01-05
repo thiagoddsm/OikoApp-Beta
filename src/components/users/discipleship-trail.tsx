@@ -127,7 +127,6 @@ const pageHTML = `
 `;
 
 const pageScript = `
-        // --- DATA SOURCE (Based on Manual IBM 2026) ---
         const timelineData = [
             // FASE 1
             {
@@ -142,10 +141,10 @@ const pageScript = `
                 ],
                 icon: "favorite",
                 details: {
-                    objective: "Acolhimento e apresentação clara do evangelho.",
+                    objective: "Apresentação do evangelho e decisão por Cristo.",
                     duration: "7 Encontros Quinzenais (~3,5 meses)",
                     responsible: "Co-Líder ou Consolidador",
-                    criteria: "Decisão por Cristo e vínculo inicial."
+                    criteria: "Decisão por Cristo e início do vínculo com a célula."
                 }
             },
             // FASE 2
@@ -162,9 +161,9 @@ const pageScript = `
                 icon: "water_drop",
                 details: {
                     objective: "Entendimento sobre Salvação, Batismo e Ceia.",
-                    duration: "7 Encontros Quinzenais",
+                    duration: "1 dia (Intensivo)",
                     responsible: "Liderança de Ensino",
-                    criteria: "Conclusão do curso e Batismo nas águas (Testemunho Público)."
+                    criteria: "Conclusão do curso e testemunho público nas águas."
                 }
             },
             {
@@ -181,9 +180,9 @@ const pageScript = `
                 icon: "badge",
                 details: {
                     objective: "Compreensão da visão, cultura e mordomia da IBM.",
-                    duration: "7 Encontros Quinzenais",
+                    duration: "EAD ou Mentoria",
                     responsible: "Liderança GC / Ensino",
-                    criteria: "OBRIGATÓRIO estar ativo em um GC. Conclusão EAD ou Mentoria."
+                    criteria: "OBRIGATÓRIO estar ativo em um GC. Conclusão do curso."
                 }
             },
             // FASE 3
@@ -210,7 +209,8 @@ const pageScript = `
                 id: 5,
                 phase: "FASE 3: CONSOLIDAÇÃO E LIDERANÇA",
                 phaseColor: "bg-emerald-100 text-emerald-800",
-                title: "COLÍDER",
+                title: "CO-LÍDER",
+                subtitle: "Líder em Treinamento",
                 type: "discipulado",
                 badges: [
                     { label: "MENTORIA", type: "discipulado" },
@@ -218,10 +218,10 @@ const pageScript = `
                 ],
                 icon: "group_add",
                 details: {
-                    objective: "'Fazer com outros'. Acompanhar o líder em tudo.",
-                    duration: "7 Encontros Mensais",
+                    objective: "'Fazer com outros'. Acompanhar o líder de GC em tudo.",
+                    duration: "Contínuo",
                     responsible: "Mentor: Líder de GC",
-                    criteria: "Adotar/Cuidar de um 'Não Alcançado' ou Novo Convertido."
+                    criteria: "Adotar um 'Não Alcançado' ou Novo Convertido para cuidar."
                 }
             },
             {
@@ -239,7 +239,7 @@ const pageScript = `
                 details: {
                     objective: "Descoberta de vocação específica e dons espirituais.",
                     duration: "Variável",
-                    responsible: "Supervisão",
+                    responsible: "Supervisão / Liderança de Ministério",
                     criteria: "Ter concluído a Consolidação + Validação F.D.E (Fiel, Disponível, Ensinável)."
                 }
             },
@@ -248,7 +248,7 @@ const pageScript = `
                 phase: "FASE 3: CONSOLIDAÇÃO E LIDERANÇA",
                 phaseColor: "bg-emerald-100 text-emerald-800",
                 title: "LÍDER DE GC (LIDERE 2)",
-                subtitle: "Pré-requisito para Líder de Ministério",
+                subtitle: "Pré-requisito para Liderança de Ministério",
                 type: "status",
                 badges: [
                     { label: "STATUS", type: "status" },
@@ -259,7 +259,7 @@ const pageScript = `
                     objective: "Liderar um pequeno grupo e formar novos discípulos.",
                     duration: "7 Encontros Mensais",
                     responsible: "Supervisor de Área",
-                    criteria: "Dupla Validação (Mentor + Supervisor). Obrigatório para assumir Ministérios."
+                    criteria: "Dupla Validação (F.D.E. do Mentor + Supervisor). Obrigatório para liderar Ministérios de Alcance."
                 }
             },
             // FASE 4
@@ -321,7 +321,6 @@ const pageScript = `
                 }
             }
         ];
-
         // --- RENDER LOGIC ---
         function renderTimeline() {
             const container = document.getElementById('timeline-render');
