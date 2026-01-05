@@ -1,9 +1,9 @@
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
-import { useDoc, useCollection } from '@/firebase';
+import { useDoc, useCollection, useMemoFirebase, useFirebase } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -84,7 +84,7 @@ function KpiCard({ icon: Icon, title, value, footer }) {
 export default function UserProfilePage() {
   const params = useParams();
   const userId = params.userId as string;
-
+  const { firestore } = useFirebase();
   const [isEditDialogOpen, setEditDialogOpen] = useState(false);
 
   const { data: userProfile, isLoading: isLoadingUser } = useDoc<UserProfile>(`users/${userId}`);
@@ -101,7 +101,13 @@ export default function UserProfilePage() {
   );
 
   const { data: allUsers, isLoading: isLoadingAllUsers } = useCollection<UserProfile>('users');
-  const { data: notes, isLoading: isLoadingNotes } = useCollection('member_notes', [{ field: 'memberId', operator: '==', value: userId }]);
+  
+  const notesQuery = useMemoFirebase(() => {
+    if (!firestore || !userId) return null;
+    return query(collection(firestore, 'member_notes'), where('memberId', '==', userId));
+  }, [firestore, userId]);
+  
+  const { data: notes, isLoading: isLoadingNotes } = useCollection(notesQuery);
 
 
   const avatar = PlaceHolderImages.find(p => p.id === (userProfile?.avatar || 'avatar-1'));

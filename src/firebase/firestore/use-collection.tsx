@@ -39,17 +39,17 @@ export type OrderConstraint = {
 
 /**
  * React hook to subscribe to a Firestore collection or query in real-time.
- * It builds the query internally to ensure reference stability.
+ * It can accept either a path string or a pre-built Query object.
  *
  * @template T Type for document data.
- * @param {string | null} path - The path to the collection. Hook is dormant if null.
- * @param {QueryConstraint[]} [constraints=[]] - An array of 'where' clauses.
- * @param {OrderConstraint[]} [order=[]] - An array of 'orderBy' clauses.
- * @param {number} [limitBy] - The 'limit' for the query.
+ * @param {string | Query | null} pathOrQuery - The path to the collection or a Firestore Query object. Hook is dormant if null.
+ * @param {QueryConstraint[]} [constraints=[]] - An array of 'where' clauses (only used if path is a string).
+ * @param {OrderConstraint[]} [order=[]] - An array of 'orderBy' clauses (only used if path is a string).
+ * @param {number} [limitBy] - The 'limit' for the query (only used if path is a string).
  * @returns {UseCollectionResult<T>} Object with data, isLoading, error.
  */
 export function useCollection<T = any>(
-  path: string | null,
+  pathOrQuery: string | Query | null,
   constraints: QueryConstraint[] = [],
   order: OrderConstraint[] = [],
   limitBy?: number
@@ -59,14 +59,12 @@ export function useCollection<T = any>(
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
-  // Memoize dependency arrays to prevent re-renders
+  // Memoize dependency arrays to prevent re-renders when path is a string
   const memoizedConstraints = JSON.stringify(constraints);
   const memoizedOrder = JSON.stringify(order);
 
   useEffect(() => {
-    // This hook can be called with a null path when a dependency is not yet ready.
-    // If firestore or path are not available, set loading to false and exit.
-    if (!firestore || !path) {
+    if (!firestore || !pathOrQuery) {
       setIsLoading(false);
       setData(null);
       setError(null);
@@ -79,22 +77,31 @@ export function useCollection<T = any>(
     let unsubscribe = () => {};
 
     try {
-      let q: Query = collection(firestore, path);
-      
-      const parsedConstraints = JSON.parse(memoizedConstraints);
-      if (parsedConstraints.length > 0) {
-        const whereClauses = parsedConstraints.map(c => where(c.field, c.operator, c.value));
-        q = query(q, ...whereClauses);
-      }
-      
-      const parsedOrder = JSON.parse(memoizedOrder);
-      if (parsedOrder.length > 0) {
-          const orderClauses = parsedOrder.map(o => orderBy(o.field, o.direction));
-          q = query(q, ...orderClauses);
-      }
-  
-      if (limitBy) {
-        q = query(q, limit(limitBy));
+      let q: Query;
+      let pathForError: string;
+
+      if (typeof pathOrQuery === 'string') {
+        pathForError = pathOrQuery;
+        q = collection(firestore, pathOrQuery);
+        
+        const parsedConstraints = JSON.parse(memoizedConstraints);
+        if (parsedConstraints.length > 0) {
+          const whereClauses = parsedConstraints.map(c => where(c.field, c.operator, c.value));
+          q = query(q, ...whereClauses);
+        }
+        
+        const parsedOrder = JSON.parse(memoizedOrder);
+        if (parsedOrder.length > 0) {
+            const orderClauses = parsedOrder.map(o => orderBy(o.field, o.direction));
+            q = query(q, ...orderClauses);
+        }
+    
+        if (limitBy) {
+          q = query(q, limit(limitBy));
+        }
+      } else {
+        q = pathOrQuery as Query;
+        pathForError = (q as any)._query?.path?.segments.join('/') || 'unknown query path';
       }
       
       unsubscribe = onSnapshot(
@@ -111,7 +118,7 @@ export function useCollection<T = any>(
         (err: FirestoreError) => {
           const contextualError = new FirestorePermissionError({
             operation: 'list',
-            path: path,
+            path: pathForError,
           });
           setError(contextualError);
           setData(null);
@@ -121,13 +128,13 @@ export function useCollection<T = any>(
       );
 
     } catch(e) {
-        console.error("Failed to build query:", e);
+        console.error("Failed to build or subscribe to query:", e);
         setError(e as Error);
         setIsLoading(false);
     }
 
     return () => unsubscribe();
-  }, [firestore, path, memoizedConstraints, memoizedOrder, limitBy]);
+  }, [firestore, pathOrQuery, memoizedConstraints, memoizedOrder, limitBy]);
 
   return { data, isLoading, error };
 }
