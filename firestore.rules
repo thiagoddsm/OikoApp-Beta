@@ -4,34 +4,12 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- Helper Functions ---
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isMasterAdmin() {
-      return request.auth.uid == '9Sm2pIH1zIOj9k8D8EcLS3bkKad2';
-    }
-
-    // --- Collection-Specific Rules ---
-
-    // Allow signed-in users to read/write volunteering events.
-    match /volunteering_events/{eventId} {
-      allow read, write: if isSignedIn();
-    }
-    
-    // Allow signed-in users to read/write room reservations.
-    match /room_reservations/{reservationId} {
-      allow read, write: if isSignedIn();
-    }
-    
-    // Allow signed-in users to read/write member notes.
-    match /member_notes/{noteId} {
-      allow read, write: if isSignedIn();
-    }
-
-    // --- Liberal Rules for Development ---
-    // Allow any signed-in user to read and write to any other document as a fallback.
+    // Liberal rules for development:
+    // Allow any signed-in user to read and write to any document.
     match /{document=**} {
       allow read, write: if isSignedIn();
     }
