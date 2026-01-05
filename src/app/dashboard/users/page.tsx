@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -25,15 +24,15 @@ type User = {
 };
 
 const journeyColumns = [
-    { id: 'visitante_nao_crente', title: 'Entrada / Visitantes' },
+    { id: 'visitante_nao_crente', title: 'Entrada (Visitantes)' },
     { id: 'novo_convertido', title: 'Discipulado Inicial' },
-    { id: 'recem_chegado', title: 'Recém Chegado' },
+    { id: 'recem_chegado', title: 'Fundamentos (Batismo)' },
     { id: 'em_discipulado_td', title: 'TD (Trilho do Crescimento)' },
-    { id: 'batizado_transferido', title: 'Fundamentos (Batismo)' },
-    { id: 'em_gc', title: 'Integração (Em GC)' },
-    { id: 'curso_membros', title: 'Curso de Membros' },
-    { id: 'servindo', title: 'Consolidação (Servindo)' },
-    { id: 'lider_gc', title: 'Liderança (Líder de GC)' },
+    { id: 'batizado_transferido', title: 'Integração (Em GC)' },
+    { id: 'em_gc', title: 'Curso de Membros' },
+    { id: 'curso_membros', title: 'Consolidação (Servindo)' },
+    { id: 'servindo', title: 'Liderança (Líder em Treinamento)' },
+    { id: 'lider_gc', title: 'Líder de GC' },
 ];
 
 const statusLabels: { [key: string]: string } = journeyColumns.reduce((acc, col) => {
