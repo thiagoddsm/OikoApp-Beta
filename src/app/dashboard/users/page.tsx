@@ -14,6 +14,8 @@ import { Loader2, Plus, Users, Search } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import NewMemberPage from '../new-member/page';
 
 type User = {
   id: string;
@@ -23,15 +25,15 @@ type User = {
 };
 
 const journeyColumns = [
-    { id: 'visitante_nao_crente', title: 'Visitante' },
-    { id: 'novo_convertido', title: 'Novo Convertido' },
+    { id: 'visitante_nao_crente', title: 'Entrada / Visitantes' },
+    { id: 'novo_convertido', title: 'Discipulado Inicial' },
     { id: 'recem_chegado', title: 'Recém Chegado' },
-    { id: 'em_discipulado_td', title: 'TD' },
-    { id: 'batizado_transferido', title: 'Batizado' },
-    { id: 'em_gc', title: 'Em GC' },
-    { id: 'curso_membros', title: 'Curso Membros' },
-    { id: 'servindo', title: 'Servindo' },
-    { id: 'lider_gc', title: 'Líder de GC' },
+    { id: 'em_discipulado_td', title: 'TD (Trilho do Crescimento)' },
+    { id: 'batizado_transferido', title: 'Fundamentos (Batismo)' },
+    { id: 'em_gc', title: 'Integração (Em GC)' },
+    { id: 'curso_membros', title: 'Curso de Membros' },
+    { id: 'servindo', title: 'Consolidação (Servindo)' },
+    { id: 'lider_gc', title: 'Liderança (Líder de GC)' },
 ];
 
 const statusLabels: { [key: string]: string } = journeyColumns.reduce((acc, col) => {
@@ -73,6 +75,7 @@ export default function UsersKanbanPage() {
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     const [draggedOverColumn, setDraggedOverColumn] = useState<string | null>(null);
+    const [isFormOpen, setIsFormOpen] = useState(false);
 
     const { data: users, isLoading: isLoadingUsers } = useCollection<User>('users');
     
@@ -111,7 +114,7 @@ export default function UsersKanbanPage() {
         
         toast({
             title: "Status Atualizado!",
-            description: `O status do membro foi movido para "${statusLabels[newStatus]}".`,
+            description: `O membro foi movido para "${statusLabels[newStatus]}".`,
         });
     };
 
@@ -128,9 +131,9 @@ export default function UsersKanbanPage() {
             <header className="flex items-center justify-between px-2 py-2 border-b">
                  <div>
                     <h1 className="text-xl font-bold flex items-center gap-2">
-                        <Users className="size-5" /> Trilha de Crescimento
+                        <Users className="size-5" /> Jornada do Membro (Trilha de Discipulado)
                     </h1>
-                     <p className="text-sm text-muted-foreground">Arraste e solte os usuários para atualizar seu estágio na jornada.</p>
+                     <p className="text-sm text-muted-foreground">Digitalize a trilha e garanta que ninguém fique para trás.</p>
                  </div>
                 <div className="flex items-center gap-2">
                     <div className="relative">
@@ -142,12 +145,17 @@ export default function UsersKanbanPage() {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <Button asChild size="sm">
-                        <Link href="/dashboard/new-member">
+                    <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+                      <DialogTrigger asChild>
+                        <Button size="sm">
                             <Plus className="mr-2 h-4 w-4" />
                             Adicionar Pessoa
-                        </Link>
-                    </Button>
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-2xl">
+                          <NewMemberPage />
+                      </DialogContent>
+                    </Dialog>
                 </div>
             </header>
 
