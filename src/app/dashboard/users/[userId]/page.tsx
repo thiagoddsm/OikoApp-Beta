@@ -8,9 +8,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, User, ArrowLeft, Pencil, MapPin, Phone, Mail, Calendar, Users, Footprints, Church, MessageSquare, Award, TrendingUp, UserCheck, HeartHandshake, GraduationCap, HandHelping, UserPlus } from 'lucide-react';
+import { Loader2, User, ArrowLeft, Pencil, MapPin, Phone, Mail, Calendar, Users, Footprints, Church, MessageSquare, Award, TrendingUp, UserCheck, HeartHandshake, GraduationCap, HandHelping, UserPlus, Target } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Link from 'next/link';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { EditUserDialog } from '@/components/users/edit-user-dialog';
 import { DiscipleshipNotes } from '@/components/users/discipleship-notes';
 import { DiscipleshipTrail } from '@/components/users/discipleship-trail';
@@ -275,11 +276,21 @@ export default function UserProfilePage() {
       </div>
       
       {userProfile && (
-        <EditUserDialog 
-          user={userProfile}
-          open={isEditDialogOpen}
-          onOpenChange={setEditDialogOpen}
-        />
+        <Dialog open={isEditDialogOpen} onOpenChange={setEditDialogOpen}>
+            <DialogContent className="max-w-4xl">
+                 <DialogHeader>
+                    <DialogTitle>Editar Perfil de {userProfile.name}</DialogTitle>
+                    <DialogDescription>
+                        Atualize as informações do membro. As alterações serão salvas no banco de dados.
+                    </DialogDescription>
+                 </DialogHeader>
+                 <EditUserDialog 
+                    user={userProfile}
+                    open={isEditDialogOpen}
+                    onOpenChange={setEditDialogOpen}
+                />
+            </DialogContent>
+        </Dialog>
       )}
     </>
   );
