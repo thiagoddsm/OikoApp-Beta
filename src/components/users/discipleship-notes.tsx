@@ -8,10 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, MessageSquare, FilePlus } from 'lucide-react';
+import { Loader2, MessageSquare, FilePlus, ShieldAlert } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 type MemberNote = {
     id: string;
@@ -61,7 +62,7 @@ export function DiscipleshipNotes({ memberId, allUsers }: { memberId: string; al
     const [noteType, setNoteType] = useState('encontro');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const { data: notes, isLoading: isLoadingNotes } = useCollection<MemberNote>(
+    const { data: notes, isLoading: isLoadingNotes, error: notesError } = useCollection<MemberNote>(
         'member_notes',
         [{ field: 'memberId', operator: '==', value: memberId }],
         [{ field: 'createdAt', direction: 'desc' }]
@@ -132,14 +133,23 @@ export function DiscipleshipNotes({ memberId, allUsers }: { memberId: string; al
                             <Loader2 className="h-6 w-6 animate-spin text-primary" />
                         </div>
                     )}
-                    {!isLoadingNotes && notes?.length === 0 && (
+                    {notesError && (
+                         <Alert variant="destructive">
+                            <ShieldAlert className="h-4 w-4" />
+                            <AlertTitle>Acesso Restrito</AlertTitle>
+                            <AlertDescription>
+                                Você não tem permissão para visualizar estas anotações ou ocorreu um erro ao carregá-las.
+                            </AlertDescription>
+                        </Alert>
+                    )}
+                    {!isLoadingNotes && !notesError && notes?.length === 0 && (
                          <div className="text-center text-muted-foreground py-8">
                             <MessageSquare className="mx-auto h-8 w-8 mb-2" />
                             <p>Nenhuma anotação ainda.</p>
                             <p className="text-xs">Seja o primeiro a registrar um acompanhamento!</p>
                         </div>
                     )}
-                    {notes?.map(note => (
+                    {!isLoadingNotes && !notesError && notes?.map(note => (
                         <NoteCard key={note.id} note={note} authorName={userMap.get(note.authorId) || 'Desconhecido'}/>
                     ))}
                 </div>
