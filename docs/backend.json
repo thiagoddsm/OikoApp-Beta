@@ -42,7 +42,25 @@
             "items": { "type": "string", "format": "date" },
             "description": "Dates the volunteer is unavailable to serve."
         },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "dataNascimento": { "type": "string", "format": "date" },
+        "address": {
+          "type": "object",
+          "properties": { "street": { "type": "string" } }
+        },
+        "batizado": { "type": "string", "enum": ["sim", "nao"] },
+        "igrejaBatismo": { "type": "string" },
+        "membroAntigo": { "type": "string", "enum": ["sim", "nao"] },
+        "igrejaAntiga": { "type": "string" },
+        "decisao": { "type": "array", "items": { "type": "string" } },
+        "dataDecisao": { "type": "string", "format": "date" },
+        "estadoCivil": { "type": "string" },
+        "temFilhos": { "type": "string", "enum": ["sim", "nao"] },
+        "idadeFilhos": { "type": "string" },
+        "comoConheceu": { "type": "string" },
+        "nomeConvidou": { "type": "string" },
+        "contatoPreferencia": { "type": "array", "items": { "type": "string" } },
+        "contatoTurno": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["name", "email", "roles", "createdAt"]
     },

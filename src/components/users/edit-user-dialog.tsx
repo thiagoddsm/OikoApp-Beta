@@ -14,6 +14,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
@@ -52,11 +54,22 @@ export function EditUserDialog({ user, open, onOpenChange }) {
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
-    email: '',
     dataNascimento: '',
-    sexo: '',
-    estadoCivil: '',
+    email: '',
     addressStreet: '',
+    batizado: 'nao',
+    igrejaBatismo: '',
+    membroAntigo: 'nao',
+    igrejaAntiga: '',
+    decisao: [],
+    dataDecisao: '',
+    estadoCivil: '',
+    temFilhos: 'nao',
+    idadeFilhos: '',
+    comoConheceu: '',
+    nomeConvidou: '',
+    contatoPreferencia: [],
+    contatoTurno: [],
     integrationStatus: '',
     celulaId: '',
     supervisorId: '',
@@ -82,23 +95,45 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         phone: user.phone || '',
         email: user.email || '',
         dataNascimento: user.dataNascimento || '',
-        sexo: user.sexo || '',
         estadoCivil: user.estadoCivil || '',
         addressStreet: user.address?.street || '',
         integrationStatus: user.integrationStatus || 'visitante_nao_crente',
         celulaId: user.hierarchy?.celulaId || '',
         supervisorId: user.hierarchy?.supervisorId || '',
+        batizado: user.batizado || 'nao',
+        igrejaBatismo: user.igrejaBatismo || '',
+        membroAntigo: user.membroAntigo || 'nao',
+        igrejaAntiga: user.igrejaAntiga || '',
+        decisao: user.decisao || [],
+        dataDecisao: user.dataDecisao || '',
+        temFilhos: user.temFilhos || 'nao',
+        idadeFilhos: user.idadeFilhos || '',
+        comoConheceu: user.comoConheceu || '',
+        nomeConvidou: user.nomeConvidou || '',
+        contatoPreferencia: user.contatoPreferencia || [],
+        contatoTurno: user.contatoTurno || [],
       });
     } else {
        // Reset for new user
       setFormData({
         name: '',
         phone: '',
-        email: '',
         dataNascimento: '',
-        sexo: '',
-        estadoCivil: '',
+        email: '',
         addressStreet: '',
+        batizado: 'nao',
+        igrejaBatismo: '',
+        membroAntigo: 'nao',
+        igrejaAntiga: '',
+        decisao: [],
+        dataDecisao: '',
+        estadoCivil: '',
+        temFilhos: 'nao',
+        idadeFilhos: '',
+        comoConheceu: '',
+        nomeConvidou: '',
+        contatoPreferencia: [],
+        contatoTurno: [],
         integrationStatus: 'visitante_nao_crente',
         celulaId: '',
         supervisorId: '',
@@ -106,13 +141,28 @@ export function EditUserDialog({ user, open, onOpenChange }) {
     }
   }, [user, open]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
   
+  const handleRadioChange = (name: string, value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+  }
+
   const handleSelectChange = (name: string, value: string) => {
     setFormData(prev => ({ ...prev, [name]: value === 'null' ? '' : value }));
+  };
+
+  const handleCheckboxChange = (name: string, value: string, checked: boolean) => {
+    setFormData(prev => {
+        const currentValues = prev[name] || [];
+        if (checked) {
+            return { ...prev, [name]: [...currentValues, value] };
+        } else {
+            return { ...prev, [name]: currentValues.filter(v => v !== value) };
+        }
+    });
   };
 
   const handleSave = async () => {
@@ -139,7 +189,6 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         phone: formData.phone,
         email: formData.email,
         dataNascimento: formData.dataNascimento,
-        sexo: formData.sexo,
         estadoCivil: formData.estadoCivil,
         address: {
             street: formData.addressStreet,
@@ -148,7 +197,19 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         hierarchy: {
             celulaId: formData.celulaId || null,
             supervisorId: formData.supervisorId || null,
-        }
+        },
+        batizado: formData.batizado,
+        igrejaBatismo: formData.igrejaBatismo,
+        membroAntigo: formData.membroAntigo,
+        igrejaAntiga: formData.igrejaAntiga,
+        decisao: formData.decisao,
+        dataDecisao: formData.dataDecisao,
+        temFilhos: formData.temFilhos,
+        idadeFilhos: formData.idadeFilhos,
+        comoConheceu: formData.comoConheceu,
+        nomeConvidou: formData.nomeConvidou,
+        contatoPreferencia: formData.contatoPreferencia,
+        contatoTurno: formData.contatoTurno,
     };
 
     try {
@@ -183,163 +244,119 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         setIsSaving(false);
     }
   };
+  
+  const decisaoOptions = ["Conversão", "Reconciliação", "Ingressar em uma célula", "Apenas visitando"];
+  const contatoPreferenciaOptions = ["Ligação", "WhatsApp"];
+  const contatoTurnoOptions = ["Manhã", "Tarde", "Noite"];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl">
       <DialogHeader>
         <DialogTitle>{isEditing ? 'Editar Perfil do Usuário' : 'Adicionar Nova Pessoa'}</DialogTitle>
         <DialogDescription>
           {isEditing ? 'Altere as informações abaixo e clique em salvar.' : 'Preencha os dados para adicionar uma nova pessoa à Jornada do Membro.'}
         </DialogDescription>
       </DialogHeader>
-      <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="name" className="text-right">
-            Nome
-          </Label>
-          <Input
-            id="name"
-            name="name"
-            value={formData.name}
-            onChange={handleInputChange}
-            className="col-span-3"
-            required
-          />
-        </div>
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="phone" className="text-right">
-            Telefone
-          </Label>
-          <Input
-            id="phone"
-            name="phone"
-            value={formData.phone}
-            onChange={handleInputChange}
-            className="col-span-3"
-          />
-        </div>
-         <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="email" className="text-right">
-            Email
-          </Label>
-          <Input
-            id="email"
-            name="email"
-            type="email"
-            value={formData.email}
-            onChange={handleInputChange}
-            className="col-span-3"
-          />
-        </div>
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="dataNascimento" className="text-right">
-            Nascimento
-          </Label>
-          <Input
-            id="dataNascimento"
-            name="dataNascimento"
-            type="date"
-            value={formData.dataNascimento}
-            onChange={handleInputChange}
-            className="col-span-3"
-          />
-        </div>
-         <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="sexo" className="text-right">
-            Sexo
-          </Label>
-          <Select value={formData.sexo} onValueChange={(v) => handleSelectChange('sexo', v)}>
-            <SelectTrigger className="col-span-3">
-              <SelectValue placeholder="Selecione o sexo" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Masculino">Masculino</SelectItem>
-              <SelectItem value="Feminino">Feminino</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-         <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="estadoCivil" className="text-right">
-            Estado Civil
-          </Label>
-          <Select value={formData.estadoCivil} onValueChange={(v) => handleSelectChange('estadoCivil', v)}>
-            <SelectTrigger className="col-span-3">
-              <SelectValue placeholder="Selecione o estado civil" />
-            </SelectTrigger>
-            <SelectContent>
-               <SelectItem value="Solteiro(a)">Solteiro(a)</SelectItem>
-               <SelectItem value="Casado(a)">Casado(a)</SelectItem>
-               <SelectItem value="Divorciado(a)">Divorciado(a)</SelectItem>
-               <SelectItem value="Viúvo(a)">Viúvo(a)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-         <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="addressStreet" className="text-right">
-            Endereço
-          </Label>
-          <Input
-            id="addressStreet"
-            name="addressStreet"
-            value={formData.addressStreet}
-            onChange={handleInputChange}
-            className="col-span-3"
-          />
-        </div>
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="integrationStatus" className="text-right">
-            Jornada
-          </Label>
-          <Select value={formData.integrationStatus} onValueChange={(v) => handleSelectChange('integrationStatus', v)}>
-            <SelectTrigger className="col-span-3">
-              <SelectValue placeholder="Selecione o estágio" />
-            </SelectTrigger>
-            <SelectContent>
-              {journeyColumns.map(status => (
-                <SelectItem key={status.id} value={status.id}>
-                  {status.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="celulaId" className="text-right">
-            Célula
-          </Label>
-          <Select value={formData.celulaId} onValueChange={(v) => handleSelectChange('celulaId', v)}>
-            <SelectTrigger className="col-span-3">
-              <SelectValue placeholder={isLoadingCells ? 'Carregando...' : 'Selecione a célula'} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="null">Nenhuma</SelectItem>
-              {cells?.map(cell => (
-                <SelectItem key={cell.id} value={cell.id}>
-                  {cell.nome}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="supervisorId" className="text-right">
-            Responsável
-          </Label>
-          <Select value={formData.supervisorId} onValueChange={(v) => handleSelectChange('supervisorId', v)}>
-            <SelectTrigger className="col-span-3">
-              <SelectValue placeholder={isLoadingUsers ? 'Carregando...' : 'Selecione um responsável'} />
-            </SelectTrigger>
-            <SelectContent>
-               <SelectItem value="null">Nenhum</SelectItem>
-               {supervisors.map(sup => (
-                <SelectItem key={sup.id} value={sup.id}>
-                  {sup.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="grid gap-6 py-4 max-h-[70vh] overflow-y-auto pr-4">
+        {/* Dados Pessoais */}
+        <section className="space-y-4 p-4 border rounded-lg">
+            <h4 className="font-semibold text-primary border-b pb-2">Dados Pessoais</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                    <Label htmlFor="name">Nome Completo *</Label>
+                    <Input id="name" name="name" value={formData.name} onChange={handleInputChange} required />
+                </div>
+                <div className="space-y-1.5">
+                    <Label htmlFor="phone">Celular (com DDD) *</Label>
+                    <Input id="phone" name="phone" type="tel" value={formData.phone} onChange={handleInputChange} placeholder="(99) 99999-9999" required />
+                </div>
+                <div className="space-y-1.5">
+                    <Label htmlFor="dataNascimento">Data de Nascimento</Label>
+                    <Input id="dataNascimento" name="dataNascimento" type="date" value={formData.dataNascimento} onChange={handleInputChange} />
+                </div>
+                <div className="space-y-1.5">
+                    <Label htmlFor="email">Email</Label>
+                    <Input id="email" name="email" type="email" value={formData.email} onChange={handleInputChange} />
+                </div>
+                <div className="md:col-span-2 space-y-1.5">
+                    <Label htmlFor="addressStreet">Endereço</Label>
+                    <Input id="addressStreet" name="addressStreet" value={formData.addressStreet} onChange={handleInputChange} placeholder="Rua, número e CEP" />
+                </div>
+                 <div className="space-y-1.5">
+                    <Label htmlFor="estadoCivil">Estado Civil</Label>
+                    <Select value={formData.estadoCivil} onValueChange={(v) => handleSelectChange('estadoCivil', v)}>
+                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                        <SelectContent><SelectItem value="Solteiro(a)">Solteiro(a)</SelectItem><SelectItem value="Casado(a)">Casado(a)</SelectItem><SelectItem value="Divorciado(a)">Divorciado(a)</SelectItem><SelectItem value="Viúvo(a)">Viúvo(a)</SelectItem></SelectContent>
+                    </Select>
+                </div>
+                 <div className="space-y-1.5">
+                    <Label>Possui filho(s)?</Label>
+                     <RadioGroup value={formData.temFilhos} onValueChange={(v) => handleRadioChange('temFilhos', v)} className="flex items-center gap-4"><RadioGroupItem value="sim" id="filhos-sim" /><Label htmlFor="filhos-sim">Sim</Label><RadioGroupItem value="nao" id="filhos-nao" /><Label htmlFor="filhos-nao">Não</Label></RadioGroup>
+                </div>
+                {formData.temFilhos === 'sim' && <div className="md:col-span-2 space-y-1.5"><Label htmlFor="idadeFilhos">Qual a idade do(s) seu(s) filho(s)?</Label><Input id="idadeFilhos" name="idadeFilhos" value={formData.idadeFilhos} onChange={handleInputChange} placeholder="Ex: 5, 10, 15" /></div>}
+            </div>
+        </section>
+        
+        {/* Jornada Espiritual */}
+        <section className="space-y-4 p-4 border rounded-lg">
+            <h4 className="font-semibold text-primary border-b pb-2">Jornada Espiritual</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div className="space-y-1.5">
+                    <Label>Batizado?</Label>
+                    <RadioGroup value={formData.batizado} onValueChange={(v) => handleRadioChange('batizado', v)} className="flex items-center gap-4"><RadioGroupItem value="sim" id="batizado-sim" /><Label htmlFor="batizado-sim">Sim</Label><RadioGroupItem value="nao" id="batizado-nao" /><Label htmlFor="batizado-nao">Não</Label></RadioGroup>
+                </div>
+                {formData.batizado === 'sim' && <div className="space-y-1.5"><Label htmlFor="igrejaBatismo">Qual igreja foi batizado?</Label><Input id="igrejaBatismo" name="igrejaBatismo" value={formData.igrejaBatismo} onChange={handleInputChange}/></div>}
+
+                 <div className="space-y-1.5">
+                    <Label>É membro ou foi membro de alguma igreja?</Label>
+                    <RadioGroup value={formData.membroAntigo} onValueChange={(v) => handleRadioChange('membroAntigo', v)} className="flex items-center gap-4"><RadioGroupItem value="sim" id="membro-sim" /><Label htmlFor="membro-sim">Sim</Label><RadioGroupItem value="nao" id="membro-nao" /><Label htmlFor="membro-nao">Não</Label></RadioGroup>
+                </div>
+                {formData.membroAntigo === 'sim' && <div className="space-y-1.5"><Label htmlFor="igrejaAntiga">De qual igreja?</Label><Input id="igrejaAntiga" name="igrejaAntiga" value={formData.igrejaAntiga} onChange={handleInputChange}/></div>}
+                
+                <div className="md:col-span-2 space-y-2">
+                    <Label>Decisão *</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                    {decisaoOptions.map(item => (<div key={item} className="flex items-center gap-2"><Checkbox id={`decisao-${item}`} checked={formData.decisao.includes(item)} onCheckedChange={(checked) => handleCheckboxChange('decisao', item, !!checked)}/><Label htmlFor={`decisao-${item}`}>{item}</Label></div>))}
+                    </div>
+                </div>
+                 <div className="space-y-1.5">
+                    <Label htmlFor="dataDecisao">Data da decisão</Label>
+                    <Input id="dataDecisao" name="dataDecisao" type="date" value={formData.dataDecisao} onChange={handleInputChange} />
+                </div>
+            </div>
+        </section>
+
+         {/* Chegada na IBM */}
+         <section className="space-y-4 p-4 border rounded-lg">
+            <h4 className="font-semibold text-primary border-b pb-2">Chegada na IBM</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div className="space-y-1.5">
+                    <Label htmlFor="comoConheceu">Como conheceu a IBM?</Label>
+                    <Select value={formData.comoConheceu} onValueChange={(v) => handleSelectChange('comoConheceu', v)}>
+                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                        <SelectContent><SelectItem value="Convite">Convite</SelectItem><SelectItem value="Fachada">Fachada</SelectItem><SelectItem value="Redes Sociais">Redes Sociais</SelectItem><SelectItem value="GC">GC</SelectItem></SelectContent>
+                    </Select>
+                </div>
+                 {formData.comoConheceu === 'Convite' && <div className="space-y-1.5"><Label htmlFor="nomeConvidou">Qual nome da pessoa que te convidou?</Label><Input id="nomeConvidou" name="nomeConvidou" value={formData.nomeConvidou} onChange={handleInputChange}/></div>}
+                
+                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label>Forma de Contato Preferida</Label>
+                        <div className="flex items-center gap-4">
+                        {contatoPreferenciaOptions.map(item => (<div key={item} className="flex items-center gap-2"><Checkbox id={`pref-${item}`} checked={formData.contatoPreferencia.includes(item)} onCheckedChange={(checked) => handleCheckboxChange('contatoPreferencia', item, !!checked)}/><Label htmlFor={`pref-${item}`}>{item}</Label></div>))}
+                        </div>
+                    </div>
+                     <div className="space-y-2">
+                        <Label>Turno Preferido</Label>
+                         <div className="flex items-center gap-4">
+                        {contatoTurnoOptions.map(item => (<div key={item} className="flex items-center gap-2"><Checkbox id={`turno-${item}`} checked={formData.contatoTurno.includes(item)} onCheckedChange={(checked) => handleCheckboxChange('contatoTurno', item, !!checked)}/><Label htmlFor={`turno-${item}`}>{item}</Label></div>))}
+                         </div>
+                    </div>
+                </div>
+            </div>
+         </section>
+        
       </div>
       <DialogFooter>
         <DialogClose asChild>
