@@ -250,14 +250,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
   const contatoTurnoOptions = ["Manhã", "Tarde", "Noite"];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-2xl">
-      <DialogHeader>
-        <DialogTitle>{isEditing ? 'Editar Perfil do Usuário' : 'Adicionar Nova Pessoa'}</DialogTitle>
-        <DialogDescription>
-          {isEditing ? 'Altere as informações abaixo e clique em salvar.' : 'Preencha os dados para adicionar uma nova pessoa à Jornada do Membro.'}
-        </DialogDescription>
-      </DialogHeader>
+    <>
       <div className="grid gap-6 py-4 max-h-[70vh] overflow-y-auto pr-4">
         {/* Dados Pessoais */}
         <section className="space-y-4 p-4 border rounded-lg">
@@ -369,7 +362,6 @@ export function EditUserDialog({ user, open, onOpenChange }) {
           Salvar
         </Button>
       </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    </>
   );
 }

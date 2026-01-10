@@ -152,7 +152,13 @@ export default function UsersKanbanPage() {
                             Adicionar Pessoa
                         </Button>
                       </DialogTrigger>
-                       <DialogContent className="sm:max-w-md">
+                       <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Adicionar Nova Pessoa</DialogTitle>
+                            <DialogDescription>
+                              Preencha os dados para adicionar uma nova pessoa à Jornada do Membro.
+                            </DialogDescription>
+                          </DialogHeader>
                            <EditUserDialog 
                                 user={null}
                                 open={isFormOpen}
