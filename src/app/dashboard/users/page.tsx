@@ -7,14 +7,15 @@ import { doc } from 'firebase/firestore';
 import { useFirebase } from '@/firebase/provider';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Loader2, Plus, Users, Search } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import NewMemberPage from '../new-member/page';
+import { EditUserDialog } from '@/components/users/edit-user-dialog';
+
 
 type User = {
   id: string;
@@ -151,15 +152,13 @@ export default function UsersKanbanPage() {
                             Adicionar Pessoa
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="sm:max-w-2xl">
-                          <DialogHeader>
-                            <DialogTitle>Registrar Nova Pessoa na Jornada</DialogTitle>
-                            <DialogDescription>
-                                Insira as informações do novo discípulo para adicioná-lo à trilha de discipulado.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <NewMemberPage />
-                      </DialogContent>
+                       <DialogContent className="sm:max-w-md">
+                           <EditUserDialog 
+                                user={null}
+                                open={isFormOpen}
+                                onOpenChange={setIsFormOpen}
+                           />
+                       </DialogContent>
                     </Dialog>
                 </div>
             </header>
