@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
+  Dialog,
+  DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
@@ -183,7 +185,8 @@ export function EditUserDialog({ user, open, onOpenChange }) {
   };
 
   return (
-    <>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-lg">
       <DialogHeader>
         <DialogTitle>{isEditing ? 'Editar Perfil do Usuário' : 'Adicionar Nova Pessoa'}</DialogTitle>
         <DialogDescription>
@@ -349,6 +352,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
           Salvar
         </Button>
       </DialogFooter>
-    </>
+      </DialogContent>
+    </Dialog>
   );
 }
