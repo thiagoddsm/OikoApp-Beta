@@ -46,12 +46,7 @@ export default function CoordenadorPage() {
         const timerId = setInterval(() => setNow(new Date()), 1000);
         return () => clearInterval(timerId);
     }, []);
-
-    const sync = useCallback((updateData: Partial<any>) => {
-        if (!briefingDocRef) return;
-        updateDocumentNonBlocking(briefingDocRef, updateData);
-    }, [briefingDocRef]);
-
+    
     const calculateStartTimes = useCallback((items, start) => {
         let curr = new Date(`1970-01-01T${start || '00:00'}:00`);
         return items.map(it => {
@@ -62,35 +57,36 @@ export default function CoordenadorPage() {
     }, []);
 
     const handleCultInfo = (f, v) => {
+        if (!briefingDocRef) return;
         const newInfo = { ...state.cultInfo, [f]: v };
         if (f === 'startTime') {
             const newItems = calculateStartTimes(state.items, v);
-            sync({ cultInfo: newInfo, items: newItems });
+            updateDocumentNonBlocking(briefingDocRef, { cultInfo: newInfo, items: newItems });
         } else {
-            sync({ cultInfo: newInfo });
+            updateDocumentNonBlocking(briefingDocRef, { cultInfo: newInfo });
         }
     };
     
      const handleNext = () => {
-        if (!state || state.liveState.currentItemIndex >= state.items.length - 1) return;
+        if (!state || !briefingDocRef || state.liveState.currentItemIndex >= state.items.length - 1) return;
         const nextIdx = state.liveState.currentItemIndex + 1;
         const newItems = state.items.map((it, idx) => idx === state.liveState.currentItemIndex ? { ...it, completed: true } : it);
-        sync({
+        updateDocumentNonBlocking(briefingDocRef, {
             items: newItems,
             liveState: { ...state.liveState, currentItemIndex: nextIdx, isRunning: true, itemStartTime: Date.now(), accumulatedTime: 0 }
         });
     };
 
     const toggleTimer = () => {
-        if (!state) return;
+        if (!state || !briefingDocRef) return;
         const itemStartTime = state.liveState.itemStartTime;
         if (state.liveState.isRunning) {
             const elapsed = itemStartTime ? (Date.now() - itemStartTime) / 1000 : 0;
-            sync({
+            updateDocumentNonBlocking(briefingDocRef, {
                 liveState: { ...state.liveState, isRunning: false, accumulatedTime: state.liveState.accumulatedTime + elapsed, itemStartTime: null }
             });
         } else {
-            sync({ liveState: { ...state.liveState, isRunning: true, itemStartTime: Date.now() } });
+            updateDocumentNonBlocking(briefingDocRef, { liveState: { ...state.liveState, isRunning: true, itemStartTime: Date.now() } });
         }
     };
     
@@ -290,7 +286,7 @@ export default function CoordenadorPage() {
                                     {Object.keys(state.staff).map(role => (
                                         <div key={role} className="flex flex-col">
                                             <label className="text-[10px] font-bold text-slate-600 uppercase mb-1 tracking-wider">{role}</label>
-                                            <input className="bg-transparent border-b border-white/10 text-sm py-1 outline-none focus:border-indigo-500 text-slate-300" value={state.staff[role]} onChange={e => sync({ staff: {...state.staff, [role]: e.target.value}})} placeholder="Responsável" />
+                                            <input className="bg-transparent border-b border-white/10 text-sm py-1 outline-none focus:border-indigo-500 text-slate-300" value={state.staff[role]} onChange={e => { if(briefingDocRef) updateDocumentNonBlocking(briefingDocRef, { staff: {...state.staff, [role]: e.target.value}})}} placeholder="Responsável" />
                                         </div>
                                     ))}
                                 </div>
@@ -301,9 +297,10 @@ export default function CoordenadorPage() {
                             <div className="flex justify-between items-center mb-8">
                                 <h2 className="text-2xl font-black">Ordem de Liturgia</h2>
                                 <button onClick={() => {
+                                    if(!briefingDocRef) return;
                                     const newItem = { id: crypto.randomUUID(), title: 'Novo Momento', duration: 10, responsible: '', description: '', colors: { item: '#4f46e5' }, technical: { lighting: '', sound: '', projection: '' }, completed: false };
                                     const newItems = calculateStartTimes([...state.items, newItem], state.cultInfo.startTime);
-                                    sync({ items: newItems });
+                                    updateDocumentNonBlocking(briefingDocRef, { items: newItems });
                                 }} className="bg-indigo-600 text-white px-6 py-2 rounded-xl font-black text-xs uppercase flex items-center gap-2 hover:bg-indigo-500 transition-all">
                                     <Icon name="add" size={14} /> Adicionar
                                 </button>
@@ -315,28 +312,29 @@ export default function CoordenadorPage() {
                                         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
                                             <div className="md:col-span-1 text-center">
                                                 <span className="text-xs font-mono font-bold text-indigo-500 block mb-2">{it.startTime}</span>
-                                                <input type="color" value={it.colors.item} onChange={e => sync({ items: state.items.map(x => x.id === it.id ? { ...x, colors: { ...x.colors, item: e.target.value } } : x) })} title="Cor Identificadora" />
+                                                <input type="color" value={it.colors.item} onChange={e => { if(briefingDocRef) updateDocumentNonBlocking(briefingDocRef, { items: state.items.map(x => x.id === it.id ? { ...x, colors: { ...x.colors, item: e.target.value } } : x) })}} title="Cor Identificadora" />
                                             </div>
                                             <div className="md:col-span-4">
-                                                <input className="w-full bg-transparent text-xl font-black outline-none text-slate-100" value={it.title} onChange={e => sync({ items: state.items.map(x => x.id === it.id ? { ...x, title: e.target.value } : x) })} />
-                                                <input className="w-full bg-transparent text-xs font-bold text-slate-500 outline-none uppercase mt-1" placeholder="RESPONSÁVEL" value={it.responsible} onChange={e => sync({ items: state.items.map(x => x.id === it.id ? { ...x, responsible: e.target.value } : x) })} />
+                                                <input className="w-full bg-transparent text-xl font-black outline-none text-slate-100" value={it.title} onChange={e => { if(briefingDocRef) updateDocumentNonBlocking(briefingDocRef, { items: state.items.map(x => x.id === it.id ? { ...x, title: e.target.value } : x) })}} />
+                                                <input className="w-full bg-transparent text-xs font-bold text-slate-500 outline-none uppercase mt-1" placeholder="RESPONSÁVEL" value={it.responsible} onChange={e => { if(briefingDocRef) updateDocumentNonBlocking(briefingDocRef, { items: state.items.map(x => x.id === it.id ? { ...x, responsible: e.target.value } : x) })}} />
                                             </div>
                                             <div className="md:col-span-1">
                                                 <div className="flex items-center gap-2 bg-black/40 p-2 rounded-xl border border-white/5">
                                                     <input type="number" className="bg-transparent w-8 text-center font-bold text-sm text-indigo-400" value={it.duration} onChange={e => {
+                                                         if(!briefingDocRef) return;
                                                          const newItems = state.items.map(x => x.id === it.id ? { ...x, duration: Number(e.target.value) } : x);
-                                                        sync({ items: calculateStartTimes(newItems, state.cultInfo.startTime) });
+                                                         updateDocumentNonBlocking(briefingDocRef, { items: calculateStartTimes(newItems, state.cultInfo.startTime) });
                                                     }} />
                                                     <span className="text-[9px] font-black text-slate-600 uppercase">min</span>
                                                 </div>
                                             </div>
                                             <div className="md:col-span-5 grid grid-cols-3 gap-2">
                                                 {['lighting', 'sound', 'projection'].map(techKey => (
-                                                    <input key={techKey} placeholder={techKey.toUpperCase()} className="bg-white/5 border border-white/5 rounded-lg p-2 text-[10px] outline-none focus:border-indigo-500/50 text-slate-400" value={it.technical[techKey]} onChange={e => sync({ items: state.items.map(x => x.id === it.id ? { ...x, technical: { ...x.technical, [techKey]: e.target.value } } : x) })} title={techKey.toUpperCase()} />
+                                                    <input key={techKey} placeholder={techKey.toUpperCase()} className="bg-white/5 border border-white/5 rounded-lg p-2 text-[10px] outline-none focus:border-indigo-500/50 text-slate-400" value={it.technical[techKey]} onChange={e => { if(briefingDocRef) updateDocumentNonBlocking(briefingDocRef, { items: state.items.map(x => x.id === it.id ? { ...x, technical: { ...x.technical, [techKey]: e.target.value } } : x) })}} title={techKey.toUpperCase()} />
                                                 ))}
                                             </div>
                                             <div className="md:col-span-1 text-right">
-                                                <button onClick={() => sync({ items: calculateStartTimes(state.items.filter(x => x.id !== it.id), state.cultInfo.startTime) })} className="p-2 text-slate-700 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
+                                                <button onClick={() => { if(briefingDocRef) updateDocumentNonBlocking(briefingDocRef, { items: calculateStartTimes(state.items.filter(x => x.id !== it.id), state.cultInfo.startTime) })}} className="p-2 text-slate-700 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
                                                     <Icon name="delete" />
                                                 </button>
                                             </div>
@@ -448,9 +446,9 @@ export default function CoordenadorPage() {
             <div className="fixed bottom-8 right-8 no-print group">
                 <button onClick={() => {
                     const msg = prompt("Mensagem para a equipe:");
-                    if (msg) {
-                        sync({ liveState: { ...state.liveState, alert: { message: msg, time: Date.now() } } });
-                        setTimeout(() => sync({ liveState: { ...state.liveState, alert: null } }), 10000);
+                    if (msg && briefingDocRef) {
+                        updateDocumentNonBlocking(briefingDocRef, { liveState: { ...state.liveState, alert: { message: msg, time: Date.now() } } });
+                        setTimeout(() => { if(briefingDocRef) updateDocumentNonBlocking(briefingDocRef, { liveState: { ...state.liveState, alert: null } }) }, 10000);
                     }
                 }} className="w-16 h-16 bg-red-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-90 transition-all">
                     <Icon name="error" size={32} />
