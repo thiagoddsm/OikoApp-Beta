@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Loader2, Send, MessageSquare, History, User } from 'lucide-react';
+import { Loader2, Send, MessageSquare, History, User, Zap, Repeat } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -17,9 +17,16 @@ export function FollowUpTimeline({ memberId, memberName }: { memberId: string, m
     const [newNote, setNewNote] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     
+    // Simulação de dados para a timeline, incluindo as novas mudanças automáticas
     const [notes, setNotes] = useState([
-        { id: '1', authorId: 'admin', content: `Perfil criado em ${new Date().toLocaleDateString('pt-BR')}`, createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) },
-        { id: '2', authorId: 'admin', content: `Status alterado para: Novo Convertido`, createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000) },
+        { id: '1', authorId: 'admin', type: 'system', content: `Perfil criado.`, createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+        { id: '2', authorId: 'admin', type: 'system', content: `Status alterado para: Novo Convertido`, createdAt: new Date(Date.now() - 28 * 24 * 60 * 60 * 1000) },
+        { id: '3', authorId: 'leader1', content: `Mostrou grande interesse na célula e fez perguntas pertinentes sobre a fé. Conectei com o João para iniciar o discipulado.`, createdAt: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000) },
+        { id: '4', authorId: 'admin', type: 'system', content: `Mudança de GC: Movido para "Conexão Jovem" (Líder: João Pereira).`, createdAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000) },
+        { id: '5', authorId: 'admin', type: 'system', content: `Frequência no GC aumentou 20%.`, createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000) },
+        { id: '6', authorId: 'admin', type: 'system', content: `Iniciou serviço na área: Mídia.`, createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000) },
+        { id: '7', authorId: 'leader2', content: `Conversamos sobre o seu desenvolvimento na equipe de mídia. Ele está muito animado e aprendendo rápido.`, createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000) },
+        { id: '8', authorId: 'admin', type: 'system', content: `Status de Dizimista alterado para: Sim.`, createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) },
     ]);
 
     const handleAddNote = () => {
@@ -31,6 +38,7 @@ export function FollowUpTimeline({ memberId, memberName }: { memberId: string, m
             const newNoteData = {
                 id: (notes.length + 1).toString(),
                 authorId: currentUser.uid,
+                type: 'user' as const, // Nota manual do usuário
                 content: newNote,
                 createdAt: new Date()
             };
@@ -41,11 +49,22 @@ export function FollowUpTimeline({ memberId, memberName }: { memberId: string, m
         }, 1000);
     };
     
-    // Simulação de dados de usuários
+    // Simulação de dados de usuários para os avatares e nomes
     const authorMap = useMemo(() => new Map([
         ['admin', { id: 'admin', name: 'Sistema', avatar: 'avatar-6' }],
+        ['leader1', { id: 'leader1', name: 'João Pereira', avatar: 'avatar-4' }],
+        ['leader2', { id: 'leader2', name: 'Beatriz Lima', avatar: 'avatar-5' }],
         [currentUser?.uid, { id: currentUser?.uid, name: currentUser?.displayName, avatar: 'avatar-1' }]
     ]), [currentUser]);
+
+    const getIconForType = (type: string) => {
+        switch (type) {
+            case 'system':
+                return <Zap className="h-3 w-3" />;
+            default:
+                return <MessageSquare className="h-3 w-3" />;
+        }
+    }
 
     return (
         <Card>
@@ -92,7 +111,10 @@ export function FollowUpTimeline({ memberId, memberName }: { memberId: string, m
                                                     <AvatarFallback>{author?.name?.charAt(0) || '?'}</AvatarFallback>
                                                 </Avatar>
                                                 <div>
-                                                    <p className="text-sm font-semibold text-foreground">{author?.name || 'Usuário desconhecido'}</p>
+                                                    <p className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+                                                        {getIconForType(note.type)}
+                                                        {author?.name || 'Usuário desconhecido'}
+                                                    </p>
                                                     <p className="text-xs text-muted-foreground">
                                                         {formatDistanceToNow(note.createdAt, { addSuffix: true, locale: ptBR })}
                                                     </p>
