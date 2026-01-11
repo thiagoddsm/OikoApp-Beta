@@ -51,11 +51,19 @@ export type RoomReservation = {
     createdAt: any;
 }
 
+export type SavedSchedule = {
+  id: string;
+  areaId: string;
+  month: string; // "YYYY-MM"
+  schedule: any; // The actual schedule data
+}
+
 
 type AreaData = Omit<AreaOfService, 'id'>;
 type TeamData = Omit<Team, 'id'>;
 type EventData = Omit<VolunteeringEvent, 'id'>;
 type ReservationData = Omit<RoomReservation, 'id'>;
+type SavedScheduleData = Omit<SavedSchedule, 'id'>;
 
 
 // --- CONTEXT DEFINITION ---
@@ -66,6 +74,7 @@ interface VolunteeringContextType {
   teams: Team[];
   events: VolunteeringEvent[];
   reservations: RoomReservation[];
+  savedSchedules: SavedSchedule[];
   isLoading: boolean;
   
   // Functions for Areas
@@ -90,6 +99,9 @@ interface VolunteeringContextType {
   
   // Functions for Volunteers
   updateVolunteer: (id: string, data: Partial<User>) => Promise<void>;
+  
+  // Functions for Schedules
+  saveSchedule: (data: SavedScheduleData) => Promise<void>;
 }
 
 const VolunteeringContext = createContext<VolunteeringContextType | undefined>(undefined);
@@ -104,15 +116,17 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
   const eventsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'volunteering_events')) : null, [firestore]);
   const reservationsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'room_reservations')) : null, [firestore]);
+  const savedSchedulesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'saved_schedules')) : null, [firestore]);
 
   const { data: areas, isLoading: loadingAreas } = useCollection<AreaOfService>(areasQuery);
   const { data: teams, isLoading: loadingTeams } = useCollection<Team>(teamsQuery);
   const { data: users, isLoading: loadingUsers } = useCollection<User>(usersQuery);
   const { data: events, isLoading: loadingEvents } = useCollection<VolunteeringEvent>(eventsQuery);
   const { data: reservations, isLoading: loadingReservations } = useCollection<RoomReservation>(reservationsQuery);
+  const { data: savedSchedules, isLoading: loadingSavedSchedules } = useCollection<SavedSchedule>(savedSchedulesQuery);
 
 
-  const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents || loadingReservations;
+  const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents || loadingReservations || loadingSavedSchedules;
 
   // --- AREA FUNCTIONS ---
   const addArea = async (data: AreaData) => {
@@ -218,6 +232,18 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     updateDocumentNonBlocking(userDoc, data);
     toast({ title: 'Sucesso', description: `O status de serviço do membro será atualizado.` });
   };
+  
+  // --- SAVED SCHEDULE FUNCTIONS ---
+  const saveSchedule = async (data: SavedScheduleData) => {
+    if (!firestore) return;
+    const scheduleCollection = collection(firestore, 'saved_schedules');
+    // Using areaId and month as a custom ID to prevent duplicates
+    const scheduleId = `${data.areaId}_${data.month}`;
+    const scheduleDoc = doc(scheduleCollection, scheduleId);
+    // Use setDoc with merge to create or overwrite
+    addDocumentNonBlocking(scheduleDoc, data);
+    toast({ title: 'Sucesso', description: 'A escala foi salva.' });
+  };
 
 
   const value = useMemo(() => ({
@@ -226,6 +252,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     users: users || [],
     events: events || [],
     reservations: reservations || [],
+    savedSchedules: savedSchedules || [],
     isLoading,
     addArea,
     updateArea,
@@ -240,7 +267,8 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     updateReservation,
     deleteReservation,
     updateVolunteer,
-  }), [areas, teams, users, events, reservations, isLoading]);
+    saveSchedule,
+  }), [areas, teams, users, events, reservations, savedSchedules, isLoading]);
 
   return (
     <VolunteeringContext.Provider value={value}>

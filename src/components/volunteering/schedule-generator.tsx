@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
@@ -8,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Loader2, CalendarCog, Download, Save } from 'lucide-react';
 import { Label } from '../ui/label';
 import { Badge } from '../ui/badge';
+import { useToast } from '@/hooks/use-toast';
 
 const months = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -46,12 +48,14 @@ const getAllFifthWeeksOfYear = (year: number) => {
 }
 
 export function ScheduleGenerator() {
-  const { areas, teams, events, users, isLoading } = useVolunteering();
+  const { areas, teams, events, users, isLoading, saveSchedule } = useVolunteering();
+  const { toast } = useToast();
   const [selectedAreaId, setSelectedAreaId] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [generatedSchedule, setGeneratedSchedule] = useState<any | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   const teamRotation = useMemo(() => {
     const rotationMap = new Map<string, any>();
@@ -123,6 +127,34 @@ export function ScheduleGenerator() {
         setIsGenerating(false);
     }, 1000);
   };
+  
+  const handleSave = async () => {
+    if (!generatedSchedule || !selectedAreaId) return;
+    setIsSaving(true);
+    
+    const monthString = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
+    
+    // Simplificar a estrutura de dados antes de salvar
+    const scheduleToSave = generatedSchedule.dates.map(item => ({
+        date: item.date,
+        eventName: item.eventName,
+        teamId: item.team.id,
+        teamName: item.team.name,
+        memberIds: item.members.map(m => m.id),
+    }));
+
+    await saveSchedule({
+        areaId: selectedAreaId,
+        month: monthString,
+        schedule: scheduleToSave,
+    });
+
+    setIsSaving(false);
+    toast({
+        title: "Escala Salva!",
+        description: "A escala gerada foi salva e pode ser visualizada na aba 'Escalas Salvas'."
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -183,7 +215,10 @@ export function ScheduleGenerator() {
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline"><Download className="mr-2 h-4 w-4" /> Exportar</Button>
-                    <Button><Save className="mr-2 h-4 w-4" /> Salvar Escala</Button>
+                    <Button onClick={handleSave} disabled={isSaving}>
+                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        Salvar Escala
+                    </Button>
                 </div>
             </div>
           </CardHeader>

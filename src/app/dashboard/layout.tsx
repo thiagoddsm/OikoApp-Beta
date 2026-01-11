@@ -41,6 +41,7 @@ import {
   HandHelping,
   Shield,
   CalendarClock,
+  Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -101,6 +102,7 @@ const menuItems = [
         { href: "/dashboard/volunteering/volunteers", label: "Servos", icon: Users2 },
         { href: "/dashboard/volunteering/events", label: "Eventos", icon: CalendarCheck },
         { href: "/dashboard/volunteering/schedule", label: "Gerar Escala", icon: CalendarCog },
+        { href: "/dashboard/volunteering/saved-schedules", label: "Escalas Salvas", icon: Save },
       ]
     },
     { 
@@ -231,6 +233,7 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/volunteering/teams')) return 'Gerenciar Equipes';
       if (path.startsWith('/dashboard/volunteering/events')) return 'Gerenciar Eventos';
       if (path.startsWith('/dashboard/volunteering/schedule')) return 'Geração de Escalas';
+      if (path.startsWith('/dashboard/volunteering/saved-schedules')) return 'Escalas Salvas';
       if (path.startsWith('/dashboard/volunteering/volunteers')) return 'Gestão de Servos';
       if (path.startsWith('/dashboard/volunteering')) return 'Gerenciar Áreas de Serviço';
       if (path.startsWith('/dashboard/teaching/wave')) return 'Wave - Escola de Música';
