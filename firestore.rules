@@ -7,9 +7,10 @@ service cloud.firestore {
     function isSignedIn() {
       return request.auth != null;
     }
-    
-    // Rule for member notes - Allow signed-in users to read/write
-    match /member_notes/{noteId} {
+
+    // Rule for member notes - Allow signed-in users to read/write individual documents
+    // and list/query the collection.
+    match /member_notes/{document=**} {
       allow read, write: if isSignedIn();
     }
 
