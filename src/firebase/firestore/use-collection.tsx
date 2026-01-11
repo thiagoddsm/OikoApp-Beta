@@ -82,23 +82,25 @@ export function useCollection<T = any>(
 
       if (typeof pathOrQuery === 'string') {
         pathForError = pathOrQuery;
-        q = collection(firestore, pathOrQuery);
+        let baseQuery: Query = collection(firestore, pathOrQuery);
         
         const parsedConstraints = JSON.parse(memoizedConstraints);
         if (parsedConstraints.length > 0) {
           const whereClauses = parsedConstraints.map(c => where(c.field, c.operator, c.value));
-          q = query(q, ...whereClauses);
+          baseQuery = query(baseQuery, ...whereClauses);
         }
         
         const parsedOrder = JSON.parse(memoizedOrder);
         if (parsedOrder.length > 0) {
             const orderClauses = parsedOrder.map(o => orderBy(o.field, o.direction));
-            q = query(q, ...orderClauses);
+            baseQuery = query(baseQuery, ...orderClauses);
         }
     
         if (limitBy) {
-          q = query(q, limit(limitBy));
+          baseQuery = query(baseQuery, limit(limitBy));
         }
+
+        q = baseQuery;
       } else {
         q = pathOrQuery as Query;
         pathForError = (q as any)._query?.path?.segments.join('/') || 'unknown query path';
