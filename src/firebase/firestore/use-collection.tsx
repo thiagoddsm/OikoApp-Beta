@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Query,
   onSnapshot,
@@ -59,7 +59,6 @@ export function useCollection<T = any>(
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
-  // Memoize dependency arrays to prevent re-renders when path is a string
   const memoizedConstraints = JSON.stringify(constraints);
   const memoizedOrder = JSON.stringify(order);
 
@@ -82,25 +81,29 @@ export function useCollection<T = any>(
 
       if (typeof pathOrQuery === 'string') {
         pathForError = pathOrQuery;
-        let baseQuery: Query = collection(firestore, pathOrQuery);
         
+        // Start with the base collection reference
+        let queryRef: any = collection(firestore, pathOrQuery);
+        
+        // Apply where constraints
         const parsedConstraints = JSON.parse(memoizedConstraints);
         if (parsedConstraints.length > 0) {
           const whereClauses = parsedConstraints.map(c => where(c.field, c.operator, c.value));
-          baseQuery = query(baseQuery, ...whereClauses);
+          queryRef = query(queryRef, ...whereClauses);
         }
         
+        // Apply order by constraints
         const parsedOrder = JSON.parse(memoizedOrder);
         if (parsedOrder.length > 0) {
             const orderClauses = parsedOrder.map(o => orderBy(o.field, o.direction));
-            baseQuery = query(baseQuery, ...orderClauses);
+            queryRef = query(queryRef, ...orderClauses);
         }
     
+        // Apply limit
         if (limitBy) {
-          baseQuery = query(baseQuery, limit(limitBy));
+          queryRef = query(queryRef, limit(limitBy));
         }
-
-        q = baseQuery;
+        q = queryRef;
       } else {
         q = pathOrQuery as Query;
         pathForError = (q as any)._query?.path?.segments.join('/') || 'unknown query path';
