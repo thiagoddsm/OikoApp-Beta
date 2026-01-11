@@ -236,11 +236,13 @@ export default function UserProfilePage() {
         </Card>
         
         {/* KPIs */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-6">
             <KpiCard icon={Church} title="Célula (GC)" value={cell?.nome || "N/A"} footer="Grupo Pequeno do membro." />
             <KpiCard icon={AreaChart} title="Área" value={area?.nome || "N/A"} footer="Área de supervisão do GC." />
             <KpiCard icon={Network} title="Rede" value={rede?.nome || "N/A"} footer="Rede de supervisão da Área." />
             <KpiCard icon={Percent} title="Frequência no GC" value="85%" footer="Últimos 3 meses (simulado)." />
+            <KpiCard icon={HandHelping} title="Serviço" value="Mídia" footer="Área de voluntariado (simulado)." />
+            <KpiCard icon={Percent} title="Frequência (Serviço)" value="95%" footer="Últimos 3 meses (simulado)." />
         </div>
 
         {/* Tabs */}
