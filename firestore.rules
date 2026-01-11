@@ -8,8 +8,6 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Allow read (get, list) and write (create, update, delete) on any document
-    // in the member_notes collection for any signed-in user.
     match /member_notes/{noteId} {
       allow read, write: if isSignedIn();
     }
@@ -22,3 +20,5 @@ service cloud.firestore {
     }
   }
 }
+
+    

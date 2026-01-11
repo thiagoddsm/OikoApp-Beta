@@ -2,8 +2,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
-import { useDoc, useCollection, useMemoFirebase, useFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { useDoc, useMemoFirebase, useFirebase } from '@/firebase';
+import { collection, query } from 'firebase/firestore';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { EditUserDialog } from '@/components/users/edit-user-dialog';
 import { DiscipleshipTrail } from '@/components/users/discipleship-trail';
+import { JourneyTimeline } from '@/components/users/journey-timeline';
 import { Progress } from "@/components/ui/progress";
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -99,12 +100,9 @@ export default function UserProfilePage() {
   const { data: supervisor, isLoading: isLoadingSupervisor } = useDoc<Supervisor>(
     supervisorId ? `users/${supervisorId}` : null
   );
-  
-  const allUsersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
-  const { data: allUsers, isLoading: isLoadingAllUsers } = useCollection<UserProfile>(allUsersQuery);
 
   const avatar = PlaceHolderImages.find(p => p.id === (userProfile?.avatar || 'avatar-1'));
-  const isLoading = isLoadingUser || isLoadingCell || isLoadingSupervisor || isLoadingAllUsers;
+  const isLoading = isLoadingUser || isLoadingCell || isLoadingSupervisor;
 
   const statusInfo = statusConfig[userProfile?.integrationStatus || 'visitante_nao_crente'] || statusConfig.visitante_nao_crente;
   const progressPercentage = (statusInfo.level / totalLevels) * 100;
@@ -215,17 +213,7 @@ export default function UserProfilePage() {
             </TabsContent>
 
             <TabsContent value="journey">
-                 <Card>
-                    <CardHeader>
-                        <CardTitle>Linha do Tempo (Jornada)</CardTitle>
-                        <CardDescription>Histórico de eventos e mudanças de status do membro.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                       <div className="flex items-center justify-center h-48 border-2 border-dashed rounded-lg">
-                            <p className="text-muted-foreground">Em construção...</p>
-                        </div>
-                    </CardContent>
-                </Card>
+                <JourneyTimeline memberId={userId} memberName={userProfile.name} />
             </TabsContent>
 
             <TabsContent value="details">
@@ -261,21 +249,23 @@ export default function UserProfilePage() {
         </Tabs>
       </div>
       
-        <Dialog open={isEditDialogOpen} onOpenChange={setEditDialogOpen}>
-            <DialogContent className="max-w-4xl">
-                 <DialogHeader>
-                    <DialogTitle>Editar Perfil de {userProfile.name}</DialogTitle>
-                    <DialogDescription>
-                        Atualize as informações do membro. As alterações serão salvas no banco de dados.
-                    </DialogDescription>
-                 </DialogHeader>
-                 <EditUserDialog 
-                    user={userProfile}
-                    open={isEditDialogOpen}
-                    onOpenChange={setEditDialogOpen}
-                />
-            </DialogContent>
-        </Dialog>
+      <Dialog open={isEditDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-4xl">
+            <DialogHeader>
+            <DialogTitle>Editar Perfil de {userProfile.name}</DialogTitle>
+            <DialogDescription>
+                Atualize as informações do membro. As alterações serão salvas no banco de dados.
+            </DialogDescription>
+            </DialogHeader>
+            <EditUserDialog 
+                user={userProfile}
+                open={isEditDialogOpen}
+                onOpenChange={setEditDialogOpen}
+            />
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
+
+    
