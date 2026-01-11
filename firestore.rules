@@ -8,15 +8,14 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Explicit rule for member_notes to allow read/write for any authenticated user
-    match /member_notes/{noteId} {
-      allow read, create: if isSignedIn();
-      allow update, delete: if false; // For now, prevent updates/deletes
+    // Returns true if the user has the 'admin' role.
+    function isAdmin() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles[0] == 'admin';
     }
 
     // Liberal rules for development for all other collections
     match /{document=**} {
-      allow read, write: if isSignedIn();
+      allow read, write: if isAdmin() || isSignedIn();
     }
   }
 }
