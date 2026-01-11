@@ -31,7 +31,7 @@ export default function EventsListPage() {
               </CardDescription>
             </div>
             <Button asChild>
-                <Link href="/dashboard/events/briefing">
+                <Link href="/dashboard/briefing-pro">
                     <PlusCircle className="mr-2 size-4" />
                     Novo Briefing
                 </Link>
