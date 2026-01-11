@@ -17,6 +17,8 @@ import { DiscipleshipTrail } from '@/components/users/discipleship-trail';
 import { Progress } from "@/components/ui/progress";
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { FollowUpTimeline } from '@/components/users/follow-up-timeline';
+
 
 type UserProfile = {
   id: string;
@@ -220,8 +222,9 @@ export default function UserProfilePage() {
 
         {/* Tabs */}
         <Tabs defaultValue="trail" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="trail"><Footprints className="mr-2 size-4" />Trilha</TabsTrigger>
+                <TabsTrigger value="follow-up"><MessageSquare className="mr-2 size-4" />Follow Up</TabsTrigger>
                 <TabsTrigger value="details"><User className="mr-2 size-4" />Detalhes</TabsTrigger>
             </TabsList>
 
@@ -235,6 +238,10 @@ export default function UserProfilePage() {
                     <DiscipleshipTrail currentStatusId={userProfile.integrationStatus} />
                   </CardContent>
                 </Card>
+            </TabsContent>
+
+            <TabsContent value="follow-up">
+                <FollowUpTimeline memberId={userId} memberName={userProfile.name} />
             </TabsContent>
 
             <TabsContent value="details">
