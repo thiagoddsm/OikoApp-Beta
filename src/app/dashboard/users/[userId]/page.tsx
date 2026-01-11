@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, User, ArrowLeft, Pencil, MapPin, Phone, Mail, Calendar, Users, Footprints, Church, MessageSquare, Award, TrendingUp, UserCheck, HeartHandshake, GraduationCap, HandHelping, UserPlus, Target, Info, CheckCircle, Smartphone, Clock, BadgeHelp } from 'lucide-react';
+import { Loader2, User, ArrowLeft, Pencil, MapPin, Phone, Mail, Calendar, Users, Footprints, Church, MessageSquare, Award, TrendingUp, UserCheck, HeartHandshake, GraduationCap, HandHelping, UserPlus, Target, Info, CheckCircle, Smartphone, Clock, BadgeHelp, Network, AreaChart, Percent } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Link from 'next/link';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -55,6 +55,18 @@ type UserProfile = {
 
 
 type Cell = {
+    id: string;
+    nome: string;
+    areaId?: string;
+    redeId?: string;
+}
+
+type Area = {
+    id: string;
+    nome: string;
+}
+
+type Rede = {
     id: string;
     nome: string;
 }
@@ -119,18 +131,28 @@ export default function UserProfilePage() {
   const { data: userProfile, isLoading: isLoadingUser } = useDoc<UserProfile>(`users/${userId}`);
   
   const cellId = userProfile?.hierarchy?.celulaId;
-  const supervisorId = userProfile?.hierarchy?.supervisorId;
-
   const { data: cell, isLoading: isLoadingCell } = useDoc<Cell>(
     cellId ? `cells/${cellId}` : null
   );
-  
+
+  const areaId = cell?.areaId;
+  const redeId = cell?.redeId;
+
+  const { data: area, isLoading: isLoadingArea } = useDoc<Area>(
+    areaId ? `areas/${areaId}` : null
+  );
+
+  const { data: rede, isLoading: isLoadingRede } = useDoc<Rede>(
+    redeId ? `redes/${redeId}` : null
+  );
+
+  const supervisorId = userProfile?.hierarchy?.supervisorId;
   const { data: supervisor, isLoading: isLoadingSupervisor } = useDoc<Supervisor>(
     supervisorId ? `users/${supervisorId}` : null
   );
 
   const avatar = PlaceHolderImages.find(p => p.id === (userProfile?.avatar || 'avatar-1'));
-  const isLoading = isLoadingUser || isLoadingCell || isLoadingSupervisor;
+  const isLoading = isLoadingUser || isLoadingCell || isLoadingSupervisor || isLoadingArea || isLoadingRede;
 
   const statusInfo = statusConfig[userProfile?.integrationStatus || 'visitante_nao_crente'] || statusConfig.visitante_nao_crente;
   const progressPercentage = (statusInfo.level / totalLevels) * 100;
@@ -214,10 +236,11 @@ export default function UserProfilePage() {
         </Card>
         
         {/* KPIs */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <KpiCard icon={Church} title="Célula" value={cell?.nome || "N/A"} footer="Grupo Pequeno do membro." />
-            <KpiCard icon={UserCheck} title="Responsável" value={supervisor?.name || "N/A"} footer="Líder que acompanha este membro." />
-            <KpiCard icon={Calendar} title="Na Jornada" value={userProfile.createdAt ? formatDistanceToNow(userProfile.createdAt.toDate(), { locale: ptBR }) : 'N/A'} footer={memberSince} />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            <KpiCard icon={Church} title="Célula (GC)" value={cell?.nome || "N/A"} footer="Grupo Pequeno do membro." />
+            <KpiCard icon={AreaChart} title="Área" value={area?.nome || "N/A"} footer="Área de supervisão do GC." />
+            <KpiCard icon={Network} title="Rede" value={rede?.nome || "N/A"} footer="Rede de supervisão da Área." />
+            <KpiCard icon={Percent} title="Frequência no GC" value="85%" footer="Últimos 3 meses (simulado)." />
         </div>
 
         {/* Tabs */}
