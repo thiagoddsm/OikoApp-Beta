@@ -1,8 +1,7 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useMemo } from 'react';
-import { useFirebase, useCollection, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useCollection, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { collection, doc, writeBatch, getDocs, query, where, arrayRemove } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
@@ -93,11 +92,17 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { firestore } = useFirebase();
   const { toast } = useToast();
 
-  const { data: areas, isLoading: loadingAreas } = useCollection<AreaOfService>('areas_of_service');
-  const { data: teams, isLoading: loadingTeams } = useCollection<Team>('teams');
-  const { data: users, isLoading: loadingUsers } = useCollection<User>('users');
-  const { data: events, isLoading: loadingEvents } = useCollection<VolunteeringEvent>('volunteering_events');
-  const { data: reservations, isLoading: loadingReservations } = useCollection<RoomReservation>('room_reservations');
+  const areasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'areas_of_service')) : null, [firestore]);
+  const teamsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'teams')) : null, [firestore]);
+  const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
+  const eventsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'volunteering_events')) : null, [firestore]);
+  const reservationsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'room_reservations')) : null, [firestore]);
+
+  const { data: areas, isLoading: loadingAreas } = useCollection<AreaOfService>(areasQuery);
+  const { data: teams, isLoading: loadingTeams } = useCollection<Team>(teamsQuery);
+  const { data: users, isLoading: loadingUsers } = useCollection<User>(usersQuery);
+  const { data: events, isLoading: loadingEvents } = useCollection<VolunteeringEvent>(eventsQuery);
+  const { data: reservations, isLoading: loadingReservations } = useCollection<RoomReservation>(reservationsQuery);
 
 
   const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents || loadingReservations;

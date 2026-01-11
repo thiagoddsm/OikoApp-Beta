@@ -100,8 +100,9 @@ export default function UserProfilePage() {
   const { data: supervisor, isLoading: isLoadingSupervisor } = useDoc<Supervisor>(
     supervisorId ? `users/${supervisorId}` : null
   );
-
-  const { data: allUsers, isLoading: isLoadingAllUsers } = useCollection<UserProfile>('users');
+  
+  const allUsersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
+  const { data: allUsers, isLoading: isLoadingAllUsers } = useCollection<UserProfile>(allUsersQuery);
   
   const notesQuery = useMemoFirebase(() => {
     if (!firestore || !userId) return null;

@@ -78,8 +78,8 @@ export function EditUserDialog({ user, open, onOpenChange }) {
   const cellsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells')) : null, [firestore]);
   const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>(cellsQuery);
 
-  const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
-  const { data: allUsers, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
+  const allUsersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
+  const { data: allUsers, isLoading: isLoadingUsers } = useCollection<User>(allUsersQuery);
 
   const supervisors = useMemo(() => {
     if (!allUsers) return [];

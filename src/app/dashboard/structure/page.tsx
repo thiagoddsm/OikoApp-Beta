@@ -1,13 +1,14 @@
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
 import { useCollection } from '@/firebase';
+import { useFirebase } from '@/firebase/provider';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Loader2, Users, Plus, Minus, Flag, PlusCircle, Pencil } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { CreateRedeDialog } from '@/components/structure/create-rede-dialog';
 import { CreateAreaDialog } from '@/components/structure/create-area-dialog';
+import { collection, query } from 'firebase/firestore';
 
 
 type User = { id: string; name: string; hierarchy?: { role?: string; } };
@@ -95,7 +96,7 @@ const buildHierarchy = (users, redes, areas, cells) => {
             nome: 'Pastor',
             liderName: pastor.name,
             type: 'pastor',
-            stats: { niveis: 4, grupos: pastorCells.length, participantes: pastorCells.reduce((sum, c) => sum + c.membros.length, 0), percentage: 56.74 },
+            stats: { niveis: 4, grupos: pastorCells.length, participantes: pastorCells.reduce((sum, c) => sum + (c.membros?.length || 0), 0), percentage: 56.74 },
             children: pastorRedes.map(rede => { // Nível 2: Redes
                 const redeAreas = areas.filter(a => a.redeId === rede.id);
                 const redeAreaIds = redeAreas.map(a => a.id);
@@ -106,7 +107,7 @@ const buildHierarchy = (users, redes, areas, cells) => {
                     nome: rede.nome,
                     liderName: userMap.get(rede.liderId)?.name || 'N/A',
                     type: 'rede',
-                    stats: { niveis: 0, grupos: redeCells.length, participantes: redeCells.reduce((sum, c) => sum + c.membros.length, 0), percentage: 55.07 },
+                    stats: { niveis: 0, grupos: redeCells.length, participantes: redeCells.reduce((sum, c) => sum + (c.membros?.length || 0), 0), percentage: 55.07 },
                     children: redeAreas.map(area => { // Nível 3: Áreas
                         const areaCells = cells.filter(c => c.areaId === area.id);
                         return {
@@ -115,14 +116,14 @@ const buildHierarchy = (users, redes, areas, cells) => {
                             nome: area.nome,
                             liderName: userMap.get(area.liderId)?.name || 'N/A',
                             type: 'area',
-                            stats: { niveis: 0, grupos: areaCells.length, participantes: areaCells.reduce((sum, c) => sum + c.membros.length, 0), percentage: 53.21 },
+                            stats: { niveis: 0, grupos: areaCells.length, participantes: areaCells.reduce((sum, c) => sum + (c.membros?.length || 0), 0), percentage: 53.21 },
                             children: areaCells.map(cell => ({ // Nível 4: Células
                                 ...cell,
                                 id: cell.id,
                                 nome: cell.nome,
                                 liderName: userMap.get(cell.liderId)?.name || 'N/A',
                                 type: 'cell',
-                                stats: { niveis: 0, grupos: 1, participantes: cell.membros.length, percentage: 60.00 },
+                                stats: { niveis: 0, grupos: 1, participantes: cell.membros?.length || 0, percentage: 60.00 },
                                 children: [],
                             }))
                         }
@@ -164,14 +165,20 @@ const RenderHierarchy = ({ nodes, level = 1, onEditNode }) => {
 
 
 export default function StructurePage() {
+    const { firestore } = useFirebase();
     const [isRedeDialogOpen, setRedeDialogOpen] = useState(false);
     const [isAreaDialogOpen, setAreaDialogOpen] = useState(false);
     const [editingNode, setEditingNode] = useState(null);
 
-    const { data: users, isLoading: isLoadingUsers } = useCollection<User>('users');
-    const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>('cells');
-    const { data: areas, isLoading: isLoadingAreas } = useCollection<Area>('areas');
-    const { data: redes, isLoading: isLoadingRedes } = useCollection<Rede>('redes');
+    const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
+    const cellsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells')) : null, [firestore]);
+    const areasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'areas')) : null, [firestore]);
+    const redesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'redes')) : null, [firestore]);
+
+    const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
+    const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>(cellsQuery);
+    const { data: areas, isLoading: isLoadingAreas } = useCollection<Area>(areasQuery);
+    const { data: redes, isLoading: isLoadingRedes } = useCollection<Rede>(redesQuery);
 
     const hierarchyData = useMemo(() => {
         if (!users || !redes || !areas || !cells) return [];
