@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useFirebase, useCollection, deleteDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useCollection, deleteDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where, getDocs } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
 import { Loader2, Users, Plus, Minus, ChevronDown, PlusCircle, Pencil, Trash2, Network, AreaChart, Building2 } from "lucide-react";
@@ -206,10 +206,15 @@ export default function StructurePage() {
     const [nodeToDelete, setNodeToDelete] = useState(null);
     const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-    const { data: users, isLoading: isLoadingUsers } = useCollection<User>('users');
-    const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>('cells');
-    const { data: areas, isLoading: isLoadingAreas } = useCollection<Area>('areas');
-    const { data: redes, isLoading: isLoadingRedes } = useCollection<Rede>('redes');
+    const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
+    const cellsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells')) : null, [firestore]);
+    const areasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'areas')) : null, [firestore]);
+    const redesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'redes')) : null, [firestore]);
+
+    const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
+    const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>(cellsQuery);
+    const { data: areas, isLoading: isLoadingAreas } = useCollection<Area>(areasQuery);
+    const { data: redes, isLoading: isLoadingRedes } = useCollection<Rede>(redesQuery);
 
     const hierarchyData = useMemo(() => {
         if (!users || !redes || !areas || !cells) return null;
