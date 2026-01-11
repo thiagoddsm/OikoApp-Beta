@@ -8,17 +8,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    match /member_notes/{noteId} {
-      allow read, write: if isSignedIn();
-    }
-
     // Liberal rules for development:
-    // Allow any signed-in user to read and write to any other document.
+    // Allow any signed-in user to read and write to any document.
     // This includes listing collections.
     match /{document=**} {
       allow read, write: if isSignedIn();
     }
   }
 }
-
-    
