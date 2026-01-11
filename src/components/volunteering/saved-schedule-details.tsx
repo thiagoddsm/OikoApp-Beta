@@ -11,6 +11,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
@@ -31,6 +33,8 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
     const [statusFilter, setStatusFilter] = useState('all');
     
     const userMap = useMemo(() => new Map(users.map(u => [u.id, u.name])), [users]);
+    const areaMap = useMemo(() => new Map(areas.map(a => [a.id, a.name])), [areas]);
+
 
     const filteredScheduleItems = useMemo(() => {
         if (!schedule?.schedule) return [];
@@ -64,6 +68,39 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
         return Array.from(teamMap.entries()).map(([id, name]) => ({ id, name }));
     }, [schedule]);
     
+    const getDayOfWeek = (dateString: string) => {
+        const date = new Date(dateString.split('/').reverse().join('-') + 'T12:00:00');
+        return weekDays[date.getDay()];
+    }
+
+    const handleExportPDF = () => {
+        const doc = new jsPDF();
+        const areaName = areaMap.get(areaId) || "Área Desconhecida";
+        const monthName = new Date(monthFilter + '-02').toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+
+        doc.setFontSize(16);
+        doc.text(`Escala de Serviço - ${areaName}`, 14, 16);
+        doc.setFontSize(12);
+        doc.text(`Período: ${monthName.charAt(0).toUpperCase() + monthName.slice(1)}`, 14, 22);
+
+        const tableColumn = ["Data", "Dia", "Evento", "Equipe", "Voluntário"];
+        const tableRows: any[] = [];
+
+        filteredScheduleItems.forEach(item => {
+            const rowData = [
+                item.date,
+                getDayOfWeek(item.date),
+                item.eventName,
+                item.teamName || '-',
+                item.memberIds.map(id => userMap.get(id)).join(', ') || 'Vaga Aberta',
+            ];
+            tableRows.push(rowData);
+        });
+
+        (doc as any).autoTable(tableColumn, tableRows, { startY: 30 });
+        doc.save(`escala_${areaName}_${monthFilter}.pdf`);
+    };
+    
     if (isLoading) {
         return (
             <div className="flex items-center justify-center p-8 h-64">
@@ -82,11 +119,6 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
             </div>
         );
     }
-    
-    const getDayOfWeek = (dateString: string) => {
-        const date = new Date(dateString.split('/').reverse().join('-') + 'T12:00:00');
-        return weekDays[date.getDay()];
-    }
 
     return (
         <>
@@ -97,7 +129,7 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
                         <CardDescription>Gerencie e refine a visualização da escala abaixo.</CardDescription>
                     </div>
                      <div className="flex gap-2">
-                        <Button variant="outline"><Download className="mr-2"/>Exportar PDF</Button>
+                        <Button variant="outline" onClick={handleExportPDF}><Download className="mr-2"/>Exportar PDF</Button>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button><Send className="mr-2"/> Notificar</Button>
@@ -222,3 +254,4 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
         </>
     );
 }
+    
