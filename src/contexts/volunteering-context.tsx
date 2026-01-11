@@ -2,7 +2,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useMemo } from 'react';
-import { useFirebase, useCollection, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase } from '@/firebase';
+import { useFirebase, useCollection, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
 import { collection, doc, writeBatch, getDocs, query, where, arrayRemove } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
@@ -241,7 +241,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     const scheduleId = `${data.areaId}_${data.month}`;
     const scheduleDoc = doc(scheduleCollection, scheduleId);
     // Use setDoc with merge to create or overwrite
-    addDocumentNonBlocking(scheduleDoc, data);
+    setDocumentNonBlocking(scheduleDoc, data, { merge: true });
     toast({ title: 'Sucesso', description: 'A escala foi salva.' });
   };
 
