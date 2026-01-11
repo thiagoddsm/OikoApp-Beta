@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, User, ArrowLeft, Pencil, MapPin, Phone, Mail, Calendar, Users, Footprints, Church, MessageSquare, Award, TrendingUp, UserCheck, HeartHandshake, GraduationCap, HandHelping, UserPlus, Target } from 'lucide-react';
+import { Loader2, User, ArrowLeft, Pencil, MapPin, Phone, Mail, Calendar, Users, Footprints, Church, MessageSquare, Award, TrendingUp, UserCheck, HeartHandshake, GraduationCap, HandHelping, UserPlus, Target, Info, CheckCircle, Smartphone, Clock, BadgeHelp } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Link from 'next/link';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -38,7 +38,20 @@ type UserProfile = {
     role?: string;
   };
   createdAt?: any;
+  batizado?: 'sim' | 'nao';
+  igrejaBatismo?: string;
+  membroAntigo?: 'sim' | 'nao';
+  igrejaAntiga?: string;
+  decisao?: string[];
+  dataDecisao?: string;
+  temFilhos?: 'sim' | 'nao';
+  idadeFilhos?: string;
+  comoConheceu?: string;
+  nomeConvidou?: string;
+  contatoPreferencia?: string[];
+  contatoTurno?: string[];
 };
+
 
 type Cell = {
     id: string;
@@ -80,6 +93,20 @@ function KpiCard({ icon: Icon, title, value, footer }) {
       )}
     </Card>
   );
+}
+
+function DetailItem({ icon: Icon, label, value, children }) {
+    if (!value && !children) return null;
+    return (
+        <div className="flex items-start gap-3">
+            <Icon className="size-4 text-muted-foreground mt-1 shrink-0" />
+            <div>
+                <span className="text-xs text-muted-foreground">{label}</span>
+                {value && <p className="text-sm font-medium">{value}</p>}
+                {children}
+            </div>
+        </div>
+    );
 }
 
 export default function UserProfilePage() {
@@ -219,30 +246,39 @@ export default function UserProfilePage() {
             <TabsContent value="details">
                  <Card>
                     <CardHeader>
-                        <CardTitle>Dados Pessoais</CardTitle>
-                        <CardDescription>Informações de contato e detalhes do perfil.</CardDescription>
+                        <CardTitle>Dados do Perfil</CardTitle>
+                        <CardDescription>Informações de contato, jornada espiritual e chegada na igreja.</CardDescription>
                     </CardHeader>
-                    <CardContent className="grid md:grid-cols-2 gap-x-8 gap-y-4">
-                        <div className="flex items-start gap-3">
-                            <Mail className="size-4 text-muted-foreground mt-1 shrink-0" />
-                            <div><span className="text-xs text-muted-foreground">Email</span><p className="text-sm font-medium">{userProfile.email || 'Não informado'}</p></div>
-                        </div>
-                        <div className="flex items-start gap-3">
-                            <Phone className="size-4 text-muted-foreground mt-1 shrink-0" />
-                            <div><span className="text-xs text-muted-foreground">Telefone</span><p className="text-sm font-medium">{userProfile.phone || 'Não informado'}</p></div>
-                        </div>
-                         <div className="flex items-start gap-3">
-                            <Calendar className="size-4 text-muted-foreground mt-1 shrink-0" />
-                            <div><span className="text-xs text-muted-foreground">Nascimento</span><p className="text-sm font-medium">{userProfile.dataNascimento ? format(new Date(userProfile.dataNascimento+'T12:00:00'), 'dd/MM/yyyy') : 'Não informado'}</p></div>
-                        </div>
-                         <div className="flex items-start gap-3">
-                            <Users className="size-4 text-muted-foreground mt-1 shrink-0" />
-                            <div><span className="text-xs text-muted-foreground">Estado Civil</span><p className="text-sm font-medium">{userProfile.estadoCivil || 'Não informado'}</p></div>
-                        </div>
-                         <div className="flex items-start gap-3">
-                            <MapPin className="size-4 text-muted-foreground mt-1 shrink-0" />
-                            <div><span className="text-xs text-muted-foreground">Endereço</span><p className="text-sm font-medium">{userProfile.address?.street || 'Não informado'}</p></div>
-                        </div>
+                    <CardContent className="space-y-8">
+                       <section>
+                            <h4 className="font-semibold text-primary border-b pb-2 mb-4">Dados Pessoais</h4>
+                            <div className="grid md:grid-cols-2 gap-x-8 gap-y-4">
+                                <DetailItem icon={Mail} label="Email" value={userProfile.email || 'Não informado'} />
+                                <DetailItem icon={Phone} label="Telefone" value={userProfile.phone || 'Não informado'} />
+                                <DetailItem icon={Calendar} label="Nascimento" value={userProfile.dataNascimento ? format(new Date(userProfile.dataNascimento+'T12:00:00'), 'dd/MM/yyyy') : 'Não informado'} />
+                                <DetailItem icon={Users} label="Estado Civil" value={userProfile.estadoCivil || 'Não informado'} />
+                                <DetailItem icon={MapPin} label="Endereço" value={userProfile.address?.street || 'Não informado'} />
+                                <DetailItem icon={Users} label="Filhos" value={`${userProfile.temFilhos === 'sim' ? 'Sim' : 'Não'} ${userProfile.idadeFilhos ? `(${userProfile.idadeFilhos})` : ''}`} />
+                            </div>
+                       </section>
+                       <section>
+                            <h4 className="font-semibold text-primary border-b pb-2 mb-4">Jornada Espiritual</h4>
+                             <div className="grid md:grid-cols-2 gap-x-8 gap-y-4">
+                                <DetailItem icon={CheckCircle} label="Batizado?" value={userProfile.batizado === 'sim' ? `Sim, na ${userProfile.igrejaBatismo || 'igreja'}` : 'Não'} />
+                                <DetailItem icon={Church} label="Membro anterior?" value={userProfile.membroAntigo === 'sim' ? `Sim, da ${userProfile.igrejaAntiga || 'outra igreja'}` : 'Não'} />
+                                <DetailItem icon={Target} label="Decisão" value={userProfile.decisao?.join(', ') || 'Não informado'} />
+                                <DetailItem icon={Calendar} label="Data da Decisão" value={userProfile.dataDecisao ? format(new Date(userProfile.dataDecisao+'T12:00:00'), 'dd/MM/yyyy') : 'Não informado'} />
+                            </div>
+                       </section>
+                        <section>
+                            <h4 className="font-semibold text-primary border-b pb-2 mb-4">Chegada na IBM</h4>
+                             <div className="grid md:grid-cols-2 gap-x-8 gap-y-4">
+                                <DetailItem icon={BadgeHelp} label="Como conheceu a IBM" value={userProfile.comoConheceu || 'Não informado'} />
+                                <DetailItem icon={UserPlus} label="Quem convidou" value={userProfile.nomeConvidou || 'Não informado'} />
+                                <DetailItem icon={Smartphone} label="Preferência de Contato" value={userProfile.contatoPreferencia?.join(', ') || 'Não informado'} />
+                                <DetailItem icon={Clock} label="Turno para Contato" value={userProfile.contatoTurno?.join(', ') || 'Não informado'} />
+                            </div>
+                       </section>
                     </CardContent>
                 </Card>
             </TabsContent>
@@ -267,5 +303,3 @@ export default function UserProfilePage() {
     </>
   );
 }
-
-    
