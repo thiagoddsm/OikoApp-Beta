@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
@@ -6,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, CalendarCog, Download, Save } from 'lucide-react';
+import { Loader2, CalendarCog, Download, Save, Wand2 } from 'lucide-react';
 import { Label } from '../ui/label';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -50,10 +49,10 @@ const getAllFifthWeeksOfYear = (year: number) => {
 export function ScheduleGenerator() {
   const { areas, teams, events, users, isLoading, saveSchedule } = useVolunteering();
   const { toast } = useToast();
-  const [selectedAreaId, setSelectedAreaId] = useState('');
+  const [selectedAreaId, setSelectedAreaId] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(currentYear);
-  const [generatedSchedule, setGeneratedSchedule] = useState<any | null>(null);
+  const [skeleton, setSkeleton] = useState<any[] | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -70,25 +69,23 @@ export function ScheduleGenerator() {
   }, [teams]);
 
 
-  const handleGenerate = () => {
-    if (!selectedAreaId) return;
-
+  const handleGenerateSkeleton = () => {
     setIsGenerating(true);
     setTimeout(() => {
-        const relevantEvents = events.filter(e => 
-            e.frequency === 'semanal' && e.requiredAreas?.some(ra => ra.areaId === selectedAreaId)
-        );
+        const isAllAreas = selectedAreaId === 'all';
+        const targetAreas = isAllAreas ? areas : areas.filter(a => a.id === selectedAreaId);
+
+        const relevantEvents = events.filter(e => e.frequency === 'semanal');
         
-        const teamsAvailable = teams.length > 0;
-        if (relevantEvents.length === 0 || !teamsAvailable) {
-            setGeneratedSchedule({ dates: [], error: 'Nenhum evento semanal ou equipe encontrada para esta área.' });
+        if (relevantEvents.length === 0) {
+            setSkeleton([]);
+            toast({ variant: 'destructive', title: 'Nenhum Evento Semanal', description: 'Não há eventos semanais cadastrados para gerar um esqueleto.'});
             setIsGenerating(false);
             return;
         }
 
-        const dates: any[] = [];
+        let dates: any[] = [];
         const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
-        const fifthWeeksOfYear = getAllFifthWeeksOfYear(selectedYear);
 
         for (let day = 1; day <= daysInMonth; day++) {
             const currentDate = new Date(selectedYear, selectedMonth, day);
@@ -96,51 +93,100 @@ export function ScheduleGenerator() {
 
             relevantEvents.forEach(event => {
                 if (event.dayOfWeek?.toLowerCase() === dayOfWeekName.toLowerCase()) {
-                    const weekOfMonth = getWeekOfMonth(currentDate);
-                    let assignedTeam = null;
-
-                    if (weekOfMonth >= 1 && weekOfMonth <= 4) {
-                        const teamName = ['Alpha', 'Bravo', 'Charlie', 'Delta'][weekOfMonth - 1].toLowerCase();
-                        assignedTeam = teamRotation.get(teamName) || null;
-                    } else if (weekOfMonth === 5) {
-                        const fifthWeekIndex = getFifthWeekOccurrenceInYear(currentDate, fifthWeeksOfYear);
-                        if (fifthWeekIndex !== -1) {
-                           const teamName = ['Alpha', 'Bravo', 'Charlie', 'Delta'][fifthWeekIndex % 4].toLowerCase();
-                           assignedTeam = teamRotation.get(teamName) || null;
+                    event.requiredAreas?.forEach(reqArea => {
+                        const area = areas.find(a => a.id === reqArea.areaId);
+                        if (area && (isAllAreas || area.id === selectedAreaId)) {
+                             for (let i = 0; i < reqArea.quantity; i++) {
+                                dates.push({
+                                    date: currentDate.toLocaleDateString('pt-BR'),
+                                    eventName: event.name,
+                                    areaId: area.id,
+                                    areaName: area.name,
+                                    teamId: null,
+                                    teamName: null,
+                                    volunteerId: null,
+                                });
+                            }
                         }
-                    }
-                    
-                    if (assignedTeam) {
-                        const members = users.filter(u => u.serviceTeamId === assignedTeam.id && u.serviceAreaId === selectedAreaId);
-                        dates.push({
-                            date: currentDate.toLocaleDateString('pt-BR'),
-                            eventName: event.name,
-                            team: assignedTeam,
-                            members: members
-                        });
-                    }
+                    })
                 }
             });
         }
         
-        setGeneratedSchedule({ dates: dates.sort((a,b) => new Date(a.date.split('/').reverse().join('-')).getTime() - new Date(b.date.split('/').reverse().join('-')).getTime()) });
+        setSkeleton(dates.sort((a,b) => new Date(a.date.split('/').reverse().join('-')).getTime() - new Date(b.date.split('/').reverse().join('-')).getTime()));
         setIsGenerating(false);
-    }, 1000);
+    }, 500);
   };
   
+  const handleAutoFill = () => {
+    if (!skeleton) return;
+
+    const fifthWeeksOfYear = getAllFifthWeeksOfYear(selectedYear);
+
+    const filledSkeleton = skeleton.map(item => {
+        const currentDate = new Date(item.date.split('/').reverse().join('-'));
+        currentDate.setHours(12); // Avoid timezone issues
+        const weekOfMonth = getWeekOfMonth(currentDate);
+        
+        let assignedTeam = null;
+        if (weekOfMonth >= 1 && weekOfMonth <= 4) {
+            const teamName = ['Alpha', 'Bravo', 'Charlie', 'Delta'][weekOfMonth - 1].toLowerCase();
+            assignedTeam = teamRotation.get(teamName) || null;
+        } else if (weekOfMonth === 5) {
+            const fifthWeekIndex = getFifthWeekOccurrenceInYear(currentDate, fifthWeeksOfYear);
+            if (fifthWeekIndex !== -1) {
+                const teamName = ['Alpha', 'Bravo', 'Charlie', 'Delta'][fifthWeekIndex % 4].toLowerCase();
+                assignedTeam = teamRotation.get(teamName) || null;
+            }
+        }
+        
+        // Basic volunteer assignment logic
+        let volunteerId = null;
+        if (assignedTeam) {
+            const eligibleVolunteers = users.filter(u => 
+                u.serviceTeamId === assignedTeam.id && 
+                u.serviceAreaId === item.areaId &&
+                u.serviceStatus === 'serving'
+            );
+            
+            // This is a very simple assignment. A real one would check for over-allocation.
+            if(eligibleVolunteers.length > 0) {
+                 volunteerId = eligibleVolunteers[0].id;
+            }
+        }
+
+        return {
+            ...item,
+            teamId: assignedTeam?.id || null,
+            teamName: assignedTeam?.name || null,
+            volunteerId: volunteerId,
+        };
+    });
+
+    setSkeleton(filledSkeleton);
+    toast({ title: "Mágica!", description: "A escala foi preenchida automaticamente. Revise e salve."});
+  };
+
+  const handleVolunteerChange = (index: number, volunteerId: string) => {
+    if(!skeleton) return;
+    const newSkeleton = [...skeleton];
+    newSkeleton[index].volunteerId = volunteerId === 'null' ? null : volunteerId;
+    setSkeleton(newSkeleton);
+  }
+  
   const handleSave = async () => {
-    if (!generatedSchedule || !selectedAreaId) return;
+    if (!skeleton || !selectedAreaId) return;
     setIsSaving(true);
     
     const monthString = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
     
-    // Simplificar a estrutura de dados antes de salvar
-    const scheduleToSave = generatedSchedule.dates.map(item => ({
+    const scheduleToSave = skeleton.map(item => ({
         date: item.date,
         eventName: item.eventName,
-        teamId: item.team.id,
-        teamName: item.team.name,
-        memberIds: item.members.map(m => m.id),
+        areaId: item.areaId,
+        teamId: item.teamId,
+        teamName: item.teamName,
+        memberIds: item.volunteerId ? [item.volunteerId] : [], // Storing as array for future multiple volunteers
     }));
 
     await saveSchedule({
@@ -161,7 +207,7 @@ export function ScheduleGenerator() {
       <Card className="bg-muted/30">
         <CardHeader>
           <CardTitle>Configurações da Escala</CardTitle>
-          <CardDescription>Selecione a área e o período para gerar a escala de voluntários.</CardDescription>
+          <CardDescription>Selecione a área e o período para gerar o esqueleto da escala.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
@@ -170,6 +216,7 @@ export function ScheduleGenerator() {
                 <Select value={selectedAreaId} onValueChange={setSelectedAreaId}>
                   <SelectTrigger id="area"><SelectValue placeholder="Selecione uma área" /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="all">Todas as Áreas</SelectItem>
                     {areas.map(area => <SelectItem key={area.id} value={area.id}>{area.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
@@ -195,25 +242,26 @@ export function ScheduleGenerator() {
             
           </div>
            <div className="mt-6 flex justify-end">
-                <Button onClick={handleGenerate} disabled={isGenerating || !selectedAreaId}>
+                <Button onClick={handleGenerateSkeleton} disabled={isGenerating || !selectedAreaId}>
                     {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarCog className="mr-2 h-4 w-4" />}
-                    {isGenerating ? 'Gerando...' : 'Gerar Escala'}
+                    {isGenerating ? 'Montando...' : 'Montar Esqueleto'}
                 </Button>
             </div>
         </CardContent>
       </Card>
 
-      {generatedSchedule && (
+      {skeleton && (
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
                  <div>
-                    <CardTitle>Escala Gerada</CardTitle>
+                    <CardTitle>Esqueleto da Escala</CardTitle>
                     <CardDescription>
-                        Escala para {areas.find(a => a.id === selectedAreaId)?.name} - {months[selectedMonth]}/{selectedYear}
+                       Revise as vagas, preencha automaticamente ou atribua voluntários manualmente.
                     </CardDescription>
                 </div>
                 <div className="flex gap-2">
+                     <Button variant="outline" onClick={handleAutoFill}><Wand2 className="mr-2 h-4 w-4" /> Preencher Auto.</Button>
                     <Button variant="outline"><Download className="mr-2 h-4 w-4" /> Exportar</Button>
                     <Button onClick={handleSave} disabled={isSaving}>
                         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
@@ -223,39 +271,42 @@ export function ScheduleGenerator() {
             </div>
           </CardHeader>
           <CardContent>
-            {generatedSchedule.error ? (
-                <p className="text-destructive text-center py-8">{generatedSchedule.error}</p>
+            {skeleton.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">Nenhuma vaga necessária para os filtros selecionados.</p>
             ) : (
-                <div className="rounded-lg border">
+                <div className="rounded-lg border max-h-[60vh] overflow-auto">
                     <Table>
-                        <TableHeader>
+                        <TableHeader className="sticky top-0 bg-background z-10">
                             <TableRow>
                                 <TableHead>Data</TableHead>
                                 <TableHead>Evento</TableHead>
-                                <TableHead>Equipe Escalada</TableHead>
-                                <TableHead>Servos Escalados</TableHead>
+                                <TableHead>Área</TableHead>
+                                <TableHead>Equipe</TableHead>
+                                <TableHead className="w-[250px]">Voluntário</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {generatedSchedule.dates.map((item, index) => (
+                            {skeleton.map((item, index) => {
+                                const eligibleVolunteers = users.filter(u => u.serviceAreaId === item.areaId && u.serviceTeamId === item.teamId);
+                                return(
                                 <TableRow key={index}>
                                     <TableCell className="font-medium">{item.date}</TableCell>
                                     <TableCell>{item.eventName}</TableCell>
-                                    <TableCell>
-                                        <Badge>{item.team.name}</Badge>
-                                    </TableCell>
+                                    <TableCell><Badge variant="outline">{item.areaName}</Badge></TableCell>
+                                    <TableCell>{item.teamName ? <Badge>{item.teamName}</Badge> : '-'}</TableCell>
                                      <TableCell>
-                                        <div className="flex flex-wrap gap-1">
-                                            {item.members.length > 0 ? 
-                                                item.members.map(member => (
-                                                    <Badge key={member.id} variant="secondary" className="font-normal">{member.name}</Badge>
-                                                )) : 
-                                                <span className="text-xs text-muted-foreground">Nenhum membro na equipe para esta área</span>
-                                            }
-                                        </div>
+                                        <Select value={item.volunteerId || 'null'} onValueChange={(value) => handleVolunteerChange(index, value)}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Selecione um voluntário..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="null">Nenhum (Vaga aberta)</SelectItem>
+                                                {eligibleVolunteers.map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
                                     </TableCell>
                                 </TableRow>
-                            ))}
+                            )})}
                         </TableBody>
                     </Table>
                 </div>
