@@ -13,7 +13,6 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Link from 'next/link';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { EditUserDialog } from '@/components/users/edit-user-dialog';
-import { DiscipleshipNotes } from '@/components/users/discipleship-notes';
 import { DiscipleshipTrail } from '@/components/users/discipleship-trail';
 import { Progress } from "@/components/ui/progress";
 import { format, formatDistanceToNow } from 'date-fns';
@@ -103,17 +102,9 @@ export default function UserProfilePage() {
   
   const allUsersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
   const { data: allUsers, isLoading: isLoadingAllUsers } = useCollection<UserProfile>(allUsersQuery);
-  
-  const notesQuery = useMemoFirebase(() => {
-    if (!firestore || !userId) return null;
-    return query(collection(firestore, 'member_notes'), where('memberId', '==', userId));
-  }, [firestore, userId]);
-  
-  const { data: notes, isLoading: isLoadingNotes } = useCollection(notesQuery);
-
 
   const avatar = PlaceHolderImages.find(p => p.id === (userProfile?.avatar || 'avatar-1'));
-  const isLoading = isLoadingUser || isLoadingCell || isLoadingSupervisor || isLoadingAllUsers || isLoadingNotes;
+  const isLoading = isLoadingUser || isLoadingCell || isLoadingSupervisor || isLoadingAllUsers;
 
   const statusInfo = statusConfig[userProfile?.integrationStatus || 'visitante_nao_crente'] || statusConfig.visitante_nao_crente;
   const progressPercentage = (statusInfo.level / totalLevels) * 100;
@@ -200,15 +191,13 @@ export default function UserProfilePage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <KpiCard icon={Church} title="Célula" value={cell?.nome || "N/A"} footer="Grupo Pequeno do membro." />
             <KpiCard icon={UserCheck} title="Responsável" value={supervisor?.name || "N/A"} footer="Líder que acompanha este membro." />
-            <KpiCard icon={MessageSquare} title="Anotações" value={notes?.length || 0} footer="Registros de discipulado." />
             <KpiCard icon={Calendar} title="Na Jornada" value={userProfile.createdAt ? formatDistanceToNow(userProfile.createdAt.toDate(), { locale: ptBR }) : 'N/A'} footer={memberSince} />
         </div>
 
         {/* Tabs */}
         <Tabs defaultValue="trail" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="trail"><Footprints className="mr-2 size-4" />Trilha</TabsTrigger>
-                <TabsTrigger value="notes"><MessageSquare className="mr-2 size-4" />Anotações</TabsTrigger>
                 <TabsTrigger value="journey"><TrendingUp className="mr-2 size-4" />Jornada</TabsTrigger>
                 <TabsTrigger value="details"><User className="mr-2 size-4" />Detalhes</TabsTrigger>
             </TabsList>
@@ -223,10 +212,6 @@ export default function UserProfilePage() {
                     <DiscipleshipTrail currentStatusId={userProfile.integrationStatus} />
                   </CardContent>
                 </Card>
-            </TabsContent>
-
-             <TabsContent value="notes">
-                <DiscipleshipNotes memberId={userId} allUsers={allUsers || []} />
             </TabsContent>
 
             <TabsContent value="journey">
@@ -276,7 +261,6 @@ export default function UserProfilePage() {
         </Tabs>
       </div>
       
-      {userProfile && (
         <Dialog open={isEditDialogOpen} onOpenChange={setEditDialogOpen}>
             <DialogContent className="max-w-4xl">
                  <DialogHeader>
@@ -292,7 +276,6 @@ export default function UserProfilePage() {
                 />
             </DialogContent>
         </Dialog>
-      )}
     </>
   );
 }
