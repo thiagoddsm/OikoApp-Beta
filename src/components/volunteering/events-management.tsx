@@ -58,7 +58,56 @@ function ImportEventsButton() {
     return (
         <Button onClick={handleImport} variant="outline" size="sm" disabled={isImporting}>
             {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
-            Importar Eventos Padrão
+            Importar Eventos
+        </Button>
+    );
+}
+
+function ImportAreasButton() {
+    const { addArea, areas } = useVolunteering();
+    const { toast } = useToast();
+    const [isImporting, setIsImporting] = useState(false);
+
+    const areasToImport = [
+        "Apoio", "Bistrô", "Boutique", "Broadcasting", "Cleaning", "Coffe Break", 
+        "Coordenação De Culto", "Dis", "Eklesia", "Espaço Vip", "Estacionamento", 
+        "Fotografia", "Iluminação", "Intercessão", "Live", "Musikids", "Professores", 
+        "Projeção", "Recepção", "Saúde", "Security", "Som", "Staff", "Stories"
+    ];
+
+    const handleImport = async () => {
+        setIsImporting(true);
+        let importedCount = 0;
+        const importPromises = areasToImport.map(areaName => {
+            const areaExists = areas.some(a => a.name.toLowerCase() === areaName.toLowerCase());
+            if (!areaExists) {
+                importedCount++;
+                return addArea({ name: areaName });
+            }
+            return Promise.resolve();
+        });
+
+        await Promise.all(importPromises);
+
+        if (importedCount > 0) {
+            toast({
+                title: 'Importação Concluída!',
+                description: `${importedCount} áreas de serviço foram adicionadas.`,
+            });
+        } else {
+             toast({
+                title: 'Nenhuma Novidade',
+                description: 'Todas as áreas de serviço já estavam cadastradas.',
+                variant: 'default',
+            });
+        }
+        setIsImporting(false);
+    };
+
+    return (
+        <Button onClick={handleImport} variant="outline" size="sm" disabled={isImporting}>
+            {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+            Importar Áreas
         </Button>
     );
 }
@@ -117,6 +166,7 @@ export function EventsManagement() {
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold">Lista de Eventos</h3>
         <div className="flex items-center gap-2">
+            <ImportAreasButton />
             <ImportEventsButton />
             <Button onClick={handleAdd} size="sm">
               <PlusCircle className="mr-2 h-4 w-4" />
