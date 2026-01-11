@@ -14,13 +14,11 @@ import { DeleteConfirmationDialog } from '@/components/structure/delete-confirma
 
 const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
-export function SavedScheduleDetails({ monthFilter }: { monthFilter: string }) {
-    const { areas, teams, events, users, isLoading: isContextLoading, deleteSchedule } = useVolunteering();
+export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, monthFilter: string }) {
+    const { teams, users, isLoading: isContextLoading, deleteSchedule } = useVolunteering();
     const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
     
-    // Find the schedule that matches the area and month filter. This is a simplification.
-    // A real implementation might fetch a single document based on a composite key.
-    const scheduleId = areas.length > 0 ? `${areas[0].id}_${monthFilter}` : null;
+    const scheduleId = `${areaId}_${monthFilter}`;
     const { data: schedule, isLoading: isScheduleLoading } = useDoc<SavedSchedule>(scheduleId ? `saved_schedules/${scheduleId}` : null);
     
     const isLoading = isContextLoading || isScheduleLoading;
@@ -79,7 +77,7 @@ export function SavedScheduleDetails({ monthFilter }: { monthFilter: string }) {
             <div className="flex flex-col items-center justify-center p-8 h-64 border-2 border-dashed rounded-lg">
                 <FileText className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold">Nenhuma Escala Encontrada</h3>
-                <p className="text-muted-foreground text-sm">Não há uma escala salva para o período selecionado.</p>
+                <p className="text-muted-foreground text-sm">Não há uma escala salva para a área e o período selecionados.</p>
                  <p className="text-muted-foreground text-sm mt-1">Tente gerar uma na aba "Gerar Escala".</p>
             </div>
         );
@@ -169,7 +167,7 @@ export function SavedScheduleDetails({ monthFilter }: { monthFilter: string }) {
                                     <TableCell className="font-medium">{item.date}</TableCell>
                                     <TableCell>{getDayOfWeek(item.date)}</TableCell>
                                     <TableCell><Badge variant="outline">{item.eventName}</Badge></TableCell>
-                                    <TableCell><Badge>{item.teamName}</Badge></TableCell>
+                                    <TableCell>{item.teamName ? <Badge>{item.teamName}</Badge> : '-'}</TableCell>
                                     <TableCell>
                                         {hasVolunteers ? (
                                              <DropdownMenu>
@@ -224,4 +222,3 @@ export function SavedScheduleDetails({ monthFilter }: { monthFilter: string }) {
         </>
     );
 }
-
