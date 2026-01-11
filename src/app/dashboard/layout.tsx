@@ -40,6 +40,7 @@ import {
   Waves,
   HandHelping,
   Shield,
+  CalendarClock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -98,6 +99,7 @@ const menuItems = [
         { href: "/dashboard/volunteering", label: "Áreas de Serviço", icon: HandHelping },
         { href: "/dashboard/volunteering/teams", label: "Equipes", icon: Shield },
         { href: "/dashboard/volunteering/events", label: "Eventos", icon: CalendarCheck },
+        { href: "/dashboard/volunteering/schedule", label: "Gerar Escala", icon: CalendarCog },
       ]
     },
     { 
@@ -120,7 +122,7 @@ const menuItems = [
             subItems: [
               { href: "/dashboard/events", label: "Cultos e Eventos", icon: CalendarCheck },
               { href: "/dashboard/events/briefing", label: "Briefing Pro", icon: FileText },
-              { href: "/dashboard/events/reservations", label: "Reservas de Sala", icon: CalendarPlus },
+              { href: "/dashboard/events/reservations", label: "Reservas de Sala", icon: CalendarClock },
             ]
         },
         { href: "/dashboard/finance", label: "Financeiro", icon: Briefcase },
@@ -227,10 +229,12 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/attendance')) return 'Frequência nos Cultos';
       if (path.startsWith('/dashboard/volunteering/teams')) return 'Gerenciar Equipes';
       if (path.startsWith('/dashboard/volunteering/events')) return 'Gerenciar Eventos';
+      if (path.startsWith('/dashboard/volunteering/schedule')) return 'Geração de Escalas';
       if (path.startsWith('/dashboard/volunteering')) return 'Gerenciar Áreas de Serviço';
       if (path.startsWith('/dashboard/teaching/wave')) return 'Wave - Escola de Música';
       if (path.startsWith('/dashboard/teaching')) return 'Ensino';
       if (path.startsWith('/dashboard/events/briefing')) return 'Briefing Pro';
+      if (path.startsWith('/dashboard/events/reservations')) return 'Reservas de Sala';
       if (path.startsWith('/dashboard/events')) return 'Eventos e Produção';
       if (path.startsWith('/dashboard/patrimony')) return 'Gestão de Patrimônio';
       if (path.startsWith('/dashboard/social')) return 'Ação Social';
