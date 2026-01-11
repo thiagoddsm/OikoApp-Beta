@@ -8,10 +8,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Rule for member notes - Allow signed-in users to read/write individual documents
-    // and list/query the collection.
-    match /member_notes/{document=**} {
+    // Allow list/query on the collection and read/write on individual documents
+    match /member_notes/{noteId} {
       allow read, write: if isSignedIn();
+    }
+    match /member_notes {
+      allow list: if isSignedIn();
     }
 
     // Liberal rules for development:
