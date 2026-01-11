@@ -5,6 +5,8 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Map as MapIcon, Loader2 } from "lucide-react";
 import { useCollection } from '@/firebase/firestore/use-collection';
+import { useFirebase, useMemoFirebase } from '@/firebase';
+import { collection, query } from 'firebase/firestore';
 import { MapView } from '@/components/gc/map-view';
 
 type Cell = {
@@ -27,8 +29,13 @@ type User = {
 const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
 export default function MapPage() {
-  const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>('cells');
-  const { data: users, isLoading: isLoadingUsers } = useCollection<User>('users');
+  const { firestore } = useFirebase();
+
+  const cellsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells')) : null, [firestore]);
+  const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
+
+  const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>(cellsQuery);
+  const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
 
   const isLoading = isLoadingCells || isLoadingUsers;
 

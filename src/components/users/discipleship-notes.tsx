@@ -2,8 +2,8 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { useCollection, addDocumentNonBlocking, useFirebase } from '@/firebase';
-import { Timestamp, collection } from 'firebase/firestore';
+import { useCollection, addDocumentNonBlocking, useFirebase, useMemoFirebase } from '@/firebase';
+import { Timestamp, collection, query, where, orderBy } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -62,11 +62,16 @@ export function DiscipleshipNotes({ memberId, allUsers }: { memberId: string; al
     const [noteType, setNoteType] = useState('encontro');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const { data: notes, isLoading: isLoadingNotes, error: notesError } = useCollection<MemberNote>(
-        'member_notes',
-        [{ field: 'memberId', operator: '==', value: memberId }],
-        [{ field: 'createdAt', direction: 'desc' }]
-    );
+    const notesQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return query(
+            collection(firestore, 'member_notes'),
+            where('memberId', '==', memberId),
+            orderBy('createdAt', 'desc')
+        );
+    }, [firestore, memberId]);
+
+    const { data: notes, isLoading: isLoadingNotes, error: notesError } = useCollection<MemberNote>(notesQuery);
     
     const userMap = useMemo(() => new Map(allUsers.map(u => [u.id, u.name])), [allUsers]);
 

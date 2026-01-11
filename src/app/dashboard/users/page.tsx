@@ -2,8 +2,8 @@
 
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { useCollection, updateDocumentNonBlocking } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useCollection, updateDocumentNonBlocking, useMemoFirebase } from '@/firebase';
+import { doc, query, collection } from 'firebase/firestore';
 import { useFirebase } from '@/firebase/provider';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -77,7 +77,8 @@ export default function UsersKanbanPage() {
     const [draggedOverColumn, setDraggedOverColumn] = useState<string | null>(null);
     const [isFormOpen, setIsFormOpen] = useState(false);
 
-    const { data: users, isLoading: isLoadingUsers } = useCollection<User>('users');
+    const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
+    const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
     
     const usersByStatus = useMemo(() => {
         const initialColumns: { [key: string]: User[] } = {};
@@ -152,7 +153,7 @@ export default function UsersKanbanPage() {
                             Adicionar Pessoa
                         </Button>
                       </DialogTrigger>
-                       <DialogContent>
+                       <DialogContent className="max-w-4xl">
                           <DialogHeader>
                             <DialogTitle>Adicionar Nova Pessoa</DialogTitle>
                             <DialogDescription>

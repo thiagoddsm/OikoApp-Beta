@@ -1,6 +1,7 @@
 'use client';
 import React, { useMemo } from 'react';
-import { useFirebase, useCollection } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query } from 'firebase/firestore';
 import KpiDashboard from '@/components/goals/kpi-dashboard';
 import { Loader2 } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
@@ -40,20 +41,25 @@ type Cell = {
 }
 
 export default function GoalsPage() {
-    const { user } = useFirebase();
-    const { data: goals, isLoading: isLoadingGoals } = useCollection<Goal>('goals');
+    const { firestore, user } = useFirebase();
+
+    const goalsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'goals')) : null, [firestore]);
+    const cellsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells')) : null, [firestore]);
+    const cultosQuery = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, `cultos/${user.uid}/registros`)) : null, [firestore, user]);
+    const reportsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'attendance_reports')) : null, [firestore]);
+    const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
+
+    const { data: goals, isLoading: isLoadingGoals } = useCollection<Goal>(goalsQuery);
+    const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>(cellsQuery);
+    const { data: cultos, isLoading: isLoadingCultos } = useCollection<CultoRegistro>(cultosQuery);
+    const { data: reports, isLoading: isLoadingReports } = useCollection<Report>(reportsQuery);
+    const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
     
     const currentYear = new Date().getFullYear();
-
-    const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>('cells');
-    const { data: cultos, isLoading: isLoadingCultos } = useCollection<CultoRegistro>(user ? `cultos/${user.uid}/registros` : null);
-    const { data: reports, isLoading: isLoadingReports } = useCollection<Report>('attendance_reports');
-    const { data: users, isLoading: isLoadingUsers } = useCollection<User>('users');
-
     const isLoading = isLoadingGoals || isLoadingCells || isLoadingCultos || isLoadingReports || isLoadingUsers;
 
     const kpiData = useMemo(() => {
-        const getMonthlyData = (collection, dateField) => {
+        const getMonthlyData = (collection: any[] | null, dateField: string) => {
             const monthly = Array(12).fill(0);
             if (!collection) return monthly;
             collection.forEach(item => {
@@ -66,7 +72,7 @@ export default function GoalsPage() {
             return monthly;
         };
 
-        const getMonthlySum = (collection, dateField, valueField) => {
+        const getMonthlySum = (collection: any[] | null, dateField: string, valueField: string) => {
              const monthly = Array(12).fill(0);
             if (!collection) return monthly;
             collection.forEach(item => {
