@@ -102,6 +102,7 @@ interface VolunteeringContextType {
   
   // Functions for Schedules
   saveSchedule: (data: SavedScheduleData) => Promise<void>;
+  deleteSchedule: (id: string) => Promise<void>;
 }
 
 const VolunteeringContext = createContext<VolunteeringContextType | undefined>(undefined);
@@ -236,13 +237,17 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   // --- SAVED SCHEDULE FUNCTIONS ---
   const saveSchedule = async (data: SavedScheduleData) => {
     if (!firestore) return;
-    const scheduleCollection = collection(firestore, 'saved_schedules');
-    // Using areaId and month as a custom ID to prevent duplicates
     const scheduleId = `${data.areaId}_${data.month}`;
-    const scheduleDoc = doc(scheduleCollection, scheduleId);
-    // Use setDoc with merge to create or overwrite
+    const scheduleDoc = doc(firestore, 'saved_schedules', scheduleId);
     setDocumentNonBlocking(scheduleDoc, data, { merge: true });
     toast({ title: 'Sucesso', description: 'A escala foi salva.' });
+  };
+
+  const deleteSchedule = async (id: string) => {
+    if(!firestore) return;
+    const scheduleDoc = doc(firestore, 'saved_schedules', id);
+    deleteDocumentNonBlocking(scheduleDoc);
+    toast({ title: 'Sucesso', description: 'A escala será excluída.' });
   };
 
 
@@ -268,6 +273,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     deleteReservation,
     updateVolunteer,
     saveSchedule,
+    deleteSchedule
   }), [areas, teams, users, events, reservations, savedSchedules, isLoading]);
 
   return (
