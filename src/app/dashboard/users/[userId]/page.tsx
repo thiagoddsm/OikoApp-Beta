@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, User, ArrowLeft, Pencil, MapPin, Phone, Mail, Calendar, Users, Footprints, Church, MessageSquare, Award, TrendingUp, UserCheck, HeartHandshake, GraduationCap, HandHelping, UserPlus, Target, Info, CheckCircle, Smartphone, Clock, BadgeHelp, Network, AreaChart, Percent } from 'lucide-react';
+import { Loader2, User, ArrowLeft, Pencil, MapPin, Phone, Mail, Calendar, Users, Footprints, Church, MessageSquare, Award, TrendingUp, UserCheck, HeartHandshake, GraduationCap, HandHelping, UserPlus, Target, Info, CheckCircle, Smartphone, Clock, BadgeHelp, Network, AreaChart, Percent, HandCoins } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Link from 'next/link';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -236,13 +236,14 @@ export default function UserProfilePage() {
         </Card>
         
         {/* KPIs */}
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             <KpiCard icon={Church} title="Célula (GC)" value={cell?.nome || "N/A"} footer="Grupo Pequeno do membro." />
             <KpiCard icon={AreaChart} title="Área" value={area?.nome || "N/A"} footer="Área de supervisão do GC." />
             <KpiCard icon={Network} title="Rede" value={rede?.nome || "N/A"} footer="Rede de supervisão da Área." />
             <KpiCard icon={Percent} title="Frequência no GC" value="85%" footer="Últimos 3 meses (simulado)." />
             <KpiCard icon={HandHelping} title="Serviço" value="Mídia" footer="Área de voluntariado (simulado)." />
             <KpiCard icon={Percent} title="Frequência (Serviço)" value="95%" footer="Últimos 3 meses (simulado)." />
+            <KpiCard icon={HandCoins} title="Dizimista" value="Sim" footer="Fidelidade nos últimos 6 meses." />
         </div>
 
         {/* Tabs */}
