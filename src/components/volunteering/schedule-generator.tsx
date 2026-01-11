@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
@@ -8,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Loader2, CalendarCog, Download, Save } from 'lucide-react';
 import { Label } from '../ui/label';
+import { Badge } from '../ui/badge';
 
 const months = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -17,53 +17,109 @@ const months = [
 const currentYear = new Date().getFullYear();
 const years = [currentYear, currentYear + 1];
 
+// Helper to get the week of the month for a given date
+const getWeekOfMonth = (date: Date) => {
+  const firstDay = new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+  return Math.ceil((date.getDate() + firstDay) / 7);
+}
+
+// Helper to get which occurrence of a "5th week" this is in the year
+const getFifthWeekOccurrenceInYear = (date: Date, allFifthWeeksOfYear: Date[]) => {
+    const dateString = date.toISOString().split('T')[0];
+    const index = allFifthWeeksOfYear.findIndex(d => d.toISOString().split('T')[0] === dateString);
+    return index; // 0-indexed
+}
+
+// Pre-calculate all dates in the year that fall on a 5th week of their month
+const getAllFifthWeeksOfYear = (year: number) => {
+    const fifthWeeks: Date[] = [];
+    for (let month = 0; month < 12; month++) {
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(year, month, day);
+            if (getWeekOfMonth(date) === 5) {
+                fifthWeeks.push(date);
+            }
+        }
+    }
+    return fifthWeeks;
+}
+
 export function ScheduleGenerator() {
-  const { areas, teams, events, isLoading } = useVolunteering();
+  const { areas, teams, events, users, isLoading } = useVolunteering();
   const [selectedAreaId, setSelectedAreaId] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [generatedSchedule, setGeneratedSchedule] = useState<any | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
+  const teamRotation = useMemo(() => {
+    const rotationMap = new Map<string, any>();
+    const teamNames = ['Alpha', 'Bravo', 'Charlie', 'Delta'];
+    teamNames.forEach(name => {
+      const team = teams.find(t => t.name.toLowerCase() === name.toLowerCase());
+      if (team) {
+        rotationMap.set(name.toLowerCase(), team);
+      }
+    });
+    return rotationMap;
+  }, [teams]);
+
+
   const handleGenerate = () => {
     if (!selectedAreaId) return;
 
     setIsGenerating(true);
-    // Lógica de simulação de geração de escala
     setTimeout(() => {
-        // Encontra eventos semanais para a área
         const relevantEvents = events.filter(e => 
             e.frequency === 'semanal' && e.requiredAreas?.some(ra => ra.areaId === selectedAreaId)
         );
-
-        if (relevantEvents.length === 0 || teams.length === 0) {
+        
+        const teamsAvailable = teams.length > 0;
+        if (relevantEvents.length === 0 || !teamsAvailable) {
             setGeneratedSchedule({ dates: [], error: 'Nenhum evento semanal ou equipe encontrada para esta área.' });
             setIsGenerating(false);
             return;
         }
 
         const dates: any[] = [];
-        let teamIndex = 0;
-        const firstDayOfMonth = new Date(selectedYear, selectedMonth, 1);
         const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+        const fifthWeeksOfYear = getAllFifthWeeksOfYear(selectedYear);
 
         for (let day = 1; day <= daysInMonth; day++) {
             const currentDate = new Date(selectedYear, selectedMonth, day);
-            const dayOfWeek = currentDate.toLocaleDateString('pt-BR', { weekday: 'long' });
+            const dayOfWeekName = currentDate.toLocaleDateString('pt-BR', { weekday: 'long' });
 
             relevantEvents.forEach(event => {
-                if (event.dayOfWeek?.toLowerCase() === dayOfWeek.toLowerCase()) {
-                    dates.push({
-                        date: currentDate.toLocaleDateString('pt-BR'),
-                        eventName: event.name,
-                        team: teams[teamIndex % teams.length]
-                    });
-                    teamIndex++;
+                if (event.dayOfWeek?.toLowerCase() === dayOfWeekName.toLowerCase()) {
+                    const weekOfMonth = getWeekOfMonth(currentDate);
+                    let assignedTeam = null;
+
+                    if (weekOfMonth >= 1 && weekOfMonth <= 4) {
+                        const teamName = ['Alpha', 'Bravo', 'Charlie', 'Delta'][weekOfMonth - 1].toLowerCase();
+                        assignedTeam = teamRotation.get(teamName) || null;
+                    } else if (weekOfMonth === 5) {
+                        const fifthWeekIndex = getFifthWeekOccurrenceInYear(currentDate, fifthWeeksOfYear);
+                        if (fifthWeekIndex !== -1) {
+                           const teamName = ['Alpha', 'Bravo', 'Charlie', 'Delta'][fifthWeekIndex % 4].toLowerCase();
+                           assignedTeam = teamRotation.get(teamName) || null;
+                        }
+                    }
+                    
+                    if (assignedTeam) {
+                        const members = users.filter(u => u.serviceTeamId === assignedTeam.id && u.serviceAreaId === selectedAreaId);
+                        dates.push({
+                            date: currentDate.toLocaleDateString('pt-BR'),
+                            eventName: event.name,
+                            team: assignedTeam,
+                            members: members
+                        });
+                    }
                 }
             });
         }
         
-        setGeneratedSchedule({ dates });
+        setGeneratedSchedule({ dates: dates.sort((a,b) => new Date(a.date.split('/').reverse().join('-')).getTime() - new Date(b.date.split('/').reverse().join('-')).getTime()) });
         setIsGenerating(false);
     }, 1000);
   };
@@ -142,6 +198,7 @@ export function ScheduleGenerator() {
                                 <TableHead>Data</TableHead>
                                 <TableHead>Evento</TableHead>
                                 <TableHead>Equipe Escalada</TableHead>
+                                <TableHead>Servos Escalados</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -149,7 +206,19 @@ export function ScheduleGenerator() {
                                 <TableRow key={index}>
                                     <TableCell className="font-medium">{item.date}</TableCell>
                                     <TableCell>{item.eventName}</TableCell>
-                                    <TableCell>{item.team.name}</TableCell>
+                                    <TableCell>
+                                        <Badge>{item.team.name}</Badge>
+                                    </TableCell>
+                                     <TableCell>
+                                        <div className="flex flex-wrap gap-1">
+                                            {item.members.length > 0 ? 
+                                                item.members.map(member => (
+                                                    <Badge key={member.id} variant="secondary" className="font-normal">{member.name}</Badge>
+                                                )) : 
+                                                <span className="text-xs text-muted-foreground">Nenhum membro na equipe para esta área</span>
+                                            }
+                                        </div>
+                                    </TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
