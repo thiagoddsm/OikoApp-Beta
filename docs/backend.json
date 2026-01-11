@@ -61,7 +61,10 @@
         "nomeConvidou": { "type": "string" },
         "contatoPreferencia": { "type": "array", "items": { "type": "string" } },
         "contatoTurno": { "type": "array", "items": { "type": "string" } },
-        "integrationStatus": { "type": "string" }
+        "integrationStatus": { "type": "string" },
+        "serviceStatus": { "type": "string", "enum": ["serving", "not_serving"], "description": "Indicates if the user is currently serving." },
+        "serviceAreaId": { "type": "string", "description": "ID of the AreaOfService the user serves in." },
+        "serviceTeamId": { "type": "string", "description": "ID of the Team the user is part of." }
       },
       "required": ["name", "email", "roles", "createdAt"]
     },

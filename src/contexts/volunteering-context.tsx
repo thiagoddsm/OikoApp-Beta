@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useMemo } from 'react';
@@ -23,6 +24,9 @@ export type User = {
   name: string;
   phone?: string;
   email?: string;
+  serviceStatus?: 'serving' | 'not_serving';
+  serviceAreaId?: string;
+  serviceTeamId?: string;
 }
 
 export type VolunteeringEvent = {
@@ -83,6 +87,9 @@ interface VolunteeringContextType {
   addReservation: (data: ReservationData) => Promise<void>;
   updateReservation: (id: string, data: Partial<ReservationData>) => Promise<void>;
   deleteReservation: (id: string) => Promise<void>;
+  
+  // Functions for Volunteers
+  updateVolunteer: (id: string, data: Partial<User>) => Promise<void>;
 }
 
 const VolunteeringContext = createContext<VolunteeringContextType | undefined>(undefined);
@@ -204,6 +211,14 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
       toast({ title: 'Sucesso', description: 'A reserva será excluída.' });
   };
 
+  // --- VOLUNTEER FUNCTIONS ---
+  const updateVolunteer = async (id: string, data: Partial<User>) => {
+    if (!firestore) return;
+    const userDoc = doc(firestore, 'users', id);
+    updateDocumentNonBlocking(userDoc, data);
+    toast({ title: 'Sucesso', description: `O status de serviço do membro será atualizado.` });
+  };
+
 
   const value = useMemo(() => ({
     areas: areas || [],
@@ -224,6 +239,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     addReservation,
     updateReservation,
     deleteReservation,
+    updateVolunteer,
   }), [areas, teams, users, events, reservations, isLoading]);
 
   return (
