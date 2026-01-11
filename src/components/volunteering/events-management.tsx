@@ -8,40 +8,57 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Loader2, PlusCircle, MoreHorizontal, Pencil, Trash2, Copy, FlaskConical } from 'lucide-react';
+import { Loader2, PlusCircle, MoreHorizontal, Pencil, Trash2, Copy, FlaskConical, Download } from 'lucide-react';
 import { CreateEventDialog } from './create-event-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 
-function FirestoreWriteTestButton() {
-    const { firestore } = useFirebase();
+function ImportEventsButton() {
+    const { addEvent, events } = useVolunteering();
     const { toast } = useToast();
-    const [isTesting, setIsTesting] = useState(false);
+    const [isImporting, setIsImporting] = useState(false);
 
-    const handleTestWrite = async () => {
-        if (!firestore) {
-            toast({ variant: 'destructive', title: 'Erro', description: 'Firestore não está disponível.' });
-            return;
-        }
-        setIsTesting(true);
-        try {
-            const testCollection = collection(firestore, 'test_writes');
-            await addDoc(testCollection, {
-                message: 'Hello Firestore!',
-                timestamp: Timestamp.now(),
+    const eventsToImport = [
+        { name: 'Culto Propósitos', frequency: 'semanal', time: '20:00', dayOfWeek: 'Quinta-feira', requiredAreas: [] },
+        { name: 'Culto clássico', frequency: 'semanal', time: '07:30', dayOfWeek: 'Domingo', requiredAreas: [] },
+        { name: 'Culto da Família', frequency: 'semanal', time: '10:15', dayOfWeek: 'Domingo', requiredAreas: [] },
+        { name: 'Culto da noite', frequency: 'semanal', time: '19:30', dayOfWeek: 'Domingo', requiredAreas: [] },
+        { name: 'Culto da tarde', frequency: 'semanal', time: '17:30', dayOfWeek: 'Domingo', requiredAreas: [] },
+    ];
+
+    const handleImport = async () => {
+        setIsImporting(true);
+        let importedCount = 0;
+        const importPromises = eventsToImport.map(eventData => {
+             // Check if event with the same name already exists
+            const eventExists = events.some(e => e.name.toLowerCase() === eventData.name.toLowerCase());
+            if (!eventExists) {
+                importedCount++;
+                return addEvent(eventData as any);
+            }
+            return Promise.resolve(); // Do nothing if it exists
+        });
+
+        await Promise.all(importPromises);
+
+        if (importedCount > 0) {
+            toast({
+                title: 'Importação Concluída!',
+                description: `${importedCount} eventos padrão foram adicionados.`,
             });
-            toast({ variant: 'default', title: 'Sucesso!', description: 'Documento de teste escrito na coleção "test_writes".' });
-        } catch (error: any) {
-            console.error("Firestore test write failed:", error);
-            toast({ variant: 'destructive', title: 'Falha na Escrita', description: `Erro: ${error.message}` });
-        } finally {
-            setIsTesting(false);
+        } else {
+             toast({
+                title: 'Nenhuma Novidade',
+                description: 'Todos os eventos padrão já estavam cadastrados.',
+                variant: 'default',
+            });
         }
+        setIsImporting(false);
     };
 
     return (
-        <Button onClick={handleTestWrite} variant="outline" size="sm" disabled={isTesting}>
-            {isTesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FlaskConical className="mr-2 h-4 w-4" />}
-            Teste de Escrita
+        <Button onClick={handleImport} variant="outline" size="sm" disabled={isImporting}>
+            {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+            Importar Eventos Padrão
         </Button>
     );
 }
@@ -100,7 +117,7 @@ export function EventsManagement() {
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold">Lista de Eventos</h3>
         <div className="flex items-center gap-2">
-            <FirestoreWriteTestButton />
+            <ImportEventsButton />
             <Button onClick={handleAdd} size="sm">
               <PlusCircle className="mr-2 h-4 w-4" />
               Adicionar Evento
