@@ -10,10 +10,10 @@ service cloud.firestore {
 
     // Returns true if the user has the 'admin' role.
     function isAdmin() {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles[0] == 'admin';
+      return isSignedIn() && 'admin' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles;
     }
 
-    // Liberal rules for development for all other collections
+    // Liberal rules for development for all collections
     match /{document=**} {
       allow read, write: if isAdmin() || isSignedIn();
     }
