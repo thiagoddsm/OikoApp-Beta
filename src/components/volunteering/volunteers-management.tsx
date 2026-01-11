@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useMemo } from 'react';
 import { useVolunteering, type User } from '@/contexts/volunteering-context';
@@ -24,11 +23,11 @@ export function VolunteersManagement() {
   };
 
   const handleAreaChange = (user: User, areaId: string) => {
-    updateVolunteer(user.id, { serviceAreaId: areaId });
+    updateVolunteer(user.id, { serviceAreaId: areaId === 'null' ? '' : areaId });
   };
   
   const handleTeamChange = (user: User, teamId: string) => {
-    updateVolunteer(user.id, { serviceTeamId: teamId });
+    updateVolunteer(user.id, { serviceTeamId: teamId === 'null' ? '' : teamId });
   };
 
 
@@ -84,26 +83,26 @@ export function VolunteersManagement() {
                 </TableCell>
                 <TableCell>
                    <Select
-                        value={user.serviceAreaId || ''}
+                        value={user.serviceAreaId || 'null'}
                         onValueChange={(value) => handleAreaChange(user, value)}
                         disabled={!isServing}
                     >
                         <SelectTrigger><SelectValue placeholder="Selecione uma área" /></SelectTrigger>
                         <SelectContent>
-                             <SelectItem value="">Nenhuma</SelectItem>
+                             <SelectItem value="null">Nenhuma</SelectItem>
                             {areas.map(area => <SelectItem key={area.id} value={area.id}>{area.name}</SelectItem>)}
                         </SelectContent>
                     </Select>
                 </TableCell>
                 <TableCell>
                     <Select
-                        value={user.serviceTeamId || ''}
+                        value={user.serviceTeamId || 'null'}
                         onValueChange={(value) => handleTeamChange(user, value)}
                         disabled={!isServing}
                     >
                         <SelectTrigger><SelectValue placeholder="Selecione uma equipe" /></SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">Nenhuma</SelectItem>
+                            <SelectItem value="null">Nenhuma</SelectItem>
                             {teams.map(team => <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>)}
                         </SelectContent>
                     </Select>
