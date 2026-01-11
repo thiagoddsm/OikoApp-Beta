@@ -459,19 +459,6 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["eventName", "requesterId", "room", "startDateTime", "endDateTime", "status", "createdAt"]
-    },
-    "MemberNote": {
-      "title": "Member Note",
-      "description": "A note or event related to a member's journey.",
-      "type": "object",
-      "properties": {
-        "memberId": { "type": "string" },
-        "authorId": { "type": "string" },
-        "content": { "type": "string" },
-        "type": { "type": "string", "enum": ["note", "status_change", "event"]},
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["memberId", "authorId", "content", "type", "createdAt"]
     }
   },
   "auth": {
@@ -503,10 +490,7 @@
       { "path": "/ministries/{ministryId}", "definition": { "schema": { "$ref": "#/entities/Ministry" } } },
       { "path": "/courses/{courseId}", "definition": { "schema": { "$ref": "#/entities/Course" } } },
       { "path": "/courses/{courseId}/classes/{classId}", "definition": { "schema": { "$ref": "#/entities/Class" } } },
-      { "path": "/room_reservations/{reservationId}", "definition": { "schema": { "$ref": "#/entities/RoomReservation" } } },
-      { "path": "/member_notes/{noteId}", "definition": { "schema": { "$ref": "#/entities/MemberNote" } } }
+      { "path": "/room_reservations/{reservationId}", "definition": { "schema": { "$ref": "#/entities/RoomReservation" } } }
     ]
   }
 }
-
-    

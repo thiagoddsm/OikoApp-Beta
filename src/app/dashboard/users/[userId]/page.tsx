@@ -14,7 +14,6 @@ import Link from 'next/link';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { EditUserDialog } from '@/components/users/edit-user-dialog';
 import { DiscipleshipTrail } from '@/components/users/discipleship-trail';
-import { JourneyTimeline } from '@/components/users/journey-timeline';
 import { Progress } from "@/components/ui/progress";
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -221,9 +220,8 @@ export default function UserProfilePage() {
 
         {/* Tabs */}
         <Tabs defaultValue="trail" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="trail"><Footprints className="mr-2 size-4" />Trilha</TabsTrigger>
-                <TabsTrigger value="journey"><TrendingUp className="mr-2 size-4" />Jornada</TabsTrigger>
                 <TabsTrigger value="details"><User className="mr-2 size-4" />Detalhes</TabsTrigger>
             </TabsList>
 
@@ -237,10 +235,6 @@ export default function UserProfilePage() {
                     <DiscipleshipTrail currentStatusId={userProfile.integrationStatus} />
                   </CardContent>
                 </Card>
-            </TabsContent>
-
-            <TabsContent value="journey">
-                <JourneyTimeline memberId={userId} memberName={userProfile.name} />
             </TabsContent>
 
             <TabsContent value="details">
