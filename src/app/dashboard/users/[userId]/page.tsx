@@ -85,7 +85,7 @@ const statusConfig: { [key: string]: { label: string; level: number; icon: React
   membro: { label: "Membro", level: 5, icon: Award },
   consolidado: { label: "Consolidado", level: 6, icon: UserCheck },
   lider_treinamento: { label: "Líder em Treinamento", level: 7, icon: GraduationCap },
-  lider_gc: { label: "Líder de GC", level: 8, icon: Group },
+  lider_gc: { label: "Líder de GC", level: 8, icon: Users },
   lider_area: { label: "Líder de Área", level: 9, icon: MapIcon },
   lider_rede: { label: "Líder de Rede", level: 10, icon: Network },
   pastor: { label: "Pastor", level: 11, icon: Briefcase },
