@@ -24,15 +24,17 @@ import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query, doc, Timestamp } from 'firebase/firestore';
 
 const journeyColumns = [
-    { id: 'visitante_nao_crente', title: 'Visitante (Não Crente)' },
+    { id: 'nao_alcancado', title: 'Cidade (Não Alcançado)' },
     { id: 'novo_convertido', title: 'Novo Convertido' },
-    { id: 'recem_chegado', title: 'Recém Chegado (de outra igreja)' },
-    { id: 'em_discipulado_td', title: 'Em Discipulado (TD)' },
-    { id: 'batizado_transferido', title: 'Batizado/Transferido' },
-    { id: 'em_gc', title: 'Participando de GC' },
-    { id: 'curso_membros', title: 'Fazendo Curso de Membros' },
-    { id: 'servindo', title: 'Servindo em Ministério' },
-    { id: 'lider_gc', title: 'Líder de GC' }
+    { id: 'reconciliado', title: 'Reconciliado' },
+    { id: 'transferido', title: 'Transferido' },
+    { id: 'membro', title: 'Membro' },
+    { id: 'consolidado', title: 'Consolidado' },
+    { id: 'lider_treinamento', title: 'Líder em treinamento' },
+    { id: 'lider_gc', title: 'Líder de GC' },
+    { id: 'lider_area', title: 'Líder de Área' },
+    { id: 'lider_rede', title: 'Líder de Rede' },
+    { id: 'pastor', title: 'Pastor' },
 ];
 
 type User = {
@@ -98,7 +100,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         dataNascimento: user.dataNascimento || '',
         estadoCivil: user.estadoCivil || '',
         addressStreet: user.address?.street || '',
-        integrationStatus: user.integrationStatus || 'visitante_nao_crente',
+        integrationStatus: user.integrationStatus || 'nao_alcancado',
         celulaId: user.hierarchy?.celulaId || '',
         supervisorId: user.hierarchy?.supervisorId || '',
         batizado: user.batizado || 'nao',
@@ -135,7 +137,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         nomeConvidou: '',
         contatoPreferencia: [],
         contatoTurno: [],
-        integrationStatus: 'visitante_nao_crente',
+        integrationStatus: 'nao_alcancado',
         celulaId: '',
         supervisorId: '',
       });
@@ -350,6 +352,42 @@ export function EditUserDialog({ user, open, onOpenChange }) {
                 </div>
             </div>
          </section>
+
+         {/* Estrutura */}
+         <section className="space-y-4 p-4 border rounded-lg">
+            <h4 className="font-semibold text-primary border-b pb-2">Estrutura e Jornada</h4>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                 <div className="space-y-1.5">
+                    <Label htmlFor="integrationStatus">Etapa da Jornada</Label>
+                    <Select value={formData.integrationStatus} onValueChange={(v) => handleSelectChange('integrationStatus', v)}>
+                        <SelectTrigger><SelectValue placeholder="Selecione a etapa..." /></SelectTrigger>
+                        <SelectContent>
+                            {journeyColumns.map(col => <SelectItem key={col.id} value={col.id}>{col.title}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+                 <div className="space-y-1.5">
+                    <Label htmlFor="celulaId">Célula (GC)</Label>
+                    <Select value={formData.celulaId} onValueChange={(v) => handleSelectChange('celulaId', v)} disabled={isLoadingCells}>
+                        <SelectTrigger><SelectValue placeholder={isLoadingCells ? "Carregando..." : "Selecione a célula..."} /></SelectTrigger>
+                        <SelectContent>
+                             <SelectItem value="null">Nenhuma</SelectItem>
+                            {cells?.map(cell => <SelectItem key={cell.id} value={cell.id}>{cell.nome}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+                 <div className="md:col-span-2 space-y-1.5">
+                    <Label htmlFor="supervisorId">Responsável pelo Acompanhamento</Label>
+                     <Select value={formData.supervisorId} onValueChange={(v) => handleSelectChange('supervisorId', v)} disabled={isLoadingUsers}>
+                        <SelectTrigger><SelectValue placeholder={isLoadingUsers ? "Carregando..." : "Selecione o responsável..."} /></SelectTrigger>
+                        <SelectContent>
+                             <SelectItem value="null">Nenhum</SelectItem>
+                            {supervisors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+             </div>
+        </section>
         
       </div>
       <DialogFooter>

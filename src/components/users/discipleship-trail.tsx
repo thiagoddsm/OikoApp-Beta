@@ -5,131 +5,111 @@ import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Handshake, School, MapIcon, Briefcase, Church, Group, BookOpen, UserPlus, Award, Shield, Target } from 'lucide-react';
+import { Handshake, School, MapIcon, Briefcase, Church, Group, BookOpen, UserPlus, Award, Shield, Target, UserX, UserCheck } from 'lucide-react';
 
 
 const timelineData = [
-    // FASE 1
+    {
+        id: 'nao_alcancado',
+        phase: "FASE 1: EVANGELISMO",
+        phaseColor: "bg-gray-100 text-gray-800",
+        title: "NÃO ALCANÇADO (CIDADE)",
+        type: "status",
+        icon: UserX,
+        details: { objective: "Pessoas na cidade que ainda não foram alcançadas pelo evangelho.", duration: "Contínuo", responsible: "Toda a Igreja", criteria: "Ser alcançado por um convite ou ação evangelística." }
+    },
     {
         id: 'novo_convertido',
-        phase: "FASE 1: ENTRADA E CONVERSÃO",
+        phase: "FASE 2: CONVERSÃO",
         phaseColor: "bg-indigo-100 text-indigo-800",
         title: "NOVO CONVERTIDO",
         type: "status",
-        badges: [ { label: "STATUS", type: "status" }, { label: "RITMO QUINZENAL", type: "neutral" } ],
         icon: UserPlus,
-        details: { objective: "Apresentação do evangelho e decisão por Cristo.", duration: "7 Encontros Quinzenais (~3,5 meses)", responsible: "Co-Líder ou Consolidador", criteria: "Decisão por Cristo e início do vínculo com a célula." }
+        details: { objective: "Apresentação do evangelho e decisão por Cristo.", duration: "Início da jornada", responsible: "Qualquer membro", criteria: "Decisão por Cristo e início do vínculo com a célula." }
     },
-    // FASE 2
     {
-        id: 'batizado_transferido',
-        phase: "FASE 2: FUNDAMENTOS",
+        id: 'reconciliado',
+        phase: "FASE 2: CONVERSÃO",
+        phaseColor: "bg-indigo-100 text-indigo-800",
+        title: "RECONCILIADO",
+        type: "status",
+        icon: UserCheck,
+        details: { objective: "Retorno à comunhão da igreja após um período de afastamento.", duration: "Variável", responsible: "Líder de GC, Consolidador", criteria: "Retorno à frequência na célula e/ou cultos." }
+    },
+    {
+        id: 'transferido',
+        phase: "FASE 3: INTEGRAÇÃO",
         phaseColor: "bg-sky-100 text-sky-800",
-        title: "BATISMO",
-        subtitle: "Curso: Imersão",
-        type: "course",
-        badges: [ { label: "CURSO IMERSÃO", type: "course" } ],
-        icon: Shield,
-        details: { objective: "Entendimento sobre Salvação, Batismo e Ceia.", duration: "1 dia (Intensivo)", responsible: "Liderança de Ensino", criteria: "Conclusão do curso e testemunho público nas águas." }
+        title: "TRANSFERIDO",
+        type: "status",
+        icon: Church,
+        details: { objective: "Acolhimento de membros vindos de outra igreja.", duration: "1-2 meses", responsible: "Liderança de GC", criteria: "Integração em um GC e participação no Curso de Membros." }
     },
     {
-        id: 'curso_membros',
-        phase: "FASE 2: FUNDAMENTOS",
+        id: 'membro',
+        phase: "FASE 3: INTEGRAÇÃO",
         phaseColor: "bg-sky-100 text-sky-800",
         title: "MEMBRO",
-        subtitle: "Curso de Membros + GC Ativo",
         type: "status",
-        badges: [ { label: "STATUS", type: "status" }, { label: "CURSO MEMBROS", type: "course" } ],
         icon: Award,
-        details: { objective: "Compreensão da visão, cultura e mordomia da IBM.", duration: "EAD ou Mentoria", responsible: "Liderança GC / Ensino", criteria: "OBRIGATÓRIO estar ativo em um GC. Conclusão do curso." }
-    },
-    // FASE 3
-    {
-        id: 'em_discipulado_td',
-        phase: "FASE 3: CONSOLIDAÇÃO E LIDERANÇA",
-        phaseColor: "bg-emerald-100 text-emerald-800",
-        title: "CONSOLIDAÇÃO (TD)",
-        subtitle: "Curso: Cresça",
-        type: "course",
-        badges: [ { label: "CURSO CRESÇA", type: "course" }, { label: "RITMO MENSAL", type: "neutral" } ],
-        icon: BookOpen,
-        details: { objective: "Cura Interior, Paternidade de Deus e Fundamentos da Fé.", duration: "7 Encontros Mensais", responsible: "Líder de GC", criteria: "Começar a servir em alguma área se ainda não o faz." }
+        details: { objective: "Formalização do compromisso com a igreja local.", duration: "Contínuo", responsible: "Próprio indivíduo", criteria: "Conclusão do Curso de Membros e Batismo (se aplicável)." }
     },
     {
-        id: 'em_gc', // This is a placeholder for co-leader
-        phase: "FASE 3: CONSOLIDAÇÃO E LIDERANÇA",
+        id: 'consolidado',
+        phase: "FASE 4: DISCIPULADO",
         phaseColor: "bg-emerald-100 text-emerald-800",
-        title: "CO-LÍDER",
-        subtitle: "Líder em Treinamento",
+        title: "CONSOLIDADO",
         type: "discipulado",
-        badges: [ { label: "MENTORIA", type: "discipulado" }, { label: "PRÁTICA", type: "neutral" } ],
-        icon: Handshake,
-        details: { objective: "'Fazer com outros'. Acompanhar o líder de GC em tudo.", duration: "Contínuo", responsible: "Mentor: Líder de GC", criteria: "Adotar um 'Não Alcançado' ou Novo Convertido para cuidar." }
+        icon: BookOpen,
+        details: { objective: "Aprofundamento na fé através de cura interior, paternidade de Deus e fundamentos.", duration: "7 Encontros", responsible: "Líder de GC", criteria: "Conclusão da classe 'Cresça' (TD) e início do serviço em um ministério." }
     },
     {
-        id: 'servindo', // This is a placeholder for Leader 1
-        phase: "FASE 3: CONSOLIDAÇÃO E LIDERANÇA",
+        id: 'lider_treinamento',
+        phase: "FASE 4: DISCIPULADO",
         phaseColor: "bg-emerald-100 text-emerald-800",
-        title: "LÍDER 1 (DESCOBERTA)",
-        subtitle: "Curso Opcional: Molde de Servo",
-        type: "status",
-        badges: [ { label: "STATUS", type: "status" }, { label: "VOCACIONAL", type: "course" } ],
-        icon: School,
-        details: { objective: "Descoberta de vocação específica e dons espirituais.", duration: "Variável", responsible: "Supervisão / Liderança de Ministério", criteria: "Ter concluído a Consolidação + Validação F.D.E (Fiel, Disponível, Ensinável)." }
+        title: "LÍDER EM TREINAMENTO",
+        type: "discipulado",
+        icon: Handshake,
+        details: { objective: "Aprender na prática a liderar um GC, acompanhando o líder atual.", duration: "Contínuo", responsible: "Líder de GC", criteria: "Adotar um novo convertido para cuidar (discipular)." }
     },
     {
         id: 'lider_gc',
-        phase: "FASE 3: CONSOLIDAÇÃO E LIDERANÇA",
-        phaseColor: "bg-emerald-100 text-emerald-800",
-        title: "LÍDER DE GC (LIDERE 2)",
-        subtitle: "Pré-requisito para Liderança de Ministério",
+        phase: "FASE 5: LIDERANÇA",
+        phaseColor: "bg-amber-100 text-amber-800",
+        title: "LÍDER DE GC",
         type: "status",
-        badges: [ { label: "STATUS", type: "status" }, { label: "CURSO LIDERE 2", type: "course" } ],
         icon: Group,
-        details: { objective: "Liderar um pequeno grupo e formar novos discípulos.", duration: "7 Encontros Mensais", responsible: "Supervisor de Área", criteria: "Dupla Validação (F.D.E. do Mentor + Supervisor). Obrigatório para liderar Ministérios de Alcance." }
+        details: { objective: "Liderar um pequeno grupo, cuidar de pessoas e formar novos líderes.", duration: "Contínuo", responsible: "Supervisor de Área", criteria: "Dupla Validação (F.D.E. do Mentor + Supervisor)." }
     },
-    // FASE 4
     {
         id: 'lider_area',
-        phase: "FASE 4: SUPERVISÃO E GESTÃO",
-        phaseColor: "bg-purple-100 text-purple-800",
+        phase: "FASE 5: LIDERANÇA",
+        phaseColor: "bg-amber-100 text-amber-800",
         title: "LÍDER DE ÁREA",
-        subtitle: "Curso: Supervisione 1",
         type: "status",
-        badges: [ { label: "STATUS", type: "status" }, { label: "GESTÃO", type: "course" } ],
         icon: MapIcon,
-        details: { objective: "Gestão de múltiplos GCs e cuidado de líderes.", duration: "7 Encontros Mensais", responsible: "Líder de Rede", criteria: "Resultados consistentes na multiplicação de GCs." }
+        details: { objective: "Gestão de múltiplos GCs e cuidado de líderes de GC.", duration: "Contínuo", responsible: "Líder de Rede", criteria: "Resultados consistentes na multiplicação de GCs." }
     },
     {
         id: 'lider_rede',
-        phase: "FASE 4: SUPERVISÃO E GESTÃO",
-        phaseColor: "bg-purple-100 text-purple-800",
+        phase: "FASE 5: LIDERANÇA",
+        phaseColor: "bg-amber-100 text-amber-800",
         title: "LÍDER DE REDE",
-        subtitle: "Curso: Supervisione 2",
         type: "status",
-        badges: [ { label: "STATUS", type: "status" }, { label: "ESTRATÉGIA", type: "course" } ],
         icon: Briefcase,
-        details: { objective: "Estratégia de rede e formação de supervisores.", duration: "7 Encontros Mensais", responsible: "Pastor", criteria: "Formação de líderes de área." }
+        details: { objective: "Estratégia de rede e formação de supervisores de área.", duration: "Contínuo", responsible: "Pastor", criteria: "Formação de líderes de área." }
     },
     {
         id: 'pastor',
-        phase: "FASE 4: SUPERVISÃO E GESTÃO",
-        phaseColor: "bg-purple-100 text-purple-800",
+        phase: "FASE 5: LIDERANÇA",
+        phaseColor: "bg-amber-100 text-amber-800",
         title: "PASTOR",
-        subtitle: "Curso: Avance (Teológico)",
         type: "status",
-        badges: [ { label: "ORDENAÇÃO", type: "status" }, { label: "TEOLOGIA", type: "course" } ],
-        icon: Church,
-        details: { objective: "Apascentar o rebanho e direção espiritual.", duration: "Contínuo", responsible: "Presbitério", criteria: "Discipulado Mensal Contínuo (sem prazo de término)." }
+        icon: Shield,
+        details: { objective: "Apascentar o rebanho e direção espiritual geral da igreja.", duration: "Contínuo", responsible: "Presbitério", criteria: "Ordenação ao ministério pastoral." }
     }
 ];
 
-const badgeColors = {
-    status: "bg-primary/10 text-primary border-primary/20",
-    course: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
-    discipulado: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-    neutral: "bg-muted text-muted-foreground border-border"
-};
 
 const mainColors = {
     status: 'border-primary text-primary',
@@ -175,11 +155,6 @@ const TimelineCard = ({ item, isEven, onToggle, isExpanded, isCurrent, isFuture 
                                 </div>
                              )}
                         </div>
-                        <div className={cn("flex flex-wrap gap-2 mt-3", isEven ? 'md:justify-end' : 'justify-start')}>
-                            {item.badges.map(badge => (
-                                <Badge key={badge.label} variant="outline" className={cn("text-xs", isFuture ? badgeColors.neutral : badgeColors[badge.type])}>{badge.label}</Badge>
-                            ))}
-                        </div>
                     </CardContent>
 
                     {isExpanded && (
@@ -210,12 +185,7 @@ export function DiscipleshipTrail({ currentStatusId }: { currentStatusId?: strin
 
     let lastPhase = "";
     
-    const statusToTimelineIdMap = {
-        'visitante_nao_crente': 'novo_convertido',
-        'recem_chegado': 'novo_convertido',
-    };
-    
-    const effectiveStatusId = statusToTimelineIdMap[currentStatusId || ''] || currentStatusId || 'novo_convertido';
+    const effectiveStatusId = currentStatusId || 'nao_alcancado';
     const currentIndex = timelineData.findIndex(item => item.id === effectiveStatusId);
 
     return (

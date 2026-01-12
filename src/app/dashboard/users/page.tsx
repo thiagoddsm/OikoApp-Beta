@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -25,16 +26,19 @@ type User = {
 };
 
 const journeyColumns = [
-    { id: 'visitante_nao_crente', title: 'Entrada (Visitantes)' },
-    { id: 'novo_convertido', title: 'Discipulado Inicial' },
-    { id: 'recem_chegado', title: 'Fundamentos (Batismo)' },
-    { id: 'em_discipulado_td', title: 'TD (Trilho do Crescimento)' },
-    { id: 'batizado_transferido', title: 'Integração (Em GC)' },
-    { id: 'em_gc', title: 'Curso de Membros' },
-    { id: 'curso_membros', title: 'Consolidação (Servindo)' },
-    { id: 'servindo', title: 'Liderança (Líder em Treinamento)' },
+    { id: 'nao_alcancado', title: 'Cidade (Não Alcançado)' },
+    { id: 'novo_convertido', title: 'Novo Convertido' },
+    { id: 'reconciliado', title: 'Reconciliado' },
+    { id: 'transferido', title: 'Transferido' },
+    { id: 'membro', title: 'Membro' },
+    { id: 'consolidado', title: 'Consolidado' },
+    { id: 'lider_treinamento', title: 'Líder em treinamento' },
     { id: 'lider_gc', title: 'Líder de GC' },
+    { id: 'lider_area', title: 'Líder de Área' },
+    { id: 'lider_rede', title: 'Líder de Rede' },
+    { id: 'pastor', title: 'Pastor' },
 ];
+
 
 const statusLabels: { [key: string]: string } = journeyColumns.reduce((acc, col) => {
     acc[col.id] = col.title;
@@ -87,7 +91,7 @@ export default function UsersKanbanPage() {
         if (!users) return initialColumns;
 
         return users.reduce((acc, user) => {
-            const status = user.integrationStatus || 'visitante_nao_crente'; 
+            const status = user.integrationStatus || 'nao_alcancado'; 
             if (acc[status] === undefined) {
                  acc[status] = []; // Should not happen with initialization, but for safety
             }
