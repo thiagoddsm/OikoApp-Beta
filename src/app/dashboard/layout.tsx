@@ -99,7 +99,7 @@ const menuItems = [
       subItems: [
         { href: "/dashboard/volunteering", label: "Áreas de Serviço", icon: HandHelping },
         { href: "/dashboard/volunteering/teams", label: "Equipes", icon: Shield },
-        { href: "/dashboard/volunteering/events", label: "Eventos", icon: CalendarPlus },
+        { href: "/dashboard/volunteering/events", label: "Gerenciar Eventos", icon: CalendarPlus },
         { href: "/dashboard/volunteering/volunteers", label: "Servos", icon: Users2 },
         { href: "/dashboard/volunteering/schedule", label: "Gerar Escala", icon: CalendarCog },
         { href: "/dashboard/volunteering/saved-schedules", label: "Escalas Salvas", icon: Save },
