@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useVolunteering, type VolunteeringEvent } from '@/contexts/volunteering-context';
@@ -6,11 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Plus, Minus, X } from 'lucide-react';
+import { Loader2, Plus, Minus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '../ui/checkbox';
 
 interface CreateEventDialogProps {
   open: boolean;
@@ -27,13 +25,14 @@ type RequiredAreaState = {
 const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
 export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplicating }: CreateEventDialogProps) {
-  const { users, areas, addEvent, updateEvent, isLoading } = useVolunteering();
+  const { rooms, areas, addEvent, updateEvent } = useVolunteering();
   
   const [name, setName] = useState('');
   const [frequency, setFrequency] = useState<'semanal' | 'pontual'>('semanal');
   const [time, setTime] = useState('');
   const [dayOfWeek, setDayOfWeek] = useState('');
   const [date, setDate] = useState('');
+  const [room, setRoom] = useState('');
   const [requiredAreas, setRequiredAreas] = useState<RequiredAreaState[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -44,6 +43,7 @@ export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplica
       setTime(existingEvent?.time || '');
       setDayOfWeek(existingEvent?.dayOfWeek || '');
       setDate(existingEvent?.date || '');
+      setRoom(existingEvent?.room || '');
       setRequiredAreas(existingEvent?.requiredAreas?.map(a => ({...a})) || []);
     }
   }, [open, existingEvent]);
@@ -86,6 +86,7 @@ export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplica
       dayOfWeek: frequency === 'semanal' ? dayOfWeek : '',
       date: frequency === 'pontual' ? date : '',
       requiredAreas,
+      room,
     };
 
     if (existingEvent && !isDuplicating) {
@@ -104,7 +105,7 @@ export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplica
         <DialogHeader>
           <DialogTitle>{existingEvent && !isDuplicating ? 'Editar Evento' : 'Criar Novo Evento'}</DialogTitle>
           <DialogDescription>
-            Defina os detalhes do evento e as áreas de serviço necessárias.
+            Defina os detalhes do evento, o ambiente e as áreas de serviço necessárias.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
@@ -146,6 +147,16 @@ export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplica
                     <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
                 </div>
             )}
+
+            <div>
+              <Label htmlFor="room">Ambiente</Label>
+              <Select value={room} onValueChange={setRoom}>
+                <SelectTrigger id="room"><SelectValue placeholder="Selecione um ambiente"/></SelectTrigger>
+                <SelectContent>
+                    {rooms.map(r => <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             
             <div>
                 <div className="flex justify-between items-center mb-2">

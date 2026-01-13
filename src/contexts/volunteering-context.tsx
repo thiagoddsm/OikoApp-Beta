@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, useMemo } from 'react';
 import { useFirebase, useCollection, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
-import { collection, doc, writeBatch, getDocs, query, where, arrayRemove } from 'firebase/firestore';
+import { collection, doc, writeBatch, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 // --- TYPES ---
@@ -36,8 +36,14 @@ export type VolunteeringEvent = {
   time: string;
   dayOfWeek?: string;
   date?: string;
+  room?: string;
   requiredAreas?: { areaId: string; quantity: number }[];
 }
+
+export type Room = {
+    id: string;
+    name: string;
+};
 
 export type RoomReservation = {
     id: string;
@@ -61,6 +67,7 @@ export type SavedSchedule = {
 
 type AreaData = Omit<AreaOfService, 'id'>;
 type TeamData = Omit<Team, 'id'>;
+type RoomData = Omit<Room, 'id'>;
 type EventData = Omit<VolunteeringEvent, 'id'>;
 type ReservationData = Omit<RoomReservation, 'id'>;
 type SavedScheduleData = Omit<SavedSchedule, 'id'>;
@@ -72,6 +79,7 @@ interface VolunteeringContextType {
   areas: AreaOfService[];
   users: User[];
   teams: Team[];
+  rooms: Room[];
   events: VolunteeringEvent[];
   reservations: RoomReservation[];
   savedSchedules: SavedSchedule[];
@@ -86,6 +94,11 @@ interface VolunteeringContextType {
   addTeam: (data: TeamData) => Promise<void>;
   updateTeam: (id: string, data: Partial<TeamData>) => Promise<void>;
   deleteTeam: (id: string) => Promise<void>;
+  
+  // Functions for Rooms
+  addRoom: (data: RoomData) => Promise<void>;
+  updateRoom: (id: string, data: Partial<RoomData>) => Promise<void>;
+  deleteRoom: (id: string) => Promise<void>;
 
   // Functions for Events
   addEvent: (data: EventData) => Promise<void>;
@@ -109,90 +122,97 @@ const VolunteeringContext = createContext<VolunteeringContextType | undefined>(u
 
 // --- PROVIDER COMPONENT ---
 export function VolunteeringProvider({ children }: { children: React.ReactNode }) {
-  const { firestore } = useFirebase();
+  const { firestore, user } = useFirebase();
   const { toast } = useToast();
 
-  const areasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'areas_of_service')) : null, [firestore]);
-  const teamsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'teams')) : null, [firestore]);
-  const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
-  const eventsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'volunteering_events')) : null, [firestore]);
-  const reservationsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'room_reservations')) : null, [firestore]);
-  const savedSchedulesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'saved_schedules')) : null, [firestore]);
+  const areasQuery = useMemoFirebase(() => firestore ? collection(firestore, 'areas_of_service') : null, [firestore]);
+  const teamsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'teams') : null, [firestore]);
+  const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
+  const eventsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'volunteering_events') : null, [firestore]);
+  const roomsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'rooms') : null, [firestore]);
+  const reservationsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'room_reservations') : null, [firestore]);
+  const savedSchedulesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'saved_schedules') : null, [firestore]);
 
   const { data: areas, isLoading: loadingAreas } = useCollection<AreaOfService>(areasQuery);
   const { data: teams, isLoading: loadingTeams } = useCollection<Team>(teamsQuery);
   const { data: users, isLoading: loadingUsers } = useCollection<User>(usersQuery);
   const { data: events, isLoading: loadingEvents } = useCollection<VolunteeringEvent>(eventsQuery);
+  const { data: rooms, isLoading: loadingRooms } = useCollection<Room>(roomsQuery);
   const { data: reservations, isLoading: loadingReservations } = useCollection<RoomReservation>(reservationsQuery);
   const { data: savedSchedules, isLoading: loadingSavedSchedules } = useCollection<SavedSchedule>(savedSchedulesQuery);
 
 
-  const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents || loadingReservations || loadingSavedSchedules;
+  const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents || loadingRooms || loadingReservations || loadingSavedSchedules;
 
-  // --- AREA FUNCTIONS ---
-  const addArea = async (data: AreaData) => {
-    if(!firestore) return;
-    const areasCollection = collection(firestore, 'areas_of_service');
-    addDocumentNonBlocking(areasCollection, data);
-    toast({ title: 'Sucesso', description: `Área "${data.name}" será criada.` });
+  // --- GENERIC CRUD FUNCTIONS ---
+  const createCrudFunctions = <T extends {id: string}>(collectionName: string, itemType: string) => {
+      const collectionRef = firestore ? collection(firestore, collectionName) : null;
+      
+      const addItem = async (data: Omit<T, 'id'>) => {
+          if (!collectionRef) return;
+          addDocumentNonBlocking(collectionRef, data);
+          toast({ title: 'Sucesso', description: `${itemType} será criado(a).` });
+      };
+
+      const updateItem = async (id: string, data: Partial<Omit<T, 'id'>>) => {
+          if(!firestore) return;
+          const itemDoc = doc(firestore, collectionName, id);
+          updateDocumentNonBlocking(itemDoc, data);
+          toast({ title: 'Sucesso', description: `${itemType} será atualizado(a).` });
+      };
+
+      const deleteItem = async (id: string) => {
+          if(!firestore) return;
+          const itemDoc = doc(firestore, collectionName, id);
+          deleteDocumentNonBlocking(itemDoc);
+          toast({ title: 'Sucesso', description: `${itemType} será excluído(a).` });
+      };
+      
+      return { addItem, updateItem, deleteItem };
   };
 
-  const updateArea = async (id: string, data: Partial<AreaData>) => {
-    if(!firestore) return;
-    const areaDoc = doc(firestore, 'areas_of_service', id);
-    updateDocumentNonBlocking(areaDoc, data);
-    toast({ title: 'Sucesso', description: `Área "${data.name}" será atualizada.` });
-  };
-  
-  const deleteArea = async (areaId: string) => {
-    if (!firestore) return;
+  const { addItem: addArea, updateItem: updateArea, deleteItem: deleteArea } = createCrudFunctions<AreaOfService>('areas_of_service', 'Área');
+  const { addItem: addTeam, updateItem: updateTeam, deleteItem: deleteTeam } = createCrudFunctions<Team>('teams', 'Equipe');
+  const { addItem: addRoom, updateItem: updateRoom, deleteItem: deleteRoom } = createCrudFunctions<Room>('rooms', 'Ambiente');
+  const { addItem: addReservation, updateItem: updateReservation, deleteItem: deleteReservation } = createCrudFunctions<RoomReservation>('room_reservations', 'Reserva');
+  const { addItem: deleteSchedule, updateItem: _, deleteItem: __ } = createCrudFunctions<SavedSchedule>('saved_schedules', 'Escala Salva');
+
+
+  // --- CUSTOM EVENT FUNCTIONS ---
+  const addEvent = async (data: EventData) => {
+    if(!firestore || !user) return;
+    const eventsCollection = collection(firestore, 'volunteering_events');
+    const newEventRef = doc(eventsCollection);
     
     const batch = writeBatch(firestore);
-    const areaRef = doc(firestore, 'areas_of_service', areaId);
-    batch.delete(areaRef);
-
-    try {
-        await batch.commit();
-        toast({ title: 'Sucesso', description: 'A área de serviço foi excluída.' });
-    } catch (error) {
-        console.error("Failed to delete area:", error);
-        toast({ title: 'Erro', description: 'Não foi possível excluir a área. Verifique o console.', variant: 'destructive' });
+    batch.set(newEventRef, data);
+    
+    // If it's a specific (pontual) event with a room, create a reservation
+    if (data.frequency === 'pontual' && data.date && data.time && data.room) {
+        const reservationsCollection = collection(firestore, 'room_reservations');
+        const startDateTime = Timestamp.fromDate(new Date(`${data.date}T${data.time}`));
+        const endDateTime = Timestamp.fromDate(new Date(startDateTime.toDate().getTime() + 2 * 60 * 60 * 1000)); // default 2h duration
+        
+        batch.set(doc(reservationsCollection), {
+            eventName: data.name,
+            requesterId: user.uid,
+            room: data.room,
+            startDateTime,
+            endDateTime,
+            status: 'approved',
+            notes: `Reserva automática criada a partir do evento: ${data.name}`,
+            createdAt: Timestamp.now(),
+        });
     }
-  };
-
-  // --- TEAM FUNCTIONS ---
-  const addTeam = async (data: TeamData) => {
-    if(!firestore) return;
-    const teamsCollection = collection(firestore, 'teams');
-    addDocumentNonBlocking(teamsCollection, data);
-    toast({ title: 'Sucesso', description: `Equipe "${data.name}" será criada.` });
-  };
-
-  const updateTeam = async (id: string, data: Partial<TeamData>) => {
-    if(!firestore) return;
-    const teamDoc = doc(firestore, 'teams', id);
-    updateDocumentNonBlocking(teamDoc, data);
-    toast({ title: 'Sucesso', description: `Equipe será atualizada.` });
-  };
-
-  const deleteTeam = async (id: string) => {
-    if(!firestore) return;
-    const teamDoc = doc(firestore, 'teams', id);
-    deleteDocumentNonBlocking(teamDoc);
-    toast({ title: 'Sucesso', description: 'A equipe será excluída.' });
-  };
-  
-  // --- EVENT FUNCTIONS ---
-  const addEvent = async (data: EventData) => {
-    if(!firestore) return;
-    const eventsCollection = collection(firestore, 'volunteering_events');
-    addDocumentNonBlocking(eventsCollection, data);
-    toast({ title: 'Sucesso', description: `Evento "${data.name}" será criado.` });
+    
+    await batch.commit();
+    toast({ title: 'Sucesso', description: `Evento "${data.name}" criado e reserva de sala (se aplicável) efetuada.` });
   };
   
   const updateEvent = async (id: string, data: Partial<EventData>) => {
-    if(!firestore) return;
+    if(!firestore || !user) return;
     const eventDoc = doc(firestore, 'volunteering_events', id);
+    // Here we use updateDocumentNonBlocking because we don't have batch support in non-blocking yet
     updateDocumentNonBlocking(eventDoc, data);
     toast({ title: 'Sucesso', description: `Evento será atualizado.` });
   };
@@ -202,28 +222,6 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     const eventDoc = doc(firestore, 'volunteering_events', id);
     deleteDocumentNonBlocking(eventDoc);
     toast({ title: 'Sucesso', description: 'O evento será excluído.' });
-  };
-
-  // --- RESERVATION FUNCTIONS ---
-  const addReservation = async (data: ReservationData) => {
-    if(!firestore) return;
-    const reservationsCollection = collection(firestore, 'room_reservations');
-    addDocumentNonBlocking(reservationsCollection, data);
-    toast({ title: 'Sucesso', description: `Reserva para "${data.eventName}" foi solicitada.` });
-  };
-
-  const updateReservation = async (id: string, data: Partial<ReservationData>) => {
-      if(!firestore) return;
-      const reservationDoc = doc(firestore, 'room_reservations', id);
-      updateDocumentNonBlocking(reservationDoc, data);
-      toast({ title: 'Sucesso', description: `Reserva será atualizada.` });
-  };
-
-  const deleteReservation = async (id: string) => {
-      if(!firestore) return;
-      const reservationDoc = doc(firestore, 'room_reservations', id);
-      deleteDocumentNonBlocking(reservationDoc);
-      toast({ title: 'Sucesso', description: 'A reserva será excluída.' });
   };
 
   // --- VOLUNTEER FUNCTIONS ---
@@ -243,18 +241,11 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     toast({ title: 'Sucesso', description: 'A escala foi salva.' });
   };
 
-  const deleteSchedule = async (id: string) => {
-    if(!firestore) return;
-    const scheduleDoc = doc(firestore, 'saved_schedules', id);
-    deleteDocumentNonBlocking(scheduleDoc);
-    toast({ title: 'Sucesso', description: 'A escala será excluída.' });
-  };
-
-
   const value = useMemo(() => ({
     areas: areas || [],
     teams: teams || [],
     users: users || [],
+    rooms: rooms || [],
     events: events || [],
     reservations: reservations || [],
     savedSchedules: savedSchedules || [],
@@ -265,6 +256,9 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     addTeam,
     updateTeam,
     deleteTeam,
+    addRoom,
+    updateRoom,
+    deleteRoom,
     addEvent,
     updateEvent,
     deleteEvent,
@@ -273,8 +267,8 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     deleteReservation,
     updateVolunteer,
     saveSchedule,
-    deleteSchedule
-  }), [areas, teams, users, events, reservations, savedSchedules, isLoading]);
+    deleteSchedule,
+  }), [areas, teams, users, rooms, events, reservations, savedSchedules, isLoading]);
 
   return (
     <VolunteeringContext.Provider value={value}>

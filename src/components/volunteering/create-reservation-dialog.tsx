@@ -17,11 +17,9 @@ interface CreateReservationDialogProps {
   existingReservation?: RoomReservation | null;
 }
 
-const roomOptions = ["Auditório Principal", "Sala de Reunião 1", "Sala de Reunião 2", "Estúdio Wave", "Hall de Entrada"];
-
 export function CreateReservationDialog({ open, onOpenChange, existingReservation }: CreateReservationDialogProps) {
   const { user } = useFirebase();
-  const { addReservation, updateReservation, users, isLoading } = useVolunteering();
+  const { addReservation, updateReservation, users, rooms, isLoading } = useVolunteering();
 
   const [eventName, setEventName] = useState('');
   const [requesterId, setRequesterId] = useState('');
@@ -123,7 +121,7 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
               <Select value={room} onValueChange={setRoom}>
                 <SelectTrigger id="room"><SelectValue placeholder="Selecione um ambiente"/></SelectTrigger>
                 <SelectContent>
-                    {roomOptions.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                    {rooms.map(r => <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

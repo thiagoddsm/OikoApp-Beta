@@ -9,6 +9,7 @@ import { CreateReservationDialog } from '@/components/volunteering/create-reserv
 import { ReservationsTable } from '@/components/volunteering/reservations-table';
 import { ReservationsCalendar } from '@/components/volunteering/reservations-calendar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RoomsManagement } from '@/components/volunteering/rooms-management';
 
 
 export default function ReservationsPage() {
@@ -25,7 +26,7 @@ export default function ReservationsPage() {
                                 Reserva de Salas
                             </CardTitle>
                             <CardDescription>
-                                Gerencie as solicitações e o calendário de reservas de salas e ambientes da igreja.
+                                Gerencie as solicitações, o calendário e os ambientes disponíveis para reserva.
                             </CardDescription>
                         </div>
                         <Button onClick={() => setDialogOpen(true)}>
@@ -35,15 +36,19 @@ export default function ReservationsPage() {
                     </CardHeader>
                     <CardContent>
                         <Tabs defaultValue="list">
-                            <TabsList className="grid w-full grid-cols-2">
+                            <TabsList className="grid w-full grid-cols-3">
                                 <TabsTrigger value="list">Lista de Solicitações</TabsTrigger>
                                 <TabsTrigger value="calendar">Calendário</TabsTrigger>
+                                <TabsTrigger value="rooms">Ambientes</TabsTrigger>
                             </TabsList>
                             <TabsContent value="list" className="mt-4">
                                 <ReservationsTable />
                             </TabsContent>
                             <TabsContent value="calendar" className="mt-4">
                                 <ReservationsCalendar />
+                            </TabsContent>
+                            <TabsContent value="rooms" className="mt-4">
+                                <RoomsManagement />
                             </TabsContent>
                         </Tabs>
                     </CardContent>
