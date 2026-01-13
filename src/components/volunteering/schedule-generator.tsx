@@ -75,43 +75,50 @@ export function ScheduleGenerator() {
     setIsGenerating(true);
     setTimeout(() => {
         const isAllAreas = selectedAreaId === 'all';
-        const targetAreas = isAllAreas ? areas : areas.filter(a => a.id === selectedAreaId);
-
-        const relevantEvents = events.filter(e => e.frequency === 'semanal');
-        
-        if (relevantEvents.length === 0) {
-            setSkeleton([]);
-            toast({ variant: 'destructive', title: 'Nenhum Evento Semanal', description: 'Não há eventos semanais cadastrados para gerar um esqueleto.'});
-            setIsGenerating(false);
-            return;
-        }
-
         let dates: any[] = [];
         const daysInMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+        const fifthWeeksOfYear = getAllFifthWeeksOfYear(selectedYear);
 
         for (let day = 1; day <= daysInMonth; day++) {
             const currentDate = new Date(selectedYear, selectedMonth, day);
             const dayOfWeekName = currentDate.toLocaleDateString('pt-BR', { weekday: 'long' });
 
+            const weeklyEvents = events.filter(e => e.frequency === 'semanal' && e.dayOfWeek?.toLowerCase() === dayOfWeekName.toLowerCase());
+            const punctualEvents = events.filter(e => e.frequency === 'pontual' && e.date === currentDate.toISOString().split('T')[0]);
+            const relevantEvents = [...weeklyEvents, ...punctualEvents];
+
             relevantEvents.forEach(event => {
-                if (event.dayOfWeek?.toLowerCase() === dayOfWeekName.toLowerCase()) {
-                    event.requiredAreas?.forEach(reqArea => {
-                        const area = areas.find(a => a.id === reqArea.areaId);
-                        if (area && (isAllAreas || area.id === selectedAreaId)) {
-                             for (let i = 0; i < reqArea.quantity; i++) {
-                                dates.push({
-                                    date: currentDate.toLocaleDateString('pt-BR'),
-                                    eventName: event.name,
-                                    areaId: area.id,
-                                    areaName: area.name,
-                                    teamId: null,
-                                    teamName: null,
-                                    volunteerId: null,
-                                });
+                event.requiredAreas?.forEach(reqArea => {
+                    const area = areas.find(a => a.id === reqArea.areaId);
+                    if (area && (isAllAreas || area.id === selectedAreaId)) {
+                        
+                        let assignedTeam = null;
+                        const weekOfMonth = getWeekOfMonth(currentDate);
+                        if (weekOfMonth >= 1 && weekOfMonth <= 4) {
+                            const teamName = ['Alpha', 'Bravo', 'Charlie', 'Delta'][weekOfMonth - 1].toLowerCase();
+                            assignedTeam = teamRotation.get(teamName) || null;
+                        } else if (weekOfMonth === 5) {
+                            const fifthWeekIndex = getFifthWeekOccurrenceInYear(currentDate, fifthWeeksOfYear);
+                            if (fifthWeekIndex !== -1) {
+                                const teamName = ['Alpha', 'Bravo', 'Charlie', 'Delta'][fifthWeekIndex % 4].toLowerCase();
+                                assignedTeam = teamRotation.get(teamName) || null;
                             }
                         }
-                    })
-                }
+
+                         for (let i = 0; i < reqArea.quantity; i++) {
+                            dates.push({
+                                date: currentDate.toLocaleDateString('pt-BR'),
+                                eventId: event.id,
+                                eventName: event.name,
+                                areaId: area.id,
+                                areaName: area.name,
+                                teamId: assignedTeam?.id || null,
+                                teamName: assignedTeam?.name || null,
+                                volunteerId: null, // Initially empty
+                            });
+                        }
+                    }
+                })
             });
         }
         
@@ -123,65 +130,48 @@ export function ScheduleGenerator() {
   const handleAutoFill = () => {
     if (!skeleton) return;
 
-    const fifthWeeksOfYear = getAllFifthWeeksOfYear(selectedYear);
-    
-    // Create a copy of the skeleton to modify
     let tempSkeleton = [...skeleton];
-    
-    // Sort volunteers by last served date (ascending, nulls first)
-    const sortedUsers = [...users].sort((a, b) => {
-        const dateA = a.lastServedDate ? a.lastServedDate.toMillis() : 0;
-        const dateB = b.lastServedDate ? b.lastServedDate.toMillis() : 0;
-        return dateA - dateB;
-    });
+    const volunteerAllocations: Record<string, number> = {};
 
-    const filledSkeleton = tempSkeleton.map(item => {
-        const currentDate = new Date(item.date.split('/').reverse().join('-'));
-        currentDate.setHours(12);
-        const weekOfMonth = getWeekOfMonth(currentDate);
-        
-        let assignedTeam = null;
-        if (weekOfMonth >= 1 && weekOfMonth <= 4) {
-            const teamName = ['Alpha', 'Bravo', 'Charlie', 'Delta'][weekOfMonth - 1].toLowerCase();
-            assignedTeam = teamRotation.get(teamName) || null;
-        } else if (weekOfMonth === 5) {
-            const fifthWeekIndex = getFifthWeekOccurrenceInYear(currentDate, fifthWeeksOfYear);
-            if (fifthWeekIndex !== -1) {
-                const teamName = ['Alpha', 'Bravo', 'Charlie', 'Delta'][fifthWeekIndex % 4].toLowerCase();
-                assignedTeam = teamRotation.get(teamName) || null;
-            }
+    for (let i = 0; i < tempSkeleton.length; i++) {
+        const item = tempSkeleton[i];
+        if (item.volunteerId) continue; // Skip already filled slots
+
+        const dateString = item.date.split('/').reverse().join('-');
+
+        const eligibleVolunteers = users
+            .filter(u => {
+                const isCorrectArea = u.serviceAreaId === item.areaId;
+                const isEligibleForEvent = u.eligibleEventIds?.includes(item.eventId);
+                const isCorrectTeam = u.serviceTeamId === item.teamId || !u.serviceTeamId; // Wildcard
+                const isNotBlocked = !u.blockedDates?.includes(dateString);
+                const isNotServingSameDay = !tempSkeleton.some(s => s.volunteerId === u.id && s.date === item.date);
+
+                return u.serviceStatus === 'serving' && isCorrectArea && isEligibleForEvent && isCorrectTeam && isNotBlocked && isNotServingSameDay;
+            })
+            .sort((a, b) => {
+                // Criterion 1: Less services this month
+                const servicesA = volunteerAllocations[a.id] || 0;
+                const servicesB = volunteerAllocations[b.id] || 0;
+                if (servicesA !== servicesB) return servicesA - servicesB;
+
+                // Criterion 2: Oldest last served date
+                const lastServedA = a.lastServedDate ? a.lastServedDate.toMillis() : 0;
+                const lastServedB = b.lastServedDate ? b.lastServedDate.toMillis() : 0;
+                if (lastServedA !== lastServedB) return lastServedA - lastServedB;
+                
+                // Criterion 3: Alphabetical
+                return a.name.localeCompare(b.name);
+            });
+
+        if (eligibleVolunteers.length > 0) {
+            const assignedVolunteerId = eligibleVolunteers[0].id;
+            tempSkeleton[i].volunteerId = assignedVolunteerId;
+            volunteerAllocations[assignedVolunteerId] = (volunteerAllocations[assignedVolunteerId] || 0) + 1;
         }
-        
-        // Fair volunteer assignment logic
-        let volunteerId = null;
-        if (assignedTeam) {
-            // Find eligible volunteers who are not yet assigned in this autofill run
-            const eligibleVolunteers = sortedUsers.filter(u => 
-                u.serviceTeamId === assignedTeam.id && 
-                u.serviceAreaId === item.areaId &&
-                u.serviceStatus === 'serving' &&
-                !tempSkeleton.find(s => s.volunteerId === u.id && s.date === item.date) // Avoid double booking on the same day
-            );
-            
-            if (eligibleVolunteers.length > 0) {
-                volunteerId = eligibleVolunteers[0].id;
-                // "Assign" the volunteer by removing them from future consideration in this run
-                const assignedIndex = sortedUsers.findIndex(u => u.id === volunteerId);
-                if (assignedIndex > -1) {
-                    // This is a simple way to prevent re-assignment; a more complex system might track allocations
-                }
-            }
-        }
+    }
 
-        return {
-            ...item,
-            teamId: assignedTeam?.id || null,
-            teamName: assignedTeam?.name || null,
-            volunteerId: volunteerId,
-        };
-    });
-
-    setSkeleton(filledSkeleton);
+    setSkeleton(tempSkeleton);
     toast({ title: "Mágica!", description: "A escala foi preenchida automaticamente. Revise e salve."});
   };
 
@@ -193,7 +183,14 @@ export function ScheduleGenerator() {
   }
   
   const handleSave = async () => {
-    if (!skeleton || !selectedAreaId) return;
+    if (!skeleton || selectedAreaId === 'all') {
+         toast({
+            variant: "destructive",
+            title: "Seleção Necessária",
+            description: "Por favor, selecione uma área de serviço específica antes de salvar a escala."
+        });
+        return;
+    }
     setIsSaving(true);
     
     const monthString = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
@@ -204,7 +201,7 @@ export function ScheduleGenerator() {
         areaId: item.areaId,
         teamId: item.teamId,
         teamName: item.teamName,
-        memberIds: item.volunteerId ? [item.volunteerId] : [], // Storing as array for future multiple volunteers
+        memberIds: item.volunteerId ? [item.volunteerId] : [],
     }));
 
     await saveSchedule({
@@ -219,6 +216,20 @@ export function ScheduleGenerator() {
         description: "A escala gerada foi salva e pode ser visualizada na aba 'Escalas Salvas'."
     });
   };
+
+  const getEligibleVolunteers = (item: any) => {
+    if (!users || !item) return [];
+    const dateString = item.date.split('/').reverse().join('-');
+
+    return users.filter(u => {
+        const isCorrectArea = u.serviceAreaId === item.areaId;
+        const isEligibleForEvent = u.eligibleEventIds?.includes(item.eventId);
+        const isCorrectTeam = u.serviceTeamId === item.teamId || !u.serviceTeamId; // Wildcard
+        const isNotBlocked = !u.blockedDates?.includes(dateString);
+
+        return u.serviceStatus === 'serving' && isCorrectArea && isEligibleForEvent && isCorrectTeam && isNotBlocked;
+    });
+  }
 
   return (
     <div className="space-y-6">
@@ -280,8 +291,8 @@ export function ScheduleGenerator() {
                 </div>
                 <div className="flex gap-2">
                      <Button variant="outline" onClick={handleAutoFill}><Wand2 className="mr-2 h-4 w-4" /> Preencher Auto.</Button>
-                    <Button variant="outline"><Download className="mr-2 h-4 w-4" /> Exportar</Button>
-                    <Button onClick={handleSave} disabled={isSaving}>
+                    <Button variant="outline" disabled><Download className="mr-2 h-4 w-4" /> Exportar</Button>
+                    <Button onClick={handleSave} disabled={isSaving || selectedAreaId === 'all'}>
                         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                         Salvar Escala
                     </Button>
@@ -305,7 +316,7 @@ export function ScheduleGenerator() {
                         </TableHeader>
                         <TableBody>
                             {skeleton.map((item, index) => {
-                                const eligibleVolunteers = users.filter(u => u.serviceAreaId === item.areaId && u.serviceTeamId === item.teamId);
+                                const eligibleVolunteers = getEligibleVolunteers(item);
                                 return(
                                 <TableRow key={index}>
                                     <TableCell className="font-medium">{item.date}</TableCell>
@@ -335,5 +346,3 @@ export function ScheduleGenerator() {
     </div>
   );
 }
-
-    
