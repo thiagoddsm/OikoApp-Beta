@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useMemo } from 'react';
@@ -26,6 +27,8 @@ export type User = {
   serviceStatus?: 'serving' | 'not_serving';
   serviceAreaId?: string;
   serviceTeamId?: string;
+  eligibleEventIds?: string[];
+  blockedDates?: string[];
 }
 
 export type VolunteeringEvent = {

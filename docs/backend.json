@@ -37,10 +37,15 @@
             "volunteer_hours": { "type": "number" }
           }
         },
-        "blocked_dates": {
+        "blockedDates": {
             "type": "array",
             "items": { "type": "string", "format": "date" },
             "description": "Dates the volunteer is unavailable to serve."
+        },
+        "eligibleEventIds": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "IDs of the VolunteeringEvent the user is available for."
         },
         "createdAt": { "type": "string", "format": "date-time" },
         "dataNascimento": { "type": "string", "format": "date" },
