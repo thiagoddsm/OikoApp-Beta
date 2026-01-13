@@ -1,7 +1,7 @@
 'use client';
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart, Bar, Doughnut, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, PieChart, Pie, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { useCollection, useMemoFirebase } from '@/firebase';
 import { useFirebase } from '@/firebase/provider';
 import { collection, query } from 'firebase/firestore';
@@ -19,6 +19,8 @@ const KPI_CARDS = [
   { title: "Emprestados", status: 'Emprestado', color: 'text-amber-600', bgColor: 'bg-amber-50' },
   { title: "Manutenção", status: 'Manutenção', color: 'text-red-600', bgColor: 'bg-red-50' },
 ];
+
+const PIE_COLORS = ['#6750A4', '#9A89C6', '#BDB2D9', '#D9D3E9', '#F2F0F7'];
 
 export function PatrimonyDashboardView() {
     const { firestore } = useFirebase();
@@ -87,7 +89,24 @@ export function PatrimonyDashboardView() {
                     </CardHeader>
                     <CardContent className="h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <Doughnut data={dashboardData.categoryData} dataKey="value" nameKey="name" />
+                             <PieChart>
+                                <Pie
+                                    data={dashboardData.categoryData}
+                                    dataKey="value"
+                                    nameKey="name"
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={60}
+                                    outerRadius={80}
+                                    paddingAngle={5}
+                                >
+                                     {dashboardData.categoryData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                                <Legend />
+                            </PieChart>
                         </ResponsiveContainer>
                     </CardContent>
                 </Card>
@@ -101,7 +120,7 @@ export function PatrimonyDashboardView() {
                                 <XAxis type="number" hide />
                                 <YAxis dataKey="name" type="category" hide />
                                 <Tooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} />
-                                <Bar dataKey="value" name="Quantidade" radius={[0, 4, 4, 0]} barSize={30} fill="var(--color-primary)" />
+                                <Bar dataKey="value" name="Quantidade" radius={[0, 4, 4, 0]} barSize={30} fill="hsl(var(--primary))" />
                             </BarChart>
                         </ResponsiveContainer>
                     </CardContent>
