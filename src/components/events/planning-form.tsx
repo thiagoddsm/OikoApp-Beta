@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useFirebase, addDocumentNonBlocking } from '@/firebase';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { collection, serverTimestamp } from 'firebase/firestore';
-import { Clock, Users, Layout, DollarSign, Utensils, FileText, ShieldAlert, Target, ListChecks, HelpCircle } from 'lucide-react';
+import { Clock, Users, Layout, DollarSign, Utensils, FileText, ShieldAlert, Target, ListChecks, HelpCircle, Building, MapPin } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -64,7 +64,9 @@ export function EventPlanningForm() {
     timeStart: '',
     timeEnd: '',
     timeLoadOut: '',
-    space: '',
+    eventType: 'interno', // 'interno' ou 'externo'
+    space: '', // Para eventos internos
+    externalLocation: '', // Para eventos externos
     roomLayout: '',
     hasFood: 'nao',
     foodType: '',
@@ -125,6 +127,10 @@ export function EventPlanningForm() {
       const collectionRef = collection(firestore, "strategic_events");
       await addDocumentNonBlocking(collectionRef, {
         ...formData,
+        method5w2h: {
+            ...formData.method5w2h,
+            where: formData.eventType === 'interno' ? formData.space : formData.externalLocation,
+        },
         fixedCosts: parseFloat(formData.fixedCosts) || 0,
         variableCostPerPerson: parseFloat(formData.variableCostPerPerson) || 0,
         ticketPrice: parseFloat(formData.ticketPrice) || 0,
@@ -290,23 +296,48 @@ export function EventPlanningForm() {
                      ))}
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <Label htmlFor="space">Ambiente Solicitado</Label>
-                        <Select name="space" value={formData.space} onValueChange={(v) => setFormData(p => ({...p, space: v}))}>
-                            <SelectTrigger id="space"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                            <SelectContent>
-                                {rooms.map(room => (
-                                    <SelectItem key={room.id} value={room.name}>{room.name}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div>
-                        <Label htmlFor="roomLayout">Layout da Sala</Label>
-                        <Select name="roomLayout" value={formData.roomLayout} onValueChange={(v) => setFormData(p => ({...p, roomLayout: v}))}><SelectTrigger id="roomLayout"><SelectValue placeholder="Padrão" /></SelectTrigger><SelectContent><SelectItem value="padrao">Padrão</SelectItem><SelectItem value="auditorio">Auditório</SelectItem><SelectItem value="banquete">Banquete (Mesas)</SelectItem><SelectItem value="limpo">Espaço Livre</SelectItem></SelectContent></Select>
-                    </div>
+
+                <div className="mb-6">
+                    <Label className="font-bold">Local do Evento</Label>
+                    <RadioGroup value={formData.eventType} onValueChange={(v) => handleRadioChange('eventType', v)} className="flex gap-4 mt-2">
+                        <Label htmlFor="type_interno" className={cn("flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 flex-1", formData.eventType === 'interno' && 'bg-slate-100 border-slate-400')}>
+                            <RadioGroupItem value="interno" id="type_interno" className="mr-2"/>
+                            <Building className="mr-2 size-4 text-slate-600" />
+                            Interno (na Igreja)
+                        </Label>
+                        <Label htmlFor="type_externo" className={cn("flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 flex-1", formData.eventType === 'externo' && 'bg-slate-100 border-slate-400')}>
+                            <RadioGroupItem value="externo" id="type_externo" className="mr-2"/>
+                            <MapPin className="mr-2 size-4 text-slate-600" />
+                            Externo
+                        </Label>
+                    </RadioGroup>
                 </div>
+                
+                {formData.eventType === 'interno' ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-4 rounded-b-lg border-x border-b">
+                        <div>
+                            <Label htmlFor="space">Ambiente Solicitado</Label>
+                            <Select name="space" value={formData.space} onValueChange={(v) => setFormData(p => ({...p, space: v}))}>
+                                <SelectTrigger id="space"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                <SelectContent>
+                                    {rooms.map(room => (
+                                        <SelectItem key={room.id} value={room.name}>{room.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label htmlFor="roomLayout">Layout da Sala</Label>
+                            <Select name="roomLayout" value={formData.roomLayout} onValueChange={(v) => setFormData(p => ({...p, roomLayout: v}))}><SelectTrigger id="roomLayout"><SelectValue placeholder="Padrão" /></SelectTrigger><SelectContent><SelectItem value="padrao">Padrão</SelectItem><SelectItem value="auditorio">Auditório</SelectItem><SelectItem value="banquete">Banquete (Mesas)</SelectItem><SelectItem value="limpo">Espaço Livre</SelectItem></SelectContent></Select>
+                        </div>
+                    </div>
+                ) : (
+                     <div className="bg-slate-50 p-4 rounded-b-lg border-x border-b">
+                        <Label htmlFor="externalLocation">Localização do Evento Externo</Label>
+                        <Input id="externalLocation" name="externalLocation" value={formData.externalLocation} onChange={handleChange} placeholder="Ex: Chácara Recanto Feliz, Rua das Flores, 123" />
+                    </div>
+                )}
+
                  <div className="bg-orange-50 p-6 rounded-xl border border-orange-200 mt-6">
                     <div className="flex items-center gap-2 mb-4"><Utensils className="text-orange-600" size={20} /><h3 className="font-bold text-orange-900">Alimentação</h3></div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
