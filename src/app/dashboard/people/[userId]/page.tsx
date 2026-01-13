@@ -5,7 +5,7 @@ import React from 'react';
 import { useDoc } from '@/firebase';
 import { useParams } from 'next/navigation';
 import { Loader2, Cake, Phone, Mail } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,7 +15,7 @@ import { VolunteerServiceForm } from '@/components/volunteering/volunteer-servic
 import { VolunteeringProvider } from '@/contexts/volunteering-context';
 import { FollowUpTimeline } from '@/components/users/follow-up-timeline';
 import { differenceInYears, parseISO } from 'date-fns';
-
+import { userRoles } from '@/app/dashboard/layout';
 
 type User = {
     id: string;
@@ -107,7 +107,7 @@ export default function MemberProfilePage() {
                            </Card>
                            <Card className="p-4">
                                <CardTitle className="text-sm font-medium text-muted-foreground">Perfil de Acesso</CardTitle>
-                               <p className="text-lg font-semibold capitalize">{primaryRole.replace('_', ' ')}</p>
+                               <p className="text-lg font-semibold capitalize">{userRoles[primaryRole] || primaryRole.replace('_', ' ')}</p>
                            </Card>
                             <Card className={`p-4 ${isDizimista ? 'bg-green-50' : 'bg-red-50'}`}>
                                <CardTitle className="text-sm font-medium text-muted-foreground">Dizimista</CardTitle>
@@ -131,7 +131,7 @@ export default function MemberProfilePage() {
                          <Card>
                             <CardHeader>
                                 <CardTitle>Configurações de Serviço Voluntário</CardTitle>
-                                <CardDescription>Gerencie a disponibilidade e as áreas de atuação deste membro.</CardDescription>
+                                <p className="text-sm text-muted-foreground pt-1">Gerencie a disponibilidade e as áreas de atuação deste membro.</p>
                             </CardHeader>
                             <CardContent>
                                 <VolunteerServiceForm user={user} />
