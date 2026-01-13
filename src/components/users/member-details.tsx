@@ -2,7 +2,7 @@
 'use client';
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { User, HeartHandshake, Phone, Home, CheckCircle, XCircle } from 'lucide-react';
+import { User, HeartHandshake, Phone, Home, CheckCircle, XCircle, Calendar, Users, MapPin, BadgeHelp, UserPlus, Smartphone, Clock } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -30,11 +30,11 @@ const DetailItem = ({ icon, label, value }) => {
     }
 
     return (
-        <div className="flex items-start">
-            <Icon className="h-5 w-5 text-muted-foreground mr-3 mt-1 shrink-0" />
+        <div className="flex items-start gap-3">
+            <Icon className="size-4 text-muted-foreground mt-1 shrink-0" />
             <div>
-                <p className="text-sm font-semibold text-foreground">{label}</p>
-                <p className="text-sm text-muted-foreground">{displayValue}</p>
+                <span className="text-xs text-muted-foreground">{label}</span>
+                {value && <p className="text-sm font-medium">{value}</p>}
             </div>
         </div>
     );
@@ -42,56 +42,42 @@ const DetailItem = ({ icon, label, value }) => {
 
 export function MemberDetails({ user }) {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <Card>
+    <Card>
         <CardHeader>
-          <CardTitle>Jornada Espiritual e Contato</CardTitle>
-          <CardDescription>Detalhes sobre a caminhada de fé e como chegar até a pessoa.</CardDescription>
+            <CardTitle>Dados do Perfil</CardTitle>
+            <CardDescription>Informações de contato, jornada espiritual e chegada na igreja.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <DetailItem icon={User} label="Estado Civil" value={user.estadoCivil} />
-          <DetailItem icon={HeartHandshake} label="Decisão Tomada" value={user.decisao} />
-          <DetailItem icon={HeartHandshake} label="Data da Decisão" value={user.dataDecisao} />
-          <DetailItem icon={Phone} label="Preferência de Contato" value={user.contatoPreferencia} />
-          <DetailItem icon={Phone} label="Turno para Contato" value={user.contatoTurno} />
+        <CardContent className="space-y-8">
+            <section>
+                <h4 className="font-semibold text-primary border-b pb-2 mb-4">Dados Pessoais</h4>
+                <div className="grid md:grid-cols-2 gap-x-8 gap-y-4">
+                    <DetailItem icon={Mail} label="Email" value={user.email || 'Não informado'} />
+                    <DetailItem icon={Phone} label="Telefone" value={user.phone || 'Não informado'} />
+                    <DetailItem icon={Calendar} label="Nascimento" value={user.dataNascimento ? format(new Date(user.dataNascimento+'T12:00:00'), 'dd/MM/yyyy') : 'Não informado'} />
+                    <DetailItem icon={Users} label="Estado Civil" value={user.estadoCivil || 'Não informado'} />
+                    <DetailItem icon={MapPin} label="Endereço" value={user.address?.street || 'Não informado'} />
+                    <DetailItem icon={Users} label="Filhos" value={`${user.temFilhos === 'sim' ? 'Sim' : 'Não'} ${user.idadeFilhos ? `(${user.idadeFilhos})` : ''}`} />
+                </div>
+            </section>
+            <section>
+                <h4 className="font-semibold text-primary border-b pb-2 mb-4">Jornada Espiritual</h4>
+                <div className="grid md:grid-cols-2 gap-x-8 gap-y-4">
+                    <DetailItem icon={CheckCircle} label="Batizado?" value={user.batizado === 'sim' ? `Sim, na ${user.igrejaBatismo || 'igreja'}` : 'Não'} />
+                    <DetailItem icon={Church} label="Membro anterior?" value={user.membroAntigo === 'sim' ? `Sim, da ${user.igrejaAntiga || 'outra igreja'}` : 'Não'} />
+                    <DetailItem icon={Target} label="Decisão" value={user.decisao?.join(', ') || 'Não informado'} />
+                    <DetailItem icon={Calendar} label="Data da Decisão" value={user.dataDecisao ? format(new Date(user.dataDecisao+'T12:00:00'), 'dd/MM/yyyy') : 'Não informado'} />
+                </div>
+            </section>
+            <section>
+                <h4 className="font-semibold text-primary border-b pb-2 mb-4">Chegada na IBM</h4>
+                <div className="grid md:grid-cols-2 gap-x-8 gap-y-4">
+                    <DetailItem icon={BadgeHelp} label="Como conheceu a IBM" value={user.comoConheceu || 'Não informado'} />
+                    <DetailItem icon={UserPlus} label="Quem convidou" value={user.nomeConvidou || 'Não informado'} />
+                    <DetailItem icon={Smartphone} label="Preferência de Contato" value={user.contatoPreferencia?.join(', ') || 'Não informado'} />
+                    <DetailItem icon={Clock} label="Turno para Contato" value={user.contatoTurno?.join(', ') || 'Não informado'} />
+                </div>
+            </section>
         </CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle>Histórico e Origem</CardTitle>
-          <CardDescription>Informações sobre a vida pregressa na igreja.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-            <DetailItem 
-                icon={user.batizado === 'sim' ? CheckCircle : XCircle} 
-                label="Batizado?" 
-                value={user.batizado === 'sim' ? `Sim, na ${user.igrejaBatismo || 'igreja informada'}` : 'Não'} 
-            />
-             <DetailItem 
-                icon={user.membroAntigo === 'sim' ? CheckCircle : XCircle} 
-                label="Foi membro de outra igreja?" 
-                value={user.membroAntigo === 'sim' ? `Sim, da ${user.igrejaAntiga || 'igreja informada'}` : 'Não'} 
-            />
-             <DetailItem icon={Home} label="Como conheceu a IBM?" value={user.comoConheceu} />
-             {user.comoConheceu === 'Convite' && <DetailItem icon={User} label="Convidado por" value={user.nomeConvidou} />}
-        </CardContent>
-      </Card>
-
-      <Card className="lg:col-span-2">
-        <CardHeader>
-          <CardTitle>Informações Adicionais</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-             <DetailItem 
-                icon={user.temFilhos === 'sim' ? CheckCircle : XCircle} 
-                label="Possui Filhos?" 
-                value={user.temFilhos === 'sim' ? `Sim, com idade(s): ${user.idadeFilhos || 'não informado'}` : 'Não'} 
-            />
-        </CardContent>
-      </Card>
-    </div>
+    </Card>
   );
 }
-
-    

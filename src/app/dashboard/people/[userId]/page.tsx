@@ -1,246 +1,289 @@
 
 'use client';
 
-import React, { useMemo } from 'react';
-import { useDoc, useCollection, useMemoFirebase, useFirebase } from '@/firebase';
-import { useParams } from 'next/navigation';
-import { Loader2, Cake, Phone, Mail, User, Network, Building2, Users, HandHelping, Shield } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DiscipleshipTrail } from '@/components/users/discipleship-trail';
-import { DiscipleshipNotes } from '@/components/users/discipleship-notes';
-import { VolunteerServiceForm } from '@/components/volunteering/volunteer-service-form';
-import { VolunteeringProvider } from '@/contexts/volunteering-context';
-import { FollowUpTimeline } from '@/components/users/follow-up-timeline';
-import { MemberDetails } from '@/components/users/member-details';
-import { differenceInYears, parseISO } from 'date-fns';
-import { userRoles } from '@/app/dashboard/layout';
+import React, { useState, useMemo } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useDoc, useMemoFirebase, useFirebase } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, User, ArrowLeft, Pencil, MapPin, Phone, Mail, Calendar, Users, Footprints, Church, MessageSquare, Award, TrendingUp, UserCheck, HeartHandshake, GraduationCap, HandHelping, UserPlus, Target, Info, CheckCircle, Smartphone, Clock, BadgeHelp, Network, Building2, UserX, Briefcase, MapIcon } from 'lucide-react';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
+import Link from 'next/link';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { EditUserDialog } from '@/components/users/edit-user-dialog';
+import { DiscipleshipTrail } from '@/components/users/discipleship-trail';
+import { Progress } from "@/components/ui/progress";
+import { format } from 'date-fns';
+import { FollowUpTimeline } from '@/components/users/follow-up-timeline';
+import { DiscipleshipNotes } from '@/components/users/discipleship-notes';
+import { MemberDetails } from '@/components/users/member-details';
+
 
 type UserProfile = {
+  id: string;
+  name: string;
+  avatar?: string;
+  integrationStatus?: string;
+  email?: string;
+  phone?: string;
+  dataNascimento?: string;
+  sexo?: string;
+  estadoCivil?: string;
+  address?: {
+    street?: string;
+  };
+  hierarchy?: {
+    celulaId?: string;
+    supervisorId?: string;
+    role?: string;
+  };
+  createdAt?: any;
+  batizado?: 'sim' | 'nao';
+  igrejaBatismo?: string;
+  membroAntigo?: 'sim' | 'nao';
+  igrejaAntiga?: string;
+  decisao?: string[];
+  dataDecisao?: string;
+  temFilhos?: 'sim' | 'nao';
+  idadeFilhos?: string;
+  comoConheceu?: string;
+  nomeConvidou?: string;
+  contatoPreferencia?: string[];
+  contatoTurno?: string[];
+  dizimista?: 'sim' | 'nao';
+};
+
+
+type Cell = {
     id: string;
-    name: string;
-    avatar?: string;
-    dataNascimento?: string;
-    email?: string;
-    phone?: string;
-    integrationStatus?: string;
-    serviceStatus?: 'serving' | 'not_serving';
-    hierarchy?: {
-        celulaId?: string;
-        supervisorId?: string;
-        role?: string;
-    };
-    serviceAreaId?: string;
-    serviceTeamId?: string;
-    lastServedDate?: {
-      seconds: number;
-      nanoseconds: number;
-    } | string;
-    roles?: string[];
-    dizimista?: 'sim' | 'nao';
-    address?: { street: string };
-    batizado?: string;
-    igrejaBatismo?: string;
-    membroAntigo?: string;
-    igrejaAntiga?: string;
-    decisao?: string[];
-    dataDecisao?: string;
-    estadoCivil?: string;
-    temFilhos?: string;
-    idadeFilhos?: string;
-    comoConheceu?: string;
-    nomeConvidou?: string;
-    contatoPreferencia?: string[];
-    contatoTurno?: string[];
-};
-
-type Cell = { id: string; nome: string; areaId: string; };
-type Area = { id: string; nome: string; redeId: string; };
-type Rede = { id: string; nome: string; };
-type ServiceArea = { id: string; name: string; };
-type Team = { id: string; name: string; };
-
-const journeyStatusLabels: { [key: string]: string } = {
-    'nao_alcancado': 'Não Alcançado',
-    'novo_convertido': 'Novo Convertido',
-    'reconciliado': 'Reconciliado',
-    'transferido': 'Transferido',
-    'membro': 'Membro',
-    'consolidado': 'Consolidado',
-    'lider_treinamento': 'Líder em Treinamento',
-    'lider_gc': 'Líder de GC',
-    'lider_area': 'Líder de Área',
-    'lider_rede': 'Líder de Rede',
-    'pastor': 'Pastor',
-};
-
-
-export default function MemberProfilePage() {
-    const params = useParams();
-    const userId = params.userId as string;
-    
-    // --- Data Fetching ---
-    const { data: user, isLoading: isLoadingUser } = useDoc<UserProfile>(`users/${userId}`);
-    const { firestore } = useFirebase();
-
-    // Queries for hierarchical data
-    const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
-    const cellsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells')) : null, [firestore]);
-    const areasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'areas')) : null, [firestore]);
-    const redesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'redes')) : null, [firestore]);
-    const serviceAreasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'areas_of_service')) : null, [firestore]);
-    const teamsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'teams')) : null, [firestore]);
-
-    const { data: allUsers, isLoading: isLoadingUsers } = useCollection<UserProfile>(usersQuery);
-    const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>(cellsQuery);
-    const { data: areas, isLoading: isLoadingAreas } = useCollection<Area>(areasQuery);
-    const { data: redes, isLoading: isLoadingRedes } = useCollection<Rede>(redesQuery);
-    const { data: serviceAreas, isLoading: isLoadingServiceAreas } = useCollection<ServiceArea>(serviceAreasQuery);
-    const { data: teams, isLoading: isLoadingTeams } = useCollection<Team>(teamsQuery);
-    
-    const isLoading = isLoadingUser || isLoadingUsers || isLoadingCells || isLoadingAreas || isLoadingRedes || isLoadingServiceAreas || isLoadingTeams;
-
-    // --- Data Mapping for easy lookup ---
-    const userMap = useMemo(() => new Map(allUsers?.map(u => [u.id, u.name]) || []), [allUsers]);
-    const cellMap = useMemo(() => new Map(cells?.map(c => [c.id, c]) || []), [cells]);
-    const areaMap = useMemo(() => new Map(areas?.map(a => [a.id, a]) || []), [areas]);
-    const redeMap = useMemo(() => new Map(redes?.map(r => [r.id, r.nome]) || []), [redes]);
-    const serviceAreaMap = useMemo(() => new Map(serviceAreas?.map(sa => [sa.id, sa.name]) || []), [serviceAreas]);
-    const teamMap = useMemo(() => new Map(teams?.map(t => [t.id, t.name]) || []), [teams]);
-
-    // --- Derived Data ---
-    const hierarchyInfo = useMemo(() => {
-        if (!user || !user.hierarchy) return {};
-        const cell = user.hierarchy.celulaId ? cellMap.get(user.hierarchy.celulaId) : null;
-        const area = cell?.areaId ? areaMap.get(cell.areaId) : null;
-        const rede = area?.redeId ? redeMap.get(area.redeId) : null;
-        const supervisor = user.hierarchy.supervisorId ? userMap.get(user.hierarchy.supervisorId) : null;
-        const serviceArea = user.serviceAreaId ? serviceAreaMap.get(user.serviceAreaId) : null;
-        const team = user.serviceTeamId ? teamMap.get(user.serviceTeamId) : null;
-
-        return { supervisor, rede, area, cell, serviceArea, team };
-    }, [user, cellMap, areaMap, redeMap, userMap, serviceAreaMap, teamMap]);
-    
-
-    if (isLoading) {
-        return (
-            <div className="flex h-[calc(100vh-8rem)] items-center justify-center">
-                <Loader2 className="h-10 w-10 animate-spin text-primary" />
-            </div>
-        );
-    }
-    
-    if (!user) {
-        return <p>Usuário não encontrado.</p>;
-    }
-    
-    const avatar = PlaceHolderImages.find(p => p.id === (user.avatar || 'avatar-2'));
-    const age = user.dataNascimento ? differenceInYears(new Date(), parseISO(user.dataNascimento)) : null;
-    const isDizimista = user.dizimista === 'sim';
-    const primaryRole = user.hierarchy?.role || user.roles?.[0] || 'member';
-
-
-    return (
-        <VolunteeringProvider>
-            <div className="space-y-6">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Left Column */}
-                    <div className="lg:col-span-2 space-y-6">
-                        <Card>
-                            <CardHeader className="flex flex-col md:flex-row items-start md:items-center gap-6">
-                                 <Avatar className="h-24 w-24 border-4 border-background shadow-md">
-                                    {avatar && <AvatarImage src={avatar.imageUrl} alt={user.name} />}
-                                    <AvatarFallback className="text-3xl">{user.name.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1">
-                                    <h1 className="text-3xl font-bold">{user.name}</h1>
-                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground mt-2">
-                                        {age && <span className="flex items-center gap-1.5"><Cake className="size-4"/> {age} anos</span>}
-                                        {user.phone && <span className="flex items-center gap-1.5"><Phone className="size-4"/> {user.phone}</span>}
-                                        {user.email && <span className="flex items-center gap-1.5"><Mail className="size-4"/> {user.email}</span>}
-                                    </div>
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                                   <Card className="p-4">
-                                       <CardTitle className="text-sm font-medium text-muted-foreground">ID Membro</CardTitle>
-                                       <p className="text-lg font-semibold truncate" title={user.id}>{user.id.substring(0, 6)}...</p>
-                                   </Card>
-                                     <Card className="p-4">
-                                       <CardTitle className="text-sm font-medium text-muted-foreground">Jornada</CardTitle>
-                                       <p className="text-lg font-semibold">{journeyStatusLabels[user.integrationStatus || ''] || '-'}</p>
-                                   </Card>
-                                   <Card className="p-4">
-                                       <CardTitle className="text-sm font-medium text-muted-foreground">Perfil</CardTitle>
-                                       <p className="text-lg font-semibold capitalize">{userRoles[primaryRole] || primaryRole.replace('_', ' ')}</p>
-                                   </Card>
-                                    <Card className={`p-4 ${isDizimista ? 'bg-green-50' : 'bg-red-50'}`}>
-                                       <CardTitle className="text-sm font-medium text-muted-foreground">Dizimista</CardTitle>
-                                       <p className={`text-lg font-semibold ${isDizimista ? 'text-green-700' : 'text-red-700'}`}>{isDizimista ? 'Sim' : 'Não'}</p>
-                                   </Card>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-
-                    {/* Right Column */}
-                    <div className="lg:col-span-1">
-                         <Card>
-                            <CardHeader>
-                                <CardTitle>Hierarquia e Grupos</CardTitle>
-                                <CardDescription>Estrutura de liderança e serviço.</CardDescription>
-                            </CardHeader>
-                             <CardContent className="space-y-3 text-sm">
-                                <div className="flex items-center"><User className="mr-3 size-4 text-muted-foreground"/><strong className="w-24 shrink-0">Discipulador:</strong> <span className="truncate">{hierarchyInfo.supervisor || '-'}</span></div>
-                                <div className="flex items-center"><Network className="mr-3 size-4 text-muted-foreground"/><strong className="w-24 shrink-0">Rede:</strong> <span className="truncate">{hierarchyInfo.rede || '-'}</span></div>
-                                <div className="flex items-center"><Building2 className="mr-3 size-4 text-muted-foreground"/><strong className="w-24 shrink-0">Área:</strong> <span className="truncate">{hierarchyInfo.area?.nome || '-'}</span></div>
-                                <div className="flex items-center"><Users className="mr-3 size-4 text-muted-foreground"/><strong className="w-24 shrink-0">GC:</strong> <span className="truncate">{hierarchyInfo.cell?.nome || '-'}</span></div>
-                                <div className="flex items-center"><HandHelping className="mr-3 size-4 text-muted-foreground"/><strong className="w-24 shrink-0">Voluntariado:</strong> <span className="truncate">{hierarchyInfo.serviceArea || '-'}</span></div>
-                                <div className="flex items-center"><Shield className="mr-3 size-4 text-muted-foreground"/><strong className="w-24 shrink-0">Equipe:</strong> <span className="truncate">{hierarchyInfo.team || '-'}</span></div>
-                            </CardContent>
-                        </Card>
-                    </div>
-                </div>
-
-                <Tabs defaultValue="overview">
-                    <TabsList className="grid w-full grid-cols-5">
-                        <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-                        <TabsTrigger value="details">Detalhes</TabsTrigger>
-                        <TabsTrigger value="service">Serviço</TabsTrigger>
-                        <TabsTrigger value="discipleship">Discipulado</TabsTrigger>
-                         <TabsTrigger value="followup">Follow Up</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="overview" className="mt-6">
-                        <DiscipleshipTrail currentStatusId={user.integrationStatus} />
-                    </TabsContent>
-                    <TabsContent value="details" className="mt-6">
-                        <MemberDetails user={user} />
-                    </TabsContent>
-                    <TabsContent value="service" className="mt-6">
-                         <Card>
-                            <CardHeader>
-                                <CardTitle>Configurações de Serviço Voluntário</CardTitle>
-                                <CardDescription>Gerencie a disponibilidade e as áreas de atuação deste membro.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <VolunteerServiceForm user={user} />
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                    <TabsContent value="discipleship" className="mt-6">
-                        <DiscipleshipNotes memberId={userId} memberName={user.name} />
-                    </TabsContent>
-                     <TabsContent value="followup" className="mt-6">
-                        <FollowUpTimeline memberId={userId} memberName={user.name} />
-                    </TabsContent>
-                </Tabs>
-            </div>
-        </VolunteeringProvider>
-    );
+    nome: string;
+    areaId?: string;
+    redeId?: string;
 }
 
-    
+type Area = {
+    id: string;
+    nome: string;
+}
+
+type Rede = {
+    id: string;
+    nome: string;
+}
+
+type Supervisor = {
+  id: string;
+  name: string;
+}
+
+const statusConfig: { [key: string]: { label: string; level: number; icon: React.ElementType } } = {
+  nao_alcancado: { label: "Não Alcançado", level: 1, icon: UserX },
+  novo_convertido: { label: "Novo Convertido", level: 2, icon: UserPlus },
+  reconciliado: { label: "Reconciliado", level: 3, icon: HeartHandshake },
+  transferido: { label: "Transferido", level: 4, icon: Church },
+  membro: { label: "Membro", level: 5, icon: Award },
+  consolidado: { label: "Consolidado", level: 6, icon: UserCheck },
+  lider_treinamento: { label: "Líder em Treinamento", level: 7, icon: GraduationCap },
+  lider_gc: { label: "Líder de GC", level: 8, icon: Users },
+  lider_area: { label: "Líder de Área", level: 9, icon: MapIcon },
+  lider_rede: { label: "Líder de Rede", level: 10, icon: Network },
+  pastor: { label: "Pastor", level: 11, icon: Briefcase },
+};
+
+const totalLevels = Object.keys(statusConfig).length;
+
+
+function KpiCard({ icon: Icon, title, value, footer }) {
+  return (
+    <Card>
+      <CardHeader className="pb-4">
+        <CardDescription className="flex items-center gap-2 text-xs">
+          <Icon className="size-4" /> {title}
+        </CardDescription>
+        <CardTitle className="text-xl truncate">{value}</CardTitle>
+      </CardHeader>
+      {footer && (
+        <CardContent>
+          <p className="text-xs text-muted-foreground">{footer}</p>
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+
+export default function UserProfilePage() {
+  const params = useParams();
+  const router = useRouter();
+  const userId = params.userId as string;
+  const { firestore } = useFirebase();
+  const [isEditDialogOpen, setEditDialogOpen] = useState(false);
+
+  const { data: userProfile, isLoading: isLoadingUser } = useDoc<UserProfile>(`users/${userId}`);
+  
+  const cellId = userProfile?.hierarchy?.celulaId;
+  const { data: cell, isLoading: isLoadingCell } = useDoc<Cell>(
+    cellId ? `cells/${cellId}` : null
+  );
+
+  const areaId = cell?.areaId;
+  const { data: area, isLoading: isLoadingArea } = useDoc<Area>(
+    areaId ? `areas/${areaId}` : null
+  );
+
+  const redeId = area?.redeId;
+  const { data: rede, isLoading: isLoadingRede } = useDoc<Rede>(
+    redeId ? `redes/${redeId}` : null
+  );
+
+  const supervisorId = userProfile?.hierarchy?.supervisorId;
+  const { data: supervisor, isLoading: isLoadingSupervisor } = useDoc<Supervisor>(
+    supervisorId ? `users/${supervisorId}` : null
+  );
+
+  const avatar = PlaceHolderImages.find(p => p.id === (userProfile?.avatar || 'avatar-1'));
+  const isLoading = isLoadingUser || isLoadingCell || isLoadingSupervisor || isLoadingArea || isLoadingRede;
+
+  const statusInfo = statusConfig[userProfile?.integrationStatus || 'nao_alcancado'] || statusConfig.nao_alcancado;
+  const progressPercentage = (statusInfo.level / totalLevels) * 100;
+  
+
+  if (isLoading) {
+    return (
+      <div className="flex h-[calc(100vh-8rem)] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!userProfile) {
+    return (
+      <div className="flex h-[calc(100vh-8rem)] items-center justify-center">
+        <Card className="w-full max-w-md text-center p-8">
+          <User className="h-12 w-12 mx-auto text-muted-foreground" />
+          <h3 className="mt-4 text-lg font-medium">Usuário não encontrado</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            O usuário que você está procurando não foi encontrado ou você não tem permissão para visualizá-lo.
+          </p>
+          <Button asChild className="mt-6">
+            <Link href="/dashboard/people/list"><ArrowLeft className="mr-2 h-4" />Voltar para Lista</Link>
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+  
+  return (
+    <>
+      <div className="space-y-6">
+        {/* Profile Header */}
+        <Card className="w-full overflow-hidden">
+          <div className="bg-muted/30 p-6 flex flex-col md:flex-row items-center gap-6">
+             <div className="relative">
+                <Avatar className="h-24 w-24 border-4 border-background ring-2 ring-primary">
+                    {avatar && <AvatarImage src={avatar.imageUrl} alt={avatar.description} />}
+                    <AvatarFallback className="text-3xl">{userProfile.name.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <div className="absolute -bottom-2 -right-2 bg-primary text-primary-foreground rounded-full h-8 w-8 flex items-center justify-center text-xs font-bold ring-4 ring-background">
+                    {statusInfo.level}
+                </div>
+            </div>
+
+            <div className="flex-1 text-center md:text-left">
+                <CardTitle className="text-2xl">{userProfile.name}</CardTitle>
+                <CardDescription className="flex items-center justify-center md:justify-start gap-2 mt-1">
+                    <statusInfo.icon className="size-4" /> {statusInfo.label}
+                </CardDescription>
+
+                 <div className="mt-4 space-y-2">
+                    <div className="flex justify-between items-center text-xs text-muted-foreground">
+                        <span>Progresso na Trilha</span>
+                        <span>Nível {statusInfo.level} de {totalLevels}</span>
+                    </div>
+                    <Progress value={progressPercentage} className="h-2" />
+                </div>
+            </div>
+            <div className="flex-shrink-0 flex flex-col gap-2">
+                <Button onClick={() => setEditDialogOpen(true)} className="w-full">
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Editar Perfil
+                </Button>
+                 <Button onClick={() => router.back()} variant="outline" className="w-full">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Voltar
+                </Button>
+            </div>
+          </div>
+        </Card>
+        
+        {/* KPIs */}
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <KpiCard icon={Church} title="Célula (GC)" value={cell?.nome || "N/A"} footer="Grupo Pequeno do membro." />
+            <KpiCard icon={UserCheck} title="Discipulador" value={supervisor?.name || "N/A"} footer="Líder que acompanha este membro." />
+            <KpiCard icon={Building2} title="Área" value={area?.nome || "N/A"} footer="Área de supervisão do GC." />
+            <KpiCard icon={Network} title="Rede" value={rede?.nome || "N/A"} footer="Rede de supervisão da Área." />
+        </div>
+
+        {/* Tabs */}
+        <Tabs defaultValue="trail" className="w-full">
+            <TabsList className="grid w-full grid-cols-5">
+                <TabsTrigger value="trail"><Footprints className="mr-2 size-4" />Trilha</TabsTrigger>
+                <TabsTrigger value="discipleship"><HandHelping className="mr-2 size-4" />Discipulado</TabsTrigger>
+                <TabsTrigger value="follow-up"><MessageSquare className="mr-2 size-4" />Follow Up</TabsTrigger>
+                <TabsTrigger value="details"><User className="mr-2 size-4" />Detalhes</TabsTrigger>
+                <TabsTrigger value="service"><HandCoins className="mr-2 size-4"/>Serviço</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="trail">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Footprints/>Trilha de Discipulado</CardTitle>
+                    <CardDescription>Acompanhe e gerencie o progresso individual na jornada de crescimento.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <DiscipleshipTrail currentStatusId={userProfile.integrationStatus} />
+                  </CardContent>
+                </Card>
+            </TabsContent>
+            
+            <TabsContent value="discipleship">
+              <DiscipleshipNotes 
+                memberId={userId}
+                memberName={userProfile.name}
+              />
+            </TabsContent>
+
+            <TabsContent value="follow-up">
+                <FollowUpTimeline memberId={userId} memberName={userProfile.name} />
+            </TabsContent>
+
+            <TabsContent value="details">
+                 <MemberDetails user={userProfile} />
+            </TabsContent>
+            <TabsContent value="service">
+                 <p>Em construção</p>
+            </TabsContent>
+        </Tabs>
+      </div>
+      
+      <Dialog open={isEditDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-4xl">
+            <DialogHeader>
+            <DialogTitle>Editar Perfil de {userProfile.name}</DialogTitle>
+            <DialogDescription>
+                Atualize as informações do membro. As alterações serão salvas no banco de dados.
+            </DialogDescription>
+            </DialogHeader>
+            <EditUserDialog 
+                user={userProfile}
+                open={isEditDialogOpen}
+                onOpenChange={setEditDialogOpen}
+            />
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
