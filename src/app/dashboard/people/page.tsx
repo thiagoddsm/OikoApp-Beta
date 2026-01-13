@@ -19,7 +19,7 @@ export default function PeoplePage() {
     return (
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="journey">Jornada (CRM)</TabsTrigger>
+                <TabsTrigger value="journey">Integração</TabsTrigger>
                 <TabsTrigger value="list">Lista de Pessoas</TabsTrigger>
             </TabsList>
             <TabsContent value="journey">
