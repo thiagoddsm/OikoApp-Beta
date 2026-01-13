@@ -1,8 +1,9 @@
+
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useVolunteering, type SavedSchedule } from '@/contexts/volunteering-context';
 import { useDoc } from '@/firebase';
-import { Loader2, FileText, Download, Send, Trash2, Search, SlidersHorizontal, ChevronDown, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, FileText, Download, Send, Trash2, Search, SlidersHorizontal, ChevronDown, CheckCircle, XCircle, Mail, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,11 +14,13 @@ import { Badge } from '@/components/ui/badge';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { useToast } from '@/hooks/use-toast';
 
 const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
 export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, monthFilter: string }) {
     const { teams, users, areas, isLoading: isContextLoading, deleteSchedule } = useVolunteering();
+    const { toast } = useToast();
     const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
     
     const scheduleId = `${areaId}_${monthFilter}`;
@@ -100,6 +103,33 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
         (doc as any).autoTable(tableColumn, tableRows, { startY: 30 });
         doc.save(`escala_${areaName}_${monthFilter}.pdf`);
     };
+
+    const handleNotification = async (channel: 'email' | 'whatsapp', audience: 'all' | string) => {
+        // Simulate API call
+        toast({
+            title: "Enviando Notificações...",
+            description: `A notificação por ${channel} para "${audience}" está sendo processada.`,
+        });
+
+        const response = await fetch('/api/notifications/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ channel, audience, message: "Lembrete de escala..." }),
+        });
+
+        if(response.ok) {
+            toast({
+                title: "Notificações na Fila!",
+                description: `As mensagens foram adicionadas à fila de envio.`,
+            });
+        } else {
+             toast({
+                variant: 'destructive',
+                title: "Erro",
+                description: `Falha ao enviar notificações.`,
+            });
+        }
+    };
     
     if (isLoading) {
         return (
@@ -136,13 +166,17 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
                                     <Button><Send className="mr-2"/> Notificar</Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                    <DropdownMenuItem>Notificar todos por E-mail</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleNotification('email', 'all')}>
+                                        <Mail className="mr-2"/> Notificar todos por E-mail
+                                    </DropdownMenuItem>
                                     <DropdownMenuSub>
-                                        <DropdownMenuSubTrigger>Notificar por WhatsApp</DropdownMenuSubTrigger>
+                                        <DropdownMenuSubTrigger>
+                                            <MessageSquare className="mr-2"/> Notificar por WhatsApp
+                                        </DropdownMenuSubTrigger>
                                         <DropdownMenuPortal>
                                         <DropdownMenuSubContent>
-                                            <DropdownMenuItem>Notificar todos</DropdownMenuItem>
-                                            <DropdownMenuItem>Notificar um voluntário...</DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => handleNotification('whatsapp', 'all')}>Notificar todos</DropdownMenuItem>
+                                            <DropdownMenuItem disabled>Notificar um voluntário...</DropdownMenuItem>
                                         </DropdownMenuSubContent>
                                         </DropdownMenuPortal>
                                     </DropdownMenuSub>
