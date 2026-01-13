@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState } from 'react';
@@ -25,16 +24,16 @@ const timelineData = [
         title: "NOVO CONVERTIDO",
         type: "status",
         icon: UserPlus,
-        details: { objective: "Apresentação do evangelho e decisão por Cristo.", duration: "Início da jornada", responsible: "Qualquer membro", criteria: "Decisão por Cristo e início do vínculo com a célula." }
+        details: { objective: "Apresentação do evangelho e decisão por Cristo. Inicia uma jornada de 7 encontros pré-batismo e 7 encontros para membresia.", duration: "Início da jornada", responsible: "Qualquer membro", criteria: "Decisão por Cristo e início do vínculo com a célula." }
     },
     {
         id: 'reconciliado',
-        phase: "FASE 2: CONVERSÃO",
-        phaseColor: "bg-indigo-100 text-indigo-800",
+        phase: "FASE 3: INTEGRAÇÃO",
+        phaseColor: "bg-sky-100 text-sky-800",
         title: "RECONCILIADO",
         type: "status",
         icon: UserCheck,
-        details: { objective: "Retorno à comunhão da igreja após um período de afastamento.", duration: "Variável", responsible: "Líder de GC, Consolidador", criteria: "Retorno à frequência na célula e/ou cultos." }
+        details: { objective: "Retorno à comunhão da igreja após um período de afastamento. Passa por 7 encontros de discipulado para realinhamento.", duration: "Variável", responsible: "Líder de GC, Consolidador", criteria: "Retorno à frequência na célula e/ou cultos." }
     },
     {
         id: 'transferido',
@@ -43,7 +42,7 @@ const timelineData = [
         title: "TRANSFERIDO",
         type: "status",
         icon: Church,
-        details: { objective: "Acolhimento de membros vindos de outra igreja.", duration: "1-2 meses", responsible: "Liderança de GC", criteria: "Integração em um GC e participação no Curso de Membros." }
+        details: { objective: "Acolhimento de membros vindos de outra igreja. Passa por 7 encontros de discipulado para integração à cultura da IBM.", duration: "1-2 meses", responsible: "Liderança de GC", criteria: "Integração em um GC e participação no Curso de Membros." }
     },
     {
         id: 'membro',
