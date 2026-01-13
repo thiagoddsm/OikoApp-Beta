@@ -238,8 +238,8 @@ export function EventPlanningForm() {
             </div>
 
             <div className="mb-8">
-               <Label htmlFor="phaseAlignment">Alinhamento com a Fase da Igreja (Iluminar, Buscar, Mudar)</Label>
-               <Textarea required id="phaseAlignment" name="phaseAlignment" rows={2} value={formData.phaseAlignment} onChange={handleChange} placeholder="Ciclo: Iluminar (Jan/Fev), Buscar (Mar/Abr), Mudar (Mai/Jun). Como seu evento se encaixa na fase atual?"></Textarea>
+               <Label htmlFor="phaseAlignment">Alinhamento com a Fase da Igreja</Label>
+               <Textarea required id="phaseAlignment" name="phaseAlignment" rows={2} value={formData.phaseAlignment} onChange={handleChange} placeholder="Como este evento se encaixa na fase atual da igreja?"></Textarea>
             </div>
 
             <div className="bg-white p-5 rounded-lg border border-indigo-100 shadow-sm mb-8">
