@@ -14,6 +14,7 @@ import { DiscipleshipNotes } from '@/components/users/discipleship-notes';
 import { VolunteerServiceForm } from '@/components/volunteering/volunteer-service-form';
 import { VolunteeringProvider } from '@/contexts/volunteering-context';
 import { FollowUpTimeline } from '@/components/users/follow-up-timeline';
+import { MemberDetails } from '@/components/users/member-details';
 import { differenceInYears, parseISO } from 'date-fns';
 import { userRoles } from '@/app/dashboard/layout';
 import { collection, query } from 'firebase/firestore';
@@ -39,6 +40,20 @@ type UserProfile = {
     } | string;
     roles?: string[];
     dizimista?: 'sim' | 'nao';
+    address?: { street: string };
+    batizado?: string;
+    igrejaBatismo?: string;
+    membroAntigo?: string;
+    igrejaAntiga?: string;
+    decisao?: string[];
+    dataDecisao?: string;
+    estadoCivil?: string;
+    temFilhos?: string;
+    idadeFilhos?: string;
+    comoConheceu?: string;
+    nomeConvidou?: string;
+    contatoPreferencia?: string[];
+    contatoTurno?: string[];
 };
 
 type Cell = { id: string; nome: string; areaId: string; };
@@ -190,14 +205,18 @@ export default function MemberProfilePage() {
                 </div>
 
                 <Tabs defaultValue="overview">
-                    <TabsList className="grid w-full grid-cols-4">
+                    <TabsList className="grid w-full grid-cols-5">
                         <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+                        <TabsTrigger value="details">Detalhes</TabsTrigger>
                         <TabsTrigger value="service">Serviço</TabsTrigger>
                         <TabsTrigger value="discipleship">Discipulado</TabsTrigger>
                          <TabsTrigger value="followup">Follow Up</TabsTrigger>
                     </TabsList>
                     <TabsContent value="overview" className="mt-6">
                         <DiscipleshipTrail currentStatusId={user.integrationStatus} />
+                    </TabsContent>
+                    <TabsContent value="details" className="mt-6">
+                        <MemberDetails user={user} />
                     </TabsContent>
                     <TabsContent value="service" className="mt-6">
                          <Card>
@@ -221,4 +240,3 @@ export default function MemberProfilePage() {
         </VolunteeringProvider>
     );
 }
-
