@@ -82,9 +82,12 @@ export const userRoles: { [key: string]: string } = {
 const menuItems = [
     { href: "/dashboard", label: "Dashboard", icon: Home },
     { 
-      href: "/dashboard/people",
       label: "Pessoas", 
       icon: Users,
+      subItems: [
+        { href: "/dashboard/people/journey", label: "Integração", icon: Footprints },
+        { href: "/dashboard/people/list", label: "Lista de Pessoas", icon: Users2 },
+      ]
     },
     { 
       label: "GCs", 

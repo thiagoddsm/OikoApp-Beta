@@ -1,33 +1,21 @@
+
 'use client';
-import React from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useRouter, usePathname } from 'next/navigation';
-import JourneyPage from './journey/page';
-import ListPage from './list/page';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
 
-export default function PeoplePage() {
-    const router = useRouter();
-    const pathname = usePathname();
+export default function PeopleRedirectPage() {
+  const router = useRouter();
 
-    const activeTab = pathname.includes('/list') ? 'list' : 'journey';
+  useEffect(() => {
+    // Redirect to the "Integração" (Journey) page by default
+    router.replace('/dashboard/people/journey');
+  }, [router]);
 
-    const handleTabChange = (value: string) => {
-        router.push(`/dashboard/people/${value}`);
-    };
-
-    return (
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="journey">Integração</TabsTrigger>
-                <TabsTrigger value="list">Lista de Pessoas</TabsTrigger>
-            </TabsList>
-            <TabsContent value="journey">
-                <JourneyPage />
-            </TabsContent>
-            <TabsContent value="list">
-                <ListPage />
-            </TabsContent>
-        </Tabs>
-    );
+  return (
+    <div className="flex items-center justify-center h-full w-full">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <p className="ml-4 text-muted-foreground">Carregando...</p>
+    </div>
+  );
 }
