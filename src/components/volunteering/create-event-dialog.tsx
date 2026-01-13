@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useVolunteering, type VolunteeringEvent } from '@/contexts/volunteering-context';
@@ -24,18 +23,12 @@ type RequiredAreaState = {
     quantity: number;
 }
 
-const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
-
 export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplicating }: CreateEventDialogProps) {
   const { rooms, areas, addEvent, updateEvent } = useVolunteering();
   
   const [name, setName] = useState('');
-  const [frequency, setFrequency] = useState<'semanal' | 'quinzenal' | 'mensal' | 'pontual' | 'custom'>('semanal');
   const [time, setTime] = useState('');
-  const [dayOfWeek, setDayOfWeek] = useState('');
   const [date, setDate] = useState('');
-  const [weekOfMonth, setWeekOfMonth] = useState<'1' | '2' | '3' | '4' | 'last'>('1');
-  const [customFrequency, setCustomFrequency] = useState('');
   const [room, setRoom] = useState('');
   const [requiredAreas, setRequiredAreas] = useState<RequiredAreaState[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -43,12 +36,8 @@ export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplica
   useEffect(() => {
     if (open) {
       setName(existingEvent?.name || '');
-      setFrequency(existingEvent?.frequency || 'semanal');
       setTime(existingEvent?.time || '');
-      setDayOfWeek(existingEvent?.dayOfWeek || '');
       setDate(existingEvent?.date || '');
-      setWeekOfMonth(existingEvent?.weekOfMonth || '1');
-      setCustomFrequency(existingEvent?.customFrequency || '');
       setRoom(existingEvent?.room || '');
       setRequiredAreas(existingEvent?.requiredAreas?.map(a => ({...a})) || []);
     }
@@ -79,19 +68,14 @@ export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplica
   };
 
   const handleSave = async () => {
-    if (!name.trim() || !time.trim()) return;
-    if (frequency === 'pontual' && !date) return;
+    if (!name.trim() || !time.trim() || !date) return;
     
     setIsSaving(true);
     
     const eventData = {
       name,
-      frequency,
       time,
-      dayOfWeek: ['semanal', 'quinzenal', 'mensal'].includes(frequency) ? dayOfWeek : '',
-      date: frequency === 'pontual' ? date : '',
-      weekOfMonth: frequency === 'mensal' ? weekOfMonth : undefined,
-      customFrequency: frequency === 'custom' ? customFrequency : '',
+      date,
       requiredAreas,
       room,
     };
@@ -123,17 +107,8 @@ export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplica
 
             <div className="grid grid-cols-2 gap-4">
                  <div>
-                    <Label htmlFor="frequency">Frequência</Label>
-                    <Select value={frequency} onValueChange={(v: any) => setFrequency(v)}>
-                        <SelectTrigger id="frequency"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="semanal">Semanal</SelectItem>
-                            <SelectItem value="quinzenal">Quinzenal</SelectItem>
-                            <SelectItem value="mensal">Mensal</SelectItem>
-                            <SelectItem value="pontual">Data Específica</SelectItem>
-                            <SelectItem value="custom">Personalizado</SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <Label htmlFor="date">Data</Label>
+                    <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
                 </div>
                  <div>
                     <Label htmlFor="time">Horário</Label>
@@ -141,48 +116,6 @@ export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplica
                 </div>
             </div>
             
-            {['semanal', 'quinzenal', 'mensal'].includes(frequency) && (
-                <div>
-                    <Label htmlFor="dayOfWeek">Dia da Semana</Label>
-                    <Select value={dayOfWeek} onValueChange={setDayOfWeek}>
-                        <SelectTrigger id="dayOfWeek"><SelectValue placeholder="Selecione um dia" /></SelectTrigger>
-                        <SelectContent>
-                            {weekDays.map(day => <SelectItem key={day} value={day}>{day}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </div>
-            )}
-            
-            {frequency === 'mensal' && (
-                 <div>
-                    <Label htmlFor="weekOfMonth">Semana do Mês</Label>
-                    <Select value={weekOfMonth} onValueChange={(v: any) => setWeekOfMonth(v)}>
-                        <SelectTrigger id="weekOfMonth"><SelectValue placeholder="Selecione a semana" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="1">1ª Semana</SelectItem>
-                            <SelectItem value="2">2ª Semana</SelectItem>
-                            <SelectItem value="3">3ª Semana</SelectItem>
-                            <SelectItem value="4">4ª Semana</SelectItem>
-                            <SelectItem value="last">Última Semana</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-            )}
-
-            {frequency === 'pontual' && (
-                <div>
-                    <Label htmlFor="date">Data</Label>
-                    <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-                </div>
-            )}
-
-            {frequency === 'custom' && (
-                 <div>
-                    <Label htmlFor="customFrequency">Descrição da Frequência</Label>
-                    <Textarea id="customFrequency" value={customFrequency} onChange={(e) => setCustomFrequency(e.target.value)} placeholder="Ex: Todo 1º e 3º Domingo do mês"/>
-                </div>
-            )}
-
             <div>
               <Label htmlFor="room">Ambiente</Label>
               <Select value={room} onValueChange={setRoom}>

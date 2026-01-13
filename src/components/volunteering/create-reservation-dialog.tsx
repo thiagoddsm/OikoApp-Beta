@@ -17,6 +17,8 @@ interface CreateReservationDialogProps {
   existingReservation?: RoomReservation | null;
 }
 
+const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+
 export function CreateReservationDialog({ open, onOpenChange, existingReservation }: CreateReservationDialogProps) {
   const { user } = useFirebase();
   const { addReservation, updateReservation, users, rooms, isLoading } = useVolunteering();
@@ -29,6 +31,9 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
   const [endDate, setEndDate] = useState('');
   const [endTime, setEndTime] = useState('');
   const [notes, setNotes] = useState('');
+  const [frequency, setFrequency] = useState<'pontual' | 'semanal' | 'quinzenal' | 'mensal'>('pontual');
+  const [dayOfWeek, setDayOfWeek] = useState('');
+  const [weekOfMonth, setWeekOfMonth] = useState<'1' | '2' | '3' | '4' | 'last'>('1');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -38,6 +43,9 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
         setRequesterId(existingReservation.requesterId || user?.uid || '');
         setRoom(existingReservation.room || '');
         setNotes(existingReservation.notes || '');
+        setFrequency(existingReservation.frequency || 'pontual');
+        setDayOfWeek(existingReservation.dayOfWeek || '');
+        setWeekOfMonth(existingReservation.weekOfMonth || '1');
 
         const start = existingReservation.startDateTime?.toDate();
         const end = existingReservation.endDateTime?.toDate();
@@ -52,6 +60,9 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
         setRequesterId(user?.uid || '');
         setRoom('');
         setNotes('');
+        setFrequency('pontual');
+        setDayOfWeek('');
+        setWeekOfMonth('1');
         const now = new Date();
         setStartDate(now.toISOString().split('T')[0]);
         setStartTime(now.toTimeString().split(' ')[0].substring(0, 5));
@@ -81,6 +92,9 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
       notes,
       status: existingReservation?.status || 'pending',
       createdAt: existingReservation?.createdAt || Timestamp.now(),
+      frequency,
+      dayOfWeek: ['semanal', 'quinzenal', 'mensal'].includes(frequency) ? dayOfWeek : '',
+      weekOfMonth: frequency === 'mensal' ? weekOfMonth : undefined,
     };
 
     if (existingReservation) {
@@ -125,9 +139,51 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
                 </SelectContent>
               </Select>
             </div>
+
+            <div>
+                <Label htmlFor="frequency">Frequência</Label>
+                <Select value={frequency} onValueChange={(v: any) => setFrequency(v)}>
+                    <SelectTrigger id="frequency"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="pontual">Pontual (uma vez)</SelectItem>
+                        <SelectItem value="semanal">Semanal</SelectItem>
+                        <SelectItem value="quinzenal">Quinzenal</SelectItem>
+                        <SelectItem value="mensal">Mensal</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+            
+            {['semanal', 'quinzenal', 'mensal'].includes(frequency) && (
+                <div>
+                    <Label htmlFor="dayOfWeek">Dia da Semana</Label>
+                    <Select value={dayOfWeek} onValueChange={setDayOfWeek}>
+                        <SelectTrigger id="dayOfWeek"><SelectValue placeholder="Selecione um dia" /></SelectTrigger>
+                        <SelectContent>
+                            {weekDays.map(day => <SelectItem key={day} value={day}>{day}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+            )}
+            
+            {frequency === 'mensal' && (
+                 <div>
+                    <Label htmlFor="weekOfMonth">Semana do Mês</Label>
+                    <Select value={weekOfMonth} onValueChange={(v: any) => setWeekOfMonth(v)}>
+                        <SelectTrigger id="weekOfMonth"><SelectValue placeholder="Selecione a semana" /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="1">1ª Semana</SelectItem>
+                            <SelectItem value="2">2ª Semana</SelectItem>
+                            <SelectItem value="3">3ª Semana</SelectItem>
+                            <SelectItem value="4">4ª Semana</SelectItem>
+                            <SelectItem value="last">Última Semana</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
                 <div>
-                    <Label htmlFor="startDate">Data de Início</Label>
+                    <Label htmlFor="startDate">Data de Início {frequency !== 'pontual' && '(primeira ocorrência)'}</Label>
                     <Input id="startDate" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required/>
                 </div>
                 <div>
@@ -135,16 +191,29 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
                     <Input id="startTime" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} required/>
                 </div>
             </div>
-             <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <Label htmlFor="endDate">Data de Fim</Label>
-                    <Input id="endDate" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required/>
+
+            {frequency === 'pontual' && (
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <Label htmlFor="endDate">Data de Fim</Label>
+                        <Input id="endDate" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required/>
+                    </div>
+                    <div>
+                        <Label htmlFor="endTime">Horário de Fim</Label>
+                        <Input id="endTime" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} required/>
+                    </div>
                 </div>
-                <div>
-                    <Label htmlFor="endTime">Horário de Fim</Label>
-                    <Input id="endTime" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} required/>
+            )}
+
+            {frequency !== 'pontual' && (
+                 <div className="grid grid-cols-2 gap-4">
+                     <div>
+                        <Label htmlFor="endTime">Horário de Fim</Label>
+                        <Input id="endTime" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} required/>
+                    </div>
                 </div>
-            </div>
+            )}
+
              <div>
                 <Label htmlFor="notes">Observações</Label>
                 <Textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Equipamentos necessários, número de pessoas, etc."/>

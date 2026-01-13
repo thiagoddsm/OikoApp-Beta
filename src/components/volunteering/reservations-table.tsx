@@ -52,14 +52,14 @@ export function ReservationsTable() {
         approved: { label: "Aprovado", icon: CheckCircle, color: "bg-green-100 text-green-800 border-green-300" },
         rejected: { label: "Rejeitado", icon: XCircle, color: "bg-red-100 text-red-800 border-red-300" },
     };
-
-    const formatDateRange = (start, end) => {
-        const startDate = start.toDate();
-        const endDate = end.toDate();
-        const startFormatted = format(startDate, "dd/MM/yy 'às' HH:mm");
-        const endFormatted = format(endDate, "HH:mm");
-        return `${startFormatted} - ${endFormatted}`;
-    };
+    
+    const getFrequencyText = (res: RoomReservation) => {
+      if (res.frequency === 'pontual') {
+        const startDate = res.startDateTime.toDate();
+        return format(startDate, "dd/MM/yy 'às' HH:mm");
+      }
+      return `${res.frequency.charAt(0).toUpperCase() + res.frequency.slice(1)} - ${res.dayOfWeek}, ${res.startDateTime.toDate().toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}`;
+    }
 
     if (isLoading) {
         return (
@@ -77,7 +77,7 @@ export function ReservationsTable() {
                         <TableRow>
                             <TableHead>Evento</TableHead>
                             <TableHead>Sala</TableHead>
-                            <TableHead>Período</TableHead>
+                            <TableHead>Período / Frequência</TableHead>
                             <TableHead>Solicitante</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead className="text-right w-16">Ações</TableHead>
@@ -98,7 +98,7 @@ export function ReservationsTable() {
                                     <TableRow key={res.id}>
                                         <TableCell className="font-medium">{res.eventName}</TableCell>
                                         <TableCell className="text-muted-foreground">{res.room}</TableCell>
-                                        <TableCell className="text-muted-foreground text-sm">{formatDateRange(res.startDateTime, res.endDateTime)}</TableCell>
+                                        <TableCell className="text-muted-foreground text-sm">{getFrequencyText(res)}</TableCell>
                                         <TableCell className="text-muted-foreground">{userMap.get(res.requesterId) || 'Desconhecido'}</TableCell>
                                         <TableCell>
                                             <Badge variant="outline" className={`border ${statusInfo.color}`}>

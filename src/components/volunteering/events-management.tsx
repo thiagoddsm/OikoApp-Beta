@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useVolunteering, type VolunteeringEvent } from '@/contexts/volunteering-context';
@@ -19,11 +18,11 @@ function ImportEventsButton() {
     const [isImporting, setIsImporting] = useState(false);
 
     const eventsToImport = [
-        { name: 'Culto Propósitos', frequency: 'semanal', time: '20:00', dayOfWeek: 'Quinta-feira', requiredAreas: [] },
-        { name: 'Culto clássico', frequency: 'semanal', time: '07:30', dayOfWeek: 'Domingo', requiredAreas: [] },
-        { name: 'Culto da Família', frequency: 'semanal', time: '10:15', dayOfWeek: 'Domingo', requiredAreas: [] },
-        { name: 'Culto da noite', frequency: 'semanal', time: '19:30', dayOfWeek: 'Domingo', requiredAreas: [] },
-        { name: 'Culto da tarde', frequency: 'semanal', time: '17:30', dayOfWeek: 'Domingo', requiredAreas: [] },
+        { name: 'Culto Propósitos', time: '20:00', date: '' },
+        { name: 'Culto clássico', time: '07:30', date: '' },
+        { name: 'Culto da Família', time: '10:15', date: '' },
+        { name: 'Culto da noite', time: '19:30', date: '' },
+        { name: 'Culto da tarde', time: '17:30', date: '' },
     ];
 
     const handleImport = async () => {
@@ -180,8 +179,8 @@ export function EventsManagement() {
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
-              <TableHead>Frequência</TableHead>
-              <TableHead>Detalhes</TableHead>
+              <TableHead>Data</TableHead>
+              <TableHead>Horário</TableHead>
               <TableHead>Áreas de Serviço</TableHead>
               <TableHead className="text-right w-[100px]">Ações</TableHead>
             </TableRow>
@@ -198,14 +197,10 @@ export function EventsManagement() {
                   <TableRow key={event.id}>
                     <TableCell className="font-medium">{event.name}</TableCell>
                     <TableCell>
-                      <Badge variant={event.frequency === 'semanal' ? 'default' : 'secondary'} className="capitalize">
-                        {event.frequency}
-                      </Badge>
+                      {event.date ? event.date : 'Recorrente'}
                     </TableCell>
                     <TableCell>
-                      {event.frequency === 'semanal' 
-                        ? `${event.dayOfWeek} às ${event.time}` 
-                        : `${event.date} às ${event.time}`}
+                      {event.time}
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">

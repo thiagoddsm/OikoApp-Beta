@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useMemo } from 'react';
@@ -32,11 +31,7 @@ export type User = {
 export type VolunteeringEvent = {
   id: string;
   name: string;
-  frequency: 'semanal' | 'quinzenal' | 'mensal' | 'pontual' | 'custom';
   time: string;
-  dayOfWeek?: string;
-  weekOfMonth?: '1' | '2' | '3' | '4' | 'last';
-  customFrequency?: string;
   date?: string;
   room?: string;
   requiredAreas?: { areaId: string; quantity: number }[];
@@ -57,6 +52,9 @@ export type RoomReservation = {
     status: 'pending' | 'approved' | 'rejected';
     notes?: string;
     createdAt: any;
+    frequency: 'pontual' | 'semanal' | 'quinzenal' | 'mensal';
+    dayOfWeek?: string;
+    weekOfMonth?: '1' | '2' | '3' | '4' | 'last';
 }
 
 export type SavedSchedule = {
@@ -190,7 +188,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     batch.set(newEventRef, data);
     
     // If it's a specific (pontual) event with a room, create a reservation
-    if (data.frequency === 'pontual' && data.date && data.time && data.room) {
+    if (data.date && data.time && data.room) {
         const reservationsCollection = collection(firestore, 'room_reservations');
         const startDateTime = Timestamp.fromDate(new Date(`${data.date}T${data.time}`));
         const endDateTime = Timestamp.fromDate(new Date(startDateTime.toDate().getTime() + 2 * 60 * 60 * 1000)); // default 2h duration
@@ -202,6 +200,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
             startDateTime,
             endDateTime,
             status: 'approved',
+            frequency: 'pontual',
             notes: `Reserva automática criada a partir do evento: ${data.name}`,
             createdAt: Timestamp.now(),
         });
