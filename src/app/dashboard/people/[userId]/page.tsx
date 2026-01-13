@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { useDoc, useCollection, useMemoFirebase } from '@/firebase';
+import { useDoc, useCollection, useMemoFirebase, useFirebase } from '@/firebase';
 import { useParams } from 'next/navigation';
 import { Loader2, Cake, Phone, Mail, User, Network, Building2, Users, HandHelping, Shield } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
