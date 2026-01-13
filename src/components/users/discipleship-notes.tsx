@@ -41,7 +41,7 @@ export function DiscipleshipNotes({ memberId, memberName }: { memberId: string, 
         {id: 'user2', name: 'Ana Oliveira'},
     ];
     if (currentUser) {
-        allUsers.push({id: currentUser.uid, name: currentUser.displayName || 'Você'});
+        allUsers.push({id: currentUser.uid, name: currentUser.displayName || 'Você', avatar: 'avatar-1' });
     }
     const authorMap = useMemo(() => new Map(allUsers.map(u => [u.id, u])), [allUsers]);
 

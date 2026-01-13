@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Loader2, Plus, Users, Search } from 'lucide-react';
+import { Loader2, Plus, Users, Search, Footprints } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
@@ -136,9 +136,9 @@ export default function UsersKanbanPage() {
             <header className="flex items-center justify-between px-2 py-2 border-b">
                  <div>
                     <h1 className="text-xl font-bold flex items-center gap-2">
-                        <Users className="size-5" /> Jornada do Membro (Trilha de Discipulado)
+                        <Footprints className="size-5" /> Jornada do Membro (Trilha de Discipulado)
                     </h1>
-                     <p className="text-sm text-muted-foreground">Digitalize a trilha e garanta que ninguém fique para trás.</p>
+                     <p className="text-sm text-muted-foreground">Arraste e solte os membros para atualizar seu estágio na trilha de discipulado.</p>
                  </div>
                 <div className="flex items-center gap-2">
                     <div className="relative">

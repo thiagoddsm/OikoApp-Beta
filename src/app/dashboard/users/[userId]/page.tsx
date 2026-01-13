@@ -16,11 +16,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { EditUserDialog } from '@/components/users/edit-user-dialog';
 import { DiscipleshipTrail } from '@/components/users/discipleship-trail';
 import { Progress } from "@/components/ui/progress";
-import { format, formatDistanceToNow } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { FollowUpTimeline } from '@/components/users/follow-up-timeline';
 import { DiscipleshipNotes } from '@/components/users/discipleship-notes';
-
+import { VolunteeringProvider } from '@/contexts/volunteering-context';
+import { VolunteerServiceForm } from '@/components/volunteering/volunteer-service-form';
 
 type UserProfile = {
   id: string;
@@ -53,6 +54,7 @@ type UserProfile = {
   nomeConvidou?: string;
   contatoPreferencia?: string[];
   contatoTurno?: string[];
+  titherStatus?: 'sim' | 'nao' | 'desconhecido';
 };
 
 
@@ -127,7 +129,7 @@ function DetailItem({ icon: Icon, label, value, children }) {
     );
 }
 
-export default function UserProfilePage() {
+function UserProfilePageContent() {
   const params = useParams();
   const userId = params.userId as string;
   const { firestore } = useFirebase();
@@ -241,18 +243,20 @@ export default function UserProfilePage() {
         </Card>
         
         {/* KPIs */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
             <KpiCard icon={Church} title="Célula (GC)" value={cell?.nome || "N/A"} footer="Grupo Pequeno do membro." />
             <KpiCard icon={UserCheck} title="Discipulador" value={supervisor?.name || "N/A"} footer="Líder que acompanha este membro." />
             <KpiCard icon={AreaChart} title="Área" value={area?.nome || "N/A"} footer="Área de supervisão do GC." />
             <KpiCard icon={Network} title="Rede" value={rede?.nome || "N/A"} footer="Rede de supervisão da Área." />
+            <KpiCard icon={HandCoins} title="Dizimista" value={userProfile.titherStatus === 'sim' ? 'Sim' : 'Não'} footer="Status financeiro de contribuição." />
         </div>
 
         {/* Tabs */}
         <Tabs defaultValue="trail" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="trail"><Footprints className="mr-2 size-4" />Trilha</TabsTrigger>
                 <TabsTrigger value="discipleship"><HandHelping className="mr-2 size-4" />Discipulado</TabsTrigger>
+                <TabsTrigger value="service"><HeartHandshake className="mr-2 size-4"/>Serviço</TabsTrigger>
                 <TabsTrigger value="follow-up"><MessageSquare className="mr-2 size-4" />Follow Up</TabsTrigger>
                 <TabsTrigger value="details"><User className="mr-2 size-4" />Detalhes</TabsTrigger>
             </TabsList>
@@ -274,6 +278,18 @@ export default function UserProfilePage() {
                 memberId={userId}
                 memberName={userProfile.name}
               />
+            </TabsContent>
+
+            <TabsContent value="service">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2"><HeartHandshake/> Vida de Serviço</CardTitle>
+                  <CardDescription>Gerencie o status de serviço, áreas e equipes do voluntário.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                   <VolunteerServiceForm user={userProfile} />
+                </CardContent>
+              </Card>
             </TabsContent>
 
             <TabsContent value="follow-up">
@@ -339,4 +355,12 @@ export default function UserProfilePage() {
       </Dialog>
     </>
   );
+}
+
+export default function UserProfilePageWithProvider() {
+  return (
+    <VolunteeringProvider>
+      <UserProfilePageContent />
+    </VolunteeringProvider>
+  )
 }

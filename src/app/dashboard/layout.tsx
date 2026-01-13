@@ -82,21 +82,26 @@ export const userRoles: { [key: string]: string } = {
 const menuItems = [
     { href: "/dashboard", label: "Dashboard", icon: Home },
     { 
-      label: "GCs", 
+      label: "Pessoas", 
       icon: Users,
       subItems: [
         { href: "/dashboard/users", label: "Jornada (CRM)", icon: Footprints },
+        { href: "/dashboard/notifications", label: "Comunicação", icon: MessageSquare },
+      ]
+    },
+    { 
+      label: "GCs", 
+      icon: HeartHandshake,
+      subItems: [
         { href: "/dashboard/gc/structure", label: "Estrutura", icon: Network },
         { href: "/dashboard/gc/cells", label: "Células", icon: Building },
         { href: "/dashboard/gc/report", label: "Relatório de Célula", icon: ClipboardList },
         { href: "/dashboard/gc/map", label: "Mapa", icon: Map },
-        { href: "/dashboard/attendance", label: "Frequência (Culto)", icon: CheckSquare },
-        { href: "/dashboard/notifications", label: "Comunicação", icon: MessageSquare },
       ]
     },
     {
       label: "Serviço",
-      icon: HeartHandshake,
+      icon: HandHelping,
       subItems: [
         { href: "/dashboard/volunteering", label: "Áreas de Serviço", icon: HandHelping },
         { href: "/dashboard/volunteering/teams", label: "Equipes", icon: Shield },
@@ -109,6 +114,7 @@ const menuItems = [
       label: "Ministerial", 
       icon: Church,
       subItems: [
+        { href: "/dashboard/attendance", label: "Frequência (Culto)", icon: CheckSquare },
         { 
             label: "Ensino", 
             icon: GraduationCap,
