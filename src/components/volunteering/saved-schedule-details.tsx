@@ -130,23 +130,26 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
                     </div>
                      <div className="flex gap-2">
                         <Button variant="outline" onClick={handleExportPDF}><Download className="mr-2"/>Exportar PDF</Button>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button><Send className="mr-2"/> Notificar</Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem>Notificar todos por E-mail</DropdownMenuItem>
-                                 <DropdownMenuSub>
-                                    <DropdownMenuSubTrigger>Notificar por WhatsApp</DropdownMenuSubTrigger>
-                                    <DropdownMenuPortal>
-                                    <DropdownMenuSubContent>
-                                        <DropdownMenuItem>Notificar todos</DropdownMenuItem>
-                                        <DropdownMenuItem>Notificar um voluntário...</DropdownMenuItem>
-                                    </DropdownMenuSubContent>
-                                    </DropdownMenuPortal>
-                                </DropdownMenuSub>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        <div className="flex flex-col items-end">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button><Send className="mr-2"/> Notificar</Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem>Notificar todos por E-mail</DropdownMenuItem>
+                                    <DropdownMenuSub>
+                                        <DropdownMenuSubTrigger>Notificar por WhatsApp</DropdownMenuSubTrigger>
+                                        <DropdownMenuPortal>
+                                        <DropdownMenuSubContent>
+                                            <DropdownMenuItem>Notificar todos</DropdownMenuItem>
+                                            <DropdownMenuItem>Notificar um voluntário...</DropdownMenuItem>
+                                        </DropdownMenuSubContent>
+                                        </DropdownMenuPortal>
+                                    </DropdownMenuSub>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                             <p className="text-xs text-muted-foreground mt-1">Lembretes automáticos são enviados 3 e 1 dia antes.</p>
+                        </div>
                          <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)}><Trash2 className="mr-2"/> Excluir Escala</Button>
                     </div>
                 </CardHeader>
