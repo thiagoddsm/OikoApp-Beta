@@ -2,9 +2,9 @@
 'use client';
 
 import React from 'react';
-import { useDoc, useFirebase } from '@/firebase';
+import { useDoc } from '@/firebase';
 import { useParams } from 'next/navigation';
-import { Loader2, Cake, Hash, Phone, Mail, MapPin } from 'lucide-react';
+import { Loader2, Cake, Phone, Mail } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';

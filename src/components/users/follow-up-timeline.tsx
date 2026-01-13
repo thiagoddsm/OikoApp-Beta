@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useFirebase } from '@/firebase';
@@ -21,11 +22,11 @@ export function FollowUpTimeline({ memberId, memberName }: { memberId: string, m
     const [notes, setNotes] = useState([
         { id: '1', authorId: 'admin', type: 'system', content: `Perfil criado.`, createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
         { id: '2', authorId: 'admin', type: 'system', content: `Status alterado para: Novo Convertido`, createdAt: new Date(Date.now() - 28 * 24 * 60 * 60 * 1000) },
-        { id: '3', authorId: 'leader1', content: `Mostrou grande interesse na célula e fez perguntas pertinentes sobre a fé. Conectei com o João para iniciar o discipulado.`, createdAt: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000) },
+        { id: '3', authorId: 'leader1', type: 'user', content: `Mostrou grande interesse na célula e fez perguntas pertinentes sobre a fé. Conectei com o João para iniciar o discipulado.`, createdAt: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000) },
         { id: '4', authorId: 'admin', type: 'system', content: `Mudança de GC: Movido para "Conexão Jovem" (Líder: João Pereira).`, createdAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000) },
         { id: '5', authorId: 'admin', type: 'system', content: `Frequência no GC aumentou 20%.`, createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000) },
         { id: '6', authorId: 'admin', type: 'system', content: `Iniciou serviço na área: Mídia.`, createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000) },
-        { id: '7', authorId: 'leader2', content: `Conversamos sobre o seu desenvolvimento na equipe de mídia. Ele está muito animado e aprendendo rápido.`, createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000) },
+        { id: '7', authorId: 'leader2', type: 'user', content: `Conversamos sobre o seu desenvolvimento na equipe de mídia. Ele está muito animado e aprendendo rápido.`, createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000) },
         { id: '8', authorId: 'admin', type: 'system', content: `Status de Dizimista alterado para: Sim.`, createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) },
     ]);
 
@@ -50,12 +51,17 @@ export function FollowUpTimeline({ memberId, memberName }: { memberId: string, m
     };
     
     // Simulação de dados de usuários para os avatares e nomes
-    const authorMap = useMemo(() => new Map([
-        ['admin', { id: 'admin', name: 'Sistema', avatar: 'avatar-6' }],
-        ['leader1', { id: 'leader1', name: 'João Pereira', avatar: 'avatar-4' }],
-        ['leader2', { id: 'leader2', name: 'Beatriz Lima', avatar: 'avatar-5' }],
-        [currentUser?.uid, { id: currentUser?.uid, name: currentUser?.displayName, avatar: 'avatar-1' }]
-    ]), [currentUser]);
+    const authorMap = useMemo(() => {
+        const map = new Map([
+            ['admin', { id: 'admin', name: 'Sistema', avatar: 'avatar-6' }],
+            ['leader1', { id: 'leader1', name: 'João Pereira', avatar: 'avatar-4' }],
+            ['leader2', { id: 'leader2', name: 'Beatriz Lima', avatar: 'avatar-5' }],
+        ]);
+        if (currentUser) {
+            map.set(currentUser.uid, { id: currentUser.uid, name: currentUser.displayName || 'Você', avatar: 'avatar-1' });
+        }
+        return map;
+    }, [currentUser]);
 
     const getIconForType = (type: string) => {
         switch (type) {
