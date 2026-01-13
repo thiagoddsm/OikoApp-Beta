@@ -17,7 +17,7 @@ import 'jspdf-autotable';
 const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
 export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, monthFilter: string }) {
-    const { teams, users, isLoading: isContextLoading, deleteSchedule } = useVolunteering();
+    const { teams, users, areas, isLoading: isContextLoading, deleteSchedule } = useVolunteering();
     const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
     
     const scheduleId = `${areaId}_${monthFilter}`;
@@ -254,4 +254,3 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
         </>
     );
 }
-    
