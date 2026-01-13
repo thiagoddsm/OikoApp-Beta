@@ -19,6 +19,7 @@ import { Progress } from "@/components/ui/progress";
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { FollowUpTimeline } from '@/components/users/follow-up-timeline';
+import { DiscipleshipNotes } from '@/components/users/discipleship-notes';
 
 
 type UserProfile = {
@@ -242,18 +243,16 @@ export default function UserProfilePage() {
         {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             <KpiCard icon={Church} title="Célula (GC)" value={cell?.nome || "N/A"} footer="Grupo Pequeno do membro." />
+            <KpiCard icon={UserCheck} title="Discipulador" value={supervisor?.name || "N/A"} footer="Líder que acompanha este membro." />
             <KpiCard icon={AreaChart} title="Área" value={area?.nome || "N/A"} footer="Área de supervisão do GC." />
             <KpiCard icon={Network} title="Rede" value={rede?.nome || "N/A"} footer="Rede de supervisão da Área." />
-            <KpiCard icon={Percent} title="Frequência no GC" value="85%" footer="Últimos 3 meses (simulado)." />
-            <KpiCard icon={HandHelping} title="Serviço" value="Mídia" footer="Área de voluntariado (simulado)." />
-            <KpiCard icon={Percent} title="Frequência (Serviço)" value="95%" footer="Últimos 3 meses (simulado)." />
-            <KpiCard icon={HandCoins} title="Dizimista" value="Sim" footer="Fidelidade nos últimos 6 meses." />
         </div>
 
         {/* Tabs */}
         <Tabs defaultValue="trail" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="trail"><Footprints className="mr-2 size-4" />Trilha</TabsTrigger>
+                <TabsTrigger value="discipleship"><HandHelping className="mr-2 size-4" />Discipulado</TabsTrigger>
                 <TabsTrigger value="follow-up"><MessageSquare className="mr-2 size-4" />Follow Up</TabsTrigger>
                 <TabsTrigger value="details"><User className="mr-2 size-4" />Detalhes</TabsTrigger>
             </TabsList>
@@ -268,6 +267,13 @@ export default function UserProfilePage() {
                     <DiscipleshipTrail currentStatusId={userProfile.integrationStatus} />
                   </CardContent>
                 </Card>
+            </TabsContent>
+            
+            <TabsContent value="discipleship">
+              <DiscipleshipNotes 
+                memberId={userId}
+                memberName={userProfile.name}
+              />
             </TabsContent>
 
             <TabsContent value="follow-up">

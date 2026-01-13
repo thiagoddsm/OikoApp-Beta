@@ -231,6 +231,7 @@ export default function DashboardLayout({
       if (path === '/dashboard') return 'Dashboard';
       if (path.startsWith('/dashboard/users')) return 'Jornada do Membro (CRM)';
       if (path.startsWith('/dashboard/gc')) return 'GCs e Discipulado';
+      if (path.startsWith('/dashboard/discipleship')) return 'Discipulado';
       if (path.startsWith('/dashboard/attendance')) return 'Frequência nos Cultos';
       if (path.startsWith('/dashboard/volunteering/teams')) return 'Gerenciar Equipes';
       if (path.startsWith('/dashboard/volunteering/events')) return 'Gerenciar Eventos';
