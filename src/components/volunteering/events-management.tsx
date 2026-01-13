@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useVolunteering, type VolunteeringEvent } from '@/contexts/volunteering-context';
@@ -18,24 +19,23 @@ function ImportEventsButton() {
     const [isImporting, setIsImporting] = useState(false);
 
     const eventsToImport = [
-        { name: 'Culto Propósitos', time: '20:00', date: '' },
-        { name: 'Culto clássico', time: '07:30', date: '' },
-        { name: 'Culto da Família', time: '10:15', date: '' },
-        { name: 'Culto da noite', time: '19:30', date: '' },
-        { name: 'Culto da tarde', time: '17:30', date: '' },
+        { name: 'Culto Propósitos', time: '20:00', frequency: 'semanal', dayOfWeek: 'Quinta-feira' },
+        { name: 'Culto clássico', time: '07:30', frequency: 'semanal', dayOfWeek: 'Domingo' },
+        { name: 'Culto da Família', time: '10:15', frequency: 'semanal', dayOfWeek: 'Domingo' },
+        { name: 'Culto da noite', time: '19:30', frequency: 'semanal', dayOfWeek: 'Domingo' },
+        { name: 'Culto da tarde', time: '17:30', frequency: 'semanal', dayOfWeek: 'Domingo' },
     ];
 
     const handleImport = async () => {
         setIsImporting(true);
         let importedCount = 0;
         const importPromises = eventsToImport.map(eventData => {
-             // Check if event with the same name already exists
             const eventExists = events.some(e => e.name.toLowerCase() === eventData.name.toLowerCase());
             if (!eventExists) {
                 importedCount++;
                 return addEvent(eventData as any);
             }
-            return Promise.resolve(); // Do nothing if it exists
+            return Promise.resolve();
         });
 
         await Promise.all(importPromises);
@@ -179,7 +179,7 @@ export function EventsManagement() {
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
-              <TableHead>Data</TableHead>
+              <TableHead>Frequência</TableHead>
               <TableHead>Horário</TableHead>
               <TableHead>Áreas de Serviço</TableHead>
               <TableHead className="text-right w-[100px]">Ações</TableHead>
@@ -197,7 +197,7 @@ export function EventsManagement() {
                   <TableRow key={event.id}>
                     <TableCell className="font-medium">{event.name}</TableCell>
                     <TableCell>
-                      {event.date ? event.date : 'Recorrente'}
+                      {event.date ? event.date : event.dayOfWeek || 'Recorrente'}
                     </TableCell>
                     <TableCell>
                       {event.time}
