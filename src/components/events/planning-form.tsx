@@ -1,9 +1,11 @@
 
+      
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useFirebase, addDocumentNonBlocking } from '@/firebase';
+import { useVolunteering } from '@/contexts/volunteering-context';
 import { collection, serverTimestamp } from 'firebase/firestore';
-import { Clock, Users, Layout, DollarSign, Utensils, FileText, ShieldAlert, Target, ListChecks } from 'lucide-react';
+import { Clock, Users, Layout, DollarSign, Utensils, FileText, ShieldAlert, Target, ListChecks, HelpCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,49 +15,51 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 const smartMappings = {
-  specific: { label: "Específico", placeholder: "O que exatamente vamos alcançar? Ex: Treinar 20 novos voluntários." },
-  measurable: { label: "Mensurável", placeholder: "Qual número define o sucesso? Ex: 80% de taxa de aprovação no teste final." },
-  achievable: { label: "Alcançável", placeholder: "Temos os recursos (pessoas, espaço, budget)? Ex: Sim, temos 3 instrutores e sala disponível." },
-  relevant: { label: "Relevante", placeholder: "Por que isso é importante agora? Ex: Para suprir a demanda de voluntários para a Páscoa." },
-  timeBound: { label: "Temporal", placeholder: "Qual o prazo final? Ex: Treinamento concluído até 15 de Março." }
+  specific: { label: "Específico (S)", placeholder: "Ex: Treinar 20 novos voluntários para a equipe de mídia." },
+  measurable: { label: "Mensurável (M)", placeholder: "Ex: Atingir 80% de taxa de aprovação no teste final." },
+  achievable: { label: "Alcançável (A)", placeholder: "Ex: Sim, temos 3 instrutores, material e sala disponível." },
+  relevant: { label: "Relevante (R)", placeholder: "Ex: Para suprir a alta demanda de voluntários para a Páscoa." },
+  timeBound: { label: "Temporal (T)", placeholder: "Ex: Treinamento concluído até 15 de Março." }
 };
 
 const method5w2hMappings = {
-  what: { label: "O Quê", placeholder: "Qual é a ação principal? Ex: Realizar a Conferência de Mulheres 2025." },
-  why: { label: "Por Quê", placeholder: "Qual o propósito? Ex: Fortalecer a comunhão e o ensino bíblico para mulheres." },
-  who: { label: "Quem", placeholder: "Quem são os responsáveis chave? Ex: Pastora Maria (coord.), Ana (logística)." },
-  where: { label: "Onde", placeholder: "Onde o evento acontecerá? Ex: Templo Sede e Salão Social." },
-  when: { label: "Quando", placeholder: "Qual o cronograma geral? Ex: 10 a 12 de Outubro." },
-  how: { label: "Como", placeholder: "Quais são as principais etapas? Ex: Definir preletoras, abrir inscrições, etc." },
-  howMuch: { label: "Quanto Custa", placeholder: "Qual o custo estimado? Ex: R$ 15.000,00" }
+  what: { label: "What (O Quê)", placeholder: "Ex: Realizar a Conferência de Mulheres 2025." },
+  why: { label: "Why (Por Quê)", placeholder: "Ex: Fortalecer a comunhão e o ensino bíblico para mulheres." },
+  who: { label: "Who (Quem)", placeholder: "Ex: Pastora Maria (coord.), Ana (logística), Equipe de Louvor." },
+  where: { label: "Where (Onde)", placeholder: "Ex: Templo Sede e Salão Social." },
+  when: { label: "When (Quando)", placeholder: "Ex: 10 a 12 de Outubro, das 19h às 22h." },
+  how: { label: "How (Como)", placeholder: "Ex: Definir preletoras, abrir inscrições, divulgar nas redes, etc." },
+  howMuch: { label: "How Much (Quanto)", placeholder: "Ex: R$ 15.000,00" }
+};
+
+const timeTooltips = {
+  timeLoadIn: "Acesso da equipe: Horário que a equipe precisa chegar para montar som, luz, decoração, etc.",
+  timeStart: "Início para o público: Horário que as portas abrem e os convidados podem entrar.",
+  timeEnd: "Término para o público: Horário que a última parte do evento se encerra para os participantes.",
+  timeLoadOut: "Desocupação total: Horário que o local deve estar completamente vazio e limpo pela equipe."
 };
 
 
 export function EventPlanningForm() {
   const { firestore } = useFirebase();
+  const { rooms } = useVolunteering();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
   // Estado Unificado
   const [formData, setFormData] = useState({
-    requesterName: '',
     ministry: '',
     eventName: '',
     category: '',
     recurrence: 'unico',
-    recurrenceStart: '',
-    recurrenceEnd: '',
     visionAlignment: '',
     smart: { specific: '', measurable: '', achievable: '', relevant: '', timeBound: '' },
     method5w2h: { what: '', why: '', who: '', where: '', when: '', how: '', howMuch: '' },
-    targetAudience: [],
-    capacityMinimum: '',
-    capacityExpected: '',
-    capacityMax: '',
     date: '',
     timeLoadIn: '',
     timeStart: '',
@@ -67,12 +71,27 @@ export function EventPlanningForm() {
     foodType: '',
     kitchenResponsible: '',
     isPaid: 'gratuito',
-    budgetExpenses: '',
+    fixedCosts: '',
+    variableCostPerPerson: '',
     ticketPrice: '',
     breakEvenAnalysis: ''
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  useEffect(() => {
+    const fixed = parseFloat(formData.fixedCosts) || 0;
+    const variable = parseFloat(formData.variableCostPerPerson) || 0;
+    const price = parseFloat(formData.ticketPrice) || 0;
+
+    if (price > variable) {
+        const breakEven = Math.ceil(fixed / (price - variable));
+        setFormData(prev => ({...prev, breakEvenAnalysis: isFinite(breakEven) ? breakEven.toString() : ''}));
+    } else {
+        setFormData(prev => ({...prev, breakEvenAnalysis: ''}));
+    }
+
+  }, [formData.fixedCosts, formData.variableCostPerPerson, formData.ticketPrice]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -107,6 +126,10 @@ export function EventPlanningForm() {
       const collectionRef = collection(firestore, "strategic_events");
       await addDocumentNonBlocking(collectionRef, {
         ...formData,
+        fixedCosts: parseFloat(formData.fixedCosts) || 0,
+        variableCostPerPerson: parseFloat(formData.variableCostPerPerson) || 0,
+        ticketPrice: parseFloat(formData.ticketPrice) || 0,
+        breakEvenAnalysis: parseInt(formData.breakEvenAnalysis, 10) || 0,
         submittedAt: serverTimestamp(),
         status: 'analise_estrategica'
       });
@@ -209,11 +232,11 @@ export function EventPlanningForm() {
             </div>
 
             <div className="bg-white p-5 rounded-lg border border-indigo-100 shadow-sm mb-8">
-              <h3 className="font-bold text-indigo-800 mb-4 flex items-center gap-2"><ListChecks size={18}/> Metas SMART</h3>
+              <h3 className="font-bold text-indigo-800 mb-4 flex items-center gap-2"><ListChecks size={18}/> Metas SMART (Seja Inteligente)</h3>
               <div className="space-y-3">
                  {Object.entries(smartMappings).map(([key, { label, placeholder }]) => (
                      <div key={key} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                        <Label className="text-xs font-bold uppercase text-indigo-600 md:text-right px-2">{key.charAt(0).toUpperCase()} - {label}</Label>
+                        <Label className="text-xs font-bold uppercase text-indigo-600 md:text-right px-2">{label}</Label>
                         <Input type="text" name={key} placeholder={placeholder} value={formData.smart[key]} onChange={(e) => handleNestedChange(e, 'smart')} className="md:col-span-3 bg-indigo-50/30" />
                      </div>
                  ))}
@@ -234,52 +257,80 @@ export function EventPlanningForm() {
           </section>
 
           <section>
-            <div className="flex items-center gap-3 mb-6 pb-2 border-b border-gray-200">
-              <div className="bg-indigo-100 p-2 rounded-lg text-indigo-700"><Clock size={24} /></div>
-              <h2 className="text-2xl font-bold text-gray-800">3. Matriz Logística</h2>
-            </div>
-            <div className="mb-8">
-              <Label className="block text-sm font-bold text-gray-700 mb-2">Cronograma Operacional (4 Marcos)</Label>
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-2 items-end bg-gray-50 p-4 rounded-lg border border-gray-200">
-                 <div className="md:col-span-1"><Label className="text-xs text-gray-500 block mb-1">Data</Label><Input type="date" required name="date" value={formData.date} onChange={handleChange}/></div>
-                 <div><Label className="text-xs font-bold text-indigo-600 block mb-1">1. Load-in (Equipe)</Label><Input type="time" required name="timeLoadIn" value={formData.timeLoadIn} onChange={handleChange} className="border-indigo-200" /></div>
-                 <div><Label className="text-xs font-bold text-green-600 block mb-1">2. Início do Evento</Label><Input type="time" required name="timeStart" value={formData.timeStart} onChange={handleChange} className="border-green-200" /></div>
-                 <div><Label className="text-xs font-bold text-gray-600 block mb-1">3. Término</Label><Input type="time" required name="timeEnd" value={formData.timeEnd} onChange={handleChange} className="border-gray-200" /></div>
-                 <div><Label className="text-xs font-bold text-red-600 block mb-1">4. Desocupação</Label><Input type="time" required name="timeLoadOut" value={formData.timeLoadOut} onChange={handleChange} className="border-red-200" /></div>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                    <Label htmlFor="space">Ambiente Solicitado</Label>
-                    <Select name="space" value={formData.space} onValueChange={(v) => setFormData(p => ({...p, space: v}))}><SelectTrigger id="space"><SelectValue placeholder="Selecione..." /></SelectTrigger><SelectContent><SelectItem value="santuario">Santuário Principal</SelectItem><SelectItem value="salao">Salão Social</SelectItem><SelectItem value="externo">Externo (Fora da Igreja)</SelectItem></SelectContent></Select>
+            <TooltipProvider>
+                <div className="flex items-center gap-3 mb-6 pb-2 border-b border-gray-200">
+                  <div className="bg-indigo-100 p-2 rounded-lg text-indigo-700"><Clock size={24} /></div>
+                  <h2 className="text-2xl font-bold text-gray-800">3. Matriz Logística</h2>
                 </div>
-                <div>
-                    <Label htmlFor="roomLayout">Layout da Sala</Label>
-                    <Select name="roomLayout" value={formData.roomLayout} onValueChange={(v) => setFormData(p => ({...p, roomLayout: v}))}><SelectTrigger id="roomLayout"><SelectValue placeholder="Padrão" /></SelectTrigger><SelectContent><SelectItem value="padrao">Padrão</SelectItem><SelectItem value="auditorio">Auditório</SelectItem><SelectItem value="banquete">Banquete (Mesas)</SelectItem><SelectItem value="limpo">Espaço Livre</SelectItem></SelectContent></Select>
+                <div className="mb-8">
+                  <Label className="block text-sm font-bold text-gray-700 mb-2">Cronograma Operacional (4 Marcos)</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-2 items-end bg-gray-50 p-4 rounded-lg border border-gray-200">
+                     <div className="md:col-span-1"><Label className="text-xs text-gray-500 block mb-1">Data</Label><Input type="date" required name="date" value={formData.date} onChange={handleChange}/></div>
+                     
+                     {Object.entries(timeTooltips).map(([key, tooltipText], index) => (
+                        <div key={key}>
+                            <Label className={cn("text-xs font-bold block mb-1", 
+                                index === 0 ? 'text-indigo-600' : 
+                                index === 1 ? 'text-green-600' :
+                                index === 2 ? 'text-gray-600' : 'text-red-600'
+                            )}>
+                                <div className="flex items-center gap-1">
+                                    <span>{index + 1}. {key.replace('time', '')}</span>
+                                     <Tooltip>
+                                        <TooltipTrigger asChild><button type="button"><HelpCircle className="size-3 text-gray-400" /></button></TooltipTrigger>
+                                        <TooltipContent><p className="max-w-xs">{tooltipText}</p></TooltipContent>
+                                    </Tooltip>
+                                </div>
+                            </Label>
+                            <Input type="time" required name={key} value={formData[key]} onChange={handleChange} className={cn(
+                                index === 0 ? 'border-indigo-200' : 
+                                index === 1 ? 'border-green-200' :
+                                index === 2 ? 'border-gray-200' : 'border-red-200'
+                            )} />
+                        </div>
+                     ))}
+                  </div>
                 </div>
-            </div>
-             <div className="bg-orange-50 p-6 rounded-xl border border-orange-200 mt-6">
-                <div className="flex items-center gap-2 mb-4"><Utensils className="text-orange-600" size={20} /><h3 className="font-bold text-orange-900">Alimentação</h3></div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <Label>Haverá Comida?</Label>
-                         <RadioGroup value={formData.hasFood} onValueChange={(v) => handleRadioChange('hasFood', v)} className="flex items-center gap-4 mt-2">
-                            <div className="flex items-center space-x-2"><RadioGroupItem value="sim" id="food_sim" /><Label htmlFor="food_sim">Sim</Label></div>
-                            <div className="flex items-center space-x-2"><RadioGroupItem value="nao" id="food_nao" /><Label htmlFor="food_nao">Não</Label></div>
-                        </RadioGroup>
+                        <Label htmlFor="space">Ambiente Solicitado</Label>
+                        <Select name="space" value={formData.space} onValueChange={(v) => setFormData(p => ({...p, space: v}))}>
+                            <SelectTrigger id="space"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                            <SelectContent>
+                                {rooms.map(room => (
+                                    <SelectItem key={room.id} value={room.name}>{room.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
-                    {formData.hasFood === 'sim' && (<>
-                        <div>
-                            <Label className="text-xs font-bold text-orange-800 uppercase">Origem</Label>
-                             <Select name="foodType" value={formData.foodType} onValueChange={(v) => setFormData(p => ({...p, foodType: v}))}><SelectTrigger><SelectValue placeholder="Selecione..."/></SelectTrigger><SelectContent><SelectItem value="interno">Preparo Interno</SelectItem><SelectItem value="terceirizado">Buffet</SelectItem><SelectItem value="potluck">Junta-Pratos</SelectItem></SelectContent></Select>
-                        </div>
-                        <div>
-                            <Label className="text-xs font-bold text-orange-800 uppercase">Responsável Limpeza</Label>
-                            <Input type="text" name="kitchenResponsible" value={formData.kitchenResponsible} onChange={handleChange} />
-                        </div>
-                    </>)}
+                    <div>
+                        <Label htmlFor="roomLayout">Layout da Sala</Label>
+                        <Select name="roomLayout" value={formData.roomLayout} onValueChange={(v) => setFormData(p => ({...p, roomLayout: v}))}><SelectTrigger id="roomLayout"><SelectValue placeholder="Padrão" /></SelectTrigger><SelectContent><SelectItem value="padrao">Padrão</SelectItem><SelectItem value="auditorio">Auditório</SelectItem><SelectItem value="banquete">Banquete (Mesas)</SelectItem><SelectItem value="limpo">Espaço Livre</SelectItem></SelectContent></Select>
+                    </div>
                 </div>
-             </div>
+                 <div className="bg-orange-50 p-6 rounded-xl border border-orange-200 mt-6">
+                    <div className="flex items-center gap-2 mb-4"><Utensils className="text-orange-600" size={20} /><h3 className="font-bold text-orange-900">Alimentação</h3></div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <Label>Haverá Comida?</Label>
+                             <RadioGroup value={formData.hasFood} onValueChange={(v) => handleRadioChange('hasFood', v)} className="flex items-center gap-4 mt-2">
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="sim" id="food_sim" /><Label htmlFor="food_sim">Sim</Label></div>
+                                <div className="flex items-center space-x-2"><RadioGroupItem value="nao" id="food_nao" /><Label htmlFor="food_nao">Não</Label></div>
+                            </RadioGroup>
+                        </div>
+                        {formData.hasFood === 'sim' && (<>
+                            <div>
+                                <Label className="text-xs font-bold text-orange-800 uppercase">Origem</Label>
+                                 <Select name="foodType" value={formData.foodType} onValueChange={(v) => setFormData(p => ({...p, foodType: v}))}><SelectTrigger><SelectValue placeholder="Selecione..."/></SelectTrigger><SelectContent><SelectItem value="interno">Preparo Interno</SelectItem><SelectItem value="terceirizado">Buffet</SelectItem><SelectItem value="potluck">Junta-Pratos</SelectItem></SelectContent></Select>
+                            </div>
+                            <div>
+                                <Label className="text-xs font-bold text-orange-800 uppercase">Responsável Limpeza</Label>
+                                <Input type="text" name="kitchenResponsible" value={formData.kitchenResponsible} onChange={handleChange} />
+                            </div>
+                        </>)}
+                    </div>
+                 </div>
+            </TooltipProvider>
           </section>
 
           <section>
@@ -293,13 +344,17 @@ export function EventPlanningForm() {
             </RadioGroup>
             {formData.isPaid === 'pago' && (
                 <div className="bg-emerald-50 p-6 rounded-xl border border-emerald-200 grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                         <Label htmlFor="budgetExpenses">Despesas Estimadas (Lista)</Label>
-                         <Textarea id="budgetExpenses" name="budgetExpenses" rows={3} value={formData.budgetExpenses} onChange={handleChange} placeholder="Som, Decor, Comida..."></Textarea>
+                    <div className="space-y-4">
+                        <div><Label htmlFor="fixedCosts">Custos Fixos Totais (R$)</Label><Input id="fixedCosts" type="number" name="fixedCosts" value={formData.fixedCosts} onChange={handleChange} placeholder="Soma de todos os custos que não mudam com o nº de pessoas"/></div>
+                        <div><Label htmlFor="variableCostPerPerson">Custo Variável por Pessoa (R$)</Label><Input id="variableCostPerPerson" type="number" name="variableCostPerPerson" value={formData.variableCostPerPerson} onChange={handleChange} placeholder="Custo do kit, alimentação, etc."/></div>
                     </div>
                     <div className="space-y-4">
-                        <div><Label htmlFor="ticketPrice">Valor Inscrição (R$)</Label><Input id="ticketPrice" type="number" name="ticketPrice" value={formData.ticketPrice} onChange={handleChange} /></div>
-                        <div><Label htmlFor="breakEvenAnalysis">Ponto de Equilíbrio (Qtd Pessoas)</Label><Input id="breakEvenAnalysis" type="number" name="breakEvenAnalysis" value={formData.breakEvenAnalysis} onChange={handleChange} placeholder="Mínimo para pagar a conta" /></div>
+                        <div><Label htmlFor="ticketPrice">Valor da Inscrição (R$)</Label><Input id="ticketPrice" type="number" name="ticketPrice" value={formData.ticketPrice} onChange={handleChange} /></div>
+                        <div>
+                            <Label htmlFor="breakEvenAnalysis">Ponto de Equilíbrio (Qtd. Pessoas)</Label>
+                            <Input id="breakEvenAnalysis" type="number" name="breakEvenAnalysis" value={formData.breakEvenAnalysis} disabled className="font-bold bg-white" />
+                            <p className="text-xs text-muted-foreground mt-1">Nº de inscrições para cobrir os custos.</p>
+                        </div>
                     </div>
                 </div>
             )}
@@ -316,3 +371,5 @@ export function EventPlanningForm() {
     </div>
   );
 }
+
+    
