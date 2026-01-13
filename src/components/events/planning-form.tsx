@@ -26,13 +26,13 @@ const smartMappings = {
 };
 
 const method5w2hMappings = {
-  what: { label: "What (O Quê)", placeholder: "Ex: Realizar a Conferência de Mulheres 2025." },
-  why: { label: "Why (Por Quê)", placeholder: "Ex: Fortalecer a comunhão e o ensino bíblico para mulheres." },
-  who: { label: "Who (Quem)", placeholder: "Ex: Pastora Maria (coord.), Ana (logística), Equipe de Louvor." },
-  where: { label: "Where (Onde)", placeholder: "Ex: Templo Sede e Salão Social." },
-  when: { label: "When (Quando)", placeholder: "Ex: 10 a 12 de Outubro, das 19h às 22h." },
-  how: { label: "How (Como)", placeholder: "Ex: Definir preletoras, abrir inscrições, divulgar nas redes, etc." },
-  howMuch: { label: "How Much (Quanto)", placeholder: "Ex: R$ 15.000,00" }
+  what: { label: "What (O Quê?)", placeholder: "Ex: Realizar a Conferência de Mulheres 2025." },
+  why: { label: "Why (Por Quê?)", placeholder: "Ex: Fortalecer a comunhão e o ensino bíblico para mulheres." },
+  who: { label: "Who (Quem?)", placeholder: "Ex: Pastora Maria (coord.), Ana (logística), Equipe de Louvor." },
+  where: { label: "Where (Onde?)", placeholder: "Ex: Templo Sede e Salão Social." },
+  when: { label: "When (Quando?)", placeholder: "Ex: 10 a 12 de Outubro, das 19h às 22h." },
+  how: { label: "How (Como?)", placeholder: "Ex: Definir preletoras, abrir inscrições, divulgar nas redes, etc." },
+  howMuch: { label: "How Much (Quanto?)", placeholder: "Ex: R$ 15.000,00" }
 };
 
 const timeTooltips = {
@@ -57,6 +57,7 @@ export function EventPlanningForm() {
     category: '',
     recurrence: 'unico',
     visionAlignment: '',
+    phaseAlignment: '',
     smart: { specific: '', measurable: '', achievable: '', relevant: '', timeBound: '' },
     method5w2h: { what: '', why: '', who: '', where: '', when: '', how: '', howMuch: '' },
     date: '',
@@ -234,6 +235,11 @@ export function EventPlanningForm() {
             <div className="mb-6">
                <Label htmlFor="visionAlignment">Alinhamento com a Visão (Justificativa)</Label>
                <Textarea required id="visionAlignment" name="visionAlignment" rows={2} value={formData.visionAlignment} onChange={handleChange} placeholder="Como este evento contribui para o tema do ano ou crescimento das células?"></Textarea>
+            </div>
+
+            <div className="mb-8">
+               <Label htmlFor="phaseAlignment">Alinhamento com a Fase da Igreja (Iluminar, Buscar, Mudar)</Label>
+               <Textarea required id="phaseAlignment" name="phaseAlignment" rows={2} value={formData.phaseAlignment} onChange={handleChange} placeholder="Ciclo: Iluminar (Jan/Fev), Buscar (Mar/Abr), Mudar (Mai/Jun). Como seu evento se encaixa na fase atual?"></Textarea>
             </div>
 
             <div className="bg-white p-5 rounded-lg border border-indigo-100 shadow-sm mb-8">
