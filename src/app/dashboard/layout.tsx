@@ -82,12 +82,9 @@ export const userRoles: { [key: string]: string } = {
 const menuItems = [
     { href: "/dashboard", label: "Dashboard", icon: Home },
     { 
+      href: "/dashboard/people",
       label: "Pessoas", 
       icon: Users,
-      subItems: [
-        { href: "/dashboard/users", label: "Jornada (CRM)", icon: Footprints },
-        { href: "/dashboard/notifications", label: "Comunicação", icon: MessageSquare },
-      ]
     },
     { 
       label: "GCs", 
@@ -176,7 +173,7 @@ function renderMenuItems(items: any[], pathname: string, level = 0) {
     if (item.href) {
       return (
         <SidebarMenuItem key={item.href}>
-          <SidebarMenuButton asChild isActive={pathname === item.href} className="justify-start">
+          <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)} className="justify-start">
             <Link href={item.href}>
               {item.icon && <item.icon className="size-4" />}
               <span>{item.label}</span>
@@ -234,7 +231,7 @@ export default function DashboardLayout({
       // This is a simple implementation. For a more robust solution,
       // you might want to traverse the menuItems array recursively.
       if (path === '/dashboard') return 'Dashboard';
-      if (path.startsWith('/dashboard/users')) return 'Jornada do Membro (CRM)';
+      if (path.startsWith('/dashboard/people')) return 'Pessoas';
       if (path.startsWith('/dashboard/gc')) return 'GCs e Discipulado';
       if (path.startsWith('/dashboard/discipleship')) return 'Discipulado';
       if (path.startsWith('/dashboard/attendance')) return 'Frequência nos Cultos';

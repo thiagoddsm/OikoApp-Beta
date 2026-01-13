@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -48,7 +49,7 @@ const statusLabels: { [key: string]: string } = journeyColumns.reduce((acc, col)
 function UserCard({ user }: { user: User }) {
     const avatar = PlaceHolderImages.find(p => p.id === (user.avatar || 'avatar-1'));
     return (
-        <Link href={`/dashboard/users/${user.id}`} className="w-full text-left">
+        <Link href={`/dashboard/people/${user.id}`} className="w-full text-left">
             <Card 
               className="mb-2 transition-all hover:shadow-md hover:border-primary/50 cursor-grab active:cursor-grabbing"
               draggable
@@ -74,7 +75,7 @@ function UserCard({ user }: { user: User }) {
     );
 }
 
-export default function UsersKanbanPage() {
+export default function JourneyPage() {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
@@ -132,7 +133,7 @@ export default function UsersKanbanPage() {
     }
 
     return (
-        <div className="flex h-[calc(100vh-8.5rem)] flex-col">
+        <div className="flex h-[calc(100vh-12.5rem)] flex-col">
             <header className="flex items-center justify-between px-2 py-2 border-b">
                  <div>
                     <h1 className="text-xl font-bold flex items-center gap-2">
