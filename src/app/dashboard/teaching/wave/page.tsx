@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -6,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { School, Banknote, User, Music, Waves } from 'lucide-react';
 import { UnderConstruction } from '@/components/common/under-construction';
+import { WaveAdminDashboard } from '@/components/teaching/wave/admin-dashboard';
 
 
 const modules = [
@@ -13,25 +13,29 @@ const modules = [
         id: "admin",
         title: "Painel Administrativo",
         icon: School,
-        description: "Visão geral, gestão de agendas, salas, matrículas e estoque de instrumentos."
+        description: "Visão geral, gestão de agendas, salas, matrículas e estoque de instrumentos.",
+        component: <WaveAdminDashboard />
     },
     {
         id: "finance",
         title: "Módulo Financeiro",
         icon: Banknote,
-        description: "Automação de cobranças, gateway de pagamento, régua de cobrança e pagamento de professores."
+        description: "Automação de cobranças, gateway de pagamento, régua de cobrança e pagamento de professores.",
+        component: <UnderConstruction pageTitle="Módulo Financeiro" pageDescription="Automação de cobranças, gateway de pagamento, régua de cobrança e pagamento de professores." />
     },
     {
         id: "teacher",
         title: "Área do Professor",
         icon: User,
-        description: "Agenda de aulas, chamada digital, diário de classe, repositório de arquivos e solicitações."
+        description: "Agenda de aulas, chamada digital, diário de classe, repositório de arquivos e solicitações.",
+        component: <UnderConstruction pageTitle="Área do Professor" pageDescription="Agenda de aulas, chamada digital, diário de classe, repositório de arquivos e solicitações." />
     },
     {
         id: "student",
         title: "Área do Aluno",
         icon: Music,
-        description: "Carteirinha digital, cronograma, material didático, registro de estudos e financeiro simplificado."
+        description: "Carteirinha digital, cronograma, material didático, registro de estudos e financeiro simplificado.",
+        component: <UnderConstruction pageTitle="Área do Aluno" pageDescription="Carteirinha digital, cronograma, material didático, registro de estudos e financeiro simplificado." />
     }
 ]
 
@@ -61,10 +65,7 @@ export default function WaveMusicSchoolPage() {
                 
                 {modules.map((mod) => (
                     <TabsContent key={mod.id} value={mod.id} className="mt-6">
-                        <UnderConstruction 
-                            pageTitle={mod.title}
-                            pageDescription={mod.description}
-                        />
+                        {mod.component}
                     </TabsContent>
                 ))}
             </Tabs>
