@@ -236,7 +236,6 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/volunteering/events')) return 'Gerenciar Eventos';
       if (path.startsWith('/dashboard/volunteering/schedule')) return 'Geração de Escalas';
       if (path.startsWith('/dashboard/volunteering/saved-schedules')) return 'Escalas Salvas';
-      if (path.startsWith('/dashboard/volunteering/volunteers')) return 'Gestão de Servos';
       if (path.startsWith('/dashboard/volunteering')) return 'Gerenciar Áreas de Serviço';
       if (path.startsWith('/dashboard/teaching/wave')) return 'Wave - Escola de Música';
       if (path.startsWith('/dashboard/teaching')) return 'Ensino';
