@@ -15,9 +15,17 @@ const DetailItem = ({ icon, label, value }) => {
         displayValue = value.join(', ');
     } else if (label.toLowerCase().includes('data')) {
         try {
+            // Attempt to parse ISO string first
             displayValue = format(parseISO(value), 'dd/MM/yyyy', { locale: ptBR });
         } catch (e) {
-            // Keep original value if parsing fails
+             // If it fails, assume it might be 'YYYY-MM-DD' and try again
+            try {
+                 const [year, month, day] = value.split('-').map(Number);
+                 const date = new Date(year, month - 1, day);
+                 displayValue = format(date, 'dd/MM/yyyy', { locale: ptBR });
+            } catch (e2) {
+                // Keep original value if all parsing fails
+            }
         }
     }
 
@@ -86,3 +94,4 @@ export function MemberDetails({ user }) {
   );
 }
 
+    

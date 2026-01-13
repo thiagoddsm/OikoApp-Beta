@@ -31,6 +31,7 @@ type UserProfile = {
     hierarchy?: {
         celulaId?: string;
         supervisorId?: string;
+        role?: string;
     };
     serviceAreaId?: string;
     serviceTeamId?: string;
@@ -139,7 +140,8 @@ export default function MemberProfilePage() {
     const avatar = PlaceHolderImages.find(p => p.id === (user.avatar || 'avatar-2'));
     const age = user.dataNascimento ? differenceInYears(new Date(), parseISO(user.dataNascimento)) : null;
     const isDizimista = user.dizimista === 'sim';
-    const primaryRole = user.roles?.[0] || 'member';
+    const primaryRole = user.hierarchy?.role || user.roles?.[0] || 'member';
+
 
     return (
         <VolunteeringProvider>
@@ -240,3 +242,5 @@ export default function MemberProfilePage() {
         </VolunteeringProvider>
     );
 }
+
+    

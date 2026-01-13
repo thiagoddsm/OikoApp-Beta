@@ -40,7 +40,9 @@ const journeyColumns = [
 type User = {
   id: string;
   name: string;
-  roles?: string[];
+  hierarchy?: {
+    role?: string;
+  }
 };
 
 type Cell = {
@@ -86,8 +88,8 @@ export function EditUserDialog({ user, open, onOpenChange }) {
 
   const supervisors = useMemo(() => {
     if (!allUsers) return [];
-    const leaderRoles = ['gc_leader', 'lider_area', 'lider_rede', 'pastor', 'admin'];
-    return allUsers.filter(u => u.roles?.some(role => leaderRoles.includes(role)));
+    const leaderRoles = ['lider_gc', 'lider_area', 'lider_rede', 'pastor', 'pastor_senior', 'admin'];
+    return allUsers.filter(u => u.hierarchy?.role && leaderRoles.includes(u.hierarchy.role));
   }, [allUsers]);
 
 
@@ -404,3 +406,5 @@ export function EditUserDialog({ user, open, onOpenChange }) {
     </>
   );
 }
+
+    
