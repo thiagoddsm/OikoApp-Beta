@@ -15,6 +15,25 @@ import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 
+const smartMappings = {
+  specific: { label: "Específico", placeholder: "O que exatamente vamos alcançar? Ex: Treinar 20 novos voluntários." },
+  measurable: { label: "Mensurável", placeholder: "Qual número define o sucesso? Ex: 80% de taxa de aprovação no teste final." },
+  achievable: { label: "Alcançável", placeholder: "Temos os recursos (pessoas, espaço, budget)? Ex: Sim, temos 3 instrutores e sala disponível." },
+  relevant: { label: "Relevante", placeholder: "Por que isso é importante agora? Ex: Para suprir a demanda de voluntários para a Páscoa." },
+  timeBound: { label: "Temporal", placeholder: "Qual o prazo final? Ex: Treinamento concluído até 15 de Março." }
+};
+
+const method5w2hMappings = {
+  what: { label: "O Quê", placeholder: "Qual é a ação principal? Ex: Realizar a Conferência de Mulheres 2025." },
+  why: { label: "Por Quê", placeholder: "Qual o propósito? Ex: Fortalecer a comunhão e o ensino bíblico para mulheres." },
+  who: { label: "Quem", placeholder: "Quem são os responsáveis chave? Ex: Pastora Maria (coord.), Ana (logística)." },
+  where: { label: "Onde", placeholder: "Onde o evento acontecerá? Ex: Templo Sede e Salão Social." },
+  when: { label: "Quando", placeholder: "Qual o cronograma geral? Ex: 10 a 12 de Outubro." },
+  how: { label: "Como", placeholder: "Quais são as principais etapas? Ex: Definir preletoras, abrir inscrições, etc." },
+  howMuch: { label: "Quanto Custa", placeholder: "Qual o custo estimado? Ex: R$ 15.000,00" }
+};
+
+
 export function EventPlanningForm() {
   const { firestore } = useFirebase();
   const { toast } = useToast();
@@ -192,10 +211,10 @@ export function EventPlanningForm() {
             <div className="bg-white p-5 rounded-lg border border-indigo-100 shadow-sm mb-8">
               <h3 className="font-bold text-indigo-800 mb-4 flex items-center gap-2"><ListChecks size={18}/> Metas SMART</h3>
               <div className="space-y-3">
-                 {Object.keys(formData.smart).map(key => (
+                 {Object.entries(smartMappings).map(([key, { label, placeholder }]) => (
                      <div key={key} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                        <Label className="text-xs font-bold uppercase text-indigo-600 md:text-right px-2">{key.charAt(0).toUpperCase()} - {key}</Label>
-                        <Input type="text" name={key} value={formData.smart[key]} onChange={(e) => handleNestedChange(e, 'smart')} className="md:col-span-3 bg-indigo-50/30" />
+                        <Label className="text-xs font-bold uppercase text-indigo-600 md:text-right px-2">{key.charAt(0).toUpperCase()} - {label}</Label>
+                        <Input type="text" name={key} placeholder={placeholder} value={formData.smart[key]} onChange={(e) => handleNestedChange(e, 'smart')} className="md:col-span-3 bg-indigo-50/30" />
                      </div>
                  ))}
               </div>
@@ -204,10 +223,10 @@ export function EventPlanningForm() {
              <div className="bg-white p-5 rounded-lg border border-emerald-100 shadow-sm">
               <h3 className="font-bold text-emerald-800 mb-4 flex items-center gap-2"><Layout size={18}/> Plano de Ação (5W2H)</h3>
               <div className="space-y-3">
-                 {Object.keys(formData.method5w2h).map(key => (
+                 {Object.entries(method5w2hMappings).map(([key, { label, placeholder }]) => (
                      <div key={key} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                        <Label className="text-xs font-bold uppercase text-emerald-700 md:text-right px-2">{key}</Label>
-                        <Input type="text" name={key} value={formData.method5w2h[key]} onChange={(e) => handleNestedChange(e, 'method5w2h')} className="md:col-span-3 bg-emerald-50/30" placeholder={key === 'howMuch' ? 'Custo estimado' : ''} />
+                        <Label className="text-xs font-bold uppercase text-emerald-700 md:text-right px-2">{label}</Label>
+                        <Input type="text" name={key} placeholder={placeholder} value={formData.method5w2h[key]} onChange={(e) => handleNestedChange(e, 'method5w2h')} className="md:col-span-3 bg-emerald-50/30" />
                      </div>
                  ))}
               </div>
