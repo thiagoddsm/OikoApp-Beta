@@ -9,12 +9,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Loader2, Plus, Users, Search, Footprints, Settings } from 'lucide-react';
+import { Loader2, Plus, Search } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { EditUserDialog } from '@/components/users/edit-user-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { format, differenceInYears } from 'date-fns';
 
 type User = {
@@ -24,8 +24,37 @@ type User = {
     dataNascimento?: string;
     email?: string;
     phone?: string;
-    // Add other fields from your user schema as needed
-  };
+    integrationStatus?: string;
+    serviceStatus?: 'serving' | 'not_serving';
+    hierarchy?: {
+        celulaId?: string;
+    };
+    serviceAreaId?: string;
+};
+
+type Cell = {
+  id: string;
+  nome: string;
+};
+
+type AreaOfService = {
+  id: string;
+  name: string;
+};
+
+const journeyStatusLabels: { [key: string]: string } = {
+    'nao_alcancado': 'Não Alcançado',
+    'novo_convertido': 'Novo Convertido',
+    'reconciliado': 'Reconciliado',
+    'transferido': 'Transferido',
+    'membro': 'Membro',
+    'consolidado': 'Consolidado',
+    'lider_treinamento': 'Líder em Treinamento',
+    'lider_gc': 'Líder de GC',
+    'lider_area': 'Líder de Área',
+    'lider_rede': 'Líder de Rede',
+    'pastor': 'Pastor',
+};
 
 export function PeopleTable() {
     const { firestore } = useFirebase();
@@ -33,7 +62,15 @@ export function PeopleTable() {
     const [isFormOpen, setIsFormOpen] = useState(false);
 
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
+    const cellsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells')) : null, [firestore]);
+    const areasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'areas_of_service')) : null, [firestore]);
+    
     const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
+    const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>(cellsQuery);
+    const { data: areas, isLoading: isLoadingAreas } = useCollection<AreaOfService>(areasQuery);
+
+    const cellMap = useMemo(() => new Map(cells?.map(c => [c.id, c.nome]) || []), [cells]);
+    const areaMap = useMemo(() => new Map(areas?.map(a => [a.id, a.name]) || []), [areas]);
 
     const filteredUsers = useMemo(() => {
         if (!users) return [];
@@ -52,7 +89,9 @@ export function PeopleTable() {
         }
     }
 
-    if (isLoadingUsers) {
+    const isLoading = isLoadingUsers || isLoadingCells || isLoadingAreas;
+
+    if (isLoading) {
         return (
             <div className="flex h-full items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin" />
@@ -107,16 +146,21 @@ export function PeopleTable() {
                             <TableRow>
                                 <TableHead className="w-[80px]">Foto</TableHead>
                                 <TableHead>Nome</TableHead>
-                                <TableHead className="w-[150px]">Nascimento</TableHead>
                                 <TableHead>Contatos</TableHead>
-                                <TableHead className="w-[150px]">Cadastro</TableHead>
+                                <TableHead>Etapa da Jornada</TableHead>
+                                <TableHead>Status Serviço</TableHead>
+                                <TableHead>GC</TableHead>
+                                <TableHead>Voluntariado</TableHead>
                                 <TableHead className="w-[80px]">Ações</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {filteredUsers.map(user => {
                                 const avatar = PlaceHolderImages.find(p => p.id === user.avatar) || PlaceHolderImages[1];
-                                const age = calculateAge(user.dataNascimento);
+                                const userCell = user.hierarchy?.celulaId ? cellMap.get(user.hierarchy.celulaId) : '-';
+                                const userServiceArea = user.serviceAreaId ? areaMap.get(user.serviceAreaId) : '-';
+                                const isServing = user.serviceStatus === 'serving';
+
                                 return (
                                 <TableRow key={user.id}>
                                     <TableCell>
@@ -131,17 +175,19 @@ export function PeopleTable() {
                                         </Link>
                                     </TableCell>
                                     <TableCell>
-                                        <div className="text-sm">{user.dataNascimento ? format(new Date(user.dataNascimento+'T12:00:00'), 'dd/MM/yyyy') : '-'}</div>
-                                        <div className="text-xs text-muted-foreground">{age}</div>
-                                    </TableCell>
-                                    <TableCell>
                                         <div className="text-sm">{user.phone || '-'}</div>
                                         <div className="text-xs text-muted-foreground">{user.email || '-'}</div>
                                     </TableCell>
                                     <TableCell>
-                                        <Progress value={85} className="h-2" />
-                                        <span className="text-xs text-muted-foreground">85%</span>
+                                        <Badge variant="outline">{journeyStatusLabels[user.integrationStatus || 'nao_alcancado'] || 'Não definido'}</Badge>
                                     </TableCell>
+                                    <TableCell>
+                                        <Badge variant={isServing ? 'default' : 'secondary'} className={isServing ? 'bg-green-100 text-green-800' : ''}>
+                                            {isServing ? 'Servindo' : 'Não Servindo'}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-muted-foreground">{userCell}</TableCell>
+                                    <TableCell className="text-muted-foreground">{userServiceArea}</TableCell>
                                      <TableCell>
                                         <Button variant="ghost" size="icon" asChild>
                                             <Link href={`/dashboard/people/${user.id}`}>
@@ -158,4 +204,3 @@ export function PeopleTable() {
         </Card>
     );
 }
-
