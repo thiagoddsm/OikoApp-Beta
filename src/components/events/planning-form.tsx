@@ -1,5 +1,4 @@
 
-      
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useFirebase, addDocumentNonBlocking } from '@/firebase';
@@ -198,7 +197,7 @@ export function EventPlanningForm() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <Label htmlFor="category">Categoria Taxonômica</Label>
+                <Label htmlFor="category">Categoria</Label>
                 <Select required name="category" value={formData.category} onValueChange={(v) => setFormData(p => ({...p, category: v}))}>
                   <SelectTrigger id="category"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                   <SelectContent>
@@ -371,5 +370,3 @@ export function EventPlanningForm() {
     </div>
   );
 }
-
-    
