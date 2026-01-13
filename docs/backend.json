@@ -11,7 +11,7 @@
         "phone": { "type": "string" },
         "roles": {
           "type": "array",
-          "items": { "type": "string", "enum": ["admin", "pastor", "lider_rede", "lider_area", "gc_leader", "team_leader", "member", "volunteer"] },
+          "items": { "type": "string", "enum": ["admin", "pastor_senior", "pastor", "lider_rede", "lider_area", "lider_gc", "team_leader", "member", "volunteer"] },
           "description": "User roles."
         },
         "familyId": { "type": "string", "description": "ID linking users of the same family." },
@@ -441,8 +441,10 @@
         "description": { "type": "string", "description": "Optional description." },
         "category": { "type": "string", "description": "e.g., Mobiliário, Eletrônicos, Cabos" },
         "location": { "type": "string", "description": "e.g., Depósito, Sala 1, Auditório" },
-        "status": { "type": "string", "enum": ["disponivel", "emprestado", "em_manutencao"] },
+        "status": { "type": "string", "enum": ["Disponível", "Emprestado", "Manutenção"] },
         "qrCodeValue": { "type": "string", "description": "The unique value stored in the QR code, typically the document ID." },
+        "purchaseDate": { "type": "string", "format": "date" },
+        "purchaseValue": { "type": "number" },
         "lastCheckedOutBy": { "type": "string", "description": "User ID of the person who last checked out the item." },
         "lastCheckedOutDate": { "type": "string", "format": "date-time" },
         "createdAt": { "type": "string", "format": "date-time" }
