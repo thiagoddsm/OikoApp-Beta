@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, User, ArrowLeft, Pencil, MapPin, Phone, Mail, Calendar, Users, Footprints, Church, MessageSquare, Award, TrendingUp, UserCheck, HeartHandshake, GraduationCap, HandHelping, UserPlus, Target, Info, CheckCircle, Smartphone, Clock, BadgeHelp, Network, Building2, UserX, Briefcase, MapIcon } from 'lucide-react';
+import { Loader2, User, ArrowLeft, Pencil, MapPin, Phone, Mail, Calendar, Users, Footprints, Church, MessageSquare, Award, TrendingUp, UserCheck, HeartHandshake, GraduationCap, HandHelping, UserPlus, Target, Info, CheckCircle, Smartphone, Clock, BadgeHelp, Network, Building2, UserX, Briefcase, MapIcon, HandCoins } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Link from 'next/link';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -20,6 +20,8 @@ import { format } from 'date-fns';
 import { FollowUpTimeline } from '@/components/users/follow-up-timeline';
 import { DiscipleshipNotes } from '@/components/users/discipleship-notes';
 import { MemberDetails } from '@/components/users/member-details';
+import { VolunteerServiceForm } from '@/components/volunteering/volunteer-service-form';
+import { VolunteeringProvider } from '@/contexts/volunteering-context';
 
 
 type UserProfile = {
@@ -264,7 +266,17 @@ export default function UserProfilePage() {
                  <MemberDetails user={userProfile} />
             </TabsContent>
             <TabsContent value="service">
-                 <p>Em construção</p>
+                <VolunteeringProvider>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Configurações de Serviço Voluntário</CardTitle>
+                            <CardDescription>Gerencie a disponibilidade e as áreas de atuação deste membro.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <VolunteerServiceForm user={userProfile} />
+                        </CardContent>
+                    </Card>
+                </VolunteeringProvider>
             </TabsContent>
         </Tabs>
       </div>
