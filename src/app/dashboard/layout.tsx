@@ -42,6 +42,7 @@ import {
   Shield,
   CalendarClock,
   Save,
+  LayoutTemplate,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -124,6 +125,7 @@ const menuItems = [
             icon: CalendarDays,
             subItems: [
               { href: "/dashboard/events", label: "Cultos e Eventos", icon: CalendarCheck },
+              { href: "/dashboard/events/planning", label: "Planejamento de Evento", icon: LayoutTemplate },
               { href: "/dashboard/briefing-pro", label: "Briefing Pro", icon: FileText },
               { href: "/dashboard/events/reservations", label: "Reservas de Sala", icon: CalendarClock },
             ]
@@ -240,6 +242,7 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/teaching')) return 'Ensino';
       if (path.startsWith('/dashboard/briefing-pro')) return 'Briefing Pro';
       if (path.startsWith('/dashboard/events/reservations')) return 'Reservas de Sala';
+      if (path.startsWith('/dashboard/events/planning')) return 'Planejamento de Evento';
       if (path.startsWith('/dashboard/events')) return 'Eventos e Produção';
       if (path.startsWith('/dashboard/patrimony')) return 'Gestão de Patrimônio';
       if (path.startsWith('/dashboard/social')) return 'Ação Social';

@@ -335,6 +335,42 @@
         },
         "required": ["title"]
     },
+    "StrategicEvent": {
+      "title": "Strategic Event",
+      "type": "object",
+      "description": "Represents a detailed strategic event plan.",
+      "properties": {
+        "eventName": { "type": "string" },
+        "ministry": { "type": "string" },
+        "category": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "smart": {
+          "type": "object",
+          "properties": {
+            "specific": { "type": "string" },
+            "measurable": { "type": "string" },
+            "achievable": { "type": "string" },
+            "relevant": { "type": "string" },
+            "timeBound": { "type": "string" }
+          }
+        },
+        "method5w2h": {
+          "type": "object",
+          "properties": {
+            "what": { "type": "string" },
+            "why": { "type": "string" },
+            "who": { "type": "string" },
+            "where": { "type": "string" },
+            "when": { "type": "string" },
+            "how": { "type": "string" },
+            "howMuch": { "type": "string" }
+          }
+        },
+        "status": { "type": "string" },
+        "submittedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["eventName", "ministry", "date", "status", "submittedAt"]
+    },
     "Programacao": {
         "title": "Programacao",
         "type": "object",
@@ -484,6 +520,7 @@
       { "path": "/cultos/{cultoId}/louvores/{louvorId}", "definition": { "schema": { "$ref": "#/entities/Louvor" } } },
       { "path": "/cultos/{cultoId}/liturgias/{liturgiaId}", "definition": { "schema": { "$ref": "#/entities/Liturgia" } } },
       { "path": "/eventos/{eventoId}", "definition": { "schema": { "$ref": "#/entities/Evento" } } },
+      { "path": "/strategic_events/{eventId}", "definition": { "schema": { "$ref": "#/entities/StrategicEvent" } } },
       { "path": "/eventos/{eventoId}/programacoes/{programacaoId}", "definition": { "schema": { "$ref": "#/entities/Programacao" } } },
       { "path": "/eventos/{eventoId}/convidados/{convidadoId}", "definition": { "schema": { "$ref": "#/entities/Convidado" } } },
       { "path": "/budget_requests/{reqId}", "definition": { "schema": { "$ref": "#/entities/BudgetRequest" } } },
