@@ -15,7 +15,8 @@ import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, Dialog
 import { EditUserDialog } from '@/components/users/edit-user-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { format, differenceInYears } from 'date-fns';
+import { format, differenceInYears, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 type User = {
     id: string;
@@ -30,6 +31,10 @@ type User = {
         celulaId?: string;
     };
     serviceAreaId?: string;
+    lastServedDate?: {
+      seconds: number;
+      nanoseconds: number;
+    } | string;
 };
 
 type Cell = {
@@ -80,15 +85,19 @@ export function PeopleTable() {
         );
     }, [users, searchTerm]);
     
-    const calculateAge = (birthDate?: string) => {
-        if (!birthDate) return '';
+    const formatLastServed = (lastServed?: User['lastServedDate']) => {
+        if (!lastServed) return '-';
         try {
-            return `${differenceInYears(new Date(), new Date(birthDate))} anos`;
+            if (typeof lastServed === 'string') {
+                return format(parseISO(lastServed), "dd/MM/yyyy");
+            }
+            const date = new Date(lastServed.seconds * 1000);
+            return format(date, "dd/MM/yyyy");
         } catch {
-            return '';
+            return 'Data inválida';
         }
-    }
-
+    };
+    
     const isLoading = isLoadingUsers || isLoadingCells || isLoadingAreas;
 
     if (isLoading) {
@@ -151,6 +160,7 @@ export function PeopleTable() {
                                 <TableHead>Status Serviço</TableHead>
                                 <TableHead>GC</TableHead>
                                 <TableHead>Voluntariado</TableHead>
+                                <TableHead>Último Serviço</TableHead>
                                 <TableHead className="w-[80px]">Ações</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -188,6 +198,7 @@ export function PeopleTable() {
                                     </TableCell>
                                     <TableCell className="text-muted-foreground">{userCell}</TableCell>
                                     <TableCell className="text-muted-foreground">{userServiceArea}</TableCell>
+                                    <TableCell className="text-muted-foreground">{formatLastServed(user.lastServedDate)}</TableCell>
                                      <TableCell>
                                         <Button variant="ghost" size="icon" asChild>
                                             <Link href={`/dashboard/people/${user.id}`}>
@@ -204,3 +215,5 @@ export function PeopleTable() {
         </Card>
     );
 }
+
+    

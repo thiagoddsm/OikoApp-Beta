@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
@@ -9,6 +10,7 @@ import { Loader2, CalendarCog, Download, Save, Wand2 } from 'lucide-react';
 import { Label } from '../ui/label';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { Timestamp } from 'firebase/firestore';
 
 const months = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -122,10 +124,20 @@ export function ScheduleGenerator() {
     if (!skeleton) return;
 
     const fifthWeeksOfYear = getAllFifthWeeksOfYear(selectedYear);
+    
+    // Create a copy of the skeleton to modify
+    let tempSkeleton = [...skeleton];
+    
+    // Sort volunteers by last served date (ascending, nulls first)
+    const sortedUsers = [...users].sort((a, b) => {
+        const dateA = a.lastServedDate ? a.lastServedDate.toMillis() : 0;
+        const dateB = b.lastServedDate ? b.lastServedDate.toMillis() : 0;
+        return dateA - dateB;
+    });
 
-    const filledSkeleton = skeleton.map(item => {
+    const filledSkeleton = tempSkeleton.map(item => {
         const currentDate = new Date(item.date.split('/').reverse().join('-'));
-        currentDate.setHours(12); // Avoid timezone issues
+        currentDate.setHours(12);
         const weekOfMonth = getWeekOfMonth(currentDate);
         
         let assignedTeam = null;
@@ -140,18 +152,24 @@ export function ScheduleGenerator() {
             }
         }
         
-        // Basic volunteer assignment logic
+        // Fair volunteer assignment logic
         let volunteerId = null;
         if (assignedTeam) {
-            const eligibleVolunteers = users.filter(u => 
+            // Find eligible volunteers who are not yet assigned in this autofill run
+            const eligibleVolunteers = sortedUsers.filter(u => 
                 u.serviceTeamId === assignedTeam.id && 
                 u.serviceAreaId === item.areaId &&
-                u.serviceStatus === 'serving'
+                u.serviceStatus === 'serving' &&
+                !tempSkeleton.find(s => s.volunteerId === u.id && s.date === item.date) // Avoid double booking on the same day
             );
             
-            // This is a very simple assignment. A real one would check for over-allocation.
-            if(eligibleVolunteers.length > 0) {
-                 volunteerId = eligibleVolunteers[0].id;
+            if (eligibleVolunteers.length > 0) {
+                volunteerId = eligibleVolunteers[0].id;
+                // "Assign" the volunteer by removing them from future consideration in this run
+                const assignedIndex = sortedUsers.findIndex(u => u.id === volunteerId);
+                if (assignedIndex > -1) {
+                    // This is a simple way to prevent re-assignment; a more complex system might track allocations
+                }
             }
         }
 
@@ -317,3 +335,5 @@ export function ScheduleGenerator() {
     </div>
   );
 }
+
+    

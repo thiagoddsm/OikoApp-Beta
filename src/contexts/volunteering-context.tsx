@@ -29,6 +29,7 @@ export type User = {
   serviceTeamId?: string;
   eligibleEventIds?: string[];
   blockedDates?: string[];
+  lastServedDate?: Timestamp; // "YYYY-MM-DD"
 }
 
 export type VolunteeringEvent = {
@@ -242,7 +243,28 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     const scheduleId = `${data.areaId}_${data.month}`;
     const scheduleDoc = doc(firestore, 'saved_schedules', scheduleId);
     setDocumentNonBlocking(scheduleDoc, data, { merge: true });
-    toast({ title: 'Sucesso', description: 'A escala foi salva.' });
+
+    // After saving, update the lastServedDate for each volunteer
+    const batch = writeBatch(firestore);
+    const volunteerLastServed: Record<string, Timestamp> = {};
+
+    data.schedule.forEach(item => {
+        const itemDate = Timestamp.fromDate(new Date(item.date.split('/').reverse().join('-') + 'T12:00:00'));
+        item.memberIds.forEach((memberId: string) => {
+            if (!volunteerLastServed[memberId] || itemDate > volunteerLastServed[memberId]) {
+                volunteerLastServed[memberId] = itemDate;
+            }
+        });
+    });
+
+    for (const [userId, lastDate] of Object.entries(volunteerLastServed)) {
+        const userDocRef = doc(firestore, 'users', userId);
+        batch.update(userDocRef, { lastServedDate: lastDate });
+    }
+
+    await batch.commit();
+
+    toast({ title: 'Sucesso', description: 'A escala foi salva e as datas de último serviço foram atualizadas.' });
   };
 
   const value = useMemo(() => ({
@@ -289,3 +311,5 @@ export function useVolunteering() {
   }
   return context;
 }
+
+    

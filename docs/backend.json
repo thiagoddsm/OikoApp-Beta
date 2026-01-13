@@ -69,7 +69,8 @@
         "integrationStatus": { "type": "string" },
         "serviceStatus": { "type": "string", "enum": ["serving", "not_serving"], "description": "Indicates if the user is currently serving." },
         "serviceAreaId": { "type": "string", "description": "ID of the AreaOfService the user serves in." },
-        "serviceTeamId": { "type": "string", "description": "ID of the Team the user is part of." }
+        "serviceTeamId": { "type": "string", "description": "ID of the Team the user is part of." },
+        "lastServedDate": { "type": "string", "format": "date-time", "description": "The last date the volunteer served." }
       },
       "required": ["name", "email", "roles", "createdAt"]
     },
@@ -541,3 +542,5 @@
     ]
   }
 }
+
+    
