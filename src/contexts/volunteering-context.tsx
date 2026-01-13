@@ -32,9 +32,11 @@ export type User = {
 export type VolunteeringEvent = {
   id: string;
   name: string;
-  frequency: 'semanal' | 'pontual';
+  frequency: 'semanal' | 'quinzenal' | 'mensal' | 'pontual' | 'custom';
   time: string;
   dayOfWeek?: string;
+  weekOfMonth?: '1' | '2' | '3' | '4' | 'last';
+  customFrequency?: string;
   date?: string;
   room?: string;
   requiredAreas?: { areaId: string; quantity: number }[];
@@ -175,7 +177,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { addItem: addTeam, updateItem: updateTeam, deleteItem: deleteTeam } = createCrudFunctions<Team>('teams', 'Equipe');
   const { addItem: addRoom, updateItem: updateRoom, deleteItem: deleteRoom } = createCrudFunctions<Room>('rooms', 'Ambiente');
   const { addItem: addReservation, updateItem: updateReservation, deleteItem: deleteReservation } = createCrudFunctions<RoomReservation>('room_reservations', 'Reserva');
-  const { addItem: deleteSchedule, updateItem: _, deleteItem: __ } = createCrudFunctions<SavedSchedule>('saved_schedules', 'Escala Salva');
+  const { addItem: _, updateItem: __, deleteItem: deleteSchedule } = createCrudFunctions<SavedSchedule>('saved_schedules', 'Escala Salva');
 
 
   // --- CUSTOM EVENT FUNCTIONS ---

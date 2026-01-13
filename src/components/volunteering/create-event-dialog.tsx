@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useVolunteering, type VolunteeringEvent } from '@/contexts/volunteering-context';
@@ -9,6 +10,7 @@ import { Loader2, Plus, Minus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '../ui/checkbox';
+import { Textarea } from '../ui/textarea';
 
 interface CreateEventDialogProps {
   open: boolean;
@@ -28,10 +30,12 @@ export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplica
   const { rooms, areas, addEvent, updateEvent } = useVolunteering();
   
   const [name, setName] = useState('');
-  const [frequency, setFrequency] = useState<'semanal' | 'pontual'>('semanal');
+  const [frequency, setFrequency] = useState<'semanal' | 'quinzenal' | 'mensal' | 'pontual' | 'custom'>('semanal');
   const [time, setTime] = useState('');
   const [dayOfWeek, setDayOfWeek] = useState('');
   const [date, setDate] = useState('');
+  const [weekOfMonth, setWeekOfMonth] = useState<'1' | '2' | '3' | '4' | 'last'>('1');
+  const [customFrequency, setCustomFrequency] = useState('');
   const [room, setRoom] = useState('');
   const [requiredAreas, setRequiredAreas] = useState<RequiredAreaState[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -43,6 +47,8 @@ export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplica
       setTime(existingEvent?.time || '');
       setDayOfWeek(existingEvent?.dayOfWeek || '');
       setDate(existingEvent?.date || '');
+      setWeekOfMonth(existingEvent?.weekOfMonth || '1');
+      setCustomFrequency(existingEvent?.customFrequency || '');
       setRoom(existingEvent?.room || '');
       setRequiredAreas(existingEvent?.requiredAreas?.map(a => ({...a})) || []);
     }
@@ -74,7 +80,6 @@ export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplica
 
   const handleSave = async () => {
     if (!name.trim() || !time.trim()) return;
-    if (frequency === 'semanal' && !dayOfWeek) return;
     if (frequency === 'pontual' && !date) return;
     
     setIsSaving(true);
@@ -83,8 +88,10 @@ export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplica
       name,
       frequency,
       time,
-      dayOfWeek: frequency === 'semanal' ? dayOfWeek : '',
+      dayOfWeek: ['semanal', 'quinzenal', 'mensal'].includes(frequency) ? dayOfWeek : '',
       date: frequency === 'pontual' ? date : '',
+      weekOfMonth: frequency === 'mensal' ? weekOfMonth : undefined,
+      customFrequency: frequency === 'custom' ? customFrequency : '',
       requiredAreas,
       room,
     };
@@ -117,11 +124,14 @@ export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplica
             <div className="grid grid-cols-2 gap-4">
                  <div>
                     <Label htmlFor="frequency">Frequência</Label>
-                    <Select value={frequency} onValueChange={(v: 'semanal' | 'pontual') => setFrequency(v)}>
+                    <Select value={frequency} onValueChange={(v: any) => setFrequency(v)}>
                         <SelectTrigger id="frequency"><SelectValue /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="semanal">Semanal</SelectItem>
-                            <SelectItem value="pontual">Pontual</SelectItem>
+                            <SelectItem value="quinzenal">Quinzenal</SelectItem>
+                            <SelectItem value="mensal">Mensal</SelectItem>
+                            <SelectItem value="pontual">Data Específica</SelectItem>
+                            <SelectItem value="custom">Personalizado</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -131,7 +141,7 @@ export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplica
                 </div>
             </div>
             
-            {frequency === 'semanal' ? (
+            {['semanal', 'quinzenal', 'mensal'].includes(frequency) && (
                 <div>
                     <Label htmlFor="dayOfWeek">Dia da Semana</Label>
                     <Select value={dayOfWeek} onValueChange={setDayOfWeek}>
@@ -141,10 +151,35 @@ export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplica
                         </SelectContent>
                     </Select>
                 </div>
-            ) : (
+            )}
+            
+            {frequency === 'mensal' && (
+                 <div>
+                    <Label htmlFor="weekOfMonth">Semana do Mês</Label>
+                    <Select value={weekOfMonth} onValueChange={(v: any) => setWeekOfMonth(v)}>
+                        <SelectTrigger id="weekOfMonth"><SelectValue placeholder="Selecione a semana" /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="1">1ª Semana</SelectItem>
+                            <SelectItem value="2">2ª Semana</SelectItem>
+                            <SelectItem value="3">3ª Semana</SelectItem>
+                            <SelectItem value="4">4ª Semana</SelectItem>
+                            <SelectItem value="last">Última Semana</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+            )}
+
+            {frequency === 'pontual' && (
                 <div>
                     <Label htmlFor="date">Data</Label>
                     <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                </div>
+            )}
+
+            {frequency === 'custom' && (
+                 <div>
+                    <Label htmlFor="customFrequency">Descrição da Frequência</Label>
+                    <Textarea id="customFrequency" value={customFrequency} onChange={(e) => setCustomFrequency(e.target.value)} placeholder="Ex: Todo 1º e 3º Domingo do mês"/>
                 </div>
             )}
 
