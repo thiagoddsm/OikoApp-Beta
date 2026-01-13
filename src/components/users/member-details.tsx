@@ -2,7 +2,7 @@
 'use client';
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { User, HeartHandshake, Phone, Home, CheckCircle, XCircle, Calendar, Users, MapPin, BadgeHelp, UserPlus, Smartphone, Clock, Mail } from 'lucide-react';
+import { User, HeartHandshake, Phone, Home, CheckCircle, XCircle, Calendar, Users, MapPin, BadgeHelp, UserPlus, Smartphone, Clock, Mail, Church, Target } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
