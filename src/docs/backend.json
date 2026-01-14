@@ -515,6 +515,27 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["eventName", "requesterId", "room", "startDateTime", "endDateTime", "status", "createdAt"]
+    },
+    "DiscipleshipChecklist": {
+      "title": "Discipleship Checklist",
+      "type": "object",
+      "description": "Defines the checklist questions for a specific discipleship phase.",
+      "properties": {
+        "phaseId": { "type": "string", "description": "The ID of the phase (e.g., 'novo_convertido')." },
+        "title": { "type": "string", "description": "The display title of the phase." },
+        "questions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "label": { "type": "string" }
+            },
+            "required": ["id", "label"]
+          }
+        }
+      },
+      "required": ["phaseId", "title", "questions"]
     }
   },
   "auth": {
@@ -547,9 +568,9 @@
       { "path": "/ministries/{ministryId}", "definition": { "schema": { "$ref": "#/entities/Ministry" } } },
       { "path": "/courses/{courseId}", "definition": { "schema": { "$ref": "#/entities/Course" } } },
       { "path": "/courses/{courseId}/classes/{classId}", "definition": { "schema": { "$ref": "#/entities/Class" } } },
-      { "path": "/room_reservations/{reservationId}", "definition": { "schema": { "$ref": "#/entities/RoomReservation" } } }
+      { "path": "/room_reservations/{reservationId}", "definition": { "schema": { "$ref": "#/entities/RoomReservation" } } },
+      { "path": "/discipleship_checklists/{phaseId}", "definition": { "schema": { "$ref": "#/entities/DiscipleshipChecklist" } } }
     ]
   }
 }
 
-    
