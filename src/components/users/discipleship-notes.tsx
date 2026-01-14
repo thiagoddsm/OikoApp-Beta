@@ -20,18 +20,30 @@ const discipleshipPhases = [
       { id: 'contact_attempt_1', label: 'Primeiro contato' },
       { id: 'contact_attempt_2', label: 'Segundo contato' },
       { id: 'contact_attempt_3', label: 'Terceiro contato' },
-      { id: 'contact_success', label: 'Com sucesso' },
-      { id: 'contact_fail', label: 'Sem sucesso' },
+      { id: 'contact_success', label: 'Contato com sucesso' },
+      { id: 'contact_fail', label: 'Contato sem sucesso' },
+      { id: 'leader_contacted_visitor', label: 'O líder entrou em contato com o visitante?' },
+      { id: 'visitor_attended_gc', label: 'O visitante foi ao GC?' },
     ],
   },
   { id: 'reconciliado', title: 'Reconciliado', questions: [
-      { id: 'reconciliation_conversation', label: 'Conversa de reconciliação e acolhimento realizada?' },
-      { id: 'gc_reintegration', label: 'Foi reintegrado ou direcionado a um GC?' },
+      { id: 'contact_attempt_1', label: 'Primeiro contato' },
+      { id: 'contact_attempt_2', label: 'Segundo contato' },
+      { id: 'contact_attempt_3', label: 'Terceiro contato' },
+      { id: 'contact_success', label: 'Contato com sucesso' },
+      { id: 'contact_fail', label: 'Contato sem sucesso' },
+      { id: 'leader_contacted_visitor', label: 'O líder entrou em contato com o visitante?' },
+      { id: 'visitor_attended_gc', label: 'O visitante foi ao GC?' },
     ],
   },
   { id: 'transferido', title: 'Transferido', questions: [
-      { id: 'welcome_call', label: 'Contato de boas-vindas realizado pelo líder de área?' },
-      { id: 'membership_course_invite', label: 'Convidado para o Curso de Membresia?' },
+      { id: 'contact_attempt_1', label: 'Primeiro contato' },
+      { id: 'contact_attempt_2', label: 'Segundo contato' },
+      { id: 'contact_attempt_3', label: 'Terceiro contato' },
+      { id: 'contact_success', label: 'Contato com sucesso' },
+      { id: 'contact_fail', label: 'Contato sem sucesso' },
+      { id: 'leader_contacted_visitor', label: 'O líder entrou em contato com o visitante?' },
+      { id: 'visitor_attended_gc', label: 'O visitante foi ao GC?' },
     ],
   },
   { id: 'membro', title: 'Membro', questions: [
@@ -145,7 +157,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                                                     checked={!!phaseData[phase.id]?.answers[q.id]}
                                                     onCheckedChange={(checked) => handleCheckboxChange(phase.id, q.id, !!checked)}
                                                 />
-                                                <Label htmlFor={`${phase.id}-${q.id}`} className="font-normal">{q.label}</Label>
+                                                <Label htmlFor={`${phase.id}-${q.id}`} className="font-normal">{q.label.replace('[nome da pessoa]', memberName)}</Label>
                                             </div>
                                         ))}
                                     </div>
