@@ -142,3 +142,5 @@ export function DiscipleshipNotes({ memberId, memberName }: { memberId: string, 
         </Card>
     );
 }
+
+    

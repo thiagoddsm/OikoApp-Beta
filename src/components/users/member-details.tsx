@@ -81,3 +81,5 @@ export function MemberDetails({ user }) {
     </Card>
   );
 }
+
+    
