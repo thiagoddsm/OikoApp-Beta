@@ -255,6 +255,7 @@ export default function UserProfilePage() {
               <DiscipleshipNotes 
                 memberId={userId}
                 memberName={userProfile.name}
+                currentStatusId={userProfile.integrationStatus || 'nao_alcancado'}
               />
             </TabsContent>
 
