@@ -14,18 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DiscipleshipChecklistManager } from '@/components/settings/discipleship-checklist-manager';
-
-export const userRoles: { [key: string]: string } = {
-  'admin': 'Admin',
-  'pastor_senior': 'Pastor Sênior',
-  'pastor': 'Pastor',
-  'lider_rede': 'Líder de Rede',
-  'lider_area': 'Líder de Área',
-  'lider_gc': 'Líder de GC',
-  'team_leader': 'Líder de Equipe',
-  'member': 'Membro',
-  'volunteer': 'Voluntário'
-};
+import { userRoles } from '@/app/dashboard/layout';
 
 type User = {
   id: string;
@@ -57,6 +46,9 @@ export default function SettingsPage() {
         title: "Ação não permitida",
         description: "Você não pode remover seu próprio acesso de administrador, pois é o único.",
       });
+      // Revert the select change visually if possible, or just return.
+      // For a controlled component, this return would be enough if state isn't updated.
+      // Since `onValueChange` is being used, a re-render might be needed to show the old value.
       return;
     }
 
@@ -149,4 +141,3 @@ export default function SettingsPage() {
     </Card>
   );
 }
-    

@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query, doc, Timestamp } from 'firebase/firestore';
+import { userRoles } from '@/app/dashboard/layout';
 
 const journeyColumns = [
     { id: 'nao_alcancado', title: 'Cidade (Não Alcançado)' },
@@ -52,7 +53,7 @@ type Cell = {
 
 export function EditUserDialog({ user, open, onOpenChange }) {
   const { toast } = useToast();
-  const { firestore } = useFirebase();
+  const { firestore, user: currentUser } = useFirebase();
   const [isSaving, setIsSaving] = useState(false);
   const isEditing = !!user;
   
@@ -76,6 +77,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
     contatoPreferencia: [],
     contatoTurno: [],
     integrationStatus: '',
+    role: '',
     celulaId: '',
     supervisorId: '',
   });
@@ -103,6 +105,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         estadoCivil: user.estadoCivil || '',
         addressStreet: user.address?.street || '',
         integrationStatus: user.integrationStatus || 'nao_alcancado',
+        role: user.hierarchy?.role || '',
         celulaId: user.hierarchy?.celulaId || '',
         supervisorId: user.hierarchy?.supervisorId || '',
         batizado: user.batizado || 'nao',
@@ -140,6 +143,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         contatoPreferencia: [],
         contatoTurno: [],
         integrationStatus: 'nao_alcancado',
+        role: '',
         celulaId: '',
         supervisorId: '',
       });
@@ -202,6 +206,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         hierarchy: {
             celulaId: formData.celulaId || null,
             supervisorId: formData.supervisorId || null,
+            role: formData.role || (isEditing ? user.hierarchy?.role : '') || ''
         },
         batizado: formData.batizado,
         igrejaBatismo: formData.igrejaBatismo,
@@ -229,7 +234,6 @@ export function EditUserDialog({ user, open, onOpenChange }) {
             const usersCollection = collection(firestore, 'users');
             addDocumentNonBlocking(usersCollection, {
                 ...dataToSave,
-                roles: ['member'],
                 createdAt: Timestamp.now()
             });
              toast({
@@ -253,6 +257,13 @@ export function EditUserDialog({ user, open, onOpenChange }) {
   const decisaoOptions = ["Conversão", "Reconciliação", "Ingressar em uma célula", "Apenas visitando"];
   const contatoPreferenciaOptions = ["Ligação", "WhatsApp"];
   const contatoTurnoOptions = ["Manhã", "Tarde", "Noite"];
+  const isSelf = currentUser && user && currentUser.uid === user.id;
+  const isOnlyAdmin = useMemo(() => {
+    if (!isSelf || !allUsers) return false;
+    const adminCount = allUsers.filter(u => u.hierarchy?.role === 'admin' || u.hierarchy?.role === 'pastor_senior').length;
+    return adminCount === 1;
+  }, [allUsers, isSelf]);
+
 
   return (
     <>
@@ -369,6 +380,16 @@ export function EditUserDialog({ user, open, onOpenChange }) {
                     </Select>
                 </div>
                  <div className="space-y-1.5">
+                    <Label htmlFor="role">Perfil de Acesso</Label>
+                    <Select value={formData.role} onValueChange={(v) => handleSelectChange('role', v)} disabled={isOnlyAdmin}>
+                        <SelectTrigger><SelectValue placeholder="Selecione o perfil..." /></SelectTrigger>
+                        <SelectContent>
+                            {Object.entries(userRoles).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    {isOnlyAdmin && <p className="text-xs text-destructive">Você é o único admin e não pode alterar seu próprio perfil.</p>}
+                </div>
+                 <div className="space-y-1.5">
                     <Label htmlFor="celulaId">Célula (GC)</Label>
                     <Select value={formData.celulaId} onValueChange={(v) => handleSelectChange('celulaId', v)} disabled={isLoadingCells}>
                         <SelectTrigger><SelectValue placeholder={isLoadingCells ? "Carregando..." : "Selecione a célula..."} /></SelectTrigger>
@@ -378,7 +399,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
                         </SelectContent>
                     </Select>
                 </div>
-                 <div className="md:col-span-2 space-y-1.5">
+                 <div className="space-y-1.5">
                     <Label htmlFor="supervisorId">Responsável pelo Acompanhamento</Label>
                      <Select value={formData.supervisorId} onValueChange={(v) => handleSelectChange('supervisorId', v)} disabled={isLoadingUsers}>
                         <SelectTrigger><SelectValue placeholder={isLoadingUsers ? "Carregando..." : "Selecione o responsável..."} /></SelectTrigger>
@@ -406,5 +427,3 @@ export function EditUserDialog({ user, open, onOpenChange }) {
     </>
   );
 }
-
-    
