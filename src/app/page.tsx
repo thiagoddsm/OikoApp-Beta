@@ -27,18 +27,16 @@ const handleGoogleLogin = async (auth: Auth, firestore: Firestore, router: Retur
         const isFirstUser = usersSnapshot.empty;
         
         // The first user to sign up is automatically an admin.
-        const userRole = isFirstUser ? ['admin'] : ['member'];
+        const userRole = isFirstUser ? 'admin' : '';
 
         await setDoc(userDocRef, {
           name: user.displayName || 'Novo Usuário',
           email: user.email || '',
           phone: user.phoneNumber || '',
-          roles: userRole,
-          journey: {
-            td: false,
-            baptism: false,
-            membership_course: false,
+          hierarchy: {
+            role: userRole
           },
+          integrationStatus: 'nao_alcancado',
           createdAt: serverTimestamp(),
         });
       }

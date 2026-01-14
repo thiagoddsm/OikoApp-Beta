@@ -19,7 +19,7 @@ export const userRoles: { [key: string]: string } = {
   'pastor': 'Pastor',
   'lider_rede': 'Líder de Rede',
   'lider_area': 'Líder de Área',
-  'gc_leader': 'Líder de GC',
+  'lider_gc': 'Líder de GC',
   'team_leader': 'Líder de Equipe',
   'member': 'Membro',
   'volunteer': 'Voluntário'
@@ -114,7 +114,7 @@ export default function SettingsPage() {
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <Select
-                                            value={targetUser.hierarchy?.role || 'membro'}
+                                            value={targetUser.hierarchy?.role || ''}
                                             onValueChange={(newRole) => handleRoleChange(targetUser, newRole)}
                                             
                                         >

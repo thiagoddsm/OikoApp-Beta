@@ -1,3 +1,4 @@
+
 'use server';
 
 import { z } from 'zod';
@@ -35,7 +36,7 @@ async function saveVisitorToFirestore(visitorData: z.infer<typeof NewMemberInfoS
             phone: visitorData.leaderPhoneNumber, // Assuming leader's phone is a placeholder for visitor's contact for now
             email: '', // Email is not collected in this form
             hierarchy: {
-                role: 'membro', // default role
+                role: '', // No role assigned initially
             },
             integrationStatus: visitorData.visitorType === 'culto' ? 'visitante_culto' : 'visitante_celula',
             createdAt: Timestamp.now()

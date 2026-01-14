@@ -200,7 +200,7 @@ export default function DashboardLayout({
   const { user, auth, isUserLoading } = useFirebase();
   const router = useRouter();
 
-  const { data: userData, isLoading: isUserDataLoading } = useDoc<{ roles?: string[]; }>(user ? `users/${user.uid}`: null);
+  const { data: userData, isLoading: isUserDataLoading } = useDoc<{ hierarchy?: { role?: string }; }>(user ? `users/${user.uid}`: null);
   
   const isLoading = isUserLoading || isUserDataLoading;
 
@@ -269,8 +269,8 @@ export default function DashboardLayout({
     );
   }
   
-  const userRolesList = userData?.roles || [];
-  const hasAccess = userRolesList.length === 0 ? false : userRolesList.some(role => role !== 'member');
+  const userRole = userData?.hierarchy?.role;
+  const hasAccess = !!userRole;
 
 
   if (user && !hasAccess) {
@@ -278,8 +278,7 @@ export default function DashboardLayout({
   }
 
   if (user && hasAccess) {
-    const userPrimaryRole = userRolesList[0] || 'member';
-    const userRoleLabel = userRoles[userPrimaryRole] || 'Membro';
+    const userRoleLabel = userRoles[userRole] || 'Membro';
 
     return (
       <SidebarProvider>
