@@ -1,9 +1,9 @@
 
 'use client';
 import React, { useState, useEffect } from 'react';
-import { useFirebase, addDocumentNonBlocking } from '@/firebase';
+import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { useVolunteering } from '@/contexts/volunteering-context';
-import { collection, serverTimestamp } from 'firebase/firestore';
+import { collection, serverTimestamp, doc } from 'firebase/firestore';
 import { Clock, Users, Layout, DollarSign, Utensils, FileText, ShieldAlert, Target, ListChecks, HelpCircle, Building, MapPin, List } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -44,7 +44,7 @@ const timeTooltips = {
 };
 
 
-export function EventPlanningForm() {
+export function EventPlanningForm({ existingEvent = null }) {
   const { firestore } = useFirebase();
   const { rooms } = useVolunteering();
   const { toast } = useToast();
@@ -79,6 +79,53 @@ export function EventPlanningForm() {
     ticketPrice: '',
     breakEvenAnalysis: ''
   });
+
+  useEffect(() => {
+    if (existingEvent) {
+      setFormData({
+        ministry: existingEvent.ministry || '',
+        eventName: existingEvent.eventName || '',
+        category: existingEvent.category || '',
+        recurrence: existingEvent.recurrence || 'unico',
+        visionAlignment: existingEvent.visionAlignment || '',
+        phaseAlignment: existingEvent.phaseAlignment || '',
+        smart: {
+          specific: existingEvent.smart?.specific || '',
+          measurable: existingEvent.smart?.measurable || '',
+          achievable: existingEvent.smart?.achievable || '',
+          relevant: existingEvent.smart?.relevant || '',
+          timeBound: existingEvent.smart?.timeBound || '',
+        },
+        method5w2h: {
+          what: existingEvent.method5w2h?.what || '',
+          why: existingEvent.method5w2h?.why || '',
+          who: existingEvent.method5w2h?.who || '',
+          where: existingEvent.method5w2h?.where || '',
+          when: existingEvent.method5w2h?.when || '',
+          how: existingEvent.method5w2h?.how || '',
+          howMuch: existingEvent.method5w2h?.howMuch || '',
+        },
+        date: existingEvent.date || '',
+        timeLoadIn: existingEvent.timeLoadIn || '',
+        timeStart: existingEvent.timeStart || '',
+        timeEnd: existingEvent.timeEnd || '',
+        timeLoadOut: existingEvent.timeLoadOut || '',
+        eventType: existingEvent.eventType || 'interno',
+        space: existingEvent.space || '',
+        externalLocation: existingEvent.externalLocation || '',
+        roomLayout: existingEvent.roomLayout || '',
+        hasFood: existingEvent.hasFood || 'nao',
+        foodType: existingEvent.foodType || '',
+        kitchenResponsible: existingEvent.kitchenResponsible || '',
+        isPaid: existingEvent.isPaid || 'gratuito',
+        fixedCosts: existingEvent.fixedCosts?.toString() || '',
+        variableCostPerPerson: existingEvent.variableCostPerPerson?.toString() || '',
+        ticketPrice: existingEvent.ticketPrice?.toString() || '',
+        breakEvenAnalysis: existingEvent.breakEvenAnalysis?.toString() || '',
+      });
+    }
+  }, [existingEvent]);
+
 
   useEffect(() => {
     const fixed = parseFloat(formData.fixedCosts) || 0;
@@ -125,24 +172,35 @@ export function EventPlanningForm() {
         return;
     }
 
+    const dataToSave = {
+      ...formData,
+      method5w2h: {
+          ...formData.method5w2h,
+          where: formData.eventType === 'interno' ? formData.space : formData.externalLocation,
+      },
+      fixedCosts: parseFloat(formData.fixedCosts) || 0,
+      variableCostPerPerson: parseFloat(formData.variableCostPerPerson) || 0,
+      ticketPrice: parseFloat(formData.ticketPrice) || 0,
+      breakEvenAnalysis: parseInt(formData.breakEvenAnalysis, 10) || 0,
+    };
+
+
     try {
-      const collectionRef = collection(firestore, "strategic_events");
-      await addDocumentNonBlocking(collectionRef, {
-        ...formData,
-        method5w2h: {
-            ...formData.method5w2h,
-            where: formData.eventType === 'interno' ? formData.space : formData.externalLocation,
-        },
-        fixedCosts: parseFloat(formData.fixedCosts) || 0,
-        variableCostPerPerson: parseFloat(formData.variableCostPerPerson) || 0,
-        ticketPrice: parseFloat(formData.ticketPrice) || 0,
-        breakEvenAnalysis: parseInt(formData.breakEvenAnalysis, 10) || 0,
-        submittedAt: serverTimestamp(),
-        status: 'analise_estrategica'
-      });
-      setSuccess(true);
-      window.scrollTo(0, 0);
-      toast({ title: 'Sucesso!', description: 'Sua solicitação de evento foi protocolada.'});
+      if (existingEvent) {
+          const docRef = doc(firestore, "strategic_events", existingEvent.id);
+          await updateDocumentNonBlocking(docRef, dataToSave);
+          toast({ title: 'Sucesso!', description: 'O evento foi atualizado.'});
+      } else {
+        const collectionRef = collection(firestore, "strategic_events");
+        await addDocumentNonBlocking(collectionRef, {
+          ...dataToSave,
+          submittedAt: serverTimestamp(),
+          status: 'analise_estrategica'
+        });
+        setSuccess(true);
+        window.scrollTo(0, 0);
+        toast({ title: 'Sucesso!', description: 'Sua solicitação de evento foi protocolada.'});
+      }
     } catch (error) {
       console.error("Erro:", error);
       toast({ title: 'Erro ao Submeter', description: 'Por favor, tente novamente.', variant: 'destructive'});
@@ -408,7 +466,7 @@ export function EventPlanningForm() {
           <div className="pt-6 border-t border-gray-200">
             <Button type="submit" disabled={loading} size="lg" className="w-full md:w-auto md:min-w-[300px]">
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Protocolar Solicitação
+              {existingEvent ? 'Salvar Alterações' : 'Protocolar Solicitação'}
             </Button>
           </div>
         </form>
