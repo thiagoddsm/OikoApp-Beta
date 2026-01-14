@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useFirebase } from '@/firebase';
@@ -14,10 +15,12 @@ import { cn } from '@/lib/utils';
 
 // Data structure for discipleship phases and their questions
 const discipleshipPhases = [
-  { id: 'novo_convertido', title: 'Novo Convertido', questions: [
-      { id: 'contact_attempt_1', label: 'Primeira tentativa de contato realizada?' },
-      { id: 'contact_success', label: 'Contato realizado com sucesso?' },
-      { id: 'gc_invite', label: 'Foi convidado para um GC?' },
+  { id: 'novo_convertido', title: 'Acolhimento', questions: [
+      { id: 'contact_attempt_1', label: 'Primeiro contato' },
+      { id: 'contact_attempt_2', label: 'Segundo contato' },
+      { id: 'contact_attempt_3', label: 'Terceiro contato' },
+      { id: 'contact_success', label: 'Com sucesso' },
+      { id: 'contact_fail', label: 'Sem sucesso' },
     ],
   },
   { id: 'reconciliado', title: 'Reconciliado', questions: [
@@ -128,12 +131,11 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                         <TabsContent key={phase.id} value={phase.id} className="mt-6">
                             <Card className="border-dashed">
                                 <CardHeader>
-                                    <CardTitle>Checklist da Fase: {phase.title}</CardTitle>
-                                    <CardDescription>Marque as tarefas concluídas e adicione suas observações.</CardDescription>
+                                    <CardTitle>Informações da Fase: {phase.title}</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-6">
                                      <div className="space-y-3">
-                                        <Label className="font-semibold">Perguntas de Acompanhamento</Label>
+                                        <Label className="font-semibold">Tentativa de contato*</Label>
                                         {phase.questions.map(q => (
                                              <div key={q.id} className="flex items-center space-x-2">
                                                 <Checkbox 
@@ -144,16 +146,6 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                                                 <Label htmlFor={`${phase.id}-${q.id}`} className="font-normal">{q.label}</Label>
                                             </div>
                                         ))}
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor={`notes-${phase.id}`} className="font-semibold">Anotações e Comentários</Label>
-                                        <Textarea 
-                                            id={`notes-${phase.id}`}
-                                            placeholder={`Adicione suas observações sobre a fase de ${phase.title}...`} 
-                                            value={phaseData[phase.id]?.notes || ''}
-                                            onChange={(e) => handleNotesChange(phase.id, e.target.value)}
-                                            rows={5}
-                                        />
                                     </div>
                                     <div className="flex justify-end">
                                         <Button onClick={() => handleSave(phase.id)} disabled={isSaving}>
@@ -170,3 +162,4 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         </Card>
     );
 }
+

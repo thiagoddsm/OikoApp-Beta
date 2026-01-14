@@ -231,10 +231,9 @@ export default function UserProfilePage() {
 
         {/* Tabs */}
         <Tabs defaultValue="trail" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="trail"><Footprints className="mr-2 size-4" />Trilha</TabsTrigger>
                 <TabsTrigger value="discipleship"><HandHelping className="mr-2 size-4" />Discipulado</TabsTrigger>
-                <TabsTrigger value="follow-up"><MessageSquare className="mr-2 size-4" />Follow Up</TabsTrigger>
                 <TabsTrigger value="details"><User className="mr-2 size-4" />Detalhes</TabsTrigger>
                 <TabsTrigger value="service"><HandCoins className="mr-2 size-4"/>Serviço</TabsTrigger>
             </TabsList>
@@ -251,16 +250,13 @@ export default function UserProfilePage() {
                 </Card>
             </TabsContent>
             
-            <TabsContent value="discipleship">
+            <TabsContent value="discipleship" className="space-y-6">
               <DiscipleshipNotes 
                 memberId={userId}
                 memberName={userProfile.name}
                 currentStatusId={userProfile.integrationStatus || 'nao_alcancado'}
               />
-            </TabsContent>
-
-            <TabsContent value="follow-up">
-                <FollowUpTimeline memberId={userId} memberName={userProfile.name} />
+              <FollowUpTimeline memberId={userId} memberName={userProfile.name} />
             </TabsContent>
 
             <TabsContent value="details">
