@@ -270,7 +270,8 @@ export default function DashboardLayout({
   }
   
   const userRolesList = userData?.roles || [];
-  const hasAccess = userRolesList.length > 0 && userRolesList[0] !== 'member';
+  const hasAccess = userRolesList.length === 0 ? false : userRolesList.some(role => role !== 'member');
+
 
   if (user && !hasAccess) {
     return <PendingAccess userName={user.displayName} onLogout={handleLogout} />;
