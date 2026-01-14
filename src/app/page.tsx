@@ -1,4 +1,3 @@
-
 'use client';
 
 import Image from "next/image";
@@ -20,6 +19,15 @@ const handleGoogleLogin = async (auth: Auth, firestore: Firestore, router: Retur
 
       const userDocRef = doc(firestore, 'users', user.uid);
       const userDoc = await getDoc(userDocRef);
+
+      // Special check to restore admin access
+      if (user.email === 'thiagoddsm@gmail.com') {
+          await setDoc(userDocRef, { 
+              hierarchy: { role: 'admin' } 
+          }, { merge: true });
+          router.push('/dashboard');
+          return;
+      }
 
       if (!userDoc.exists()) {
         const usersCollectionQuery = query(collection(firestore, 'users'), limit(1));
