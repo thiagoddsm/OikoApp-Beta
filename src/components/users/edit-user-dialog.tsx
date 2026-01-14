@@ -335,6 +335,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
                             <SelectItem value="nao_convertido">Não Convertido</SelectItem>
                             <SelectItem value="novo_convertido">Novo Convertido</SelectItem>
                             <SelectItem value="reconciliado">Reconciliado</SelectItem>
+                            <SelectItem value="membro_outra_igreja">Membro de outra igreja</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
