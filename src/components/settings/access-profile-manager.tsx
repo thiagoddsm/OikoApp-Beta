@@ -2,19 +2,19 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
+import { useFirebase } from '@/firebase';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, PlusCircle, ShieldCheck, Settings, BarChart2, Users, Edit } from 'lucide-react';
+import { Loader2, PlusCircle, ShieldCheck, Edit, Trash2 } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '../ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { DeleteConfirmationDialog } from '../structure/delete-confirmation-dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
-
-// Mock data, will be replaced by Firestore data
-const mockRoles = [
+const initialRoles = [
     { id: 'admin', name: 'Admin', description: 'Acesso total ao sistema.' },
     { id: 'pastor_senior', name: 'Pastor Sênior', description: 'Acesso de liderança sênior.' },
     { id: 'lider_rede', name: 'Líder de Rede', description: 'Gerencia áreas e líderes de área.' },
@@ -34,22 +34,64 @@ const allPermissions = [
   { id: 'manage_settings', label: 'Gerenciar Configurações de Acesso' },
 ];
 
+function EditProfileDialog({ open, onOpenChange, onSave, existingProfile }) {
+    const [name, setName] = useState('');
+    const [description, setDescription] = useState('');
+
+    useEffect(() => {
+        if (existingProfile) {
+            setName(existingProfile.name);
+            setDescription(existingProfile.description);
+        } else {
+            setName('');
+            setDescription('');
+        }
+    }, [existingProfile, open]);
+
+    const handleSave = () => {
+        onSave({ name, description });
+        onOpenChange(false);
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{existingProfile ? 'Editar Perfil' : 'Criar Novo Perfil'}</DialogTitle>
+                    <DialogDescription>
+                        Defina o nome e a descrição para este perfil de acesso.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div>
+                        <Label htmlFor="profile-name">Nome do Perfil</Label>
+                        <Input id="profile-name" value={name} onChange={(e) => setName(e.target.value)} />
+                    </div>
+                    <div>
+                        <Label htmlFor="profile-desc">Descrição</Label>
+                        <Input id="profile-desc" value={description} onChange={(e) => setDescription(e.target.value)} />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
+                    <Button onClick={handleSave}>Salvar Perfil</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 export function AccessProfileManager() {
-  const { firestore } = useFirebase();
   const { toast } = useToast();
-  const [isCreating, setIsCreating] = useState(false);
+  const [roles, setRoles] = useState(initialRoles);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(null);
+  const [deletingProfile, setDeletingProfile] = useState(null);
+  
   const [permissions, setPermissions] = useState<Record<string, string[]>>({});
   const [isSaving, setIsSaving] = useState<string | null>(null);
-
-  // In the future, this will fetch from a 'roles' collection
-  // const rolesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'roles')) : null, [firestore]);
-  // const { data: roles, isLoading } = useCollection(rolesQuery);
-  const roles = mockRoles;
-  const isLoading = false;
-
+  
   useEffect(() => {
-    // Mock initial permissions. In a real scenario, this would be fetched from Firestore.
     const initialPermissions: Record<string, string[]> = {
         admin: allPermissions.map(p => p.id),
         pastor_senior: allPermissions.filter(p => p.id !== 'manage_settings').map(p => p.id),
@@ -75,7 +117,6 @@ export function AccessProfileManager() {
   const handleSavePermissions = (roleId: string) => {
     setIsSaving(roleId);
     console.log(`Saving permissions for ${roleId}:`, permissions[roleId]);
-    // Simulate Firestore save
     setTimeout(() => {
         setIsSaving(null);
         toast({
@@ -84,15 +125,41 @@ export function AccessProfileManager() {
         });
     }, 1000);
   };
+  
+  const handleOpenEditDialog = (profile) => {
+      setEditingProfile(profile);
+      setIsEditing(true);
+  };
+  
+  const handleOpenCreateDialog = () => {
+      setEditingProfile(null);
+      setIsEditing(true);
+  };
 
+  const handleOpenDeleteDialog = (profile) => {
+      setDeletingProfile(profile);
+  };
+  
+  const handleSaveProfile = (profileData) => {
+      if (editingProfile) {
+          // Edit logic
+          setRoles(roles.map(r => r.id === editingProfile.id ? {...r, ...profileData} : r));
+          toast({ title: "Perfil Atualizado", description: `O perfil "${profileData.name}" foi alterado.`});
+      } else {
+          // Create logic
+          const newProfile = { id: profileData.name.toLowerCase().replace(' ', '_'), ...profileData };
+          setRoles([...roles, newProfile]);
+          toast({ title: "Perfil Criado", description: `O perfil "${profileData.name}" foi adicionado.`});
+      }
+  };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center p-8 h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  const handleConfirmDelete = () => {
+      if (deletingProfile) {
+          setRoles(roles.filter(r => r.id !== deletingProfile.id));
+          setDeletingProfile(null);
+           toast({ variant: 'destructive', title: "Perfil Excluído", description: `O perfil "${deletingProfile.name}" foi removido.`});
+      }
+  };
 
   return (
     <div>
@@ -100,7 +167,7 @@ export function AccessProfileManager() {
             <p className="text-sm text-muted-foreground max-w-2xl">
               Crie e edite os perfis de acesso, definindo permissões detalhadas para cada um. As alterações aqui refletirão o que cada usuário pode ver e fazer no sistema.
             </p>
-             <Button onClick={() => setIsCreating(true)}>
+             <Button onClick={handleOpenCreateDialog}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Novo Perfil
             </Button>
@@ -112,11 +179,21 @@ export function AccessProfileManager() {
                 return (
                     <AccordionItem value={role.id} key={role.id}>
                         <AccordionTrigger>
-                            <div className="flex items-center gap-3">
-                                <ShieldCheck className="size-5 text-primary" />
-                                <div>
-                                    <p className="font-semibold text-base">{role.name}</p>
-                                    <p className="text-sm text-muted-foreground text-left">{role.description}</p>
+                            <div className="flex flex-1 items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <ShieldCheck className="size-5 text-primary" />
+                                    <div>
+                                        <p className="font-semibold text-base">{role.name}</p>
+                                        <p className="text-sm text-muted-foreground text-left">{role.description}</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-1 pr-2">
+                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); handleOpenEditDialog(role); }}>
+                                        <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleOpenDeleteDialog(role); }}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
                                 </div>
                             </div>
                         </AccordionTrigger>
@@ -144,6 +221,23 @@ export function AccessProfileManager() {
                 )
             })}
         </Accordion>
+
+        <EditProfileDialog 
+            open={isEditing}
+            onOpenChange={setIsEditing}
+            onSave={handleSaveProfile}
+            existingProfile={editingProfile}
+        />
+        
+        {deletingProfile && (
+            <DeleteConfirmationDialog 
+                open={!!deletingProfile}
+                onOpenChange={() => setDeletingProfile(null)}
+                onConfirm={handleConfirmDelete}
+                itemName={deletingProfile.name}
+                itemType="Perfil de Acesso"
+            />
+        )}
     </div>
   );
 }
