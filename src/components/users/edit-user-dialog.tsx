@@ -260,7 +260,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
   
   const contatoPreferenciaOptions = ["Ligação", "WhatsApp"];
   const contatoTurnoOptions = ["Manhã", "Tarde", "Noite"];
-  const decisaoOptions = ["Decisão por Cristo", "Reconciliação", "Pedido de Oração"];
+  const decisaoOptions = ["Decisão por Cristo", "Reconciliação", "Ingressar em um GC", "Apenas Visitando"];
   const isSelf = currentUser && user && currentUser.uid === user.id;
   const isOnlyAdmin = useMemo(() => {
     if (!isSelf || !allUsers) return false;
