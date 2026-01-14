@@ -126,16 +126,12 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                 <Tabs defaultValue={currentStatusId} className="w-full">
                     <TabsList className="grid w-full grid-cols-4">
                          {discipleshipPhases.map((phase, index) => {
-                            const isFuturePhase = index > currentPhaseIndex;
                             return (
                                 <TabsTrigger 
                                     key={phase.id} 
                                     value={phase.id} 
-                                    disabled={isFuturePhase}
-                                    className={cn(isFuturePhase && 'cursor-not-allowed')}
                                 >
                                     {phase.title}
-                                    {isFuturePhase && <HelpCircle className="ml-2 size-3 text-muted-foreground" />}
                                 </TabsTrigger>
                             )
                          })}
