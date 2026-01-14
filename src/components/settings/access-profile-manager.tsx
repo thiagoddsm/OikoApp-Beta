@@ -178,8 +178,8 @@ export function AccessProfileManager() {
                 const rolePermissions = permissions[role.id] || [];
                 return (
                     <AccordionItem value={role.id} key={role.id}>
-                        <AccordionTrigger>
-                            <div className="flex flex-1 items-center justify-between">
+                        <div className="flex items-center justify-between">
+                            <AccordionTrigger className="flex-1 py-0">
                                 <div className="flex items-center gap-3">
                                     <ShieldCheck className="size-5 text-primary" />
                                     <div>
@@ -187,16 +187,16 @@ export function AccessProfileManager() {
                                         <p className="text-sm text-muted-foreground text-left">{role.description}</p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-1 pr-2">
-                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); handleOpenEditDialog(role); }}>
-                                        <Edit className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleOpenDeleteDialog(role); }}>
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                </div>
+                            </AccordionTrigger>
+                            <div className="flex items-center gap-1 pr-2">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEditDialog(role)}>
+                                    <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleOpenDeleteDialog(role)}>
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
                             </div>
-                        </AccordionTrigger>
+                        </div>
                         <AccordionContent className="p-6 bg-muted/50 rounded-b-md">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {allPermissions.map(permission => (
