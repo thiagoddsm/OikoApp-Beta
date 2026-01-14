@@ -8,16 +8,8 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Returns true if the user has the 'admin' role.
-    function isAdmin() {
-      // Check for either 'admin' or 'pastor_senior' in the user's role list.
-      // Assumes user data is stored in /users/{userId}
-      let userRoles = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hierarchy.role;
-      return isSignedIn() && (userRoles == 'admin' || userRoles == 'pastor_senior');
-    }
-
     // --- Publicly readable collection ---
-    // This rule allows anyone, even unauthenticated users, to read the list of rooms.
+    // This rule allows anyone, even unauthenticated users, to read from the /rooms collection.
     // This is necessary for the public event planning form.
     // Write access is still restricted to signed-in users.
     match /rooms/{roomId} {
@@ -27,9 +19,9 @@ service cloud.firestore {
     
     // --- All other collections ---
     // Default to requiring authentication for all other read/write operations.
-    // This rule does NOT apply to /rooms/{roomId} because a more specific rule already matches it.
-    match /{path=**}/documents/{document} {
-      allow read, write: if isSignedIn() && path != ["rooms"];
+    // This rule explicitly excludes the /rooms path to prevent overriding the public rule above.
+    match /{path=**} {
+      allow read, write: if isSignedIn() && path[0] != 'rooms';
     }
   }
 }
