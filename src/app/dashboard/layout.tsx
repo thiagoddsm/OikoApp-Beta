@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -72,7 +73,7 @@ export const userRoles: { [key: string]: string } = {
   'pastor': 'Pastor',
   'lider_rede': 'Líder de Rede',
   'lider_area': 'Líder de Área',
-  'gc_leader': 'Líder de GC',
+  'lider_gc': 'Líder de GC',
   'team_leader': 'Líder de Equipe',
   'member': 'Membro',
   'volunteer': 'Voluntário'
@@ -128,7 +129,7 @@ const menuItems = [
             label: "Eventos", 
             icon: CalendarDays,
             subItems: [
-              { href: "/dashboard/events", label: "Cultos e Eventos", icon: CalendarCheck },
+              { href: "/dashboard/events", label: "Eventos", icon: CalendarCheck },
               { href: "/dashboard/events/planning", label: "Planejamento de Evento", icon: LayoutTemplate },
               { href: "/dashboard/briefing-pro", label: "Briefing Pro", icon: FileText },
               { href: "/dashboard/events/reservations", label: "Reservas de Sala", icon: CalendarClock },
@@ -248,7 +249,7 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/briefing-pro')) return 'Briefing Pro';
       if (path.startsWith('/dashboard/events/reservations')) return 'Reservas de Sala';
       if (path.startsWith('/dashboard/events/planning')) return 'Planejamento de Evento';
-      if (path.startsWith('/dashboard/events')) return 'Eventos e Produção';
+      if (path.startsWith('/dashboard/events')) return 'Eventos';
       if (path.startsWith('/dashboard/patrimony')) return 'Gestão de Patrimônio';
       if (path.startsWith('/dashboard/social')) return 'Ação Social';
       if (path.startsWith('/dashboard/goals')) return 'Metas e KPIs';
