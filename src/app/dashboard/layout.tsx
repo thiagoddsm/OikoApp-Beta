@@ -256,6 +256,7 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/import-data')) return 'Importação de Dados';
       if (path.startsWith('/dashboard/notifications')) return 'Central de Notificações';
       if (path.startsWith('/dashboard/finance')) return 'Gestão Financeira';
+      if (path.startsWith('/dashboard/settings')) return 'Configurações';
         
       return 'OikoApp';
   };
