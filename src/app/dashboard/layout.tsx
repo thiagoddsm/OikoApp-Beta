@@ -129,8 +129,7 @@ const menuItems = [
             label: "Eventos", 
             icon: CalendarDays,
             subItems: [
-              { href: "/dashboard/events", label: "Eventos", icon: CalendarCheck },
-              { href: "/dashboard/events/planning", label: "Planejamento de Evento", icon: LayoutTemplate },
+              { href: "/dashboard/events", label: "Gerenciar Eventos", icon: CalendarCheck },
               { href: "/dashboard/briefing-pro", label: "Briefing Pro", icon: FileText },
               { href: "/dashboard/events/reservations", label: "Reservas de Sala", icon: CalendarClock },
             ]
