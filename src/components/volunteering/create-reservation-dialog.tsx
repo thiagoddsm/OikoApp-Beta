@@ -93,8 +93,14 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
       status: existingReservation?.status || 'pending',
       frequency,
       dayOfWeek: ['semanal', 'quinzenal', 'mensal'].includes(frequency) ? dayOfWeek : '',
-      weekOfMonth: frequency === 'mensal' ? weekOfMonth : undefined,
     };
+    
+    if (frequency === 'mensal') {
+      reservationData.weekOfMonth = weekOfMonth;
+    } else {
+      // Explicitly ensure weekOfMonth is not in the object if not applicable
+      delete reservationData.weekOfMonth;
+    }
 
     if (existingReservation) {
       await updateReservation(existingReservation.id, reservationData);
