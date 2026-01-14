@@ -2,7 +2,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
-import { useVolunteering } from '@/contexts/volunteering-context';
 import { collection, serverTimestamp, doc } from 'firebase/firestore';
 import { Clock, Users, Layout, DollarSign, Utensils, FileText, ShieldAlert, Target, ListChecks, HelpCircle, Building, MapPin, List } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -44,9 +43,8 @@ const timeTooltips = {
 };
 
 
-export function EventPlanningForm({ existingEvent = null }) {
+export function EventPlanningForm({ existingEvent = null, rooms = [] }) {
   const { firestore } = useFirebase();
-  const { rooms } = useVolunteering();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
