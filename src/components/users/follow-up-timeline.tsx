@@ -12,45 +12,46 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 
-export function FollowUpTimeline({ memberId, memberName }: { memberId: string, memberName: string }) {
+export type Note = {
+  id: string;
+  authorId: string;
+  type: 'user' | 'system';
+  content: string;
+  createdAt: Date;
+};
+
+interface FollowUpTimelineProps {
+    memberId: string;
+    memberName: string;
+    initialNotes: Note[];
+    onNoteAdded: (notes: React.SetStateAction<Note[]>) => void;
+}
+
+export function FollowUpTimeline({ memberId, memberName, initialNotes, onNoteAdded }: FollowUpTimelineProps) {
     const { user: currentUser } = useFirebase();
     const { toast } = useToast();
     const [newNote, setNewNote] = useState('');
     const [isSaving, setIsSaving] = useState(false);
-    
-    // Simulação de dados para a timeline, incluindo as novas mudanças automáticas
-    const [notes, setNotes] = useState([
-        { id: '1', authorId: 'admin', type: 'system', content: `Perfil criado.`, createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
-        { id: '2', authorId: 'admin', type: 'system', content: `Status alterado para: Novo Convertido`, createdAt: new Date(Date.now() - 28 * 24 * 60 * 60 * 1000) },
-        { id: '3', authorId: 'leader1', type: 'user', content: `Mostrou grande interesse na célula e fez perguntas pertinentes sobre a fé. Conectei com o João para iniciar o discipulado.`, createdAt: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000) },
-        { id: '4', authorId: 'admin', type: 'system', content: `Mudança de GC: Movido para "Conexão Jovem" (Líder: João Pereira).`, createdAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000) },
-        { id: '5', authorId: 'admin', type: 'system', content: `Frequência no GC aumentou 20%.`, createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000) },
-        { id: '6', authorId: 'admin', type: 'system', content: `Iniciou serviço na área: Mídia.`, createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000) },
-        { id: '7', authorId: 'leader2', type: 'user', content: `Conversamos sobre o seu desenvolvimento na equipe de mídia. Ele está muito animado e aprendendo rápido.`, createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000) },
-        { id: '8', authorId: 'admin', type: 'system', content: `Status de Dizimista alterado para: Sim.`, createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) },
-    ]);
 
     const handleAddNote = () => {
         if (!newNote.trim() || !currentUser) return;
         setIsSaving(true);
         
-        // Simulação de salvamento
         setTimeout(() => {
-            const newNoteData = {
-                id: (notes.length + 1).toString(),
+            const newNoteData: Note = {
+                id: (initialNotes.length + 1).toString(),
                 authorId: currentUser.uid,
-                type: 'user' as const, // Nota manual do usuário
+                type: 'user',
                 content: newNote,
                 createdAt: new Date()
             };
-            setNotes(prev => [newNoteData, ...prev]);
+            onNoteAdded(prev => [newNoteData, ...prev]);
             toast({ title: "Anotação salva!" });
             setNewNote('');
             setIsSaving(false);
         }, 1000);
     };
     
-    // Simulação de dados de usuários para os avatares e nomes
     const authorMap = useMemo(() => {
         const map = new Map([
             ['admin', { id: 'admin', name: 'Sistema', avatar: 'avatar-6' }],
@@ -103,8 +104,8 @@ export function FollowUpTimeline({ memberId, memberName }: { memberId: string, m
 
                     <div className="relative pl-8">
                         <div className="absolute left-4 top-4 bottom-4 w-px bg-border -translate-x-1/2"></div>
-                        {notes.length > 0 ? (
-                            notes.map(note => {
+                        {initialNotes.length > 0 ? (
+                            initialNotes.map(note => {
                                 const author = authorMap.get(note.authorId);
                                 const authorAvatar = PlaceHolderImages.find(p => p.id === (author?.avatar || 'avatar-1'));
                                 return (
@@ -145,5 +146,3 @@ export function FollowUpTimeline({ memberId, memberName }: { memberId: string, m
         </Card>
     );
 }
-
-    

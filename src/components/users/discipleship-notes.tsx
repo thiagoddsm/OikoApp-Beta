@@ -3,7 +3,6 @@
 import React, { useState, useMemo } from 'react';
 import { useFirebase } from '@/firebase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Loader2, HelpCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -11,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from '../ui/checkbox';
 import { Label } from '../ui/label';
 import { cn } from '@/lib/utils';
-import { FollowUpTimeline } from './follow-up-timeline';
+import { FollowUpTimeline, Note } from './follow-up-timeline';
 
 
 // Data structure for discipleship phases and their questions
@@ -71,10 +70,10 @@ const discipleshipPhases = [
 const allPhaseIds = discipleshipPhases.map(p => p.id);
 
 export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { memberId: string, memberName: string, currentStatusId: string }) {
+    const { user } = useFirebase();
     const { toast } = useToast();
     const [isSaving, setIsSaving] = useState(false);
     
-    // State to hold notes and checklist answers for each phase
     const [phaseData, setPhaseData] = useState<Record<string, { notes: string; answers: Record<string, boolean> }>>(
       discipleshipPhases.reduce((acc, phase) => {
         acc[phase.id] = { notes: '', answers: {} };
@@ -82,12 +81,17 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
       }, {})
     );
 
-    const handleNotesChange = (phaseId: string, value: string) => {
-        setPhaseData(prev => ({
-            ...prev,
-            [phaseId]: { ...prev[phaseId], notes: value }
-        }));
-    };
+    const [timelineNotes, setTimelineNotes] = useState<Note[]>([
+        { id: '1', authorId: 'admin', type: 'system', content: `Perfil criado.`, createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+        { id: '2', authorId: 'admin', type: 'system', content: `Status alterado para: Novo Convertido`, createdAt: new Date(Date.now() - 28 * 24 * 60 * 60 * 1000) },
+        { id: '3', authorId: 'leader1', type: 'user', content: `Mostrou grande interesse na célula e fez perguntas pertinentes sobre a fé. Conectei com o João para iniciar o discipulado.`, createdAt: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000) },
+        { id: '4', authorId: 'admin', type: 'system', content: `Mudança de GC: Movido para "Conexão Jovem" (Líder: João Pereira).`, createdAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000) },
+        { id: '5', authorId: 'admin', type: 'system', content: `Frequência no GC aumentou 20%.`, createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000) },
+        { id: '6', authorId: 'admin', type: 'system', content: `Iniciou serviço na área: Mídia.`, createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000) },
+        { id: '7', authorId: 'leader2', type: 'user', content: `Conversamos sobre o seu desenvolvimento na equipe de mídia. Ele está muito animado e aprendendo rápido.`, createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000) },
+        { id: '8', authorId: 'admin', type: 'system', content: `Status de Dizimista alterado para: Sim.`, createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000) },
+    ]);
+
 
     const handleCheckboxChange = (phaseId: string, questionId: string, checked: boolean) => {
          setPhaseData(prev => ({
@@ -106,8 +110,34 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         setIsSaving(true);
         console.log(`Salvando dados para a fase ${phaseId}:`, phaseData[phaseId]);
         
-        // Simulate saving to Firestore
+        // Find which checkboxes were checked in this save operation
+        const phaseQuestions = discipleshipPhases.find(p => p.id === phaseId)?.questions || [];
+        const newNotes: Note[] = [];
+
+        for (const question of phaseQuestions) {
+            const isCheckedNow = phaseData[phaseId]?.answers[question.id];
+            // We need a way to track previous state, for now, let's just log if it's checked.
+            // A more robust solution would compare with a "saved" state.
+            if (isCheckedNow) {
+                 const alreadyLogged = timelineNotes.some(note => note.content.includes(question.label));
+                 // This logic is simplistic and for demonstration.
+                 // It would be better to have specific IDs for notes to avoid duplicates.
+                 if(!alreadyLogged) {
+                    newNotes.push({
+                        id: (timelineNotes.length + newNotes.length + 1).toString(),
+                        authorId: user?.uid || 'admin',
+                        type: 'system',
+                        content: `Checklist '${question.label}' foi completado.`,
+                        createdAt: new Date(),
+                    });
+                 }
+            }
+        }
+        
         setTimeout(() => {
+            if (newNotes.length > 0) {
+                setTimelineNotes(prev => [...newNotes, ...prev]);
+            }
             setIsSaving(false);
             toast({ title: `Progresso de "${discipleshipPhases.find(p => p.id === phaseId)?.title}" salvo!`});
         }, 1000);
@@ -174,7 +204,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                 </Tabs>
             </CardContent>
         </Card>
-        <FollowUpTimeline memberId={memberId} memberName={memberName} />
+        <FollowUpTimeline memberId={memberId} memberName={memberName} initialNotes={timelineNotes} onNoteAdded={setTimelineNotes} />
       </div>
     );
 }

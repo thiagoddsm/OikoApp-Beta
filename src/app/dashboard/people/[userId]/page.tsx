@@ -17,7 +17,6 @@ import { EditUserDialog } from '@/components/users/edit-user-dialog';
 import { DiscipleshipTrail } from '@/components/users/discipleship-trail';
 import { Progress } from "@/components/ui/progress";
 import { format } from 'date-fns';
-import { FollowUpTimeline } from '@/components/users/follow-up-timeline';
 import { DiscipleshipNotes } from '@/components/users/discipleship-notes';
 import { MemberDetails } from '@/components/users/member-details';
 import { VolunteerServiceForm } from '@/components/volunteering/volunteer-service-form';
@@ -250,13 +249,12 @@ export default function UserProfilePage() {
                 </Card>
             </TabsContent>
             
-            <TabsContent value="discipleship" className="space-y-6">
+            <TabsContent value="discipleship">
               <DiscipleshipNotes 
                 memberId={userId}
                 memberName={userProfile.name}
                 currentStatusId={userProfile.integrationStatus || 'nao_alcancado'}
               />
-              <FollowUpTimeline memberId={userId} memberName={userProfile.name} />
             </TabsContent>
 
             <TabsContent value="details">
