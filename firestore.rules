@@ -10,12 +10,21 @@ service cloud.firestore {
 
     // Returns true if the user has the 'admin' role.
     function isAdmin() {
-      return isSignedIn() && 'admin' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles;
+      // Check for either 'admin' or 'pastor_senior' in the user's role list.
+      // Assumes user data is stored in /users/{userId}
+      let userRoles = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hierarchy.role;
+      return isSignedIn() && (userRoles == 'admin' || userRoles == 'pastor_senior');
     }
 
-    // Liberal rules for development for all collections
+    // Publicly readable collections
+    match /rooms/{roomId} {
+      allow read: if true;
+      allow write: if isSignedIn(); // Or more specific admin rules
+    }
+
+    // Default authenticated access for most collections
     match /{document=**} {
-      allow read, write: if isAdmin() || isSignedIn();
+      allow read, write: if isSignedIn();
     }
   }
 }
