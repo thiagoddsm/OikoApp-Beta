@@ -20,15 +20,6 @@ const handleGoogleLogin = async (auth: Auth, firestore: Firestore, router: Retur
       const userDocRef = doc(firestore, 'users', user.uid);
       const userDoc = await getDoc(userDocRef);
 
-      // Special check to restore admin access
-      if (user.email === 'thiagoddsm@gmail.com') {
-          await setDoc(userDocRef, { 
-              hierarchy: { role: 'admin' } 
-          }, { merge: true });
-          router.push('/dashboard');
-          return;
-      }
-
       if (!userDoc.exists()) {
         const usersCollectionQuery = query(collection(firestore, 'users'), limit(1));
         const usersSnapshot = await getDocs(usersCollectionQuery);
@@ -81,12 +72,12 @@ export default function LoginPage() {
             </p>
           </div>
           <div className="grid gap-4">
-            <Button onClick={() => handleGoogleLogin(auth, firestore, router)} className="w-full">
+            <Button onClick={() => { if (auth && firestore) handleGoogleLogin(auth, firestore, router); }} className="w-full">
               Entrar com Google
             </Button>
              <div className="text-center text-sm">
               Já tem uma conta?{" "}
-              <button onClick={() => handleGoogleLogin(auth, firestore, router)} className="underline font-semibold">
+              <button onClick={() => { if (auth && firestore) handleGoogleLogin(auth, firestore, router); }} className="underline font-semibold">
                 Acesse aqui
               </button>
             </div>
