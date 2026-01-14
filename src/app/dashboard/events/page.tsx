@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { PlusCircle, CalendarCheck, MoreHorizontal, Loader2, CheckCircle, XCircle, Trash2 } from "lucide-react";
+import { PlusCircle, CalendarCheck, MoreHorizontal, Loader2, CheckCircle, XCircle, Trash2, Share2 } from "lucide-react";
 import Link from 'next/link';
 import { useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, query, doc } from 'firebase/firestore';
@@ -62,6 +62,15 @@ export default function EventsListPage() {
       description: "O protocolo do evento será excluído.",
     });
   }
+  
+  const handleShareLink = () => {
+    const url = `${window.location.origin}/public/event-planning`;
+    navigator.clipboard.writeText(url);
+    toast({
+      title: "Link Copiado!",
+      description: "O link para o formulário público foi copiado para sua área de transferência."
+    })
+  }
 
   return (
     <div className="space-y-6">
@@ -76,12 +85,18 @@ export default function EventsListPage() {
                   Visualize, aprove e gerencie todos os eventos planejados e protocolados.
               </CardDescription>
             </div>
-            <Button asChild>
-                <Link href="/dashboard/events/planning">
-                    <PlusCircle className="mr-2 size-4" />
-                    Novo Planejamento
-                </Link>
-            </Button>
+             <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={handleShareLink}>
+                    <Share2 className="mr-2 size-4" />
+                    Compartilhar Formulário
+                </Button>
+                <Button asChild>
+                    <Link href="/dashboard/events/planning">
+                        <PlusCircle className="mr-2 size-4" />
+                        Novo Planejamento
+                    </Link>
+                </Button>
+            </div>
         </CardHeader>
         <CardContent>
             <div className="rounded-lg border">
