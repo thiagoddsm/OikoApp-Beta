@@ -6,8 +6,10 @@ import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, PlusCircle, ShieldCheck } from 'lucide-react';
-import { UnderConstruction } from '../common/under-construction';
+import { Loader2, PlusCircle, ShieldCheck, Settings, BarChart2, Users, Edit } from 'lucide-react';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '../ui/label';
 
 // Mock data, will be replaced by Firestore data
 const mockRoles = [
@@ -18,6 +20,18 @@ const mockRoles = [
     { id: 'lider_gc', name: 'Líder de GC', description: 'Gerencia uma célula e seus membros.' },
     { id: 'member', name: 'Membro', description: 'Acesso padrão de membro da igreja.' },
 ];
+
+const allPermissions = [
+  { id: 'view_dashboard_kpis', label: 'Ver KPIs do Dashboard Principal' },
+  { id: 'manage_people', label: 'Gerenciar Pessoas (Criar, Editar, Excluir)' },
+  { id: 'view_people_details', label: 'Ver Detalhes Pessoais dos Membros' },
+  { id: 'manage_structure', label: 'Gerenciar Estrutura (Redes, Áreas)' },
+  { id: 'view_financials', label: 'Ver Painel Financeiro' },
+  { id: 'manage_financials', label: 'Gerenciar Financeiro (Integração Conta Azul)' },
+  { id: 'manage_volunteering', label: 'Gerenciar Voluntariado (Escalas, Áreas)' },
+  { id: 'manage_settings', label: 'Gerenciar Configurações de Acesso' },
+];
+
 
 export function AccessProfileManager() {
   const { firestore } = useFirebase();
@@ -40,35 +54,44 @@ export function AccessProfileManager() {
 
   return (
     <div>
-        <div className="flex justify-between items-center mb-4">
-            <p className="text-sm text-muted-foreground">Crie e edite os perfis de acesso que podem ser atribuídos aos usuários.</p>
+        <div className="flex justify-between items-center mb-6">
+            <p className="text-sm text-muted-foreground max-w-2xl">
+              Crie e edite os perfis de acesso, definindo permissões detalhadas para cada um. As alterações aqui refletirão o que cada usuário pode ver e fazer no sistema.
+            </p>
              <Button onClick={() => setIsCreating(true)} disabled>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Novo Perfil
             </Button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        
+        <Accordion type="single" collapsible className="w-full">
             {roles.map(role => (
-                <Card key={role.id}>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-base">
-                            <ShieldCheck className="size-5" />
-                            {role.name}
-                        </CardTitle>
-                        <CardDescription>{role.description}</CardDescription>
-                    </CardHeader>
-                    <CardFooter>
-                        <Button variant="outline" size="sm" disabled>Editar Permissões</Button>
-                    </CardFooter>
-                </Card>
+                <AccordionItem value={role.id} key={role.id}>
+                    <AccordionTrigger>
+                        <div className="flex items-center gap-3">
+                             <ShieldCheck className="size-5 text-primary" />
+                             <div>
+                                <p className="font-semibold text-base">{role.name}</p>
+                                <p className="text-sm text-muted-foreground text-left">{role.description}</p>
+                             </div>
+                        </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="p-6 bg-muted/50 rounded-b-md">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                           {allPermissions.map(permission => (
+                               <div key={permission.id} className="flex items-center space-x-2">
+                                    <Checkbox id={`${role.id}-${permission.id}`} />
+                                    <Label htmlFor={`${role.id}-${permission.id}`} className="font-normal">{permission.label}</Label>
+                               </div>
+                           ))}
+                        </div>
+                        <div className="flex justify-end mt-6">
+                            <Button size="sm" disabled>Salvar Permissões</Button>
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
             ))}
-        </div>
-        <div className="mt-4">
-            <UnderConstruction 
-                pageTitle="Gerenciamento de Permissões"
-                pageDescription="Em breve, você poderá criar perfis personalizados e definir permissões detalhadas para cada um (ex: 'ver financeiro', 'editar membros', etc)."
-            />
-        </div>
+        </Accordion>
     </div>
   );
 }
