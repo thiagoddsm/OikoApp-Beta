@@ -11,11 +11,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from '../ui/checkbox';
 import { Label } from '../ui/label';
 import { cn } from '@/lib/utils';
+import { FollowUpTimeline } from './follow-up-timeline';
 
 
 // Data structure for discipleship phases and their questions
 const discipleshipPhases = [
-  { id: 'novo_convertido', title: 'Acolhimento', questions: [
+  { id: 'novo_convertido', title: 'Novo Convertido', questions: [
       { id: 'contact_attempt_1', label: 'Primeiro contato' },
       { id: 'contact_attempt_2', label: 'Segundo contato' },
       { id: 'contact_attempt_3', label: 'Terceiro contato' },
@@ -103,6 +104,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
     const currentPhaseIndex = allPhaseIds.indexOf(currentStatusId);
     
     return (
+      <div className="space-y-6">
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">Acompanhamento do Discipulado</CardTitle>
@@ -131,11 +133,11 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                         <TabsContent key={phase.id} value={phase.id} className="mt-6">
                             <Card className="border-dashed">
                                 <CardHeader>
-                                    <CardTitle>Informações da Fase: {phase.title}</CardTitle>
+                                    <CardTitle>Checklist da Fase: {phase.title}</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-6">
                                      <div className="space-y-3">
-                                        <Label className="font-semibold">Tentativa de contato*</Label>
+                                        <Label className="font-semibold">Perguntas de Acompanhamento</Label>
                                         {phase.questions.map(q => (
                                              <div key={q.id} className="flex items-center space-x-2">
                                                 <Checkbox 
@@ -160,6 +162,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                 </Tabs>
             </CardContent>
         </Card>
+        <FollowUpTimeline memberId={memberId} memberName={memberName} />
+      </div>
     );
 }
-
