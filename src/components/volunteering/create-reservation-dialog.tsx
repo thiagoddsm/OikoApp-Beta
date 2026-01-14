@@ -83,7 +83,7 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
     const startDateTime = Timestamp.fromDate(new Date(`${startDate}T${startTime}`));
     const endDateTime = Timestamp.fromDate(new Date(`${endDate}T${endTime}`));
     
-    const reservationData = {
+    let reservationData: any = {
       eventName,
       requesterId,
       room,
@@ -91,7 +91,6 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
       endDateTime,
       notes,
       status: existingReservation?.status || 'pending',
-      createdAt: existingReservation?.createdAt || Timestamp.now(),
       frequency,
       dayOfWeek: ['semanal', 'quinzenal', 'mensal'].includes(frequency) ? dayOfWeek : '',
       weekOfMonth: frequency === 'mensal' ? weekOfMonth : undefined,
@@ -100,6 +99,7 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
     if (existingReservation) {
       await updateReservation(existingReservation.id, reservationData);
     } else {
+       reservationData.createdAt = Timestamp.now();
       await addReservation(reservationData as Omit<RoomReservation, 'id'>);
     }
 
