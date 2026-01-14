@@ -16,15 +16,20 @@ service cloud.firestore {
       return isSignedIn() && (userRoles == 'admin' || userRoles == 'pastor_senior');
     }
 
-    // Publicly readable collections
+    // --- Publicly readable collection ---
+    // This rule allows anyone, even unauthenticated users, to read the list of rooms.
+    // This is necessary for the public event planning form.
+    // Write access is still restricted to signed-in users.
     match /rooms/{roomId} {
       allow read: if true;
-      allow write: if isSignedIn(); // Or more specific admin rules
+      allow write: if isSignedIn();
     }
-
-    // Default authenticated access for most collections
-    match /{document=**} {
-      allow read, write: if isSignedIn();
+    
+    // --- All other collections ---
+    // Default to requiring authentication for all other read/write operations.
+    // This rule does NOT apply to /rooms/{roomId} because a more specific rule already matches it.
+    match /{path=**}/documents/{document} {
+      allow read, write: if isSignedIn() && path != ["rooms"];
     }
   }
 }
