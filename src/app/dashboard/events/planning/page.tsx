@@ -1,4 +1,3 @@
-
 'use client';
 
 import { EventPlanningForm } from '@/components/events/planning-form';

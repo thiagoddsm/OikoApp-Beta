@@ -401,9 +401,3 @@ export function EventPlanningForm() {
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Protocolar Solicitação
             </Button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
