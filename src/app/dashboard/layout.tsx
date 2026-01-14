@@ -122,7 +122,6 @@ const menuItems = [
               { href: "/dashboard/teaching/courses", label: "Cursos e Turmas", icon: BookOpen },
               { href: "/dashboard/teaching/teachers", label: "Professores", icon: UserCheckIcon },
               { href: "/dashboard/teaching/students", label: "Alunos", icon: Users2 },
-              { href: "/dashboard/teaching/wave", label: "Wave - Escola de Música", icon: Waves },
             ]
         },
         { 
@@ -243,7 +242,6 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/volunteering/schedule')) return 'Geração de Escalas';
       if (path.startsWith('/dashboard/volunteering/saved-schedules')) return 'Escalas Salvas';
       if (path.startsWith('/dashboard/volunteering')) return 'Gerenciar Áreas de Serviço';
-      if (path.startsWith('/dashboard/teaching/wave')) return 'Wave - Escola de Música';
       if (path.startsWith('/dashboard/teaching')) return 'Ensino';
       if (path.startsWith('/dashboard/briefing-pro')) return 'Briefing Pro';
       if (path.startsWith('/dashboard/events/reservations')) return 'Reservas de Sala';

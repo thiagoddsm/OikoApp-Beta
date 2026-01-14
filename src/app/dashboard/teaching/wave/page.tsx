@@ -1,76 +1,23 @@
+
 'use client';
 
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { School, Banknote, User, Music, Waves } from 'lucide-react';
-import { UnderConstruction } from '@/components/common/under-construction';
-import { WaveAdminDashboard } from '@/components/teaching/wave/admin-dashboard';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
 
+// This page is deprecated and now redirects to the new location under courses.
+export default function WaveRedirectPage() {
+  const router = useRouter();
 
-const modules = [
-    {
-        id: "admin",
-        title: "Painel Administrativo",
-        icon: School,
-        description: "Visão geral, gestão de agendas, salas, matrículas e estoque de instrumentos.",
-        component: <WaveAdminDashboard />
-    },
-    {
-        id: "finance",
-        title: "Módulo Financeiro",
-        icon: Banknote,
-        description: "Automação de cobranças, gateway de pagamento, régua de cobrança e pagamento de professores.",
-        component: <UnderConstruction pageTitle="Módulo Financeiro" pageDescription="Automação de cobranças, gateway de pagamento, régua de cobrança e pagamento de professores." />
-    },
-    {
-        id: "teacher",
-        title: "Área do Professor",
-        icon: User,
-        description: "Agenda de aulas, chamada digital, diário de classe, repositório de arquivos e solicitações.",
-        component: <UnderConstruction pageTitle="Área do Professor" pageDescription="Agenda de aulas, chamada digital, diário de classe, repositório de arquivos e solicitações." />
-    },
-    {
-        id: "student",
-        title: "Área do Aluno",
-        icon: Music,
-        description: "Carteirinha digital, cronograma, material didático, registro de estudos e financeiro simplificado.",
-        component: <UnderConstruction pageTitle="Área do Aluno" pageDescription="Carteirinha digital, cronograma, material didático, registro de estudos e financeiro simplificado." />
-    }
-]
+  useEffect(() => {
+    // Redirect to the new location within the courses page, activating the 'wave' tab
+    router.replace('/dashboard/teaching/courses');
+  }, [router]);
 
-export default function WaveMusicSchoolPage() {
   return (
-     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Waves className="size-6 text-primary" />
-            Wave - Escola de Música
-          </CardTitle>
-          <CardDescription>
-            Este é o centro de gerenciamento completo para a escola de música. Navegue pelas abas para acessar cada módulo.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-            <Tabs defaultValue="admin" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
-                    {modules.map((mod) => (
-                        <TabsTrigger key={mod.id} value={mod.id}>
-                            <mod.icon className="mr-2 size-4" />
-                            {mod.title}
-                        </TabsTrigger>
-                    ))}
-                </TabsList>
-                
-                {modules.map((mod) => (
-                    <TabsContent key={mod.id} value={mod.id} className="mt-6">
-                        {mod.component}
-                    </TabsContent>
-                ))}
-            </Tabs>
-        </CardContent>
-      </Card>
+    <div className="flex h-96 w-full items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <p className="ml-4 text-muted-foreground">Redirecionando para a nova página da Wave...</p>
     </div>
   );
 }
