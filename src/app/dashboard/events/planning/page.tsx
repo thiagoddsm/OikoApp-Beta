@@ -15,7 +15,7 @@ function EventPlanningPageContent() {
         );
     }
     
-    return <EventPlanningForm rooms={rooms} />;
+    return <EventPlanningForm />;
 }
 
 export default function EventPlanningPage() {

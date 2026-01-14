@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, serverTimestamp, doc } from 'firebase/firestore';
-import { Clock, Users, Layout, DollarSign, Utensils, FileText, ShieldAlert, Target, ListChecks, HelpCircle, Building, MapPin, List } from 'lucide-react';
+import { Clock, Users, Layout, DollarSign, Utensils, FileText, ShieldAlert, Target, ListChecks, HelpCircle, Building, MapPin } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import Link from 'next/link';
+import { useVolunteering } from '@/contexts/volunteering-context';
 
 
 const smartMappings = {
@@ -43,8 +44,9 @@ const timeTooltips = {
 };
 
 
-export function EventPlanningForm({ existingEvent = null, rooms = [] }) {
+export function EventPlanningForm({ existingEvent = null }) {
   const { firestore } = useFirebase();
+  const { rooms } = useVolunteering();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -224,7 +226,6 @@ export function EventPlanningForm({ existingEvent = null, rooms = [] }) {
             </Button>
             <Button asChild className="bg-emerald-600 hover:bg-emerald-700">
               <Link href="/dashboard/events">
-                <List className="mr-2 h-4 w-4"/>
                 Ver Todos Eventos
               </Link>
             </Button>

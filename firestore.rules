@@ -3,25 +3,9 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    // --- Publicly readable collection ---
-    // This rule allows anyone, even unauthenticated users, to read from the /rooms collection.
-    // This is necessary for the public event planning form.
-    // Write access is still restricted to signed-in users.
-    match /rooms/{roomId} {
-      allow read: if true;
-      allow write: if isSignedIn();
-    }
-    
-    // --- All other collections ---
-    // Default to requiring authentication for all other read/write operations.
-    // This rule explicitly excludes the /rooms path to prevent overriding the public rule above.
-    match /{path=**} {
-      allow read, write: if isSignedIn() && path[0] != 'rooms';
+    // Default to requiring authentication for all read/write operations.
+    match /{document=**} {
+      allow read, write: if request.auth != null;
     }
   }
 }
