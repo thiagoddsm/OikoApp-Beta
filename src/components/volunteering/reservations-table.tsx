@@ -54,6 +54,9 @@ export function ReservationsTable() {
     };
     
     const getFrequencyText = (res: RoomReservation) => {
+      if (!res.frequency) {
+        return "Frequência não definida";
+      }
       if (res.frequency === 'pontual') {
         const startDate = res.startDateTime.toDate();
         return format(startDate, "dd/MM/yy 'às' HH:mm");
