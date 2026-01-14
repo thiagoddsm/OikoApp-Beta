@@ -113,7 +113,11 @@ export default function EventsListPage() {
                                 const statusInfo = statusConfig[event.status] || { label: event.status, color: "bg-gray-100 text-gray-800" };
                                 return (
                                 <TableRow key={event.id}>
-                                    <TableCell className="font-medium">{event.eventName}</TableCell>
+                                    <TableCell className="font-medium">
+                                        <Link href={`/dashboard/events/${event.id}`} className="hover:underline">
+                                            {event.eventName}
+                                        </Link>
+                                    </TableCell>
                                     <TableCell className="text-muted-foreground">{event.ministry}</TableCell>
                                     <TableCell>{format(new Date(event.date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
                                     <TableCell>
