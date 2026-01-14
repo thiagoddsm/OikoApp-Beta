@@ -2,7 +2,7 @@
 'use client';
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { User, HeartHandshake, Phone, Home, CheckCircle, XCircle, Calendar, Users, MapPin, BadgeHelp, UserPlus, Smartphone, Clock, Mail, Church, Target } from 'lucide-react';
+import { User, HeartHandshake, Phone, Home, CheckCircle, XCircle, Calendar, Users, MapPin, BadgeHelp, UserPlus, Smartphone, Clock, Mail, Church, Target,LogIn } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -64,6 +64,7 @@ export function MemberDetails({ user }) {
                 <div className="grid md:grid-cols-2 gap-x-8 gap-y-4">
                     <DetailItem icon={CheckCircle} label="Batizado?" value={user.batizado === 'sim' ? `Sim, na ${user.igrejaBatismo || 'igreja'}` : 'Não'} />
                     <DetailItem icon={Church} label="Membro anterior?" value={user.membroAntigo === 'sim' ? `Sim, da ${user.igrejaAntiga || 'outra igreja'}` : 'Não'} />
+                    <DetailItem icon={LogIn} label="Status Inicial" value={user.initialStatus?.replace('_', ' ') || 'Não informado'} />
                     <DetailItem icon={Target} label="Decisão" value={user.decisao?.join(', ') || 'Não informado'} />
                     <DetailItem icon={Calendar} label="Data da Decisão" value={user.dataDecisao ? format(new Date(user.dataDecisao+'T12:00:00'), 'dd/MM/yyyy') : 'Não informado'} />
                 </div>

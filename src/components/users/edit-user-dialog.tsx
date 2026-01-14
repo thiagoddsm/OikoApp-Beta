@@ -67,7 +67,8 @@ export function EditUserDialog({ user, open, onOpenChange }) {
     igrejaBatismo: '',
     membroAntigo: 'nao',
     igrejaAntiga: '',
-    decisao: '',
+    decisao: [],
+    initialStatus: '',
     dataDecisao: '',
     estadoCivil: '',
     temFilhos: 'nao',
@@ -112,7 +113,8 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         igrejaBatismo: user.igrejaBatismo || '',
         membroAntigo: user.membroAntigo || 'nao',
         igrejaAntiga: user.igrejaAntiga || '',
-        decisao: user.decisao || '',
+        decisao: user.decisao || [],
+        initialStatus: user.initialStatus || '',
         dataDecisao: user.dataDecisao || '',
         temFilhos: user.temFilhos || 'nao',
         idadeFilhos: user.idadeFilhos || '',
@@ -133,7 +135,8 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         igrejaBatismo: '',
         membroAntigo: 'nao',
         igrejaAntiga: '',
-        decisao: '',
+        decisao: [],
+        initialStatus: '',
         dataDecisao: '',
         estadoCivil: '',
         temFilhos: 'nao',
@@ -213,6 +216,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         membroAntigo: formData.membroAntigo,
         igrejaAntiga: formData.igrejaAntiga,
         decisao: formData.decisao,
+        initialStatus: formData.initialStatus,
         dataDecisao: formData.dataDecisao,
         temFilhos: formData.temFilhos,
         idadeFilhos: formData.idadeFilhos,
@@ -256,6 +260,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
   
   const contatoPreferenciaOptions = ["Ligação", "WhatsApp"];
   const contatoTurnoOptions = ["Manhã", "Tarde", "Noite"];
+  const decisaoOptions = ["Decisão por Cristo", "Reconciliação", "Pedido de Oração"];
   const isSelf = currentUser && user && currentUser.uid === user.id;
   const isOnlyAdmin = useMemo(() => {
     if (!isSelf || !allUsers) return false;
@@ -323,16 +328,22 @@ export function EditUserDialog({ user, open, onOpenChange }) {
                 {formData.membroAntigo === 'sim' && <div className="space-y-1.5"><Label htmlFor="igrejaAntiga">De qual igreja?</Label><Input id="igrejaAntiga" name="igrejaAntiga" value={formData.igrejaAntiga} onChange={handleInputChange}/></div>}
                 
                 <div className="space-y-1.5">
-                    <Label htmlFor="decisao">Decisão *</Label>
-                    <Select value={formData.decisao} onValueChange={(v) => handleSelectChange('decisao', v)}>
-                        <SelectTrigger id="decisao"><SelectValue placeholder="Selecione o status..."/></SelectTrigger>
+                    <Label htmlFor="initialStatus">Status Inicial *</Label>
+                    <Select value={formData.initialStatus} onValueChange={(v) => handleSelectChange('initialStatus', v)}>
+                        <SelectTrigger id="initialStatus"><SelectValue placeholder="Selecione o status..."/></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="nao_convertido">Não Convertido</SelectItem>
                             <SelectItem value="novo_convertido">Novo Convertido</SelectItem>
                             <SelectItem value="reconciliado">Reconciliado</SelectItem>
-                            <SelectItem value="transferido">Transferido</SelectItem>
                         </SelectContent>
                     </Select>
+                </div>
+                
+                 <div className="space-y-1.5">
+                    <Label>Decisão</Label>
+                     <div className="flex flex-col space-y-2">
+                        {decisaoOptions.map(item => (<div key={item} className="flex items-center gap-2"><Checkbox id={`decisao-${item}`} checked={formData.decisao.includes(item)} onCheckedChange={(checked) => handleCheckboxChange('decisao', item, !!checked)}/><Label htmlFor={`decisao-${item}`}>{item}</Label></div>))}
+                    </div>
                 </div>
 
                  <div className="space-y-1.5">
