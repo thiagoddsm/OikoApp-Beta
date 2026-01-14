@@ -2,7 +2,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useFirebase } from '@/firebase';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, PlusCircle, ShieldCheck, Edit, Trash2 } from 'lucide-react';
@@ -13,15 +12,6 @@ import { useToast } from '@/hooks/use-toast';
 import { DeleteConfirmationDialog } from '../structure/delete-confirmation-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-
-const initialRoles = [
-    { id: 'admin', name: 'Admin', description: 'Acesso total ao sistema.' },
-    { id: 'pastor_senior', name: 'Pastor Sênior', description: 'Acesso de liderança sênior.' },
-    { id: 'lider_rede', name: 'Líder de Rede', description: 'Gerencia áreas e líderes de área.' },
-    { id: 'lider_area', name: 'Líder de Área', description: 'Supervisiona líderes de célula.' },
-    { id: 'lider_gc', name: 'Líder de GC', description: 'Gerencia uma célula e seus membros.' },
-    { id: 'member', name: 'Membro', description: 'Acesso padrão de membro da igreja.' },
-];
 
 const allPermissions = [
   { id: 'view_dashboard_kpis', label: 'Ver KPIs do Dashboard Principal' },
@@ -81,9 +71,8 @@ function EditProfileDialog({ open, onOpenChange, onSave, existingProfile }) {
     );
 }
 
-export function AccessProfileManager() {
+export function AccessProfileManager({ roles, setRoles }) {
   const { toast } = useToast();
-  const [roles, setRoles] = useState(initialRoles);
   const [isEditing, setIsEditing] = useState(false);
   const [editingProfile, setEditingProfile] = useState(null);
   const [deletingProfile, setDeletingProfile] = useState(null);
@@ -92,6 +81,7 @@ export function AccessProfileManager() {
   const [isSaving, setIsSaving] = useState<string | null>(null);
   
   useEffect(() => {
+    // This could be fetched from Firestore in the future
     const initialPermissions: Record<string, string[]> = {
         admin: allPermissions.map(p => p.id),
         pastor_senior: allPermissions.filter(p => p.id !== 'manage_settings').map(p => p.id),
@@ -99,6 +89,7 @@ export function AccessProfileManager() {
         lider_area: ['view_dashboard_kpis', 'manage_people'],
         lider_gc: ['view_dashboard_kpis', 'view_people_details'],
         member: ['view_dashboard_kpis'],
+        volunteer: ['view_dashboard_kpis'],
     };
     setPermissions(initialPermissions);
   }, []);
@@ -116,6 +107,7 @@ export function AccessProfileManager() {
   
   const handleSavePermissions = (roleId: string) => {
     setIsSaving(roleId);
+    // In a real app, this would save to Firestore
     console.log(`Saving permissions for ${roleId}:`, permissions[roleId]);
     setTimeout(() => {
         setIsSaving(null);
@@ -147,7 +139,7 @@ export function AccessProfileManager() {
           toast({ title: "Perfil Atualizado", description: `O perfil "${profileData.name}" foi alterado.`});
       } else {
           // Create logic
-          const newProfile = { id: profileData.name.toLowerCase().replace(' ', '_'), ...profileData };
+          const newProfile = { id: profileData.name.toLowerCase().replace(/\s+/g, '_').replace(/[^\w-]/g, ''), ...profileData };
           setRoles([...roles, newProfile]);
           toast({ title: "Perfil Criado", description: `O perfil "${profileData.name}" foi adicionado.`});
       }
@@ -178,12 +170,12 @@ export function AccessProfileManager() {
                 const rolePermissions = permissions[role.id] || [];
                 return (
                     <AccordionItem value={role.id} key={role.id}>
-                        <div className="flex items-center justify-between">
-                            <AccordionTrigger className="flex-1 py-0">
+                        <div className="flex items-center justify-between hover:bg-muted/50 rounded-t-md transition-colors">
+                            <AccordionTrigger className="flex-1 py-3 px-4">
                                 <div className="flex items-center gap-3">
                                     <ShieldCheck className="size-5 text-primary" />
                                     <div>
-                                        <p className="font-semibold text-base">{role.name}</p>
+                                        <p className="font-semibold text-base text-left">{role.name}</p>
                                         <p className="text-sm text-muted-foreground text-left">{role.description}</p>
                                     </div>
                                 </div>
@@ -197,7 +189,7 @@ export function AccessProfileManager() {
                                 </Button>
                             </div>
                         </div>
-                        <AccordionContent className="p-6 bg-muted/50 rounded-b-md">
+                        <AccordionContent className="p-6 bg-muted/30 rounded-b-md">
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {allPermissions.map(permission => (
                                 <div key={permission.id} className="flex items-center space-x-2">

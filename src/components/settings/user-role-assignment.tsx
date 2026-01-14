@@ -22,18 +22,7 @@ type User = {
   }
 };
 
-// Mock data, will be replaced by Firestore data
-const mockRoles = [
-    { id: 'admin', name: 'Admin' },
-    { id: 'pastor_senior', name: 'Pastor Sênior' },
-    { id: 'lider_rede', name: 'Líder de Rede' },
-    { id: 'lider_area', name: 'Líder de Área' },
-    { id: 'lider_gc', name: 'Líder de GC' },
-    { id: 'member', name: 'Membro' },
-    { id: 'volunteer', name: 'Voluntário' },
-];
-
-export function UserRoleAssignment() {
+export function UserRoleAssignment({ roles }) {
   const { firestore, user: currentUser } = useFirebase();
   const { toast } = useToast();
 
@@ -113,7 +102,7 @@ export function UserRoleAssignment() {
                                           <SelectValue placeholder="Selecione um perfil" />
                                       </SelectTrigger>
                                       <SelectContent>
-                                          {mockRoles.map(role => (
+                                          {roles.map(role => (
                                               <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>
                                           ))}
                                       </SelectContent>
