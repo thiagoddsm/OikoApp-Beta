@@ -1,9 +1,6 @@
-
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useVolunteering, type VolunteeringEvent } from '@/contexts/volunteering-context';
-import { useFirebase } from '@/firebase';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
@@ -49,7 +46,6 @@ function ImportEventsButton() {
              toast({
                 title: 'Nenhuma Novidade',
                 description: 'Todos os eventos padrão já estavam cadastrados.',
-                variant: 'default',
             });
         }
         setIsImporting(false);
@@ -98,7 +94,6 @@ function ImportAreasButton() {
              toast({
                 title: 'Nenhuma Novidade',
                 description: 'Todas as áreas de serviço já estavam cadastradas.',
-                variant: 'default',
             });
         }
         setIsImporting(false);
@@ -197,7 +192,7 @@ export function EventsManagement() {
                   <TableRow key={event.id}>
                     <TableCell className="font-medium">{event.name}</TableCell>
                     <TableCell>
-                      {event.date ? event.date : event.dayOfWeek || 'Recorrente'}
+                      {(event as any).frequency ? (event as any).frequency : (event.date || (event as any).dayOfWeek || 'Recorrente')}
                     </TableCell>
                     <TableCell>
                       {event.time}

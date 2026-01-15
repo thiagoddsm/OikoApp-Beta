@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -128,7 +127,7 @@ const menuItems = [
             label: "Eventos", 
             icon: CalendarDays,
             subItems: [
-              { href: "/dashboard/events", label: "Gerenciar Eventos", icon: CalendarCheck },
+              { href: "/dashboard/events", label: "Protocolos de Evento", icon: CalendarCheck },
               { href: "/dashboard/briefing-pro", label: "Briefing Pro", icon: FileText },
               { href: "/dashboard/events/reservations", label: "Reservas de Sala", icon: CalendarClock },
             ]
@@ -246,7 +245,7 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/briefing-pro')) return 'Briefing Pro';
       if (path.startsWith('/dashboard/events/reservations')) return 'Reservas de Sala';
       if (path.startsWith('/dashboard/events/planning')) return 'Planejamento de Evento';
-      if (path.startsWith('/dashboard/events')) return 'Eventos';
+      if (path.startsWith('/dashboard/events')) return 'Protocolos de Evento';
       if (path.startsWith('/dashboard/patrimony')) return 'Gestão de Patrimônio';
       if (path.startsWith('/dashboard/social')) return 'Ação Social';
       if (path.startsWith('/dashboard/goals')) return 'Metas e KPIs';
