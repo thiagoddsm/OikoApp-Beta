@@ -72,12 +72,12 @@ export default function LoginPage() {
             </p>
           </div>
           <div className="grid gap-4">
-            <Button onClick={() => { if (auth && firestore) handleGoogleLogin(auth, firestore, router); }} className="w-full">
+            <Button onClick={() => { if (auth && firestore) { handleGoogleLogin(auth, firestore, router); } }} className="w-full">
               Entrar com Google
             </Button>
              <div className="text-center text-sm">
               Já tem uma conta?{" "}
-              <button onClick={() => { if (auth && firestore) handleGoogleLogin(auth, firestore, router); }} className="underline font-semibold">
+              <button onClick={() => { if (auth && firestore) { handleGoogleLogin(auth, firestore, router); } }} className="underline font-semibold">
                 Acesse aqui
               </button>
             </div>
