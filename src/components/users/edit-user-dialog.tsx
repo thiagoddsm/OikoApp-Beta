@@ -22,7 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query, doc, Timestamp } from 'firebase/firestore';
-import { userRoles } from '@/app/dashboard/layout';
+import { userRoles } from '@/lib/roles';
 
 const journeyColumns = [
     { id: 'nao_alcancado', title: 'Cidade (Não Alcançado)' },
