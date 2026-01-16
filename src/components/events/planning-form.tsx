@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, serverTimestamp, doc } from 'firebase/firestore';
-import { Clock, Users, Layout, DollarSign, Utensils, FileText, ShieldAlert, Target, ListChecks, HelpCircle, Building, MapPin } from 'lucide-react';
+import { Clock, Users, Layout, DollarSign, Utensils, FileText, ShieldAlert, Target, ListChecks, HelpCircle, Building, MapPin, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,10 @@ import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import Link from 'next/link';
 import { useVolunteering } from '@/contexts/volunteering-context';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 
 const smartMappings = {
@@ -146,7 +150,7 @@ export function EventPlanningForm({ existingEvent = null }) {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleNestedChange = (e: React.ChangeEvent<HTMLInputElement>, parent: 'smart' | 'method5w2h') => {
+  const handleNestedChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, parent: 'smart' | 'method5w2h') => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -161,6 +165,87 @@ export function EventPlanningForm({ existingEvent = null }) {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleGeneratePdf = () => {
+    if (!existingEvent) return;
+
+    const doc = new jsPDF();
+    const margin = 15;
+    let y = 20;
+
+    doc.setFontSize(18);
+    doc.text(`Planejamento Estratégico: ${formData.eventName}`, margin, y);
+    y += 10;
+    
+    doc.setFontSize(12);
+    doc.text(`Ministério: ${formData.ministry}`, margin, y);
+    y += 7;
+    doc.text(`Categoria: ${formData.category}`, margin, y);
+    y+= 7;
+    
+    const eventDate = formData.date ? format(new Date(formData.date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : 'N/A';
+    doc.text(`Data do Evento: ${eventDate}`, margin, y);
+    y += 10;
+
+    (doc as any).autoTable({
+        startY: y,
+        head: [['Metas SMART', 'Descrição']],
+        body: Object.entries(formData.smart).map(([key, value]) => [smartMappings[key].label, value || '-']),
+        theme: 'grid'
+    });
+
+    y = (doc as any).autoTable.previous.finalY + 10;
+    
+    (doc as any).autoTable({
+        startY: y,
+        head: [['Plano de Ação (5W2H)', 'Descrição']],
+        body: Object.entries(formData.method5w2h).map(([key, value]) => [method5w2hMappings[key].label, value || '-']),
+        theme: 'grid'
+    });
+    
+    y = (doc as any).autoTable.previous.finalY + 10;
+
+    doc.setFontSize(14);
+    doc.text('Detalhes Logísticos', margin, y);
+    y += 8;
+    doc.setFontSize(10);
+    const logisticDetails = [
+      ['Horário de Montagem (Load-in)', formData.timeLoadIn || '-'],
+      ['Horário de Início (Público)', formData.timeStart || '-'],
+      ['Horário de Término (Público)', formData.timeEnd || '-'],
+      ['Horário de Desocupação (Load-out)', formData.timeLoadOut || '-'],
+      ['Local', formData.eventType === 'interno' ? formData.space : formData.externalLocation],
+      ['Layout da Sala', formData.roomLayout || '-'],
+      ['Alimentação', `${formData.hasFood === 'sim' ? 'Sim' : 'Não'} (${formData.foodType || 'N/A'})`],
+    ];
+    (doc as any).autoTable({
+        startY: y,
+        body: logisticDetails,
+        theme: 'grid'
+    });
+
+    y = (doc as any).autoTable.previous.finalY + 10;
+
+    doc.setFontSize(14);
+    doc.text('Análise Financeira', margin, y);
+    y += 8;
+    doc.setFontSize(10);
+    const financeDetails = [
+        ['Modelo', formData.isPaid === 'pago' ? 'Autossustentável (Pago)' : 'Subsidiado (Gratuito)'],
+        ['Custos Fixos', `R$ ${formData.fixedCosts || '0'}`],
+        ['Custo por Pessoa', `R$ ${formData.variableCostPerPerson || '0'}`],
+        ['Valor da Inscrição', `R$ ${formData.ticketPrice || '0'}`],
+        ['Ponto de Equilíbrio', `${formData.breakEvenAnalysis || '0'} pessoas`],
+    ];
+
+    (doc as any).autoTable({
+        startY: y,
+        body: financeDetails,
+        theme: 'grid'
+    });
+
+
+    doc.save(`evento_${formData.eventName.replace(/\s+/g, '_')}.pdf`);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -324,9 +409,9 @@ export function EventPlanningForm({ existingEvent = null }) {
               <h3 className="font-bold text-emerald-800 mb-4 flex items-center gap-2"><Layout size={18}/> Plano de Ação (5W2H)</h3>
               <div className="space-y-3">
                  {Object.entries(method5w2hMappings).map(([key, { label, placeholder }]) => (
-                     <div key={key} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                        <Label className="text-xs font-bold uppercase text-emerald-700 md:text-right px-2">{label}</Label>
-                        <Input type="text" name={key} placeholder={placeholder} value={formData.method5w2h[key]} onChange={(e) => handleNestedChange(e, 'method5w2h')} className="md:col-span-3 bg-emerald-50/30" />
+                     <div key={key} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-start">
+                        <Label className="text-xs font-bold uppercase text-emerald-700 md:text-right px-2 pt-2">{label}</Label>
+                        <Textarea name={key} placeholder={placeholder} value={formData.method5w2h[key]} onChange={(e) => handleNestedChange(e, 'method5w2h')} className="md:col-span-3 bg-emerald-50/30" rows={3}/>
                      </div>
                  ))}
               </div>
@@ -462,11 +547,17 @@ export function EventPlanningForm({ existingEvent = null }) {
             )}
           </section>
 
-          <div className="pt-6 border-t border-gray-200">
+          <div className="pt-6 border-t border-gray-200 flex items-center gap-4">
             <Button type="submit" disabled={loading} size="lg" className="w-full md:w-auto md:min-w-[300px]">
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {existingEvent ? 'Salvar Alterações' : 'Protocolar Solicitação'}
             </Button>
+            {existingEvent && (
+                <Button type="button" variant="outline" onClick={handleGeneratePdf} size="lg">
+                    <Download className="mr-2 h-4 w-4" />
+                    Gerar PDF
+                </Button>
+            )}
           </div>
         </form>
       </div>
