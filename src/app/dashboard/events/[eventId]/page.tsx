@@ -63,7 +63,7 @@ export default function EventDetailPage() {
                      <EventPlanningForm existingEvent={eventData} />
                 </TabsContent>
                 <TabsContent value="guest_briefing" className="mt-6">
-                    <GuestBriefingGenerator />
+                    <GuestBriefingGenerator event={eventData} />
                 </TabsContent>
             </Tabs>
         </VolunteeringProvider>

@@ -13,23 +13,15 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
-// Dados base (reaproveitados do planejamento) - Placeholder
-const speakersDB = [
-    { id: '1', name: "Glorinha", role: "Oficina Coral", floor: "3º Andar", room: "Sala 301", kit: "Teclado, 2 Microfones, Água" },
-    { id: '2', name: "Cláudio Félix", role: "Prática de Banda", floor: "Térreo", room: "Auditório B", kit: "Bateria Completa, Cubos, Linha" },
-    { id: '3', name: "Pessanha", role: "Produção Musical", floor: "2º Andar", room: "Estúdio/Sala 204", kit: "Projetor, Som P2" },
-    { id: '4', name: "Cia Dança e Vida", role: "Workshop Dança", floor: "3º Andar", room: "Salão Nobre", kit: "Chão Livre, Som Potente" },
-    { id: '5', name: "Nath Molinari", role: "Gestão de Projetos", floor: "3º Andar", room: "Sala 305", kit: "Projetor, Quadro Branco" },
-    { id: '6', name: "Pr Isaac Santana", role: "Empreendedorismo", floor: "3º Andar", room: "Sala 302", kit: "TV 50pol, HDMI" },
-];
-
-export function GuestBriefingGenerator() {
-    const [selectedSpeakerId, setSelectedSpeakerId] = useState<string>("");
-    const speaker = speakersDB.find(s => s.id === selectedSpeakerId) || null;
+export function GuestBriefingGenerator({ event }: { event: any }) { 
+    const [guestName, setGuestName] = useState('');
+    const [guestRole, setGuestRole] = useState('');
+    const [roomDetails, setRoomDetails] = useState({ floor: '', room: '', kit: '' });
 
     // Estado do Formulário Logístico
     const [logistics, setLogistics] = useState({
@@ -51,9 +43,17 @@ export function GuestBriefingGenerator() {
         setLogistics({ ...logistics, [e.target.name]: e.target.value });
     };
 
+    const handleRoomDetailsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setRoomDetails({ ...roomDetails, [e.target.name]: e.target.value });
+    };
+
     const printPDF = () => {
         window.print();
     };
+    
+    const eventDate = event?.date ? new Date(event.date + 'T12:00:00') : null;
+    const formattedDay = eventDate ? format(eventDate, 'dd') : 'DD';
+    const formattedMonth = eventDate ? format(eventDate, 'MMM', { locale: ptBR }).toUpperCase() : 'MÊS';
 
     return (
         <div className="flex flex-col md:flex-row min-h-screen bg-gray-100 font-sans text-gray-800 -m-6">
@@ -91,77 +91,79 @@ export function GuestBriefingGenerator() {
                         <CardDescription>Gere o roteiro do convidado</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                         <div>
-                            <Label>Selecione o Convidado</Label>
-                             <Select onValueChange={setSelectedSpeakerId} value={selectedSpeakerId}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="-- Selecione --" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {speakersDB.map(s => (
-                                        <SelectItem key={s.id} value={s.id}>{s.name} ({s.role})</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        {speaker && (
-                            <div className="space-y-4 animate-fade-in">
-                                 <Card className="bg-primary/5 border-primary/20">
-                                    <CardHeader className="p-3">
-                                        <CardTitle className="text-xs font-bold text-primary uppercase">Dados da Sala (Automático)</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="p-3 pt-0 text-sm space-y-1">
-                                        <p><strong>Local:</strong> {speaker.floor} - {speaker.room}</p>
-                                        <p><strong>Kit:</strong> {speaker.kit}</p>
-                                    </CardContent>
-                                </Card>
-
-                                <div>
-                                    <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2 text-sm"><Car className="w-4 h-4"/> Transporte</h3>
-                                    <div className="grid grid-cols-2 gap-2 mb-2">
-                                        <Input type="time" name="pickupTime" value={logistics.pickupTime} onChange={handleChange} />
-                                        <Input type="text" name="driverName" value={logistics.driverName} onChange={handleChange} placeholder="Nome Motorista" />
-                                    </div>
-                                    <Input type="text" name="pickupLoc" value={logistics.pickupLoc} onChange={handleChange} placeholder="Local de Busca" />
-                                </div>
-                                <div>
-                                    <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2 text-sm"><Utensils className="w-4 h-4"/> Alimentação</h3>
-                                    <div className="space-y-2">
-                                        <Input type="text" name="lunchLoc" value={logistics.lunchLoc} onChange={handleChange} placeholder="Local do Almoço" />
-                                        <Input type="text" name="snackLoc" value={logistics.snackLoc} onChange={handleChange} placeholder="Local do Lanche" />
-                                    </div>
-                                </div>
-                                 <Button 
-                                    onClick={printPDF}
-                                    className="w-full mt-6"
-                                >
-                                    <Download className="w-5 h-5 mr-2" /> Salvar PDF / Imprimir
-                                </Button>
+                         <div className="space-y-4">
+                            <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2 text-sm"><User className="w-4 h-4"/> Convidado</h3>
+                            <div>
+                                <Label>Nome do Convidado</Label>
+                                <Input value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="Ex: Pr. Cláudio Duarte" />
                             </div>
-                        )}
+                            <div>
+                                <Label>Papel/Oficina do Convidado</Label>
+                                <Input value={guestRole} onChange={(e) => setGuestRole(e.target.value)} placeholder="Ex: Preletor Principal" />
+                            </div>
+                        </div>
+                        
+                        <div className="space-y-4">
+                             <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2 text-sm"><MapPin className="w-4 h-4"/> Local da Oficina/Palestra</h3>
+                             <div>
+                                <Label>Andar/Setor</Label>
+                                <Input name="floor" value={roomDetails.floor} onChange={handleRoomDetailsChange} placeholder="Ex: 3º Andar" />
+                            </div>
+                             <div>
+                                <Label>Sala</Label>
+                                <Input name="room" value={roomDetails.room} onChange={handleRoomDetailsChange} placeholder="Ex: Auditório Principal" />
+                            </div>
+                             <div>
+                                <Label>Kit de Sala</Label>
+                                <Input name="kit" value={roomDetails.kit} onChange={handleRoomDetailsChange} placeholder="Ex: 1 Microfone, Projetor, Água" />
+                            </div>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2 text-sm"><Car className="w-4 h-4"/> Transporte</h3>
+                            <div className="grid grid-cols-2 gap-2 mb-2">
+                                <Input type="time" name="pickupTime" value={logistics.pickupTime} onChange={handleChange} />
+                                <Input type="text" name="driverName" value={logistics.driverName} onChange={handleChange} placeholder="Nome Motorista" />
+                            </div>
+                            <Input type="text" name="pickupLoc" value={logistics.pickupLoc} onChange={handleChange} placeholder="Local de Busca" />
+                        </div>
+                        <div className="space-y-4">
+                            <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2 text-sm"><Utensils className="w-4 h-4"/> Alimentação</h3>
+                            <div className="space-y-2">
+                                <Input type="text" name="lunchLoc" value={logistics.lunchLoc} onChange={handleChange} placeholder="Local do Almoço" />
+                                <Input type="text" name="snackLoc" value={logistics.snackLoc} onChange={handleChange} placeholder="Local do Lanche" />
+                            </div>
+                        </div>
+                         <Button 
+                            onClick={printPDF}
+                            className="w-full mt-6"
+                            disabled={!guestName}
+                        >
+                            <Download className="w-5 h-5 mr-2" /> Salvar PDF / Imprimir
+                        </Button>
                     </CardContent>
                 </Card>
             </div>
 
             {/* --- ÁREA DE PREVIEW (O Documento Real) --- */}
             <div className="w-full md:w-2/3 bg-gray-100 p-8 overflow-y-auto h-screen flex justify-center items-start print-area">
-                {speaker ? (
+                {guestName ? (
                     <div className="bg-white w-full max-w-[210mm] min-h-[297mm] shadow-2xl p-12 relative print:shadow-none print:w-full print:max-w-none print:h-auto print:p-8">
                         <div className="flex justify-between items-start border-b-2 border-primary pb-6 mb-8">
                             <div>
                                 <h1 className="text-4xl font-serif font-bold text-gray-900 tracking-tight">Roteiro do Convidado</h1>
-                                <p className="text-primary font-medium text-lg mt-1">Criativamente 2026</p>
+                                <p className="text-primary font-medium text-lg mt-1">{event?.eventName || 'Nome do Evento'}</p>
                             </div>
                             <div className="text-right">
                                 <div className="bg-gray-900 text-white px-4 py-2 rounded-lg inline-block">
                                     <span className="text-xs uppercase tracking-widest font-bold block opacity-70">DATA</span>
-                                    <span className="text-xl font-bold">24 JAN</span>
+                                    <span className="text-xl font-bold">{formattedDay} {formattedMonth}</span>
                                 </div>
                             </div>
                         </div>
 
                         <div className="mb-10">
-                            <h2 className="text-2xl font-bold text-gray-800 mb-2">Olá, {speaker.name}!</h2>
+                            <h2 className="text-2xl font-bold text-gray-800 mb-2">Olá, {guestName}!</h2>
                             <p className="text-gray-600 leading-relaxed">
                                 Estamos muito felizes com sua presença. Preparamos este roteiro para que seu dia seja tranquilo e você possa focar no que faz de melhor. Qualquer dúvida, nossa equipe de concierge está à disposição.
                             </p>
@@ -173,7 +175,7 @@ export function GuestBriefingGenerator() {
                                 { icon: Car, color: 'purple', title: "Transporte & Pickup", time: logistics.pickupTime, details: `Motorista: ${logistics.driverName}\nLocal: ${logistics.pickupLoc}` },
                                 { icon: MapPin, color: 'blue', title: "Chegada ao Evento", time: logistics.arrivalTime, details: "Recepção VIP e Credenciamento." },
                                 { icon: Utensils, color: 'green', title: "Almoço", time: logistics.lunchTime, details: `Local: ${logistics.lunchLoc}` },
-                                { icon: Mic, color: 'primary', title: `Sua Oficina: ${speaker.role}`, time: logistics.workshopTime, details: `Local: ${speaker.floor} - ${speaker.room}\nSetup: ${speaker.kit}`, highlight: true },
+                                { icon: Mic, color: 'primary', title: `Sua Participação: ${guestRole}`, time: logistics.workshopTime, details: `Local: ${roomDetails.floor} - ${roomDetails.room}\nSetup: ${roomDetails.kit}`, highlight: true },
                                 { icon: Coffee, color: 'orange', title: "Coffee Break", time: logistics.snackTime, details: `Local: ${logistics.snackLoc}` },
                                 { icon: Utensils, color: 'slate', title: "Jantar / Encerramento", time: logistics.dinnerTime, details: `Local: ${logistics.dinnerLoc}` }
                             ].map((item, index) => {
@@ -222,7 +224,7 @@ export function GuestBriefingGenerator() {
                 ) : (
                     <div className="flex flex-col items-center justify-center h-full text-gray-400">
                         <User className="w-16 h-16 mb-4 opacity-50"/>
-                        <p className="text-lg font-medium">Selecione um convidado no menu lateral</p>
+                        <p className="text-lg font-medium">Digite o nome de um convidado para começar</p>
                         <p className="text-sm">O roteiro aparecerá aqui pronto para impressão.</p>
                     </div>
                 )}
