@@ -1,12 +1,14 @@
-
 'use client';
 
 import { EventPlanningForm } from '@/components/events/planning-form';
+import { GuestBriefingGenerator } from '@/components/events/guest-briefing';
 import { VolunteeringProvider } from '@/contexts/volunteering-context';
 import { useParams } from 'next/navigation';
 import { useDoc } from '@/firebase';
-import { Loader2 } from 'lucide-react';
+import { Loader2, FileText, UserCheck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 
 // Define the type for the event data, matching the Firestore structure
 type StrategicEvent = {
@@ -46,7 +48,24 @@ export default function EventDetailPage() {
     
     return (
         <VolunteeringProvider>
-            <EventPlanningForm existingEvent={eventData} />
+             <Tabs defaultValue="planning" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="planning">
+                        <FileText className="mr-2 size-4" />
+                        Planejamento Estratégico
+                    </TabsTrigger>
+                    <TabsTrigger value="guest_briefing">
+                        <UserCheck className="mr-2 size-4" />
+                        Briefing do Convidado
+                    </TabsTrigger>
+                </TabsList>
+                <TabsContent value="planning" className="mt-6">
+                     <EventPlanningForm existingEvent={eventData} />
+                </TabsContent>
+                <TabsContent value="guest_briefing" className="mt-6">
+                    <GuestBriefingGenerator />
+                </TabsContent>
+            </Tabs>
         </VolunteeringProvider>
     );
 }
