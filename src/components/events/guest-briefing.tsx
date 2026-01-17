@@ -76,6 +76,11 @@ export function GuestBriefingGenerator({ event }: { event: any }) {
         );
     };
 
+    const handleRoomDetailsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setRoomDetails(prev => ({ ...prev, [name]: value }));
+    };
+
     const addTimelineItem = () => {
         const newItem = {
             id: crypto.randomUUID(),
