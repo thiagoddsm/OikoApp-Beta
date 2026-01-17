@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Car,
   Clock,
@@ -10,6 +10,8 @@ import {
   Download,
   User,
   Coffee,
+  PlusCircle,
+  Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -17,34 +19,76 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
+
+const categoryConfig: Record<string, { icon: React.ElementType; color: string }> = {
+    'Transporte': { icon: Car, color: 'purple' },
+    'Alimentação': { icon: Utensils, color: 'green' },
+    'Ação': { icon: Mic, color: 'primary' },
+    'Logística': { icon: MapPin, color: 'blue' },
+    'Pausa': { icon: Coffee, color: 'orange' },
+    'Default': { icon: Clock, color: 'slate' }
+};
+
+const initialTimelineItems = [
+    { id: '1', time: '08:00', category: 'Transporte', title: "Transporte & Pickup", details: "Motorista: Uber VIP / Voluntário João\nLocal: Aeroporto SDU" },
+    { id: '2', time: '09:30', category: 'Logística', title: "Chegada ao Evento", details: "Recepção VIP e Credenciamento." },
+    { id: '3', time: '12:30', category: 'Alimentação', title: "Almoço", details: "Local: Restaurante da Igreja (Área VIP)" },
+    { id: '4', time: '14:00', category: 'Ação', title: "Sua Participação", details: "Local: Auditório Principal\nSetup: Microfone, Projetor, Água" },
+    { id: '5', time: '16:00', category: 'Pausa', title: "Coffee Break", details: "Local: Sala dos Preletores (2º Andar)" },
+    { id: '6', time: '19:00', category: 'Alimentação', title: "Jantar / Encerramento", details: "Local: Pizzaria Local (Pós-evento)" },
+];
+
 
 export function GuestBriefingGenerator({ event }: { event: any }) { 
     const [guestName, setGuestName] = useState('');
     const [guestRole, setGuestRole] = useState('');
     const [roomDetails, setRoomDetails] = useState({ floor: '', room: '', kit: '' });
+    const [timelineItems, setTimelineItems] = useState(initialTimelineItems);
 
-    // Estado do Formulário Logístico
-    const [logistics, setLogistics] = useState({
-        driverName: "Uber VIP / Voluntário João",
-        driverPhone: "(21) 99999-9999",
-        pickupTime: "08:00",
-        pickupLoc: "Aeroporto SDU / Sua Residência",
-        arrivalTime: "09:30",
-        lunchTime: "12:30",
-        lunchLoc: "Restaurante da Igreja (Área VIP)",
-        snackTime: "16:00",
-        snackLoc: "Sala dos Preletores (2º Andar)",
-        workshopTime: "14:00",
-        dinnerTime: "19:00",
-        dinnerLoc: "Pizzaria Local (Pós-evento)"
-    });
+     // Update the main "Action" item when guestRole or roomDetails change
+    useEffect(() => {
+        setTimelineItems(prevItems => {
+            return prevItems.map(item => {
+                if (item.category === 'Ação') {
+                    const details = [
+                        (roomDetails.floor || roomDetails.room) ? `Local: ${roomDetails.floor} - ${roomDetails.room}` : '',
+                        roomDetails.kit ? `Setup: ${roomDetails.kit}` : ''
+                    ].filter(Boolean).join('\n');
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setLogistics({ ...logistics, [e.target.name]: e.target.value });
+                    return {
+                        ...item,
+                        title: guestRole ? `Sua Participação: ${guestRole}` : 'Sua Participação',
+                        details: details || 'Detalhes da participação a serem definidos.'
+                    };
+                }
+                return item;
+            });
+        });
+    }, [guestRole, roomDetails]);
+
+
+    const handleTimelineChange = (id: string, field: string, value: string) => {
+        setTimelineItems(prevItems => 
+            prevItems.map(item => (item.id === id ? { ...item, [field]: value } : item))
+        );
     };
 
-    const handleRoomDetailsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setRoomDetails({ ...roomDetails, [e.target.name]: e.target.value });
+    const addTimelineItem = () => {
+        const newItem = {
+            id: crypto.randomUUID(),
+            time: '20:00',
+            category: 'Default',
+            title: 'Novo Item',
+            details: 'Responsável: \nInformações: '
+        };
+        setTimelineItems(prev => [...prev, newItem]);
+    };
+
+    const deleteTimelineItem = (id: string) => {
+        setTimelineItems(prev => prev.filter(item => item.id !== id));
     };
 
     const printPDF = () => {
@@ -104,7 +148,7 @@ export function GuestBriefingGenerator({ event }: { event: any }) {
                         </div>
                         
                         <div className="space-y-4">
-                             <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2 text-sm"><MapPin className="w-4 h-4"/> Local da Oficina/Palestra</h3>
+                             <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2 text-sm"><MapPin className="w-4 h-4"/> Local da Atividade Principal</h3>
                              <div>
                                 <Label>Andar/Setor</Label>
                                 <Input name="floor" value={roomDetails.floor} onChange={handleRoomDetailsChange} placeholder="Ex: 3º Andar" />
@@ -119,21 +163,43 @@ export function GuestBriefingGenerator({ event }: { event: any }) {
                             </div>
                         </div>
                         
-                        <div className="space-y-4">
-                            <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2 text-sm"><Car className="w-4 h-4"/> Transporte</h3>
-                            <div className="grid grid-cols-2 gap-2 mb-2">
-                                <Input type="time" name="pickupTime" value={logistics.pickupTime} onChange={handleChange} />
-                                <Input type="text" name="driverName" value={logistics.driverName} onChange={handleChange} placeholder="Nome Motorista" />
-                            </div>
-                            <Input type="text" name="pickupLoc" value={logistics.pickupLoc} onChange={handleChange} placeholder="Local de Busca" />
+                         <div className="space-y-4">
+                            <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2 text-sm"><Clock className="w-4 h-4"/> Linha do Tempo Logística</h3>
+                            {timelineItems.map(item => (
+                                <div key={item.id} className="p-3 border rounded-lg space-y-2 bg-slate-50 relative group">
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <Label htmlFor={`time-${item.id}`} className="text-xs">Horário</Label>
+                                            <Input id={`time-${item.id}`} type="time" value={item.time} onChange={(e) => handleTimelineChange(item.id, 'time', e.target.value)} />
+                                        </div>
+                                        <div>
+                                            <Label htmlFor={`category-${item.id}`} className="text-xs">Categoria</Label>
+                                            <Select value={item.category} onValueChange={(v) => handleTimelineChange(item.id, 'category', v)}>
+                                                <SelectTrigger id={`category-${item.id}`}><SelectValue /></SelectTrigger>
+                                                <SelectContent>
+                                                    {Object.keys(categoryConfig).map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <Label htmlFor={`title-${item.id}`} className="text-xs">Título/Ação</Label>
+                                        <Input id={`title-${item.id}`} value={item.title} onChange={(e) => handleTimelineChange(item.id, 'title', e.target.value)} />
+                                    </div>
+                                     <div>
+                                        <Label htmlFor={`details-${item.id}`} className="text-xs">Detalhes (Responsável, Local, etc.)</Label>
+                                        <Textarea id={`details-${item.id}`} value={item.details} onChange={(e) => handleTimelineChange(item.id, 'details', e.target.value)} rows={3} />
+                                    </div>
+                                    <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-destructive opacity-50 group-hover:opacity-100" onClick={() => deleteTimelineItem(item.id)}>
+                                        <Trash2 className="w-4 h-4"/>
+                                    </Button>
+                                </div>
+                            ))}
+                             <Button type="button" variant="outline" className="w-full" onClick={addTimelineItem}>
+                                <PlusCircle className="mr-2 w-4 h-4" /> Adicionar Item
+                             </Button>
                         </div>
-                        <div className="space-y-4">
-                            <h3 className="font-semibold text-gray-800 mb-2 flex items-center gap-2 text-sm"><Utensils className="w-4 h-4"/> Alimentação</h3>
-                            <div className="space-y-2">
-                                <Input type="text" name="lunchLoc" value={logistics.lunchLoc} onChange={handleChange} placeholder="Local do Almoço" />
-                                <Input type="text" name="snackLoc" value={logistics.snackLoc} onChange={handleChange} placeholder="Local do Lanche" />
-                            </div>
-                        </div>
+
                          <Button 
                             onClick={printPDF}
                             className="w-full mt-6"
@@ -171,16 +237,12 @@ export function GuestBriefingGenerator({ event }: { event: any }) {
                         
                          <div className="space-y-0 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-300 before:to-transparent">
                             
-                            {[
-                                { icon: Car, color: 'purple', title: "Transporte & Pickup", time: logistics.pickupTime, details: `Motorista: ${logistics.driverName}\nLocal: ${logistics.pickupLoc}` },
-                                { icon: MapPin, color: 'blue', title: "Chegada ao Evento", time: logistics.arrivalTime, details: "Recepção VIP e Credenciamento." },
-                                { icon: Utensils, color: 'green', title: "Almoço", time: logistics.lunchTime, details: `Local: ${logistics.lunchLoc}` },
-                                { icon: Mic, color: 'primary', title: `Sua Participação: ${guestRole}`, time: logistics.workshopTime, details: `Local: ${roomDetails.floor} - ${roomDetails.room}\nSetup: ${roomDetails.kit}`, highlight: true },
-                                { icon: Coffee, color: 'orange', title: "Coffee Break", time: logistics.snackTime, details: `Local: ${logistics.snackLoc}` },
-                                { icon: Utensils, color: 'slate', title: "Jantar / Encerramento", time: logistics.dinnerTime, details: `Local: ${logistics.dinnerLoc}` }
-                            ].map((item, index) => {
-                                const Icon = item.icon;
+                            {timelineItems.map((item, index) => {
+                                const config = categoryConfig[item.category] || categoryConfig.Default;
+                                const Icon = config.icon;
                                 const isEven = index % 2 !== 0;
+                                const isHighlight = item.category === 'Ação';
+                                
                                 const colorClass = {
                                     purple: { bg: 'bg-purple-100', text: 'text-purple-600', border: 'border-purple-200' },
                                     blue: { bg: 'bg-blue-100', text: 'text-blue-600', border: 'border-blue-200' },
@@ -188,19 +250,19 @@ export function GuestBriefingGenerator({ event }: { event: any }) {
                                     orange: { bg: 'bg-orange-100', text: 'text-orange-600', border: 'border-orange-200' },
                                     slate: { bg: 'bg-slate-100', text: 'text-slate-600', border: 'border-slate-200' },
                                     primary: { bg: 'bg-primary/10', text: 'text-primary', border: 'border-primary/20' },
-                                }[item.color] || { bg: 'bg-gray-100', text: 'text-gray-600', border: 'border-gray-200' };
+                                }[config.color] || { bg: 'bg-gray-100', text: 'text-gray-600', border: 'border-gray-200' };
 
                                 return (
-                                <div key={index} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active mb-8">
-                                    <div className={`flex items-center justify-center w-10 h-10 rounded-full border border-white ${item.highlight ? 'w-12 h-12 bg-primary' : colorClass.bg} shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 print:border-gray-200`}>
-                                        <Icon className={`${item.highlight ? 'text-white w-6 h-6' : `${colorClass.text} w-5 h-5`}`} />
+                                <div key={item.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active mb-8">
+                                    <div className={cn(`flex items-center justify-center rounded-full border border-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 print:border-gray-200`, isHighlight ? 'w-12 h-12 bg-primary' : `w-10 h-10 ${colorClass.bg}`)}>
+                                        <Icon className={cn(isHighlight ? 'text-white w-6 h-6' : `${colorClass.text} w-5 h-5`)} />
                                     </div>
-                                    <div className={`w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] ${item.highlight ? `${colorClass.bg} p-6 border-2 ${colorClass.border}` : 'bg-white p-4 border'} rounded-lg shadow-sm md:ml-6 md:group-odd:mr-6 md:group-odd:ml-0 print:border-gray-300 print:shadow-none`}>
+                                    <div className={cn(`w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] rounded-lg shadow-sm md:ml-6 md:group-odd:mr-6 md:group-odd:ml-0 print:border-gray-300 print:shadow-none`, isHighlight ? `${colorClass.bg} p-6 border-2 ${colorClass.border}` : 'bg-white p-4 border')}>
                                         <div className="flex items-center justify-between space-x-2 mb-1">
-                                            <div className={`font-bold ${item.highlight ? 'text-primary text-lg' : 'text-slate-900'}`}>{item.title}</div>
+                                            <div className={cn('font-bold', isHighlight ? 'text-primary text-lg' : 'text-slate-900')}>{item.title}</div>
                                             <time className="font-mono text-sm font-bold text-primary">{item.time}</time>
                                         </div>
-                                        <div className={`whitespace-pre-line text-sm ${item.highlight ? 'text-primary/90' : 'text-slate-600'}`}>{item.details}</div>
+                                        <div className={cn('whitespace-pre-line text-sm', isHighlight ? 'text-primary/90' : 'text-slate-600')}>{item.details}</div>
                                     </div>
                                 </div>
                                 )
