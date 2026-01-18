@@ -107,6 +107,10 @@ export function EventPlanningForm({ existingEvent = null }) {
     designSupportNeeded: 'nao',
     designRequests: [] as string[],
     marketingSupportNeeded: 'nao',
+    logisticsNotes: '',
+    serviceTeamsNotes: '',
+    financialsNotes: '',
+    marketingNotes: '',
   });
 
   useEffect(() => {
@@ -143,6 +147,10 @@ export function EventPlanningForm({ existingEvent = null }) {
         designSupportNeeded: existingEvent.designSupportNeeded ? 'sim' : 'nao',
         designRequests: existingEvent.designRequests || [],
         marketingSupportNeeded: existingEvent.marketingSupportNeeded ? 'sim' : 'nao',
+        logisticsNotes: existingEvent.logisticsNotes || '',
+        serviceTeamsNotes: existingEvent.serviceTeamsNotes || '',
+        financialsNotes: existingEvent.financialsNotes || '',
+        marketingNotes: existingEvent.marketingNotes || '',
       });
     }
   }, [existingEvent]);
@@ -235,16 +243,39 @@ export function EventPlanningForm({ existingEvent = null }) {
     const margin = 15;
     let y = 20;
 
-    doc.setFontSize(18);
-    doc.text(`Planejamento Estratégico: ${formData.eventName}`, margin, y, { maxWidth: 180 });
-    y += 10;
+    const addSection = (title, content, startY) => {
+        const titleLines = doc.splitTextToSize(title, 180);
+        const contentLines = doc.splitTextToSize(content || '-', 180);
+        const height = (titleLines.length + contentLines.length) * 5 + 10;
+        
+        if (startY + height > 280) { // Check if content fits on page
+            doc.addPage();
+            startY = 20;
+        }
+
+        doc.setFontSize(11);
+        doc.setTextColor(40);
+        doc.text(titleLines, margin, startY);
+        startY += titleLines.length * 5 + 1;
+        
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(contentLines, margin, startY);
+        startY += contentLines.length * 5;
+        
+        return startY + 5;
+    };
     
+    doc.setFontSize(18);
+    const titleLines = doc.splitTextToSize(`Planejamento Estratégico: ${formData.eventName}`, 180);
+    doc.text(titleLines, margin, y);
+    y += (titleLines.length * 7) + 3;
+
     doc.setFontSize(12);
     doc.text(`Solicitante: ${formData.ministry} (${formData.organizer})`, margin, y);
     y += 7;
     doc.text(`Categoria: ${formData.category}`, margin, y);
-    y+= 7;
-    
+    y += 7;
     const eventDate = formData.date ? format(new Date(formData.date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : 'N/A';
     doc.text(`Data do Evento: ${eventDate}`, margin, y);
     y += 10;
@@ -255,7 +286,6 @@ export function EventPlanningForm({ existingEvent = null }) {
         body: Object.entries(formData.smart).map(([key, value]) => [smartMappings[key].label, value || '-']),
         theme: 'grid'
     });
-
     y = (doc as any).autoTable.previous.finalY + 10;
     
     (doc as any).autoTable({
@@ -264,13 +294,11 @@ export function EventPlanningForm({ existingEvent = null }) {
         body: Object.entries(formData.method5w2h).map(([key, value]) => [method5w2hMappings[key].label, value || '-']),
         theme: 'grid'
     });
-    
     y = (doc as any).autoTable.previous.finalY + 10;
 
     doc.setFontSize(14);
     doc.text('Detalhes Logísticos', margin, y);
     y += 8;
-    doc.setFontSize(10);
     const logisticDetails = [
       ['Horário de Montagem (Load-in)', formData.timeLoadIn || '-'],
       ['Horário de Início (Público)', formData.timeStart || '-'],
@@ -285,13 +313,14 @@ export function EventPlanningForm({ existingEvent = null }) {
         body: logisticDetails,
         theme: 'grid'
     });
+    y = (doc as any).autoTable.previous.finalY;
+    if (formData.logisticsNotes) y = addSection('Observações de Logística:', formData.logisticsNotes, y);
+    y += 10;
 
-    y = (doc as any).autoTable.previous.finalY + 10;
 
     doc.setFontSize(14);
     doc.text('Equipes de Serviço Demandadas', margin, y);
     y += 8;
-    doc.setFontSize(10);
     if (formData.requiredServiceAreas.length > 0) {
         const serviceAreasBody = formData.requiredServiceAreas.map(req => {
             const area = areas.find(a => a.id === req.areaId);
@@ -303,16 +332,19 @@ export function EventPlanningForm({ existingEvent = null }) {
             body: serviceAreasBody,
             theme: 'grid'
         });
-        y = (doc as any).autoTable.previous.finalY + 10;
+        y = (doc as any).autoTable.previous.finalY;
     } else {
+        doc.setFontSize(10);
         doc.text('Nenhuma equipe de serviço demandada.', margin, y);
         y += 7;
     }
+    if (formData.serviceTeamsNotes) y = addSection('Observações sobre Equipes:', formData.serviceTeamsNotes, y);
+    y += 10;
+
 
     doc.setFontSize(14);
     doc.text('Análise Financeira', margin, y);
     y += 8;
-    doc.setFontSize(10);
     const financeDetails = [
         ['Modelo', formData.isPaid === 'pago' ? 'Autossustentável (Pago)' : 'Subsidiado (Gratuito)'],
         ['Custos Fixos', `R$ ${formData.fixedCosts || '0'}`],
@@ -320,29 +352,23 @@ export function EventPlanningForm({ existingEvent = null }) {
         ['Valor da Inscrição', `R$ ${formData.ticketPrice || '0'}`],
         ['Ponto de Equilíbrio', `${formData.breakEvenAnalysis || '0'} pessoas`],
     ];
+    (doc as any).autoTable({ startY: y, body: financeDetails, theme: 'grid' });
+    y = (doc as any).autoTable.previous.finalY;
+    if (formData.financialsNotes) y = addSection('Observações Financeiras:', formData.financialsNotes, y);
+    y += 10;
 
-    (doc as any).autoTable({
-        startY: y,
-        body: financeDetails,
-        theme: 'grid'
-    });
-
-    y = (doc as any).autoTable.previous.finalY + 10;
 
     doc.setFontSize(14);
     doc.text('Comunicação & Marketing', margin, y);
     y += 8;
-    doc.setFontSize(10);
     const marketingDetails = [
         ['Apoio de Design', formData.designSupportNeeded === 'sim' ? 'Sim' : 'Não'],
-        ['Itens de Design Solicitados', formData.designSupportNeeded === 'sim' ? (formData.designRequests.join(', ') || 'Nenhum') : 'N/A'],
+        ['Itens de Design', formData.designSupportNeeded === 'sim' ? (formData.designRequests.join(', ') || 'Nenhum') : 'N/A'],
         ['Planejamento de Marketing', formData.marketingSupportNeeded === 'sim' ? 'Sim' : 'Não'],
     ];
-    (doc as any).autoTable({
-        startY: y,
-        body: marketingDetails,
-        theme: 'grid'
-    });
+    (doc as any).autoTable({ startY: y, body: marketingDetails, theme: 'grid' });
+    y = (doc as any).autoTable.previous.finalY;
+    if (formData.marketingNotes) y = addSection('Observações de Marketing:', formData.marketingNotes, y);
 
 
     doc.save(`evento_${formData.eventName.replace(/\s+/g, '_')}.pdf`);
@@ -656,6 +682,10 @@ export function EventPlanningForm({ existingEvent = null }) {
                         </>)}
                     </div>
                  </div>
+                 <div className="mt-4">
+                    <Label htmlFor="logisticsNotes">Observações sobre Logística</Label>
+                    <Textarea id="logisticsNotes" name="logisticsNotes" value={formData.logisticsNotes} onChange={handleChange} placeholder="Observações gerais sobre horários, locais, alimentação, etc." />
+                </div>
             </TooltipProvider>
           </section>
 
@@ -695,6 +725,10 @@ export function EventPlanningForm({ existingEvent = null }) {
                         </div>
                     </ScrollArea>
                 </div>
+                 <div className="mt-4">
+                    <Label htmlFor="serviceTeamsNotes">Observações sobre Equipes</Label>
+                    <Textarea id="serviceTeamsNotes" name="serviceTeamsNotes" value={formData.serviceTeamsNotes} onChange={handleChange} placeholder="Alguma necessidade específica de perfil, uniforme, etc?" />
+                </div>
             </section>
 
           <section>
@@ -722,6 +756,10 @@ export function EventPlanningForm({ existingEvent = null }) {
                     </div>
                 </div>
             )}
+             <div className="mt-4">
+                <Label htmlFor="financialsNotes">Observações Financeiras</Label>
+                <Textarea id="financialsNotes" name="financialsNotes" value={formData.financialsNotes} onChange={handleChange} placeholder="Justificativa de custos, necessidade de patrocínio, etc." />
+            </div>
           </section>
           
           <section>
@@ -764,6 +802,10 @@ export function EventPlanningForm({ existingEvent = null }) {
                       <div className="flex items-center space-x-2"><RadioGroupItem value="nao" id="marketing_nao" /><Label htmlFor="marketing_nao">Não</Label></div>
                   </RadioGroup>
               </div>
+            </div>
+             <div className="mt-4">
+                <Label htmlFor="marketingNotes">Observações sobre Comunicação</Label>
+                <Textarea id="marketingNotes" name="marketingNotes" value={formData.marketingNotes} onChange={handleChange} placeholder="Público-alvo, canais de divulgação, mensagem principal, etc." />
             </div>
           </section>
 

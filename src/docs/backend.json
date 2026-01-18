@@ -159,6 +159,7 @@
         "time": { "type": "string", "format": "time", "description": "e.g., 19:00" },
         "dayOfWeek": { "type": "string", "enum": ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"], "description": "Required if frequency is 'semanal'." },
         "date": { "type": "string", "format": "date", "description": "Required if frequency is 'pontual'." },
+        "room": { "type": "string", "description": "The room/space required for the event." },
         "requiredAreas": {
           "type": "array",
           "description": "List of service areas required for this event and the number of volunteers needed.",
@@ -358,7 +359,17 @@
       "properties": {
         "eventName": { "type": "string" },
         "ministry": { "type": "string" },
+        "organizer": { "type": "string", "enum": ["IBM", "Externo"] },
         "category": { "type": "string" },
+        "recurrence": { "type": "string", "enum": ["unico", "recorrente"] },
+        "recurrenceDetails": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["semanal", "quinzenal", "mensal"] },
+            "endDate": { "type": "string", "format": "date" },
+            "dayOfWeek": { "type": "string", "enum": ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"] }
+          }
+        },
         "date": { "type": "string", "format": "date" },
         "smart": {
           "type": "object",
@@ -382,8 +393,27 @@
             "howMuch": { "type": "string" }
           }
         },
+        "requiredServiceAreas": {
+          "type": "array",
+          "description": "List of service areas required for this event and the number of volunteers needed.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "areaId": { "type": "string" },
+              "quantity": { "type": "number" }
+            },
+            "required": ["areaId", "quantity"]
+          }
+        },
         "status": { "type": "string" },
-        "submittedAt": { "type": "string", "format": "date-time" }
+        "submittedAt": { "type": "string", "format": "date-time" },
+        "designSupportNeeded": { "type": "boolean", "description": "Indicates if design support is needed for the event." },
+        "designRequests": { "type": "array", "items": { "type": "string" }, "description": "List of specific design items requested." },
+        "marketingSupportNeeded": { "type": "boolean", "description": "Indicates if marketing planning is needed for the event." },
+        "logisticsNotes": { "type": "string", "description": "General observations about logistics." },
+        "serviceTeamsNotes": { "type": "string", "description": "General observations about service teams." },
+        "financialsNotes": { "type": "string", "description": "General observations about finances." },
+        "marketingNotes": { "type": "string", "description": "General observations about marketing." }
       },
       "required": ["eventName", "ministry", "date", "status", "submittedAt"]
     },
@@ -501,6 +531,15 @@
       },
       "required": ["courseId", "name"]
     },
+    "Room": {
+      "title": "Room",
+      "type": "object",
+      "description": "A reservable room or space in the church.",
+      "properties": {
+        "name": { "type": "string" }
+      },
+      "required": ["name"]
+    },
     "RoomReservation": {
       "title": "Room Reservation",
       "type": "object",
@@ -508,14 +547,17 @@
       "properties": {
         "eventName": { "type": "string", "description": "Name of the event or activity." },
         "requesterId": { "type": "string", "description": "User ID of the person making the request." },
-        "room": { "type": "string", "description": "The name of the room or space being requested." },
+        "rooms": { "type": "array", "items": { "type": "string" }, "description": "The name(s) of the room(s) or space(s) being requested." },
         "startDateTime": { "type": "string", "format": "date-time" },
         "endDateTime": { "type": "string", "format": "date-time" },
         "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
         "notes": { "type": "string", "description": "Additional details or notes about the reservation." },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "frequency": { "type": "string", "enum": ["pontual", "semanal", "quinzenal", "mensal"] },
+        "dayOfWeek": { "type": "string" },
+        "weekOfMonth": { "type": "string", "enum": ["1", "2", "3", "4", "last"] }
       },
-      "required": ["eventName", "requesterId", "room", "startDateTime", "endDateTime", "status", "createdAt"]
+      "required": ["eventName", "requesterId", "rooms", "startDateTime", "endDateTime", "status", "createdAt"]
     },
     "DiscipleshipChecklist": {
       "title": "Discipleship Checklist",
@@ -569,6 +611,7 @@
       { "path": "/ministries/{ministryId}", "definition": { "schema": { "$ref": "#/entities/Ministry" } } },
       { "path": "/courses/{courseId}", "definition": { "schema": { "$ref": "#/entities/Course" } } },
       { "path": "/courses/{courseId}/classes/{classId}", "definition": { "schema": { "$ref": "#/entities/Class" } } },
+      { "path": "/rooms/{roomId}", "definition": { "schema": { "$ref": "#/entities/Room" } } },
       { "path": "/room_reservations/{reservationId}", "definition": { "schema": { "$ref": "#/entities/RoomReservation" } } },
       { "path": "/discipleship_checklists/{phaseId}", "definition": { "schema": { "$ref": "#/entities/DiscipleshipChecklist" } } }
     ]
