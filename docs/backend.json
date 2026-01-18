@@ -409,7 +409,11 @@
         "submittedAt": { "type": "string", "format": "date-time" },
         "designSupportNeeded": { "type": "boolean", "description": "Indicates if design support is needed for the event." },
         "designRequests": { "type": "array", "items": { "type": "string" }, "description": "List of specific design items requested." },
-        "marketingSupportNeeded": { "type": "boolean", "description": "Indicates if marketing planning is needed for the event." }
+        "marketingSupportNeeded": { "type": "boolean", "description": "Indicates if marketing planning is needed for the event." },
+        "logisticsNotes": { "type": "string", "description": "General observations about logistics." },
+        "serviceTeamsNotes": { "type": "string", "description": "General observations about service teams." },
+        "financialsNotes": { "type": "string", "description": "General observations about finances." },
+        "marketingNotes": { "type": "string", "description": "General observations about marketing." }
       },
       "required": ["eventName", "ministry", "date", "status", "submittedAt"]
     },
@@ -584,7 +588,7 @@
     "structure": [
       { "path": "/users/{userId}", "definition": { "schema": { "$ref": "#/entities/User" } } },
       { "path": "/user_permissions/{userId}", "definition": { "schema": { "$ref": "#/entities/UserPermission" } } },
-      { "path": "/groups/{groupId}", "definition": { "schema": { "$ref": "#/entities/Group" } } },
+      { "path": "/cells/{cellId}", "definition": { "schema": { "$ref": "#/entities/Group" } } },
       { "path": "/reports/{reportId}", "definition": { "schema": { "$ref": "#/entities/Report" } } },
       { "path": "/teams/{teamId}", "definition": { "schema": { "$ref": "#/entities/Team" } } },
       { "path": "/areas_of_service/{areaId}", "definition": { "schema": { "$ref": "#/entities/AreaOfService" } } },
