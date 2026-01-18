@@ -57,7 +57,8 @@
         "igrejaBatismo": { "type": "string" },
         "membroAntigo": { "type": "string", "enum": ["sim", "nao"] },
         "igrejaAntiga": { "type": "string" },
-        "decisao": { "type": "array", "items": { "type": "string" } },
+        "decisao": { "type": "array", "items": { "type": "string", "enum": ["Decisão por Cristo", "Reconciliação", "Ingressar em um GC", "Apenas Visitando"] } },
+        "initialStatus": { "type": "string", "enum": ["nao_convertido", "novo_convertido", "reconciliado", "membro_outra_igreja"], "description": "The initial status of the person when they joined."},
         "dataDecisao": { "type": "string", "format": "date" },
         "estadoCivil": { "type": "string" },
         "temFilhos": { "type": "string", "enum": ["sim", "nao"] },
@@ -158,6 +159,7 @@
         "time": { "type": "string", "format": "time", "description": "e.g., 19:00" },
         "dayOfWeek": { "type": "string", "enum": ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"], "description": "Required if frequency is 'semanal'." },
         "date": { "type": "string", "format": "date", "description": "Required if frequency is 'pontual'." },
+        "room": { "type": "string", "description": "The room/space required for the event." },
         "requiredAreas": {
           "type": "array",
           "description": "List of service areas required for this event and the number of volunteers needed.",
@@ -500,6 +502,15 @@
       },
       "required": ["courseId", "name"]
     },
+    "Room": {
+      "title": "Room",
+      "type": "object",
+      "description": "A reservable room or space in the church.",
+      "properties": {
+        "name": { "type": "string" }
+      },
+      "required": ["name"]
+    },
     "RoomReservation": {
       "title": "Room Reservation",
       "type": "object",
@@ -512,9 +523,33 @@
         "endDateTime": { "type": "string", "format": "date-time" },
         "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
         "notes": { "type": "string", "description": "Additional details or notes about the reservation." },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "frequency": { "type": "string", "enum": ["pontual", "semanal", "quinzenal", "mensal"] },
+        "dayOfWeek": { "type": "string" },
+        "weekOfMonth": { "type": "string", "enum": ["1", "2", "3", "4", "last"] }
       },
       "required": ["eventName", "requesterId", "room", "startDateTime", "endDateTime", "status", "createdAt"]
+    },
+    "DiscipleshipChecklist": {
+      "title": "Discipleship Checklist",
+      "type": "object",
+      "description": "Defines the checklist questions for a specific discipleship phase.",
+      "properties": {
+        "phaseId": { "type": "string", "description": "The ID of the phase (e.g., 'novo_convertido')." },
+        "title": { "type": "string", "description": "The display title of the phase." },
+        "questions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "label": { "type": "string" }
+            },
+            "required": ["id", "label"]
+          }
+        }
+      },
+      "required": ["phaseId", "title", "questions"]
     }
   },
   "auth": {
@@ -547,7 +582,9 @@
       { "path": "/ministries/{ministryId}", "definition": { "schema": { "$ref": "#/entities/Ministry" } } },
       { "path": "/courses/{courseId}", "definition": { "schema": { "$ref": "#/entities/Course" } } },
       { "path": "/courses/{courseId}/classes/{classId}", "definition": { "schema": { "$ref": "#/entities/Class" } } },
-      { "path": "/room_reservations/{reservationId}", "definition": { "schema": { "$ref": "#/entities/RoomReservation" } } }
+      { "path": "/rooms/{roomId}", "definition": { "schema": { "$ref": "#/entities/Room" } } },
+      { "path": "/room_reservations/{reservationId}", "definition": { "schema": { "$ref": "#/entities/RoomReservation" } } },
+      { "path": "/discipleship_checklists/{phaseId}", "definition": { "schema": { "$ref": "#/entities/DiscipleshipChecklist" } } }
     ]
   }
 }
