@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
@@ -11,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Plus, Minus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import Link from 'next/link';
@@ -20,6 +19,8 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { ScrollArea } from '../ui/scroll-area';
+import { Checkbox } from '../ui/checkbox';
 
 
 const smartMappings = {
@@ -47,10 +48,12 @@ const timeTooltips = {
   timeLoadOut: "Desocupação total: Horário que o local deve estar completamente vazio e limpo pela equipe."
 };
 
+const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+
 
 export function EventPlanningForm({ existingEvent = null }) {
   const { firestore } = useFirebase();
-  const { rooms } = useVolunteering();
+  const { rooms, areas } = useVolunteering();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -58,9 +61,15 @@ export function EventPlanningForm({ existingEvent = null }) {
   // Estado Unificado
   const [formData, setFormData] = useState({
     ministry: '',
+    organizer: 'IBM',
     eventName: '',
     category: '',
     recurrence: 'unico',
+    recurrenceDetails: {
+        type: 'semanal',
+        endDate: '',
+        dayOfWeek: ''
+    },
     visionAlignment: '',
     phaseAlignment: '',
     smart: { specific: '', measurable: '', achievable: '', relevant: '', timeBound: '' },
@@ -70,10 +79,11 @@ export function EventPlanningForm({ existingEvent = null }) {
     timeStart: '',
     timeEnd: '',
     timeLoadOut: '',
-    eventType: 'interno', // 'interno' ou 'externo'
-    space: '', // Para eventos internos
-    externalLocation: '', // Para eventos externos
+    eventType: 'interno',
+    space: '',
+    externalLocation: '',
     roomLayout: '',
+    requiredServiceAreas: [] as { areaId: string; quantity: number }[],
     hasFood: 'nao',
     foodType: '',
     kitchenResponsible: '',
@@ -88,27 +98,15 @@ export function EventPlanningForm({ existingEvent = null }) {
     if (existingEvent) {
       setFormData({
         ministry: existingEvent.ministry || '',
+        organizer: existingEvent.organizer || 'IBM',
         eventName: existingEvent.eventName || '',
         category: existingEvent.category || '',
         recurrence: existingEvent.recurrence || 'unico',
+        recurrenceDetails: existingEvent.recurrenceDetails || { type: 'semanal', endDate: '', dayOfWeek: '' },
         visionAlignment: existingEvent.visionAlignment || '',
         phaseAlignment: existingEvent.phaseAlignment || '',
-        smart: {
-          specific: existingEvent.smart?.specific || '',
-          measurable: existingEvent.smart?.measurable || '',
-          achievable: existingEvent.smart?.achievable || '',
-          relevant: existingEvent.smart?.relevant || '',
-          timeBound: existingEvent.smart?.timeBound || '',
-        },
-        method5w2h: {
-          what: existingEvent.method5w2h?.what || '',
-          why: existingEvent.method5w2h?.why || '',
-          who: existingEvent.method5w2h?.who || '',
-          where: existingEvent.method5w2h?.where || '',
-          when: existingEvent.method5w2h?.when || '',
-          how: existingEvent.method5w2h?.how || '',
-          howMuch: existingEvent.method5w2h?.howMuch || '',
-        },
+        smart: existingEvent.smart || { specific: '', measurable: '', achievable: '', relevant: '', timeBound: '' },
+        method5w2h: existingEvent.method5w2h || { what: '', why: '', who: '', where: '', when: '', how: '', howMuch: '' },
         date: existingEvent.date || '',
         timeLoadIn: existingEvent.timeLoadIn || '',
         timeStart: existingEvent.timeStart || '',
@@ -118,6 +116,7 @@ export function EventPlanningForm({ existingEvent = null }) {
         space: existingEvent.space || '',
         externalLocation: existingEvent.externalLocation || '',
         roomLayout: existingEvent.roomLayout || '',
+        requiredServiceAreas: existingEvent.requiredServiceAreas || [],
         hasFood: existingEvent.hasFood || 'nao',
         foodType: existingEvent.foodType || '',
         kitchenResponsible: existingEvent.kitchenResponsible || '',
@@ -165,6 +164,41 @@ export function EventPlanningForm({ existingEvent = null }) {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleRecurrenceChange = (e: React.ChangeEvent<HTMLInputElement> | {name: string, value: string}) => {
+    const { name, value } = 'target' in e ? e.target : e;
+    setFormData(prev => ({
+      ...prev,
+      recurrenceDetails: {
+        ...prev.recurrenceDetails,
+        [name]: value
+      }
+    }));
+  };
+
+  const handleAreaChange = (areaId: string, checked: boolean) => {
+    setFormData(prev => {
+        const existing = prev.requiredServiceAreas;
+        if (checked) {
+            return { ...prev, requiredServiceAreas: [...existing, { areaId, quantity: 1 }] };
+        } else {
+            return { ...prev, requiredServiceAreas: existing.filter(a => a.areaId !== areaId) };
+        }
+    });
+  };
+
+  const handleQuantityChange = (areaId: string, increment: boolean) => {
+    setFormData(prev => ({
+        ...prev,
+        requiredServiceAreas: prev.requiredServiceAreas.map(a => {
+            if (a.areaId === areaId) {
+                const newQuantity = increment ? a.quantity + 1 : Math.max(1, a.quantity - 1);
+                return { ...a, quantity: newQuantity };
+            }
+            return a;
+        })
+    }));
+  };
+  
   const handleGeneratePdf = () => {
     if (!existingEvent) return;
 
@@ -177,7 +211,7 @@ export function EventPlanningForm({ existingEvent = null }) {
     y += 10;
     
     doc.setFontSize(12);
-    doc.text(`Ministério: ${formData.ministry}`, margin, y);
+    doc.text(`Solicitante: ${formData.ministry} (${formData.organizer})`, margin, y);
     y += 7;
     doc.text(`Categoria: ${formData.category}`, margin, y);
     y+= 7;
@@ -344,17 +378,21 @@ export function EventPlanningForm({ existingEvent = null }) {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div>
-                <Label htmlFor="ministry">Ministério Solicitante</Label>
+                <Label htmlFor="ministry">Solicitante</Label>
                 <Input required id="ministry" name="ministry" value={formData.ministry} onChange={handleChange} />
               </div>
-              <div>
+               <div>
+                <Label>Organizador</Label>
+                <RadioGroup value={formData.organizer} onValueChange={(v) => handleRadioChange('organizer', v)} className="flex gap-4 mt-2">
+                    <div className="flex items-center space-x-2"><RadioGroupItem value="IBM" id="org_ibm" /><Label htmlFor="org_ibm">IBM (Interno)</Label></div>
+                    <div className="flex items-center space-x-2"><RadioGroupItem value="Externo" id="org_externo" /><Label htmlFor="org_externo">Externo</Label></div>
+                </RadioGroup>
+              </div>
+               <div>
                 <Label htmlFor="eventName">Nome do Evento</Label>
                 <Input required id="eventName" name="eventName" value={formData.eventName} onChange={handleChange} />
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
+               <div>
                 <Label htmlFor="category">Categoria</Label>
                 <Select required name="category" value={formData.category} onValueChange={(v) => setFormData(p => ({...p, category: v}))}>
                   <SelectTrigger id="category"><SelectValue placeholder="Selecione..." /></SelectTrigger>
@@ -367,6 +405,9 @@ export function EventPlanningForm({ existingEvent = null }) {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <Label>Recorrência</Label>
                  <RadioGroup value={formData.recurrence} onValueChange={(v) => handleRadioChange('recurrence', v)} className="flex gap-4 mt-2">
@@ -375,6 +416,34 @@ export function EventPlanningForm({ existingEvent = null }) {
                 </RadioGroup>
               </div>
             </div>
+             {formData.recurrence === 'recorrente' && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4 p-4 border rounded-md bg-slate-50">
+                    <div>
+                        <Label htmlFor="recurrenceType">Tipo de Recorrência</Label>
+                        <Select required={formData.recurrence === 'recorrente'} name="type" value={formData.recurrenceDetails.type} onValueChange={(v) => handleRecurrenceChange({name: 'type', value: v})}>
+                            <SelectTrigger id="recurrenceType"><SelectValue/></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="semanal">Semanal</SelectItem>
+                                <SelectItem value="quinzenal">Quinzenal</SelectItem>
+                                <SelectItem value="mensal">Mensal</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div>
+                        <Label htmlFor="dayOfWeek">Dia da Semana</Label>
+                        <Select required={formData.recurrence === 'recorrente'} name="dayOfWeek" value={formData.recurrenceDetails.dayOfWeek} onValueChange={(v) => handleRecurrenceChange({name: 'dayOfWeek', value: v})}>
+                             <SelectTrigger id="dayOfWeek"><SelectValue placeholder="Selecione..."/></SelectTrigger>
+                             <SelectContent>
+                                {weekDays.map(day => <SelectItem key={day} value={day}>{day}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div>
+                        <Label htmlFor="endDate">Data Final da Temporada</Label>
+                        <Input required={formData.recurrence === 'recorrente'} type="date" name="endDate" value={formData.recurrenceDetails.endDate} onChange={handleRecurrenceChange} />
+                    </div>
+                </div>
+            )}
           </section>
 
           <section className="bg-slate-50 p-6 rounded-xl border border-slate-200">
@@ -520,10 +589,48 @@ export function EventPlanningForm({ existingEvent = null }) {
             </TooltipProvider>
           </section>
 
+           <section>
+                <div className="flex items-center gap-3 mb-6 pb-2 border-b border-gray-200">
+                    <div className="bg-orange-100 p-2 rounded-lg text-orange-700"><Users size={24} /></div>
+                    <h2 className="text-2xl font-bold text-gray-800">4. Equipes de Serviço</h2>
+                </div>
+                <div>
+                    <Label>Áreas de Serviço Demandadas</Label>
+                    <p className="text-sm text-muted-foreground mb-2">Selecione as áreas necessárias e a quantidade de voluntários para cada.</p>
+                    <ScrollArea className="h-60 w-full rounded-md border p-4">
+                        <div className="space-y-4">
+                            {areas.map(area => {
+                                const isSelected = formData.requiredServiceAreas.some(ra => ra.areaId === area.id);
+                                const selectedArea = formData.requiredServiceAreas.find(ra => ra.areaId === area.id);
+                                return (
+                                    <div key={area.id} className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Checkbox
+                                                id={`area-${area.id}`}
+                                                checked={isSelected}
+                                                onCheckedChange={(checked) => handleAreaChange(area.id, !!checked)}
+                                            />
+                                            <Label htmlFor={`area-${area.id}`}>{area.name}</Label>
+                                        </div>
+                                        {isSelected && (
+                                            <div className="flex items-center gap-2">
+                                                <Button type="button" variant="outline" size="icon" className="h-6 w-6" onClick={() => handleQuantityChange(area.id, false)}><Minus className="h-3 w-3"/></Button>
+                                                <span className="font-bold w-4 text-center">{selectedArea?.quantity}</span>
+                                                <Button type="button" variant="outline" size="icon" className="h-6 w-6" onClick={() => handleQuantityChange(area.id, true)}><Plus className="h-3 w-3"/></Button>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </ScrollArea>
+                </div>
+            </section>
+
           <section>
             <div className="flex items-center gap-3 mb-6 pb-2 border-b border-gray-200">
               <div className="bg-emerald-100 p-2 rounded-lg text-emerald-700"><DollarSign size={24} /></div>
-              <h2 className="text-2xl font-bold text-gray-800">4. Engenharia Financeira</h2>
+              <h2 className="text-2xl font-bold text-gray-800">5. Engenharia Financeira</h2>
             </div>
             <RadioGroup value={formData.isPaid} onValueChange={(v) => handleRadioChange('isPaid', v)} className="flex gap-4 mb-4">
                 <Label htmlFor="paid_nao" className={cn("flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 flex-1", formData.isPaid === 'gratuito' && 'bg-slate-100 border-slate-400')}><RadioGroupItem value="gratuito" id="paid_nao" className="mr-2"/>Subsidiado (Gratuito)</Label>

@@ -359,7 +359,17 @@
       "properties": {
         "eventName": { "type": "string" },
         "ministry": { "type": "string" },
+        "organizer": { "type": "string", "enum": ["IBM", "Externo"] },
         "category": { "type": "string" },
+        "recurrence": { "type": "string", "enum": ["unico", "recorrente"] },
+        "recurrenceDetails": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["semanal", "quinzenal", "mensal"] },
+            "endDate": { "type": "string", "format": "date" },
+            "dayOfWeek": { "type": "string", "enum": ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"] }
+          }
+        },
         "date": { "type": "string", "format": "date" },
         "smart": {
           "type": "object",
@@ -381,6 +391,18 @@
             "when": { "type": "string" },
             "how": { "type": "string" },
             "howMuch": { "type": "string" }
+          }
+        },
+        "requiredServiceAreas": {
+          "type": "array",
+          "description": "List of service areas required for this event and the number of volunteers needed.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "areaId": { "type": "string" },
+              "quantity": { "type": "number" }
+            },
+            "required": ["areaId", "quantity"]
           }
         },
         "status": { "type": "string" },
