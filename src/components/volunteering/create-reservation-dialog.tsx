@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useVolunteering, type RoomReservation } from '@/contexts/volunteering-context';
@@ -11,7 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Timestamp } from 'firebase/firestore';
-import { MultiSelect } from '@/components/ui/multi-select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface CreateReservationDialogProps {
   open: boolean;
@@ -115,6 +115,16 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
     onOpenChange(false);
   };
 
+  const handleRoomSelection = (roomName: string, checked: boolean) => {
+    setSelectedRooms(prev => {
+      if (checked) {
+        return [...prev, roomName];
+      } else {
+        return prev.filter(r => r !== roomName);
+      }
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
@@ -138,14 +148,24 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
                 </SelectContent>
               </Select>
             </div>
-             <div>
-              <Label htmlFor="rooms">Salas/Ambientes</Label>
-               <MultiSelect
-                    options={availableRooms.map(r => ({ value: r.name, label: r.name }))}
-                    selected={selectedRooms}
-                    onChange={setSelectedRooms}
-                    placeholder="Selecione um ou mais ambientes..."
-                />
+            <div>
+                <Label>Salas/Ambientes</Label>
+                <ScrollArea className="h-32 w-full rounded-md border p-4">
+                    <div className="space-y-2">
+                        {availableRooms.map(room => (
+                            <div key={room.id} className="flex items-center space-x-2">
+                                <Checkbox
+                                    id={`room-${room.id}`}
+                                    checked={selectedRooms.includes(room.name)}
+                                    onCheckedChange={checked => handleRoomSelection(room.name, !!checked)}
+                                />
+                                <Label htmlFor={`room-${room.id}`} className="font-normal cursor-pointer">
+                                    {room.name}
+                                </Label>
+                            </div>
+                        ))}
+                    </div>
+                </ScrollArea>
             </div>
 
             <div>
