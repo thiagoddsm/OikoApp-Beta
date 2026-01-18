@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, serverTimestamp, doc } from 'firebase/firestore';
-import { Clock, Users, Layout, DollarSign, Utensils, FileText, ShieldAlert, Target, ListChecks, HelpCircle, Building, MapPin, Download } from 'lucide-react';
+import { Clock, Users, Layout, DollarSign, Utensils, FileText, ShieldAlert, Target, ListChecks, HelpCircle, Building, MapPin, Download, Megaphone } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,7 +25,7 @@ import { Checkbox } from '../ui/checkbox';
 
 const smartMappings = {
   specific: { label: "Específico (S)", placeholder: "Ex: Treinar 20 novos voluntários para a equipe de mídia." },
-  measurable: { label: "Mensurável (M)", placeholder: "Ex: Atingir 80% de taxa de aprovação no teste final." },
+  measurable: { label: "Mensurável (M)", placeholder: "Ex: Atingir 80% de aprovação no teste final." },
   achievable: { label: "Alcançável (A)", placeholder: "Ex: Sim, temos 3 instrutores, material e sala disponível." },
   relevant: { label: "Relevante (R)", placeholder: "Ex: Para suprir a alta demanda de voluntários para a Páscoa." },
   timeBound: { label: "Temporal (T)", placeholder: "Ex: Treinamento concluído até 15 de Março." }
@@ -49,6 +49,18 @@ const timeTooltips = {
 };
 
 const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+
+const designOptions = [
+    { id: 'design-stories', label: 'Arte para stories' },
+    { id: 'design-feed', label: 'Feed' },
+    { id: 'design-thumb', label: 'Thumb' },
+    { id: 'design-projecao', label: 'Projeção' },
+    { id: 'design-carrossel', label: 'Carrossel' },
+    { id: 'design-reels', label: 'Reels' },
+    { id: 'design-video', label: 'Vídeo de anúncios' },
+    { id: 'design-folheto', label: 'Folheto' },
+    { id: 'design-banner', label: 'Banner' },
+];
 
 
 export function EventPlanningForm({ existingEvent = null }) {
@@ -91,7 +103,10 @@ export function EventPlanningForm({ existingEvent = null }) {
     fixedCosts: '',
     variableCostPerPerson: '',
     ticketPrice: '',
-    breakEvenAnalysis: ''
+    breakEvenAnalysis: '',
+    designSupportNeeded: 'nao',
+    designRequests: [] as string[],
+    marketingSupportNeeded: 'nao',
   });
 
   useEffect(() => {
@@ -125,6 +140,9 @@ export function EventPlanningForm({ existingEvent = null }) {
         variableCostPerPerson: existingEvent.variableCostPerPerson?.toString() || '',
         ticketPrice: existingEvent.ticketPrice?.toString() || '',
         breakEvenAnalysis: existingEvent.breakEvenAnalysis?.toString() || '',
+        designSupportNeeded: existingEvent.designSupportNeeded ? 'sim' : 'nao',
+        designRequests: existingEvent.designRequests || [],
+        marketingSupportNeeded: existingEvent.marketingSupportNeeded ? 'sim' : 'nao',
       });
     }
   }, [existingEvent]);
@@ -182,6 +200,17 @@ export function EventPlanningForm({ existingEvent = null }) {
             return { ...prev, requiredServiceAreas: [...existing, { areaId, quantity: 1 }] };
         } else {
             return { ...prev, requiredServiceAreas: existing.filter(a => a.areaId !== areaId) };
+        }
+    });
+  };
+  
+  const handleDesignRequestChange = (item: string, checked: boolean) => {
+    setFormData(prev => {
+        const currentRequests = prev.designRequests || [];
+        if (checked) {
+            return { ...prev, designRequests: [...currentRequests, item] };
+        } else {
+            return { ...prev, designRequests: currentRequests.filter(req => req !== item) };
         }
     });
   };
@@ -277,6 +306,23 @@ export function EventPlanningForm({ existingEvent = null }) {
         theme: 'grid'
     });
 
+    y = (doc as any).autoTable.previous.finalY + 10;
+
+    doc.setFontSize(14);
+    doc.text('Comunicação & Marketing', margin, y);
+    y += 8;
+    doc.setFontSize(10);
+    const marketingDetails = [
+        ['Apoio de Design', formData.designSupportNeeded === 'sim' ? 'Sim' : 'Não'],
+        ['Itens de Design Solicitados', formData.designSupportNeeded === 'sim' ? (formData.designRequests.join(', ') || 'Nenhum') : 'N/A'],
+        ['Planejamento de Marketing', formData.marketingSupportNeeded === 'sim' ? 'Sim' : 'Não'],
+    ];
+    (doc as any).autoTable({
+        startY: y,
+        body: marketingDetails,
+        theme: 'grid'
+    });
+
 
     doc.save(`evento_${formData.eventName.replace(/\s+/g, '_')}.pdf`);
   };
@@ -293,6 +339,9 @@ export function EventPlanningForm({ existingEvent = null }) {
 
     const dataToSave = {
       ...formData,
+      designSupportNeeded: formData.designSupportNeeded === 'sim',
+      designRequests: formData.designSupportNeeded === 'sim' ? formData.designRequests : [],
+      marketingSupportNeeded: formData.marketingSupportNeeded === 'sim',
       method5w2h: {
           ...formData.method5w2h,
           where: formData.eventType === 'interno' ? formData.space : formData.externalLocation,
@@ -652,6 +701,49 @@ export function EventPlanningForm({ existingEvent = null }) {
                     </div>
                 </div>
             )}
+          </section>
+          
+          <section>
+            <div className="flex items-center gap-3 mb-6 pb-2 border-b border-gray-200">
+              <div className="bg-rose-100 p-2 rounded-lg text-rose-700"><Megaphone size={24} /></div>
+              <h2 className="text-2xl font-bold text-gray-800">6. Comunicação & Marketing</h2>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <Label className="font-bold">Precisa de apoio da equipe de design?</Label>
+                <RadioGroup value={formData.designSupportNeeded} onValueChange={(v) => handleRadioChange('designSupportNeeded', v)} className="flex gap-4 mt-2">
+                    <div className="flex items-center space-x-2"><RadioGroupItem value="sim" id="design_sim" /><Label htmlFor="design_sim">Sim</Label></div>
+                    <div className="flex items-center space-x-2"><RadioGroupItem value="nao" id="design_nao" /><Label htmlFor="design_nao">Não</Label></div>
+                </RadioGroup>
+              </div>
+
+              {formData.designSupportNeeded === 'sim' && (
+                  <div className="bg-rose-50 p-4 rounded-lg border border-rose-100">
+                      <Label className="font-semibold text-rose-800">Quais itens de design você precisa?</Label>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-2">
+                          {designOptions.map(item => (
+                              <div key={item.id} className="flex items-center space-x-2">
+                                  <Checkbox
+                                      id={item.id}
+                                      checked={formData.designRequests.includes(item.label)}
+                                      onCheckedChange={(checked) => handleDesignRequestChange(item.label, !!checked)}
+                                  />
+                                  <Label htmlFor={item.id} className="font-normal">{item.label}</Label>
+                              </div>
+                          ))}
+                      </div>
+                  </div>
+              )}
+
+              <div>
+                  <Label className="font-bold">Precisa de planejamento de marketing? <span className="text-sm text-muted-foreground font-normal">(para eventos grandes)</span></Label>
+                  <RadioGroup value={formData.marketingSupportNeeded} onValueChange={(v) => handleRadioChange('marketingSupportNeeded', v)} className="flex gap-4 mt-2">
+                      <div className="flex items-center space-x-2"><RadioGroupItem value="sim" id="marketing_sim" /><Label htmlFor="marketing_sim">Sim</Label></div>
+                      <div className="flex items-center space-x-2"><RadioGroupItem value="nao" id="marketing_nao" /><Label htmlFor="marketing_nao">Não</Label></div>
+                  </RadioGroup>
+              </div>
+            </div>
           </section>
 
           <div className="pt-6 border-t border-gray-200 flex items-center gap-4">
