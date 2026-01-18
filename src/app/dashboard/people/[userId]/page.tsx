@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -9,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, User, ArrowLeft, Pencil, MapPin, Phone, Mail, Calendar, Users, Footprints, Church, MessageSquare, Award, TrendingUp, UserCheck, HeartHandshake, GraduationCap, HandHelping, UserPlus, Target, Info, CheckCircle, Smartphone, Clock, BadgeHelp, Network, Building2, UserX, Briefcase, MapIcon, HandCoins } from 'lucide-react';
+import { Loader2, User, ArrowLeft, Pencil, MapPin, Phone, Mail, Calendar, Users, Footprints, Church, MessageSquare, Award, TrendingUp, UserCheck, HeartHandshake, GraduationCap, HandHelping, UserPlus, Target, Info, CheckCircle, Smartphone, Clock, BadgeHelp, Network, Building2, UserX, Briefcase, MapIcon, HandCoins, Bot } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Link from 'next/link';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -21,6 +20,7 @@ import { DiscipleshipNotes } from '@/components/users/discipleship-notes';
 import { MemberDetails } from '@/components/users/member-details';
 import { VolunteerServiceForm } from '@/components/volunteering/volunteer-service-form';
 import { VolunteeringProvider } from '@/contexts/volunteering-context';
+import { AIProfileAnalysis } from '@/components/users/ai-profile-analysis';
 
 
 type UserProfile = {
@@ -230,11 +230,12 @@ export default function UserProfilePage() {
 
         {/* Tabs */}
         <Tabs defaultValue="trail" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="trail"><Footprints className="mr-2 size-4" />Trilha</TabsTrigger>
                 <TabsTrigger value="discipleship"><HandHelping className="mr-2 size-4" />Discipulado</TabsTrigger>
                 <TabsTrigger value="details"><User className="mr-2 size-4" />Detalhes</TabsTrigger>
                 <TabsTrigger value="service"><HandCoins className="mr-2 size-4"/>Serviço</TabsTrigger>
+                <TabsTrigger value="ai"><Bot className="mr-2 size-4"/>Análise IA</TabsTrigger>
             </TabsList>
 
             <TabsContent value="trail">
@@ -273,6 +274,9 @@ export default function UserProfilePage() {
                     </Card>
                 </VolunteeringProvider>
             </TabsContent>
+            <TabsContent value="ai">
+              <AIProfileAnalysis userProfile={userProfile} />
+            </TabsContent>
         </Tabs>
       </div>
       
@@ -294,5 +298,3 @@ export default function UserProfilePage() {
     </>
   );
 }
-
-    
