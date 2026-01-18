@@ -236,7 +236,7 @@ export function EventPlanningForm({ existingEvent = null }) {
     let y = 20;
 
     doc.setFontSize(18);
-    doc.text(`Planejamento Estratégico: ${formData.eventName}`, margin, y);
+    doc.text(`Planejamento Estratégico: ${formData.eventName}`, margin, y, { maxWidth: 180 });
     y += 10;
     
     doc.setFontSize(12);
@@ -287,6 +287,27 @@ export function EventPlanningForm({ existingEvent = null }) {
     });
 
     y = (doc as any).autoTable.previous.finalY + 10;
+
+    doc.setFontSize(14);
+    doc.text('Equipes de Serviço Demandadas', margin, y);
+    y += 8;
+    doc.setFontSize(10);
+    if (formData.requiredServiceAreas.length > 0) {
+        const serviceAreasBody = formData.requiredServiceAreas.map(req => {
+            const area = areas.find(a => a.id === req.areaId);
+            return [area ? area.name : req.areaId, req.quantity.toString()];
+        });
+        (doc as any).autoTable({
+            startY: y,
+            head: [['Área de Serviço', 'Voluntários Necessários']],
+            body: serviceAreasBody,
+            theme: 'grid'
+        });
+        y = (doc as any).autoTable.previous.finalY + 10;
+    } else {
+        doc.text('Nenhuma equipe de serviço demandada.', margin, y);
+        y += 7;
+    }
 
     doc.setFontSize(14);
     doc.text('Análise Financeira', margin, y);
