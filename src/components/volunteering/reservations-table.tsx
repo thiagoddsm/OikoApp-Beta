@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useVolunteering, type RoomReservation } from '@/contexts/volunteering-context';
@@ -100,7 +101,7 @@ export function ReservationsTable() {
                                 return (
                                     <TableRow key={res.id}>
                                         <TableCell className="font-medium">{res.eventName}</TableCell>
-                                        <TableCell className="text-muted-foreground">{res.room}</TableCell>
+                                        <TableCell className="text-muted-foreground">{res.rooms?.join(', ') || '-'}</TableCell>
                                         <TableCell className="text-muted-foreground text-sm">{getFrequencyText(res)}</TableCell>
                                         <TableCell className="text-muted-foreground">{userMap.get(res.requesterId) || 'Desconhecido'}</TableCell>
                                         <TableCell>

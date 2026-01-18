@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useVolunteering, type RoomReservation } from '@/contexts/volunteering-context';
@@ -10,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Timestamp } from 'firebase/firestore';
+import { MultiSelect } from '@/components/ui/multi-select';
 
 interface CreateReservationDialogProps {
   open: boolean;
@@ -21,11 +23,11 @@ const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Q
 
 export function CreateReservationDialog({ open, onOpenChange, existingReservation }: CreateReservationDialogProps) {
   const { user } = useFirebase();
-  const { addReservation, updateReservation, users, rooms, isLoading } = useVolunteering();
+  const { addReservation, updateReservation, users, rooms: availableRooms, isLoading } = useVolunteering();
 
   const [eventName, setEventName] = useState('');
   const [requesterId, setRequesterId] = useState('');
-  const [room, setRoom] = useState('');
+  const [selectedRooms, setSelectedRooms] = useState<string[]>([]);
   const [startDate, setStartDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -41,7 +43,7 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
       if (existingReservation) {
         setEventName(existingReservation.eventName || '');
         setRequesterId(existingReservation.requesterId || user?.uid || '');
-        setRoom(existingReservation.room || '');
+        setSelectedRooms(existingReservation.rooms || []);
         setNotes(existingReservation.notes || '');
         setFrequency(existingReservation.frequency || 'pontual');
         setDayOfWeek(existingReservation.dayOfWeek || '');
@@ -58,7 +60,7 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
         // Reset form for new reservation
         setEventName('');
         setRequesterId(user?.uid || '');
-        setRoom('');
+        setSelectedRooms([]);
         setNotes('');
         setFrequency('pontual');
         setDayOfWeek('');
@@ -74,7 +76,7 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
 
 
   const handleSave = async () => {
-    if (!eventName || !requesterId || !room || !startDate || !startTime || !endDate || !endTime) {
+    if (!eventName || !requesterId || selectedRooms.length === 0 || !startDate || !startTime || !endDate || !endTime) {
       alert("Por favor, preencha todos os campos obrigatórios.");
       return;
     }
@@ -86,7 +88,7 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
     let reservationData: any = {
       eventName,
       requesterId,
-      room,
+      rooms: selectedRooms,
       startDateTime,
       endDateTime,
       notes,
@@ -137,13 +139,13 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
               </Select>
             </div>
              <div>
-              <Label htmlFor="room">Sala/Ambiente</Label>
-              <Select value={room} onValueChange={setRoom}>
-                <SelectTrigger id="room"><SelectValue placeholder="Selecione um ambiente"/></SelectTrigger>
-                <SelectContent>
-                    {rooms.map(r => <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <Label htmlFor="rooms">Salas/Ambientes</Label>
+               <MultiSelect
+                    options={availableRooms.map(r => ({ value: r.name, label: r.name }))}
+                    selected={selectedRooms}
+                    onChange={setSelectedRooms}
+                    placeholder="Selecione um ou mais ambientes..."
+                />
             </div>
 
             <div>

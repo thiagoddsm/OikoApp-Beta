@@ -50,7 +50,7 @@ export type RoomReservation = {
     id: string;
     eventName: string;
     requesterId: string;
-    room: string;
+    rooms: string[];
     startDateTime: any; // Using `any` to be compatible with Firestore Timestamp
     endDateTime: any;
     status: 'pending' | 'approved' | 'rejected';
@@ -200,7 +200,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
         batch.set(doc(reservationsCollection), {
             eventName: data.name,
             requesterId: user.uid,
-            room: data.room,
+            rooms: [data.room],
             startDateTime,
             endDateTime,
             status: 'approved',

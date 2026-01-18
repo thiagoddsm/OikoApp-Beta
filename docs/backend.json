@@ -518,7 +518,7 @@
       "properties": {
         "eventName": { "type": "string", "description": "Name of the event or activity." },
         "requesterId": { "type": "string", "description": "User ID of the person making the request." },
-        "room": { "type": "string", "description": "The name of the room or space being requested." },
+        "rooms": { "type": "array", "items": { "type": "string" }, "description": "The name(s) of the room(s) or space(s) being requested." },
         "startDateTime": { "type": "string", "format": "date-time" },
         "endDateTime": { "type": "string", "format": "date-time" },
         "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
@@ -528,7 +528,7 @@
         "dayOfWeek": { "type": "string" },
         "weekOfMonth": { "type": "string", "enum": ["1", "2", "3", "4", "last"] }
       },
-      "required": ["eventName", "requesterId", "room", "startDateTime", "endDateTime", "status", "createdAt"]
+      "required": ["eventName", "requesterId", "rooms", "startDateTime", "endDateTime", "status", "createdAt"]
     },
     "DiscipleshipChecklist": {
       "title": "Discipleship Checklist",

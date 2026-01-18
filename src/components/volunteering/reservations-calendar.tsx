@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useMemo } from 'react';
 import { Calendar, momentLocalizer } from 'react-big-calendar';
@@ -27,7 +28,7 @@ export function ReservationsCalendar() {
     if (!reservations) return [];
     return reservations.map(res => ({
       id: res.id,
-      title: `${res.eventName} (${res.room})`,
+      title: `${res.eventName} (${res.rooms?.join(', ') || 'N/A'})`,
       start: res.startDateTime.toDate(),
       end: res.endDateTime.toDate(),
       resource: res, // Keep original object for tooltips, etc.
