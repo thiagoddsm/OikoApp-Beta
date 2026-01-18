@@ -51,13 +51,13 @@ const timeTooltips = {
 const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
 const designOptions = [
-    { id: 'design-stories', label: 'Arte para stories' },
+    { id: 'design-stories', label: 'Stories' },
     { id: 'design-feed', label: 'Feed' },
     { id: 'design-thumb', label: 'Thumb' },
     { id: 'design-projecao', label: 'Projeção' },
     { id: 'design-carrossel', label: 'Carrossel' },
     { id: 'design-reels', label: 'Reels' },
-    { id: 'design-video', label: 'Vídeo de anúncios' },
+    { id: 'design-video', label: 'Vídeo' },
     { id: 'design-folheto', label: 'Folheto' },
     { id: 'design-banner', label: 'Banner' },
 ];
