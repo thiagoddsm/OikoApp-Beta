@@ -144,8 +144,8 @@ export function CoursesManagement() {
             ministryName: 'Wave - Escola de Música'
         });
     }
-    return { waveCourses, otherCourses };
-}, [courses]);
+    return { waveCourses: waves, otherCourses: others };
+  }, [courses]);
 
   const handleEditCourse = (course: Course) => {
     setEditingCourse(course);
