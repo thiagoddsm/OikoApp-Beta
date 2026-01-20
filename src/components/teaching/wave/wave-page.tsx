@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -29,8 +28,8 @@ const modules = [
         id: "teacher",
         title: "Área do Professor",
         icon: User,
-        description: "Agenda de aulas, chamada digital, diário de classe, repositório de arquivos e solicitações.",
-        component: <UnderConstruction pageTitle="Área do Professor" pageDescription="Agenda de aulas, chamada digital, diário de classe, repositório de arquivos e solicitações." />
+        description: "Agenda de aulas, diário de classe, repositório de arquivos e solicitações.",
+        component: <UnderConstruction pageTitle="Área do Professor" pageDescription="Agenda de aulas, diário de classe, repositório de arquivos e solicitações." />
     },
     {
         id: "student",
@@ -55,7 +54,7 @@ export function WaveMusicSchoolPage() {
         </CardHeader>
         <CardContent>
             <Tabs defaultValue="admin" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
                     {modules.map((mod) => (
                         <TabsTrigger key={mod.id} value={mod.id}>
                             <mod.icon className="mr-2 size-4" />
