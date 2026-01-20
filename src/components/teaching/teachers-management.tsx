@@ -1,7 +1,7 @@
 'use client';
 import React, { useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, collectionGroup } from 'firebase/firestore';
+import { collection, query } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -16,47 +16,42 @@ type User = {
     name: string;
     email?: string;
     avatar?: string;
+    isTeacher?: boolean;
+    taughtCourseIds?: string[];
 };
 
-type Class = {
+type Course = {
     id: string;
     name: string;
-    teacherId: string;
 };
 
 export function TeachersManagement() {
     const { firestore } = useFirebase();
 
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
-    // Use collectionGroup to query all 'classes' subcollections
-    const classesQuery = useMemoFirebase(() => firestore ? query(collectionGroup(firestore, 'classes')) : null, [firestore]);
+    const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
 
     const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
-    const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesQuery);
+    const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery);
 
-    const isLoading = isLoadingUsers || isLoadingClasses;
+    const isLoading = isLoadingUsers || isLoadingCourses;
 
     const teachersData = useMemo(() => {
-        if (!users || !classes) return [];
-        const classesByTeacher = new Map<string, string[]>();
-        classes.forEach(c => {
-            if (c.teacherId) {
-                const currentClasses = classesByTeacher.get(c.teacherId) || [];
-                classesByTeacher.set(c.teacherId, [...currentClasses, c.name]);
-            }
-        });
+        if (!users || !courses) return [];
+        
+        const courseMap = new Map<string, string>();
+        courses.forEach(c => courseMap.set(c.id, c.name));
 
-        // Show all users, and indicate who is a teacher
         return users.map(user => ({
             ...user,
-            isTeacher: classesByTeacher.has(user.id),
-            taughtClasses: classesByTeacher.get(user.id) || []
+            isTeacher: user.isTeacher === true,
+            taughtCourses: user.taughtCourseIds?.map(id => courseMap.get(id) || 'Curso não encontrado') || []
         })).sort((a, b) => {
             if (a.isTeacher && !b.isTeacher) return -1;
             if (!a.isTeacher && b.isTeacher) return 1;
             return a.name.localeCompare(b.name);
         });
-    }, [users, classes]);
+    }, [users, courses]);
 
     if (isLoading) {
         return (
@@ -71,7 +66,7 @@ export function TeachersManagement() {
             <CardHeader>
                 <CardTitle>Gerenciamento de Professores</CardTitle>
                 <CardDescription>
-                    Visualize todos os usuários e as turmas que eles lecionam. Para atribuir um professor a uma turma, edite a turma na seção "Cursos e Turmas".
+                    Visualize todos os usuários e os cursos que eles estão aptos a lecionar. Para atribuir um professor a um curso, edite o perfil do membro na seção de Pessoas.
                 </CardDescription>
             </CardHeader>
             <CardContent>
@@ -81,7 +76,7 @@ export function TeachersManagement() {
                             <TableRow>
                                 <TableHead>Professor</TableHead>
                                 <TableHead>Status</TableHead>
-                                <TableHead>Turmas Lecionadas</TableHead>
+                                <TableHead>Cursos Lecionados</TableHead>
                                 <TableHead className="text-right">Ações</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -111,8 +106,8 @@ export function TeachersManagement() {
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex flex-wrap gap-1">
-                                            {teacher.taughtClasses.map(className => (
-                                                <Badge key={className} variant="secondary">{className}</Badge>
+                                            {teacher.taughtCourses.map(courseName => (
+                                                <Badge key={courseName} variant="secondary">{courseName}</Badge>
                                             ))}
                                         </div>
                                     </TableCell>
