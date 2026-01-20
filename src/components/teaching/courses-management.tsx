@@ -7,11 +7,14 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, PlusCircle, BookOpen, Edit, Trash2 } from 'lucide-react';
+import { Loader2, PlusCircle, BookOpen, Edit, Trash2, Waves } from 'lucide-react';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 import { CourseFormDialog } from './course-form-dialog';
 import { ClassFormDialog } from './class-form-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { WaveMusicSchoolPage } from '@/components/teaching/wave/wave-page';
+import { cn } from '@/lib/utils';
+
 
 type Course = { id: string; name: string; description: string; ministryName: string; };
 type Class = { id: string; name: string; teacherId: string; students: string[]; schedule: string; courseId: string; };
@@ -21,8 +24,14 @@ function CourseItem({ course, allUsers }) {
     const { firestore } = useFirebase();
     const [isClassFormOpen, setClassFormOpen] = useState(false);
     const [editingClass, setEditingClass] = useState(null);
+    
+    const isWaveCourse = course.ministryName?.toLowerCase() === 'wave - escola de música';
 
-    const classesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, `courses/${course.id}/classes`)) : null, [firestore, course.id]);
+    const classesQuery = useMemoFirebase(() => {
+        if (!firestore || isWaveCourse) return null; // Do not fetch classes for Wave course
+        return query(collection(firestore, `courses/${course.id}/classes`));
+    }, [firestore, course.id, isWaveCourse]);
+
     const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesQuery);
 
     const userMap = useMemo(() => new Map(allUsers?.map(u => [u.id, u.name]) || []), [allUsers]);
@@ -46,56 +55,65 @@ function CourseItem({ course, allUsers }) {
     
     return (
         <AccordionItem value={course.id}>
-            <AccordionTrigger>
-                <div className="flex-1 text-left">
-                    <p className="font-semibold">{course.name}</p>
-                    <p className="text-sm text-muted-foreground">{course.ministryName}</p>
+            <AccordionTrigger className="hover:bg-muted/50 rounded-md px-4 transition-colors">
+                <div className="flex items-center gap-3 flex-1 text-left">
+                     {isWaveCourse ? <Waves className="size-5 text-primary" /> : <BookOpen className="size-5 text-primary"/>}
+                     <div>
+                        <p className="font-semibold">{course.name}</p>
+                        <p className="text-sm text-muted-foreground">{course.ministryName}</p>
+                    </div>
                 </div>
             </AccordionTrigger>
-            <AccordionContent className="p-4 bg-muted/30">
-                <div className="flex justify-between items-center mb-4">
-                    <p className="text-sm text-muted-foreground">{course.description || "Nenhuma descrição para este curso."}</p>
-                    <Button size="sm" onClick={handleAddClass}><PlusCircle className="mr-2 size-4"/>Nova Turma</Button>
-                </div>
-                <div className="rounded-md border bg-background">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Turma</TableHead>
-                                <TableHead>Professor</TableHead>
-                                <TableHead>Alunos</TableHead>
-                                <TableHead>Horário</TableHead>
-                                <TableHead className="text-right">Ações</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoadingClasses ? (
-                                <TableRow><TableCell colSpan={5} className="text-center h-24"><Loader2 className="animate-spin mx-auto"/></TableCell></TableRow>
-                            ) : classes?.length === 0 ? (
-                                <TableRow><TableCell colSpan={5} className="text-center h-24">Nenhuma turma cadastrada para este curso.</TableCell></TableRow>
-                            ) : (
-                                classes?.map(cls => (
-                                    <TableRow key={cls.id}>
-                                        <TableCell className="font-medium">{cls.name}</TableCell>
-                                        <TableCell>{userMap.get(cls.teacherId) || '-'}</TableCell>
-                                        <TableCell>{cls.students?.length || 0}</TableCell>
-                                        <TableCell>{cls.schedule || '-'}</TableCell>
-                                        <TableCell className="text-right">
-                                            <Button variant="ghost" size="icon" onClick={() => handleEditClass(cls)}><Edit className="size-4"/></Button>
-                                            <Button variant="ghost" size="icon" onClick={() => handleDeleteClass(cls)}><Trash2 className="size-4 text-destructive"/></Button>
-                                        </TableCell>
+            <AccordionContent className={cn("bg-muted/30", isWaveCourse ? "p-0" : "p-4")}>
+                 {isWaveCourse ? (
+                    <WaveMusicSchoolPage />
+                 ) : (
+                    <>
+                        <div className="flex justify-between items-center mb-4">
+                            <p className="text-sm text-muted-foreground">{course.description || "Nenhuma descrição para este curso."}</p>
+                            <Button size="sm" onClick={handleAddClass}><PlusCircle className="mr-2 size-4"/>Nova Turma</Button>
+                        </div>
+                        <div className="rounded-md border bg-background">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Turma</TableHead>
+                                        <TableHead>Professor</TableHead>
+                                        <TableHead>Alunos</TableHead>
+                                        <TableHead>Horário</TableHead>
+                                        <TableHead className="text-right">Ações</TableHead>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
-                 <ClassFormDialog
-                    open={isClassFormOpen}
-                    onOpenChange={setClassFormOpen}
-                    existingClass={editingClass}
-                    courseId={course.id}
-                />
+                                </TableHeader>
+                                <TableBody>
+                                    {isLoadingClasses ? (
+                                        <TableRow><TableCell colSpan={5} className="text-center h-24"><Loader2 className="animate-spin mx-auto"/></TableCell></TableRow>
+                                    ) : classes?.length === 0 ? (
+                                        <TableRow><TableCell colSpan={5} className="text-center h-24">Nenhuma turma cadastrada para este curso.</TableCell></TableRow>
+                                    ) : (
+                                        classes?.map(cls => (
+                                            <TableRow key={cls.id}>
+                                                <TableCell className="font-medium">{cls.name}</TableCell>
+                                                <TableCell>{userMap.get(cls.teacherId) || '-'}</TableCell>
+                                                <TableCell>{cls.students?.length || 0}</TableCell>
+                                                <TableCell>{cls.schedule || '-'}</TableCell>
+                                                <TableCell className="text-right">
+                                                    <Button variant="ghost" size="icon" onClick={() => handleEditClass(cls)}><Edit className="size-4"/></Button>
+                                                    <Button variant="ghost" size="icon" onClick={() => handleDeleteClass(cls)}><Trash2 className="size-4 text-destructive"/></Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                        <ClassFormDialog
+                            open={isClassFormOpen}
+                            onOpenChange={setClassFormOpen}
+                            existingClass={editingClass}
+                            courseId={course.id}
+                        />
+                    </>
+                 )}
             </AccordionContent>
         </AccordionItem>
     )
@@ -159,10 +177,10 @@ export function CoursesManagement() {
                 <p>Clique em "Novo Curso" para começar.</p>
             </div>
           ) : (
-            <Accordion type="multiple" className="w-full">
+            <Accordion type="multiple" className="w-full space-y-2">
               {courses?.map(course => (
-                  <div key={course.id} className="border-b relative group">
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div key={course.id} className="border rounded-md relative group">
+                      <div className="absolute right-12 top-1/2 -translate-y-1/2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.stopPropagation(); handleEditCourse(course);}}><Edit className="size-4"/></Button>
                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.stopPropagation(); handleDeleteCourse(course);}}><Trash2 className="size-4 text-destructive"/></Button>
                       </div>
