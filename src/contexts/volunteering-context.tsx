@@ -24,6 +24,8 @@ export type User = {
   name: string;
   phone?: string;
   email?: string;
+  isTeacher?: boolean;
+  taughtCourseIds?: string[];
   serviceStatus?: 'serving' | 'not_serving';
   serviceAreaId?: string;
   serviceTeamId?: string;
@@ -35,7 +37,9 @@ export type User = {
 export type VolunteeringEvent = {
   id: string;
   name: string;
+  frequency: 'semanal' | 'pontual';
   time: string;
+  dayOfWeek?: string;
   date?: string;
   room?: string;
   requiredAreas?: { areaId: string; quantity: number }[];
@@ -44,6 +48,13 @@ export type VolunteeringEvent = {
 export type Room = {
     id: string;
     name: string;
+};
+
+export type Course = {
+  id: string;
+  name: string;
+  ministryId?: string;
+  description?: string;
 };
 
 export type RoomReservation = {
@@ -88,6 +99,7 @@ interface VolunteeringContextType {
   teams: Team[];
   rooms: Room[];
   events: VolunteeringEvent[];
+  courses: Course[];
   reservations: RoomReservation[];
   savedSchedules: SavedSchedule[];
   isLoading: boolean;
@@ -137,6 +149,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const usersQuery = useMemoFirebase(() => firestore ? collection(firestore, 'users') : null, [firestore]);
   const eventsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'volunteering_events') : null, [firestore]);
   const roomsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'rooms') : null, [firestore]);
+  const coursesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'courses') : null, [firestore]);
   const reservationsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'room_reservations') : null, [firestore]);
   const savedSchedulesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'saved_schedules') : null, [firestore]);
 
@@ -145,11 +158,12 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { data: users, isLoading: loadingUsers } = useCollection<User>(usersQuery);
   const { data: events, isLoading: loadingEvents } = useCollection<VolunteeringEvent>(eventsQuery);
   const { data: rooms, isLoading: loadingRooms } = useCollection<Room>(roomsQuery);
+  const { data: courses, isLoading: loadingCourses } = useCollection<Course>(coursesQuery);
   const { data: reservations, isLoading: loadingReservations } = useCollection<RoomReservation>(reservationsQuery);
   const { data: savedSchedules, isLoading: loadingSavedSchedules } = useCollection<SavedSchedule>(savedSchedulesQuery);
 
 
-  const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents || loadingRooms || loadingReservations || loadingSavedSchedules;
+  const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents || loadingRooms || loadingCourses || loadingReservations || loadingSavedSchedules;
 
   // --- GENERIC CRUD FUNCTIONS ---
   const createCrudFunctions = <T extends {id: string}>(collectionName: string, itemType: string) => {
@@ -275,6 +289,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     teams: teams || [],
     users: users || [],
     rooms: rooms || [],
+    courses: courses || [],
     events: events || [],
     reservations: reservations || [],
     savedSchedules: savedSchedules || [],
@@ -297,7 +312,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     updateVolunteer,
     saveSchedule,
     deleteSchedule,
-  }), [areas, teams, users, rooms, events, reservations, savedSchedules, isLoading]);
+  }), [areas, teams, users, rooms, courses, events, reservations, savedSchedules, isLoading]);
 
   return (
     <VolunteeringContext.Provider value={value}>
@@ -314,5 +329,3 @@ export function useVolunteering() {
   }
   return context;
 }
-
-    

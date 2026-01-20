@@ -68,6 +68,12 @@
         "contatoPreferencia": { "type": "array", "items": { "type": "string" } },
         "contatoTurno": { "type": "array", "items": { "type": "string" } },
         "integrationStatus": { "type": "string" },
+        "isTeacher": { "type": "boolean", "description": "Indicates if the user is a teacher."},
+        "taughtCourseIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "IDs of the Courses the user teaches."
+        },
         "serviceStatus": { "type": "string", "enum": ["serving", "not_serving"], "description": "Indicates if the user is currently serving." },
         "serviceAreaId": { "type": "string", "description": "ID of the AreaOfService the user serves in." },
         "serviceTeamId": { "type": "string", "description": "ID of the Team the user is part of." },
