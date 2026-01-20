@@ -1,7 +1,7 @@
 
 'use client';
 
-import { UnderConstruction } from '@/components/common/under-construction';
+import { CoursesManagement } from '@/components/teaching/courses-management';
 import { WaveMusicSchoolPage } from '@/components/teaching/wave/wave-page';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BookOpen, Waves } from 'lucide-react';
@@ -20,10 +20,7 @@ export default function CoursesPage() {
             </TabsTrigger>
         </TabsList>
         <TabsContent value="courses" className="mt-6">
-            <UnderConstruction 
-                pageTitle="Cursos e Turmas"
-                pageDescription="Crie e gerencie os cursos e turmas dos ministérios de ensino da igreja (Ex: IBM College, DIS)."
-            />
+            <CoursesManagement />
         </TabsContent>
         <TabsContent value="wave" className="mt-6">
             <WaveMusicSchoolPage />

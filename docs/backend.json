@@ -518,11 +518,11 @@
       "type": "object",
       "description": "Represents a course within a ministry.",
       "properties": {
-        "ministryId": { "type": "string" },
+        "ministryName": { "type": "string", "description": "Name of the ministry this course belongs to (e.g., 'IBM College', 'DIS')." },
         "name": { "type": "string" },
         "description": { "type": "string" }
       },
-      "required": ["ministryId", "name"]
+      "required": ["ministryName", "name"]
     },
     "Class": {
       "title": "Class",
