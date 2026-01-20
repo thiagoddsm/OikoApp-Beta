@@ -3,9 +3,11 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Default to requiring authentication for all read/write operations.
+    // Allow public read access for features like server-side AI analysis,
+    // but restrict writes to authenticated users to protect data integrity.
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read: if true;
+      allow write: if request.auth != null;
     }
   }
 }
