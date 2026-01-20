@@ -68,6 +68,12 @@
         "contatoPreferencia": { "type": "array", "items": { "type": "string" } },
         "contatoTurno": { "type": "array", "items": { "type": "string" } },
         "integrationStatus": { "type": "string" },
+        "isTeacher": { "type": "boolean", "description": "Indicates if the user is a teacher."},
+        "taughtCourseIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "IDs of the Courses the user teaches."
+        },
         "serviceStatus": { "type": "string", "enum": ["serving", "not_serving"], "description": "Indicates if the user is currently serving." },
         "serviceAreaId": { "type": "string", "description": "ID of the AreaOfService the user serves in." },
         "serviceTeamId": { "type": "string", "description": "ID of the Team the user is part of." },
@@ -370,7 +376,12 @@
             "dayOfWeek": { "type": "string", "enum": ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"] }
           }
         },
-        "date": { "type": "string", "format": "date" },
+        "startDate": { "type": "string", "format": "date" },
+        "endDate": { "type": "string", "format": "date" },
+        "timeLoadIn": { "type": "string", "format": "time" },
+        "timeStart": { "type": "string", "format": "time" },
+        "timeEnd": { "type": "string", "format": "time" },
+        "timeLoadOut": { "type": "string", "format": "time" },
         "smart": {
           "type": "object",
           "properties": {
@@ -415,7 +426,7 @@
         "financialsNotes": { "type": "string", "description": "General observations about finances." },
         "marketingNotes": { "type": "string", "description": "General observations about marketing." }
       },
-      "required": ["eventName", "ministry", "date", "status", "submittedAt"]
+      "required": ["eventName", "ministry", "startDate", "status", "submittedAt"]
     },
     "Programacao": {
         "title": "Programacao",
@@ -512,11 +523,11 @@
       "type": "object",
       "description": "Represents a course within a ministry.",
       "properties": {
-        "ministryId": { "type": "string" },
+        "ministryName": { "type": "string", "description": "Name of the ministry this course belongs to (e.g., 'IBM College', 'DIS')." },
         "name": { "type": "string" },
         "description": { "type": "string" }
       },
-      "required": ["ministryId", "name"]
+      "required": ["ministryName", "name"]
     },
     "Class": {
       "title": "Class",
@@ -552,6 +563,13 @@
         "endDateTime": { "type": "string", "format": "date-time" },
         "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
         "notes": { "type": "string", "description": "Additional details or notes about the reservation." },
+        "equipmentNotes": { "type": "string", "description": "Notes on required equipment or utensils not in the patrimony list." },
+        "kitchenUsage": { "type": "boolean", "description": "Indicates if the kitchen will be used." },
+        "requiredPatrimonyIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "IDs of the Patrimonio items required for this reservation."
+        },
         "createdAt": { "type": "string", "format": "date-time" },
         "frequency": { "type": "string", "enum": ["pontual", "semanal", "quinzenal", "mensal"] },
         "dayOfWeek": { "type": "string" },
@@ -588,7 +606,7 @@
     "structure": [
       { "path": "/users/{userId}", "definition": { "schema": { "$ref": "#/entities/User" } } },
       { "path": "/user_permissions/{userId}", "definition": { "schema": { "$ref": "#/entities/UserPermission" } } },
-      { "path": "/groups/{groupId}", "definition": { "schema": { "$ref": "#/entities/Group" } } },
+      { "path": "/cells/{cellId}", "definition": { "schema": { "$ref": "#/entities/Group" } } },
       { "path": "/reports/{reportId}", "definition": { "schema": { "$ref": "#/entities/Report" } } },
       { "path": "/teams/{teamId}", "definition": { "schema": { "$ref": "#/entities/Team" } } },
       { "path": "/areas_of_service/{areaId}", "definition": { "schema": { "$ref": "#/entities/AreaOfService" } } },
@@ -617,3 +635,5 @@
     ]
   }
 }
+
+    

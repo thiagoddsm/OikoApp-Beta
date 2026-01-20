@@ -86,7 +86,8 @@ export function EventPlanningForm({ existingEvent = null }) {
     phaseAlignment: '',
     smart: { specific: '', measurable: '', achievable: '', relevant: '', timeBound: '' },
     method5w2h: { what: '', why: '', who: '', where: '', when: '', how: '', howMuch: '' },
-    date: '',
+    startDate: '',
+    endDate: '',
     timeLoadIn: '',
     timeStart: '',
     timeEnd: '',
@@ -126,7 +127,8 @@ export function EventPlanningForm({ existingEvent = null }) {
         phaseAlignment: existingEvent.phaseAlignment || '',
         smart: existingEvent.smart || { specific: '', measurable: '', achievable: '', relevant: '', timeBound: '' },
         method5w2h: existingEvent.method5w2h || { what: '', why: '', who: '', where: '', when: '', how: '', howMuch: '' },
-        date: existingEvent.date || '',
+        startDate: existingEvent.startDate || existingEvent.date || '',
+        endDate: existingEvent.endDate || existingEvent.startDate || existingEvent.date || '',
         timeLoadIn: existingEvent.timeLoadIn || '',
         timeStart: existingEvent.timeStart || '',
         timeEnd: existingEvent.timeEnd || '',
@@ -276,8 +278,11 @@ export function EventPlanningForm({ existingEvent = null }) {
     y += 7;
     doc.text(`Categoria: ${formData.category}`, margin, y);
     y += 7;
-    const eventDate = formData.date ? format(new Date(formData.date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : 'N/A';
-    doc.text(`Data do Evento: ${eventDate}`, margin, y);
+    
+    const eventStartDate = formData.startDate ? format(new Date(formData.startDate + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : 'N/A';
+    const eventEndDate = formData.endDate ? format(new Date(formData.endDate + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : 'N/A';
+    const dateText = eventStartDate === eventEndDate ? eventStartDate : `${eventStartDate} a ${eventEndDate}`;
+    doc.text(`Data do Evento: ${dateText}`, margin, y);
     y += 10;
 
     (doc as any).autoTable({
@@ -590,33 +595,56 @@ export function EventPlanningForm({ existingEvent = null }) {
                   <h2 className="text-2xl font-bold text-gray-800">3. Matriz Logística</h2>
                 </div>
                 <div className="mb-8">
-                  <Label className="block text-sm font-bold text-gray-700 mb-2">Cronograma Operacional (4 Marcos)</Label>
-                  <div className="grid grid-cols-1 md:grid-cols-5 gap-2 items-end bg-gray-50 p-4 rounded-lg border border-gray-200">
-                     <div className="md:col-span-1"><Label className="text-xs text-gray-500 block mb-1">Data</Label><Input type="date" required name="date" value={formData.date} onChange={handleChange}/></div>
-                     
-                     {Object.entries(timeTooltips).map(([key, tooltipText], index) => (
-                        <div key={key}>
-                            <Label className={cn("text-xs font-bold block mb-1", 
-                                index === 0 ? 'text-indigo-600' : 
-                                index === 1 ? 'text-green-600' :
-                                index === 2 ? 'text-gray-600' : 'text-red-600'
-                            )}>
-                                <div className="flex items-center gap-1">
-                                    <span>{index + 1}. {key.replace('time', '')}</span>
-                                     <Tooltip>
-                                        <TooltipTrigger asChild><button type="button"><HelpCircle className="size-3 text-gray-400" /></button></TooltipTrigger>
-                                        <TooltipContent><p className="max-w-xs">{tooltipText}</p></TooltipContent>
-                                    </Tooltip>
+                  <Label className="block text-sm font-bold text-gray-700 mb-2">Cronograma Operacional (Datas e Marcos)</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        {/* Coluna de Início */}
+                        <div className="space-y-4">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="startDate">Data de Início</Label>
+                                <Input id="startDate" type="date" required name="startDate" value={formData.startDate} onChange={handleChange} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="timeLoadIn" className="flex items-center gap-1 text-xs font-bold text-indigo-600">
+                                        1. Load-In
+                                        <Tooltip><TooltipTrigger asChild><button type="button"><HelpCircle className="size-3 text-gray-400" /></button></TooltipTrigger><TooltipContent><p>{timeTooltips.timeLoadIn}</p></TooltipContent></Tooltip>
+                                    </Label>
+                                    <Input id="timeLoadIn" type="time" required name="timeLoadIn" value={formData.timeLoadIn} onChange={handleChange} className="border-indigo-200" />
                                 </div>
-                            </Label>
-                            <Input type="time" required name={key} value={formData[key]} onChange={handleChange} className={cn(
-                                index === 0 ? 'border-indigo-200' : 
-                                index === 1 ? 'border-green-200' :
-                                index === 2 ? 'border-gray-200' : 'border-red-200'
-                            )} />
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="timeStart" className="flex items-center gap-1 text-xs font-bold text-green-600">
+                                        2. Start
+                                        <Tooltip><TooltipTrigger asChild><button type="button"><HelpCircle className="size-3 text-gray-400" /></button></TooltipTrigger><TooltipContent><p>{timeTooltips.timeStart}</p></TooltipContent></Tooltip>
+                                    </Label>
+                                    <Input id="timeStart" type="time" required name="timeStart" value={formData.timeStart} onChange={handleChange} className="border-green-200" />
+                                </div>
+                            </div>
                         </div>
-                     ))}
-                  </div>
+
+                        {/* Coluna de Término */}
+                        <div className="space-y-4">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="endDate">Data de Término</Label>
+                                <Input id="endDate" type="date" required name="endDate" value={formData.endDate} onChange={handleChange} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="timeEnd" className="flex items-center gap-1 text-xs font-bold text-gray-600">
+                                        3. End
+                                        <Tooltip><TooltipTrigger asChild><button type="button"><HelpCircle className="size-3 text-gray-400" /></button></TooltipTrigger><TooltipContent><p>{timeTooltips.timeEnd}</p></TooltipContent></Tooltip>
+                                    </Label>
+                                    <Input id="timeEnd" type="time" required name="timeEnd" value={formData.timeEnd} onChange={handleChange} className="border-gray-200" />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="timeLoadOut" className="flex items-center gap-1 text-xs font-bold text-red-600">
+                                        4. Load-Out
+                                        <Tooltip><TooltipTrigger asChild><button type="button"><HelpCircle className="size-3 text-gray-400" /></button></TooltipTrigger><TooltipContent><p>{timeTooltips.timeLoadOut}</p></TooltipContent></Tooltip>
+                                    </Label>
+                                    <Input id="timeLoadOut" type="time" required name="timeLoadOut" value={formData.timeLoadOut} onChange={handleChange} className="border-red-200" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="mb-6">
@@ -826,3 +854,5 @@ export function EventPlanningForm({ existingEvent = null }) {
     </div>
   );
 }
+
+    
