@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Timestamp } from 'firebase/firestore';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface CreateReservationDialogProps {
   open: boolean;
@@ -33,6 +34,8 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
   const [endDate, setEndDate] = useState('');
   const [endTime, setEndTime] = useState('');
   const [notes, setNotes] = useState('');
+  const [equipmentNotes, setEquipmentNotes] = useState('');
+  const [kitchenUsage, setKitchenUsage] = useState(false);
   const [frequency, setFrequency] = useState<'pontual' | 'semanal' | 'quinzenal' | 'mensal'>('pontual');
   const [dayOfWeek, setDayOfWeek] = useState('');
   const [weekOfMonth, setWeekOfMonth] = useState<'1' | '2' | '3' | '4' | 'last'>('1');
@@ -45,6 +48,8 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
         setRequesterId(existingReservation.requesterId || user?.uid || '');
         setSelectedRooms(existingReservation.rooms || []);
         setNotes(existingReservation.notes || '');
+        setEquipmentNotes(existingReservation.equipmentNotes || '');
+        setKitchenUsage(existingReservation.kitchenUsage || false);
         setFrequency(existingReservation.frequency || 'pontual');
         setDayOfWeek(existingReservation.dayOfWeek || '');
         setWeekOfMonth(existingReservation.weekOfMonth || '1');
@@ -62,6 +67,8 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
         setRequesterId(user?.uid || '');
         setSelectedRooms([]);
         setNotes('');
+        setEquipmentNotes('');
+        setKitchenUsage(false);
         setFrequency('pontual');
         setDayOfWeek('');
         setWeekOfMonth('1');
@@ -92,6 +99,8 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
       startDateTime,
       endDateTime,
       notes,
+      equipmentNotes,
+      kitchenUsage,
       status: existingReservation?.status || 'pending',
       frequency,
       dayOfWeek: ['semanal', 'quinzenal', 'mensal'].includes(frequency) ? dayOfWeek : '',
@@ -134,118 +143,136 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
             Preencha os detalhes abaixo. A sua solicitação será enviada para aprovação.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
-            <div>
-              <Label htmlFor="eventName">Nome do Evento/Atividade</Label>
-              <Input id="eventName" value={eventName} onChange={e => setEventName(e.target.value)} required />
-            </div>
-            <div>
-              <Label htmlFor="requesterId">Solicitante</Label>
-              <Select value={requesterId} onValueChange={setRequesterId} disabled={isLoading}>
-                <SelectTrigger id="requesterId"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                    {users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-                <Label>Salas/Ambientes</Label>
-                <ScrollArea className="h-32 w-full rounded-md border p-4">
-                    <div className="space-y-2">
-                        {availableRooms.map(room => (
-                            <div key={room.id} className="flex items-center space-x-2">
-                                <Checkbox
-                                    id={`room-${room.id}`}
-                                    checked={selectedRooms.includes(room.name)}
-                                    onCheckedChange={checked => handleRoomSelection(room.name, !!checked)}
-                                />
-                                <Label htmlFor={`room-${room.id}`} className="font-normal cursor-pointer">
-                                    {room.name}
-                                </Label>
-                            </div>
-                        ))}
-                    </div>
-                </ScrollArea>
-            </div>
-
-            <div>
-                <Label htmlFor="frequency">Frequência</Label>
-                <Select value={frequency} onValueChange={(v: any) => setFrequency(v)}>
-                    <SelectTrigger id="frequency"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="pontual">Pontual (uma vez)</SelectItem>
-                        <SelectItem value="semanal">Semanal</SelectItem>
-                        <SelectItem value="quinzenal">Quinzenal</SelectItem>
-                        <SelectItem value="mensal">Mensal</SelectItem>
-                    </SelectContent>
+        <div className="py-4 max-h-[70vh] overflow-y-auto pr-4">
+          <Tabs defaultValue="general" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="general">Informações Gerais</TabsTrigger>
+              <TabsTrigger value="resources">Recursos Adicionais</TabsTrigger>
+            </TabsList>
+            <TabsContent value="general" className="mt-4 space-y-4">
+              <div>
+                <Label htmlFor="eventName">Nome do Evento/Atividade</Label>
+                <Input id="eventName" value={eventName} onChange={e => setEventName(e.target.value)} required />
+              </div>
+              <div>
+                <Label htmlFor="requesterId">Solicitante</Label>
+                <Select value={requesterId} onValueChange={setRequesterId} disabled={isLoading}>
+                  <SelectTrigger id="requesterId"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                      {users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                  </SelectContent>
                 </Select>
-            </div>
-            
-            {['semanal', 'quinzenal', 'mensal'].includes(frequency) && (
-                <div>
-                    <Label htmlFor="dayOfWeek">Dia da Semana</Label>
-                    <Select value={dayOfWeek} onValueChange={setDayOfWeek}>
-                        <SelectTrigger id="dayOfWeek"><SelectValue placeholder="Selecione um dia" /></SelectTrigger>
-                        <SelectContent>
-                            {weekDays.map(day => <SelectItem key={day} value={day}>{day}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </div>
-            )}
-            
-            {frequency === 'mensal' && (
-                 <div>
-                    <Label htmlFor="weekOfMonth">Semana do Mês</Label>
-                    <Select value={weekOfMonth} onValueChange={(v: any) => setWeekOfMonth(v)}>
-                        <SelectTrigger id="weekOfMonth"><SelectValue placeholder="Selecione a semana" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="1">1ª Semana</SelectItem>
-                            <SelectItem value="2">2ª Semana</SelectItem>
-                            <SelectItem value="3">3ª Semana</SelectItem>
-                            <SelectItem value="4">4ª Semana</SelectItem>
-                            <SelectItem value="last">Última Semana</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-            )}
+              </div>
+              <div>
+                  <Label>Salas/Ambientes</Label>
+                  <ScrollArea className="h-32 w-full rounded-md border p-4">
+                      <div className="space-y-2">
+                          {availableRooms.map(room => (
+                              <div key={room.id} className="flex items-center space-x-2">
+                                  <Checkbox
+                                      id={`room-${room.id}`}
+                                      checked={selectedRooms.includes(room.name)}
+                                      onCheckedChange={checked => handleRoomSelection(room.name, !!checked)}
+                                  />
+                                  <Label htmlFor={`room-${room.id}`} className="font-normal cursor-pointer">
+                                      {room.name}
+                                  </Label>
+                              </div>
+                          ))}
+                      </div>
+                  </ScrollArea>
+              </div>
 
-            <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <Label htmlFor="startDate">Data de Início {frequency !== 'pontual' && '(primeira ocorrência)'}</Label>
-                    <Input id="startDate" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required/>
-                </div>
-                <div>
-                    <Label htmlFor="startTime">Horário de Início</Label>
-                    <Input id="startTime" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} required/>
-                </div>
-            </div>
+              <div>
+                  <Label htmlFor="frequency">Frequência</Label>
+                  <Select value={frequency} onValueChange={(v: any) => setFrequency(v)}>
+                      <SelectTrigger id="frequency"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                          <SelectItem value="pontual">Pontual (uma vez)</SelectItem>
+                          <SelectItem value="semanal">Semanal</SelectItem>
+                          <SelectItem value="quinzenal">Quinzenal</SelectItem>
+                          <SelectItem value="mensal">Mensal</SelectItem>
+                      </SelectContent>
+                  </Select>
+              </div>
+              
+              {['semanal', 'quinzenal', 'mensal'].includes(frequency) && (
+                  <div>
+                      <Label htmlFor="dayOfWeek">Dia da Semana</Label>
+                      <Select value={dayOfWeek} onValueChange={setDayOfWeek}>
+                          <SelectTrigger id="dayOfWeek"><SelectValue placeholder="Selecione um dia" /></SelectTrigger>
+                          <SelectContent>
+                              {weekDays.map(day => <SelectItem key={day} value={day}>{day}</SelectItem>)}
+                          </SelectContent>
+                      </Select>
+                  </div>
+              )}
+              
+              {frequency === 'mensal' && (
+                  <div>
+                      <Label htmlFor="weekOfMonth">Semana do Mês</Label>
+                      <Select value={weekOfMonth} onValueChange={(v: any) => setWeekOfMonth(v)}>
+                          <SelectTrigger id="weekOfMonth"><SelectValue placeholder="Selecione a semana" /></SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="1">1ª Semana</SelectItem>
+                              <SelectItem value="2">2ª Semana</SelectItem>
+                              <SelectItem value="3">3ª Semana</SelectItem>
+                              <SelectItem value="4">4ª Semana</SelectItem>
+                              <SelectItem value="last">Última Semana</SelectItem>
+                          </SelectContent>
+                      </Select>
+                  </div>
+              )}
 
-            {frequency === 'pontual' && (
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <Label htmlFor="endDate">Data de Fim</Label>
-                        <Input id="endDate" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required/>
-                    </div>
-                    <div>
-                        <Label htmlFor="endTime">Horário de Fim</Label>
-                        <Input id="endTime" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} required/>
-                    </div>
-                </div>
-            )}
+              <div className="grid grid-cols-2 gap-4">
+                  <div>
+                      <Label htmlFor="startDate">Data de Início {frequency !== 'pontual' && '(primeira ocorrência)'}</Label>
+                      <Input id="startDate" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required/>
+                  </div>
+                  <div>
+                      <Label htmlFor="startTime">Início da Ocupação (com montagem)</Label>
+                      <Input id="startTime" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} required/>
+                  </div>
+              </div>
 
-            {frequency !== 'pontual' && (
-                 <div className="grid grid-cols-2 gap-4">
-                     <div>
-                        <Label htmlFor="endTime">Horário de Fim</Label>
-                        <Input id="endTime" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} required/>
-                    </div>
-                </div>
-            )}
+              {frequency === 'pontual' && (
+                  <div className="grid grid-cols-2 gap-4">
+                      <div>
+                          <Label htmlFor="endDate">Data de Fim</Label>
+                          <Input id="endDate" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required/>
+                      </div>
+                      <div>
+                          <Label htmlFor="endTime">Fim da Ocupação (com desmontagem)</Label>
+                          <Input id="endTime" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} required/>
+                      </div>
+                  </div>
+              )}
 
-             <div>
-                <Label htmlFor="notes">Observações</Label>
-                <Textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Equipamentos necessários, número de pessoas, etc."/>
-            </div>
+              {frequency !== 'pontual' && (
+                  <div className="grid grid-cols-2 gap-4">
+                      <div>
+                          <Label htmlFor="endTime">Fim da Ocupação (com desmontagem)</Label>
+                          <Input id="endTime" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} required/>
+                      </div>
+                  </div>
+              )}
+
+              <div>
+                  <Label htmlFor="notes">Observações Gerais</Label>
+                  <Textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Detalhes importantes sobre a reserva."/>
+              </div>
+            </TabsContent>
+            <TabsContent value="resources" className="mt-4 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="equipmentNotes">Equipamentos/Utensílios Necessários</Label>
+                <Textarea id="equipmentNotes" value={equipmentNotes} onChange={(e) => setEquipmentNotes(e.target.value)} placeholder="Ex: 10 mesas, 40 cadeiras, 1 projetor, 2 microfones..." rows={4} />
+              </div>
+              <div className="flex items-center space-x-2 pt-2">
+                <Checkbox id="kitchenUsage" checked={kitchenUsage} onCheckedChange={(checked) => setKitchenUsage(!!checked)} />
+                <Label htmlFor="kitchenUsage">Necessita utilizar a cozinha?</Label>
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
         <DialogFooter>
           <DialogClose asChild>

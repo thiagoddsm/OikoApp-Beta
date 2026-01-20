@@ -55,6 +55,8 @@ export type RoomReservation = {
     endDateTime: any;
     status: 'pending' | 'approved' | 'rejected';
     notes?: string;
+    equipmentNotes?: string;
+    kitchenUsage?: boolean;
     createdAt: any;
     frequency: 'pontual' | 'semanal' | 'quinzenal' | 'mensal';
     dayOfWeek?: string;
