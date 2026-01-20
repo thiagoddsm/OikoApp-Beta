@@ -94,11 +94,11 @@ const userProfileAnalysisFlow = ai.defineFlow(
         // In the future, we could add attendance, notes, etc. here
     };
 
-    const { output } = await analysisPrompt({
+    const result = await analysisPrompt({
         userData: JSON.stringify(comprehensiveData, null, 2),
         question: question,
     });
     
-    return output || "Não foi possível gerar uma análise.";
+    return result.text || "Não foi possível gerar uma análise.";
   }
 );
