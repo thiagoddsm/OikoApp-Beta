@@ -37,6 +37,12 @@ export async function getAIAnalysis(prevState: AIState, formData: FormData): Pro
     return { message: null, analysis: null, error: 'A IA não retornou uma análise. Tente novamente.' };
   } catch (error) {
     console.error('Error getting AI analysis:', error);
-    return { message: null, analysis: null, error: 'Ocorreu um erro no servidor ao gerar a análise.' };
+    // Make the error message more descriptive for debugging
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return { 
+        message: null, 
+        analysis: null, 
+        error: `Erro no servidor: ${errorMessage}` 
+    };
   }
 }
