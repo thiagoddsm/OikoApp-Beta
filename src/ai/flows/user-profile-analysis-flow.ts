@@ -6,7 +6,7 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
 import { initializeFirebase } from '@/firebase';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 
@@ -24,8 +24,14 @@ export async function runUserProfileAnalysis(input: UserProfileAnalysisInput): P
   return analysis;
 }
 
+const AnalysisPromptInputSchema = z.object({
+  userData: z.string(),
+  question: z.string(),
+});
+
 const analysisPrompt = ai.definePrompt({
   name: 'userProfileAnalysisPrompt',
+  input: { schema: AnalysisPromptInputSchema },
   prompt: `You are an expert church management assistant. Your task is to provide a concise and insightful summary answering a specific question about a church member, based on their profile data.
 
 The data is provided in a JSON object which includes their personal details, spiritual journey status ('integrationStatus'), cell group information, service history, and other relevant fields.
