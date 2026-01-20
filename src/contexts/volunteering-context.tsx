@@ -57,6 +57,7 @@ export type RoomReservation = {
     notes?: string;
     equipmentNotes?: string;
     kitchenUsage?: boolean;
+    requiredPatrimonyIds?: string[];
     createdAt: any;
     frequency: 'pontual' | 'semanal' | 'quinzenal' | 'mensal';
     dayOfWeek?: string;

@@ -552,8 +552,13 @@
         "endDateTime": { "type": "string", "format": "date-time" },
         "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
         "notes": { "type": "string", "description": "Additional details or notes about the reservation." },
-        "equipmentNotes": { "type": "string", "description": "Notes on required equipment or utensils." },
+        "equipmentNotes": { "type": "string", "description": "Notes on required equipment or utensils not in the patrimony list." },
         "kitchenUsage": { "type": "boolean", "description": "Indicates if the kitchen will be used." },
+        "requiredPatrimonyIds": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "IDs of the Patrimonio items required for this reservation."
+        },
         "createdAt": { "type": "string", "format": "date-time" },
         "frequency": { "type": "string", "enum": ["pontual", "semanal", "quinzenal", "mensal"] },
         "dayOfWeek": { "type": "string" },

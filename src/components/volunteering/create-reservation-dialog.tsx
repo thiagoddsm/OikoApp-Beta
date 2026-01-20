@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useVolunteering, type RoomReservation } from '@/contexts/volunteering-context';
-import { useFirebase } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, query, collection } from 'firebase/firestore';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -23,8 +23,11 @@ interface CreateReservationDialogProps {
 const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
 export function CreateReservationDialog({ open, onOpenChange, existingReservation }: CreateReservationDialogProps) {
-  const { user } = useFirebase();
-  const { addReservation, updateReservation, users, rooms: availableRooms, isLoading } = useVolunteering();
+  const { user, firestore } = useFirebase();
+  const { addReservation, updateReservation, users, rooms: availableRooms, isLoading: isLoadingContext } = useVolunteering();
+  
+  const patrimonioQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'patrimonio')) : null, [firestore]);
+  const { data: patrimonioItems, isLoading: isLoadingPatrimonio } = useCollection(patrimonioQuery);
 
   const [eventName, setEventName] = useState('');
   const [requesterId, setRequesterId] = useState('');
@@ -36,10 +39,13 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
   const [notes, setNotes] = useState('');
   const [equipmentNotes, setEquipmentNotes] = useState('');
   const [kitchenUsage, setKitchenUsage] = useState(false);
+  const [requiredPatrimonyIds, setRequiredPatrimonyIds] = useState<string[]>([]);
   const [frequency, setFrequency] = useState<'pontual' | 'semanal' | 'quinzenal' | 'mensal'>('pontual');
   const [dayOfWeek, setDayOfWeek] = useState('');
   const [weekOfMonth, setWeekOfMonth] = useState<'1' | '2' | '3' | '4' | 'last'>('1');
   const [isSaving, setIsSaving] = useState(false);
+  
+  const isLoading = isLoadingContext || isLoadingPatrimonio;
 
   useEffect(() => {
     if (open) {
@@ -50,6 +56,7 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
         setNotes(existingReservation.notes || '');
         setEquipmentNotes(existingReservation.equipmentNotes || '');
         setKitchenUsage(existingReservation.kitchenUsage || false);
+        setRequiredPatrimonyIds(existingReservation.requiredPatrimonyIds || []);
         setFrequency(existingReservation.frequency || 'pontual');
         setDayOfWeek(existingReservation.dayOfWeek || '');
         setWeekOfMonth(existingReservation.weekOfMonth || '1');
@@ -69,6 +76,7 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
         setNotes('');
         setEquipmentNotes('');
         setKitchenUsage(false);
+        setRequiredPatrimonyIds([]);
         setFrequency('pontual');
         setDayOfWeek('');
         setWeekOfMonth('1');
@@ -101,6 +109,7 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
       notes,
       equipmentNotes,
       kitchenUsage,
+      requiredPatrimonyIds,
       status: existingReservation?.status || 'pending',
       frequency,
       dayOfWeek: ['semanal', 'quinzenal', 'mensal'].includes(frequency) ? dayOfWeek : '',
@@ -131,6 +140,16 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
       } else {
         return prev.filter(r => r !== roomName);
       }
+    });
+  };
+
+  const handlePatrimonySelection = (itemId: string, checked: boolean) => {
+    setRequiredPatrimonyIds(prev => {
+        if (checked) {
+            return [...prev, itemId];
+        } else {
+            return prev.filter(id => id !== itemId);
+        }
     });
   };
 
@@ -264,8 +283,34 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
             </TabsContent>
             <TabsContent value="resources" className="mt-4 space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="equipmentNotes">Equipamentos/Utensílios Necessários</Label>
-                <Textarea id="equipmentNotes" value={equipmentNotes} onChange={(e) => setEquipmentNotes(e.target.value)} placeholder="Ex: 10 mesas, 40 cadeiras, 1 projetor, 2 microfones..." rows={4} />
+                <Label htmlFor="equipmentNotes">Equipamentos/Utensílios (não catalogados)</Label>
+                <Textarea id="equipmentNotes" value={equipmentNotes} onChange={(e) => setEquipmentNotes(e.target.value)} placeholder="Ex: 10 toalhas de mesa, 50 copos..." rows={2} />
+              </div>
+              <div className="space-y-2">
+                  <Label>Selecionar Itens do Patrimônio</Label>
+                  <ScrollArea className="h-40 w-full rounded-md border p-4">
+                      {isLoadingPatrimonio ? (
+                          <div className="flex items-center justify-center h-full">
+                              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                          </div>
+                      ) : (
+                          <div className="space-y-2">
+                              {patrimonioItems?.map(item => (
+                                  <div key={item.id} className="flex items-center space-x-2">
+                                      <Checkbox
+                                          id={`item-${item.id}`}
+                                          checked={requiredPatrimonyIds.includes(item.id)}
+                                          onCheckedChange={checked => handlePatrimonySelection(item.id, !!checked)}
+                                      />
+                                      <Label htmlFor={`item-${item.id}`} className="font-normal cursor-pointer flex-1">
+                                          {item.name} <span className="text-xs text-muted-foreground">({item.category})</span>
+                                      </Label>
+                                  </div>
+                              ))}
+                              {patrimonioItems?.length === 0 && <p className="text-sm text-muted-foreground text-center">Nenhum item no patrimônio.</p>}
+                          </div>
+                      )}
+                  </ScrollArea>
               </div>
               <div className="flex items-center space-x-2 pt-2">
                 <Checkbox id="kitchenUsage" checked={kitchenUsage} onCheckedChange={(checked) => setKitchenUsage(!!checked)} />
