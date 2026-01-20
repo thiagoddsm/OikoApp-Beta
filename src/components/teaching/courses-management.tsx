@@ -20,7 +20,7 @@ type Course = { id: string; name: string; description: string; ministryName: str
 type Class = { id: string; name: string; teacherId: string; students: string[]; schedule: string; courseId: string; };
 type User = { id: string; name: string; };
 
-function CourseItem({ course, allUsers }) {
+function CourseItem({ course, allUsers }: { course: Course, allUsers: User[] }) {
     const { firestore } = useFirebase();
     const [isClassFormOpen, setClassFormOpen] = useState(false);
     const [editingClass, setEditingClass] = useState(null);
@@ -28,7 +28,7 @@ function CourseItem({ course, allUsers }) {
     const isWaveCourse = course.ministryName?.toLowerCase() === 'wave - escola de música';
 
     const classesQuery = useMemoFirebase(() => {
-        if (!firestore || isWaveCourse) return null; // Do not fetch classes for Wave course
+        if (!firestore || isWaveCourse || course.id === 'static-wave-course') return null; // Do not fetch classes for Wave course or static course
         return query(collection(firestore, `courses/${course.id}/classes`));
     }, [firestore, course.id, isWaveCourse]);
 
@@ -133,6 +133,10 @@ export function CoursesManagement() {
   const [editingCourse, setEditingCourse] = useState(null);
   const [deletingCourse, setDeletingCourse] = useState<Course | null>(null);
 
+  const waveCourseExists = useMemo(() => 
+    courses?.some(c => c.ministryName?.toLowerCase() === 'wave - escola de música'), 
+  [courses]);
+
   const handleEditCourse = (course: Course) => {
     setEditingCourse(course);
     setCourseFormOpen(true);
@@ -171,7 +175,7 @@ export function CoursesManagement() {
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center items-center h-48"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>
-          ) : courses?.length === 0 ? (
+          ) : (courses?.length === 0 && !waveCourseExists) ? (
             <div className="text-center text-muted-foreground py-10 border-2 border-dashed rounded-lg">
                 <p>Nenhum curso cadastrado ainda.</p>
                 <p>Clique em "Novo Curso" para começar.</p>
@@ -187,6 +191,19 @@ export function CoursesManagement() {
                      <CourseItem course={course} allUsers={users || []} />
                   </div>
               ))}
+              {!waveCourseExists && (
+                <div className="border rounded-md relative group">
+                    <CourseItem 
+                        course={{ 
+                            id: 'static-wave-course', 
+                            name: 'Wave - Escola de Música', 
+                            description: 'Gestão completa da escola de música.',
+                            ministryName: 'Wave - Escola de Música'
+                        }} 
+                        allUsers={users || []} 
+                    />
+                </div>
+              )}
             </Accordion>
           )}
         </CardContent>
