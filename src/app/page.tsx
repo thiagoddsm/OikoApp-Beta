@@ -7,12 +7,13 @@ import { Button } from "@/components/ui/button";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Logo } from "@/components/icons";
 import { useFirebase } from '@/firebase';
-import { Auth, GoogleAuthProvider, signInWithPopup, User } from 'firebase/auth';
+import { Auth, GoogleAuthProvider, signInWithPopup, User, getAuth } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs, query, limit, Firestore } from 'firebase/firestore';
 
-const handleGoogleLogin = async (auth: Auth, firestore: Firestore, router: ReturnType<typeof useRouter>) => {
-  if (auth && firestore) {
+const handleGoogleLogin = async (firestore: Firestore, router: ReturnType<typeof useRouter>) => {
+  if (firestore) {
     try {
+      const auth = getAuth();
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
@@ -55,7 +56,7 @@ const handleGoogleLogin = async (auth: Auth, firestore: Firestore, router: Retur
 export default function LoginPage() {
   const loginImage = PlaceHolderImages.find(p => p.id === 'login-background');
   const router = useRouter();
-  const { auth, firestore } = useFirebase();
+  const { firestore } = useFirebase();
   
   return (
     <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2">
@@ -72,12 +73,12 @@ export default function LoginPage() {
             </p>
           </div>
           <div className="grid gap-4">
-            <Button onClick={() => { if (auth && firestore) { handleGoogleLogin(auth, firestore, router); } }} className="w-full">
+            <Button onClick={() => { if (firestore) { handleGoogleLogin(firestore, router); } }} className="w-full">
               Entrar com Google
             </Button>
              <div className="text-center text-sm">
               Já tem uma conta?{" "}
-              <button onClick={() => { if (auth && firestore) { handleGoogleLogin(auth, firestore, router); } }} className="underline font-semibold">
+              <button onClick={() => { if (firestore) { handleGoogleLogin(firestore, router); } }} className="underline font-semibold">
                 Acesse aqui
               </button>
             </div>
