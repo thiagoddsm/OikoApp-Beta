@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -64,7 +65,7 @@ function OldAttendanceMigration() {
         setIsMigrating(true);
 
         try {
-            const oldCollectionPath = `users/${user.uid}/registros_de_presenca`;
+            const oldCollectionPath = `users/${user.uid}/registros_de_presença`;
             const oldCollectionRef = collection(firestore, oldCollectionPath);
             const oldRecordsSnapshot = await getDocs(oldCollectionRef);
 
