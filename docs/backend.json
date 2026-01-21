@@ -101,6 +101,25 @@
         "canViewAdminDashboard": { "type": "boolean" }
       }
     },
+    "RegistroPresenca": {
+        "title": "Registro de Presença",
+        "type": "object",
+        "description": "Um registro de frequência em um culto.",
+        "properties": {
+            "data": { "type": "string", "format": "date-time" },
+            "horario": { "type": "string" },
+            "adultos": { "type": "number" },
+            "criancas": { "type": "number" },
+            "clima": { "type": "string" },
+            "feriadoProximo": { "type": "boolean" },
+            "jogoFutebol": { "type": "boolean" },
+            "serieMensagem": { "type": "string" },
+            "apresentacaoBebe": { "type": "boolean" },
+            "observacoes": { "type": "string" },
+            "criadoEm": { "type": "string", "format": "date-time" }
+        },
+        "required": ["data", "horario", "adultos", "criadoEm"]
+    },
     "Group": {
       "title": "Group",
       "type": "object",
@@ -678,6 +697,7 @@
   "firestore": {
     "structure": [
       { "path": "/users/{userId}", "definition": { "schema": { "$ref": "#/entities/User" } } },
+      { "path": "/registros_de_presenca/{registroId}", "definition": { "schema": { "$ref": "#/entities/RegistroPresenca" } } },
       { "path": "/user_permissions/{userId}", "definition": { "schema": { "$ref": "#/entities/UserPermission" } } },
       { "path": "/cells/{cellId}", "definition": { "schema": { "$ref": "#/entities/Group" } } },
       { "path": "/reports/{reportId}", "definition": { "schema": { "$ref": "#/entities/Report" } } },

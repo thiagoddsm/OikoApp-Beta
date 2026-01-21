@@ -38,7 +38,7 @@ function ConfirmationModal({ open, onOpenChange, onConfirm }) {
 }
 
 export function RecordsList({ registros, loading }) {
-  const { firestore, user } = useFirebase();
+  const { firestore } = useFirebase();
   const [modalOpen, setModalOpen] = useState(false);
   const [idToDelete, setIdToDelete] = useState(null);
 
@@ -48,8 +48,8 @@ export function RecordsList({ registros, loading }) {
   };
 
   const handleConfirmDelete = () => {
-    if (!idToDelete || !user) return;
-    const docRef = doc(firestore, `cultos/${user.uid}/registros`, idToDelete);
+    if (!idToDelete) return;
+    const docRef = doc(firestore, `registros_de_presenca`, idToDelete);
     deleteDocumentNonBlocking(docRef);
     setModalOpen(false);
     setIdToDelete(null);

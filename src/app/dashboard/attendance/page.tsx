@@ -12,13 +12,13 @@ import { RegisterForm } from '@/components/attendance/register-form';
 import { ImportTab } from '@/components/attendance/import-tab';
 
 export default function AttendancePage() {
-  const { firestore, user } = useFirebase();
+  const { firestore } = useFirebase();
   const [activeTab, setActiveTab] = useState('register');
 
   const registrosQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return query(collection(firestore, `cultos/${user.uid}/registros`));
-  }, [firestore, user]);
+    if (!firestore) return null;
+    return query(collection(firestore, `registros_de_presenca`));
+  }, [firestore]);
 
   const { data: registros, isLoading } = useCollection(registrosQuery);
   

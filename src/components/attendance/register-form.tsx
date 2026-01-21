@@ -63,7 +63,7 @@ export function RegisterForm() {
     // The time should be set to noon to avoid timezone issues when converting back.
     const dateAsTimestamp = Timestamp.fromDate(new Date(`${data}T12:00:00`));
 
-    const collectionRef = collection(firestore, `cultos/${user.uid}/registros`);
+    const collectionRef = collection(firestore, `registros_de_presenca`);
     addDocumentNonBlocking(collectionRef, {
       data: dateAsTimestamp,
       horario,
