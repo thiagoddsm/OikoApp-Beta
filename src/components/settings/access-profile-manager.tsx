@@ -49,7 +49,15 @@ const permissionsConfig = [
     label: 'Ministerial',
     subItems: [
       { id: 'ministerial_attendance', label: 'Frequência (Culto)', actions: ['view', 'edit'] },
-      { id: 'ministerial_teaching', label: 'Ensino', actions: ['view', 'edit', 'delete'] },
+      {
+        id: 'ministerial_teaching',
+        label: 'Ensino',
+        subItems: [
+            { id: 'teaching_courses', label: 'Cursos e Turmas Gerais', actions: ['view', 'edit', 'delete'] },
+            { id: 'teaching_wave', label: 'Wave - Escola de Música', actions: ['view_admin', 'view_finance', 'view_teacher_area', 'view_student_area'] },
+            { id: 'teaching_dis', label: 'DIS - Escola de Inclusão', actions: ['view_admin', 'view_finance', 'view_teacher_area', 'view_student_area'] },
+        ]
+      },
       { id: 'ministerial_events', label: 'Protocolos de Evento', actions: ['view', 'edit', 'delete'] },
       { id: 'ministerial_briefing', label: 'Briefing Pro', actions: ['view', 'edit'] },
       { id: 'ministerial_reservations', label: 'Reservas de Sala', actions: ['view', 'approve', 'delete'] },
@@ -76,7 +84,11 @@ const actionLabels: Record<string, string> = {
   approve: 'Aprovar',
   use: 'Usar',
   send: 'Enviar',
-  view_sensitive: 'Ver Dados Sensíveis'
+  view_sensitive: 'Ver Dados Sensíveis',
+  view_admin: 'Ver Admin',
+  view_finance: 'Ver Financeiro',
+  view_teacher_area: "Área do Professor",
+  view_student_area: "Área do Aluno"
 };
 
 
@@ -127,19 +139,19 @@ function EditProfileDialog({ open, onOpenChange, onSave, existingProfile }) {
     );
 }
 
-const PermissionRow = ({ item, permissions, onPermissionChange }) => {
+const PermissionRow = ({ item, permissions, onPermissionChange, roleId }) => {
   return (
     <div className="grid grid-cols-12 items-center gap-2 py-2">
       <Label className="col-span-5 md:col-span-4 font-normal">{item.label}</Label>
-      <div className="col-span-7 md:col-span-8 flex items-center gap-4">
+      <div className="col-span-7 md:col-span-8 flex items-center gap-4 flex-wrap">
         {item.actions.map(action => (
           <div key={action} className="flex items-center gap-2">
             <Checkbox 
-              id={`${item.id}-${action}`}
+              id={`${roleId}-${item.id}-${action}`}
               checked={!!permissions?.[action]}
               onCheckedChange={(checked) => onPermissionChange(item.id, action, !!checked)}
             />
-            <Label htmlFor={`${item.id}-${action}`} className="text-xs text-muted-foreground font-normal">
+            <Label htmlFor={`${roleId}-${item.id}-${action}`} className="text-xs text-muted-foreground font-normal">
               {actionLabels[action]}
             </Label>
           </div>
@@ -175,8 +187,14 @@ export function AccessProfileManager({ roles, setRoles }) {
         }
       }
       module.subItems?.forEach(sub => {
-        allAdminPermissions[sub.id] = createPerms(sub.actions);
-        allPastorPermissions[sub.id] = createPerms(sub.actions);
+        if(sub.actions){
+             allAdminPermissions[sub.id] = createPerms(sub.actions);
+             allPastorPermissions[sub.id] = createPerms(sub.actions);
+        }
+        sub.subItems?.forEach(nestedSub => {
+             allAdminPermissions[nestedSub.id] = createPerms(nestedSub.actions);
+             allPastorPermissions[nestedSub.id] = createPerms(nestedSub.actions);
+        })
       });
     });
 
@@ -281,7 +299,7 @@ export function AccessProfileManager({ roles, setRoles }) {
                             </div>
                         </div>
                         <AccordionContent className="p-6 bg-muted/30 rounded-b-md">
-                            <div className="space-y-6">
+                           <div className="space-y-6">
                                 {permissionsConfig.map(module => (
                                     <div key={module.id}>
                                         <h4 className="font-semibold text-foreground border-b pb-2 mb-2">{module.label}</h4>
@@ -291,17 +309,36 @@ export function AccessProfileManager({ roles, setRoles }) {
                                                     item={module}
                                                     permissions={rolePermissions[module.id]}
                                                     onPermissionChange={(permissionId, action, checked) => handlePermissionChange(role.id, permissionId, action, checked)}
+                                                    roleId={role.id}
                                                 />
                                             )}
                                             {module.subItems && (
                                                 <div className="pl-6 border-l-2 border-slate-200 space-y-1">
                                                     {module.subItems.map(subItem => (
-                                                         <PermissionRow
-                                                            key={subItem.id}
-                                                            item={subItem}
-                                                            permissions={rolePermissions[subItem.id]}
-                                                            onPermissionChange={(permissionId, action, checked) => handlePermissionChange(role.id, permissionId, action, checked)}
-                                                        />
+                                                        subItem.actions ? (
+                                                            <PermissionRow
+                                                                key={subItem.id}
+                                                                item={subItem}
+                                                                permissions={rolePermissions[subItem.id]}
+                                                                onPermissionChange={(permissionId, action, checked) => handlePermissionChange(role.id, permissionId, action, checked)}
+                                                                roleId={role.id}
+                                                            />
+                                                        ) : subItem.subItems ? (
+                                                            <div key={subItem.id} className="pt-2">
+                                                                <h5 className="font-semibold text-foreground/80 text-sm">{subItem.label}</h5>
+                                                                <div className="pl-6 border-l-2 border-slate-200/70 space-y-1 mt-1">
+                                                                    {subItem.subItems.map(nestedSubItem => (
+                                                                        <PermissionRow
+                                                                            key={nestedSubItem.id}
+                                                                            item={nestedSubItem}
+                                                                            permissions={rolePermissions[nestedSubItem.id]}
+                                                                            onPermissionChange={(permissionId, action, checked) => handlePermissionChange(role.id, permissionId, action, checked)}
+                                                                            roleId={role.id}
+                                                                        />
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        ) : null
                                                     ))}
                                                 </div>
                                             )}
