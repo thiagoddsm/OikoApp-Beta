@@ -86,7 +86,8 @@
             "role": { "type": "string" }
           }
         },
-        "dizimista": { "type": "string", "enum": ["sim", "nao"] }
+        "dizimista": { "type": "string", "enum": ["sim", "nao"] },
+        "financialStatus": { "type": "string", "enum": ["active", "blocked", "delinquent"], "description": "Financial status for Wave music school." }
       },
       "required": ["name", "email", "roles", "createdAt"]
     },
@@ -376,7 +377,12 @@
             "dayOfWeek": { "type": "string", "enum": ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"] }
           }
         },
-        "date": { "type": "string", "format": "date" },
+        "startDate": { "type": "string", "format": "date" },
+        "endDate": { "type": "string", "format": "date" },
+        "timeLoadIn": { "type": "string", "format": "time" },
+        "timeStart": { "type": "string", "format": "time" },
+        "timeEnd": { "type": "string", "format": "time" },
+        "timeLoadOut": { "type": "string", "format": "time" },
         "smart": {
           "type": "object",
           "properties": {
@@ -421,7 +427,7 @@
         "financialsNotes": { "type": "string", "description": "General observations about finances." },
         "marketingNotes": { "type": "string", "description": "General observations about marketing." }
       },
-      "required": ["eventName", "ministry", "date", "status", "submittedAt"]
+      "required": ["eventName", "ministry", "startDate", "status", "submittedAt"]
     },
     "Programacao": {
         "title": "Programacao",
@@ -592,6 +598,38 @@
         }
       },
       "required": ["phaseId", "title", "questions"]
+    },
+    "WavePlan": {
+      "title": "Wave Plan",
+      "type": "object",
+      "description": "Represents a tuition plan for the Wave music school.",
+      "properties": {
+        "name": { "type": "string" },
+        "price": { "type": "number" }
+      },
+      "required": ["name", "price"]
+    },
+    "WavePayment": {
+      "title": "Wave Payment",
+      "type": "object",
+      "description": "Represents a monthly payment for a student at Wave.",
+      "properties": {
+        "userId": { "type": "string" },
+        "planId": { "type": "string" },
+        "month": { "type": "string", "description": "e.g., 2024-08" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "paid", "overdue"] },
+        "splits": {
+          "type": "object",
+          "properties": {
+            "wave": { "type": "number" },
+            "teacher": { "type": "number" },
+            "ibm": { "type": "number" },
+            "admin": { "type": "number" }
+          }
+        }
+      },
+      "required": ["userId", "planId", "month", "amount", "status"]
     }
   },
   "auth": {
@@ -626,7 +664,9 @@
       { "path": "/courses/{courseId}/classes/{classId}", "definition": { "schema": { "$ref": "#/entities/Class" } } },
       { "path": "/rooms/{roomId}", "definition": { "schema": { "$ref": "#/entities/Room" } } },
       { "path": "/room_reservations/{reservationId}", "definition": { "schema": { "$ref": "#/entities/RoomReservation" } } },
-      { "path": "/discipleship_checklists/{phaseId}", "definition": { "schema": { "$ref": "#/entities/DiscipleshipChecklist" } } }
+      { "path": "/discipleship_checklists/{phaseId}", "definition": { "schema": { "$ref": "#/entities/DiscipleshipChecklist" } } },
+      { "path": "/wave_plans/{planId}", "definition": { "schema": { "$ref": "#/entities/WavePlan" } } },
+      { "path": "/wave_payments/{paymentId}", "definition": { "schema": { "$ref": "#/entities/WavePayment" } } }
     ]
   }
 }
