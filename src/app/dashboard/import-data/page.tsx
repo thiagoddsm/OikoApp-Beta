@@ -2,10 +2,10 @@
 
 import React, { useState } from 'react';
 import { useFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, Timestamp, getDocs, query } from 'firebase/firestore';
+import { collection, Timestamp, getDocs, query, writeBatch, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import { Loader2, Upload, CheckCircle, Download } from 'lucide-react';
+import { Loader2, Upload, CheckCircle, Download, DatabaseZap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 import { Input } from '@/components/ui/input';
@@ -50,6 +50,78 @@ const sampleData = [
         "gcName": "Famílias Restauradas"
     }
 ];
+
+function OldAttendanceMigration() {
+    const { firestore, user } = useFirebase();
+    const { toast } = useToast();
+    const [isMigrating, setIsMigrating] = useState(false);
+
+    const handleMigration = async () => {
+        if (!firestore || !user) {
+            toast({ title: "Erro", description: "Você precisa estar logado.", variant: "destructive" });
+            return;
+        }
+        setIsMigrating(true);
+
+        try {
+            const oldCollectionPath = `users/${user.uid}/registros_de_presenca`;
+            const oldCollectionRef = collection(firestore, oldCollectionPath);
+            const oldRecordsSnapshot = await getDocs(oldCollectionRef);
+
+            if (oldRecordsSnapshot.empty) {
+                toast({ title: "Nenhum dado encontrado", description: "Nenhum registro de presença antigo para migrar." });
+                setIsMigrating(false);
+                return;
+            }
+
+            const newCollectionRef = collection(firestore, 'registros_de_presenca');
+            const batch = writeBatch(firestore);
+            let migratedCount = 0;
+
+            oldRecordsSnapshot.forEach(docSnapshot => {
+                const newDocRef = doc(newCollectionRef, docSnapshot.id); // Preserve original ID
+                batch.set(newDocRef, docSnapshot.data());
+                migratedCount++;
+            });
+
+            await batch.commit();
+
+            toast({ title: "Migração Concluída!", description: `${migratedCount} registros antigos foram movidos com sucesso.` });
+
+        } catch (error) {
+            console.error("Migration failed:", error);
+            toast({ title: "Erro na Migração", description: "Não foi possível migrar os dados antigos.", variant: "destructive" });
+        } finally {
+            setIsMigrating(false);
+        }
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <DatabaseZap className="size-5 text-primary" />
+                    Migração de Dados Antigos
+                </CardTitle>
+                <CardDescription>
+                    Use esta ferramenta para mover os registros de presença antigos (que só você via) para o novo sistema centralizado.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <p className="text-sm text-muted-foreground">
+                    Este processo é necessário apenas uma vez para recuperar os dados que sumiram após a correção. Clique no botão para iniciar.
+                </p>
+            </CardContent>
+            <CardFooter>
+                 <Button onClick={handleMigration} variant="secondary" disabled={isMigrating}>
+                    {isMigrating ? (
+                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Migrando...</>
+                    ) : 'Migrar Registros de Presença Antigos'}
+                </Button>
+            </CardFooter>
+        </Card>
+    );
+}
 
 export default function ImportDataPage() {
     const { firestore, user } = useFirebase();
@@ -169,55 +241,59 @@ export default function ImportDataPage() {
     };
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>Importação de Membresia</CardTitle>
-                <CardDescription>
-                    Use esta ferramenta para importar em massa a lista de membros da sua igreja para o sistema.
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-8">
-                <div className="space-y-4 p-4 border rounded-lg">
-                    <h4 className="font-semibold flex items-center gap-2"><Download className="size-5 text-primary"/>Passo 1: Baixar o Modelo</h4>
-                    <p className="text-sm text-muted-foreground">
-                        Faça o download da planilha modelo. Preencha com os dados dos seus membros, mantendo as colunas no formato original.
-                    </p>
-                    <Button onClick={handleDownloadTemplate} variant="outline">
-                        Baixar modelo de planilha (.xlsx)
-                    </Button>
-                </div>
-
-                <div className="space-y-4 p-4 border rounded-lg">
-                     <h4 className="font-semibold flex items-center gap-2"><Upload className="size-5 text-primary"/>Passo 2: Enviar a Planilha</h4>
-                    <p className="text-sm text-muted-foreground">
-                       Selecione o arquivo .xlsx que você preencheu e clique em "Iniciar Importação".
-                    </p>
-                    <div className="grid w-full max-w-sm items-center gap-1.5">
-                        <Label htmlFor="excel-file">Arquivo Excel</Label>
-                        <Input 
-                            id="excel-file" 
-                            type="file" 
-                            accept=".xlsx, .xls"
-                            onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
-                        />
+        <div className="space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Importação de Membresia</CardTitle>
+                    <CardDescription>
+                        Use esta ferramenta para importar em massa a lista de membros da sua igreja para o sistema.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-8">
+                    <div className="space-y-4 p-4 border rounded-lg">
+                        <h4 className="font-semibold flex items-center gap-2"><Download className="size-5 text-primary"/>Passo 1: Baixar o Modelo</h4>
+                        <p className="text-sm text-muted-foreground">
+                            Faça o download da planilha modelo. Preencha com os dados dos seus membros, mantendo as colunas no formato original.
+                        </p>
+                        <Button onClick={handleDownloadTemplate} variant="outline">
+                            Baixar modelo de planilha (.xlsx)
+                        </Button>
                     </div>
-                </div>
-            </CardContent>
-            <CardFooter className="flex-col items-center gap-4">
-                 <Button onClick={handleImport} disabled={isImporting || importCompleted || !file} className="w-full max-w-sm">
-                    {isImporting ? (
-                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Importando...</>
-                    ) : (
-                        <>{importCompleted ? <CheckCircle className="mr-2 h-4 w-4" /> : <Upload className="mr-2 h-4 w-4" />}
-                        {importCompleted ? 'Dados Importados' : 'Iniciar Importação'}</>
+
+                    <div className="space-y-4 p-4 border rounded-lg">
+                         <h4 className="font-semibold flex items-center gap-2"><Upload className="size-5 text-primary"/>Passo 2: Enviar a Planilha</h4>
+                        <p className="text-sm text-muted-foreground">
+                           Selecione o arquivo .xlsx que você preencheu e clique em "Iniciar Importação".
+                        </p>
+                        <div className="grid w-full max-w-sm items-center gap-1.5">
+                            <Label htmlFor="excel-file">Arquivo Excel</Label>
+                            <Input 
+                                id="excel-file" 
+                                type="file" 
+                                accept=".xlsx, .xls"
+                                onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
+                            />
+                        </div>
+                    </div>
+                </CardContent>
+                <CardFooter className="flex-col items-center gap-4">
+                     <Button onClick={handleImport} disabled={isImporting || importCompleted || !file} className="w-full max-w-sm">
+                        {isImporting ? (
+                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Importando...</>
+                        ) : (
+                            <>{importCompleted ? <CheckCircle className="mr-2 h-4 w-4" /> : <Upload className="mr-2 h-4 w-4" />}
+                            {importCompleted ? 'Dados Importados' : 'Iniciar Importação'}</>
+                        )}
+                    </Button>
+                    {importCompleted && (
+                        <p className="text-green-600 font-medium">
+                            {importCount} membros foram importados com sucesso!
+                        </p>
                     )}
-                </Button>
-                {importCompleted && (
-                    <p className="text-green-600 font-medium">
-                        {importCount} membros foram importados com sucesso!
-                    </p>
-                )}
-            </CardFooter>
-        </Card>
+                </CardFooter>
+            </Card>
+
+            <OldAttendanceMigration />
+        </div>
     );
 }
