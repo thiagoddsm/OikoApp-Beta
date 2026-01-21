@@ -139,7 +139,7 @@ function EditProfileDialog({ open, onOpenChange, onSave, existingProfile }) {
     );
 }
 
-const PermissionRow = ({ item, permissions, onPermissionChange, roleId }) => {
+const PermissionRow = ({ item, permissions, onPermissionChange, roleId, disabled }) => {
   return (
     <div className="grid grid-cols-12 items-center gap-2 py-2">
       <Label className="col-span-5 md:col-span-4 font-normal">{item.label}</Label>
@@ -150,6 +150,7 @@ const PermissionRow = ({ item, permissions, onPermissionChange, roleId }) => {
               id={`${roleId}-${item.id}-${action}`}
               checked={!!permissions?.[action]}
               onCheckedChange={(checked) => onPermissionChange(item.id, action, !!checked)}
+              disabled={disabled}
             />
             <Label htmlFor={`${roleId}-${item.id}-${action}`} className="text-xs text-muted-foreground font-normal">
               {actionLabels[action]}
@@ -277,10 +278,11 @@ export function AccessProfileManager({ roles, setRoles }) {
         <Accordion type="single" collapsible className="w-full">
             {roles.map(role => {
                 const rolePermissions = permissions[role.id] || {};
+                const isAdmin = role.id === 'admin';
                 return (
                     <AccordionItem value={role.id} key={role.id}>
                         <div className="flex items-center justify-between hover:bg-muted/50 rounded-t-md transition-colors">
-                            <AccordionTrigger className="flex-1 py-3 px-4">
+                            <AccordionTrigger className="flex-1 py-3 px-4" disabled={isAdmin}>
                                 <div className="flex items-center gap-3">
                                     <ShieldCheck className="size-5 text-primary" />
                                     <div>
@@ -290,12 +292,16 @@ export function AccessProfileManager({ roles, setRoles }) {
                                 </div>
                             </AccordionTrigger>
                             <div className="flex items-center gap-1 pr-2">
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEditDialog(role)}>
-                                    <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleOpenDeleteDialog(role)}>
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
+                                {!isAdmin && (
+                                    <>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleOpenEditDialog(role)}>
+                                            <Edit className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleOpenDeleteDialog(role)}>
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </>
+                                )}
                             </div>
                         </div>
                         <AccordionContent className="p-6 bg-muted/30 rounded-b-md">
@@ -310,6 +316,7 @@ export function AccessProfileManager({ roles, setRoles }) {
                                                     permissions={rolePermissions[module.id]}
                                                     onPermissionChange={(permissionId, action, checked) => handlePermissionChange(role.id, permissionId, action, checked)}
                                                     roleId={role.id}
+                                                    disabled={isAdmin}
                                                 />
                                             )}
                                             {module.subItems && (
@@ -322,6 +329,7 @@ export function AccessProfileManager({ roles, setRoles }) {
                                                                 permissions={rolePermissions[subItem.id]}
                                                                 onPermissionChange={(permissionId, action, checked) => handlePermissionChange(role.id, permissionId, action, checked)}
                                                                 roleId={role.id}
+                                                                disabled={isAdmin}
                                                             />
                                                         ) : subItem.subItems ? (
                                                             <div key={subItem.id} className="pt-2">
@@ -334,6 +342,7 @@ export function AccessProfileManager({ roles, setRoles }) {
                                                                             permissions={rolePermissions[nestedSubItem.id]}
                                                                             onPermissionChange={(permissionId, action, checked) => handlePermissionChange(role.id, permissionId, action, checked)}
                                                                             roleId={role.id}
+                                                                            disabled={isAdmin}
                                                                         />
                                                                     ))}
                                                                 </div>
@@ -347,7 +356,7 @@ export function AccessProfileManager({ roles, setRoles }) {
                                 ))}
                             </div>
                              <div className="flex justify-end mt-6">
-                                <Button size="sm" onClick={() => handleSavePermissions(role.id)} disabled={isSaving === role.id}>
+                                <Button size="sm" onClick={() => handleSavePermissions(role.id)} disabled={isSaving === role.id || isAdmin}>
                                      {isSaving === role.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Salvar Permissões do Perfil
                                 </Button>
