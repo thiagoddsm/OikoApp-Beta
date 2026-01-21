@@ -404,6 +404,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     areas: areas || [],
     teams: teams || [],
     users: users || [],
+    events: events || [],
     rooms: rooms || [],
     courses: courses || [],
     classes: classes || [],
@@ -444,7 +445,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     addPedagogicalLog,
     updatePedagogicalLog,
     deletePedagogicalLog,
-  }), [areas, teams, users, rooms, courses, classes, pedagogicalLogs, reservations, savedSchedules, wavePlans, wavePayments, waveExpenses, isLoading]);
+  }), [areas, teams, users, events, rooms, courses, classes, pedagogicalLogs, reservations, savedSchedules, wavePlans, wavePayments, waveExpenses, isLoading]);
 
   return (
     <VolunteeringContext.Provider value={value}>
