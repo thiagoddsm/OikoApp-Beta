@@ -15,7 +15,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { firestore, auth } = useFirebase();
   
-  const handleGoogleLogin = async () => {
+  const handleGoogleLogin = React.useCallback(async () => {
     if (!auth || !firestore) {
       console.error("Firebase services not available.");
       return;
@@ -58,7 +58,7 @@ export default function LoginPage() {
       }
       console.error("Google sign-in failed", error);
     }
-  };
+  }, [auth, firestore, router]);
 
   return (
     <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2">
