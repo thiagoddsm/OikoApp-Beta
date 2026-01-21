@@ -155,7 +155,7 @@ function renderMenuItems(items: any[], pathname: string, permissions: AccessProf
         }
         return hasPermission(item.permissionId) ? item : null;
       })
-      .filter(item => item !== null);
+      .filter((item): item is NonNullable<typeof item> => item !== null);
   };
   
   const visibleItems = filterItems(items);
@@ -312,14 +312,16 @@ export default function DashboardLayout({
           </SidebarContent>
           <SidebarFooter>
             <SidebarMenu>
-              <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={pathname === '/dashboard/settings'} className="justify-start">
-                    <Link href="/dashboard/settings">
-                      <Settings className="size-4" />
-                      <span>Configurações</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+              {(userRole === 'admin' || userRole === 'pastor_senior') && (
+                <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={pathname === '/dashboard/settings'} className="justify-start">
+                      <Link href="/dashboard/settings">
+                        <Settings className="size-4" />
+                        <span>Configurações</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+              )}
               <SidebarMenuItem>
                 <div className="flex items-center gap-2 p-2 rounded-md">
                     <Avatar className="h-8 w-8">
