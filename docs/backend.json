@@ -599,6 +599,20 @@
       },
       "required": ["phaseId", "title", "questions"]
     },
+    "AccessProfile": {
+      "title": "Access Profile",
+      "type": "object",
+      "description": "Defines a user role and its permissions within the system.",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "permissions": {
+          "type": "object",
+          "description": "A map of module IDs to their specific action permissions."
+        }
+      },
+      "required": ["name"]
+    },
     "WavePlan": {
       "title": "Wave Plan",
       "type": "object",
@@ -690,6 +704,7 @@
       { "path": "/rooms/{roomId}", "definition": { "schema": { "$ref": "#/entities/Room" } } },
       { "path": "/room_reservations/{reservationId}", "definition": { "schema": { "$ref": "#/entities/RoomReservation" } } },
       { "path": "/discipleship_checklists/{phaseId}", "definition": { "schema": { "$ref": "#/entities/DiscipleshipChecklist" } } },
+      { "path": "/access_profiles/{profileId}", "definition": { "schema": { "$ref": "#/entities/AccessProfile" } } },
       { "path": "/wave_plans/{planId}", "definition": { "schema": { "$ref": "#/entities/WavePlan" } } },
       { "path": "/wave_payments/{paymentId}", "definition": { "schema": { "$ref": "#/entities/WavePayment" } } },
       { "path": "/wave_expenses/{expenseId}", "definition": { "schema": { "$ref": "#/entities/WaveExpense" } } },

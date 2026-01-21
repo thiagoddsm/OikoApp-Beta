@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -11,6 +12,10 @@ import { useToast } from '@/hooks/use-toast';
 import { DeleteConfirmationDialog } from '../structure/delete-confirmation-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
+import type { AccessProfile } from '@/app/dashboard/settings/page';
+
 
 const permissionsConfig = [
   { id: 'dashboard', label: 'Dashboard', actions: ['view'] },
@@ -163,50 +168,28 @@ const PermissionRow = ({ item, permissions, onPermissionChange, roleId, disabled
 };
 
 
-export function AccessProfileManager({ roles, setRoles }) {
+export function AccessProfileManager({ roles }: { roles: AccessProfile[] }) {
+  const { firestore } = useFirebase();
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
-  const [editingProfile, setEditingProfile] = useState(null);
-  const [deletingProfile, setDeletingProfile] = useState(null);
+  const [editingProfile, setEditingProfile] = useState<AccessProfile | null>(null);
+  const [deletingProfile, setDeletingProfile] = useState<AccessProfile | null>(null);
   
-  const [permissions, setPermissions] = useState<Record<string, Record<string, Record<string, boolean>>>>({});
+  // Local state to manage permission changes before saving
+  const [localPermissions, setLocalPermissions] = useState<Record<string, Record<string, Record<string, boolean>>>>({});
   const [isSaving, setIsSaving] = useState<string | null>(null);
   
   useEffect(() => {
-    // Apenas simula o carregamento, idealmente viria do Firestore
-    const initialPermissions: Record<string, any> = {};
-    const allAdminPermissions: Record<string, Record<string, boolean>> = {};
-    const allPastorPermissions: Record<string, Record<string, boolean>> = {};
-
-    permissionsConfig.forEach(module => {
-      const createPerms = (actions) => actions.reduce((acc, act) => ({ ...acc, [act]: true }), {});
-      
-      if (module.actions) {
-        allAdminPermissions[module.id] = createPerms(module.actions);
-        if (module.id !== 'settings') {
-          allPastorPermissions[module.id] = createPerms(module.actions);
-        }
-      }
-      module.subItems?.forEach(sub => {
-        if(sub.actions){
-             allAdminPermissions[sub.id] = createPerms(sub.actions);
-             allPastorPermissions[sub.id] = createPerms(sub.actions);
-        }
-        sub.subItems?.forEach(nestedSub => {
-             allAdminPermissions[nestedSub.id] = createPerms(nestedSub.actions);
-             allPastorPermissions[nestedSub.id] = createPerms(nestedSub.actions);
-        })
-      });
+    // Initialize local permissions state from the roles prop
+    const initialPermissions = {};
+    roles.forEach(role => {
+      initialPermissions[role.id] = role.permissions || {};
     });
-
-    initialPermissions['admin'] = allAdminPermissions;
-    initialPermissions['pastor_senior'] = allPastorPermissions;
-
-    setPermissions(initialPermissions);
-  }, []);
+    setLocalPermissions(initialPermissions);
+  }, [roles]);
 
   const handlePermissionChange = (roleId: string, permissionId: string, action: string, checked: boolean) => {
-    setPermissions(prev => ({
+    setLocalPermissions(prev => ({
       ...prev,
       [roleId]: {
         ...(prev[roleId] || {}),
@@ -219,18 +202,25 @@ export function AccessProfileManager({ roles, setRoles }) {
   };
   
   const handleSavePermissions = (roleId: string) => {
+    if (!firestore) return;
     setIsSaving(roleId);
-    console.log(`Salvando permissões para ${roleId}:`, permissions[roleId]);
+    
+    const permissionsToSave = localPermissions[roleId];
+    const roleDocRef = doc(firestore, 'access_profiles', roleId);
+
+    updateDocumentNonBlocking(roleDocRef, { permissions: permissionsToSave });
+
+    // Using a timeout just to give visual feedback, as non-blocking updates are fast
     setTimeout(() => {
         setIsSaving(null);
         toast({
             title: "Permissões Salvas!",
-            description: `As permissões para o perfil ${roles.find(r => r.id === roleId)?.name} foram atualizadas.`
+            description: `As permissões para o perfil ${roles.find(r => r.id === roleId)?.name} serão atualizadas.`
         });
-    }, 1000);
+    }, 500);
   };
   
-  const handleOpenEditDialog = (profile) => {
+  const handleOpenEditDialog = (profile: AccessProfile) => {
       setEditingProfile(profile);
       setIsEditing(true);
   };
@@ -240,26 +230,37 @@ export function AccessProfileManager({ roles, setRoles }) {
       setIsEditing(true);
   };
 
-  const handleOpenDeleteDialog = (profile) => {
+  const handleOpenDeleteDialog = (profile: AccessProfile) => {
       setDeletingProfile(profile);
   };
   
-  const handleSaveProfile = (profileData) => {
+  const handleSaveProfile = (profileData: { name: string, description: string }) => {
+      if (!firestore) return;
+      
       if (editingProfile) {
-          setRoles(roles.map(r => r.id === editingProfile.id ? {...r, ...profileData} : r));
-          toast({ title: "Perfil Atualizado", description: `O perfil "${profileData.name}" foi alterado.`});
+          // Update existing profile
+          const docRef = doc(firestore, 'access_profiles', editingProfile.id);
+          updateDocumentNonBlocking(docRef, profileData);
+          toast({ title: "Perfil Atualizado", description: `O perfil "${profileData.name}" será alterado.`});
       } else {
-          const newProfile = { id: profileData.name.toLowerCase().replace(/\s+/g, '_').replace(/[^\w-]/g, ''), ...profileData };
-          setRoles([...roles, newProfile]);
+          // Create new profile
+          const id = profileData.name.toLowerCase().replace(/\s+/g, '_').replace(/[^\w-]/g, '');
+          const newProfile = {
+              name: profileData.name,
+              description: profileData.description,
+              permissions: {} // Start with empty permissions
+          };
+          const docRef = doc(firestore, 'access_profiles', id);
+          setDocumentNonBlocking(docRef, newProfile);
           toast({ title: "Perfil Criado", description: `O perfil "${profileData.name}" foi adicionado.`});
       }
   };
 
   const handleConfirmDelete = () => {
-      if (deletingProfile) {
-          setRoles(roles.filter(r => r.id !== deletingProfile.id));
+      if (deletingProfile && firestore) {
+          deleteDocumentNonBlocking(doc(firestore, 'access_profiles', deletingProfile.id));
+          toast({ variant: 'destructive', title: "Perfil Excluído", description: `O perfil "${deletingProfile.name}" será removido.`});
           setDeletingProfile(null);
-           toast({ variant: 'destructive', title: "Perfil Excluído", description: `O perfil "${deletingProfile.name}" foi removido.`});
       }
   };
 
@@ -277,7 +278,7 @@ export function AccessProfileManager({ roles, setRoles }) {
         
         <Accordion type="single" collapsible className="w-full">
             {roles.map(role => {
-                const rolePermissions = permissions[role.id] || {};
+                const rolePermissions = localPermissions[role.id] || {};
                 const isAdmin = role.id === 'admin';
                 return (
                     <AccordionItem value={role.id} key={role.id}>
