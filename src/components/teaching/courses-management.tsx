@@ -6,7 +6,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, PlusCircle, BookOpen, Edit, Trash2, Waves, ChevronRight } from 'lucide-react';
+import { Loader2, PlusCircle, BookOpen, Edit, Trash2, Waves, ChevronRight, HandHelping } from 'lucide-react';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 import { CourseFormDialog } from './course-form-dialog';
 import { ClassFormDialog } from './class-form-dialog';
@@ -125,17 +125,21 @@ export function CoursesManagement() {
   const [editingCourse, setEditingCourse] = useState(null);
   const [deletingCourse, setDeletingCourse] = useState<Course | null>(null);
 
-  const { waveCourses, otherCourses } = useMemo(() => {
+  const { waveCourses, disCourses, otherCourses } = useMemo(() => {
     const waves: Course[] = [];
+    const dis: Course[] = [];
     const others: Course[] = [];
     courses?.forEach(c => {
-        if (c.ministryName?.toLowerCase() === 'wave - escola de música') {
+        const ministry = c.ministryName?.toLowerCase();
+        if (ministry === 'wave - escola de música') {
             waves.push(c);
+        } else if (ministry === 'dis - escola de inclusão') {
+            dis.push(c);
         } else {
             others.push(c);
         }
     });
-    // Add the static Wave item if no Wave course is found in DB.
+    
     if (waves.length === 0) {
         waves.push({
             id: 'static-wave-course', 
@@ -144,7 +148,16 @@ export function CoursesManagement() {
             ministryName: 'Wave - Escola de Música'
         });
     }
-    return { waveCourses: waves, otherCourses: others };
+
+    if (dis.length === 0) {
+        dis.push({
+            id: 'static-dis-course',
+            name: 'DIS - Escola de Inclusão',
+            description: 'Gestão completa da escola de inclusão (Libras).',
+            ministryName: 'DIS - Escola de Inclusão'
+        });
+    }
+    return { waveCourses: waves, disCourses: dis, otherCourses: others };
   }, [courses]);
 
   const handleEditCourse = (course: Course) => {
@@ -187,7 +200,6 @@ export function CoursesManagement() {
             <div className="flex justify-center items-center h-48"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>
           ) : (
              <div className="space-y-4">
-                {/* Wave Course Item */}
                 {waveCourses.map(waveCourse => (
                     <Link key={waveCourse.id} href="/dashboard/teaching/wave" className="block border rounded-md relative group hover:bg-muted/50 transition-colors">
                         <div className="flex items-center justify-between p-4 cursor-pointer">
@@ -209,8 +221,30 @@ export function CoursesManagement() {
                     </Link>
                 ))}
                 
-                {/* Other Courses Accordion */}
-                {otherCourses.length > 0 ? (
+                {disCourses.map(disCourse => (
+                    <Link key={disCourse.id} href="/dashboard/teaching/dis" className="block border rounded-md relative group hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center justify-between p-4 cursor-pointer">
+                            <div className="flex items-center gap-3 flex-1 text-left">
+                                <HandHelping className="size-5 text-primary" />
+                                <div>
+                                    <p className="font-semibold">{disCourse.name}</p>
+                                    <p className="text-sm text-muted-foreground">{disCourse.description}</p>
+                                </div>
+                            </div>
+                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                        {disCourse.id !== 'static-dis-course' && (
+                             <div className="absolute right-12 top-1/2 -translate-y-1/2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleEditCourse(disCourse);}}><Edit className="size-4"/></Button>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleDeleteCourse(disCourse);}}><Trash2 className="size-4 text-destructive"/></Button>
+                            </div>
+                        )}
+                    </Link>
+                ))}
+                
+                {otherCourses.length > 0 && (
+                  <div className="pt-4 mt-4 border-t">
+                    <p className="text-sm font-semibold text-muted-foreground mb-2 px-2">Cursos Gerais</p>
                     <Accordion type="multiple" className="w-full space-y-2">
                         {otherCourses.map(course => (
                             <div key={course.id} className="border rounded-md relative group">
@@ -222,11 +256,7 @@ export function CoursesManagement() {
                             </div>
                         ))}
                     </Accordion>
-                ) : (
-                    <div className="text-center text-muted-foreground py-10 border-2 border-dashed rounded-lg">
-                        <p>Nenhum outro curso cadastrado ainda.</p>
-                        <p>Clique em "Novo Curso" para começar.</p>
-                    </div>
+                  </div>
                 )}
              </div>
           )}
