@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useVolunteering, type RoomReservation } from '@/contexts/volunteering-context';
@@ -112,9 +111,7 @@ export function ReservationsTable() {
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
-                                                </DropdownMenuTrigger>
+                                                <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end">
                                                     <DropdownMenuItem onClick={() => handleStatusChange(res.id, 'approved')}><CheckCircle className="mr-2 h-4 w-4" /> Aprovar</DropdownMenuItem>
                                                     <DropdownMenuItem onClick={() => handleStatusChange(res.id, 'rejected')}><XCircle className="mr-2 h-4 w-4" /> Rejeitar</DropdownMenuItem>

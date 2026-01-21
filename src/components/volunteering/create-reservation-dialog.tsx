@@ -270,6 +270,10 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
               {frequency !== 'pontual' && (
                   <div className="grid grid-cols-2 gap-4">
                       <div>
+                           <Label htmlFor="endDateRecurrence">Data Final da Recorrência</Label>
+                          <Input id="endDateRecurrence" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required/>
+                      </div>
+                      <div>
                           <Label htmlFor="endTime">Fim da Ocupação (com desmontagem)</Label>
                           <Input id="endTime" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} required/>
                       </div>
