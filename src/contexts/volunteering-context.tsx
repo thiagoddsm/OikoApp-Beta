@@ -95,6 +95,12 @@ export type WavePayment = {
   month: string; // "YYYY-MM"
   amount: number;
   status: 'pending' | 'paid' | 'overdue';
+  splits?: {
+    wave: number;
+    teacher: number;
+    ibm: number;
+    admin: number;
+  }
 }
 
 
@@ -229,8 +235,6 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { addItem: addReservation, updateItem: updateReservation, deleteItem: deleteReservation } = createCrudFunctions<RoomReservation>('room_reservations', 'Reserva');
   const { addItem: _, updateItem: __, deleteItem: deleteSchedule } = createCrudFunctions<SavedSchedule>('saved_schedules', 'Escala Salva');
   const { addItem: addWavePlan, updateItem: updateWavePlan, deleteItem: deleteWavePlan } = createCrudFunctions<WavePlan>('wave_plans', 'Plano Wave');
-  const { addItem: addWavePayment, updateItem: updateWavePayment, deleteItem: deleteWavePayment } = createCrudFunctions<WavePayment>('wave_payments', 'Pagamento Wave');
-
 
   // --- CUSTOM EVENT FUNCTIONS ---
   const addEvent = async (data: EventData) => {
@@ -316,6 +320,37 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
 
     toast({ title: 'Sucesso', description: 'A escala foi salva e as datas de último serviço foram atualizadas.' });
   };
+
+  // --- WAVE PAYMENT FUNCTIONS ---
+  const calculateSplits = (totalAmount: number) => ({
+      teacher: totalAmount * 0.4,
+      wave: totalAmount * 0.3,
+      ibm: totalAmount * 0.2,
+      admin: totalAmount * 0.1,
+  });
+
+  const addWavePayment = async (data: WavePaymentData) => {
+      if (!firestore) return;
+      const collectionRef = collection(firestore, 'wave_payments');
+      const splits = calculateSplits(data.amount);
+      const dataWithSplits = { ...data, splits };
+      addDocumentNonBlocking(collectionRef, dataWithSplits);
+      toast({ title: 'Sucesso', description: 'Pagamento será registrado.' });
+  };
+
+  const updateWavePayment = async (id: string, data: Partial<WavePaymentData>) => {
+      if (!firestore) return;
+      const itemDoc = doc(firestore, 'wave_payments', id);
+      let dataWithSplits: Partial<WavePaymentData> & { splits?: any } = { ...data };
+      if (data.amount) {
+          const splits = calculateSplits(data.amount);
+          dataWithSplits.splits = splits;
+      }
+      updateDocumentNonBlocking(itemDoc, dataWithSplits);
+      toast({ title: 'Sucesso', description: 'Pagamento será atualizado.' });
+  };
+
+  const { deleteItem: deleteWavePayment } = createCrudFunctions<WavePayment>('wave_payments', 'Pagamento Wave');
 
   const value = useMemo(() => ({
     areas: areas || [],

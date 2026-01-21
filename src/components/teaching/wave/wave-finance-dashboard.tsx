@@ -15,6 +15,7 @@ import { WavePlansManagement } from './wave-plans-management';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PaymentFormDialog } from './payment-form-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 const statusConfig: Record<string, { label: string; icon: React.ElementType; color: string; }> = {
@@ -85,7 +86,7 @@ export function WaveFinanceDashboard() {
   }
 
   return (
-    <>
+    <TooltipProvider>
     <Tabs defaultValue="overview">
         <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
@@ -148,6 +149,7 @@ export function WaveFinanceDashboard() {
                                     <TableHead>Aluno</TableHead>
                                     <TableHead>Plano</TableHead>
                                     <TableHead>Valor</TableHead>
+                                    <TableHead>Repasse Prof.</TableHead>
                                     <TableHead>Mês Referência</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead className="text-right">Ações</TableHead>
@@ -161,6 +163,24 @@ export function WaveFinanceDashboard() {
                                             <TableCell className="font-medium">{userMap.get(t.userId) || 'Aluno não encontrado'}</TableCell>
                                             <TableCell className="text-muted-foreground">{planMap.get(t.planId) || 'Plano não encontrado'}</TableCell>
                                             <TableCell>R$ {t.amount.toFixed(2).replace('.', ',')}</TableCell>
+                                            <TableCell>
+                                                <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                        <span className="font-medium cursor-help border-b border-dashed border-muted-foreground">
+                                                        R$ {(t.splits?.teacher || 0).toFixed(2).replace('.', ',')}
+                                                        </span>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                        <div className="text-sm p-1">
+                                                        <h4 className="font-bold mb-2">Rateio do Pagamento</h4>
+                                                        <p>Professor: R$ {(t.splits?.teacher || 0).toFixed(2).replace('.', ',')} (40%)</p>
+                                                        <p>Wave: R$ {(t.splits?.wave || 0).toFixed(2).replace('.', ',')} (30%)</p>
+                                                        <p>IBM: R$ {(t.splits?.ibm || 0).toFixed(2).replace('.', ',')} (20%)</p>
+                                                        <p>ADM: R$ {(t.splits?.admin || 0).toFixed(2).replace('.', ',')} (10%)</p>
+                                                        </div>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            </TableCell>
                                             <TableCell>{t.month}</TableCell>
                                             <TableCell>
                                                 <Badge variant="outline" className={cn("font-medium", statusConfig[t.status].color)}>
@@ -205,6 +225,6 @@ export function WaveFinanceDashboard() {
             itemType="Mensalidade"
         />
     )}
-    </>
+    </TooltipProvider>
   );
 }
