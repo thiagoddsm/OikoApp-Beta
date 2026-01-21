@@ -630,6 +630,31 @@
         }
       },
       "required": ["userId", "planId", "month", "amount", "status"]
+    },
+    "WaveExpense": {
+      "title": "Wave Expense",
+      "type": "object",
+      "description": "Represents an expense for the Wave music school.",
+      "properties": {
+        "description": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string", "format": "date-time" },
+        "receiptUrl": { "type": "string", "description": "URL of the uploaded receipt in Firebase Storage." }
+      },
+      "required": ["description", "amount", "date"]
+    },
+    "PedagogicalLog": {
+      "title": "Pedagogical Log",
+      "type": "object",
+      "description": "A log entry from a teacher about a class.",
+      "properties": {
+        "classId": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "content_taught": { "type": "string" },
+        "student_performance": { "type": "number" },
+        "observations": { "type": "string" }
+      },
+      "required": ["classId", "date", "content_taught"]
     }
   },
   "auth": {
@@ -661,12 +686,14 @@
       { "path": "/patrimonio/{patrimonioId}", "definition": { "schema": { "$ref": "#/entities/Patrimonio" } } },
       { "path": "/ministries/{ministryId}", "definition": { "schema": { "$ref": "#/entities/Ministry" } } },
       { "path": "/courses/{courseId}", "definition": { "schema": { "$ref": "#/entities/Course" } } },
-      { "path": "/courses/{courseId}/classes/{classId}", "definition": { "schema": { "$ref": "#/entities/Class" } } },
+      { "path": "/classes/{classId}", "definition": { "schema": { "$ref": "#/entities/Class" } } },
       { "path": "/rooms/{roomId}", "definition": { "schema": { "$ref": "#/entities/Room" } } },
       { "path": "/room_reservations/{reservationId}", "definition": { "schema": { "$ref": "#/entities/RoomReservation" } } },
       { "path": "/discipleship_checklists/{phaseId}", "definition": { "schema": { "$ref": "#/entities/DiscipleshipChecklist" } } },
       { "path": "/wave_plans/{planId}", "definition": { "schema": { "$ref": "#/entities/WavePlan" } } },
-      { "path": "/wave_payments/{paymentId}", "definition": { "schema": { "$ref": "#/entities/WavePayment" } } }
+      { "path": "/wave_payments/{paymentId}", "definition": { "schema": { "$ref": "#/entities/WavePayment" } } },
+      { "path": "/wave_expenses/{expenseId}", "definition": { "schema": { "$ref": "#/entities/WaveExpense" } } },
+      { "path": "/pedagogical_logs/{logId}", "definition": { "schema": { "$ref": "#/entities/PedagogicalLog" } } }
     ]
   }
 }

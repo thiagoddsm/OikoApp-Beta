@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -16,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PaymentFormDialog } from './payment-form-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { WaveExpensesManagement } from './wave-expenses-management';
 
 
 const statusConfig: Record<string, { label: string; icon: React.ElementType; color: string; }> = {
@@ -88,9 +88,10 @@ export function WaveFinanceDashboard() {
   return (
     <TooltipProvider>
     <Tabs defaultValue="overview">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
             <TabsTrigger value="payments">Mensalidades</TabsTrigger>
+            <TabsTrigger value="expenses">Despesas</TabsTrigger>
             <TabsTrigger value="plans">Planos</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="mt-6">
@@ -208,6 +209,9 @@ export function WaveFinanceDashboard() {
                     </div>
                 </CardContent>
             </Card>
+        </TabsContent>
+         <TabsContent value="expenses" className="mt-6">
+            <WaveExpensesManagement />
         </TabsContent>
         <TabsContent value="plans" className="mt-6">
             <WavePlansManagement />

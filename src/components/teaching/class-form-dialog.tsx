@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -48,11 +47,11 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
     const classData = { courseId, name, schedule, teacherId, students: studentIds };
 
     if (existingClass) {
-      const docRef = doc(firestore, `courses/${courseId}/classes`, existingClass.id);
+      const docRef = doc(firestore, 'classes', existingClass.id);
       await updateDocumentNonBlocking(docRef, classData);
       toast({ title: 'Turma atualizada!' });
     } else {
-      const collectionRef = collection(firestore, `courses/${courseId}/classes`);
+      const collectionRef = collection(firestore, 'classes');
       await addDocumentNonBlocking(collectionRef, classData);
       toast({ title: 'Turma criada!' });
     }

@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, query, doc } from 'firebase/firestore';
+import { collection, query, doc, where } from 'firebase/firestore';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -25,7 +25,7 @@ function CourseItem({ course, allUsers }: { course: Course, allUsers: User[] }) 
 
     const classesQuery = useMemoFirebase(() => {
         if (!firestore) return null;
-        return query(collection(firestore, `courses/${course.id}/classes`));
+        return query(collection(firestore, 'classes'), where('courseId', '==', course.id));
     }, [firestore, course.id]);
 
     const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesQuery);
@@ -44,7 +44,7 @@ function CourseItem({ course, allUsers }: { course: Course, allUsers: User[] }) 
     
     const handleDeleteClass = (cls: any) => {
         if (confirm(`Tem certeza que deseja excluir a turma "${cls.name}"?`)) {
-            const docRef = doc(firestore, `courses/${course.id}/classes`, cls.id);
+            const docRef = doc(firestore, 'classes', cls.id);
             deleteDocumentNonBlocking(docRef);
         }
     }
@@ -222,12 +222,12 @@ export function CoursesManagement() {
                             </div>
                         ))}
                     </Accordion>
-                ) : waveCourses.length === 0 ? (
+                ) : (
                     <div className="text-center text-muted-foreground py-10 border-2 border-dashed rounded-lg">
-                        <p>Nenhum curso cadastrado ainda.</p>
+                        <p>Nenhum outro curso cadastrado ainda.</p>
                         <p>Clique em "Novo Curso" para começar.</p>
                     </div>
-                ) : null}
+                )}
              </div>
           )}
         </CardContent>
