@@ -1,5 +1,6 @@
+
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
@@ -8,129 +9,158 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { MoreHorizontal, DollarSign, CheckCircle, Clock, XCircle, PlusCircle, MinusCircle, FileDown, Filter } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
+import { useVolunteering, type WavePayment } from '@/contexts/volunteering-context';
+import { Loader2 } from 'lucide-react';
+import { WavePlansManagement } from './wave-plans-management';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-const kpiData = [
-  { title: "Receita (Mês)", value: "R$ 18.450,00", change: "+5.2% vs. mês anterior", changeColor: "text-green-600" },
-  { title: "Despesas (Mês)", value: "R$ 14.000,00", change: "-1.5% vs. mês anterior", changeColor: "text-green-600" },
-  { title: "Lucro Líquido (Mês)", value: "R$ 4.450,00", change: "+21% vs. mês anterior", changeColor: "text-green-600" },
-  { title: "Inadimplência", value: "8.1%", change: "11 alunos pendentes", changeColor: "text-red-600" },
-];
 
-const transactionsData = [
-  { id: 'TR001', student: 'João Silva', course: 'Violão Intermediário', amount: 150.00, status: 'paid', dueDate: '05/08/2024' },
-  { id: 'TR002', student: 'Maria Oliveira', course: 'Piano Iniciante', amount: 180.00, status: 'pending', dueDate: '10/08/2024' },
-  { id: 'TR003', student: 'Carlos Pereira', course: 'Bateria Avançado', amount: 200.00, status: 'overdue', dueDate: '01/08/2024' },
-  { id: 'TR004', student: 'Ana Costa', course: 'Canto Popular', amount: 160.00, status: 'paid', dueDate: '05/08/2024' },
-  { id: 'TR005', student: 'Pedro Martins', course: 'Teoria Musical', amount: 100.00, status: 'pending', dueDate: '10/08/2024' },
-  { id: 'TR006', student: 'Sofia Almeida', course: 'Violão Iniciante', amount: 150.00, status: 'paid', dueDate: '05/08/2024' },
-];
-
-const statusConfig = {
+const statusConfig: Record<string, { label: string; icon: React.ElementType; color: string; }> = {
   paid: { label: 'Pago', icon: CheckCircle, color: 'bg-green-100 text-green-800' },
   pending: { label: 'Pendente', icon: Clock, color: 'bg-yellow-100 text-yellow-800' },
   overdue: { label: 'Atrasado', icon: XCircle, color: 'bg-red-100 text-red-800' },
 };
 
 export function WaveFinanceDashboard() {
+  const { wavePayments, users, wavePlans, isLoading } = useVolunteering();
   const [filter, setFilter] = useState('all');
 
-  const filteredTransactions = transactionsData.filter(t => filter === 'all' || t.status === filter);
+  const userMap = useMemo(() => new Map(users.map(u => [u.id, u.name])), [users]);
+  const planMap = useMemo(() => new Map(wavePlans.map(p => [p.id, p.name])), [wavePlans]);
+
+  const filteredTransactions = useMemo(() => {
+    if (!wavePayments) return [];
+    return wavePayments.filter(t => filter === 'all' || t.status === filter);
+  }, [wavePayments, filter]);
+
+  const kpiData = useMemo(() => {
+    if (!wavePayments) return { monthlyRevenue: "R$ 0,00", overduePercentage: "0%", overdueCount: "0" };
+    
+    const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+    
+    const monthlyRevenue = wavePayments
+        .filter(p => p.month.startsWith(currentMonth) && p.status === 'paid')
+        .reduce((sum, p) => sum + p.amount, 0);
+
+    const overduePayments = wavePayments.filter(p => p.status === 'overdue');
+    const overduePercentage = wavePayments.length > 0 ? (overduePayments.length / wavePayments.length) * 100 : 0;
+
+    return {
+        monthlyRevenue: `R$ ${monthlyRevenue.toFixed(2).replace('.', ',')}`,
+        overduePercentage: `${overduePercentage.toFixed(1)}%`,
+        overdueCount: `${overduePayments.length} alunos pendentes`,
+    };
+  }, [wavePayments]);
+  
+  if (isLoading) {
+    return <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>;
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {kpiData.map((kpi, index) => (
-          <Card key={index}>
-            <CardHeader className="pb-2">
-              <CardDescription>{kpi.title}</CardDescription>
-              <CardTitle className="text-2xl">{kpi.value}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className={cn("text-xs", kpi.changeColor)}>{kpi.change}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-      
-      <Card>
-        <CardHeader>
-            <div className="flex justify-between items-center">
-                <div>
-                    <CardTitle>Transações Recentes</CardTitle>
-                    <CardDescription>Acompanhe todas as mensalidades e pagamentos.</CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm"><MinusCircle className="mr-2 size-4"/>Nova Despesa</Button>
-                    <Button variant="outline" size="sm"><PlusCircle className="mr-2 size-4"/>Novo Pagamento</Button>
-                    <Button variant="outline" size="sm"><FileDown className="mr-2 size-4"/>Exportar</Button>
-                </div>
+    <Tabs defaultValue="overview">
+        <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+            <TabsTrigger value="payments">Mensalidades</TabsTrigger>
+            <TabsTrigger value="plans">Planos</TabsTrigger>
+        </TabsList>
+        <TabsContent value="overview" className="mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card>
+                    <CardHeader className="pb-2"><CardDescription>Receita (Mês)</CardDescription><CardTitle className="text-2xl">{kpiData.monthlyRevenue}</CardTitle></CardHeader>
+                    <CardContent><div className="text-xs text-muted-foreground">+5.2% vs. mês anterior</div></CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader className="pb-2"><CardDescription>Despesas (Mês)</CardDescription><CardTitle className="text-2xl">R$ 14.000,00</CardTitle></CardHeader>
+                    <CardContent><div className="text-xs text-muted-foreground">-1.5% vs. mês anterior</div></CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader className="pb-2"><CardDescription>Lucro Líquido (Mês)</CardDescription><CardTitle className="text-2xl">R$ 4.450,00</CardTitle></CardHeader>
+                    <CardContent><div className="text-xs text-green-600">+21% vs. mês anterior</div></CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader className="pb-2"><CardDescription>Inadimplência</CardDescription><CardTitle className="text-2xl">{kpiData.overduePercentage}</CardTitle></CardHeader>
+                    <CardContent><div className="text-xs text-red-600">{kpiData.overdueCount}</div></CardContent>
+                </Card>
             </div>
-        </CardHeader>
-        <CardContent>
-             <div className="flex items-center gap-2 mb-4">
-                <Input placeholder="Buscar por aluno, curso..." className="max-w-xs" />
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="ml-auto">
-                            <Filter className="mr-2 size-4"/>
-                            Filtrar Status
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                        <DropdownMenuItem onSelect={() => setFilter('all')}>Todos</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setFilter('paid')}>Pago</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setFilter('pending')}>Pendente</DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setFilter('overdue')}>Atrasado</DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            </div>
-            <div className="rounded-lg border">
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Aluno</TableHead>
-                            <TableHead>Curso</TableHead>
-                            <TableHead>Valor</TableHead>
-                            <TableHead>Vencimento</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead className="text-right">Ações</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {filteredTransactions.map((t) => {
-                            const StatusIcon = statusConfig[t.status].icon;
-                            return (
-                                <TableRow key={t.id}>
-                                    <TableCell className="font-medium">{t.student}</TableCell>
-                                    <TableCell className="text-muted-foreground">{t.course}</TableCell>
-                                    <TableCell>R$ {t.amount.toFixed(2).replace('.', ',')}</TableCell>
-                                    <TableCell>{t.dueDate}</TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline" className={cn("font-medium", statusConfig[t.status].color)}>
-                                            <StatusIcon className="mr-1.5 h-3.5 w-3.5" />
-                                            {statusConfig[t.status].label}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon"><MoreHorizontal className="size-4"/></Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent>
-                                                <DropdownMenuItem>Ver Detalhes</DropdownMenuItem>
-                                                <DropdownMenuItem>Marcar como Pago</DropdownMenuItem>
-                                                <DropdownMenuItem>Enviar Lembrete</DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </TableCell>
+        </TabsContent>
+        <TabsContent value="payments" className="mt-6">
+            <Card>
+                <CardHeader>
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <CardTitle>Transações de Mensalidades</CardTitle>
+                            <CardDescription>Acompanhe todos os pagamentos.</CardDescription>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm"><PlusCircle className="mr-2 size-4"/>Novo Pagamento</Button>
+                            <Button variant="outline" size="sm"><FileDown className="mr-2 size-4"/>Exportar</Button>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex items-center gap-2 mb-4">
+                        <Input placeholder="Buscar por aluno, plano..." className="max-w-xs" />
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" className="ml-auto"><Filter className="mr-2 size-4"/>Filtrar Status</Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                                <DropdownMenuItem onSelect={() => setFilter('all')}>Todos</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => setFilter('paid')}>Pago</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => setFilter('pending')}>Pendente</DropdownMenuItem>
+                                <DropdownMenuItem onSelect={() => setFilter('overdue')}>Atrasado</DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                    <div className="rounded-lg border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Aluno</TableHead>
+                                    <TableHead>Plano</TableHead>
+                                    <TableHead>Valor</TableHead>
+                                    <TableHead>Mês Referência</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead className="text-right">Ações</TableHead>
                                 </TableRow>
-                            )
-                        })}
-                    </TableBody>
-                </Table>
-            </div>
-        </CardContent>
-      </Card>
-    </div>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredTransactions.map((t) => {
+                                    const StatusIcon = statusConfig[t.status].icon;
+                                    return (
+                                        <TableRow key={t.id}>
+                                            <TableCell className="font-medium">{userMap.get(t.userId) || 'Aluno não encontrado'}</TableCell>
+                                            <TableCell className="text-muted-foreground">{planMap.get(t.planId) || 'Plano não encontrado'}</TableCell>
+                                            <TableCell>R$ {t.amount.toFixed(2).replace('.', ',')}</TableCell>
+                                            <TableCell>{t.month}</TableCell>
+                                            <TableCell>
+                                                <Badge variant="outline" className={cn("font-medium", statusConfig[t.status].color)}>
+                                                    <StatusIcon className="mr-1.5 h-3.5 w-3.5" />
+                                                    {statusConfig[t.status].label}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="size-4"/></Button></DropdownMenuTrigger>
+                                                    <DropdownMenuContent>
+                                                        <DropdownMenuItem>Ver Detalhes</DropdownMenuItem>
+                                                        <DropdownMenuItem>Marcar como Pago</DropdownMenuItem>
+                                                        <DropdownMenuItem>Enviar Lembrete</DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </TableCell>
+                                        </TableRow>
+                                    )
+                                })}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
+        </TabsContent>
+        <TabsContent value="plans" className="mt-6">
+            <WavePlansManagement />
+        </TabsContent>
+    </Tabs>
   );
 }

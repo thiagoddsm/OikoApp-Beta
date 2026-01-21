@@ -32,6 +32,7 @@ export type User = {
   eligibleEventIds?: string[];
   blockedDates?: string[];
   lastServedDate?: Timestamp; // "YYYY-MM-DD"
+  financialStatus?: 'active' | 'blocked' | 'delinquent';
 }
 
 export type VolunteeringEvent = {
@@ -82,6 +83,21 @@ export type SavedSchedule = {
   schedule: any; // The actual schedule data
 }
 
+export type WavePlan = {
+  id: string;
+  name: string;
+  price: number;
+}
+
+export type WavePayment = {
+  id: string;
+  userId: string;
+  planId: string;
+  month: string; // "YYYY-MM"
+  amount: number;
+  status: 'pending' | 'paid' | 'overdue';
+}
+
 
 type AreaData = Omit<AreaOfService, 'id'>;
 type TeamData = Omit<Team, 'id'>;
@@ -89,6 +105,7 @@ type RoomData = Omit<Room, 'id'>;
 type EventData = Omit<VolunteeringEvent, 'id'>;
 type ReservationData = Omit<RoomReservation, 'id'>;
 type SavedScheduleData = Omit<SavedSchedule, 'id'>;
+type WavePlanData = Omit<WavePlan, 'id'>;
 
 
 // --- CONTEXT DEFINITION ---
@@ -102,6 +119,8 @@ interface VolunteeringContextType {
   courses: Course[];
   reservations: RoomReservation[];
   savedSchedules: SavedSchedule[];
+  wavePlans: WavePlan[];
+  wavePayments: WavePayment[];
   isLoading: boolean;
   
   // Functions for Areas
@@ -135,6 +154,11 @@ interface VolunteeringContextType {
   // Functions for Schedules
   saveSchedule: (data: SavedScheduleData) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
+
+  // Functions for Wave
+  addWavePlan: (data: WavePlanData) => Promise<void>;
+  updateWavePlan: (id: string, data: Partial<WavePlanData>) => Promise<void>;
+  deleteWavePlan: (id: string) => Promise<void>;
 }
 
 const VolunteeringContext = createContext<VolunteeringContextType | undefined>(undefined);
@@ -152,6 +176,8 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const coursesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'courses') : null, [firestore]);
   const reservationsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'room_reservations') : null, [firestore]);
   const savedSchedulesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'saved_schedules') : null, [firestore]);
+  const wavePlansQuery = useMemoFirebase(() => firestore ? collection(firestore, 'wave_plans') : null, [firestore]);
+  const wavePaymentsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'wave_payments') : null, [firestore]);
 
   const { data: areas, isLoading: loadingAreas } = useCollection<AreaOfService>(areasQuery);
   const { data: teams, isLoading: loadingTeams } = useCollection<Team>(teamsQuery);
@@ -161,9 +187,11 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { data: courses, isLoading: loadingCourses } = useCollection<Course>(coursesQuery);
   const { data: reservations, isLoading: loadingReservations } = useCollection<RoomReservation>(reservationsQuery);
   const { data: savedSchedules, isLoading: loadingSavedSchedules } = useCollection<SavedSchedule>(savedSchedulesQuery);
+  const { data: wavePlans, isLoading: loadingWavePlans } = useCollection<WavePlan>(wavePlansQuery);
+  const { data: wavePayments, isLoading: loadingWavePayments } = useCollection<WavePayment>(wavePaymentsQuery);
 
 
-  const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents || loadingRooms || loadingCourses || loadingReservations || loadingSavedSchedules;
+  const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents || loadingRooms || loadingCourses || loadingReservations || loadingSavedSchedules || loadingWavePlans || loadingWavePayments;
 
   // --- GENERIC CRUD FUNCTIONS ---
   const createCrudFunctions = <T extends {id: string}>(collectionName: string, itemType: string) => {
@@ -197,6 +225,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { addItem: addRoom, updateItem: updateRoom, deleteItem: deleteRoom } = createCrudFunctions<Room>('rooms', 'Ambiente');
   const { addItem: addReservation, updateItem: updateReservation, deleteItem: deleteReservation } = createCrudFunctions<RoomReservation>('room_reservations', 'Reserva');
   const { addItem: _, updateItem: __, deleteItem: deleteSchedule } = createCrudFunctions<SavedSchedule>('saved_schedules', 'Escala Salva');
+  const { addItem: addWavePlan, updateItem: updateWavePlan, deleteItem: deleteWavePlan } = createCrudFunctions<WavePlan>('wave_plans', 'Plano Wave');
 
 
   // --- CUSTOM EVENT FUNCTIONS ---
@@ -293,6 +322,8 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     events: events || [],
     reservations: reservations || [],
     savedSchedules: savedSchedules || [],
+    wavePlans: wavePlans || [],
+    wavePayments: wavePayments || [],
     isLoading,
     addArea,
     updateArea,
@@ -312,7 +343,10 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     updateVolunteer,
     saveSchedule,
     deleteSchedule,
-  }), [areas, teams, users, rooms, courses, events, reservations, savedSchedules, isLoading]);
+    addWavePlan,
+    updateWavePlan,
+    deleteWavePlan,
+  }), [areas, teams, users, rooms, courses, events, reservations, savedSchedules, wavePlans, wavePayments, isLoading]);
 
   return (
     <VolunteeringContext.Provider value={value}>
