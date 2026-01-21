@@ -69,28 +69,28 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 export default function DashboardPage() {
-  const { firestore, user } = useFirebase();
+  const { firestore } = useFirebase();
 
   // Data fetching using memoized queries
   const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
   const reportsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'attendance_reports'), orderBy('date', 'desc')) : null, [firestore]);
   const cellsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells')) : null, [firestore]);
-  const cultosQuery = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, `cultos/${user.uid}/registros`), orderBy('data', 'desc'), limit(8)) : null, [firestore, user]);
+  const registrosPresencaQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'registros_de_presenca'), orderBy('data', 'desc'), limit(8)) : null, [firestore]);
 
   const { data: users, isLoading: loadingUsers } = useCollection<User>(usersQuery);
   const { data: reports, isLoading: loadingReports } = useCollection<AttendanceReport>(reportsQuery);
   const { data: cells, isLoading: loadingCells } = useCollection<Cell>(cellsQuery);
-  const { data: cultos, isLoading: loadingCultos } = useCollection<CultoRegistro>(cultosQuery);
+  const { data: registrosPresenca, isLoading: loadingRegistros } = useCollection<CultoRegistro>(registrosPresencaQuery);
   
-  const isLoading = loadingUsers || loadingReports || loadingCells || loadingCultos;
+  const isLoading = loadingUsers || loadingReports || loadingCells || loadingRegistros;
 
   // Memoized calculations
   const kpiCards = useMemo(() => {
     const totalMembers = users?.length || 0;
     const newVisitors = users?.filter(u => u.integrationStatus === 'visitante_culto' || u.integrationStatus === 'visitante_celula').length || 0;
     const conversions = reports?.reduce((sum, report) => sum + (report.conversoes || 0), 0) || 0;
-    const avgAttendance = cultos && cultos.length > 0
-      ? Math.round(cultos.reduce((sum, culto) => sum + culto.adultos + (culto.criancas || 0), 0) / cultos.length)
+    const avgAttendance = registrosPresenca && registrosPresenca.length > 0
+      ? Math.round(registrosPresenca.reduce((sum, registro) => sum + registro.adultos + (registro.criancas || 0), 0) / registrosPresenca.length)
       : 0;
 
     return [
@@ -99,18 +99,18 @@ export default function DashboardPage() {
       { title: "Novos Visitantes", value: newVisitors, icon: UserPlus },
       { title: "Conversões (GCs)", value: conversions, icon: TrendingUp },
     ];
-  }, [users, reports, cultos]);
+  }, [users, reports, registrosPresenca]);
 
   const attendanceData = useMemo(() => {
-    if (!cultos) return [];
-    return [...cultos].reverse().map(culto => {
-        const date = culto.data?.toDate ? culto.data.toDate() : new Date();
+    if (!registrosPresenca) return [];
+    return [...registrosPresenca].reverse().map(registro => {
+        const date = registro.data?.toDate ? registro.data.toDate() : new Date();
         return {
             name: date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' }),
-            total: culto.adultos + (culto.criancas || 0)
+            total: registro.adultos + (registro.criancas || 0)
         }
     });
-  }, [cultos]);
+  }, [registrosPresenca]);
   
   const careAlerts = useMemo(() => {
       if (!users) return [];
