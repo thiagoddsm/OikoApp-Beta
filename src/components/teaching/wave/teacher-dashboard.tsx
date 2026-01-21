@@ -1,33 +1,48 @@
 'use client';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, User, Clock, DollarSign, BookOpen } from 'lucide-react';
+import { Calendar, User, BookOpen, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import Link from 'next/link';
+import { useFirebase } from '@/firebase';
+import { useVolunteering } from '@/contexts/volunteering-context';
 
-// Placeholder data
-const upcomingClasses = [
-    { time: '15:00', student: 'Ana Clara', instrument: 'Piano', room: 'Sala 1' },
-    { time: '16:00', student: 'Lucas Mendes', instrument: 'Violão', room: 'Sala 2' },
-    { time: '17:00', student: 'Sofia Bernardes', instrument: 'Canto', room: 'Sala 4' },
-];
+export function TeacherDashboard() {
+  const { user } = useFirebase();
+  const { classes, courses, users, isLoading } = useVolunteering();
 
-const students = [
-    { id: '1', name: 'Ana Clara', instrument: 'Piano', lastClass: '2 dias atrás', progress: 75 },
-    { id: '2', name: 'Lucas Mendes', instrument: 'Violão', lastClass: 'Ontem', progress: 50 },
-    { id: '3', name: 'Sofia Bernardes', instrument: 'Canto', lastClass: 'Hoje', progress: 90 },
-    { id: '4', name: 'Gabriel Faria', instrument: 'Bateria', lastClass: '3 dias atrás', progress: 40 },
-];
+  const teacherClasses = useMemo(() => {
+    if (!user || !classes) return [];
+    return classes.filter(cls => cls.teacherId === user.uid);
+  }, [user, classes]);
 
-const financialSummary = {
+  const courseMap = useMemo(() => new Map(courses.map(c => [c.id, c.name])), [courses]);
+
+  const upcomingClass = teacherClasses[0]; // Simplistic placeholder
+  const totalStudents = useMemo(() => {
+    const studentSet = new Set<string>();
+    teacherClasses.forEach(cls => {
+      cls.students?.forEach(studentId => studentSet.add(studentId));
+    });
+    return studentSet.size;
+  }, [teacherClasses]);
+  
+  const financialSummary = {
     month: 'Outubro',
     totalReceived: 'R$ 1.850,00',
     pending: 'R$ 240,00',
-};
+  };
 
-export function TeacherDashboard() {
+  if (isLoading) {
+      return (
+          <div className="flex h-64 w-full items-center justify-center">
+              <Loader2 className="size-8 animate-spin text-primary" />
+          </div>
+      );
+  }
+
   return (
     <div className="space-y-6">
         {/* Welcome and Summary */}
@@ -35,22 +50,22 @@ export function TeacherDashboard() {
              <Card>
                 <CardHeader className="pb-2">
                     <CardDescription>Próxima Aula</CardDescription>
-                    <CardTitle className="text-3xl">{upcomingClasses[0]?.time}</CardTitle>
+                    <CardTitle className="text-3xl">{upcomingClass?.schedule?.split(',')[1] || '--:--'}</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="text-xs text-muted-foreground">
-                        com <strong>{upcomingClasses[0]?.student}</strong> na <strong>{upcomingClasses[0]?.room}</strong>
+                        Turma: <strong>{upcomingClass?.name || 'N/A'}</strong>
                     </div>
                 </CardContent>
             </Card>
             <Card>
                 <CardHeader className="pb-2">
                     <CardDescription>Total de Alunos</CardDescription>
-                    <CardTitle className="text-3xl">{students.length}</CardTitle>
+                    <CardTitle className="text-3xl">{totalStudents}</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="text-xs text-muted-foreground">
-                        Gerenciando {students.length} jornadas musicais
+                        Gerenciando {totalStudents} jornadas musicais
                     </div>
                 </CardContent>
             </Card>
@@ -68,56 +83,47 @@ export function TeacherDashboard() {
         </div>
         
         {/* Schedule and Students */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <Card className="lg:col-span-1">
+        <div className="grid grid-cols-1">
+             <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Calendar className="size-5"/> Agenda do Dia</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <ul className="space-y-4">
-                        {upcomingClasses.map(cls => (
-                             <li key={cls.time} className="flex items-center gap-4">
-                                <div className="flex flex-col items-center">
-                                    <span className="font-bold text-lg">{cls.time.split(':')[0]}</span>
-                                    <span className="text-xs text-muted-foreground">:{cls.time.split(':')[1]}</span>
-                                </div>
-                                <div className="border-l-2 border-primary pl-4">
-                                    <p className="font-semibold">{cls.student}</p>
-                                    <p className="text-sm text-muted-foreground">{cls.instrument} - {cls.room}</p>
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
-                </CardContent>
-            </Card>
-             <Card className="lg:col-span-2">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><User className="size-5"/> Meus Alunos</CardTitle>
+                    <CardTitle className="flex items-center gap-2"><BookOpen className="size-5"/> Minhas Turmas</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <Table>
                         <TableHeader>
                             <TableRow>
-                                <TableHead>Aluno</TableHead>
-                                <TableHead>Instrumento</TableHead>
-                                <TableHead>Última Aula</TableHead>
+                                <TableHead>Turma</TableHead>
+                                <TableHead>Curso</TableHead>
+                                <TableHead>Nº de Alunos</TableHead>
+                                <TableHead>Horário</TableHead>
                                 <TableHead className="text-right">Ações</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {students.map(student => (
-                                <TableRow key={student.id}>
-                                    <TableCell className="font-medium">{student.name}</TableCell>
-                                    <TableCell><Badge variant="outline">{student.instrument}</Badge></TableCell>
-                                    <TableCell className="text-muted-foreground">{student.lastClass}</TableCell>
-                                    <TableCell className="text-right">
-                                        <Button variant="ghost" size="sm">
-                                            <BookOpen className="size-4 mr-2"/>
-                                            Diário
-                                        </Button>
+                            {teacherClasses.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} className="text-center h-24">
+                                        Você não está alocado em nenhuma turma.
                                     </TableCell>
                                 </TableRow>
-                            ))}
+                            ) : (
+                                teacherClasses.map(cls => (
+                                    <TableRow key={cls.id}>
+                                        <TableCell className="font-medium">{cls.name}</TableCell>
+                                        <TableCell><Badge variant="outline">{courseMap.get(cls.courseId) || 'Curso não encontrado'}</Badge></TableCell>
+                                        <TableCell>{cls.students?.length || 0}</TableCell>
+                                        <TableCell className="text-muted-foreground">{cls.schedule || '-'}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Button variant="ghost" size="sm" asChild>
+                                                <Link href={`/dashboard/teaching/log/${cls.id}`}>
+                                                    <BookOpen className="size-4 mr-2"/>
+                                                    Diário de Classe
+                                                </Link>
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
                         </TableBody>
                     </Table>
                 </CardContent>

@@ -57,6 +57,24 @@ export type Course = {
   description?: string;
 };
 
+export type Class = {
+  id: string;
+  courseId: string;
+  name: string;
+  teacherId: string;
+  students: string[];
+  schedule: string;
+};
+
+export type PedagogicalLog = {
+    id: string;
+    classId: string;
+    date: Timestamp;
+    content_taught: string;
+    student_performance: number;
+    observations: string;
+};
+
 export type RoomReservation = {
     id: string;
     eventName: string;
@@ -121,6 +139,7 @@ type SavedScheduleData = Omit<SavedSchedule, 'id'>;
 type WavePlanData = Omit<WavePlan, 'id'>;
 type WavePaymentData = Omit<WavePayment, 'id'>;
 type WaveExpenseData = Omit<WaveExpense, 'id'>;
+type PedagogicalLogData = Omit<PedagogicalLog, 'id'>;
 
 
 // --- CONTEXT DEFINITION ---
@@ -132,6 +151,8 @@ interface VolunteeringContextType {
   rooms: Room[];
   events: VolunteeringEvent[];
   courses: Course[];
+  classes: Class[];
+  pedagogicalLogs: PedagogicalLog[];
   reservations: RoomReservation[];
   savedSchedules: SavedSchedule[];
   wavePlans: WavePlan[];
@@ -181,6 +202,11 @@ interface VolunteeringContextType {
   addWaveExpense: (data: WaveExpenseData) => Promise<void>;
   updateWaveExpense: (id: string, data: Partial<WaveExpenseData>) => Promise<void>;
   deleteWaveExpense: (id: string) => Promise<void>;
+  
+  // Functions for Pedagogical Logs
+  addPedagogicalLog: (data: PedagogicalLogData) => Promise<void>;
+  updatePedagogicalLog: (id: string, data: Partial<PedagogicalLogData>) => Promise<void>;
+  deletePedagogicalLog: (id: string) => Promise<void>;
 }
 
 const VolunteeringContext = createContext<VolunteeringContextType | undefined>(undefined);
@@ -196,6 +222,8 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const eventsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'volunteering_events') : null, [firestore]);
   const roomsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'rooms') : null, [firestore]);
   const coursesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'courses') : null, [firestore]);
+  const classesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'classes') : null, [firestore]);
+  const pedagogicalLogsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'pedagogical_logs') : null, [firestore]);
   const reservationsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'room_reservations') : null, [firestore]);
   const savedSchedulesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'saved_schedules') : null, [firestore]);
   const wavePlansQuery = useMemoFirebase(() => firestore ? collection(firestore, 'wave_plans') : null, [firestore]);
@@ -208,6 +236,8 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { data: events, isLoading: loadingEvents } = useCollection<VolunteeringEvent>(eventsQuery);
   const { data: rooms, isLoading: loadingRooms } = useCollection<Room>(roomsQuery);
   const { data: courses, isLoading: loadingCourses } = useCollection<Course>(coursesQuery);
+  const { data: classes, isLoading: loadingClasses } = useCollection<Class>(classesQuery);
+  const { data: pedagogicalLogs, isLoading: loadingPedagogicalLogs } = useCollection<PedagogicalLog>(pedagogicalLogsQuery);
   const { data: reservations, isLoading: loadingReservations } = useCollection<RoomReservation>(reservationsQuery);
   const { data: savedSchedules, isLoading: loadingSavedSchedules } = useCollection<SavedSchedule>(savedSchedulesQuery);
   const { data: wavePlans, isLoading: loadingWavePlans } = useCollection<WavePlan>(wavePlansQuery);
@@ -215,7 +245,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { data: waveExpenses, isLoading: loadingWaveExpenses } = useCollection<WaveExpense>(waveExpensesQuery);
 
 
-  const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents || loadingRooms || loadingCourses || loadingReservations || loadingSavedSchedules || loadingWavePlans || loadingWavePayments || loadingWaveExpenses;
+  const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents || loadingRooms || loadingCourses || loadingClasses || loadingPedagogicalLogs || loadingReservations || loadingSavedSchedules || loadingWavePlans || loadingWavePayments || loadingWaveExpenses;
 
   // --- GENERIC CRUD FUNCTIONS ---
   const createCrudFunctions = <T extends {id: string}>(collectionName: string, itemType: string) => {
@@ -251,6 +281,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { addItem: _, updateItem: __, deleteItem: deleteSchedule } = createCrudFunctions<SavedSchedule>('saved_schedules', 'Escala Salva');
   const { addItem: addWavePlan, updateItem: updateWavePlan, deleteItem: deleteWavePlan } = createCrudFunctions<WavePlan>('wave_plans', 'Plano Wave');
   const { addItem: addWaveExpense, updateItem: updateWaveExpense, deleteItem: deleteWaveExpense } = createCrudFunctions<WaveExpense>('wave_expenses', 'Despesa Wave');
+  const { addItem: addPedagogicalLog, updateItem: updatePedagogicalLog, deleteItem: deletePedagogicalLog } = createCrudFunctions<PedagogicalLog>('pedagogical_logs', 'Registro Pedagógico');
 
 
   // --- CUSTOM EVENT FUNCTIONS ---
@@ -375,7 +406,8 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     users: users || [],
     rooms: rooms || [],
     courses: courses || [],
-    events: events || [],
+    classes: classes || [],
+    pedagogicalLogs: pedagogicalLogs || [],
     reservations: reservations || [],
     savedSchedules: savedSchedules || [],
     wavePlans: wavePlans || [],
@@ -409,7 +441,10 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     addWaveExpense,
     updateWaveExpense,
     deleteWaveExpense,
-  }), [areas, teams, users, rooms, courses, events, reservations, savedSchedules, wavePlans, wavePayments, waveExpenses, isLoading]);
+    addPedagogicalLog,
+    updatePedagogicalLog,
+    deletePedagogicalLog,
+  }), [areas, teams, users, rooms, courses, classes, pedagogicalLogs, reservations, savedSchedules, wavePlans, wavePayments, waveExpenses, isLoading]);
 
   return (
     <VolunteeringContext.Provider value={value}>
