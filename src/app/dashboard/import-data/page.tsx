@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState } from 'react';
@@ -64,34 +63,45 @@ function OldAttendanceMigration() {
         }
         setIsMigrating(true);
 
-        try {
-            const oldCollectionPath = `users/${user.uid}/registros_de_presença`;
-            const oldCollectionRef = collection(firestore, oldCollectionPath);
-            const oldRecordsSnapshot = await getDocs(oldCollectionRef);
+        const possiblePaths = [
+            `users/${user.uid}/registros_de_presenca`, // without cedilla
+            `users/${user.uid}/registros_de_presença` // with cedilla
+        ];
 
-            if (oldRecordsSnapshot.empty) {
-                toast({ title: "Nenhum dado encontrado", description: "Nenhum registro de presença antigo para migrar." });
-                setIsMigrating(false);
-                return;
+        let migratedCount = 0;
+        let found = false;
+
+        try {
+            for (const path of possiblePaths) {
+                toast({ title: "Migração", description: `Verificando caminho: ${path}` });
+                const oldCollectionRef = collection(firestore, path);
+                const oldRecordsSnapshot = await getDocs(oldCollectionRef);
+
+                if (!oldRecordsSnapshot.empty) {
+                    found = true;
+                    const newCollectionRef = collection(firestore, 'registros_de_presenca');
+                    const batch = writeBatch(firestore);
+                    
+                    oldRecordsSnapshot.forEach(docSnapshot => {
+                        const newDocRef = doc(newCollectionRef, docSnapshot.id); // Preserve original ID
+                        batch.set(newDocRef, docSnapshot.data());
+                        migratedCount++;
+                    });
+
+                    await batch.commit();
+                    
+                    toast({ title: "Migração Concluída!", description: `${migratedCount} registros antigos foram movidos com sucesso do caminho: ${path}` });
+                    break; // Exit loop once data is found and migrated
+                }
             }
 
-            const newCollectionRef = collection(firestore, 'registros_de_presenca');
-            const batch = writeBatch(firestore);
-            let migratedCount = 0;
-
-            oldRecordsSnapshot.forEach(docSnapshot => {
-                const newDocRef = doc(newCollectionRef, docSnapshot.id); // Preserve original ID
-                batch.set(newDocRef, docSnapshot.data());
-                migratedCount++;
-            });
-
-            await batch.commit();
-
-            toast({ title: "Migração Concluída!", description: `${migratedCount} registros antigos foram movidos com sucesso.` });
+            if (!found) {
+                toast({ title: "Nenhum dado para migrar", description: "Não foram encontrados registros de presença antigos nos caminhos verificados." });
+            }
 
         } catch (error) {
             console.error("Migration failed:", error);
-            toast({ title: "Erro na Migração", description: "Não foi possível migrar os dados antigos.", variant: "destructive" });
+            toast({ title: "Erro na Migração", description: "Não foi possível migrar os dados antigos. Verifique o console para mais detalhes.", variant: "destructive" });
         } finally {
             setIsMigrating(false);
         }
@@ -105,12 +115,12 @@ function OldAttendanceMigration() {
                     Migração de Dados Antigos
                 </CardTitle>
                 <CardDescription>
-                    Use esta ferramenta para mover os registros de presença antigos (que só você via) para o novo sistema centralizado.
+                    Clique no botão para mover os registros de presença antigos (que só você via) para o novo sistema centralizado.
                 </CardDescription>
             </CardHeader>
             <CardContent>
                 <p className="text-sm text-muted-foreground">
-                    Este processo é necessário apenas uma vez para recuperar os dados que sumiram após a correção. Clique no botão para iniciar.
+                    Este processo buscará seus dados antigos em alguns locais possíveis e os moverá para a coleção correta. É seguro executar várias vezes.
                 </p>
             </CardContent>
             <CardFooter>
@@ -123,6 +133,7 @@ function OldAttendanceMigration() {
         </Card>
     );
 }
+
 
 export default function ImportDataPage() {
     const { firestore, user } = useFirebase();
