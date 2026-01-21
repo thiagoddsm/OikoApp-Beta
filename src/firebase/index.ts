@@ -1,10 +1,18 @@
 
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { initializeAuth, indexedDBLocalPersistence } from 'firebase/auth';
+import { initializeAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore'
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
+function getSdks(firebaseApp: FirebaseApp) {
+  return {
+    firebaseApp,
+    auth: initializeAuth(firebaseApp),
+    firestore: getFirestore(firebaseApp)
+  };
+}
+
 export function initializeFirebase() {
   if (!getApps().length) {
     // Important! initializeApp() is called without any arguments because Firebase App Hosting
@@ -29,16 +37,6 @@ export function initializeFirebase() {
 
   // If already initialized, return the SDKs with the already initialized App
   return getSdks(getApp());
-}
-
-export function getSdks(firebaseApp: FirebaseApp) {
-  return {
-    firebaseApp,
-    auth: initializeAuth(firebaseApp, {
-      persistence: indexedDBLocalPersistence,
-    }),
-    firestore: getFirestore(firebaseApp)
-  };
 }
 
 export * from './provider';
