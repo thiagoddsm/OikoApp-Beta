@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, Timestamp } from 'firebase/firestore';
+import { collection, Timestamp, getDocs, query } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Loader2, Upload, CheckCircle, Download } from 'lucide-react';
@@ -14,7 +14,8 @@ import { Label } from '@/components/ui/label';
 // Define the columns for the template
 const columns = [
     "name", "email", "phone", "dataNascimento (YYYY-MM-DD)", "estadoCivil", 
-    "addressStreet", "integrationStatus", "role"
+    "addressStreet", "temFilhos (sim/nao)", "idadeFilhos", "integrationStatus", 
+    "role", "serviceAreaName", "serviceTeamName", "gcName"
 ];
 
 const sampleData = [
@@ -25,8 +26,13 @@ const sampleData = [
         "dataNascimento (YYYY-MM-DD)": "1990-05-15",
         "estadoCivil": "Casado(a)",
         "addressStreet": "Rua das Flores, 123, São Paulo, SP",
+        "temFilhos (sim/nao)": "sim",
+        "idadeFilhos": "5",
         "integrationStatus": "membro",
-        "role": "member"
+        "role": "member",
+        "serviceAreaName": "Recepção",
+        "serviceTeamName": "Alpha",
+        "gcName": "Conexão Jovem"
     },
     {
         "name": "Maria Oliveira",
@@ -35,8 +41,13 @@ const sampleData = [
         "dataNascimento (YYYY-MM-DD)": "1985-10-20",
         "estadoCivil": "Solteiro(a)",
         "addressStreet": "Avenida Copacabana, 456, Rio de Janeiro, RJ",
+        "temFilhos (sim/nao)": "nao",
+        "idadeFilhos": "",
         "integrationStatus": "lider_gc",
-        "role": "lider_gc"
+        "role": "lider_gc",
+        "serviceAreaName": "Mídia",
+        "serviceTeamName": "Bravo",
+        "gcName": "Famílias Restauradas"
     }
 ];
 
@@ -76,6 +87,21 @@ export default function ImportDataPage() {
         const reader = new FileReader();
         reader.onload = async (e) => {
             try {
+                // Fetch lookup data
+                const areasQuery = query(collection(firestore, 'areas_of_service'));
+                const teamsQuery = query(collection(firestore, 'teams'));
+                const cellsQuery = query(collection(firestore, 'cells'));
+
+                const [areasSnapshot, teamsSnapshot, cellsSnapshot] = await Promise.all([
+                    getDocs(areasQuery),
+                    getDocs(teamsQuery),
+                    getDocs(cellsQuery),
+                ]);
+
+                const areaMap = new Map(areasSnapshot.docs.map(doc => [doc.data().name.toLowerCase(), doc.id]));
+                const teamMap = new Map(teamsSnapshot.docs.map(doc => [doc.data().name.toLowerCase(), doc.id]));
+                const cellDocs = cellsSnapshot.docs;
+
                 const data = e.target?.result;
                 const workbook = XLSX.read(data, { type: 'binary' });
                 const sheetName = workbook.SheetNames[0];
@@ -84,6 +110,10 @@ export default function ImportDataPage() {
 
                 const usersCollection = collection(firestore, 'users');
                 const importPromises = json.map(record => {
+                    const cellDoc = record.gcName ? cellDocs.find(doc => doc.data().nome.toLowerCase() === record.gcName.toLowerCase()) : null;
+                    const celulaId = cellDoc ? cellDoc.id : '';
+                    const supervisorId = cellDoc ? cellDoc.data().supervisorId || '' : '';
+
                     const userData = {
                         name: record.name || '',
                         email: record.email || '',
@@ -91,9 +121,16 @@ export default function ImportDataPage() {
                         dataNascimento: record['dataNascimento (YYYY-MM-DD)'] || '',
                         estadoCivil: record.estadoCivil || '',
                         address: { street: record.addressStreet || '' },
+                        temFilhos: record['temFilhos (sim/nao)']?.toLowerCase() || 'nao',
+                        idadeFilhos: record.idadeFilhos || '',
                         integrationStatus: record.integrationStatus || 'nao_alcancado',
+                        serviceStatus: record.serviceAreaName ? 'serving' : 'not_serving',
+                        serviceAreaId: record.serviceAreaName ? areaMap.get(record.serviceAreaName.toLowerCase()) || '' : '',
+                        serviceTeamId: record.serviceTeamName ? teamMap.get(record.serviceTeamName.toLowerCase()) || '' : '',
                         hierarchy: {
-                            role: record.role || ''
+                            role: record.role || '',
+                            celulaId: celulaId,
+                            supervisorId: supervisorId,
                         },
                         createdAt: Timestamp.now(),
                     };
