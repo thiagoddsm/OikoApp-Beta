@@ -3,7 +3,7 @@
 
 import React, { useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, limit } from 'firebase/firestore';
+import { collection, query, orderBy } from 'firebase/firestore';
 import {
   Card,
   CardContent,
@@ -73,24 +73,38 @@ export default function DashboardPage() {
 
   // Data fetching using memoized queries
   const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
-  const reportsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'attendance_reports'), orderBy('date', 'desc')) : null, [firestore]);
+  const reportsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'attendance_reports')) : null, [firestore]);
   const cellsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells')) : null, [firestore]);
-  const registrosPresencaQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'registros_de_presenca'), orderBy('data', 'desc'), limit(8)) : null, [firestore]);
+  const registrosPresencaQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'registros_de_presenca')) : null, [firestore]);
 
   const { data: users, isLoading: loadingUsers } = useCollection<User>(usersQuery);
-  const { data: reports, isLoading: loadingReports } = useCollection<AttendanceReport>(reportsQuery);
+  const { data: allReports, isLoading: loadingReports } = useCollection<AttendanceReport>(reportsQuery);
   const { data: cells, isLoading: loadingCells } = useCollection<Cell>(cellsQuery);
-  const { data: registrosPresenca, isLoading: loadingRegistros } = useCollection<CultoRegistro>(registrosPresencaQuery);
+  const { data: allRegistrosPresenca, isLoading: loadingRegistros } = useCollection<CultoRegistro>(registrosPresencaQuery);
   
   const isLoading = loadingUsers || loadingReports || loadingCells || loadingRegistros;
+
+  // Memoize sorted and sliced data for UI
+  const reports = useMemo(() => {
+    if (!allReports) return [];
+    return [...allReports].sort((a, b) => b.data.toMillis() - a.data.toMillis());
+  }, [allReports]);
+
+  const registrosPresenca = useMemo(() => {
+    if (!allRegistrosPresenca) return null;
+    return [...allRegistrosPresenca]
+        .sort((a, b) => b.data.toMillis() - a.data.toMillis())
+        .slice(0, 8);
+  }, [allRegistrosPresenca]);
 
   // Memoized calculations
   const kpiCards = useMemo(() => {
     const totalMembers = users?.length || 0;
     const newVisitors = users?.filter(u => u.integrationStatus === 'visitante_culto' || u.integrationStatus === 'visitante_celula').length || 0;
     const conversions = reports?.reduce((sum, report) => sum + (report.conversoes || 0), 0) || 0;
-    const avgAttendance = registrosPresenca && registrosPresenca.length > 0
-      ? Math.round(registrosPresenca.reduce((sum, registro) => sum + registro.adultos + (registro.criancas || 0), 0) / registrosPresenca.length)
+    // Calculate average based on ALL records, not just the last 8
+    const avgAttendance = allRegistrosPresenca && allRegistrosPresenca.length > 0
+      ? Math.round(allRegistrosPresenca.reduce((sum, registro) => sum + registro.adultos + (registro.criancas || 0), 0) / allRegistrosPresenca.length)
       : 0;
 
     return [
@@ -99,7 +113,7 @@ export default function DashboardPage() {
       { title: "Novos Visitantes", value: newVisitors, icon: UserPlus },
       { title: "Conversões (GCs)", value: conversions, icon: TrendingUp },
     ];
-  }, [users, reports, registrosPresenca]);
+  }, [users, reports, allRegistrosPresenca]);
 
   const attendanceData = useMemo(() => {
     if (!registrosPresenca) return [];
@@ -122,6 +136,7 @@ export default function DashboardPage() {
     if (!cells || !users || !reports) return [];
     const userMap = new Map(users.map(u => [u.id, u]));
 
+    // Use the already sorted reports
     return cells.slice(0,3).map(cell => {
       const leader = userMap.get(cell.liderId);
       const lastReport = reports.find(r => r.cellId === cell.id);

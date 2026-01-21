@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -45,7 +46,7 @@ export default function GoalsPage() {
 
     const goalsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'goals')) : null, [firestore]);
     const cellsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells')) : null, [firestore]);
-    const cultosQuery = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, `cultos/${user.uid}/registros`)) : null, [firestore, user]);
+    const cultosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'registros_de_presenca')) : null, [firestore]);
     const reportsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'attendance_reports')) : null, [firestore]);
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
 
