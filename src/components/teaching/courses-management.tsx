@@ -12,9 +12,11 @@ import { CourseFormDialog } from './course-form-dialog';
 import { ClassFormDialog } from './class-form-dialog';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
+import { Badge } from '../ui/badge';
 
 
-type Course = { id: string; name: string; description: string; ministryName: string; };
+type Course = { id: string; name: string; description: string; ministryName: string; type: 'basic' | 'complete' };
 type Class = { id: string; name: string; teacherId: string; students: string[]; schedule: string; courseId: string; };
 type User = { id: string; name: string; };
 
@@ -125,39 +127,17 @@ export function CoursesManagement() {
   const [editingCourse, setEditingCourse] = useState(null);
   const [deletingCourse, setDeletingCourse] = useState<Course | null>(null);
 
-  const { waveCourses, disCourses, otherCourses } = useMemo(() => {
-    const waves: Course[] = [];
-    const dis: Course[] = [];
-    const others: Course[] = [];
+  const { completeCourses, basicCourses } = useMemo(() => {
+    const complete: Course[] = [];
+    const basic: Course[] = [];
     courses?.forEach(c => {
-        const ministry = c.ministryName?.toLowerCase();
-        if (ministry === 'wave - escola de música') {
-            waves.push(c);
-        } else if (ministry === 'dis - escola de inclusão') {
-            dis.push(c);
+        if (c.type === 'complete') {
+            complete.push(c);
         } else {
-            others.push(c);
+            basic.push(c);
         }
     });
-    
-    if (waves.length === 0) {
-        waves.push({
-            id: 'static-wave-course', 
-            name: 'Wave - Escola de Música', 
-            description: 'Gestão completa da escola de música.',
-            ministryName: 'Wave - Escola de Música'
-        });
-    }
-
-    if (dis.length === 0) {
-        dis.push({
-            id: 'static-dis-course',
-            name: 'DIS - Escola de Inclusão',
-            description: 'Gestão completa da escola de inclusão (Libras).',
-            ministryName: 'DIS - Escola de Inclusão'
-        });
-    }
-    return { waveCourses: waves, disCourses: dis, otherCourses: others };
+    return { completeCourses: complete, basicCourses: basic };
   }, [courses]);
 
   const handleEditCourse = (course: Course) => {
@@ -176,7 +156,6 @@ export function CoursesManagement() {
   
   const confirmDeleteCourse = () => {
     if (!deletingCourse) return;
-    // Note: This does not delete subcollections (classes). Firestore rules should handle this or a cloud function.
     const docRef = doc(firestore, 'courses', deletingCourse.id);
     deleteDocumentNonBlocking(docRef);
     toast({ variant: 'destructive', title: 'Curso excluído', description: `O curso "${deletingCourse.name}" será removido.`});
@@ -199,54 +178,46 @@ export function CoursesManagement() {
           {isLoading ? (
             <div className="flex justify-center items-center h-48"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>
           ) : (
-             <div className="space-y-4">
-                {waveCourses.map(waveCourse => (
-                    <Link key={waveCourse.id} href="/dashboard/teaching/wave" className="block border rounded-md relative group hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center justify-between p-4 cursor-pointer">
-                            <div className="flex items-center gap-3 flex-1 text-left">
-                                <Waves className="size-5 text-primary" />
-                                <div>
-                                    <p className="font-semibold">{waveCourse.name}</p>
-                                    <p className="text-sm text-muted-foreground">{waveCourse.description}</p>
-                                </div>
-                            </div>
-                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+             <div className="space-y-6">
+                {completeCourses.length > 0 && (
+                    <div>
+                        <p className="text-sm font-semibold text-muted-foreground mb-2 px-2">Módulos Completos</p>
+                        <div className="space-y-2">
+                            {completeCourses.map(course => {
+                                const isWave = course.name.toLowerCase().includes('wave');
+                                const isDis = course.name.toLowerCase().includes('dis');
+                                const href = isWave ? "/dashboard/teaching/wave" : isDis ? "/dashboard/teaching/dis" : "#";
+                                const Icon = isWave ? Waves : isDis ? HandHelping : BookOpen;
+                                const isDisabled = !isWave && !isDis;
+
+                                return (
+                                <Link key={course.id} href={href} className={cn("block border rounded-md relative group hover:bg-muted/50 transition-colors", isDisabled && "pointer-events-none opacity-60")}>
+                                    <div className="flex items-center justify-between p-4 cursor-pointer">
+                                        <div className="flex items-center gap-3 flex-1 text-left">
+                                            <Icon className="size-5 text-primary" />
+                                            <div>
+                                                <p className="font-semibold">{course.name}</p>
+                                                <p className="text-sm text-muted-foreground">{course.description}</p>
+                                            </div>
+                                        </div>
+                                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                                    </div>
+                                    <div className="absolute right-12 top-1/2 -translate-y-1/2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleEditCourse(course);}}><Edit className="size-4"/></Button>
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleDeleteCourse(course);}}><Trash2 className="size-4 text-destructive"/></Button>
+                                    </div>
+                                    {isDisabled && <Badge variant="outline" className="absolute top-2 right-2">Em breve</Badge>}
+                                </Link>
+                            )})}
                         </div>
-                        {waveCourse.id !== 'static-wave-course' && (
-                             <div className="absolute right-12 top-1/2 -translate-y-1/2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleEditCourse(waveCourse);}}><Edit className="size-4"/></Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleDeleteCourse(waveCourse);}}><Trash2 className="size-4 text-destructive"/></Button>
-                            </div>
-                        )}
-                    </Link>
-                ))}
+                    </div>
+                )}
                 
-                {disCourses.map(disCourse => (
-                    <Link key={disCourse.id} href="/dashboard/teaching/dis" className="block border rounded-md relative group hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center justify-between p-4 cursor-pointer">
-                            <div className="flex items-center gap-3 flex-1 text-left">
-                                <HandHelping className="size-5 text-primary" />
-                                <div>
-                                    <p className="font-semibold">{disCourse.name}</p>
-                                    <p className="text-sm text-muted-foreground">{disCourse.description}</p>
-                                </div>
-                            </div>
-                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                        </div>
-                        {disCourse.id !== 'static-dis-course' && (
-                             <div className="absolute right-12 top-1/2 -translate-y-1/2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleEditCourse(disCourse);}}><Edit className="size-4"/></Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleDeleteCourse(disCourse);}}><Trash2 className="size-4 text-destructive"/></Button>
-                            </div>
-                        )}
-                    </Link>
-                ))}
-                
-                {otherCourses.length > 0 && (
+                {basicCourses.length > 0 && (
                   <div className="pt-4 mt-4 border-t">
-                    <p className="text-sm font-semibold text-muted-foreground mb-2 px-2">Cursos Gerais</p>
+                    <p className="text-sm font-semibold text-muted-foreground mb-2 px-2">Cursos Gerais (Básico)</p>
                     <Accordion type="multiple" className="w-full space-y-2">
-                        {otherCourses.map(course => (
+                        {basicCourses.map(course => (
                             <div key={course.id} className="border rounded-md relative group">
                                 <div className="absolute right-12 top-1/2 -translate-y-1/2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.stopPropagation(); handleEditCourse(course);}}><Edit className="size-4"/></Button>

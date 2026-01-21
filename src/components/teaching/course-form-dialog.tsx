@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -10,6 +9,7 @@ import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
 
 export function CourseFormDialog({ open, onOpenChange, existingCourse }) {
   const { firestore } = useFirebase();
@@ -17,6 +17,7 @@ export function CourseFormDialog({ open, onOpenChange, existingCourse }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [ministryName, setMinistryName] = useState('');
+  const [type, setType] = useState('basic');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -24,6 +25,7 @@ export function CourseFormDialog({ open, onOpenChange, existingCourse }) {
       setName(existingCourse?.name || '');
       setDescription(existingCourse?.description || '');
       setMinistryName(existingCourse?.ministryName || '');
+      setType(existingCourse?.type || 'basic');
     }
   }, [open, existingCourse]);
 
@@ -33,7 +35,7 @@ export function CourseFormDialog({ open, onOpenChange, existingCourse }) {
       return;
     }
     setIsSaving(true);
-    const courseData = { name, description, ministryName };
+    const courseData = { name, description, ministryName, type };
 
     if (existingCourse) {
       const docRef = doc(firestore, 'courses', existingCourse.id);
@@ -70,6 +72,16 @@ export function CourseFormDialog({ open, onOpenChange, existingCourse }) {
           <div>
             <Label htmlFor="description">Descrição</Label>
             <Textarea id="description" value={description} onChange={e => setDescription(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="type">Tipo de Módulo</Label>
+            <Select value={type} onValueChange={(v) => setType(v)}>
+                <SelectTrigger id="type"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="basic">Básico (Lista simples de turmas)</SelectItem>
+                    <SelectItem value="complete">Completo (Página dedicada com módulos)</SelectItem>
+                </SelectContent>
+            </Select>
           </div>
         </div>
         <DialogFooter>

@@ -89,7 +89,7 @@
         "dizimista": { "type": "string", "enum": ["sim", "nao"] },
         "financialStatus": { "type": "string", "enum": ["active", "blocked", "delinquent"], "description": "Financial status for Wave music school." }
       },
-      "required": ["name", "email", "roles", "createdAt"]
+      "required": ["name", "email", "createdAt"]
     },
     "UserPermission": {
       "title": "User Permission",
@@ -526,9 +526,10 @@
       "properties": {
         "ministryName": { "type": "string", "description": "Name of the ministry this course belongs to (e.g., 'IBM College', 'DIS')." },
         "name": { "type": "string" },
-        "description": { "type": "string" }
+        "description": { "type": "string" },
+        "type": { "type": "string", "enum": ["basic", "complete"], "description": "The type of course module to display." }
       },
-      "required": ["ministryName", "name"]
+      "required": ["ministryName", "name", "type"]
     },
     "Class": {
       "title": "Class",
