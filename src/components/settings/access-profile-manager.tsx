@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -13,16 +12,73 @@ import { DeleteConfirmationDialog } from '../structure/delete-confirmation-dialo
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 
-const allPermissions = [
-  { id: 'view_dashboard_kpis', label: 'Ver KPIs do Dashboard Principal' },
-  { id: 'manage_people', label: 'Gerenciar Pessoas (Criar, Editar, Excluir)' },
-  { id: 'view_people_details', label: 'Ver Detalhes Pessoais dos Membros' },
-  { id: 'manage_structure', label: 'Gerenciar Estrutura (Redes, Áreas)' },
-  { id: 'view_financials', label: 'Ver Painel Financeiro' },
-  { id: 'manage_financials', label: 'Gerenciar Financeiro (Integração Conta Azul)' },
-  { id: 'manage_volunteering', label: 'Gerenciar Voluntariado (Escalas, Áreas)' },
-  { id: 'manage_settings', label: 'Gerenciar Configurações de Acesso' },
+const permissionsConfig = [
+  { id: 'dashboard', label: 'Dashboard', actions: ['view'] },
+  {
+    id: 'pessoas',
+    label: 'Pessoas',
+    subItems: [
+      { id: 'pessoas_journey', label: 'Jornada de Integração', actions: ['view', 'edit'] },
+      { id: 'pessoas_list', label: 'Lista de Pessoas', actions: ['view', 'edit', 'delete'] },
+      { id: 'pessoas_details', label: 'Detalhes Pessoais', actions: ['view', 'view_sensitive'] }
+    ]
+  },
+  {
+    id: 'gcs',
+    label: 'GCs',
+    subItems: [
+      { id: 'gcs_structure', label: 'Estrutura', actions: ['view', 'edit', 'delete'] },
+      { id: 'gcs_cells', label: 'Células', actions: ['view', 'edit', 'delete'] },
+      { id: 'gcs_report', label: 'Relatório de Célula', actions: ['view', 'submit'] },
+      { id: 'gcs_map', label: 'Mapa', actions: ['view'] },
+    ]
+  },
+  {
+    id: 'servico',
+    label: 'Serviço',
+    subItems: [
+        { id: 'servico_areas', label: 'Áreas de Serviço', actions: ['view', 'edit', 'delete'] },
+        { id: 'servico_teams', label: 'Equipes', actions: ['view', 'edit', 'delete'] },
+        { id: 'servico_events', label: 'Gerenciar Eventos (Voluntariado)', actions: ['view', 'edit', 'delete'] },
+        { id: 'servico_schedule', label: 'Gerar Escala', actions: ['view', 'edit', 'delete'] },
+        { id: 'servico_saved', label: 'Escalas Salvas', actions: ['view', 'edit', 'delete'] },
+    ]
+  },
+  {
+    id: 'ministerial',
+    label: 'Ministerial',
+    subItems: [
+      { id: 'ministerial_attendance', label: 'Frequência (Culto)', actions: ['view', 'edit'] },
+      { id: 'ministerial_teaching', label: 'Ensino', actions: ['view', 'edit', 'delete'] },
+      { id: 'ministerial_events', label: 'Protocolos de Evento', actions: ['view', 'edit', 'delete'] },
+      { id: 'ministerial_briefing', label: 'Briefing Pro', actions: ['view', 'edit'] },
+      { id: 'ministerial_reservations', label: 'Reservas de Sala', actions: ['view', 'approve', 'delete'] },
+      { id: 'ministerial_finance', label: 'Financeiro', actions: ['view', 'edit'] },
+      { id: 'ministerial_patrimony', label: 'Patrimônio', actions: ['view', 'edit', 'delete'] },
+      { id: 'ministerial_social', label: 'Ação Social', actions: ['view', 'edit', 'delete'] },
+      { id: 'ministerial_goals', label: 'Metas (KPIs)', actions: ['view', 'edit'] },
+      { id: 'ministerial_ai', label: 'Agente IA', actions: ['use'] },
+      { id: 'ministerial_notifications', label: 'Notificações', actions: ['send'] },
+    ]
+  },
+  {
+    id: 'settings',
+    label: 'Configurações',
+    actions: ['view', 'edit']
+  }
 ];
+
+const actionLabels: Record<string, string> = {
+  view: 'Visualizar',
+  edit: 'Editar',
+  delete: 'Excluir',
+  submit: 'Enviar',
+  approve: 'Aprovar',
+  use: 'Usar',
+  send: 'Enviar',
+  view_sensitive: 'Ver Dados Sensíveis'
+};
+
 
 function EditProfileDialog({ open, onOpenChange, onSave, existingProfile }) {
     const [name, setName] = useState('');
@@ -71,44 +127,81 @@ function EditProfileDialog({ open, onOpenChange, onSave, existingProfile }) {
     );
 }
 
+const PermissionRow = ({ item, permissions, onPermissionChange }) => {
+  return (
+    <div className="grid grid-cols-12 items-center gap-2 py-2">
+      <Label className="col-span-5 md:col-span-4 font-normal">{item.label}</Label>
+      <div className="col-span-7 md:col-span-8 flex items-center gap-4">
+        {item.actions.map(action => (
+          <div key={action} className="flex items-center gap-2">
+            <Checkbox 
+              id={`${item.id}-${action}`}
+              checked={!!permissions?.[action]}
+              onCheckedChange={(checked) => onPermissionChange(item.id, action, !!checked)}
+            />
+            <Label htmlFor={`${item.id}-${action}`} className="text-xs text-muted-foreground font-normal">
+              {actionLabels[action]}
+            </Label>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+
 export function AccessProfileManager({ roles, setRoles }) {
   const { toast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [editingProfile, setEditingProfile] = useState(null);
   const [deletingProfile, setDeletingProfile] = useState(null);
   
-  const [permissions, setPermissions] = useState<Record<string, string[]>>({});
+  const [permissions, setPermissions] = useState<Record<string, Record<string, Record<string, boolean>>>>({});
   const [isSaving, setIsSaving] = useState<string | null>(null);
   
   useEffect(() => {
-    // This could be fetched from Firestore in the future
-    const initialPermissions: Record<string, string[]> = {
-        admin: allPermissions.map(p => p.id),
-        pastor_senior: allPermissions.filter(p => p.id !== 'manage_settings').map(p => p.id),
-        lider_rede: ['view_dashboard_kpis', 'manage_people', 'manage_structure'],
-        lider_area: ['view_dashboard_kpis', 'manage_people'],
-        lider_gc: ['view_dashboard_kpis', 'view_people_details'],
-        member: ['view_dashboard_kpis'],
-        volunteer: ['view_dashboard_kpis'],
-    };
+    // Apenas simula o carregamento, idealmente viria do Firestore
+    const initialPermissions: Record<string, any> = {};
+    const allAdminPermissions: Record<string, Record<string, boolean>> = {};
+    const allPastorPermissions: Record<string, Record<string, boolean>> = {};
+
+    permissionsConfig.forEach(module => {
+      const createPerms = (actions) => actions.reduce((acc, act) => ({ ...acc, [act]: true }), {});
+      
+      if (module.actions) {
+        allAdminPermissions[module.id] = createPerms(module.actions);
+        if (module.id !== 'settings') {
+          allPastorPermissions[module.id] = createPerms(module.actions);
+        }
+      }
+      module.subItems?.forEach(sub => {
+        allAdminPermissions[sub.id] = createPerms(sub.actions);
+        allPastorPermissions[sub.id] = createPerms(sub.actions);
+      });
+    });
+
+    initialPermissions['admin'] = allAdminPermissions;
+    initialPermissions['pastor_senior'] = allPastorPermissions;
+
     setPermissions(initialPermissions);
   }, []);
 
-  const handlePermissionChange = (roleId: string, permissionId: string, checked: boolean) => {
-    setPermissions(prev => {
-        const currentPermissions = prev[roleId] || [];
-        if (checked) {
-            return { ...prev, [roleId]: [...currentPermissions, permissionId] };
-        } else {
-            return { ...prev, [roleId]: currentPermissions.filter(p => p !== permissionId) };
-        }
-    });
+  const handlePermissionChange = (roleId: string, permissionId: string, action: string, checked: boolean) => {
+    setPermissions(prev => ({
+      ...prev,
+      [roleId]: {
+        ...(prev[roleId] || {}),
+        [permissionId]: {
+          ...(prev[roleId]?.[permissionId] || {}),
+          [action]: checked,
+        },
+      },
+    }));
   };
   
   const handleSavePermissions = (roleId: string) => {
     setIsSaving(roleId);
-    // In a real app, this would save to Firestore
-    console.log(`Saving permissions for ${roleId}:`, permissions[roleId]);
+    console.log(`Salvando permissões para ${roleId}:`, permissions[roleId]);
     setTimeout(() => {
         setIsSaving(null);
         toast({
@@ -134,11 +227,9 @@ export function AccessProfileManager({ roles, setRoles }) {
   
   const handleSaveProfile = (profileData) => {
       if (editingProfile) {
-          // Edit logic
           setRoles(roles.map(r => r.id === editingProfile.id ? {...r, ...profileData} : r));
           toast({ title: "Perfil Atualizado", description: `O perfil "${profileData.name}" foi alterado.`});
       } else {
-          // Create logic
           const newProfile = { id: profileData.name.toLowerCase().replace(/\s+/g, '_').replace(/[^\w-]/g, ''), ...profileData };
           setRoles([...roles, newProfile]);
           toast({ title: "Perfil Criado", description: `O perfil "${profileData.name}" foi adicionado.`});
@@ -167,7 +258,7 @@ export function AccessProfileManager({ roles, setRoles }) {
         
         <Accordion type="single" collapsible className="w-full">
             {roles.map(role => {
-                const rolePermissions = permissions[role.id] || [];
+                const rolePermissions = permissions[role.id] || {};
                 return (
                     <AccordionItem value={role.id} key={role.id}>
                         <div className="flex items-center justify-between hover:bg-muted/50 rounded-t-md transition-colors">
@@ -190,22 +281,38 @@ export function AccessProfileManager({ roles, setRoles }) {
                             </div>
                         </div>
                         <AccordionContent className="p-6 bg-muted/30 rounded-b-md">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {allPermissions.map(permission => (
-                                <div key={permission.id} className="flex items-center space-x-2">
-                                    <Checkbox 
-                                        id={`${role.id}-${permission.id}`}
-                                        checked={rolePermissions.includes(permission.id)}
-                                        onCheckedChange={(checked) => handlePermissionChange(role.id, permission.id, !!checked)}
-                                    />
-                                    <Label htmlFor={`${role.id}-${permission.id}`} className="font-normal">{permission.label}</Label>
-                                </div>
-                            ))}
+                            <div className="space-y-6">
+                                {permissionsConfig.map(module => (
+                                    <div key={module.id}>
+                                        <h4 className="font-semibold text-foreground border-b pb-2 mb-2">{module.label}</h4>
+                                        <div className="space-y-2">
+                                            {module.actions && (
+                                                <PermissionRow
+                                                    item={module}
+                                                    permissions={rolePermissions[module.id]}
+                                                    onPermissionChange={(permissionId, action, checked) => handlePermissionChange(role.id, permissionId, action, checked)}
+                                                />
+                                            )}
+                                            {module.subItems && (
+                                                <div className="pl-6 border-l-2 border-slate-200 space-y-1">
+                                                    {module.subItems.map(subItem => (
+                                                         <PermissionRow
+                                                            key={subItem.id}
+                                                            item={subItem}
+                                                            permissions={rolePermissions[subItem.id]}
+                                                            onPermissionChange={(permissionId, action, checked) => handlePermissionChange(role.id, permissionId, action, checked)}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                            <div className="flex justify-end mt-6">
+                             <div className="flex justify-end mt-6">
                                 <Button size="sm" onClick={() => handleSavePermissions(role.id)} disabled={isSaving === role.id}>
                                      {isSaving === role.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Salvar Permissões
+                                    Salvar Permissões do Perfil
                                 </Button>
                             </div>
                         </AccordionContent>
