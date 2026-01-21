@@ -7,9 +7,22 @@ import { Button } from '@/components/ui/button';
 import { PlusCircle } from 'lucide-react';
 import { CreateReservationDialog } from '@/components/volunteering/create-reservation-dialog';
 import { ReservationsTable } from '@/components/volunteering/reservations-table';
-import { ReservationsCalendar } from '@/components/volunteering/reservations-calendar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RoomsManagement } from '@/components/volunteering/rooms-management';
+import dynamic from 'next/dynamic';
+import { Loader2 } from 'lucide-react';
+
+const ReservationsCalendar = dynamic(
+    () => import('@/components/volunteering/reservations-calendar').then(mod => mod.ReservationsCalendar),
+    { 
+        ssr: false,
+        loading: () => (
+             <div className="flex items-center justify-center p-8 h-[70vh]">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        )
+    }
+);
 
 
 export default function ReservationsPage() {
