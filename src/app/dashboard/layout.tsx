@@ -155,7 +155,7 @@ function renderMenuItems(items: any[], pathname: string, permissions: AccessProf
         }
         return hasPermission(item.permissionId) ? item : null;
       })
-      .filter((item): item is not null => item !== null);
+      .filter(item => item !== null);
   };
   
   const visibleItems = filterItems(items);
