@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -65,76 +66,101 @@ import { signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { PendingAccess } from "@/components/auth/pending-access";
 import { userRoles } from '@/lib/roles';
+import type { AccessProfile } from '@/app/dashboard/settings/page';
 
 
 const menuItems = [
-    { href: "/dashboard", label: "Dashboard", icon: Home },
+    { href: "/dashboard", label: "Dashboard", icon: Home, permissionId: 'dashboard' },
     { 
       label: "Pessoas", 
       icon: Users,
       subItems: [
-        { href: "/dashboard/people/journey", label: "Integração", icon: Footprints },
-        { href: "/dashboard/people/list", label: "Lista de Pessoas", icon: Users2 },
+        { href: "/dashboard/people/journey", label: "Integração", icon: Footprints, permissionId: 'pessoas_journey' },
+        { href: "/dashboard/people/list", label: "Lista de Pessoas", icon: Users2, permissionId: 'pessoas_list' },
       ]
     },
     { 
       label: "GCs", 
       icon: HeartHandshake,
       subItems: [
-        { href: "/dashboard/gc/structure", label: "Estrutura", icon: Network },
-        { href: "/dashboard/gc/cells", label: "Células", icon: Building },
-        { href: "/dashboard/gc/report", label: "Relatório de Célula", icon: ClipboardList },
-        { href: "/dashboard/gc/map", label: "Mapa", icon: Map },
+        { href: "/dashboard/gc/structure", label: "Estrutura", icon: Network, permissionId: 'gcs_structure' },
+        { href: "/dashboard/gc/cells", label: "Células", icon: Building, permissionId: 'gcs_cells' },
+        { href: "/dashboard/gc/report", label: "Relatório de Célula", icon: ClipboardList, permissionId: 'gcs_report' },
+        { href: "/dashboard/gc/map", label: "Mapa", icon: Map, permissionId: 'gcs_map' },
       ]
     },
     {
       label: "Serviço",
       icon: HandHelping,
       subItems: [
-        { href: "/dashboard/volunteering", label: "Áreas de Serviço", icon: HandHelping },
-        { href: "/dashboard/volunteering/teams", label: "Equipes", icon: Shield },
-        { href: "/dashboard/volunteering/events", label: "Gerenciar Eventos", icon: CalendarPlus },
-        { href: "/dashboard/volunteering/schedule", label: "Gerar Escala", icon: CalendarCog },
-        { href: "/dashboard/volunteering/saved-schedules", label: "Escalas Salvas", icon: Save },
+        { href: "/dashboard/volunteering", label: "Áreas de Serviço", icon: HandHelping, permissionId: 'servico_areas' },
+        { href: "/dashboard/volunteering/teams", label: "Equipes", icon: Shield, permissionId: 'servico_teams' },
+        { href: "/dashboard/volunteering/events", label: "Gerenciar Eventos", icon: CalendarPlus, permissionId: 'servico_events' },
+        { href: "/dashboard/volunteering/schedule", label: "Gerar Escala", icon: CalendarCog, permissionId: 'servico_schedule' },
+        { href: "/dashboard/volunteering/saved-schedules", label: "Escalas Salvas", icon: Save, permissionId: 'servico_saved' },
       ]
     },
     { 
       label: "Ministerial", 
       icon: Church,
       subItems: [
-        { href: "/dashboard/attendance", label: "Frequência (Culto)", icon: CheckSquare },
+        { href: "/dashboard/attendance", label: "Frequência (Culto)", icon: CheckSquare, permissionId: 'ministerial_attendance' },
         { 
             label: "Ensino", 
             icon: GraduationCap,
             subItems: [
-              { href: "/dashboard/teaching/courses", label: "Cursos e Turmas", icon: BookOpen },
-              { href: "/dashboard/teaching/teachers", label: "Professores", icon: UserCheckIcon },
-              { href: "/dashboard/teaching/students", label: "Alunos", icon: Users2 },
+              { href: "/dashboard/teaching/courses", label: "Cursos e Turmas", icon: BookOpen, permissionId: 'teaching_courses' },
+              { href: "/dashboard/teaching/teachers", label: "Professores", icon: UserCheckIcon, permissionId: 'teaching_courses' },
+              { href: "/dashboard/teaching/students", label: "Alunos", icon: Users2, permissionId: 'teaching_courses' },
             ]
         },
         { 
             label: "Eventos", 
             icon: CalendarDays,
             subItems: [
-              { href: "/dashboard/events", label: "Protocolos de Evento", icon: CalendarCheck },
-              { href: "/dashboard/briefing-pro", label: "Briefing Pro", icon: FileText },
-              { href: "/dashboard/events/reservations", label: "Reservas de Sala", icon: CalendarClock },
+              { href: "/dashboard/events", label: "Protocolos de Evento", icon: CalendarCheck, permissionId: 'ministerial_events' },
+              { href: "/dashboard/briefing-pro", label: "Briefing Pro", icon: FileText, permissionId: 'ministerial_briefing' },
+              { href: "/dashboard/events/reservations", label: "Reservas de Sala", icon: CalendarClock, permissionId: 'ministerial_reservations' },
             ]
         },
-        { href: "/dashboard/finance", label: "Financeiro", icon: Briefcase },
-        { href: "/dashboard/patrimony", label: "Patrimônio", icon: ScanLine },
-        { href: "/dashboard/social", label: "Ação Social", icon: Users },
-        { href: "/dashboard/goals", label: "Metas (KPIs)", icon: TrendingUp },
-        { href: "/dashboard/ai-agent", label: "Agente IA", icon: Bot },
-        { href: "/dashboard/notifications", label: "Notificações", icon: Send },
+        { href: "/dashboard/finance", label: "Financeiro", icon: Briefcase, permissionId: 'ministerial_finance' },
+        { href: "/dashboard/patrimony", label: "Patrimônio", icon: ScanLine, permissionId: 'ministerial_patrimony' },
+        { href: "/dashboard/social", label: "Ação Social", icon: Users, permissionId: 'ministerial_social' },
+        { href: "/dashboard/goals", label: "Metas (KPIs)", icon: TrendingUp, permissionId: 'ministerial_goals' },
+        { href: "/dashboard/ai-agent", label: "Agente IA", icon: Bot, permissionId: 'ministerial_ai' },
+        { href: "/dashboard/notifications", label: "Notificações", icon: Send, permissionId: 'ministerial_notifications' },
       ]
     },
     // Temporary item for data import
-    { href: "/dashboard/import-data", label: "Importar Dados", icon: Upload },
+    { href: "/dashboard/import-data", label: "Importar Dados", icon: Upload, permissionId: 'settings' },
 ];
 
-function renderMenuItems(items: any[], pathname: string, level = 0) {
-  return items.map((item) => {
+function renderMenuItems(items: any[], pathname: string, permissions: AccessProfile['permissions'], userRole: string | undefined, level = 0) {
+  const hasPermission = (permissionId: string | undefined, action: string = 'view') => {
+    if (!permissionId) return true; // Items without a permissionId are public within the dashboard
+    if (userRole === 'admin') return true;
+    if (!permissions) return false;
+    return !!permissions[permissionId]?.[action];
+  };
+
+  const filterItems = (itemsToFilter: any[]): any[] => {
+    return itemsToFilter
+      .map(item => {
+        if (item.subItems) {
+          const visibleSubItems = filterItems(item.subItems);
+          if (visibleSubItems.length > 0) {
+            return { ...item, subItems: visibleSubItems };
+          }
+          return null;
+        }
+        return hasPermission(item.permissionId) ? item : null;
+      })
+      .filter((item): item is not null => item !== null);
+  };
+  
+  const visibleItems = filterItems(items);
+
+  return visibleItems.map((item) => {
     const isCollapsibleOpen = item.subItems?.some(sub => sub.href && pathname.startsWith(sub.href)) || item.subItems?.some(sub => sub.subItems?.some(subsub => subsub.href && pathname.startsWith(subsub.href)));
     
     if (item.subItems) {
@@ -153,7 +179,7 @@ function renderMenuItems(items: any[], pathname: string, level = 0) {
           </SidebarMenuItem>
           <CollapsibleContent>
             <SidebarMenu className={cn(level > 0 ? "pl-6" : "pl-6")}>
-              {renderMenuItems(item.subItems, pathname, level + 1)}
+              {renderMenuItems(item.subItems, pathname, permissions, userRole, level + 1)}
             </SidebarMenu>
           </CollapsibleContent>
         </Collapsible>
@@ -188,7 +214,12 @@ export default function DashboardLayout({
 
   const { data: userData, isLoading: isUserDataLoading } = useDoc<{ hierarchy?: { role?: string }; }>(user ? `users/${user.uid}`: null);
   
-  const isLoading = isUserLoading || isUserDataLoading;
+  const userRole = userData?.hierarchy?.role;
+  const { data: accessProfile, isLoading: isLoadingAccessProfile } = useDoc<AccessProfile>(
+    userRole ? `access_profiles/${userRole}` : null
+  );
+
+  const isLoading = isUserLoading || isUserDataLoading || isLoadingAccessProfile;
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -255,7 +286,6 @@ export default function DashboardLayout({
     );
   }
   
-  const userRole = userData?.hierarchy?.role;
   const hasAccess = !!userRole;
 
 
@@ -277,7 +307,7 @@ export default function DashboardLayout({
           </SidebarHeader>
           <SidebarContent>
             <SidebarMenu>
-              {renderMenuItems(menuItems, pathname)}
+              {renderMenuItems(menuItems, pathname, accessProfile?.permissions, userRole)}
             </SidebarMenu>
           </SidebarContent>
           <SidebarFooter>
