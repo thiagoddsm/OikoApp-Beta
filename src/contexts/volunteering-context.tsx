@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useMemo } from 'react';
@@ -106,6 +105,7 @@ type EventData = Omit<VolunteeringEvent, 'id'>;
 type ReservationData = Omit<RoomReservation, 'id'>;
 type SavedScheduleData = Omit<SavedSchedule, 'id'>;
 type WavePlanData = Omit<WavePlan, 'id'>;
+type WavePaymentData = Omit<WavePayment, 'id'>;
 
 
 // --- CONTEXT DEFINITION ---
@@ -159,6 +159,9 @@ interface VolunteeringContextType {
   addWavePlan: (data: WavePlanData) => Promise<void>;
   updateWavePlan: (id: string, data: Partial<WavePlanData>) => Promise<void>;
   deleteWavePlan: (id: string) => Promise<void>;
+  addWavePayment: (data: WavePaymentData) => Promise<void>;
+  updateWavePayment: (id: string, data: Partial<WavePaymentData>) => Promise<void>;
+  deleteWavePayment: (id: string) => Promise<void>;
 }
 
 const VolunteeringContext = createContext<VolunteeringContextType | undefined>(undefined);
@@ -226,6 +229,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { addItem: addReservation, updateItem: updateReservation, deleteItem: deleteReservation } = createCrudFunctions<RoomReservation>('room_reservations', 'Reserva');
   const { addItem: _, updateItem: __, deleteItem: deleteSchedule } = createCrudFunctions<SavedSchedule>('saved_schedules', 'Escala Salva');
   const { addItem: addWavePlan, updateItem: updateWavePlan, deleteItem: deleteWavePlan } = createCrudFunctions<WavePlan>('wave_plans', 'Plano Wave');
+  const { addItem: addWavePayment, updateItem: updateWavePayment, deleteItem: deleteWavePayment } = createCrudFunctions<WavePayment>('wave_payments', 'Pagamento Wave');
 
 
   // --- CUSTOM EVENT FUNCTIONS ---
@@ -346,6 +350,9 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     addWavePlan,
     updateWavePlan,
     deleteWavePlan,
+    addWavePayment,
+    updateWavePayment,
+    deleteWavePayment,
   }), [areas, teams, users, rooms, courses, events, reservations, savedSchedules, wavePlans, wavePayments, isLoading]);
 
   return (

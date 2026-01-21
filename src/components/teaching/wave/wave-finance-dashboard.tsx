@@ -5,14 +5,16 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, DollarSign, CheckCircle, Clock, XCircle, PlusCircle, MinusCircle, FileDown, Filter } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { MoreHorizontal, DollarSign, CheckCircle, Clock, XCircle, PlusCircle, MinusCircle, FileDown, Filter, Edit, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { useVolunteering, type WavePayment } from '@/contexts/volunteering-context';
 import { Loader2 } from 'lucide-react';
 import { WavePlansManagement } from './wave-plans-management';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PaymentFormDialog } from './payment-form-dialog';
+import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 
 
 const statusConfig: Record<string, { label: string; icon: React.ElementType; color: string; }> = {
@@ -22,8 +24,11 @@ const statusConfig: Record<string, { label: string; icon: React.ElementType; col
 };
 
 export function WaveFinanceDashboard() {
-  const { wavePayments, users, wavePlans, isLoading } = useVolunteering();
+  const { wavePayments, users, wavePlans, isLoading, deleteWavePayment } = useVolunteering();
   const [filter, setFilter] = useState('all');
+  const [isFormOpen, setFormOpen] = useState(false);
+  const [isDeleteOpen, setDeleteOpen] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<WavePayment | null>(null);
 
   const userMap = useMemo(() => new Map(users.map(u => [u.id, u.name])), [users]);
   const planMap = useMemo(() => new Map(wavePlans.map(p => [p.id, p.name])), [wavePlans]);
@@ -51,12 +56,36 @@ export function WaveFinanceDashboard() {
         overdueCount: `${overduePayments.length} alunos pendentes`,
     };
   }, [wavePayments]);
+
+  const handleAdd = () => {
+    setSelectedPayment(null);
+    setFormOpen(true);
+  };
+  
+  const handleEdit = (payment: WavePayment) => {
+    setSelectedPayment(payment);
+    setFormOpen(true);
+  };
+
+  const handleDelete = (payment: WavePayment) => {
+    setSelectedPayment(payment);
+    setDeleteOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (selectedPayment) {
+        deleteWavePayment(selectedPayment.id);
+        setDeleteOpen(false);
+        setSelectedPayment(null);
+    }
+  };
   
   if (isLoading) {
     return <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>;
   }
 
   return (
+    <>
     <Tabs defaultValue="overview">
         <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
@@ -92,7 +121,7 @@ export function WaveFinanceDashboard() {
                             <CardDescription>Acompanhe todos os pagamentos.</CardDescription>
                         </div>
                         <div className="flex items-center gap-2">
-                            <Button variant="outline" size="sm"><PlusCircle className="mr-2 size-4"/>Novo Pagamento</Button>
+                            <Button variant="outline" size="sm" onClick={handleAdd}><PlusCircle className="mr-2 size-4"/>Novo Pagamento</Button>
                             <Button variant="outline" size="sm"><FileDown className="mr-2 size-4"/>Exportar</Button>
                         </div>
                     </div>
@@ -143,7 +172,9 @@ export function WaveFinanceDashboard() {
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="size-4"/></Button></DropdownMenuTrigger>
                                                     <DropdownMenuContent>
-                                                        <DropdownMenuItem>Ver Detalhes</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleEdit(t)}><Edit className="mr-2 h-4 w-4" />Editar</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleDelete(t)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Excluir</DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
                                                         <DropdownMenuItem>Marcar como Pago</DropdownMenuItem>
                                                         <DropdownMenuItem>Enviar Lembrete</DropdownMenuItem>
                                                     </DropdownMenuContent>
@@ -162,5 +193,18 @@ export function WaveFinanceDashboard() {
             <WavePlansManagement />
         </TabsContent>
     </Tabs>
+
+    <PaymentFormDialog open={isFormOpen} onOpenChange={setFormOpen} existingPayment={selectedPayment} />
+    
+    {selectedPayment && (
+        <DeleteConfirmationDialog 
+            open={isDeleteOpen}
+            onOpenChange={setDeleteOpen}
+            onConfirm={confirmDelete}
+            itemName={`pagamento de ${userMap.get(selectedPayment.userId)}`}
+            itemType="Mensalidade"
+        />
+    )}
+    </>
   );
 }
