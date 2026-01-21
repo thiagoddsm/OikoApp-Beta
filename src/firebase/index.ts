@@ -1,14 +1,13 @@
 
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { initializeAuth } from 'firebase/auth';
+import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore'
 
-// IMPORTANT: DO NOT MODIFY THIS FUNCTION
 function getSdks(firebaseApp: FirebaseApp) {
   return {
     firebaseApp,
-    auth: initializeAuth(firebaseApp),
+    auth: getAuth(firebaseApp),
     firestore: getFirestore(firebaseApp)
   };
 }
