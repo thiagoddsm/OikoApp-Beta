@@ -4,9 +4,10 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { School, Banknote, User, Music } from 'lucide-react';
-import { UnderConstruction } from '@/components/common/under-construction';
 import { WaveAdminDashboard } from '@/components/teaching/wave/admin-dashboard';
 import { WaveFinanceDashboard } from './wave-finance-dashboard';
+import { TeacherDashboard } from './teacher-dashboard';
+import { StudentDashboard } from './student-dashboard';
 
 
 const modules = [
@@ -29,14 +30,14 @@ const modules = [
         title: "Área do Professor",
         icon: User,
         description: "Agenda de aulas, diário de classe, repositório de arquivos e solicitações.",
-        component: <UnderConstruction pageTitle="Área do Professor" pageDescription="Agenda de aulas, diário de classe, repositório de arquivos e solicitações." />
+        component: <TeacherDashboard />
     },
     {
         id: "student",
         title: "Área do Aluno",
         icon: Music,
         description: "Carteirinha digital, cronograma, material didático, registro de estudos e financeiro simplificado.",
-        component: <UnderConstruction pageTitle="Área do Aluno" pageDescription="Carteirinha digital, cronograma, material didático, registro de estudos e financeiro simplificado." />
+        component: <StudentDashboard />
     }
 ]
 
