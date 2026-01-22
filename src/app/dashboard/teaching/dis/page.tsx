@@ -1,3 +1,4 @@
+
 'use client';
 
 import { DisSchoolPage } from '@/components/teaching/dis/dis-page';

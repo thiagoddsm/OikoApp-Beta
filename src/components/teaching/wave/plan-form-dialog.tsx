@@ -93,4 +93,3 @@ export function PlanFormDialog({ open, onOpenChange, existingPlan }: PlanFormDia
     </Dialog>
   );
 }
-

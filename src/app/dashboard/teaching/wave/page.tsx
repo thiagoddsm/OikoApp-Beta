@@ -1,3 +1,4 @@
+
 'use client';
 
 import { WaveMusicSchoolPage } from '@/components/teaching/wave/wave-page';

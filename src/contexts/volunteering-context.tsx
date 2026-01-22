@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useMemo } from 'react';
@@ -53,8 +54,9 @@ export type Room = {
 export type Course = {
   id: string;
   name: string;
-  ministryId?: string;
+  ministryName: string;
   description?: string;
+  type?: 'basic' | 'complete';
 };
 
 export type Class = {
