@@ -199,7 +199,7 @@ export function CoursesManagement() {
                                             <Icon className="size-5 text-primary" />
                                             <div>
                                                 <p className="font-semibold">{course.name}</p>
-                                                <p className="text-sm text-muted-foreground">{course.description}</p>
+                                                <p className="text-sm text-muted-foreground">{course.ministryName}</p>
                                             </div>
                                         </div>
                                         <ChevronRight className="h-5 w-5 text-muted-foreground" />
