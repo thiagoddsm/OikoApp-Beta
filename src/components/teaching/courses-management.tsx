@@ -131,7 +131,7 @@ export function CoursesManagement() {
     const complete: Course[] = [];
     const basic: Course[] = [];
     courses?.forEach(c => {
-        if (c.type === 'complete') {
+        if (c.type === 'complete' || (!c.type && (c.name.toLowerCase().includes('wave') || c.name.toLowerCase().includes('dis')))) {
             complete.push(c);
         } else {
             basic.push(c);
