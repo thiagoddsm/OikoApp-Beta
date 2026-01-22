@@ -131,8 +131,8 @@ export function CoursesManagement() {
     const complete: Course[] = [];
     const basic: Course[] = [];
     courses?.forEach(c => {
-        const isWave = c.ministryName?.toLowerCase().includes('wave');
-        const isDis = c.ministryName?.toLowerCase() === 'dis';
+        const isWave = c.ministryName?.toLowerCase().includes('wave') || c.name?.toLowerCase().includes('wave');
+        const isDis = c.ministryName?.toLowerCase() === 'dis' || c.name?.toLowerCase().includes('dis');
         if (c.type === 'complete' || isWave || isDis) {
             complete.push(c);
         } else {
@@ -186,8 +186,8 @@ export function CoursesManagement() {
                         <p className="text-sm font-semibold text-muted-foreground mb-2 px-2">Módulos Completos</p>
                         <div className="space-y-2">
                             {completeCourses.map(course => {
-                                const isWave = course.ministryName?.toLowerCase().includes('wave');
-                                const isDis = course.ministryName?.toLowerCase() === 'dis';
+                                const isWave = course.ministryName?.toLowerCase().includes('wave') || course.name?.toLowerCase().includes('wave');
+                                const isDis = course.ministryName?.toLowerCase() === 'dis' || course.name?.toLowerCase().includes('dis');
                                 const href = isWave ? "/dashboard/teaching/wave" : isDis ? "/dashboard/teaching/dis" : "#";
                                 const Icon = isWave ? Waves : isDis ? HandHelping : BookOpen;
                                 const isDisabled = !isWave && !isDis;
