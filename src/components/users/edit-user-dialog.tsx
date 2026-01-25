@@ -23,20 +23,7 @@ import { useFirebase, useMemoFirebase, updateDocumentNonBlocking, addDocumentNon
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query, doc, Timestamp } from 'firebase/firestore';
 import { userRoles } from '@/lib/roles';
-
-const journeyColumns = [
-    { id: 'nao_alcancado', title: 'Cidade (Não Alcançado)' },
-    { id: 'novo_convertido', title: 'Novo Convertido' },
-    { id: 'reconciliado', title: 'Reconciliado' },
-    { id: 'transferido', title: 'Transferido' },
-    { id: 'membro', title: 'Membro' },
-    { id: 'consolidado', title: 'Consolidado' },
-    { id: 'lider_treinamento', title: 'Líder em treinamento' },
-    { id: 'lider_gc', title: 'Líder de GC' },
-    { id: 'lider_area', title: 'Líder de Área' },
-    { id: 'lider_rede', title: 'Líder de Rede' },
-    { id: 'pastor', title: 'Pastor' },
-];
+import { journeyColumns } from '@/components/users/journey-status-config';
 
 type User = {
   id: string;

@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, PlusCircle, Trash2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '../ui/checkbox';
-import { journeyColumns } from './journey-status-config';
+import { journeyColumns } from '@/components/users/journey-status-config';
 
 export function JourneyStageFormDialog({ open, onOpenChange, existingStage, courses }) {
     const { firestore } = useFirebase();
