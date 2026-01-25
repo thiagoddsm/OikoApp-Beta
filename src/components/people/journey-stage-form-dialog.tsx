@@ -11,6 +11,20 @@ import { Label } from '@/components/ui/label';
 import { Loader2, PlusCircle, Trash2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+const journeyColumns = [
+    { id: 'nao_alcancado', title: 'Cidade (Não Alcançado)' },
+    { id: 'novo_convertido', title: 'Novo Convertido' },
+    { id: 'reconciliado', title: 'Reconciliado' },
+    { id: 'transferido', title: 'Transferido' },
+    { id: 'membro', title: 'Membro' },
+    { id: 'consolidado', title: 'Consolidado' },
+    { id: 'lider_treinamento', title: 'Líder em treinamento' },
+    { id: 'lider_gc', title: 'Líder de GC' },
+    { id: 'lider_area', title: 'Líder de Área' },
+    { id: 'lider_rede', title: 'Líder de Rede' },
+    { id: 'pastor', title: 'Pastor' },
+];
+
 export function JourneyStageFormDialog({ open, onOpenChange, existingStage }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
@@ -105,14 +119,18 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage }) {
                             <Input id="stage-title" value={title} onChange={(e) => setTitle(e.target.value)} />
                         </div>
                         <div>
-                            <Label htmlFor="stage-id">ID da Etapa (Chave)</Label>
-                            <Input 
-                                id="stage-id" 
-                                value={stageId} 
-                                onChange={(e) => setStageId(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
-                                placeholder="Ex: novo_convertido" 
-                            />
-                             {existingStage && <p className="text-xs text-destructive mt-1">Atenção: alterar o ID pode desvincular membros desta etapa.</p>}
+                            <Label htmlFor="stage-id">Fase da Integração (Chave)</Label>
+                             <Select value={stageId} onValueChange={setStageId}>
+                                <SelectTrigger id="stage-id">
+                                    <SelectValue placeholder="Selecione a fase..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {journeyColumns.map((col) => (
+                                        <SelectItem key={col.id} value={col.id}>{col.title}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {existingStage && <p className="text-xs text-destructive mt-1">Atenção: alterar a fase pode desvincular membros desta etapa.</p>}
                         </div>
                     </div>
                     <div>
