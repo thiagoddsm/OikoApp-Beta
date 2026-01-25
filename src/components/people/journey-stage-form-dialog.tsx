@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -62,7 +61,7 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage, cour
         const dataToSave = {
             title,
             questions: questions.filter(q => q.label.trim() !== ''),
-            requiredCourseId,
+            requiredCourseId: requiredCourseId === 'none' ? '' : requiredCourseId,
             requiresDualApproval,
         };
 
@@ -100,7 +99,7 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage, cour
                             <Select value={requiredCourseId} onValueChange={setRequiredCourseId}>
                                 <SelectTrigger id="requiredCourseId"><SelectValue placeholder="Nenhum..." /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="">Nenhum</SelectItem>
+                                    <SelectItem value="none">Nenhum</SelectItem>
                                     {courses.map(course => (
                                         <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
                                     ))}
