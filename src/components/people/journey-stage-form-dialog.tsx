@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { doc, collection } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -30,8 +30,7 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage }) {
     const { toast } = useToast();
 
     const [title, setTitle] = useState('');
-    const [stageId, setStageId] = useState('');
-    const [originalId, setOriginalId] = useState(''); // Keep track of the original ID
+    const [phaseId, setPhaseId] = useState('');
     const [questions, setQuestions] = useState<{ id: string; label: string; type: string; }[]>([]);
     const [isSaving, setIsSaving] = useState(false);
 
@@ -39,13 +38,11 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage }) {
         if (open) {
             if (existingStage) {
                 setTitle(existingStage.title || '');
-                setStageId(existingStage.id || '');
-                setOriginalId(existingStage.id || ''); // Set original ID on open
+                setPhaseId(existingStage.phaseId || '');
                 setQuestions(existingStage.questions?.map(q => ({...q, type: q.type || 'checkbox'})) || []);
             } else {
                 setTitle('');
-                setStageId('');
-                setOriginalId(''); // Reset original ID
+                setPhaseId('');
                 setQuestions([]);
             }
         }
@@ -66,39 +63,25 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage }) {
     };
 
     const handleSave = () => {
-        if (!title || !stageId) {
-            toast({ variant: 'destructive', title: 'Campos obrigatórios', description: 'Título e ID da etapa são obrigatórios.' });
+        if (!title || !phaseId) {
+            toast({ variant: 'destructive', title: 'Campos obrigatórios', description: 'Título e Fase da Integração são obrigatórios.' });
             return;
         }
         setIsSaving(true);
         const dataToSave = {
             title,
-            phaseId: stageId, // Legacy field, keeping for compatibility
+            phaseId: phaseId,
             questions: questions.filter(q => q.label.trim() !== '')
         };
 
-        if (existingStage && originalId && originalId !== stageId) {
-            // ID has changed, this is a rename operation (create new, delete old)
-            const newDocRef = doc(firestore, 'discipleship_checklists', stageId);
-            const oldDocRef = doc(firestore, 'discipleship_checklists', originalId);
-
-            // Queue up the operations
-            setDocumentNonBlocking(newDocRef, dataToSave);
-            deleteDocumentNonBlocking(oldDocRef);
-
-            toast({ title: 'Sucesso!', description: `A etapa foi renomeada para "${title}".` });
-            toast({
-                variant: 'destructive',
-                title: 'Atenção Manual Requerida!',
-                description: `O ID da etapa foi alterado. Usuários que estavam na etapa "${originalId}" precisam ser atualizados manualmente para "${stageId}".`,
-                duration: 10000,
-            });
-
+        if (existingStage) {
+            const docRef = doc(firestore, 'discipleship_checklists', existingStage.id);
+            updateDocumentNonBlocking(docRef, dataToSave);
+            toast({ title: 'Sucesso!', description: `A etapa "${title}" será atualizada.` });
         } else {
-            // ID is the same or it's a new stage
-            const docRef = doc(firestore, 'discipleship_checklists', stageId);
-            setDocumentNonBlocking(docRef, dataToSave, { merge: true });
-             toast({ title: 'Sucesso!', description: `A etapa "${title}" será salva.` });
+            const collectionRef = collection(firestore, 'discipleship_checklists');
+            addDocumentNonBlocking(collectionRef, dataToSave);
+            toast({ title: 'Sucesso!', description: `A nova etapa "${title}" foi criada.` });
         }
         
         setIsSaving(false);
@@ -120,7 +103,7 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage }) {
                         </div>
                         <div>
                             <Label htmlFor="stage-id">Fase da Integração (Chave)</Label>
-                             <Select value={stageId} onValueChange={setStageId}>
+                             <Select value={phaseId} onValueChange={setPhaseId}>
                                 <SelectTrigger id="stage-id">
                                     <SelectValue placeholder="Selecione a fase..." />
                                 </SelectTrigger>
@@ -130,7 +113,6 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage }) {
                                     ))}
                                 </SelectContent>
                             </Select>
-                            {existingStage && <p className="text-xs text-destructive mt-1">Atenção: alterar a fase pode desvincular membros desta etapa.</p>}
                         </div>
                     </div>
                     <div>
