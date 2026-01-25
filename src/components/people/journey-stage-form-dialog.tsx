@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useFirebase, setDocumentNonBlocking } from '@/firebase';
+import { useFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -17,14 +17,23 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage }) {
 
     const [title, setTitle] = useState('');
     const [stageId, setStageId] = useState('');
+    const [originalId, setOriginalId] = useState(''); // Keep track of the original ID
     const [questions, setQuestions] = useState<{ id: string; label: string; type: string; }[]>([]);
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (open) {
-            setTitle(existingStage?.title || '');
-            setStageId(existingStage?.id || '');
-            setQuestions(existingStage?.questions?.map(q => ({...q, type: q.type || 'checkbox'})) || []);
+            if (existingStage) {
+                setTitle(existingStage.title || '');
+                setStageId(existingStage.id || '');
+                setOriginalId(existingStage.id || ''); // Set original ID on open
+                setQuestions(existingStage.questions?.map(q => ({...q, type: q.type || 'checkbox'})) || []);
+            } else {
+                setTitle('');
+                setStageId('');
+                setOriginalId(''); // Reset original ID
+                setQuestions([]);
+            }
         }
     }, [open, existingStage]);
 
@@ -48,16 +57,36 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage }) {
             return;
         }
         setIsSaving(true);
-        const docRef = doc(firestore, 'discipleship_checklists', stageId);
         const dataToSave = {
             title,
             phaseId: stageId, // Legacy field, keeping for compatibility
             questions: questions.filter(q => q.label.trim() !== '')
         };
 
-        setDocumentNonBlocking(docRef, dataToSave, { merge: true });
+        if (existingStage && originalId && originalId !== stageId) {
+            // ID has changed, this is a rename operation (create new, delete old)
+            const newDocRef = doc(firestore, 'discipleship_checklists', stageId);
+            const oldDocRef = doc(firestore, 'discipleship_checklists', originalId);
+
+            // Queue up the operations
+            setDocumentNonBlocking(newDocRef, dataToSave);
+            deleteDocumentNonBlocking(oldDocRef);
+
+            toast({ title: 'Sucesso!', description: `A etapa foi renomeada para "${title}".` });
+            toast({
+                variant: 'destructive',
+                title: 'Atenção Manual Requerida!',
+                description: `O ID da etapa foi alterado. Usuários que estavam na etapa "${originalId}" precisam ser atualizados manualmente para "${stageId}".`,
+                duration: 10000,
+            });
+
+        } else {
+            // ID is the same or it's a new stage
+            const docRef = doc(firestore, 'discipleship_checklists', stageId);
+            setDocumentNonBlocking(docRef, dataToSave, { merge: true });
+             toast({ title: 'Sucesso!', description: `A etapa "${title}" será salva.` });
+        }
         
-        toast({ title: 'Sucesso!', description: `A etapa "${title}" será salva.` });
         setIsSaving(false);
         onOpenChange(false);
     };
@@ -77,7 +106,13 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage }) {
                         </div>
                         <div>
                             <Label htmlFor="stage-id">ID da Etapa (Chave)</Label>
-                            <Input id="stage-id" value={stageId} onChange={(e) => setStageId(e.target.value.toLowerCase().replace(/\s+/g, '_'))} disabled={!!existingStage} placeholder="Ex: novo_convertido" />
+                            <Input 
+                                id="stage-id" 
+                                value={stageId} 
+                                onChange={(e) => setStageId(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
+                                placeholder="Ex: novo_convertido" 
+                            />
+                             {existingStage && <p className="text-xs text-destructive mt-1">Atenção: alterar o ID pode desvincular membros desta etapa.</p>}
                         </div>
                     </div>
                     <div>
