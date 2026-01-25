@@ -7,7 +7,7 @@ import { collection, query } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Handshake, School, MapIcon, Briefcase, Church, Group, BookOpen, UserPlus, Award, Shield, Target, UserX, UserCheck, Loader2 } from 'lucide-react';
+import { Handshake, School, MapIcon, Briefcase, Church, Group, BookOpen, UserPlus, Award, Shield, Target, UserX, UserCheck, Loader2, GraduationCap } from 'lucide-react';
 
 
 const iconMap: Record<string, React.ElementType> = {
@@ -58,10 +58,17 @@ type TimelineItemData = {
     id: string;
     title: string;
     questions: any[];
+    requiredCourseId?: string;
+    requiresDualApproval?: boolean;
+};
+
+type Course = {
+    id: string;
+    name: string;
 };
 
 
-const TimelineCard = ({ item, isEven, onToggle, isExpanded, isCurrent, isFuture }) => {
+const TimelineCard = ({ item, isEven, onToggle, isExpanded, isCurrent, isFuture, courseName }) => {
     const mainColor = mainColors['status'];
     const Icon = iconMap[item.id] || iconMap['default'];
 
@@ -98,6 +105,22 @@ const TimelineCard = ({ item, isEven, onToggle, isExpanded, isCurrent, isFuture 
                                 </div>
                              )}
                         </div>
+                        {(item.requiredCourseId || item.requiresDualApproval) && (
+                            <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+                                {item.requiredCourseId && (
+                                    <div className="flex items-center gap-1.5">
+                                        <GraduationCap className="size-3.5" />
+                                        <span className="font-medium">{courseName || 'Curso'}</span>
+                                    </div>
+                                )}
+                                {item.requiresDualApproval && (
+                                     <div className="flex items-center gap-1.5">
+                                        <Handshake className="size-3.5" />
+                                        <span className="font-medium">Aprovação Dupla</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </CardContent>
 
                     {isExpanded && (
@@ -125,11 +148,16 @@ export function DiscipleshipTrail({ currentStatusId }: { currentStatusId?: strin
     const checklistsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'discipleship_checklists')) : null, [firestore]);
     const { data: timelineData, isLoading } = useCollection<TimelineItemData>(checklistsQuery);
 
+    const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
+    const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery);
+
+    const courseMap = useMemo(() => new Map(courses?.map(c => [c.id, c.name]) || []), [courses]);
+
     const toggleDetails = (id: string) => {
         setExpandedId(prevId => (prevId === id ? null : id));
     };
 
-    if (isLoading) {
+    if (isLoading || isLoadingCourses) {
         return <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>;
     }
 
@@ -155,6 +183,7 @@ export function DiscipleshipTrail({ currentStatusId }: { currentStatusId?: strin
                         const phaseInfo = phaseConfig[phaseId];
                         const isCurrent = item.id === effectiveStatusId;
                         const isFuture = currentIndex !== -1 && index > currentIndex;
+                        const courseName = item.requiredCourseId ? courseMap.get(item.requiredCourseId) : null;
 
                         return (
                             <React.Fragment key={item.id}>
@@ -172,6 +201,7 @@ export function DiscipleshipTrail({ currentStatusId }: { currentStatusId?: strin
                                     isExpanded={expandedId === item.id}
                                     isCurrent={isCurrent}
                                     isFuture={isFuture}
+                                    courseName={courseName}
                                 />
                             </React.Fragment>
                         );

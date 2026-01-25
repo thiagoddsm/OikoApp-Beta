@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
-import { Loader2, PlusCircle, Edit, Trash2 } from 'lucide-react';
+import { Loader2, PlusCircle, Edit, Trash2, GraduationCap, Handshake } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { JourneyStageFormDialog } from './journey-stage-form-dialog';
@@ -15,6 +15,13 @@ type DiscipleshipChecklist = {
     id: string;
     title: string;
     questions: { id: string; label: string; }[];
+    requiredCourseId?: string;
+    requiresDualApproval?: boolean;
+};
+
+type Course = {
+    id: string;
+    name: string;
 };
 
 export function JourneySettingsManager() {
@@ -23,6 +30,9 @@ export function JourneySettingsManager() {
 
     const checklistsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'discipleship_checklists')) : null, [firestore]);
     const { data: stages, isLoading } = useCollection<DiscipleshipChecklist>(checklistsQuery);
+
+    const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
+    const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery);
 
     const [isFormOpen, setFormOpen] = useState(false);
     const [isDeleteOpen, setDeleteOpen] = useState(false);
@@ -51,7 +61,7 @@ export function JourneySettingsManager() {
         setDeleteOpen(false);
     }
 
-    if (isLoading) {
+    if (isLoading || isLoadingCourses) {
         return <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>;
     }
 
@@ -68,24 +78,42 @@ export function JourneySettingsManager() {
                         <TableRow>
                             <TableHead>Título da Etapa</TableHead>
                             <TableHead>Nº de Perguntas</TableHead>
+                            <TableHead>Pré-requisitos</TableHead>
                             <TableHead className="text-right">Ações</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {stages && stages.map(stage => (
-                            <TableRow key={stage.id}>
-                                <TableCell className="font-medium">{stage.title}</TableCell>
-                                <TableCell>{stage.questions?.length || 0}</TableCell>
-                                <TableCell className="text-right">
-                                    <Button variant="ghost" size="icon" onClick={() => handleEdit(stage)}>
-                                        <Edit className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" onClick={() => handleDelete(stage)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-                        ))}
+                        {stages && stages.map(stage => {
+                            const course = courses?.find(c => c.id === stage.requiredCourseId);
+                            return (
+                                <TableRow key={stage.id}>
+                                    <TableCell className="font-medium">{stage.title}</TableCell>
+                                    <TableCell>{stage.questions?.length || 0}</TableCell>
+                                    <TableCell>
+                                        <div className="flex items-center gap-4">
+                                            {stage.requiredCourseId && course && (
+                                                <div className="flex items-center gap-1 text-sm text-emerald-700">
+                                                    <GraduationCap className="size-4" /> {course.name}
+                                                </div>
+                                            )}
+                                            {stage.requiresDualApproval && (
+                                                <div className="flex items-center gap-1 text-sm text-amber-700">
+                                                    <Handshake className="size-4" /> Aprovação Dupla
+                                                </div>
+                                            )}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <Button variant="ghost" size="icon" onClick={() => handleEdit(stage)}>
+                                            <Edit className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" onClick={() => handleDelete(stage)}>
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
                     </TableBody>
                 </Table>
             </div>
@@ -93,6 +121,7 @@ export function JourneySettingsManager() {
                 open={isFormOpen}
                 onOpenChange={setFormOpen}
                 existingStage={selectedStage}
+                courses={courses || []}
             />
              {selectedStage && (
                 <DeleteConfirmationDialog

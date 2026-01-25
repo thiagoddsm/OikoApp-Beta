@@ -601,9 +601,11 @@
     "DiscipleshipChecklist": {
       "title": "Discipleship Checklist",
       "type": "object",
-      "description": "Defines a generic checklist for discipleship.",
+      "description": "Defines a generic checklist for discipleship, including prerequisites for completion.",
       "properties": {
         "title": { "type": "string", "description": "The display title of the checklist." },
+        "requiredCourseId": { "type": "string", "description": "ID of the Course required to complete this stage." },
+        "requiresDualApproval": { "type": "boolean", "description": "Indicates if this stage requires dual approval (discipler and supervisor)." },
         "questions": {
           "type": "array",
           "items": {
@@ -617,7 +619,7 @@
           }
         }
       },
-      "required": ["title", "questions"]
+      "required": ["title"]
     },
     "AccessProfile": {
       "title": "Access Profile",

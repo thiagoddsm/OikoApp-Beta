@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -10,13 +11,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, PlusCircle, Trash2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '../ui/checkbox';
 
-export function JourneyStageFormDialog({ open, onOpenChange, existingStage }) {
+export function JourneyStageFormDialog({ open, onOpenChange, existingStage, courses }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
 
     const [title, setTitle] = useState('');
     const [questions, setQuestions] = useState<{ id: string; label: string; type: string; }[]>([]);
+    const [requiredCourseId, setRequiredCourseId] = useState('');
+    const [requiresDualApproval, setRequiresDualApproval] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
@@ -24,9 +28,13 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage }) {
             if (existingStage) {
                 setTitle(existingStage.title || '');
                 setQuestions(existingStage.questions?.map(q => ({...q, type: q.type || 'checkbox'})) || []);
+                setRequiredCourseId(existingStage.requiredCourseId || '');
+                setRequiresDualApproval(existingStage.requiresDualApproval || false);
             } else {
                 setTitle('');
                 setQuestions([]);
+                setRequiredCourseId('');
+                setRequiresDualApproval(false);
             }
         }
     }, [open, existingStage]);
@@ -53,7 +61,9 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage }) {
         setIsSaving(true);
         const dataToSave = {
             title,
-            questions: questions.filter(q => q.label.trim() !== '')
+            questions: questions.filter(q => q.label.trim() !== ''),
+            requiredCourseId,
+            requiresDualApproval,
         };
 
         if (existingStage) {
@@ -82,8 +92,34 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage }) {
                         <Label htmlFor="stage-title">Título do Checklist</Label>
                         <Input id="stage-title" value={title} onChange={(e) => setTitle(e.target.value)} />
                     </div>
+
+                    <h4 className="font-semibold mb-2 pt-4 border-t">Pré-requisitos da Etapa</h4>
+                    <div className="space-y-4">
+                        <div>
+                            <Label htmlFor="requiredCourseId">Curso Obrigatório (Técnico)</Label>
+                            <Select value={requiredCourseId} onValueChange={setRequiredCourseId}>
+                                <SelectTrigger id="requiredCourseId"><SelectValue placeholder="Nenhum..." /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="">Nenhum</SelectItem>
+                                    {courses.map(course => (
+                                        <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex items-center space-x-2 pt-2">
+                            <Checkbox
+                                id="requiresDualApproval"
+                                checked={requiresDualApproval}
+                                onCheckedChange={(checked) => setRequiresDualApproval(!!checked)}
+                            />
+                            <Label htmlFor="requiresDualApproval">Requer Aprovação Dupla (Humano)</Label>
+                        </div>
+                    </div>
+
+
                     <div>
-                        <h4 className="font-semibold mb-2">Perguntas do Checklist</h4>
+                        <h4 className="font-semibold mb-2 pt-4 border-t">Perguntas do Checklist</h4>
                         <div className="space-y-2">
                             {questions.map((q, index) => (
                                 <div key={index} className="flex items-center gap-2 bg-slate-50 p-2 rounded-md border">
