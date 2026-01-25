@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -12,12 +11,14 @@ import { Label } from '../ui/label';
 import { cn } from '@/lib/utils';
 import { FollowUpTimeline, Note } from './follow-up-timeline';
 import { query, collection } from 'firebase/firestore';
+import { Input } from '../ui/input';
 
 
 type ChecklistQuestion = {
     id: string;
     label: string;
-}
+    type: 'checkbox' | 'text' | 'date';
+};
 
 type DiscipleshipPhase = {
     id: string;
@@ -36,7 +37,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
     const { data: discipleshipPhases, isLoading: isLoadingChecklists } = useCollection<DiscipleshipPhase>(checklistsQuery);
     
     // State to hold user answers and notes
-    const [phaseData, setPhaseData] = useState<Record<string, { notes: string; answers: Record<string, boolean> }>>({});
+    const [phaseData, setPhaseData] = useState<Record<string, { notes: string; answers: Record<string, boolean | string> }>>({});
 
     const [timelineNotes, setTimelineNotes] = useState<Note[]>([
         { id: '1', authorId: 'admin', type: 'system', content: `Perfil criado.`, createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
@@ -45,14 +46,14 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
     ]);
 
 
-    const handleCheckboxChange = (phaseId: string, questionId: string, checked: boolean) => {
+    const handleAnswerChange = (phaseId: string, questionId: string, value: boolean | string) => {
          setPhaseData(prev => ({
             ...prev,
             [phaseId]: {
-                ...prev[phaseId],
+                ...(prev[phaseId] || { notes: '', answers: {} }),
                 answers: {
                     ...(prev[phaseId]?.answers || {}),
-                    [questionId]: checked
+                    [questionId]: value
                 }
             }
         }));
@@ -66,16 +67,21 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         const newNotes: Note[] = [];
 
         for (const question of phaseQuestions) {
-            const isCheckedNow = phaseData[phaseId]?.answers[question.id];
+            const answer = phaseData[phaseId]?.answers[question.id];
             
-             if (isCheckedNow) {
-                 const alreadyLogged = timelineNotes.some(note => note.content.includes(question.label));
+            // This is a mock implementation. A real one would need to check previous state.
+            if (answer) { 
+                 const noteContent = question.type === 'checkbox' 
+                    ? `Checklist '${question.label}' foi completado.`
+                    : `Anotação para '${question.label}': ${answer}`;
+                
+                 const alreadyLogged = timelineNotes.some(note => note.content === noteContent);
                  if(!alreadyLogged) {
                     newNotes.push({
                         id: (timelineNotes.length + newNotes.length + 1).toString(),
                         authorId: user?.uid || 'admin',
                         type: 'system',
-                        content: `Checklist '${question.label}' foi completado.`,
+                        content: noteContent,
                         createdAt: new Date(),
                     });
                  }
@@ -84,7 +90,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         
         setTimeout(() => {
             if (newNotes.length > 0) {
-                setTimelineNotes(prev => [...newNotes, ...prev]);
+                onNoteAdded(prev => [...newNotes, ...prev]);
             }
             setIsSaving(false);
             toast({ title: `Progresso de "${discipleshipPhases?.find(p => p.id === phaseId)?.title}" salvo!`});
@@ -144,18 +150,50 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                                     <CardTitle>Checklist da Fase: {phase.title}</CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-6">
-                                     <div className="space-y-3">
+                                     <div className="space-y-4">
                                         <Label className="font-semibold">Perguntas de Acompanhamento</Label>
-                                        {phase.questions.map(q => (
-                                             <div key={q.id} className="flex items-center space-x-2">
-                                                <Checkbox 
-                                                    id={`${phase.id}-${q.id}`} 
-                                                    checked={!!phaseData[phase.id]?.answers[q.id]}
-                                                    onCheckedChange={(checked) => handleCheckboxChange(phase.id, q.id, !!checked)}
-                                                />
-                                                <Label htmlFor={`${phase.id}-${q.id}`} className="font-normal">{q.label.replace('[nome da pessoa]', memberName)}</Label>
-                                            </div>
-                                        ))}
+                                        {phase.questions.map(q => {
+                                            const answer = phaseData[phase.id]?.answers[q.id];
+                                            const questionLabel = q.label.replace('[nome da pessoa]', memberName);
+
+                                            switch (q.type) {
+                                                case 'text':
+                                                    return (
+                                                        <div key={q.id} className="space-y-1.5">
+                                                            <Label htmlFor={`${phase.id}-${q.id}`}>{questionLabel}</Label>
+                                                            <Input
+                                                                id={`${phase.id}-${q.id}`}
+                                                                value={typeof answer === 'string' ? answer : ''}
+                                                                onChange={(e) => handleAnswerChange(phase.id, q.id, e.target.value)}
+                                                            />
+                                                        </div>
+                                                    );
+                                                case 'date':
+                                                    return (
+                                                        <div key={q.id} className="space-y-1.5">
+                                                            <Label htmlFor={`${phase.id}-${q.id}`}>{questionLabel}</Label>
+                                                            <Input
+                                                                id={`${phase.id}-${q.id}`}
+                                                                type="date"
+                                                                value={typeof answer === 'string' ? answer : ''}
+                                                                onChange={(e) => handleAnswerChange(phase.id, q.id, e.target.value)}
+                                                            />
+                                                        </div>
+                                                    );
+                                                case 'checkbox':
+                                                default:
+                                                    return (
+                                                        <div key={q.id} className="flex items-center space-x-2">
+                                                            <Checkbox
+                                                                id={`${phase.id}-${q.id}`}
+                                                                checked={!!answer}
+                                                                onCheckedChange={(checked) => handleAnswerChange(phase.id, q.id, !!checked)}
+                                                            />
+                                                            <Label htmlFor={`${phase.id}-${q.id}`} className="font-normal">{questionLabel}</Label>
+                                                        </div>
+                                                    );
+                                            }
+                                        })}
                                     </div>
                                     <div className="flex justify-end">
                                         <Button onClick={() => handleSave(phase.id)} disabled={isSaving}>

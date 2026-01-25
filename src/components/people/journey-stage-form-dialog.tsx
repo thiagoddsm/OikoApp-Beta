@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, PlusCircle, Trash2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export function JourneyStageFormDialog({ open, onOpenChange, existingStage }) {
     const { firestore } = useFirebase();
@@ -16,25 +17,25 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage }) {
 
     const [title, setTitle] = useState('');
     const [stageId, setStageId] = useState('');
-    const [questions, setQuestions] = useState<{ id: string; label: string; }[]>([]);
+    const [questions, setQuestions] = useState<{ id: string; label: string; type: string; }[]>([]);
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (open) {
             setTitle(existingStage?.title || '');
             setStageId(existingStage?.id || '');
-            setQuestions(existingStage?.questions?.map(q => ({...q})) || []);
+            setQuestions(existingStage?.questions?.map(q => ({...q, type: q.type || 'checkbox'})) || []);
         }
     }, [open, existingStage]);
 
-    const handleQuestionChange = (index: number, value: string) => {
+    const handleQuestionFieldChange = (index: number, field: 'label' | 'type', value: string) => {
         const newQuestions = [...questions];
-        newQuestions[index].label = value;
+        newQuestions[index][field] = value;
         setQuestions(newQuestions);
     };
     
     const addQuestion = () => {
-        setQuestions([...questions, { id: `q_${Date.now()}`, label: '' }]);
+        setQuestions([...questions, { id: `q_${Date.now()}`, label: '', type: 'checkbox' }]);
     };
 
     const removeQuestion = (index: number) => {
@@ -83,12 +84,23 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage }) {
                         <h4 className="font-semibold mb-2">Perguntas do Checklist</h4>
                         <div className="space-y-2">
                             {questions.map((q, index) => (
-                                <div key={index} className="flex items-center gap-2">
+                                <div key={index} className="flex items-center gap-2 bg-slate-50 p-2 rounded-md border">
                                     <Input
+                                        className="flex-grow bg-white"
                                         value={q.label}
-                                        onChange={(e) => handleQuestionChange(index, e.target.value)}
+                                        onChange={(e) => handleQuestionFieldChange(index, 'label', e.target.value)}
                                         placeholder={`Pergunta ${index + 1}`}
                                     />
+                                    <Select value={q.type} onValueChange={(value) => handleQuestionFieldChange(index, 'type', value)}>
+                                        <SelectTrigger className="w-[150px] bg-white">
+                                            <SelectValue/>
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="checkbox">Checkbox</SelectItem>
+                                            <SelectItem value="text">Texto</SelectItem>
+                                            <SelectItem value="date">Data</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                     <Button variant="ghost" size="icon" onClick={() => removeQuestion(index)}>
                                         <Trash2 className="h-4 w-4 text-destructive" />
                                     </Button>
