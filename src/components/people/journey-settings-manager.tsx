@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -66,7 +67,6 @@ export function JourneySettingsManager() {
                     <TableHeader>
                         <TableRow>
                             <TableHead>Título da Etapa</TableHead>
-                            <TableHead>ID (Chave)</TableHead>
                             <TableHead>Nº de Perguntas</TableHead>
                             <TableHead className="text-right">Ações</TableHead>
                         </TableRow>
@@ -75,7 +75,6 @@ export function JourneySettingsManager() {
                         {stages && stages.map(stage => (
                             <TableRow key={stage.id}>
                                 <TableCell className="font-medium">{stage.title}</TableCell>
-                                <TableCell className="font-mono text-xs">{stage.id}</TableCell>
                                 <TableCell>{stage.questions?.length || 0}</TableCell>
                                 <TableCell className="text-right">
                                     <Button variant="ghost" size="icon" onClick={() => handleEdit(stage)}>
