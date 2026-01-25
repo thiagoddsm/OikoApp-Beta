@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { FollowUpTimeline, Note } from './follow-up-timeline';
 import { query, collection } from 'firebase/firestore';
 import { Input } from '../ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
 type ChecklistQuestion = {
@@ -84,7 +85,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         
         setTimeout(() => {
             if (newNotes.length > 0) {
-                onNoteAdded(prev => [...newNotes, ...prev]);
+                setTimelineNotes(prev => [...newNotes, ...prev]);
             }
             setIsSaving(null);
             toast({ title: `Progresso de "${checklist.title}" salvo!`});
@@ -119,67 +120,71 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                 <CardTitle className="flex items-center gap-2">Acompanhamento do Discipulado</CardTitle>
                 <CardDescription>Registre o progresso de {memberName} utilizando os checklists disponíveis.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent>
                  {discipleshipChecklists.length > 0 ? (
-                    discipleshipChecklists.map(checklist => (
-                         <Card key={checklist.id} className="border-dashed">
-                            <CardHeader>
-                                <CardTitle>Checklist: {checklist.title}</CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-6">
+                    <Tabs defaultValue={discipleshipChecklists[0].id} className="w-full">
+                        <TabsList className="flex flex-wrap h-auto justify-start">
+                            {discipleshipChecklists.map(checklist => (
+                                <TabsTrigger key={checklist.id} value={checklist.id}>{checklist.title}</TabsTrigger>
+                            ))}
+                        </TabsList>
+                        {discipleshipChecklists.map(checklist => (
+                            <TabsContent key={checklist.id} value={checklist.id} className="mt-6">
+                                <div className="space-y-6">
                                     <div className="space-y-4">
-                                    {checklist.questions.map(q => {
-                                        const answer = phaseData[checklist.id]?.answers[q.id];
-                                        const questionLabel = q.label.replace('[nome da pessoa]', memberName);
+                                        {checklist.questions.map(q => {
+                                            const answer = phaseData[checklist.id]?.answers[q.id];
+                                            const questionLabel = q.label.replace('[nome da pessoa]', memberName);
 
-                                        switch (q.type) {
-                                            case 'text':
-                                                return (
-                                                    <div key={q.id} className="space-y-1.5">
-                                                        <Label htmlFor={`${checklist.id}-${q.id}`}>{questionLabel}</Label>
-                                                        <Input
-                                                            id={`${checklist.id}-${q.id}`}
-                                                            value={typeof answer === 'string' ? answer : ''}
-                                                            onChange={(e) => handleAnswerChange(checklist.id, q.id, e.target.value)}
-                                                        />
-                                                    </div>
-                                                );
-                                            case 'date':
-                                                return (
-                                                    <div key={q.id} className="space-y-1.5">
-                                                        <Label htmlFor={`${checklist.id}-${q.id}`}>{questionLabel}</Label>
-                                                        <Input
-                                                            id={`${checklist.id}-${q.id}`}
-                                                            type="date"
-                                                            value={typeof answer === 'string' ? answer : ''}
-                                                            onChange={(e) => handleAnswerChange(checklist.id, q.id, e.target.value)}
-                                                        />
-                                                    </div>
-                                                );
-                                            case 'checkbox':
-                                            default:
-                                                return (
-                                                    <div key={q.id} className="flex items-center space-x-2">
-                                                        <Checkbox
-                                                            id={`${checklist.id}-${q.id}`}
-                                                            checked={!!answer}
-                                                            onCheckedChange={(checked) => handleAnswerChange(checklist.id, q.id, !!checked)}
-                                                        />
-                                                        <Label htmlFor={`${checklist.id}-${q.id}`} className="font-normal">{questionLabel}</Label>
-                                                    </div>
-                                                );
-                                        }
-                                    })}
+                                            switch (q.type) {
+                                                case 'text':
+                                                    return (
+                                                        <div key={q.id} className="space-y-1.5">
+                                                            <Label htmlFor={`${checklist.id}-${q.id}`}>{questionLabel}</Label>
+                                                            <Input
+                                                                id={`${checklist.id}-${q.id}`}
+                                                                value={typeof answer === 'string' ? answer : ''}
+                                                                onChange={(e) => handleAnswerChange(checklist.id, q.id, e.target.value)}
+                                                            />
+                                                        </div>
+                                                    );
+                                                case 'date':
+                                                    return (
+                                                        <div key={q.id} className="space-y-1.5">
+                                                            <Label htmlFor={`${checklist.id}-${q.id}`}>{questionLabel}</Label>
+                                                            <Input
+                                                                id={`${checklist.id}-${q.id}`}
+                                                                type="date"
+                                                                value={typeof answer === 'string' ? answer : ''}
+                                                                onChange={(e) => handleAnswerChange(checklist.id, q.id, e.target.value)}
+                                                            />
+                                                        </div>
+                                                    );
+                                                case 'checkbox':
+                                                default:
+                                                    return (
+                                                        <div key={q.id} className="flex items-center space-x-2">
+                                                            <Checkbox
+                                                                id={`${checklist.id}-${q.id}`}
+                                                                checked={!!answer}
+                                                                onCheckedChange={(checked) => handleAnswerChange(checklist.id, q.id, !!checked)}
+                                                            />
+                                                            <Label htmlFor={`${checklist.id}-${q.id}`} className="font-normal">{questionLabel}</Label>
+                                                        </div>
+                                                    );
+                                            }
+                                        })}
+                                    </div>
+                                    <div className="flex justify-end">
+                                        <Button onClick={() => handleSave(checklist)} disabled={isSaving === checklist.id}>
+                                            {isSaving === checklist.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                            Salvar Progresso
+                                        </Button>
+                                    </div>
                                 </div>
-                                <div className="flex justify-end">
-                                    <Button onClick={() => handleSave(checklist)} disabled={isSaving === checklist.id}>
-                                        {isSaving === checklist.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                        Salvar Progresso
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))
+                            </TabsContent>
+                        ))}
+                    </Tabs>
                  ) : (
                     <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-lg">
                         <HelpCircle className="mx-auto h-8 w-8 mb-2"/>
