@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -8,45 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Handshake, School, MapIcon, Briefcase, Church, Group, BookOpen, UserPlus, Award, Shield, Target, UserX, UserCheck, Loader2, GraduationCap } from 'lucide-react';
-
-
-const iconMap: Record<string, React.ElementType> = {
-    'nao_alcancado': UserX,
-    'novo_convertido': UserPlus,
-    'reconciliado': UserCheck,
-    'transferido': Church,
-    'membro': Award,
-    'consolidado': BookOpen,
-    'lider_treinamento': Handshake,
-    'lider_gc': Group,
-    'lider_area': MapIcon,
-    'lider_rede': Briefcase,
-    'pastor': Shield,
-    'default': Target
-};
-
-const phaseConfig: Record<string, { name: string; color: string; }> = {
-    '1': { name: 'FASE 1: EVANGELISMO', color: "bg-gray-100 text-gray-800" },
-    '2': { name: 'FASE 2: CONVERSÃO', color: "bg-indigo-100 text-indigo-800" },
-    '3': { name: 'FASE 3: INTEGRAÇÃO', color: "bg-sky-100 text-sky-800" },
-    '4': { name: 'FASE 4: DISCIPULADO', color: "bg-emerald-100 text-emerald-800" },
-    '5': { name: 'FASE 5: LIDERANÇA', color: "bg-amber-100 text-amber-800" },
-};
-
-// Simplified mapping of status to phase. This should be managed in the settings in the future.
-const statusToPhaseMap: Record<string, string> = {
-    'nao_alcancado': '1',
-    'novo_convertido': '2',
-    'reconciliado': '3',
-    'transferido': '3',
-    'membro': '3',
-    'consolidado': '4',
-    'lider_treinamento': '4',
-    'lider_gc': '5',
-    'lider_area': '5',
-    'lider_rede': '5',
-    'pastor': '5',
-};
+import { journeyColumns, statusToPhaseMap, phaseConfig, iconMap } from './journey-status-config';
 
 const mainColors = {
     status: 'border-primary text-primary',
@@ -59,7 +20,8 @@ type TimelineItemData = {
     title: string;
     questions: any[];
     requiredCourseId?: string;
-    requiresDualApproval?: boolean;
+    requiresDisciplerApproval?: boolean;
+    requiresSupervisorApproval?: boolean;
 };
 
 type Course = {
@@ -105,7 +67,7 @@ const TimelineCard = ({ item, isEven, onToggle, isExpanded, isCurrent, isFuture,
                                 </div>
                              )}
                         </div>
-                        {(item.requiredCourseId || item.requiresDualApproval) && (
+                        {(item.requiredCourseId || item.requiresDisciplerApproval || item.requiresSupervisorApproval) && (
                             <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
                                 {item.requiredCourseId && (
                                     <div className="flex items-center gap-1.5">
@@ -113,10 +75,10 @@ const TimelineCard = ({ item, isEven, onToggle, isExpanded, isCurrent, isFuture,
                                         <span className="font-medium">{courseName || 'Curso'}</span>
                                     </div>
                                 )}
-                                {item.requiresDualApproval && (
+                                {(item.requiresDisciplerApproval || item.requiresSupervisorApproval) && (
                                      <div className="flex items-center gap-1.5">
                                         <Handshake className="size-3.5" />
-                                        <span className="font-medium">Aprovação Dupla</span>
+                                        <span className="font-medium">Requer Aprovação</span>
                                     </div>
                                 )}
                             </div>
@@ -152,6 +114,13 @@ export function DiscipleshipTrail({ currentStatusId }: { currentStatusId?: strin
     const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery);
 
     const courseMap = useMemo(() => new Map(courses?.map(c => [c.id, c.name]) || []), [courses]);
+    
+    // Sort timelineData based on the order defined in journeyColumns
+    const sortedTimelineData = useMemo(() => {
+        if (!timelineData) return [];
+        const orderMap = new Map(journeyColumns.map((col, index) => [col.id, index]));
+        return [...timelineData].sort((a, b) => (orderMap.get(a.id) ?? 99) - (orderMap.get(b.id) ?? 99));
+    }, [timelineData]);
 
     const toggleDetails = (id: string) => {
         setExpandedId(prevId => (prevId === id ? null : id));
@@ -168,7 +137,7 @@ export function DiscipleshipTrail({ currentStatusId }: { currentStatusId?: strin
     let lastPhaseId = "";
     
     const effectiveStatusId = currentStatusId || 'nao_alcancado';
-    const currentIndex = timelineData.findIndex(item => item.id === effectiveStatusId);
+    const currentIndex = sortedTimelineData.findIndex(item => item.id === effectiveStatusId);
 
     return (
         <div className="bg-background rounded-lg p-4 md:p-8">
@@ -176,7 +145,7 @@ export function DiscipleshipTrail({ currentStatusId }: { currentStatusId?: strin
                 <div className="absolute left-4 md:left-1/2 top-0 bottom-0 w-1 md:w-1.5 bg-slate-200 -ml-0.5 md:-ml-1 z-0 rounded-full"></div>
 
                 <div className="space-y-4 md:space-y-0 relative">
-                    {timelineData.map((item, index) => {
+                    {sortedTimelineData.map((item, index) => {
                         const phaseId = statusToPhaseMap[item.id] || '1';
                         const showPhase = phaseId !== lastPhaseId;
                         lastPhaseId = phaseId;

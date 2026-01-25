@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -11,29 +11,39 @@ import { Label } from '@/components/ui/label';
 import { Loader2, PlusCircle, Trash2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '../ui/checkbox';
+import { journeyColumns } from './journey-status-config';
 
 export function JourneyStageFormDialog({ open, onOpenChange, existingStage, courses }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
 
+    const [stageId, setStageId] = useState('');
     const [title, setTitle] = useState('');
     const [questions, setQuestions] = useState<{ id: string; label: string; type: string; }[]>([]);
     const [requiredCourseId, setRequiredCourseId] = useState('');
-    const [requiresDualApproval, setRequiresDualApproval] = useState(false);
+    const [requiresDisciplerApproval, setRequiresDisciplerApproval] = useState(false);
+    const [requiresSupervisorApproval, setRequiresSupervisorApproval] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isEditingId, setIsEditingId] = useState(false);
 
     useEffect(() => {
         if (open) {
             if (existingStage) {
+                setStageId(existingStage.id);
                 setTitle(existingStage.title || '');
                 setQuestions(existingStage.questions?.map(q => ({...q, type: q.type || 'checkbox'})) || []);
-                setRequiredCourseId(existingStage.requiredCourseId || '');
-                setRequiresDualApproval(existingStage.requiresDualApproval || false);
+                setRequiredCourseId(existingStage.requiredCourseId || 'none');
+                setRequiresDisciplerApproval(existingStage.requiresDisciplerApproval || false);
+                setRequiresSupervisorApproval(existingStage.requiresSupervisorApproval || false);
+                setIsEditingId(false);
             } else {
+                setStageId('');
                 setTitle('');
                 setQuestions([]);
-                setRequiredCourseId('');
-                setRequiresDualApproval(false);
+                setRequiredCourseId('none');
+                setRequiresDisciplerApproval(false);
+                setRequiresSupervisorApproval(false);
+                setIsEditingId(true);
             }
         }
     }, [open, existingStage]);
@@ -53,8 +63,8 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage, cour
     };
 
     const handleSave = () => {
-        if (!title) {
-            toast({ variant: 'destructive', title: 'Campo obrigatório', description: 'O título é obrigatório.' });
+        if (!title || !stageId) {
+            toast({ variant: 'destructive', title: 'Campos obrigatórios', description: 'Título e Fase da Integração são obrigatórios.' });
             return;
         }
         setIsSaving(true);
@@ -62,18 +72,14 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage, cour
             title,
             questions: questions.filter(q => q.label.trim() !== ''),
             requiredCourseId: requiredCourseId === 'none' ? '' : requiredCourseId,
-            requiresDualApproval,
+            requiresDisciplerApproval,
+            requiresSupervisorApproval,
         };
 
-        if (existingStage) {
-            const docRef = doc(firestore, 'discipleship_checklists', existingStage.id);
-            updateDocumentNonBlocking(docRef, dataToSave);
-            toast({ title: 'Sucesso!', description: `A etapa "${title}" será atualizada.` });
-        } else {
-            const collectionRef = collection(firestore, 'discipleship_checklists');
-            addDocumentNonBlocking(collectionRef, dataToSave);
-            toast({ title: 'Sucesso!', description: `A nova etapa "${title}" foi criada.` });
-        }
+        const docRef = doc(firestore, 'discipleship_checklists', stageId);
+        setDocumentNonBlocking(docRef, dataToSave, { merge: true });
+
+        toast({ title: 'Sucesso!', description: `A etapa para "${title}" foi salva.` });
         
         setIsSaving(false);
         onOpenChange(false);
@@ -87,10 +93,22 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage, cour
                     <DialogTitle>{existingStage ? 'Editar Checklist' : 'Novo Checklist de Discipulado'}</DialogTitle>
                 </DialogHeader>
                 <div className="py-4 max-h-[70vh] overflow-y-auto pr-4 space-y-4">
-                    <div>
-                        <Label htmlFor="stage-title">Título do Checklist</Label>
-                        <Input id="stage-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <Label htmlFor="stage-id">Fase da Integração (Chave)</Label>
+                             <Select value={stageId} onValueChange={setStageId} disabled={!isEditingId}>
+                                <SelectTrigger id="stage-id"><SelectValue placeholder="Selecione..."/></SelectTrigger>
+                                <SelectContent>
+                                    {journeyColumns.map(col => <SelectItem key={col.id} value={col.id}>{col.title}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div>
+                            <Label htmlFor="stage-title">Título do Checklist</Label>
+                            <Input id="stage-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+                        </div>
                     </div>
+
 
                     <h4 className="font-semibold mb-2 pt-4 border-t">Pré-requisitos da Etapa</h4>
                     <div className="space-y-4">
@@ -107,12 +125,20 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage, cour
                             </Select>
                         </div>
                         <div className="flex items-center space-x-2 pt-2">
-                            <Checkbox
-                                id="requiresDualApproval"
-                                checked={requiresDualApproval}
-                                onCheckedChange={(checked) => setRequiresDualApproval(!!checked)}
+                             <Checkbox
+                                id="requiresDisciplerApproval"
+                                checked={requiresDisciplerApproval}
+                                onCheckedChange={(checked) => setRequiresDisciplerApproval(!!checked)}
                             />
-                            <Label htmlFor="requiresDualApproval">Requer Aprovação Dupla (Humano)</Label>
+                            <Label htmlFor="requiresDisciplerApproval">Requer aprovação do Discipulador</Label>
+                        </div>
+                         <div className="flex items-center space-x-2">
+                            <Checkbox
+                                id="requiresSupervisorApproval"
+                                checked={requiresSupervisorApproval}
+                                onCheckedChange={(checked) => setRequiresSupervisorApproval(!!checked)}
+                            />
+                            <Label htmlFor="requiresSupervisorApproval">Requer aprovação do Supervisor (Dupla aprovação)</Label>
                         </div>
                     </div>
 

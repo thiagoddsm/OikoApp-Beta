@@ -12,6 +12,7 @@ import { FollowUpTimeline, Note } from './follow-up-timeline';
 import { query, collection } from 'firebase/firestore';
 import { Input } from '../ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from '../ui/textarea';
 
 
 type ChecklistQuestion = {
@@ -24,6 +25,8 @@ type DiscipleshipChecklist = {
     id: string;
     title: string;
     questions: ChecklistQuestion[];
+    requiresDisciplerApproval?: boolean;
+    requiresSupervisorApproval?: boolean;
 };
 
 export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { memberId: string, memberName: string, currentStatusId: string }) {
@@ -34,7 +37,14 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
     const checklistsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'discipleship_checklists')) : null, [firestore]);
     const { data: discipleshipChecklists, isLoading: isLoadingChecklists } = useCollection<DiscipleshipChecklist>(checklistsQuery);
     
-    const [phaseData, setPhaseData] = useState<Record<string, { notes: string; answers: Record<string, boolean | string> }>>({});
+    const [phaseData, setPhaseData] = useState<Record<string, {
+        notes: string;
+        answers: Record<string, boolean | string>;
+        approvals?: {
+            discipler?: { approved: boolean; notes: string };
+            supervisor?: { approved: boolean; notes: string };
+        }
+    }>>({});
 
     const [timelineNotes, setTimelineNotes] = useState<Note[]>([
         { id: '1', authorId: 'admin', type: 'system', content: `Perfil criado.`, createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
@@ -54,17 +64,33 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
             }
         }));
     };
+    
+    const handleApprovalChange = (checklistId: string, approver: 'discipler' | 'supervisor', field: 'approved' | 'notes', value: boolean | string) => {
+        setPhaseData(prev => ({
+            ...prev,
+            [checklistId]: {
+                ...(prev[checklistId] || { answers: {}, notes: '', approvals: {} }),
+                approvals: {
+                    ...(prev[checklistId]?.approvals || {}),
+                    [approver]: {
+                        ...(prev[checklistId]?.approvals?.[approver] || { approved: false, notes: '' }),
+                        [field]: value
+                    }
+                }
+            }
+        }));
+    };
+
 
     const handleSave = (checklist: DiscipleshipChecklist) => {
         setIsSaving(checklist.id);
-        console.log(`Salvando dados para o checklist ${checklist.id}:`, phaseData[checklist.id]);
         
         const phaseQuestions = checklist.questions || [];
         const newNotes: Note[] = [];
 
+        // Log question answers
         for (const question of phaseQuestions) {
             const answer = phaseData[checklist.id]?.answers[question.id];
-            
             if (answer) { 
                  const noteContent = question.type === 'checkbox' 
                     ? `Checklist '${question.label}' foi completado.`
@@ -81,6 +107,21 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                     });
                  }
             }
+        }
+        
+        // Log approvals
+        const approvalData = phaseData[checklist.id]?.approvals;
+        if (approvalData?.discipler?.approved) {
+             const noteContent = `Aprovação do Discipulador concedida para "${checklist.title}". Observações: ${approvalData.discipler.notes || 'Nenhuma'}`;
+             if(!timelineNotes.some(note => note.content === noteContent)){
+                 newNotes.push({ id: `apr-d-${Date.now()}`, authorId: user?.uid || 'admin', type: 'system', content: noteContent, createdAt: new Date() });
+             }
+        }
+        if (approvalData?.supervisor?.approved) {
+             const noteContent = `Aprovação do Supervisor concedida para "${checklist.title}". Observações: ${approvalData.supervisor.notes || 'Nenhuma'}`;
+             if(!timelineNotes.some(note => note.content === noteContent)){
+                 newNotes.push({ id: `apr-s-${Date.now()}`, authorId: user?.uid || 'admin', type: 'system', content: noteContent, createdAt: new Date() });
+             }
         }
         
         setTimeout(() => {
@@ -175,6 +216,49 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                                             }
                                         })}
                                     </div>
+
+                                    {(checklist.requiresDisciplerApproval || checklist.requiresSupervisorApproval) && (
+                                        <div className="mt-6 pt-6 border-t">
+                                            <h4 className="font-semibold text-foreground mb-4">Aprovações da Liderança</h4>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                {checklist.requiresDisciplerApproval && (
+                                                    <div className="space-y-3 p-4 border rounded-lg bg-background">
+                                                        <div className="flex items-center space-x-2">
+                                                            <Checkbox
+                                                                id={`discipler-approval-${checklist.id}`}
+                                                                checked={phaseData[checklist.id]?.approvals?.discipler?.approved || false}
+                                                                onCheckedChange={(checked) => handleApprovalChange(checklist.id, 'discipler', 'approved', !!checked)}
+                                                            />
+                                                            <Label htmlFor={`discipler-approval-${checklist.id}`} className="font-semibold">Aprovado pelo Discipulador</Label>
+                                                        </div>
+                                                        <Textarea
+                                                            placeholder="Observações do discipulador..."
+                                                            value={phaseData[checklist.id]?.approvals?.discipler?.notes || ''}
+                                                            onChange={(e) => handleApprovalChange(checklist.id, 'discipler', 'notes', e.target.value)}
+                                                        />
+                                                    </div>
+                                                )}
+                                                {checklist.requiresSupervisorApproval && (
+                                                    <div className="space-y-3 p-4 border rounded-lg bg-background">
+                                                        <div className="flex items-center space-x-2">
+                                                            <Checkbox
+                                                                id={`supervisor-approval-${checklist.id}`}
+                                                                checked={phaseData[checklist.id]?.approvals?.supervisor?.approved || false}
+                                                                onCheckedChange={(checked) => handleApprovalChange(checklist.id, 'supervisor', 'approved', !!checked)}
+                                                            />
+                                                            <Label htmlFor={`supervisor-approval-${checklist.id}`} className="font-semibold">Aprovado pelo Supervisor</Label>
+                                                        </div>
+                                                        <Textarea
+                                                            placeholder="Observações do supervisor..."
+                                                            value={phaseData[checklist.id]?.approvals?.supervisor?.notes || ''}
+                                                            onChange={(e) => handleApprovalChange(checklist.id, 'supervisor', 'notes', e.target.value)}
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="flex justify-end">
                                         <Button onClick={() => handleSave(checklist)} disabled={isSaving === checklist.id}>
                                             {isSaving === checklist.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

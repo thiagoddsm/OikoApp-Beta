@@ -86,9 +86,10 @@
             "role": { "type": "string" }
           }
         },
-        "dizimista": { "type": "string", "enum": ["sim", "nao"] }
+        "dizimista": { "type": "string", "enum": ["sim", "nao"] },
+        "financialStatus": { "type": "string", "enum": ["active", "blocked", "delinquent"], "description": "Financial status for Wave music school." }
       },
-      "required": ["name", "email", "roles", "createdAt"]
+      "required": ["name", "email", "createdAt"]
     },
     "UserPermission": {
       "title": "User Permission",
@@ -99,6 +100,25 @@
         "canManageSchedules": { "type": "boolean" },
         "canViewAdminDashboard": { "type": "boolean" }
       }
+    },
+    "RegistroPresenca": {
+        "title": "Registro de Presença",
+        "type": "object",
+        "description": "Um registro de frequência em um culto.",
+        "properties": {
+            "data": { "type": "string", "format": "date-time" },
+            "horario": { "type": "string" },
+            "adultos": { "type": "number" },
+            "criancas": { "type": "number" },
+            "clima": { "type": "string" },
+            "feriadoProximo": { "type": "boolean" },
+            "jogoFutebol": { "type": "boolean" },
+            "serieMensagem": { "type": "string" },
+            "apresentacaoBebe": { "type": "boolean" },
+            "observacoes": { "type": "string" },
+            "criadoEm": { "type": "string", "format": "date-time" }
+        },
+        "required": ["data", "horario", "adultos", "criadoEm"]
     },
     "Group": {
       "title": "Group",
@@ -525,9 +545,10 @@
       "properties": {
         "ministryName": { "type": "string", "description": "Name of the ministry this course belongs to (e.g., 'IBM College', 'DIS')." },
         "name": { "type": "string" },
-        "description": { "type": "string" }
+        "description": { "type": "string" },
+        "type": { "type": "string", "enum": ["basic", "complete"], "description": "The type of course module to display." }
       },
-      "required": ["ministryName", "name"]
+      "required": ["ministryName", "name", "type"]
     },
     "Class": {
       "title": "Class",
@@ -580,23 +601,97 @@
     "DiscipleshipChecklist": {
       "title": "Discipleship Checklist",
       "type": "object",
-      "description": "Defines the checklist questions for a specific discipleship phase.",
+      "description": "Defines a generic checklist for discipleship, including prerequisites for completion.",
       "properties": {
-        "phaseId": { "type": "string", "description": "The ID of the phase (e.g., 'novo_convertido')." },
-        "title": { "type": "string", "description": "The display title of the phase." },
+        "title": { "type": "string", "description": "The display title of the checklist." },
+        "requiredCourseId": { "type": "string", "description": "ID of the Course required to complete this stage." },
+        "requiresDisciplerApproval": { "type": "boolean", "description": "Indicates if this stage requires approval from the discipler." },
+        "requiresSupervisorApproval": { "type": "boolean", "description": "Indicates if this stage requires approval from the supervisor (discipler's leader)." },
         "questions": {
           "type": "array",
           "items": {
             "type": "object",
             "properties": {
               "id": { "type": "string" },
-              "label": { "type": "string" }
+              "label": { "type": "string" },
+              "type": { "type": "string", "enum": ["checkbox", "text", "date"] }
             },
-            "required": ["id", "label"]
+            "required": ["id", "label", "type"]
           }
         }
       },
-      "required": ["phaseId", "title", "questions"]
+      "required": ["title"]
+    },
+    "AccessProfile": {
+      "title": "Access Profile",
+      "type": "object",
+      "description": "Defines a user role and its permissions within the system.",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "permissions": {
+          "type": "object",
+          "description": "A map of module IDs to their specific action permissions."
+        }
+      },
+      "required": ["name"]
+    },
+    "WavePlan": {
+      "title": "Wave Plan",
+      "type": "object",
+      "description": "Represents a tuition plan for the Wave music school.",
+      "properties": {
+        "name": { "type": "string" },
+        "price": { "type": "number" }
+      },
+      "required": ["name", "price"]
+    },
+    "WavePayment": {
+      "title": "Wave Payment",
+      "type": "object",
+      "description": "Represents a monthly payment for a student at Wave.",
+      "properties": {
+        "userId": { "type": "string" },
+        "planId": { "type": "string" },
+        "month": { "type": "string", "description": "e.g., 2024-08" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "paid", "overdue"] },
+        "splits": {
+          "type": "object",
+          "properties": {
+            "wave": { "type": "number" },
+            "teacher": { "type": "number" },
+            "ibm": { "type": "number" },
+            "admin": { "type": "number" }
+          }
+        }
+      },
+      "required": ["userId", "planId", "month", "amount", "status"]
+    },
+    "WaveExpense": {
+      "title": "Wave Expense",
+      "type": "object",
+      "description": "Represents an expense for the Wave music school.",
+      "properties": {
+        "description": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string", "format": "date-time" },
+        "receiptUrl": { "type": "string", "description": "URL of the uploaded receipt in Firebase Storage." }
+      },
+      "required": ["description", "amount", "date"]
+    },
+    "PedagogicalLog": {
+      "title": "Pedagogical Log",
+      "type": "object",
+      "description": "A log entry from a teacher about a class.",
+      "properties": {
+        "classId": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "content_taught": { "type": "string" },
+        "student_performance": { "type": "number" },
+        "observations": { "type": "string" }
+      },
+      "required": ["classId", "date", "content_taught"]
     }
   },
   "auth": {
@@ -605,6 +700,7 @@
   "firestore": {
     "structure": [
       { "path": "/users/{userId}", "definition": { "schema": { "$ref": "#/entities/User" } } },
+      { "path": "/registros_de_presenca/{registroId}", "definition": { "schema": { "$ref": "#/entities/RegistroPresenca" } } },
       { "path": "/user_permissions/{userId}", "definition": { "schema": { "$ref": "#/entities/UserPermission" } } },
       { "path": "/cells/{cellId}", "definition": { "schema": { "$ref": "#/entities/Group" } } },
       { "path": "/reports/{reportId}", "definition": { "schema": { "$ref": "#/entities/Report" } } },
@@ -628,12 +724,15 @@
       { "path": "/patrimonio/{patrimonioId}", "definition": { "schema": { "$ref": "#/entities/Patrimonio" } } },
       { "path": "/ministries/{ministryId}", "definition": { "schema": { "$ref": "#/entities/Ministry" } } },
       { "path": "/courses/{courseId}", "definition": { "schema": { "$ref": "#/entities/Course" } } },
-      { "path": "/courses/{courseId}/classes/{classId}", "definition": { "schema": { "$ref": "#/entities/Class" } } },
+      { "path": "/classes/{classId}", "definition": { "schema": { "$ref": "#/entities/Class" } } },
       { "path": "/rooms/{roomId}", "definition": { "schema": { "$ref": "#/entities/Room" } } },
       { "path": "/room_reservations/{reservationId}", "definition": { "schema": { "$ref": "#/entities/RoomReservation" } } },
-      { "path": "/discipleship_checklists/{phaseId}", "definition": { "schema": { "$ref": "#/entities/DiscipleshipChecklist" } } }
+      { "path": "/discipleship_checklists/{phaseId}", "definition": { "schema": { "$ref": "#/entities/DiscipleshipChecklist" } } },
+      { "path": "/access_profiles/{profileId}", "definition": { "schema": { "$ref": "#/entities/AccessProfile" } } },
+      { "path": "/wave_plans/{planId}", "definition": { "schema": { "$ref": "#/entities/WavePlan" } } },
+      { "path": "/wave_payments/{paymentId}", "definition": { "schema": { "$ref": "#/entities/WavePayment" } } },
+      { "path": "/wave_expenses/{expenseId}", "definition": { "schema": { "$ref": "#/entities/WaveExpense" } } },
+      { "path": "/pedagogical_logs/{logId}", "definition": { "schema": { "$ref": "#/entities/PedagogicalLog" } } }
     ]
   }
 }
-
-    
