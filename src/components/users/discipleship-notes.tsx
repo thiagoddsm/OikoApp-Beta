@@ -21,7 +21,6 @@ type ChecklistQuestion = {
 
 type DiscipleshipChecklist = {
     id: string;
-    phaseId: string;
     title: string;
     questions: ChecklistQuestion[];
 };
@@ -32,7 +31,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
     const [isSaving, setIsSaving] = useState<string | null>(null);
     
     const checklistsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'discipleship_checklists')) : null, [firestore]);
-    const { data: discipleshipPhases, isLoading: isLoadingChecklists } = useCollection<DiscipleshipChecklist>(checklistsQuery);
+    const { data: discipleshipChecklists, isLoading: isLoadingChecklists } = useCollection<DiscipleshipChecklist>(checklistsQuery);
     
     const [phaseData, setPhaseData] = useState<Record<string, { notes: string; answers: Record<string, boolean | string> }>>({});
 
@@ -42,12 +41,6 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         { id: '3', authorId: 'leader1', type: 'user', content: `Mostrou grande interesse na célula e fez perguntas pertinentes sobre a fé. Conectei com o João para iniciar o discipulado.`, createdAt: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000) },
     ]);
     
-    const relevantChecklists = useMemo(() => {
-        if (!discipleshipPhases) return [];
-        return discipleshipPhases.filter(p => p.phaseId === currentStatusId);
-    }, [discipleshipPhases, currentStatusId]);
-
-
     const handleAnswerChange = (checklistId: string, questionId: string, value: boolean | string) => {
          setPhaseData(prev => ({
             ...prev,
@@ -106,7 +99,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
       );
     }
     
-    if (!discipleshipPhases) {
+    if (!discipleshipChecklists) {
         return (
             <Card>
                 <CardHeader>
@@ -124,11 +117,11 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">Acompanhamento do Discipulado</CardTitle>
-                <CardDescription>Registre o progresso de {memberName} nesta fase da jornada.</CardDescription>
+                <CardDescription>Registre o progresso de {memberName} utilizando os checklists disponíveis.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-                 {relevantChecklists.length > 0 ? (
-                    relevantChecklists.map(checklist => (
+                 {discipleshipChecklists.length > 0 ? (
+                    discipleshipChecklists.map(checklist => (
                          <Card key={checklist.id} className="border-dashed">
                             <CardHeader>
                                 <CardTitle>Checklist: {checklist.title}</CardTitle>
@@ -191,7 +184,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                     <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-lg">
                         <HelpCircle className="mx-auto h-8 w-8 mb-2"/>
                         <p className="font-semibold">Nenhum checklist de acompanhamento definido.</p>
-                        <p className="text-sm">Vá para <a href="/dashboard/people/settings" className="underline font-medium">Configurações da Jornada</a> para criar um para a fase "{currentStatusId}".</p>
+                        <p className="text-sm">Vá para <a href="/dashboard/people/settings" className="underline font-medium">Configurações da Jornada</a> para criar o primeiro.</p>
                     </div>
                  )}
             </CardContent>

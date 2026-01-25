@@ -11,26 +11,11 @@ import { Label } from '@/components/ui/label';
 import { Loader2, PlusCircle, Trash2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-const journeyColumns = [
-    { id: 'nao_alcancado', title: 'Cidade (Não Alcançado)' },
-    { id: 'novo_convertido', title: 'Novo Convertido' },
-    { id: 'reconciliado', title: 'Reconciliado' },
-    { id: 'transferido', title: 'Transferido' },
-    { id: 'membro', title: 'Membro' },
-    { id: 'consolidado', title: 'Consolidado' },
-    { id: 'lider_treinamento', title: 'Líder em treinamento' },
-    { id: 'lider_gc', title: 'Líder de GC' },
-    { id: 'lider_area', title: 'Líder de Área' },
-    { id: 'lider_rede', title: 'Líder de Rede' },
-    { id: 'pastor', title: 'Pastor' },
-];
-
 export function JourneyStageFormDialog({ open, onOpenChange, existingStage }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
 
     const [title, setTitle] = useState('');
-    const [phaseId, setPhaseId] = useState('');
     const [questions, setQuestions] = useState<{ id: string; label: string; type: string; }[]>([]);
     const [isSaving, setIsSaving] = useState(false);
 
@@ -38,11 +23,9 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage }) {
         if (open) {
             if (existingStage) {
                 setTitle(existingStage.title || '');
-                setPhaseId(existingStage.phaseId || '');
                 setQuestions(existingStage.questions?.map(q => ({...q, type: q.type || 'checkbox'})) || []);
             } else {
                 setTitle('');
-                setPhaseId('');
                 setQuestions([]);
             }
         }
@@ -63,14 +46,13 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage }) {
     };
 
     const handleSave = () => {
-        if (!title || !phaseId) {
-            toast({ variant: 'destructive', title: 'Campos obrigatórios', description: 'Título e Fase da Integração são obrigatórios.' });
+        if (!title) {
+            toast({ variant: 'destructive', title: 'Campo obrigatório', description: 'O título é obrigatório.' });
             return;
         }
         setIsSaving(true);
         const dataToSave = {
             title,
-            phaseId: phaseId,
             questions: questions.filter(q => q.label.trim() !== '')
         };
 
@@ -93,27 +75,12 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage }) {
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                    <DialogTitle>{existingStage ? 'Editar Etapa' : 'Nova Etapa da Jornada'}</DialogTitle>
+                    <DialogTitle>{existingStage ? 'Editar Checklist' : 'Novo Checklist de Discipulado'}</DialogTitle>
                 </DialogHeader>
                 <div className="py-4 max-h-[70vh] overflow-y-auto pr-4 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <Label htmlFor="stage-title">Título da Etapa</Label>
-                            <Input id="stage-title" value={title} onChange={(e) => setTitle(e.target.value)} />
-                        </div>
-                        <div>
-                            <Label htmlFor="stage-id">Fase da Integração (Chave)</Label>
-                             <Select value={phaseId} onValueChange={setPhaseId}>
-                                <SelectTrigger id="stage-id">
-                                    <SelectValue placeholder="Selecione a fase..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {journeyColumns.map((col) => (
-                                        <SelectItem key={col.id} value={col.id}>{col.title}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
+                    <div>
+                        <Label htmlFor="stage-title">Título do Checklist</Label>
+                        <Input id="stage-title" value={title} onChange={(e) => setTitle(e.target.value)} />
                     </div>
                     <div>
                         <h4 className="font-semibold mb-2">Perguntas do Checklist</h4>

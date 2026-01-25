@@ -601,10 +601,9 @@
     "DiscipleshipChecklist": {
       "title": "Discipleship Checklist",
       "type": "object",
-      "description": "Defines the checklist questions for a specific discipleship phase.",
+      "description": "Defines a generic checklist for discipleship.",
       "properties": {
-        "phaseId": { "type": "string", "description": "The ID of the phase (e.g., 'novo_convertido')." },
-        "title": { "type": "string", "description": "The display title of the phase." },
+        "title": { "type": "string", "description": "The display title of the checklist." },
         "questions": {
           "type": "array",
           "items": {
@@ -618,7 +617,7 @@
           }
         }
       },
-      "required": ["phaseId", "title", "questions"]
+      "required": ["title", "questions"]
     },
     "AccessProfile": {
       "title": "Access Profile",
