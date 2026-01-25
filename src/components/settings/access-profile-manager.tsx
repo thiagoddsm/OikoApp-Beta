@@ -25,7 +25,8 @@ const permissionsConfig = [
     subItems: [
       { id: 'pessoas_journey', label: 'Jornada de Integração', actions: ['view', 'edit'] },
       { id: 'pessoas_list', label: 'Lista de Pessoas', actions: ['view', 'edit', 'delete'] },
-      { id: 'pessoas_details', label: 'Detalhes Pessoais', actions: ['view', 'view_sensitive'] }
+      { id: 'pessoas_details', label: 'Detalhes Pessoais', actions: ['view', 'view_sensitive'] },
+      { id: 'pessoas_settings', label: 'Configurações da Jornada', actions: ['view', 'edit'] },
     ]
   },
   {

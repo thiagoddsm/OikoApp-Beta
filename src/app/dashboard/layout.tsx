@@ -77,6 +77,7 @@ const menuItems = [
       subItems: [
         { href: "/dashboard/people/journey", label: "Integração", icon: Footprints, permissionId: 'pessoas_journey' },
         { href: "/dashboard/people/list", label: "Lista de Pessoas", icon: Users2, permissionId: 'pessoas_list' },
+        { href: "/dashboard/people/settings", label: "Configurações", icon: Settings, permissionId: 'pessoas_settings' },
       ]
     },
     { 
@@ -252,6 +253,9 @@ export default function DashboardLayout({
       // This is a simple implementation. For a more robust solution,
       // you might want to traverse the menuItems array recursively.
       if (path === '/dashboard') return 'Dashboard';
+      if (path.startsWith('/dashboard/people/journey')) return 'Jornada do Membro';
+      if (path.startsWith('/dashboard/people/list')) return 'Lista de Pessoas';
+      if (path.startsWith('/dashboard/people/settings')) return 'Configurações da Jornada';
       if (path.startsWith('/dashboard/people')) return 'Pessoas';
       if (path.startsWith('/dashboard/gc')) return 'GCs e Discipulado';
       if (path.startsWith('/dashboard/discipleship')) return 'Discipulado';
