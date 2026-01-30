@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -50,8 +49,8 @@ type AreaOfService = {
 const journeyStatusLabels: { [key: string]: string } = {
     'nao_alcancado': 'Não Alcançado',
     'novo_convertido': 'Novo Convertido',
-    'reconciliado': 'Reconciliado',
-    'transferido': 'Transferido',
+    'reconciliado': 'Em processo de reconciliação',
+    'transferido': 'Em processo de transferência',
     'membro': 'Membro',
     'consolidado': 'Consolidado',
     'lider_treinamento': 'Líder em Treinamento',

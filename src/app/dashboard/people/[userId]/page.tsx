@@ -83,8 +83,8 @@ type Supervisor = {
 const statusConfig: { [key: string]: { label: string; level: number; icon: React.ElementType } } = {
   nao_alcancado: { label: "Não Alcançado", level: 1, icon: UserX },
   novo_convertido: { label: "Novo Convertido", level: 2, icon: UserPlus },
-  reconciliado: { label: "Reconciliado", level: 3, icon: HeartHandshake },
-  transferido: { label: "Transferido", level: 4, icon: Church },
+  reconciliado: { label: "Em processo de reconciliação", level: 3, icon: Handshake },
+  transferido: { label: "Em processo de transferência", level: 4, icon: Church },
   membro: { label: "Membro", level: 5, icon: Award },
   consolidado: { label: "Consolidado", level: 6, icon: UserCheck },
   lider_treinamento: { label: "Líder em Treinamento", level: 7, icon: GraduationCap },

@@ -5,8 +5,8 @@ import { Handshake, School, MapIcon, Briefcase, Church, Group, BookOpen, UserPlu
 export const journeyColumns = [
     { id: 'nao_alcancado', title: 'Não Alcançado' },
     { id: 'novo_convertido', title: 'Novo Convertido' },
-    { id: 'reconciliado', title: 'Reconciliado' },
-    { id: 'transferido', title: 'Transferido' },
+    { id: 'reconciliado', title: 'Em processo de reconciliação' },
+    { id: 'transferido', title: 'Em processo de transferência' },
     { id: 'membro', title: 'Membro' },
     { id: 'consolidado', title: 'Consolidado' },
     { id: 'lider_treinamento', title: 'Líder em treinamento' },
