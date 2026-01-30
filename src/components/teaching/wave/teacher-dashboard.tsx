@@ -51,7 +51,7 @@ export function TeacherDashboard() {
              <Card>
                 <CardHeader className="pb-2">
                     <CardDescription>Próxima Aula</CardDescription>
-                    <CardTitle className="text-3xl">{upcomingClass?.schedule?.split(',')[1] || '--:--'}</CardTitle>
+                    <CardTitle className="text-3xl">{upcomingClass?.startTime || '--:--'}</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <div className="text-xs text-muted-foreground">
@@ -113,7 +113,7 @@ export function TeacherDashboard() {
                                         <TableCell className="font-medium">{cls.name}</TableCell>
                                         <TableCell><Badge variant="outline">{courseMap.get(cls.courseId) || 'Curso não encontrado'}</Badge></TableCell>
                                         <TableCell>{cls.students?.length || 0}</TableCell>
-                                        <TableCell className="text-muted-foreground">{cls.schedule || '-'}</TableCell>
+                                        <TableCell className="text-muted-foreground">{cls.dayOfWeek} às {cls.startTime}</TableCell>
                                         <TableCell className="text-right">
                                             <Button variant="ghost" size="sm" asChild>
                                                 <Link href={`/dashboard/teaching/log/${cls.id}`}>
