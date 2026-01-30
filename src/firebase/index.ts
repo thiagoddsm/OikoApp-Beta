@@ -2,7 +2,7 @@
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore'
+import { getFirestore, initializeFirestore } from 'firebase/firestore'
 
 function getSdks(firebaseApp: FirebaseApp) {
   return {
@@ -15,9 +15,12 @@ function getSdks(firebaseApp: FirebaseApp) {
 export function initializeFirebase() {
   if (!getApps().length) {
     // Directly initialize with the config to ensure connection to the correct backend.
-    // The previous logic for automatic initialization via App Hosting is not suitable
-    // for the development environment and was causing connectivity timeouts.
     const firebaseApp = initializeApp(firebaseConfig);
+    // Initialize Firestore with settings to enable long-polling and prevent errors.
+    initializeFirestore(firebaseApp, {
+      experimentalForceLongPolling: true,
+      ignoreUndefinedProperties: true,
+    });
     return getSdks(firebaseApp);
   }
 
