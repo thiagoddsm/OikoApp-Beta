@@ -605,7 +605,8 @@
       "properties": {
         "title": { "type": "string", "description": "The display title of the checklist." },
         "requiredCourseId": { "type": "string", "description": "ID of the Course required to complete this stage." },
-        "requiresDualApproval": { "type": "boolean", "description": "Indicates if this stage requires dual approval (discipler and supervisor)." },
+        "requiresDisciplerApproval": { "type": "boolean", "description": "Indicates if this stage requires approval from the discipler." },
+        "requiresSupervisorApproval": { "type": "boolean", "description": "Indicates if this stage requires approval from the supervisor (discipler's leader)." },
         "questions": {
           "type": "array",
           "items": {
@@ -691,6 +692,18 @@
         "observations": { "type": "string" }
       },
       "required": ["classId", "date", "content_taught"]
+    },
+    "ContaAzulConfig": {
+        "title": "Conta Azul Config",
+        "type": "object",
+        "description": "Stores API credentials and tokens for Conta Azul integration.",
+        "properties": {
+            "clientId": { "type": "string" },
+            "clientSecret": { "type": "string" },
+            "accessToken": { "type": "string" },
+            "refreshToken": { "type": "string" },
+            "expiresAt": { "type": "number", "description": "Timestamp for when the access token expires." }
+        }
     }
   },
   "auth": {
@@ -731,7 +744,8 @@
       { "path": "/wave_plans/{planId}", "definition": { "schema": { "$ref": "#/entities/WavePlan" } } },
       { "path": "/wave_payments/{paymentId}", "definition": { "schema": { "$ref": "#/entities/WavePayment" } } },
       { "path": "/wave_expenses/{expenseId}", "definition": { "schema": { "$ref": "#/entities/WaveExpense" } } },
-      { "path": "/pedagogical_logs/{logId}", "definition": { "schema": { "$ref": "#/entities/PedagogicalLog" } } }
+      { "path": "/pedagogical_logs/{logId}", "definition": { "schema": { "$ref": "#/entities/PedagogicalLog" } } },
+      { "path": "/config/conta_azul", "definition": { "schema": { "$ref": "#/entities/ContaAzulConfig" } } }
     ]
   }
 }

@@ -1,7 +1,8 @@
 
+
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,18 +10,40 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Key, Link, BarChart, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { UnderConstruction } from '@/components/common/under-construction';
+import { useFirebase, useDoc, setDocumentNonBlocking } from '@/firebase';
+import { doc } from 'firebase/firestore';
+
+type ContaAzulConfig = {
+    id: string;
+    clientId?: string;
+    clientSecret?: string;
+    accessToken?: string;
+    refreshToken?: string;
+}
 
 function ContaAzulConnect() {
   const { toast } = useToast();
+  const { firestore } = useFirebase();
+  const configDocRef = useMemo(() => firestore ? doc(firestore, 'config', 'conta_azul') : null, [firestore]);
+  
+  const { data: config, isLoading: isLoadingConfig } = useDoc<ContaAzulConfig>(configDocRef?.path);
+
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
-  // No futuro, este estado virá do banco de dados
-  const [isConnected, setIsConnected] = useState(false);
+  const isConnected = !!config?.accessToken || !!config?.refreshToken;
+
+  useEffect(() => {
+    if (config) {
+        setClientId(config.clientId || '');
+        setClientSecret(config.clientSecret || '');
+    }
+  }, [config]);
+
 
   const handleConnect = () => {
-    if (!clientId || !clientSecret) {
+    if (!clientId || !clientSecret || !configDocRef) {
       toast({
         variant: 'destructive',
         title: 'Credenciais ausentes',
@@ -28,29 +51,47 @@ function ContaAzulConnect() {
       });
       return;
     }
-    setIsLoading(true);
-    // Lógica de conexão OAuth 2.0 com a Conta Azul virá aqui
-    console.log('Iniciando conexão com Client ID:', clientId);
-    setTimeout(() => {
-      // Simulando a conclusão da conexão
-      setIsConnected(true);
-      setIsLoading(false);
-      toast({
-        title: 'Conectado com Sucesso!',
-        description: 'Sua conta da Conta Azul foi conectada. (Simulação)',
-      });
-    }, 2000);
+    setIsSaving(true);
+    
+    // This only saves the credentials. The actual OAuth flow would happen in a Cloud Function.
+    setDocumentNonBlocking(configDocRef, { 
+        clientId, 
+        clientSecret 
+    }, { merge: true });
+
+    setTimeout(() => { // Simulate feedback time
+        setIsSaving(false);
+        toast({
+            title: 'Credenciais Salvas!',
+            description: 'Suas credenciais da Conta Azul foram salvas com segurança no Firestore.',
+        });
+    }, 1500);
   };
   
    const handleDisconnect = () => {
-    setIsConnected(false);
-    setClientId('');
-    setClientSecret('');
+    if (!configDocRef) return;
+    setDocumentNonBlocking(configDocRef, {
+        clientId: '',
+        clientSecret: '',
+        accessToken: '',
+        refreshToken: '',
+    }, { merge: true });
      toast({
         title: 'Desconectado',
         description: 'A conexão com a Conta Azul foi removida.',
       });
   };
+
+  if (isLoadingConfig) {
+    return (
+         <Card>
+            <CardContent className="flex items-center justify-center p-6 h-48">
+                <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+                <span className="text-muted-foreground">Carregando configuração...</span>
+            </CardContent>
+        </Card>
+    )
+  }
 
   if (isConnected) {
     return (
@@ -99,16 +140,16 @@ function ContaAzulConnect() {
         </div>
       </CardContent>
       <CardFooter>
-        <Button onClick={handleConnect} disabled={isLoading}>
-          {isLoading ? (
+        <Button onClick={handleConnect} disabled={isSaving}>
+          {isSaving ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Conectando...
+              Salvando...
             </>
           ) : (
             <>
               <Link className="mr-2 h-4 w-4" />
-              Conectar com Conta Azul
+              Salvar Credenciais
             </>
           )}
         </Button>
@@ -118,14 +159,20 @@ function ContaAzulConnect() {
 }
 
 export default function FinancePage() {
-  // No futuro, este estado virá do banco de dados
-  const isConnected = false;
+    const { data: config, isLoading: isLoadingConfig } = useDoc<ContaAzulConfig>('config/conta_azul');
+    const isConnected = !!config?.accessToken || !!config?.refreshToken;
 
   return (
     <div className="space-y-6">
       <ContaAzulConnect />
       
-      {isConnected ? (
+      {isLoadingConfig ? (
+         <Card className="text-center bg-muted/30 border-dashed">
+             <CardHeader className="flex items-center justify-center p-6 h-48">
+                <Loader2 className="mr-2 h-6 w-6 animate-spin" />
+             </CardHeader>
+         </Card>
+      ) : isConnected ? (
         <>
           <UnderConstruction 
             pageTitle="Relatórios Financeiros"
