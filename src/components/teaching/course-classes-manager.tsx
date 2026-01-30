@@ -78,19 +78,23 @@ export function CourseClassesManager({ course }) {
                         ) : classes?.length === 0 ? (
                             <TableRow><TableCell colSpan={6} className="text-center h-24">Nenhuma turma cadastrada para este curso.</TableCell></TableRow>
                         ) : (
-                            classes?.map(cls => (
+                            classes?.map(cls => {
+                                const locationName = cls.locationId === 'the_school'
+                                    ? 'The School'
+                                    : (cls.locationId ? roomMap.get(cls.locationId) : '-') || '-';
+                                return (
                                 <TableRow key={cls.id}>
                                     <TableCell className="font-medium">{cls.name}</TableCell>
                                     <TableCell>{userMap.get(cls.teacherId) || '-'}</TableCell>
                                     <TableCell>{cls.students?.length || 0}</TableCell>
                                     <TableCell>{formatSchedule(cls)}</TableCell>
-                                    <TableCell>{cls.locationId ? roomMap.get(cls.locationId) : '-'}</TableCell>
+                                    <TableCell>{locationName}</TableCell>
                                     <TableCell className="text-right">
                                         <Button variant="ghost" size="icon" onClick={() => handleEditClass(cls)}><Edit className="size-4"/></Button>
                                         <Button variant="ghost" size="icon" onClick={() => handleDeleteClass(cls)}><Trash2 className="size-4 text-destructive"/></Button>
                                     </TableCell>
                                 </TableRow>
-                            ))
+                            )})
                         )}
                     </TableBody>
                 </Table>
@@ -104,3 +108,5 @@ export function CourseClassesManager({ course }) {
         </>
     );
 }
+
+    

@@ -29,22 +29,50 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [dayOfWeek, setDayOfWeek] = useState('');
-  const [locationId, setLocationId] = useState('');
+  
+  const [locationType, setLocationType] = useState<'ibm' | 'the_school' | ''>('');
+  const [ibmRoomId, setIbmRoomId] = useState('');
+
 
   const teachers = useMemo(() => users?.filter(u => u.isTeacher) || [], [users]);
   const isLoading = isLoadingContext;
 
   useEffect(() => {
     if (open) {
-      setName(existingClass?.name || '');
-      setTeacherId(existingClass?.teacherId || '');
-      setFrequency(existingClass?.frequency || 'pontual');
-      setStartDate(existingClass?.startDate || '');
-      setEndDate(existingClass?.endDate || '');
-      setStartTime(existingClass?.startTime || '');
-      setEndTime(existingClass?.endTime || '');
-      setDayOfWeek(existingClass?.dayOfWeek || '');
-      setLocationId(existingClass?.locationId || '');
+      if (existingClass) {
+        setName(existingClass.name || '');
+        setTeacherId(existingClass.teacherId || '');
+        setFrequency(existingClass.frequency || 'pontual');
+        setStartDate(existingClass.startDate || '');
+        setEndDate(existingClass.endDate || '');
+        setStartTime(existingClass.startTime || '');
+        setEndTime(existingClass.endTime || '');
+        setDayOfWeek(existingClass.dayOfWeek || '');
+        
+        if (existingClass.locationId === 'the_school') {
+            setLocationType('the_school');
+            setIbmRoomId('');
+        } else if (existingClass.locationId) {
+            setLocationType('ibm');
+            setIbmRoomId(existingClass.locationId);
+        } else {
+            setLocationType('');
+            setIbmRoomId('');
+        }
+
+      } else {
+        // Reset for new class
+        setName('');
+        setTeacherId('');
+        setFrequency('pontual');
+        setStartDate('');
+        setEndDate('');
+        setStartTime('');
+        setEndTime('');
+        setDayOfWeek('');
+        setLocationType('');
+        setIbmRoomId('');
+      }
     }
   }, [open, existingClass]);
 
@@ -54,6 +82,14 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
       return;
     }
     setIsSaving(true);
+    
+    let finalLocationId = '';
+    if (locationType === 'the_school') {
+        finalLocationId = 'the_school';
+    } else if (locationType === 'ibm' && ibmRoomId) {
+        finalLocationId = ibmRoomId;
+    }
+
     const classData = { 
         courseId, 
         name, 
@@ -65,7 +101,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
         startTime,
         endTime,
         dayOfWeek,
-        locationId,
+        locationId: finalLocationId,
     };
 
     if (existingClass) {
@@ -150,16 +186,29 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
                     <Label htmlFor="endTime">Horário de Término</Label>
                     <Input id="endTime" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required/>
                   </div>
-                   <div className="md:col-span-2">
-                    <Label htmlFor="locationId">Local/Sala</Label>
-                    <Select value={locationId} onValueChange={setLocationId} disabled={isLoading}>
-                      <SelectTrigger id="locationId"><SelectValue placeholder={isLoading ? "Carregando..." : "Selecione o local"} /></SelectTrigger>
-                      <SelectContent>
-                          <SelectItem value="null">Não definido</SelectItem>
-                          {rooms.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                    <div className="md:col-span-2">
+                        <Label htmlFor="locationType">Local</Label>
+                        <Select value={locationType} onValueChange={(v: any) => setLocationType(v)}>
+                            <SelectTrigger id="locationType"><SelectValue placeholder="Selecione o local..." /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="ibm">IBM</SelectItem>
+                                <SelectItem value="the_school">The School</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {locationType === 'ibm' && (
+                        <div className="md:col-span-2">
+                            <Label htmlFor="ibmRoomId">Ambiente (IBM)</Label>
+                            <Select value={ibmRoomId} onValueChange={setIbmRoomId} disabled={isLoading}>
+                                <SelectTrigger id="ibmRoomId"><SelectValue placeholder={isLoading ? "Carregando..." : "Selecione o ambiente"} /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="">Não definido</SelectItem>
+                                    {rooms.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
               </div>
            </div>
         </div>
@@ -173,3 +222,5 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
     </Dialog>
   );
 }
+
+    

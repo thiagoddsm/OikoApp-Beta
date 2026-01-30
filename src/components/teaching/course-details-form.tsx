@@ -10,18 +10,12 @@ import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
-const locations = ["IBM", "The School"];
-
 export function CourseDetailsForm({ course }) {
   const { users, isLoading } = useVolunteering();
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     responsibleId: '',
-    location: '',
-    defaultDay: '',
-    defaultTime: ''
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -29,9 +23,6 @@ export function CourseDetailsForm({ course }) {
     if (course) {
       setFormData({
         responsibleId: course.responsibleId || '',
-        location: course.location || '',
-        defaultDay: course.defaultDay || '',
-        defaultTime: course.defaultTime || '',
       });
     }
   }, [course]);
@@ -50,46 +41,18 @@ export function CourseDetailsForm({ course }) {
   };
 
   return (
-    <div className="space-y-6 max-w-2xl">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="responsibleId">Responsável pelo curso</Label>
-          <Select value={formData.responsibleId} onValueChange={v => handleChange('responsibleId', v)} disabled={isLoading}>
-            <SelectTrigger id="responsibleId">
-              <SelectValue placeholder="Selecione um responsável..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="null">Nenhum</SelectItem>
-              {users.map(user => <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label htmlFor="location">Local Padrão</Label>
-          <Select value={formData.location} onValueChange={v => handleChange('location', v)}>
-            <SelectTrigger id="location">
-              <SelectValue placeholder="Selecione o local..." />
-            </SelectTrigger>
-            <SelectContent>
-              {locations.map(loc => <SelectItem key={loc} value={loc}>{loc}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label htmlFor="defaultDay">Dia Padrão</Label>
-          <Select value={formData.defaultDay} onValueChange={v => handleChange('defaultDay', v)}>
-            <SelectTrigger id="defaultDay">
-              <SelectValue placeholder="Selecione um dia..." />
-            </SelectTrigger>
-            <SelectContent>
-              {weekDays.map(day => <SelectItem key={day} value={day}>{day}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label htmlFor="defaultTime">Horário Padrão</Label>
-          <Input id="defaultTime" type="time" value={formData.defaultTime} onChange={e => handleChange('defaultTime', e.target.value)} />
-        </div>
+    <div className="space-y-6 max-w-lg">
+      <div>
+        <Label htmlFor="responsibleId">Responsável pelo curso</Label>
+        <Select value={formData.responsibleId} onValueChange={v => handleChange('responsibleId', v)} disabled={isLoading}>
+          <SelectTrigger id="responsibleId">
+            <SelectValue placeholder="Selecione um responsável..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="null">Nenhum</SelectItem>
+            {users.map(user => <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={isSaving}>
@@ -99,3 +62,5 @@ export function CourseDetailsForm({ course }) {
     </div>
   );
 }
+
+    
