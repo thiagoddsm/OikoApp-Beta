@@ -72,6 +72,8 @@ export type Class = {
   endTime?: string;
   dayOfWeek?: string;
   locationId?: string;
+  attendance?: { date: string; presentStudentIds: string[] }[];
+  grades?: { studentId: string, assessmentName: string, grade: number }[];
 };
 
 export type PedagogicalLog = {

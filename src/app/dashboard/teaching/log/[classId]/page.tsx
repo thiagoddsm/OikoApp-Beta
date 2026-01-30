@@ -3,10 +3,9 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useVolunteering } from '@/contexts/volunteering-context';
-import { useFirebase } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, ArrowLeft, BookOpen, Star } from 'lucide-react';
+import { Loader2, ArrowLeft, BookOpen, Star, Users } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -14,6 +13,8 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Timestamp } from 'firebase/firestore';
 import { VolunteeringProvider } from '@/contexts/volunteering-context';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 function PedagogicalLogPageContent() {
     const params = useParams();
@@ -25,18 +26,36 @@ function PedagogicalLogPageContent() {
         users, 
         pedagogicalLogs, 
         addPedagogicalLog, 
+        updateClass,
         isLoading 
     } = useVolunteering();
     
     const [contentTaught, setContentTaught] = useState('');
     const [observations, setObservations] = useState('');
     const [performance, setPerformance] = useState(3); // Default to 3 stars
+    const [presentStudents, setPresentStudents] = useState<string[]>([]);
     const [isSaving, setIsSaving] = useState(false);
 
     const classData = useMemo(() => classes.find(c => c.id === classId), [classes, classId]);
     const courseData = useMemo(() => classData ? courses.find(c => c.id === classData.courseId) : null, [classData, courses]);
     const teacherData = useMemo(() => classData ? users.find(u => u.id === classData.teacherId) : null, [classData, users]);
     const classLogs = useMemo(() => pedagogicalLogs.filter(log => log.classId === classId).sort((a,b) => b.date.toMillis() - a.date.toMillis()), [pedagogicalLogs, classId]);
+    
+    const studentList = useMemo(() => {
+        if (!users || !classData?.students) return [];
+        const studentSet = new Set(classData.students);
+        return users.filter(u => studentSet.has(u.id));
+    }, [users, classData]);
+
+    const handleStudentCheck = (studentId: string, checked: boolean) => {
+        setPresentStudents(prev => {
+            if (checked) {
+                return [...prev, studentId];
+            } else {
+                return prev.filter(id => id !== studentId);
+            }
+        });
+    };
 
     const handleSaveLog = async () => {
         if (!contentTaught.trim()) {
@@ -44,16 +63,39 @@ function PedagogicalLogPageContent() {
             return;
         }
         setIsSaving(true);
-        await addPedagogicalLog({
+        
+        const logPromise = addPedagogicalLog({
             classId,
             date: Timestamp.now() as any, // Cast to any to satisfy the type
             content_taught: contentTaught,
             student_performance: performance,
             observations,
         });
+
+        const attendancePromise = classData ? (() => {
+            const today = format(new Date(), 'yyyy-MM-dd');
+            const newAttendanceRecord = { date: today, presentStudentIds: presentStudents };
+            
+            const existingAttendance = classData.attendance || [];
+            const todayRecordIndex = existingAttendance.findIndex(att => att.date === today);
+            
+            let updatedAttendance;
+            if (todayRecordIndex > -1) {
+                updatedAttendance = [...existingAttendance];
+                updatedAttendance[todayRecordIndex] = newAttendanceRecord;
+            } else {
+                updatedAttendance = [...existingAttendance, newAttendanceRecord];
+            }
+
+            return updateClass(classId, { attendance: updatedAttendance });
+        })() : Promise.resolve();
+        
+        await Promise.all([logPromise, attendancePromise]);
+
         setContentTaught('');
         setObservations('');
         setPerformance(3);
+        setPresentStudents([]);
         setIsSaving(false);
     };
 
@@ -105,9 +147,31 @@ function PedagogicalLogPageContent() {
                                         ))}
                                     </div>
                                 </div>
-                                <Button onClick={handleSaveLog} disabled={isSaving}>
+                                
+                                <div className="pt-4 border-t">
+                                    <Label className="flex items-center gap-2 mb-2"><Users className="size-4" />Chamada / Presença</Label>
+                                    <p className="text-sm text-muted-foreground mb-2">Marque os alunos presentes.</p>
+                                    <ScrollArea className="h-40 w-full rounded-md border p-4">
+                                         <div className="space-y-2">
+                                            {studentList.map(student => (
+                                                <div key={student.id} className="flex items-center space-x-2">
+                                                    <Checkbox
+                                                        id={`student-${student.id}`}
+                                                        checked={presentStudents.includes(student.id)}
+                                                        onCheckedChange={checked => handleStudentCheck(student.id, !!checked)}
+                                                    />
+                                                    <Label htmlFor={`student-${student.id}`} className="font-normal cursor-pointer">
+                                                        {student.name}
+                                                    </Label>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </ScrollArea>
+                                </div>
+
+                                <Button onClick={handleSaveLog} disabled={isSaving} className="mt-4">
                                     {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Salvar Registro
+                                    Salvar Registro e Presença
                                 </Button>
                             </CardContent>
                         </Card>
