@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useMemo } from 'react';
 import { useVolunteering, type User } from '@/contexts/volunteering-context';
@@ -9,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/ui/calendar';
 import { format, parse } from 'date-fns';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui/card';
-import { MultiSelect, type OptionType } from '../ui/multi-select';
+import { ScrollArea } from '../ui/scroll-area';
 
 interface VolunteerServiceFormProps {
   user: User;
@@ -57,15 +56,14 @@ export function VolunteerServiceForm({ user }: VolunteerServiceFormProps) {
     }
     updateVolunteer(user.id, updateData);
   };
-
-  const handleTaughtCoursesChange = (courseIds: string[]) => {
-    updateVolunteer(user.id, { taughtCourseIds: courseIds });
+  
+  const handleTaughtCoursesChange = (courseId: string, checked: boolean) => {
+    const currentTaughtIds = user.taughtCourseIds || [];
+    const newTaughtIds = checked
+        ? [...currentTaughtIds, courseId]
+        : currentTaughtIds.filter(id => id !== courseId);
+    updateVolunteer(user.id, { taughtCourseIds: newTaughtIds });
   };
-
-  const courseOptions: OptionType[] = useMemo(() => {
-    if (!courses) return [];
-    return courses.map(course => ({ value: course.id, label: course.name }));
-  }, [courses]);
 
   const isServing = user.serviceStatus === 'serving';
   const isTeacher = user.isTeacher === true;
@@ -99,15 +97,25 @@ export function VolunteerServiceForm({ user }: VolunteerServiceFormProps) {
                 
                 {isTeacher && (
                     <div className="space-y-2">
-                        <Label htmlFor="taught-courses">Cursos que Leciona</Label>
-                        <MultiSelect
-                            options={courseOptions}
-                            selected={user.taughtCourseIds || []}
-                            onChange={handleTaughtCoursesChange}
-                            placeholder="Selecione os cursos..."
-                            disabled={isLoading}
-                        />
-                         <p className="text-xs text-muted-foreground">Cursos que este membro está apto a lecionar.</p>
+                        <Label>Cursos que Leciona</Label>
+                         <ScrollArea className="h-48 w-full rounded-md border p-4">
+                            <div className="space-y-2">
+                                {courses.map(course => (
+                                    <div key={course.id} className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id={`taught-course-${user.id}-${course.id}`}
+                                            checked={user.taughtCourseIds?.includes(course.id) || false}
+                                            onCheckedChange={(checked) => handleTaughtCoursesChange(course.id, !!checked)}
+                                            disabled={isLoading}
+                                        />
+                                        <Label htmlFor={`taught-course-${user.id}-${course.id}`} className="font-normal cursor-pointer">
+                                            {course.name}
+                                        </Label>
+                                    </div>
+                                ))}
+                            </div>
+                        </ScrollArea>
+                        <p className="text-xs text-muted-foreground">Cursos que este membro está apto a lecionar.</p>
                     </div>
                 )}
             </CardContent>
