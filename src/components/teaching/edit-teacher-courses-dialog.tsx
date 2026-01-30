@@ -1,11 +1,13 @@
+
 'use client';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useVolunteering, type User, type Course } from '@/contexts/volunteering-context';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { MultiSelect, type OptionType } from '@/components/ui/multi-select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2 } from 'lucide-react';
 
 interface EditTeacherCoursesDialogProps {
@@ -27,10 +29,6 @@ export function EditTeacherCoursesDialog({ open, onOpenChange, user }: EditTeach
     }
   }, [user]);
 
-  const courseOptions: OptionType[] = useMemo(() => {
-    return courses.map(course => ({ value: course.id, label: course.name }));
-  }, [courses]);
-
   const handleSave = async () => {
     if (!user) return;
     setIsSaving(true);
@@ -45,19 +43,21 @@ export function EditTeacherCoursesDialog({ open, onOpenChange, user }: EditTeach
     onOpenChange(false);
   };
 
+  const handleCourseSelectionChange = (courseId: string, checked: boolean) => {
+    setTaughtCourseIds(prev => {
+        if (checked) {
+            return [...prev, courseId];
+        } else {
+            return prev.filter(id => id !== courseId);
+        }
+    })
+  };
+
   if (!user) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        onPointerDownOutside={(e) => {
-          // Check if the click is on an element that is part of the command menu
-          // from the MultiSelect component. If so, prevent the dialog from closing.
-          if ((e.target as HTMLElement).closest('[cmdk-root]')) {
-            e.preventDefault();
-          }
-        }}
-      >
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Gerenciar Cursos para {user.name}</DialogTitle>
           <DialogDescription>
@@ -79,13 +79,23 @@ export function EditTeacherCoursesDialog({ open, onOpenChange, user }: EditTeach
           {isTeacher && (
             <div className="space-y-2">
               <Label>Cursos Elegíveis</Label>
-              <MultiSelect
-                options={courseOptions}
-                selected={taughtCourseIds}
-                onChange={setTaughtCourseIds}
-                placeholder="Selecione os cursos..."
-                disabled={isLoading}
-              />
+              <ScrollArea className="h-48 w-full rounded-md border p-4">
+                  <div className="space-y-2">
+                      {courses.map(course => (
+                          <div key={course.id} className="flex items-center space-x-2">
+                              <Checkbox
+                                  id={`course-${course.id}`}
+                                  checked={taughtCourseIds.includes(course.id)}
+                                  onCheckedChange={checked => handleCourseSelectionChange(course.id, !!checked)}
+                                  disabled={isLoading}
+                              />
+                              <Label htmlFor={`course-${course.id}`} className="font-normal cursor-pointer">
+                                  {course.name}
+                              </Label>
+                          </div>
+                      ))}
+                  </div>
+              </ScrollArea>
             </div>
           )}
         </div>
@@ -102,3 +112,5 @@ export function EditTeacherCoursesDialog({ open, onOpenChange, user }: EditTeach
     </Dialog>
   );
 }
+
+    

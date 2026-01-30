@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -18,7 +19,8 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
 import { GooglePlacesAutocomplete } from '@/components/common/google-places-autocomplete';
 import { Input } from '@/components/ui/input';
-import { MultiSelect } from '@/components/ui/multi-select';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 type UserType = {
@@ -79,10 +81,6 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
   const [meetingTime, setMeetingTime] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
 
-  const userOptions = useMemo(() => 
-    users.map(user => ({ value: user.id, label: user.name })), 
-  [users]);
-
   const availableAreas = useMemo(() => {
     if (!redeId || !areas) return [];
     return areas.filter(a => a.redeId === redeId);
@@ -140,6 +138,17 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
             setLng(place.geometry.location.lng());
         }
     }
+  };
+
+  const handleMemberSelectionChange = (memberId: string, checked: boolean) => {
+      setSelectedMembers(prev => {
+          const currentMembers = prev.filter(m => m !== liderId);
+          if (checked) {
+              return [...currentMembers, memberId, liderId];
+          } else {
+              return [...currentMembers.filter(id => id !== memberId), liderId];
+          }
+      });
   };
 
   const handleSave = async () => {
@@ -260,12 +269,22 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
               Membros
             </Label>
             <div className="col-span-3">
-                <MultiSelect
-                    options={userOptions.filter(u => u.value !== liderId)} // Leader can't be removed from members list
-                    selected={selectedMembers.filter(m => m !== liderId)} // Don't show leader in the badge list, as they are implicitly a member
-                    onChange={newMembers => setSelectedMembers([...newMembers, liderId])}
-                    placeholder="Selecione os membros..."
-                />
+                 <ScrollArea className="h-40 w-full rounded-md border p-4">
+                      <div className="space-y-2">
+                          {users.filter(u => u.id !== liderId).map(user => (
+                              <div key={user.id} className="flex items-center space-x-2">
+                                  <Checkbox
+                                      id={`member-${user.id}`}
+                                      checked={selectedMembers.includes(user.id)}
+                                      onCheckedChange={checked => handleMemberSelectionChange(user.id, !!checked)}
+                                  />
+                                  <Label htmlFor={`member-${user.id}`} className="font-normal cursor-pointer">
+                                      {user.name}
+                                  </Label>
+                              </div>
+                          ))}
+                      </div>
+                  </ScrollArea>
             </div>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
@@ -466,4 +485,6 @@ export default function CellsPage() {
     </>
   );
 }
+    
+
     
