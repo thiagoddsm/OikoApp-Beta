@@ -3,7 +3,7 @@
 import { Handshake, School, MapIcon, Briefcase, Church, Group, BookOpen, UserPlus, Award, Shield, Target, UserX, UserCheck, GraduationCap } from 'lucide-react';
 
 export const journeyColumns = [
-    { id: 'nao_alcancado', title: 'Cidade (Não Alcançado)' },
+    { id: 'nao_alcancado', title: 'Não Alcançado' },
     { id: 'novo_convertido', title: 'Novo Convertido' },
     { id: 'reconciliado', title: 'Reconciliado' },
     { id: 'transferido', title: 'Transferido' },
