@@ -86,7 +86,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
     let finalLocationId = '';
     if (locationType === 'the_school') {
         finalLocationId = 'the_school';
-    } else if (locationType === 'ibm' && ibmRoomId) {
+    } else if (locationType === 'ibm' && ibmRoomId && ibmRoomId !== 'null') {
         finalLocationId = ibmRoomId;
     }
 
@@ -203,7 +203,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
                             <Select value={ibmRoomId} onValueChange={setIbmRoomId} disabled={isLoading}>
                                 <SelectTrigger id="ibmRoomId"><SelectValue placeholder={isLoading ? "Carregando..." : "Selecione o ambiente"} /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="">Não definido</SelectItem>
+                                    <SelectItem value="null">Não definido</SelectItem>
                                     {rooms.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
@@ -222,5 +222,3 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
     </Dialog>
   );
 }
-
-    
