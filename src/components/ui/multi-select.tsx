@@ -31,6 +31,7 @@ interface MultiSelectProps {
   onChange: React.Dispatch<React.SetStateAction<string[]>>
   className?: string
   placeholder?: string
+  disabled?: boolean;
 }
 
 function MultiSelect({
@@ -56,6 +57,7 @@ function MultiSelect({
           aria-expanded={open}
           className={cn("w-full justify-between h-auto", className, selected.length > 1 ? "h-full" : "h-10")}
           onClick={() => setOpen(!open)}
+          disabled={props.disabled}
         >
           <div className="flex gap-1 flex-wrap">
             {selected.length > 0 ? (
@@ -84,7 +86,6 @@ function MultiSelect({
       </PopoverTrigger>
       <PopoverContent
         className="w-[var(--radix-popover-trigger-width)] p-0"
-        onCloseAutoFocus={(e) => e.preventDefault()}
       >
         <Command className={className}>
           <CommandInput placeholder="Buscar..." />

@@ -49,7 +49,15 @@ export function EditTeacherCoursesDialog({ open, onOpenChange, user }: EditTeach
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent
+        onPointerDownOutside={(e) => {
+          // Check if the click is on an element that is part of the command menu
+          // from the MultiSelect component. If so, prevent the dialog from closing.
+          if ((e.target as HTMLElement).closest('[cmdk-root]')) {
+            e.preventDefault();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Gerenciar Cursos para {user.name}</DialogTitle>
           <DialogDescription>
