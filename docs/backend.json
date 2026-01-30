@@ -57,7 +57,7 @@
         "igrejaBatismo": { "type": "string" },
         "membroAntigo": { "type": "string", "enum": ["sim", "nao"] },
         "igrejaAntiga": { "type": "string" },
-        "decisao": { "type": "array", "items": { "type": "string", "enum": ["Decisão por Cristo", "Reconciliação", "Ingressar em um GC", "Apenas Visitando"] } },
+        "decisao": { "type": "array", "items": { "type": "string", "enum": ["Decisão por Cristo", "Reconciliação", "Ingressar em um GC", "Apenas Visitando", "Procurando uma igreja para congregar"] } },
         "initialStatus": { "type": "string", "enum": ["nao_convertido", "novo_convertido", "reconciliado", "membro_outra_igreja"], "description": "The initial status of the person when they joined."},
         "dataDecisao": { "type": "string", "format": "date" },
         "estadoCivil": { "type": "string" },
@@ -780,5 +780,3 @@
     ]
   }
 }
-
-  

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -252,7 +251,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
   
   const contatoPreferenciaOptions = ["Ligação", "WhatsApp"];
   const contatoTurnoOptions = ["Manhã", "Tarde", "Noite"];
-  const decisaoOptions = ["Decisão por Cristo", "Reconciliação", "Ingressar em um GC", "Apenas Visitando"];
+  const decisaoOptions = ["Decisão por Cristo", "Reconciliação", "Ingressar em um GC", "Apenas Visitando", "Procurando uma igreja para congregar"];
   const isSelf = currentUser && user && currentUser.uid === user.id;
   const isOnlyAdmin = useMemo(() => {
     if (!isSelf || !allUsers) return false;
@@ -292,7 +291,13 @@ export function EditUserDialog({ user, open, onOpenChange }) {
                     <Label htmlFor="estadoCivil">Estado Civil</Label>
                     <Select value={formData.estadoCivil} onValueChange={(v) => handleSelectChange('estadoCivil', v)}>
                         <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                        <SelectContent><SelectItem value="Solteiro(a)">Solteiro(a)</SelectItem><SelectItem value="Casado(a)">Casado(a)</SelectItem><SelectItem value="Divorciado(a)">Divorciado(a)</SelectItem><SelectItem value="Viúvo(a)">Viúvo(a)</SelectItem></SelectContent>
+                        <SelectContent>
+                            <SelectItem value="Solteiro(a)">Solteiro(a)</SelectItem>
+                            <SelectItem value="Casado(a)">Casado(a)</SelectItem>
+                            <SelectItem value="União Estável">União Estável</SelectItem>
+                            <SelectItem value="Divorciado(a)">Divorciado(a)</SelectItem>
+                            <SelectItem value="Viúvo(a)">Viúvo(a)</SelectItem>
+                        </SelectContent>
                     </Select>
                 </div>
                  <div className="space-y-1.5">
@@ -446,5 +451,3 @@ export function EditUserDialog({ user, open, onOpenChange }) {
     </>
   );
 }
-
-  
