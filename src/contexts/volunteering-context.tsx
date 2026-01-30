@@ -148,6 +148,7 @@ type WavePlanData = Omit<WavePlan, 'id'>;
 type WavePaymentData = Omit<WavePayment, 'id'>;
 type WaveExpenseData = Omit<WaveExpense, 'id'>;
 type PedagogicalLogData = Omit<PedagogicalLog, 'id'>;
+type ClassData = Omit<Class, 'id'>;
 
 
 // --- CONTEXT DEFINITION ---
@@ -199,6 +200,9 @@ interface VolunteeringContextType {
   // Functions for Schedules
   saveSchedule: (data: SavedScheduleData) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
+  
+  // Functions for Classes
+  updateClass: (id: string, data: Partial<ClassData>) => Promise<void>;
 
   // Functions for Wave
   addWavePlan: (data: WavePlanData) => Promise<void>;
@@ -287,6 +291,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { addItem: addRoom, updateItem: updateRoom, deleteItem: deleteRoom } = createCrudFunctions<Room>('rooms', 'Ambiente');
   const { addItem: addReservation, updateItem: updateReservation, deleteItem: deleteReservation } = createCrudFunctions<RoomReservation>('room_reservations', 'Reserva');
   const { addItem: _, updateItem: __, deleteItem: deleteSchedule } = createCrudFunctions<SavedSchedule>('saved_schedules', 'Escala Salva');
+  const { updateItem: updateClass } = createCrudFunctions<Class>('classes', 'Turma');
   const { addItem: addWavePlan, updateItem: updateWavePlan, deleteItem: deleteWavePlan } = createCrudFunctions<WavePlan>('wave_plans', 'Plano Wave');
   const { addItem: addWaveExpense, updateItem: updateWaveExpense, deleteItem: deleteWaveExpense } = createCrudFunctions<WaveExpense>('wave_expenses', 'Despesa Wave');
   const { addItem: addPedagogicalLog, updateItem: updatePedagogicalLog, deleteItem: deletePedagogicalLog } = createCrudFunctions<PedagogicalLog>('pedagogical_logs', 'Registro Pedagógico');
@@ -441,6 +446,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     updateVolunteer,
     saveSchedule,
     deleteSchedule,
+    updateClass,
     addWavePlan,
     updateWavePlan,
     deleteWavePlan,

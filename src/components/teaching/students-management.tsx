@@ -1,7 +1,7 @@
 'use client';
 import React, { useMemo, useState } from 'react';
 import { useVolunteering, type User, type Class, type Course } from '@/contexts/volunteering-context';
-import { Loader2, User as UserIcon, Search, Edit } from 'lucide-react';
+import { Loader2, User as UserIcon, Search, Edit, PlusCircle } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -10,10 +10,12 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui
 import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import Link from 'next/link';
+import { EnrollmentDialog } from './enrollment-dialog';
 
 export function StudentsManagement() {
   const { users, classes, courses, isLoading } = useVolunteering();
   const [searchTerm, setSearchTerm] = useState('');
+  const [isEnrollmentOpen, setEnrollmentOpen] = useState(false);
 
   const enrollments = useMemo(() => {
     if (!users || !classes || !courses) return [];
@@ -40,7 +42,7 @@ export function StudentsManagement() {
         }
     });
 
-    return allEnrollments;
+    return allEnrollments.sort((a, b) => a.user.name.localeCompare(b.user.name));
   }, [users, classes, courses]);
 
 
@@ -63,6 +65,7 @@ export function StudentsManagement() {
   }
 
   return (
+      <>
       <Card>
           <CardHeader className="flex flex-row items-center justify-between">
               <div>
@@ -71,15 +74,21 @@ export function StudentsManagement() {
                       Visualize e gerencie todos os alunos matriculados nos cursos da igreja.
                   </CardDescription>
               </div>
-               <div className="relative">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Buscar por aluno, curso, turma..."
-                        className="pl-8"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
+              <div className="flex items-center gap-2">
+                 <div className="relative">
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                          placeholder="Buscar por aluno, curso, turma..."
+                          className="pl-8"
+                          value={searchTerm}
+                          onChange={(e) => setSearchTerm(e.target.value)}
+                      />
+                  </div>
+                   <Button onClick={() => setEnrollmentOpen(true)}>
+                        <PlusCircle className="mr-2 h-4 w-4"/>
+                        Nova Matrícula
+                    </Button>
+              </div>
           </CardHeader>
           <CardContent>
               <div className="rounded-lg border">
@@ -140,5 +149,7 @@ export function StudentsManagement() {
               </div>
           </CardContent>
       </Card>
+      <EnrollmentDialog open={isEnrollmentOpen} onOpenChange={setEnrollmentOpen} />
+      </>
   );
 }
