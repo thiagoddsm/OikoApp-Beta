@@ -63,6 +63,10 @@ export default {
           border: 'hsl(var(--sidebar-border))',
           ring: 'hsl(var(--sidebar-ring))',
         },
+        'ibm-blue': '#2563eb',
+        'ibm-rose': '#e11d48',
+        'ibm-amber': '#f59e0b',
+        'ibm-purple': '#9333ea',
       },
       borderRadius: {
         lg: 'var(--radius)',

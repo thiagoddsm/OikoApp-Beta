@@ -111,6 +111,7 @@ const menuItems = [
             icon: GraduationCap,
             subItems: [
               { href: "/dashboard/teaching/courses", label: "Cursos e Turmas", icon: BookOpen, permissionId: 'teaching_courses' },
+              { href: "/dashboard/teaching/theoflix", label: "TheoFlix", icon: LayoutTemplate, permissionId: 'teaching_courses' },
               { href: "/dashboard/teaching/teachers", label: "Professores", icon: UserCheckIcon, permissionId: 'teaching_courses' },
               { href: "/dashboard/teaching/students", label: "Alunos", icon: Users2, permissionId: 'teaching_courses' },
             ]
@@ -265,6 +266,7 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/volunteering/schedule')) return 'Geração de Escalas';
       if (path.startsWith('/dashboard/volunteering/saved-schedules')) return 'Escalas Salvas';
       if (path.startsWith('/dashboard/volunteering')) return 'Gerenciar Áreas de Serviço';
+      if (path.startsWith('/dashboard/teaching/theoflix')) return 'TheoFlix';
       if (path.startsWith('/dashboard/teaching')) return 'Ensino';
       if (path.startsWith('/dashboard/briefing-pro')) return 'Briefing Pro';
       if (path.startsWith('/dashboard/events/reservations')) return 'Reservas de Sala';
