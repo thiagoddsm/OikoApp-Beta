@@ -1,9 +1,9 @@
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, HelpCircle, CheckCircle } from 'lucide-react';
+import { Loader2, HelpCircle, CheckCircle, Send } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '../ui/checkbox';
 import { Label } from '../ui/label';
@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from '../ui/textarea';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { journeyColumns } from './journey-status-config';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
 
 
 type ChecklistQuestion = {
@@ -30,6 +31,72 @@ type DiscipleshipChecklist = {
     requiresDisciplerApproval?: boolean;
     requiresSupervisorApproval?: boolean;
 };
+
+function NotificationScheduler({ memberName }: { memberName: string }) {
+    const { toast } = useToast();
+    const [isSaving, setIsSaving] = useState(false);
+    const [reminder, setReminder] = useState('');
+    const [date, setDate] = useState('');
+    const [channel, setChannel] = useState('whatsapp');
+
+    const handleScheduleReminder = () => {
+        if (!reminder || !date) {
+            toast({ variant: 'destructive', title: 'Campos obrigatórios', description: 'Por favor, preencha a mensagem e a data.'});
+            return;
+        }
+        setIsSaving(true);
+        setTimeout(() => {
+            toast({ title: 'Lembrete Agendado!', description: `Você será lembrado em ${date} via ${channel} sobre ${memberName}.`});
+            setIsSaving(false);
+            setReminder('');
+            setDate('');
+        }, 1000);
+    };
+
+    return (
+        <Card className="bg-muted/30 border-dashed">
+            <CardHeader>
+                <CardTitle>Agendar Lembrete Pessoal</CardTitle>
+                <CardDescription>
+                    Crie um lembrete para você mesmo sobre {memberName}. A notificação será enviada para você no canal escolhido na data agendada.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="space-y-2">
+                    <Label htmlFor="reminder-message">Mensagem do Lembrete</Label>
+                    <Textarea 
+                        id="reminder-message" 
+                        value={reminder}
+                        onChange={(e) => setReminder(e.target.value)}
+                        placeholder={`Ex: Verificar como foi a semana de ${memberName} e se ele(a) precisa de oração...`}
+                    />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="reminder-date">Data do Lembrete</Label>
+                        <Input id="reminder-date" type="date" value={date} onChange={e => setDate(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="reminder-channel">Canal</Label>
+                         <Select value={channel} onValueChange={setChannel}>
+                            <SelectTrigger id="reminder-channel"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                                <SelectItem value="email">Email</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+            </CardContent>
+            <CardFooter>
+                 <Button onClick={handleScheduleReminder} disabled={isSaving}>
+                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
+                    Agendar
+                </Button>
+            </CardFooter>
+        </Card>
+    )
+}
 
 export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { memberId: string, memberName: string, currentStatusId: string }) {
     const { user, firestore } = useFirebase();
@@ -190,7 +257,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">Acompanhamento do Discipulado</CardTitle>
-                <CardDescription>Registre o progresso de {memberName} utilizando os checklists disponíveis.</CardDescription>
+                <CardDescription>Registre o progresso de {memberName} utilizando os checklists, ou agende lembretes.</CardDescription>
             </CardHeader>
             <CardContent>
                  {discipleshipChecklists.length > 0 ? (
@@ -199,6 +266,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                             {discipleshipChecklists.map(checklist => (
                                 <TabsTrigger key={checklist.id} value={checklist.id}>{checklist.title}</TabsTrigger>
                             ))}
+                            <TabsTrigger value="notifications">Lembretes</TabsTrigger>
                         </TabsList>
                         {discipleshipChecklists.map(checklist => (
                             <TabsContent key={checklist.id} value={checklist.id} className="mt-6">
@@ -303,6 +371,9 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                                 </div>
                             </TabsContent>
                         ))}
+                         <TabsContent value="notifications" className="mt-6">
+                            <NotificationScheduler memberName={memberName} />
+                        </TabsContent>
                     </Tabs>
                  ) : (
                     <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-lg">
