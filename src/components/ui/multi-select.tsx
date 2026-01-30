@@ -48,7 +48,7 @@ function MultiSelect({
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen} modal={true} {...props}>
+    <Popover open={open} onOpenChange={setOpen} {...props}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -84,6 +84,7 @@ function MultiSelect({
       </PopoverTrigger>
       <PopoverContent
         className="w-[var(--radix-popover-trigger-width)] p-0"
+        onCloseAutoFocus={(e) => e.preventDefault()}
       >
         <Command className={className}>
           <CommandInput placeholder="Buscar..." />

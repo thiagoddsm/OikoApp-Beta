@@ -49,12 +49,7 @@ export function EditTeacherCoursesDialog({ open, onOpenChange, user }: EditTeach
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent onPointerDownOutside={(e) => {
-        const target = e.target as HTMLElement;
-        if (target.closest('[cmdk-root]')) {
-          e.preventDefault();
-        }
-      }}>
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Gerenciar Cursos para {user.name}</DialogTitle>
           <DialogDescription>
