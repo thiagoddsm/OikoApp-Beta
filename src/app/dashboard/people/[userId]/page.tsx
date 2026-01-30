@@ -251,11 +251,13 @@ export default function UserProfilePage() {
             </TabsContent>
             
             <TabsContent value="discipleship">
-              <DiscipleshipNotes 
-                memberId={userId}
-                memberName={userProfile.name}
-                currentStatusId={userProfile.integrationStatus || 'nao_alcancado'}
-              />
+              <VolunteeringProvider>
+                  <DiscipleshipNotes 
+                    memberId={userId}
+                    memberName={userProfile.name}
+                    currentStatusId={userProfile.integrationStatus || 'nao_alcancado'}
+                  />
+              </VolunteeringProvider>
             </TabsContent>
 
             <TabsContent value="details">

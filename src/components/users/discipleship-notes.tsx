@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, HelpCircle } from 'lucide-react';
+import { Loader2, HelpCircle, CheckCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '../ui/checkbox';
 import { Label } from '../ui/label';
@@ -13,6 +13,8 @@ import { query, collection } from 'firebase/firestore';
 import { Input } from '../ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from '../ui/textarea';
+import { useVolunteering } from '@/contexts/volunteering-context';
+import { journeyColumns } from './journey-status-config';
 
 
 type ChecklistQuestion = {
@@ -32,6 +34,7 @@ type DiscipleshipChecklist = {
 export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { memberId: string, memberName: string, currentStatusId: string }) {
     const { user, firestore } = useFirebase();
     const { toast } = useToast();
+    const { updateVolunteer } = useVolunteering();
     const [isSaving, setIsSaving] = useState<string | null>(null);
     
     const checklistsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'discipleship_checklists')) : null, [firestore]);
@@ -52,6 +55,34 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         { id: '3', authorId: 'leader1', type: 'user', content: `Mostrou grande interesse na célula e fez perguntas pertinentes sobre a fé. Conectei com o João para iniciar o discipulado.`, createdAt: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000) },
     ]);
     
+    const handleCompleteStage = (currentStageId: string) => {
+        const currentIndex = journeyColumns.findIndex(col => col.id === currentStageId);
+
+        if (currentIndex === -1) {
+            toast({
+                variant: "destructive",
+                title: "Erro",
+                description: "Não foi possível encontrar a etapa atual na configuração da jornada.",
+            });
+            return;
+        }
+        
+        if (currentIndex >= journeyColumns.length - 1) {
+             toast({
+                title: "Jornada Completa",
+                description: `${memberName} já está na última etapa.`,
+            });
+            return;
+        }
+
+        const nextStage = journeyColumns[currentIndex + 1];
+        updateVolunteer(memberId, { integrationStatus: nextStage.id });
+        toast({
+            title: "Etapa Concluída!",
+            description: `${memberName} foi avançado(a) para "${nextStage.title}".`,
+        });
+    };
+
     const handleAnswerChange = (checklistId: string, questionId: string, value: boolean | string) => {
          setPhaseData(prev => ({
             ...prev,
@@ -259,10 +290,14 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                                         </div>
                                     )}
 
-                                    <div className="flex justify-end">
+                                    <div className="flex justify-end mt-6 gap-2">
+                                        <Button variant="outline" onClick={() => handleCompleteStage(checklist.id)}>
+                                            <CheckCircle className="mr-2 h-4 w-4" />
+                                            Marcar como Concluído e Avançar
+                                        </Button>
                                         <Button onClick={() => handleSave(checklist)} disabled={isSaving === checklist.id}>
                                             {isSaving === checklist.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                            Salvar Progresso
+                                            Salvar Anotações
                                         </Button>
                                     </div>
                                 </div>
