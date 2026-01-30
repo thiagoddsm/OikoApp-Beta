@@ -319,10 +319,10 @@ export function EditUserDialog({ user, open, onOpenChange }) {
                 {formData.batizado === 'sim' && <div className="space-y-1.5"><Label htmlFor="igrejaBatismo">Qual igreja foi batizado?</Label><Input id="igrejaBatismo" name="igrejaBatismo" value={formData.igrejaBatismo} onChange={handleInputChange}/></div>}
 
                  <div className="space-y-1.5">
-                    <Label>É membro ou foi membro de alguma igreja?</Label>
+                    <Label>Veio de outra igreja?</Label>
                     <RadioGroup value={formData.membroAntigo} onValueChange={(v) => handleRadioChange('membroAntigo', v)} className="flex items-center gap-4"><RadioGroupItem value="sim" id="membro-sim" /><Label htmlFor="membro-sim">Sim</Label><RadioGroupItem value="nao" id="membro-nao" /><Label htmlFor="membro-nao">Não</Label></RadioGroup>
                 </div>
-                {formData.membroAntigo === 'sim' && <div className="space-y-1.5"><Label htmlFor="igrejaAntiga">De qual igreja?</Label><Input id="igrejaAntiga" name="igrejaAntiga" value={formData.igrejaAntiga} onChange={handleInputChange}/></div>}
+                {formData.membroAntigo === 'sim' && <div className="space-y-1.5"><Label htmlFor="igrejaAntiga">Qual o nome da igreja de origem?</Label><Input id="igrejaAntiga" name="igrejaAntiga" value={formData.igrejaAntiga} onChange={handleInputChange}/></div>}
                 
                 <div className="space-y-1.5">
                     <Label htmlFor="initialStatus">Status Inicial *</Label>

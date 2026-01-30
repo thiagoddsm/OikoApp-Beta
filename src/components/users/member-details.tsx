@@ -1,4 +1,3 @@
-
 'use client';
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -63,7 +62,7 @@ export function MemberDetails({ user }) {
                 <h4 className="font-semibold text-primary border-b pb-2 mb-4">Jornada Espiritual</h4>
                 <div className="grid md:grid-cols-2 gap-x-8 gap-y-4">
                     <DetailItem icon={CheckCircle} label="Batizado?" value={user.batizado === 'sim' ? `Sim, na ${user.igrejaBatismo || 'igreja'}` : 'Não'} />
-                    <DetailItem icon={Church} label="Membro anterior?" value={user.membroAntigo === 'sim' ? `Sim, da ${user.igrejaAntiga || 'outra igreja'}` : 'Não'} />
+                    <DetailItem icon={Church} label="Veio de outra igreja?" value={user.membroAntigo === 'sim' ? `Sim, da ${user.igrejaAntiga || 'outra igreja'}` : 'Não'} />
                     <DetailItem icon={LogIn} label="Status Inicial" value={user.initialStatus?.replace('_', ' ') || 'Não informado'} />
                     <DetailItem icon={Target} label="Decisão" value={user.decisao?.join(', ') || 'Não informado'} />
                     <DetailItem icon={Calendar} label="Data da Decisão" value={user.dataDecisao ? format(new Date(user.dataDecisao+'T12:00:00'), 'dd/MM/yyyy') : 'Não informado'} />
@@ -82,5 +81,3 @@ export function MemberDetails({ user }) {
     </Card>
   );
 }
-
-    
