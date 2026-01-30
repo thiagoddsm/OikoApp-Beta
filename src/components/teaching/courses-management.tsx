@@ -15,14 +15,17 @@ import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
+import { useVolunteering } from '@/contexts/volunteering-context';
+import { format } from 'date-fns';
 
 
 type Course = { id: string; name: string; description: string; ministryName: string; type: 'basic' | 'complete' };
-type Class = { id: string; name: string; teacherId: string; students: string[]; schedule: string; courseId: string; };
+type Class = { id: string; name: string; teacherId: string; students: string[]; courseId: string; frequency?: 'pontual' | 'semanal' | 'quinzenal' | 'mensal', startDate?: string, endDate?: string, startTime?: string, endTime?: string, dayOfWeek?: string, locationId?: string };
 type User = { id: string; name: string; };
 
 function CourseItem({ course, allUsers }: { course: Course, allUsers: User[] }) {
     const { firestore } = useFirebase();
+    const { rooms } = useVolunteering();
     const [isClassFormOpen, setClassFormOpen] = useState(false);
     const [editingClass, setEditingClass] = useState(null);
 
@@ -34,6 +37,7 @@ function CourseItem({ course, allUsers }: { course: Course, allUsers: User[] }) 
     const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesQuery);
 
     const userMap = useMemo(() => new Map(allUsers?.map(u => [u.id, u.name]) || []), [allUsers]);
+    const roomMap = useMemo(() => new Map(rooms?.map(r => [r.id, r.name]) || []), [rooms]);
 
     const handleEditClass = (cls: any) => {
         setEditingClass(cls);
@@ -51,6 +55,15 @@ function CourseItem({ course, allUsers }: { course: Course, allUsers: User[] }) 
             deleteDocumentNonBlocking(docRef);
         }
     }
+
+    const formatSchedule = (cls: Class) => {
+        if (!cls.frequency) return 'Não definido';
+        if (cls.frequency === 'pontual') {
+            if (!cls.startDate) return 'Data não definida';
+            return `Único: ${format(new Date(cls.startDate + 'T12:00:00'), 'dd/MM/yyyy')} às ${cls.startTime}`;
+        }
+        return `${cls.frequency.charAt(0).toUpperCase() + cls.frequency.slice(1)} - ${cls.dayOfWeek || 'Dia não definido'} às ${cls.startTime}`;
+    };
     
     return (
         <AccordionItem value={course.id}>
@@ -76,22 +89,24 @@ function CourseItem({ course, allUsers }: { course: Course, allUsers: User[] }) 
                                     <TableHead>Turma</TableHead>
                                     <TableHead>Professor</TableHead>
                                     <TableHead>Alunos</TableHead>
-                                    <TableHead>Horário</TableHead>
+                                    <TableHead>Programação</TableHead>
+                                    <TableHead>Local</TableHead>
                                     <TableHead className="text-right">Ações</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {isLoadingClasses ? (
-                                    <TableRow><TableCell colSpan={5} className="text-center h-24"><Loader2 className="animate-spin mx-auto"/></TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={6} className="text-center h-24"><Loader2 className="animate-spin mx-auto"/></TableCell></TableRow>
                                 ) : classes?.length === 0 ? (
-                                    <TableRow><TableCell colSpan={5} className="text-center h-24">Nenhuma turma cadastrada para este curso.</TableCell></TableRow>
+                                    <TableRow><TableCell colSpan={6} className="text-center h-24">Nenhuma turma cadastrada para este curso.</TableCell></TableRow>
                                 ) : (
                                     classes?.map(cls => (
                                         <TableRow key={cls.id}>
                                             <TableCell className="font-medium">{cls.name}</TableCell>
                                             <TableCell>{userMap.get(cls.teacherId) || '-'}</TableCell>
                                             <TableCell>{cls.students?.length || 0}</TableCell>
-                                            <TableCell>{cls.schedule || '-'}</TableCell>
+                                            <TableCell>{formatSchedule(cls)}</TableCell>
+                                            <TableCell>{cls.locationId ? roomMap.get(cls.locationId) : '-'}</TableCell>
                                             <TableCell className="text-right">
                                                 <Button variant="ghost" size="icon" onClick={() => handleEditClass(cls)}><Edit className="size-4"/></Button>
                                                 <Button variant="ghost" size="icon" onClick={() => handleDeleteClass(cls)}><Trash2 className="size-4 text-destructive"/></Button>

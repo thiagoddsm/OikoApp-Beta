@@ -65,7 +65,13 @@ export type Class = {
   name: string;
   teacherId: string;
   students: string[];
-  schedule: string;
+  frequency: 'pontual' | 'semanal' | 'quinzenal' | 'mensal';
+  startDate?: string;
+  endDate?: string;
+  startTime?: string;
+  endTime?: string;
+  dayOfWeek?: string;
+  locationId?: string;
 };
 
 export type PedagogicalLog = {

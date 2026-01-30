@@ -559,7 +559,13 @@
         "name": { "type": "string", "description": "Name of the class (e.g., 'Turma de Sábado')." },
         "teacherId": { "type": "string" },
         "students": { "type": "array", "items": { "type": "string" } },
-        "schedule": { "type": "string", "description": "e.g., 'Sábados, 10:00 - 12:00'" }
+        "frequency": { "type": "string", "enum": ["pontual", "semanal", "quinzenal", "mensal"] },
+        "startDate": { "type": "string", "format": "date" },
+        "endDate": { "type": "string", "format": "date" },
+        "startTime": { "type": "string", "format": "time" },
+        "endTime": { "type": "string", "format": "time" },
+        "dayOfWeek": { "type": "string", "enum": ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"] },
+        "locationId": { "type": "string", "description": "ID of the Room where the class takes place." }
       },
       "required": ["courseId", "name"]
     },
