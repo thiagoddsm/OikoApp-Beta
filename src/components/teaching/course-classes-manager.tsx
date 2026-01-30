@@ -4,11 +4,12 @@ import { useFirebase, useCollection, useMemoFirebase, deleteDocumentNonBlocking 
 import { collection, query, where, doc } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
-import { Loader2, PlusCircle, Edit, Trash2 } from 'lucide-react';
+import { Loader2, PlusCircle, Edit, Trash2, ChevronRight } from 'lucide-react';
 import { ClassFormDialog } from './class-form-dialog';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 
 type Class = { id: string; name: string; teacherId: string; students: string[]; courseId: string; frequency?: 'pontual' | 'semanal' | 'quinzenal' | 'mensal', startDate?: string, endDate?: string, startTime?: string, endTime?: string, dayOfWeek?: string, locationId?: string };
 
@@ -28,21 +29,9 @@ export function CourseClassesManager({ course }) {
     const userMap = useMemo(() => new Map(users?.map(u => [u.id, u.name]) || []), [users]);
     const roomMap = useMemo(() => new Map(rooms?.map(r => [r.id, r.name]) || []), [rooms]);
 
-    const handleEditClass = (cls: any) => {
-        setEditingClass(cls);
-        setClassFormOpen(true);
-    }
-    
     const handleAddClass = () => {
         setEditingClass(null);
         setClassFormOpen(true);
-    }
-    
-    const handleDeleteClass = (cls: any) => {
-        if (confirm(`Tem certeza que deseja excluir a turma "${cls.name}"?`)) {
-            const docRef = doc(firestore, 'classes', cls.id);
-            deleteDocumentNonBlocking(docRef);
-        }
     }
 
     const formatSchedule = (cls: Class) => {
@@ -83,15 +72,18 @@ export function CourseClassesManager({ course }) {
                                     ? 'The School'
                                     : (cls.locationId ? roomMap.get(cls.locationId) : '-') || '-';
                                 return (
-                                <TableRow key={cls.id}>
+                                <TableRow key={cls.id} className="group">
                                     <TableCell className="font-medium">{cls.name}</TableCell>
                                     <TableCell>{userMap.get(cls.teacherId) || '-'}</TableCell>
                                     <TableCell>{cls.students?.length || 0}</TableCell>
                                     <TableCell>{formatSchedule(cls)}</TableCell>
                                     <TableCell>{locationName}</TableCell>
                                     <TableCell className="text-right">
-                                        <Button variant="ghost" size="icon" onClick={() => handleEditClass(cls)}><Edit className="size-4"/></Button>
-                                        <Button variant="ghost" size="icon" onClick={() => handleDeleteClass(cls)}><Trash2 className="size-4 text-destructive"/></Button>
+                                        <Button asChild variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100">
+                                            <Link href={`/dashboard/teaching/classes/${cls.id}`}>
+                                                Gerenciar <ChevronRight className="size-4 ml-1" />
+                                            </Link>
+                                        </Button>
                                     </TableCell>
                                 </TableRow>
                             )})
@@ -108,5 +100,3 @@ export function CourseClassesManager({ course }) {
         </>
     );
 }
-
-    
