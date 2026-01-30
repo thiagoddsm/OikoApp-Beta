@@ -1,13 +1,12 @@
-
 'use client';
 
-import { UnderConstruction } from '@/components/common/under-construction';
+import { StudentsManagement } from '@/components/teaching/students-management';
+import { VolunteeringProvider } from '@/contexts/volunteering-context';
 
 export default function StudentsPage() {
   return (
-    <UnderConstruction 
-      pageTitle="Alunos"
-      pageDescription="Gerencie os alunos matriculados nos cursos e acompanhe seu progresso."
-    />
+    <VolunteeringProvider>
+      <StudentsManagement />
+    </VolunteeringProvider>
   );
 }
