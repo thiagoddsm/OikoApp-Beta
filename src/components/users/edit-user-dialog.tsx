@@ -24,6 +24,7 @@ import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query, doc, Timestamp } from 'firebase/firestore';
 import { userRoles } from '@/lib/roles';
 import { journeyColumns } from '@/components/users/journey-status-config';
+import { Textarea } from '../ui/textarea';
 
 type User = {
   id: string;
@@ -64,6 +65,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
     nomeConvidou: '',
     contatoPreferencia: [],
     contatoTurno: [],
+    observacoes: '',
     integrationStatus: '',
     role: '',
     celulaId: '',
@@ -109,6 +111,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         nomeConvidou: user.nomeConvidou || '',
         contatoPreferencia: user.contatoPreferencia || [],
         contatoTurno: user.contatoTurno || [],
+        observacoes: user.observacoes || '',
       });
     } else {
        // Reset for new user
@@ -132,6 +135,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         nomeConvidou: '',
         contatoPreferencia: [],
         contatoTurno: [],
+        observacoes: '',
         integrationStatus: 'nao_alcancado',
         role: '',
         celulaId: '',
@@ -211,6 +215,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         nomeConvidou: formData.nomeConvidou,
         contatoPreferencia: formData.contatoPreferencia,
         contatoTurno: formData.contatoTurno,
+        observacoes: formData.observacoes,
     };
 
     try {
@@ -416,6 +421,15 @@ export function EditUserDialog({ user, open, onOpenChange }) {
                 </div>
              </div>
         </section>
+
+        {/* Observações */}
+         <section className="space-y-4 p-4 border rounded-lg">
+            <h4 className="font-semibold text-primary border-b pb-2">Observações</h4>
+            <div className="space-y-1.5">
+                <Label htmlFor="observacoes">Observações Gerais</Label>
+                <Textarea id="observacoes" name="observacoes" value={formData.observacoes} onChange={handleInputChange} placeholder="Alergias, necessidades especiais, ou qualquer outra informação relevante." />
+            </div>
+         </section>
         
       </div>
       <DialogFooter>
@@ -432,3 +446,5 @@ export function EditUserDialog({ user, open, onOpenChange }) {
     </>
   );
 }
+
+  

@@ -67,6 +67,7 @@
         "nomeConvidou": { "type": "string" },
         "contatoPreferencia": { "type": "array", "items": { "type": "string" } },
         "contatoTurno": { "type": "array", "items": { "type": "string" } },
+        "observacoes": { "type": "string", "description": "General observations about the user." },
         "integrationStatus": { "type": "string" },
         "isTeacher": { "type": "boolean", "description": "Indicates if the user is a teacher."},
         "taughtCourseIds": {
@@ -779,3 +780,5 @@
     ]
   }
 }
+
+  
