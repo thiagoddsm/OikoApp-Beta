@@ -1,9 +1,11 @@
 'use client';
 
-import { Handshake, School, MapIcon, Briefcase, Church, Group, BookOpen, UserPlus, Award, Shield, Target, UserX, UserCheck, GraduationCap } from 'lucide-react';
+import { Handshake, School, MapIcon, Briefcase, Church, Group, BookOpen, UserPlus, Award, Shield, Target, UserX, UserCheck, GraduationCap, User, LogIn } from 'lucide-react';
 
 export const journeyColumns = [
     { id: 'nao_alcancado', title: 'Não Alcançado' },
+    { id: 'visitante_celula', title: 'Visitante de GC' },
+    { id: 'participante_gc', title: 'Participante de GC' },
     { id: 'novo_convertido', title: 'Novo Convertido' },
     { id: 'reconciliado', title: 'Em processo de reconciliação' },
     { id: 'transferido', title: 'Em processo de transferência' },
@@ -18,6 +20,8 @@ export const journeyColumns = [
 
 export const statusToPhaseMap: { [key: string]: string } = {
     nao_alcancado: '1',
+    visitante_celula: '1',
+    participante_gc: '1',
     novo_convertido: '1',
     reconciliado: '1',
     transferido: '1',
@@ -39,6 +43,8 @@ export const phaseConfig: { [key: string]: { name: string; color: string } } = {
 
 export const iconMap: { [key: string]: React.ElementType } = {
     nao_alcancado: UserX,
+    visitante_celula: LogIn,
+    participante_gc: User,
     novo_convertido: UserPlus,
     reconciliado: Handshake,
     transferido: Church,

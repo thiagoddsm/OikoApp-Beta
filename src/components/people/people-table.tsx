@@ -48,6 +48,8 @@ type AreaOfService = {
 
 const journeyStatusLabels: { [key: string]: string } = {
     'nao_alcancado': 'Não Alcançado',
+    'visitante_celula': 'Visitante de GC',
+    'participante_gc': 'Participante de GC',
     'novo_convertido': 'Novo Convertido',
     'reconciliado': 'Em processo de reconciliação',
     'transferido': 'Em processo de transferência',
