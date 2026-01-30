@@ -1,6 +1,6 @@
 'use client';
 import React, { useMemo, useState } from 'react';
-import { useVolunteering, type User, type Class } from '@/contexts/volunteering-context';
+import { useVolunteering, type User, type Class, type Course } from '@/contexts/volunteering-context';
 import { Loader2, User as UserIcon, Search, Edit } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -11,53 +11,49 @@ import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import Link from 'next/link';
 
-const statusConfig: { [key: string]: { label: string; color: string; } } = {
-  active: { label: 'Ativo', color: 'bg-green-100 text-green-800' },
-  blocked: { label: 'Bloqueado', color: 'bg-yellow-100 text-yellow-800' },
-  delinquent: { label: 'Inadimplente', color: 'bg-red-100 text-red-800' },
-};
-
 export function StudentsManagement() {
   const { users, classes, courses, isLoading } = useVolunteering();
   const [searchTerm, setSearchTerm] = useState('');
 
-  const studentsData = useMemo(() => {
+  const enrollments = useMemo(() => {
     if (!users || !classes || !courses) return [];
 
-    const studentMap = new Map<string, { user: User, enrolledClasses: Class[] }>();
-    
-    // Initialize map with all users that might be students
-    users.forEach(user => {
-        studentMap.set(user.id, { user, enrolledClasses: [] });
-    });
-    
-    // Populate enrolled classes
+    const userMap = new Map(users.map(u => [u.id, u]));
+    const courseMap = new Map(courses.map(c => [c.id, c]));
+
+    const allEnrollments: { id: string; user: User; class: Class; course: Course }[] = [];
+
     classes.forEach(cls => {
-        cls.students?.forEach(studentId => {
-            if (studentMap.has(studentId)) {
-                const studentEntry = studentMap.get(studentId)!;
-                studentEntry.enrolledClasses.push(cls);
-            }
-        });
+        const course = courseMap.get(cls.courseId);
+        if (course) {
+            cls.students?.forEach(studentId => {
+                const user = userMap.get(studentId);
+                if (user) {
+                    allEnrollments.push({
+                        id: `${user.id}-${cls.id}`, // unique key for the row
+                        user,
+                        class: cls,
+                        course
+                    });
+                }
+            });
+        }
     });
 
-    // Filter out users who are not in any class
-    const enrolledStudents = Array.from(studentMap.values()).filter(entry => entry.enrolledClasses.length > 0);
-
-    return enrolledStudents;
-
+    return allEnrollments;
   }, [users, classes, courses]);
 
-  const filteredStudents = useMemo(() => {
-      if (!studentsData) return [];
-      return studentsData.filter(studentEntry => 
-        studentEntry.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        studentEntry.user.email?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-  }, [studentsData, searchTerm]);
-  
-  const courseMap = useMemo(() => new Map(courses.map(c => [c.id, c.name])), [courses]);
 
+  const filteredEnrollments = useMemo(() => {
+      if (!enrollments) return [];
+      return enrollments.filter(enrollment => 
+        enrollment.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (enrollment.user.email && enrollment.user.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        enrollment.course.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        enrollment.class.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+  }, [enrollments, searchTerm]);
+  
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-8 h-64">
@@ -78,7 +74,7 @@ export function StudentsManagement() {
                <div className="relative">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
-                        placeholder="Buscar por nome ou email..."
+                        placeholder="Buscar por aluno, curso, turma..."
                         className="pl-8"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -91,25 +87,25 @@ export function StudentsManagement() {
                       <TableHeader>
                           <TableRow>
                               <TableHead>Aluno</TableHead>
-                              <TableHead>Status Financeiro (Wave)</TableHead>
-                              <TableHead>Turmas Matriculadas</TableHead>
+                              <TableHead>Curso</TableHead>
+                              <TableHead>Turma</TableHead>
                               <TableHead className="text-right">Ações</TableHead>
                           </TableRow>
                       </TableHeader>
                       <TableBody>
-                          {filteredStudents.length === 0 ? (
+                          {filteredEnrollments.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={4} className="h-24 text-center">
                                     Nenhum aluno encontrado.
                                 </TableCell>
                             </TableRow>
                           ) : (
-                            filteredStudents.map(({ user, enrolledClasses }) => {
+                            filteredEnrollments.map((enrollment) => {
+                                const { user, course, class: cls } = enrollment;
                                 const avatar = PlaceHolderImages.find(p => p.id === 'avatar-1');
-                                const statusInfo = user.financialStatus ? statusConfig[user.financialStatus] : null;
-
+                                
                                 return (
-                                <TableRow key={user.id}>
+                                <TableRow key={enrollment.id}>
                                     <TableCell>
                                         <div className="flex items-center gap-3">
                                             <Avatar className="h-9 w-9">
@@ -123,20 +119,10 @@ export function StudentsManagement() {
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                        {statusInfo ? (
-                                            <Badge variant="outline" className={statusInfo.color}>{statusInfo.label}</Badge>
-                                        ) : (
-                                            <Badge variant="secondary">N/A</Badge>
-                                        )}
+                                      <Badge variant="outline">{course.name}</Badge>
                                     </TableCell>
-                                     <TableCell>
-                                        <div className="flex flex-wrap gap-1">
-                                            {enrolledClasses.map(cls => (
-                                                <Badge key={cls.id} variant="secondary">
-                                                    {courseMap.get(cls.courseId)} - {cls.name}
-                                                </Badge>
-                                            ))}
-                                        </div>
+                                    <TableCell className="text-muted-foreground">
+                                      {cls.name}
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <Button variant="ghost" size="sm" asChild>
