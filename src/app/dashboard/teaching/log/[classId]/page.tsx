@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -13,8 +12,9 @@ import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Timestamp } from 'firebase/firestore';
+import { VolunteeringProvider } from '@/contexts/volunteering-context';
 
-export default function PedagogicalLogPage() {
+function PedagogicalLogPageContent() {
     const params = useParams();
     const router = useRouter();
     const classId = params.classId as string;
@@ -137,5 +137,13 @@ export default function PedagogicalLogPage() {
                 </CardContent>
             </Card>
         </div>
+    );
+}
+
+export default function PedagogicalLogPage() {
+    return (
+        <VolunteeringProvider>
+            <PedagogicalLogPageContent />
+        </VolunteeringProvider>
     );
 }
