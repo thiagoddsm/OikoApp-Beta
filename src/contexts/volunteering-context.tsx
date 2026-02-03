@@ -24,6 +24,7 @@ export type User = {
   name: string;
   phone?: string;
   email?: string;
+  avatar?: string;
   isTeacher?: boolean;
   taughtCourseIds?: string[];
   serviceStatus?: 'serving' | 'not_serving';
@@ -33,6 +34,8 @@ export type User = {
   blockedDates?: string[];
   lastServedDate?: Timestamp; // "YYYY-MM-DD"
   financialStatus?: 'active' | 'blocked' | 'delinquent';
+  absenceCount?: number;
+  integrationStatus?: string;
 }
 
 export type VolunteeringEvent = {
@@ -139,6 +142,22 @@ export type WaveExpense = {
     receiptUrl?: string;
 }
 
+export type DisPlan = {
+  id: string;
+  name: string;
+  price: number;
+}
+
+export type DisPayment = {
+  id: string;
+  userId: string;
+  planId: string;
+  month: string; // "YYYY-MM"
+  amount: number;
+  status: 'pending' | 'paid' | 'overdue';
+  contaAzulInvoiceId?: string;
+}
+
 
 type AreaData = Omit<AreaOfService, 'id'>;
 type TeamData = Omit<Team, 'id'>;
@@ -149,6 +168,8 @@ type SavedScheduleData = Omit<SavedSchedule, 'id'>;
 type WavePlanData = Omit<WavePlan, 'id'>;
 type WavePaymentData = Omit<WavePayment, 'id'>;
 type WaveExpenseData = Omit<WaveExpense, 'id'>;
+type DisPlanData = Omit<DisPlan, 'id'>;
+type DisPaymentData = Omit<DisPayment, 'id'>;
 type PedagogicalLogData = Omit<PedagogicalLog, 'id'>;
 type ClassData = Omit<Class, 'id'>;
 
@@ -169,6 +190,8 @@ interface VolunteeringContextType {
   wavePlans: WavePlan[];
   wavePayments: WavePayment[];
   waveExpenses: WaveExpense[];
+  disPlans: DisPlan[];
+  disPayments: DisPayment[];
   isLoading: boolean;
   
   // Functions for Areas
@@ -216,6 +239,14 @@ interface VolunteeringContextType {
   addWaveExpense: (data: WaveExpenseData) => Promise<void>;
   updateWaveExpense: (id: string, data: Partial<WaveExpenseData>) => Promise<void>;
   deleteWaveExpense: (id: string) => Promise<void>;
+
+  // Functions for DIS
+  addDisPlan: (data: DisPlanData) => Promise<void>;
+  updateDisPlan: (id: string, data: Partial<DisPlanData>) => Promise<void>;
+  deleteDisPlan: (id: string) => Promise<void>;
+  addDisPayment: (data: DisPaymentData) => Promise<void>;
+  updateDisPayment: (id: string, data: Partial<DisPaymentData>) => Promise<void>;
+  deleteDisPayment: (id: string) => Promise<void>;
   
   // Functions for Pedagogical Logs
   addPedagogicalLog: (data: PedagogicalLogData) => Promise<void>;
@@ -243,6 +274,8 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const wavePlansQuery = useMemoFirebase(() => firestore ? collection(firestore, 'wave_plans') : null, [firestore]);
   const wavePaymentsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'wave_payments') : null, [firestore]);
   const waveExpensesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'wave_expenses') : null, [firestore]);
+  const disPlansQuery = useMemoFirebase(() => firestore ? collection(firestore, 'dis_plans') : null, [firestore]);
+  const disPaymentsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'dis_payments') : null, [firestore]);
 
   const { data: areas, isLoading: loadingAreas } = useCollection<AreaOfService>(areasQuery);
   const { data: teams, isLoading: loadingTeams } = useCollection<Team>(teamsQuery);
@@ -257,9 +290,11 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { data: wavePlans, isLoading: loadingWavePlans } = useCollection<WavePlan>(wavePlansQuery);
   const { data: wavePayments, isLoading: loadingWavePayments } = useCollection<WavePayment>(wavePaymentsQuery);
   const { data: waveExpenses, isLoading: loadingWaveExpenses } = useCollection<WaveExpense>(waveExpensesQuery);
+  const { data: disPlans, isLoading: loadingDisPlans } = useCollection<DisPlan>(disPlansQuery);
+  const { data: disPayments, isLoading: loadingDisPayments } = useCollection<DisPayment>(disPaymentsQuery);
 
 
-  const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents || loadingRooms || loadingCourses || loadingClasses || loadingPedagogicalLogs || loadingReservations || loadingSavedSchedules || loadingWavePlans || loadingWavePayments || loadingWaveExpenses;
+  const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents || loadingRooms || loadingCourses || loadingClasses || loadingPedagogicalLogs || loadingReservations || loadingSavedSchedules || loadingWavePlans || loadingWavePayments || loadingWaveExpenses || loadingDisPlans || loadingDisPayments;
 
   // --- GENERIC CRUD FUNCTIONS ---
   const createCrudFunctions = <T extends {id: string}>(collectionName: string, itemType: string) => {
@@ -297,6 +332,9 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { addItem: addWavePlan, updateItem: updateWavePlan, deleteItem: deleteWavePlan } = createCrudFunctions<WavePlan>('wave_plans', 'Plano Wave');
   const { addItem: addWaveExpense, updateItem: updateWaveExpense, deleteItem: deleteWaveExpense } = createCrudFunctions<WaveExpense>('wave_expenses', 'Despesa Wave');
   const { addItem: addPedagogicalLog, updateItem: updatePedagogicalLog, deleteItem: deletePedagogicalLog } = createCrudFunctions<PedagogicalLog>('pedagogical_logs', 'Registro Pedagógico');
+  
+  const { addItem: addDisPlan, updateItem: updateDisPlan, deleteItem: deleteDisPlan } = createCrudFunctions<DisPlan>('dis_plans', 'Plano DIS');
+  const { addItem: addDisPayment, updateItem: updateDisPayment, deleteItem: deleteDisPayment } = createCrudFunctions<DisPayment>('dis_payments', 'Pagamento DIS');
 
 
   // --- CUSTOM EVENT FUNCTIONS ---
@@ -429,6 +467,8 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     wavePlans: wavePlans || [],
     wavePayments: wavePayments || [],
     waveExpenses: waveExpenses || [],
+    disPlans: disPlans || [],
+    disPayments: disPayments || [],
     isLoading,
     addArea,
     updateArea,
@@ -458,10 +498,16 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     addWaveExpense,
     updateWaveExpense,
     deleteWaveExpense,
+    addDisPlan,
+    updateDisPlan,
+    deleteDisPlan,
+    addDisPayment,
+    updateDisPayment,
+    deleteDisPayment,
     addPedagogicalLog,
     updatePedagogicalLog,
     deletePedagogicalLog,
-  }), [areas, teams, users, events, rooms, courses, classes, pedagogicalLogs, reservations, savedSchedules, wavePlans, wavePayments, waveExpenses, isLoading]);
+  }), [areas, teams, users, events, rooms, courses, classes, pedagogicalLogs, reservations, savedSchedules, wavePlans, wavePayments, waveExpenses, disPlans, disPayments, isLoading]);
 
   return (
     <VolunteeringContext.Provider value={value}>

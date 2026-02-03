@@ -699,6 +699,30 @@
       },
       "required": ["userId", "planId", "month", "amount", "status"]
     },
+    "DisPlan": {
+      "title": "DIS Plan",
+      "type": "object",
+      "description": "Represents a tuition plan for the DIS school.",
+      "properties": {
+        "name": { "type": "string" },
+        "price": { "type": "number" }
+      },
+      "required": ["name", "price"]
+    },
+    "DisPayment": {
+      "title": "DIS Payment",
+      "type": "object",
+      "description": "Represents a monthly payment for a student at DIS.",
+      "properties": {
+        "userId": { "type": "string" },
+        "planId": { "type": "string" },
+        "month": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "paid", "overdue"] },
+        "contaAzulInvoiceId": { "type": "string", "description": "ID of the invoice in Conta Azul." }
+      },
+      "required": ["userId", "planId", "month", "amount", "status"]
+    },
     "WaveExpense": {
       "title": "Wave Expense",
       "type": "object",
@@ -775,6 +799,8 @@
       { "path": "/wave_plans/{planId}", "definition": { "schema": { "$ref": "#/entities/WavePlan" } } },
       { "path": "/wave_payments/{paymentId}", "definition": { "schema": { "$ref": "#/entities/WavePayment" } } },
       { "path": "/wave_expenses/{expenseId}", "definition": { "schema": { "$ref": "#/entities/WaveExpense" } } },
+      { "path": "/dis_plans/{planId}", "definition": { "schema": { "$ref": "#/entities/DisPlan" } } },
+      { "path": "/dis_payments/{paymentId}", "definition": { "schema": { "$ref": "#/entities/DisPayment" } } },
       { "path": "/pedagogical_logs/{logId}", "definition": { "schema": { "$ref": "#/entities/PedagogicalLog" } } },
       { "path": "/config/conta_azul", "definition": { "schema": { "$ref": "#/entities/ContaAzulConfig" } } }
     ]

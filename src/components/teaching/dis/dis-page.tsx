@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { School, Banknote, User, HandHelping } from 'lucide-react';
 import { UnderConstruction } from '@/components/common/under-construction';
+import { DisFinanceDashboard } from './dis-finance-dashboard';
 
 const modules = [
     {
@@ -19,8 +20,8 @@ const modules = [
         id: "finance",
         title: "Módulo Financeiro",
         icon: Banknote,
-        description: "Automação de cobranças, gateway de pagamento, régua de cobrança e pagamento de professores.",
-        component: <UnderConstruction pageTitle="Módulo Financeiro" pageDescription="Automação de cobranças, gateway de pagamento, régua de cobrança e pagamento de professores." />
+        description: "Gestão de faturas, integração com Conta Azul e acompanhamento de pagamentos.",
+        component: <DisFinanceDashboard />
     },
     {
         id: "teacher",
@@ -51,7 +52,7 @@ export function DisSchoolPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-            <Tabs defaultValue="admin" className="w-full">
+            <Tabs defaultValue="finance" className="w-full">
                 <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
                     {modules.map((mod) => (
                         <TabsTrigger key={mod.id} value={mod.id}>
