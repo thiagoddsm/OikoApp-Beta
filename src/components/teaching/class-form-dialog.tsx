@@ -61,7 +61,6 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
         }
 
       } else {
-        // Reset for new class
         setName('');
         setTeacherId('');
         setFrequency('pontual');
@@ -93,7 +92,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
     const classData = { 
         courseId, 
         name, 
-        teacherId, 
+        teacherId: teacherId === 'null' ? '' : teacherId, 
         students: existingClass?.students || [],
         frequency,
         startDate,
@@ -132,7 +131,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
               </div>
               <div>
                 <Label htmlFor="teacherId">Professor</Label>
-                <Select value={teacherId} onValueChange={setTeacherId} disabled={isLoading}>
+                <Select value={teacherId || 'null'} onValueChange={setTeacherId} disabled={isLoading}>
                   <SelectTrigger id="teacherId"><SelectValue placeholder={isLoading ? "Carregando..." : "Selecione um professor"} /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="null">Nenhum</SelectItem>
@@ -169,7 +168,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
                   </div>
                 )}
                  <div>
-                    <Label htmlFor="startDate">Data de Início</Label>
+                    <Label htmlFor="startDate">Data de Início {frequency !== 'pontual' && '(primeira ocorrência)'}</Label>
                     <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required/>
                 </div>
                 {frequency !== 'pontual' && (
@@ -200,7 +199,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
                     {locationType === 'ibm' && (
                         <div className="md:col-span-2">
                             <Label htmlFor="ibmRoomId">Ambiente (IBM)</Label>
-                            <Select value={ibmRoomId} onValueChange={setIbmRoomId} disabled={isLoading}>
+                            <Select value={ibmRoomId || 'null'} onValueChange={setIbmRoomId} disabled={isLoading}>
                                 <SelectTrigger id="ibmRoomId"><SelectValue placeholder={isLoading ? "Carregando..." : "Selecione o ambiente"} /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="null">Não definido</SelectItem>
@@ -215,7 +214,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
         <DialogFooter>
           <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
           <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving && <Loader2 className="mr-2 size-4 animate-spin"/>} Salvar
+            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Salvar Alterações
           </Button>
         </DialogFooter>
       </DialogContent>

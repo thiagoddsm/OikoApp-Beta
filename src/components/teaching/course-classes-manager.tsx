@@ -10,14 +10,18 @@ import { useVolunteering } from '@/contexts/volunteering-context';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
+import { useToast } from '@/hooks/use-toast';
+import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 
 type Class = { id: string; name: string; teacherId: string; students: string[]; courseId: string; frequency?: 'pontual' | 'semanal' | 'quinzenal' | 'mensal', startDate?: string, endDate?: string, startTime?: string, endTime?: string, dayOfWeek?: string, locationId?: string };
 
 export function CourseClassesManager({ course }) {
     const { firestore } = useFirebase();
     const { users, rooms } = useVolunteering();
+    const { toast } = useToast();
     const [isClassFormOpen, setClassFormOpen] = useState(false);
-    const [editingClass, setEditingClass] = useState(null);
+    const [editingClass, setEditingClass] = useState<Class | null>(null);
+    const [classToDelete, setClassToDelete] = useState<Class | null>(null);
 
     const classesQuery = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -32,7 +36,24 @@ export function CourseClassesManager({ course }) {
     const handleAddClass = () => {
         setEditingClass(null);
         setClassFormOpen(true);
-    }
+    };
+
+    const handleEditClass = (cls: Class) => {
+        setEditingClass(cls);
+        setClassFormOpen(true);
+    };
+
+    const handleDeleteClass = (cls: Class) => {
+        setClassToDelete(cls);
+    };
+
+    const confirmDelete = () => {
+        if (classToDelete && firestore) {
+            deleteDocumentNonBlocking(doc(firestore, 'classes', classToDelete.id));
+            toast({ variant: 'destructive', title: 'Turma excluída', description: `A turma "${classToDelete.name}" foi removida.` });
+            setClassToDelete(null);
+        }
+    };
 
     const formatSchedule = (cls: Class) => {
         if (!cls.frequency) return 'Não definido';
@@ -79,11 +100,19 @@ export function CourseClassesManager({ course }) {
                                     <TableCell>{formatSchedule(cls)}</TableCell>
                                     <TableCell>{locationName}</TableCell>
                                     <TableCell className="text-right">
-                                        <Button asChild variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100">
-                                            <Link href={`/dashboard/teaching/classes/${cls.id}`}>
-                                                Gerenciar <ChevronRight className="size-4 ml-1" />
-                                            </Link>
-                                        </Button>
+                                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditClass(cls)}>
+                                                <Edit className="size-4" />
+                                            </Button>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteClass(cls)}>
+                                                <Trash2 className="size-4" />
+                                            </Button>
+                                            <Button asChild variant="ghost" size="icon" className="h-8 w-8">
+                                                <Link href={`/dashboard/teaching/classes/${cls.id}`}>
+                                                    <ChevronRight className="size-4" />
+                                                </Link>
+                                            </Button>
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             )})
@@ -97,6 +126,15 @@ export function CourseClassesManager({ course }) {
                 existingClass={editingClass}
                 courseId={course.id}
             />
+            {classToDelete && (
+                <DeleteConfirmationDialog
+                    open={!!classToDelete}
+                    onOpenChange={() => setClassToDelete(null)}
+                    onConfirm={confirmDelete}
+                    itemName={classToDelete.name}
+                    itemType="Turma"
+                />
+            )}
         </>
     );
 }
