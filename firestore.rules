@@ -4,8 +4,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // REGRAS 100% LIBERAIS PARA FASE DE TESTES
+    // REGRAS 100% ABERTAS PARA FASE DE TESTES
     // Permite que qualquer pessoa (mesmo sem login) leia e escreva em qualquer documento.
+    // Isso é necessário para que o link público de inscrição funcione sem erros de permissão.
     match /{document=**} {
       allow read, write: if true;
     }
