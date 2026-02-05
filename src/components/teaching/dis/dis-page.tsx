@@ -4,9 +4,12 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { School, Banknote, User, HandHelping } from 'lucide-react';
+import { School, Banknote, User, HandHelping, Share2 } from 'lucide-react';
 import { UnderConstruction } from '@/components/common/under-construction';
 import { DisFinanceDashboard } from './dis-finance-dashboard';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { useVolunteering } from '@/contexts/volunteering-context';
 
 const modules = [
     {
@@ -40,16 +43,37 @@ const modules = [
 ];
 
 export function DisSchoolPage() {
+  const { toast } = useToast();
+  const { courses } = useVolunteering();
+
+  const handleCopyLink = () => {
+    const disCourse = courses.find(c => c.ministryName.toLowerCase() === 'dis' || c.name.toLowerCase().includes('libras'));
+    const baseUrl = window.location.origin;
+    const link = disCourse 
+        ? `${baseUrl}/public/enrollment?courseId=${disCourse.id}`
+        : `${baseUrl}/public/enrollment`;
+    
+    navigator.clipboard.writeText(link);
+    toast({
+        title: "Link Copiado!",
+        description: "O link de inscrição para o DIS foi copiado para a área de transferência.",
+    });
+  };
+
   return (
      <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle>
-            DIS - Escola de Inclusão
-          </CardTitle>
-          <CardDescription>
-            Este é o centro de gerenciamento completo para a escola de inclusão e Libras. Navegue pelas abas para acessar cada módulo.
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>DIS - Escola de Inclusão</CardTitle>
+            <CardDescription>
+                Centro de gerenciamento completo para a escola de inclusão e Libras.
+            </CardDescription>
+          </div>
+          <Button variant="outline" onClick={handleCopyLink}>
+            <Share2 className="mr-2 size-4" />
+            Link de Inscrição
+          </Button>
         </CardHeader>
         <CardContent>
             <Tabs defaultValue="finance" className="w-full">

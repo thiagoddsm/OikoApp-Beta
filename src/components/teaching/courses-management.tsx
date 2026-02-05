@@ -1,10 +1,11 @@
+
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, query, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Loader2, PlusCircle, BookOpen, Edit, Trash2, Waves, ChevronRight, HandHelping } from 'lucide-react';
+import { Loader2, PlusCircle, BookOpen, Edit, Trash2, Waves, ChevronRight, HandHelping, Link as LinkIcon } from 'lucide-react';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 import { CourseFormDialog } from './course-form-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -61,6 +62,16 @@ export function CoursesManagement() {
     toast({ variant: 'destructive', title: 'Curso excluído', description: `O curso "${deletingCourse.name}" será removido.`});
     setDeletingCourse(null);
   }
+
+  const handleCopyEnrollmentLink = (courseId: string) => {
+    const baseUrl = window.location.origin;
+    const link = `${baseUrl}/public/enrollment?courseId=${courseId}`;
+    navigator.clipboard.writeText(link);
+    toast({
+        title: "Link Copiado!",
+        description: "Link direto para inscrição deste curso copiado com sucesso.",
+    });
+  };
   
   const isLoading = isLoadingCourses;
 
@@ -105,6 +116,7 @@ export function CoursesManagement() {
                                         </div>
                                     </Link>
                                     <div className="absolute right-12 top-1/2 -translate-y-1/2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleCopyEnrollmentLink(course.id);}} title="Copiar link de inscrição"><LinkIcon className="size-4 text-blue-600"/></Button>
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleEditCourse(course);}}><Edit className="size-4"/></Button>
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleDeleteCourse(course);}}><Trash2 className="size-4 text-destructive"/></Button>
                                     </div>
@@ -138,6 +150,7 @@ export function CoursesManagement() {
                                         </div>
                                     </Link>
                                     <div className="absolute right-12 top-1/2 -translate-y-1/2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleCopyEnrollmentLink(course.id);}} title="Copiar link de inscrição"><LinkIcon className="size-4 text-blue-600"/></Button>
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleEditCourse(course);}}><Edit className="size-4"/></Button>
                                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleDeleteCourse(course);}}><Trash2 className="size-4 text-destructive"/></Button>
                                     </div>

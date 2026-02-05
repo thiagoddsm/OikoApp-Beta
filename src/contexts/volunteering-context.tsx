@@ -158,6 +158,17 @@ export type DisPayment = {
   contaAzulInvoiceId?: string;
 }
 
+export type EnrollmentRequest = {
+    id: string;
+    name: string;
+    email?: string;
+    phone: string;
+    courseId: string;
+    classId?: string;
+    status: 'pending' | 'approved' | 'rejected';
+    createdAt: Timestamp;
+};
+
 
 type AreaData = Omit<AreaOfService, 'id'>;
 type TeamData = Omit<Team, 'id'>;
@@ -172,6 +183,7 @@ type DisPlanData = Omit<DisPlan, 'id'>;
 type DisPaymentData = Omit<DisPayment, 'id'>;
 type PedagogicalLogData = Omit<PedagogicalLog, 'id'>;
 type ClassData = Omit<Class, 'id'>;
+type EnrollmentRequestData = Omit<EnrollmentRequest, 'id'>;
 
 
 // --- CONTEXT DEFINITION ---
@@ -192,6 +204,7 @@ interface VolunteeringContextType {
   waveExpenses: WaveExpense[];
   disPlans: DisPlan[];
   disPayments: DisPayment[];
+  enrollmentRequests: EnrollmentRequest[];
   isLoading: boolean;
   
   // Functions for Areas
@@ -252,6 +265,10 @@ interface VolunteeringContextType {
   addPedagogicalLog: (data: PedagogicalLogData) => Promise<void>;
   updatePedagogicalLog: (id: string, data: Partial<PedagogicalLogData>) => Promise<void>;
   deletePedagogicalLog: (id: string) => Promise<void>;
+
+  // Functions for Enrollment Requests
+  updateEnrollmentRequest: (id: string, data: Partial<EnrollmentRequestData>) => Promise<void>;
+  deleteEnrollmentRequest: (id: string) => Promise<void>;
 }
 
 const VolunteeringContext = createContext<VolunteeringContextType | undefined>(undefined);
@@ -276,6 +293,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const waveExpensesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'wave_expenses') : null, [firestore]);
   const disPlansQuery = useMemoFirebase(() => firestore ? collection(firestore, 'dis_plans') : null, [firestore]);
   const disPaymentsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'dis_payments') : null, [firestore]);
+  const enrollmentRequestsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'enrollment_requests') : null, [firestore]);
 
   const { data: areas, isLoading: loadingAreas } = useCollection<AreaOfService>(areasQuery);
   const { data: teams, isLoading: loadingTeams } = useCollection<Team>(teamsQuery);
@@ -292,9 +310,10 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { data: waveExpenses, isLoading: loadingWaveExpenses } = useCollection<WaveExpense>(waveExpensesQuery);
   const { data: disPlans, isLoading: loadingDisPlans } = useCollection<DisPlan>(disPlansQuery);
   const { data: disPayments, isLoading: loadingDisPayments } = useCollection<DisPayment>(disPaymentsQuery);
+  const { data: enrollmentRequests, isLoading: loadingEnrollments } = useCollection<EnrollmentRequest>(enrollmentRequestsQuery);
 
 
-  const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents || loadingRooms || loadingCourses || loadingClasses || loadingPedagogicalLogs || loadingReservations || loadingSavedSchedules || loadingWavePlans || loadingWavePayments || loadingWaveExpenses || loadingDisPlans || loadingDisPayments;
+  const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents || loadingRooms || loadingCourses || loadingClasses || loadingPedagogicalLogs || loadingReservations || loadingSavedSchedules || loadingWavePlans || loadingWavePayments || loadingWaveExpenses || loadingDisPlans || loadingDisPayments || loadingEnrollments;
 
   // --- GENERIC CRUD FUNCTIONS ---
   const createCrudFunctions = <T extends {id: string}>(collectionName: string, itemType: string) => {
@@ -335,6 +354,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   
   const { addItem: addDisPlan, updateItem: updateDisPlan, deleteItem: deleteDisPlan } = createCrudFunctions<DisPlan>('dis_plans', 'Plano DIS');
   const { addItem: addDisPayment, updateItem: updateDisPayment, deleteItem: deleteDisPayment } = createCrudFunctions<DisPayment>('dis_payments', 'Pagamento DIS');
+  const { updateItem: updateEnrollmentRequest, deleteItem: deleteEnrollmentRequest } = createCrudFunctions<EnrollmentRequest>('enrollment_requests', 'Pedido de Inscrição');
 
 
   // --- CUSTOM EVENT FUNCTIONS ---
@@ -469,6 +489,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     waveExpenses: waveExpenses || [],
     disPlans: disPlans || [],
     disPayments: disPayments || [],
+    enrollmentRequests: enrollmentRequests || [],
     isLoading,
     addArea,
     updateArea,
@@ -507,10 +528,12 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     addPedagogicalLog,
     updatePedagogicalLog,
     deletePedagogicalLog,
-  }), [areas, teams, users, events, rooms, courses, classes, pedagogicalLogs, reservations, savedSchedules, wavePlans, wavePayments, waveExpenses, disPlans, disPayments, isLoading]);
+    updateEnrollmentRequest,
+    deleteEnrollmentRequest,
+  }), [areas, teams, users, events, rooms, courses, classes, pedagogicalLogs, reservations, savedSchedules, wavePlans, wavePayments, waveExpenses, disPlans, disPayments, enrollmentRequests, isLoading]);
 
   return (
-    <VolunteeringContext.Provider value={value}>
+    < VolunteeringContext.Provider value={value}>
       {children}
     </VolunteeringContext.Provider>
   );
