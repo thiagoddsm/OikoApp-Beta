@@ -4,14 +4,14 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // 1. Permissões para Solicitações de Matrícula (Públicas)
-    // Usamos 'allow write' aqui para cobrir criação pública
+    // 1. Permissões Públicas para Solicitações de Matrícula
+    // Permite que qualquer pessoa crie uma solicitação (mesmo sem estar logada)
     match /enrollment_requests/{requestId} {
       allow create: if true;
       allow read, update, delete: if request.auth != null;
     }
 
-    // 2. Leitura pública para que o formulário saiba quais cursos existem
+    // 2. Leitura pública para que o formulário saiba quais cursos e turmas existem
     match /courses/{courseId} {
       allow read: if true;
       allow write: if request.auth != null;
@@ -21,8 +21,9 @@ service cloud.firestore {
       allow write: if request.auth != null;
     }
 
-    // 3. Regra geral para o restante do banco: Leitura livre, Escrita apenas para logados
-    // Importante: As regras acima têm precedência por serem mais específicas
+    // 3. Regra geral para o restante do banco
+    // Leitura livre para logados, Escrita apenas para logados
+    // Importante: As regras acima têm precedência por serem mais específicas e estarem no topo
     match /{document=**} {
       allow read: if true;
       allow write: if request.auth != null;

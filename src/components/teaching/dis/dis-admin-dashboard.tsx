@@ -1,19 +1,18 @@
 
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Loader2, Users, Inbox, BookOpen, GraduationCap, ChevronRight, TrendingUp } from 'lucide-react';
+import { Loader2, Users, Inbox, BookOpen, GraduationCap, ChevronRight, TrendingUp, UserPlus } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from 'recharts';
-import { ChartContainer } from '@/components/ui/chart';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
+import { EnrollmentDialog } from '../enrollment-dialog';
 
 // Dados simulados para o gráfico de crescimento
 const growthData = [
@@ -25,6 +24,7 @@ const growthData = [
 
 export function DisAdminDashboard() {
   const { users, classes, courses, enrollmentRequests, isLoading } = useVolunteering();
+  const [isEnrollmentOpen, setEnrollmentOpen] = useState(false);
 
   // Filtrar dados específicos do DIS
   const disCourses = useMemo(() => 
@@ -65,7 +65,15 @@ export function DisAdminDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* KPI Cards */}
+      {/* KPI Cards & Main Action */}
+      <div className="flex justify-between items-center mb-2">
+          <h3 className="text-lg font-bold">Indicadores DIS</h3>
+          <Button onClick={() => setEnrollmentOpen(true)}>
+              <UserPlus className="mr-2 size-4" />
+              Inscrição Manual
+          </Button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -110,7 +118,6 @@ export function DisAdminDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Gráfico de Crescimento */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -134,7 +141,6 @@ export function DisAdminDashboard() {
           </CardContent>
         </Card>
 
-        {/* Últimas Solicitações */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Inscrições Recentes</CardTitle>
@@ -164,7 +170,6 @@ export function DisAdminDashboard() {
         </Card>
       </div>
 
-      {/* Turmas Ativas DIS */}
       <Card>
         <CardHeader>
           <CardTitle>Turmas Ativas - DIS</CardTitle>
@@ -212,6 +217,8 @@ export function DisAdminDashboard() {
           </div>
         </CardContent>
       </Card>
+
+      <EnrollmentDialog open={isEnrollmentOpen} onOpenChange={setEnrollmentOpen} />
     </div>
   );
 }
