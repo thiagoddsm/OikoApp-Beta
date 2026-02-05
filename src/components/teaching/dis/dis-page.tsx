@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { School, Banknote, User, HandHelping, Share2 } from 'lucide-react';
 import { UnderConstruction } from '@/components/common/under-construction';
 import { DisFinanceDashboard } from './dis-finance-dashboard';
+import { DisAdminDashboard } from './dis-admin-dashboard';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering } from '@/contexts/volunteering-context';
@@ -17,7 +18,7 @@ const modules = [
         title: "Painel Administrativo",
         icon: School,
         description: "Visão geral, gestão de agendas, salas, matrículas e estoque de materiais.",
-        component: <UnderConstruction pageTitle="Painel Administrativo" pageDescription="Visão geral, gestão de agendas, salas, matrículas e estoque de materiais." />
+        component: <DisAdminDashboard />
     },
     {
         id: "finance",
@@ -76,7 +77,7 @@ export function DisSchoolPage() {
           </Button>
         </CardHeader>
         <CardContent>
-            <Tabs defaultValue="finance" className="w-full">
+            <Tabs defaultValue="admin" className="w-full">
                 <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
                     {modules.map((mod) => (
                         <TabsTrigger key={mod.id} value={mod.id}>
