@@ -1,75 +1,138 @@
 
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { useFirebase, useCollection, useMemoFirebase, useDoc, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, doc, Timestamp, getDocs, limit } from 'firebase/firestore';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithRedirect, GoogleAuthProvider, getRedirectResult } from 'firebase/auth';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useFirebase, useCollection, useMemoFirebase, setDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
+import { collection, query, doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, CheckCircle, Mail, User, Phone, BookOpen, LogIn, Lock, Info, Users } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Loader2, CheckCircle, ArrowRight, UserPlus, LogIn, Mail } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Logo } from '@/components/icons';
+import { signInWithRedirect, GoogleAuthProvider, getRedirectResult, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 
-type Course = { id: string; name: string; ministryName: string };
-type Class = { id: string; name: string; courseId: string; dayOfWeek?: string; startTime?: string };
+type Course = { id: string; name: string; ministryName: string; };
+type Class = { id: string; name: string; courseId: string; startTime: string; dayOfWeek: string; };
 
-function EnrollmentForm({ user, preselectedCourseId }: { user: any, preselectedCourseId: string | null }) {
-    const { firestore } = useFirebase();
+export default function PublicEnrollmentPage() {
+    const { user, auth, firestore, isUserLoading } = useFirebase();
     const { toast } = useToast();
-    const [loading, setLoading] = useState(false);
-    const [success, setSuccess] = useState(false);
+    const searchParams = useSearchParams();
+    const initialCourseId = searchParams.get('courseId');
 
-    // Form states
-    const [name, setName] = useState(user?.displayName || '');
-    const [phone, setPhone] = useState('');
-    const [cpf, setCpf] = useState('');
-    const [sexo, setSexo] = useState('');
-    const [dataNascimento, setDataNascimento] = useState('');
-    const [selectedCourseId, setSelectedCourseId] = useState(preselectedCourseId || '');
-    const [selectedClassId, setSelectedClassId] = useState('');
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [step, setPhase] = useState<'identify' | 'auth' | 'form' | 'success'>('identify');
+    const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [isSuccess, setIsSuccess] = useState(false);
 
     const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
-    const { data: courses } = useCollection<Course>(coursesQuery);
+    const classesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'classes')) : null, [firestore]);
 
-    const classesQuery = useMemoFirebase(() => {
-        if (!firestore || !selectedCourseId) return null;
-        return query(collection(firestore, 'classes'), where('courseId', '==', selectedCourseId));
-    }, [firestore, selectedCourseId]);
-    const { data: availableClasses, isLoading: loadingClasses } = useCollection<Class>(classesQuery);
+    const { data: courses, isLoading: loadingCourses } = useCollection<Course>(coursesQuery);
+    const { data: classes, isLoading: loadingClasses } = useCollection<Class>(classesQuery);
 
-    // Pre-fill from existing profile if available
-    const { data: profile } = useDoc(user ? `users/${user.uid}` : null);
+    const [selectedCourseId, setSelectedCourseId] = useState(initialCourseId || '');
+    const [selectedClassId, setSelectedClassId] = useState('');
+
+    const availableClasses = useMemo(() => {
+        if (!selectedCourseId || !classes) return [];
+        return classes.filter(c => c.courseId === selectedCourseId);
+    }, [selectedCourseId, classes]);
+
+    // Handle Auth Redirect Result
     useEffect(() => {
-        if (profile) {
-            if (!name) setName(profile.name || '');
-            setPhone(profile.phone || '');
-            setCpf(profile.cpf || '');
-            setSexo(profile.sexo || '');
-            setDataNascimento(profile.dataNascimento || '');
+        if (auth) {
+            getRedirectResult(auth).catch((error) => {
+                console.error("Redirect auth error:", error);
+            });
         }
-    }, [profile]);
+    }, [auth]);
+
+    // Check if user exists and move to next step
+    useEffect(() => {
+        if (user && !isSuccess) {
+            setPhase('form');
+        }
+    }, [user, isSuccess]);
+
+    const handleIdentify = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!email.trim() || !firestore) return;
+        setIsProcessing(true);
+
+        try {
+            const userDoc = await getDoc(doc(firestore, 'users_lookup', email.toLowerCase()));
+            if (userDoc.exists()) {
+                setAuthMode('login');
+            } else {
+                setAuthMode('signup');
+            }
+            setPhase('auth');
+        } catch (error) {
+            setAuthMode('signup'); // Default to signup if lookup fails
+            setPhase('auth');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleGoogleLogin = () => {
+        if (!auth) return;
+        const provider = new GoogleAuthProvider();
+        signInWithRedirect(auth, provider);
+    };
+
+    const handleEmailAuth = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!auth || !password) return;
+        setIsProcessing(true);
+
+        try {
+            if (authMode === 'login') {
+                await signInWithEmailAndPassword(auth, email, password);
+            } else {
+                const result = await createUserWithEmailAndPassword(auth, email, password);
+                // Create lookup entry
+                if (firestore) {
+                    await setDoc(doc(firestore, 'users_lookup', email.toLowerCase()), { uid: result.user.uid });
+                }
+            }
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Erro na Autenticação',
+                description: error.message === 'Firebase: Error (auth/wrong-password).' ? 'Senha incorreta.' : 'Falha ao autenticar. Tente novamente.'
+            });
+        } finally {
+            setIsProcessing(false);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedCourseId) {
-            toast({ variant: 'destructive', title: 'Campo obrigatório', description: 'Por favor, selecione um curso.' });
-            return;
-        }
-        setLoading(true);
+        if (!user || !firestore) return;
+        setIsProcessing(true);
 
-        const requestData = {
-            userId: user.uid,
-            name,
+        const formData = new FormData(e.currentTarget as HTMLFormElement);
+        
+        const userProfileUpdate = {
+            name: formData.get('name') as string,
+            phone: formData.get('phone') as string,
+            cpf: formData.get('cpf') as string,
+            dataNascimento: formData.get('dataNascimento') as string,
+            sexo: formData.get('sexo') as string,
             email: user.email,
-            phone,
-            cpf,
-            sexo,
-            dataNascimento,
+            updatedAt: Timestamp.now()
+        };
+
+        const enrollmentRequest = {
+            ...userProfileUpdate,
             courseId: selectedCourseId,
             classId: selectedClassId,
             status: 'pending',
@@ -77,272 +140,216 @@ function EnrollmentForm({ user, preselectedCourseId }: { user: any, preselectedC
         };
 
         try {
-            // 1. Gravar a solicitação de inscrição
-            const requestsCol = collection(firestore!, 'enrollment_requests');
-            await addDocumentNonBlocking(requestsCol, requestData);
-
-            // 2. Atualizar os dados do perfil do usuário para que fiquem salvos permanentemente
-            const userRef = doc(firestore!, 'users', user.uid);
-            await updateDocumentNonBlocking(userRef, {
-                name,
-                phone,
-                cpf,
-                sexo,
-                dataNascimento,
-            });
-
-            setSuccess(true);
-            toast({ title: 'Inscrição enviada!', description: 'Sua solicitação será analisada pela secretaria.' });
-        } catch (error) {
-            console.error(error);
-            toast({ variant: 'destructive', title: 'Erro ao enviar', description: 'Tente novamente em alguns instantes.' });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    if (success) {
-        return (
-            <div className="text-center py-10 space-y-4">
-                <div className="flex justify-center"><CheckCircle className="size-16 text-green-500" /></div>
-                <h2 className="text-2xl font-bold">Solicitação Recebida!</h2>
-                <p className="text-muted-foreground">Obrigado por se inscrever. Em breve entraremos em contato via WhatsApp para confirmar sua matrícula.</p>
-                <Button onClick={() => window.location.reload()} variant="outline">Fazer outra inscrição</Button>
-            </div>
-        );
-    }
-
-    return (
-        <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-4">
-                <div className="space-y-2">
-                    <Label htmlFor="name">Nome Completo</Label>
-                    <Input id="name" value={name} onChange={e => setName(e.target.value)} required />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="email">E-mail (Identificado)</Label>
-                        <Input id="email" value={user.email} disabled className="bg-muted" />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="phone">WhatsApp / Celular</Label>
-                        <Input id="phone" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(21) 9...." required />
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="cpf">CPF</Label>
-                        <Input id="cpf" value={cpf} onChange={e => setCpf(e.target.value)} placeholder="000.000.000-00" required />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="dataNasc">Data de Nascimento</Label>
-                        <Input id="dataNasc" type="date" value={dataNascimento} onChange={e => setDataNascimento(e.target.value)} required />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="sexo">Sexo</Label>
-                        <Select value={sexo} onValueChange={setSexo} required>
-                            <SelectTrigger id="sexo"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="M">Masculino</SelectItem>
-                                <SelectItem value="F">Feminino</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-
-                <div className="pt-4 border-t space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="course">Curso Desejado</Label>
-                        <Select value={selectedCourseId} onValueChange={id => { setSelectedCourseId(id); setSelectedClassId(''); }}>
-                            <SelectTrigger id="course"><SelectValue placeholder="Selecione um curso..." /></SelectTrigger>
-                            <SelectContent>
-                                {courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.name} ({c.ministryName})</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="class">Turma Preferencial</Label>
-                        <Select value={selectedClassId} onValueChange={setSelectedClassId} disabled={!selectedCourseId || loadingClasses}>
-                            <SelectTrigger id="class">
-                                <SelectValue placeholder={loadingClasses ? "Carregando turmas..." : "Selecione o horário..."} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {availableClasses?.map(cls => (
-                                    <SelectItem key={cls.id} value={cls.id}>
-                                        {cls.name} {cls.dayOfWeek ? `- ${cls.dayOfWeek} às ${cls.startTime}` : ''}
-                                    </SelectItem>
-                                ))}
-                                {availableClasses?.length === 0 && <SelectItem value="null" disabled>Nenhuma turma aberta no momento</SelectItem>}
-                            </SelectContent>
-                        </Select>
-                        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                            <Info className="size-3" /> A escolha da turma está sujeita à disponibilidade de vagas.
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <Button type="submit" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Concluir Inscrição
-            </Button>
-        </form>
-    );
-}
-
-function PortalContent() {
-    const { auth, user, firestore, isUserLoading } = useFirebase();
-    const searchParams = useSearchParams();
-    const preselectedCourseId = searchParams.get('courseId');
-    const { toast } = useToast();
-
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [step, setStep] = useState<'identify' | 'login' | 'signup' | 'form'>('identify');
-    const [loading, setLoading] = useState(false);
-
-    // Detect return from Google Redirect
-    useEffect(() => {
-        if (!auth) return;
-        getRedirectResult(auth).then((result) => {
-            if (result?.user) {
-                setStep('form');
-            }
-        }).catch((error) => {
-            console.error("Auth error:", error);
-        });
-    }, [auth]);
-
-    // Handle initial state if already logged in
-    useEffect(() => {
-        if (!isUserLoading && user) {
-            setStep('form');
-        }
-    }, [user, isUserLoading]);
-
-    const handleCheckEmail = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        try {
-            // No Firebase Client SDK, não há checkEmail direto sem admin. 
-            // Vamos simular a verificação buscando no banco se o usuário já existe.
-            const q = query(collection(firestore!, 'users'), where('email', '==', email.toLowerCase().trim()), limit(1));
-            const snap = await getDocs(q);
+            // Use setDocumentNonBlocking with merge:true to avoid "not found" errors on update
+            const userDocRef = doc(firestore, 'users', user.uid);
+            setDocumentNonBlocking(userDocRef, userProfileUpdate, { merge: true });
             
-            if (!snap.empty) {
-                setStep('login');
-            } else {
-                setStep('signup');
-            }
+            // Add enrollment request
+            const requestsCol = collection(firestore, 'enrollment_requests');
+            await addDocumentNonBlocking(requestsCol, enrollmentRequest);
+
+            setIsSuccess(true);
+            setPhase('success');
+            toast({ title: "Inscrição Enviada!", description: "Sua solicitação foi recebida com sucesso." });
         } catch (error) {
-            toast({ variant: 'destructive', title: 'Erro', description: 'Falha ao verificar e-mail.' });
+            console.error("Submission error:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Erro ao enviar',
+                description: 'Ocorreu um erro ao processar sua inscrição. Tente novamente.'
+            });
         } finally {
-            setLoading(false);
+            setIsProcessing(false);
         }
     };
 
-    const handleAuth = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setLoading(true);
-        try {
-            if (step === 'login') {
-                await signInWithEmailAndPassword(auth!, email, password);
-            } else {
-                await createUserWithEmailAndPassword(auth!, email, password);
-            }
-            setStep('form');
-        } catch (error: any) {
-            const msg = error.code === 'auth/wrong-password' ? 'Senha incorreta.' : 'Falha na autenticação.';
-            toast({ variant: 'destructive', title: 'Erro', description: msg });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleGoogle = () => {
-        const provider = new GoogleAuthProvider();
-        signInWithRedirect(auth!, provider);
-    };
-
-    if (isUserLoading) {
+    if (isUserLoading || loadingCourses || loadingClasses) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[400px]">
-                <Loader2 className="size-10 animate-spin text-primary" />
-                <p className="mt-4 text-muted-foreground">Carregando portal...</p>
+            <div className="flex h-screen items-center justify-center bg-slate-50">
+                <div className="text-center space-y-4">
+                    <Loader2 className="h-10 w-10 animate-spin text-primary mx-auto" />
+                    <p className="text-muted-foreground animate-pulse">Carregando portal...</p>
+                </div>
             </div>
         );
     }
 
     return (
-        <Card className="w-full border-none shadow-2xl overflow-hidden">
-            <CardHeader className="bg-slate-900 text-white pb-8">
-                <div className="flex justify-center mb-4"><Logo className="size-10" /></div>
-                <CardTitle className="text-2xl text-center">Portal de Inscrições</CardTitle>
-                <CardDescription className="text-slate-400 text-center">Identifique-se para garantir sua vaga no organismo.</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-8">
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 md:p-8">
+            <div className="w-full max-w-md">
                 {step === 'identify' && (
-                    <form onSubmit={handleCheckEmail} className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="id-email">Seu E-mail</Label>
-                            <Input id="id-email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="exemplo@gmail.com" required />
-                        </div>
-                        <Button type="submit" className="w-full" disabled={loading}>
-                            {loading ? <Loader2 className="animate-spin" /> : 'Continuar'}
-                        </Button>
-                        <div className="relative py-4">
-                            <div className="absolute inset-0 flex items-center"><span className="w-full border-t"></span></div>
-                            <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">Ou use</span></div>
-                        </div>
-                        <Button type="button" variant="outline" className="w-full" onClick={handleGoogle}>
-                            Entrar com Google
-                        </Button>
-                    </form>
+                    <Card className="shadow-xl border-t-4 border-primary">
+                        <CardHeader>
+                            <CardTitle className="text-2xl">Inscrição em Cursos</CardTitle>
+                            <CardDescription>Para começar, digite seu e-mail abaixo.</CardDescription>
+                        </CardHeader>
+                        <form onSubmit={handleIdentify}>
+                            <CardContent className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="email">Seu melhor e-mail</Label>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-3 size-4 text-muted-foreground" />
+                                        <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} className="pl-10" placeholder="exemplo@gmail.com" required />
+                                    </div>
+                                </div>
+                            </CardContent>
+                            <CardFooter>
+                                <Button type="submit" className="w-full" disabled={isProcessing}>
+                                    {isProcessing ? <Loader2 className="mr-2 animate-spin" /> : <ArrowRight className="mr-2" />}
+                                    Continuar
+                                </Button>
+                            </CardFooter>
+                        </form>
+                    </Card>
                 )}
 
-                {(step === 'login' || step === 'signup') && (
-                    <form onSubmit={handleAuth} className="space-y-4">
-                        <div className="bg-blue-50 p-3 rounded-md flex items-center gap-3 text-sm text-blue-700 mb-4 border border-blue-100">
-                            <Info className="size-4 shrink-0" />
-                            {step === 'login' ? 'E-mail reconhecido! Digite sua senha.' : 'Novo por aqui? Crie uma senha para seu cadastro.'}
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="auth-email">E-mail</Label>
-                            <Input id="auth-email" value={email} disabled className="bg-muted" />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="password">Sua Senha</Label>
-                            <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required />
-                        </div>
-                        <Button type="submit" className="w-full" disabled={loading}>
-                            {loading ? <Loader2 className="animate-spin" /> : (step === 'login' ? 'Entrar' : 'Cadastrar e Continuar')}
-                        </Button>
-                        <Button type="button" variant="ghost" className="w-full text-xs" onClick={() => setStep('identify')}>Usar outro e-mail</Button>
-                    </form>
+                {step === 'auth' && (
+                    <Card className="shadow-xl border-t-4 border-primary">
+                        <CardHeader>
+                            <CardTitle className="text-xl">
+                                {authMode === 'login' ? 'Boas-vindas de volta!' : 'Criar sua conta'}
+                            </CardTitle>
+                            <CardDescription>
+                                {authMode === 'login' 
+                                    ? 'Identificamos seu cadastro. Por favor, faça login para continuar.' 
+                                    : 'Não encontramos seu e-mail. Crie uma senha para realizar sua inscrição.'}
+                            </CardDescription>
+                        </CardHeader>
+                        <form onSubmit={handleEmailAuth}>
+                            <CardContent className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="password">Sua Senha</Label>
+                                    <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
+                                </div>
+                                <div className="relative py-2">
+                                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                                    <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">Ou use sua conta Google</span></div>
+                                </div>
+                                <Button type="button" variant="outline" className="w-full" onClick={handleGoogleLogin}>
+                                    <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                                    Entrar com Google
+                                </Button>
+                            </CardContent>
+                            <CardFooter className="flex flex-col gap-3">
+                                <Button type="submit" className="w-full" disabled={isProcessing}>
+                                    {isProcessing && <Loader2 className="mr-2 animate-spin" />}
+                                    {authMode === 'login' ? 'Entrar' : 'Criar Conta e Continuar'}
+                                </Button>
+                                <Button type="button" variant="link" className="text-xs" onClick={() => setPhase('identify')}>
+                                    Usar outro e-mail
+                                </Button>
+                            </CardFooter>
+                        </form>
+                    </Card>
                 )}
 
                 {step === 'form' && user && (
-                    <EnrollmentForm user={user} preselectedCourseId={preselectedCourseId} />
-                )}
-            </CardContent>
-        </Card>
-    );
-}
+                    <Card className="shadow-xl border-t-4 border-primary">
+                        <CardHeader>
+                            <CardTitle className="text-2xl">Dados da Matrícula</CardTitle>
+                            <CardDescription>Olá, {user.displayName || 'aluno'}! Complete seus dados para finalizar a inscrição.</CardDescription>
+                        </CardHeader>
+                        <form onSubmit={handleSubmit}>
+                            <CardContent className="space-y-6">
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="name">Nome Completo</Label>
+                                        <Input id="name" name="name" defaultValue={user.displayName || ''} required />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="phone">WhatsApp</Label>
+                                            <Input id="phone" name="phone" placeholder="(21) 9..." required />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="cpf">CPF</Label>
+                                            <Input id="cpf" name="cpf" placeholder="000.000.000-00" required />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="dataNascimento">Data de Nascimento</Label>
+                                            <Input id="dataNascimento" name="dataNascimento" type="date" required />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="sexo">Sexo</Label>
+                                            <Select name="sexo" required>
+                                                <SelectTrigger id="sexo"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="M">Masculino</SelectItem>
+                                                    <SelectItem value="F">Feminino</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                </div>
 
-export default function EnrollmentPortalPage() {
-    return (
-        <main className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-6">
-            <div className="w-full max-w-xl">
-                <Suspense fallback={<div className="flex justify-center p-10"><Loader2 className="animate-spin" /></div>}>
-                    <PortalContent />
-                </Suspense>
-                <p className="mt-8 text-center text-xs text-muted-foreground">
-                    &copy; {new Date().getFullYear()} OikoApp - Sistema de Gestão Ministerial
-                </p>
+                                <div className="pt-4 border-t space-y-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="courseId">Curso Desejado</Label>
+                                        <Select value={selectedCourseId} onValueChange={setSelectedCourseId} required>
+                                            <SelectTrigger id="courseId"><SelectValue placeholder="Selecione o curso..." /></SelectTrigger>
+                                            <SelectContent>
+                                                {courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    {selectedCourseId && (
+                                        <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                                            <Label htmlFor="classId">Turma / Horário</Label>
+                                            <Select value={selectedClassId} onValueChange={setSelectedClassId} required>
+                                                <SelectTrigger id="classId">
+                                                    <SelectValue placeholder={availableClasses.length > 0 ? "Selecione o horário..." : "Nenhuma turma disponível"} />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {availableClasses.map(c => (
+                                                        <SelectItem key={c.id} value={c.id}>{c.name} ({c.dayOfWeek} às {c.startTime})</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
+                                </div>
+                            </CardContent>
+                            <CardFooter>
+                                <Button type="submit" className="w-full py-6 text-lg" disabled={isProcessing || !selectedClassId}>
+                                    {isProcessing ? <Loader2 className="mr-2 animate-spin" /> : <CheckCircle className="mr-2" />}
+                                    Concluir Inscrição
+                                </Button>
+                            </CardFooter>
+                        </form>
+                    </Card>
+                )}
+
+                {step === 'success' && (
+                    <Card className="shadow-xl border-t-4 border-green-500 text-center animate-in zoom-in-95">
+                        <CardHeader>
+                            <div className="mx-auto bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-4">
+                                <CheckCircle className="text-green-600 size-10" />
+                            </div>
+                            <CardTitle className="text-2xl text-green-700">Inscrição Enviada!</CardTitle>
+                            <CardDescription>Tudo certo com sua solicitação.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <p className="text-muted-foreground">
+                                Recebemos sua inscrição para o curso. Em breve, o responsável entrará em contato para confirmar sua vaga e passar mais detalhes.
+                            </p>
+                            <div className="bg-slate-50 p-4 rounded-lg text-sm text-left">
+                                <p><strong>Próximos passos:</strong></p>
+                                <ul className="list-disc list-inside mt-2 space-y-1 text-slate-600">
+                                    <li>Aguarde o contato via WhatsApp</li>
+                                    <li>Prepare seu material de estudo</li>
+                                    <li>Seja bem-vindo(a) à nossa escola!</li>
+                                </ul>
+                            </div>
+                        </CardContent>
+                        <CardFooter>
+                            <Button variant="outline" className="w-full" onClick={() => window.location.reload()}>Fazer outra inscrição</Button>
+                        </CardFooter>
+                    </Card>
+                )}
             </div>
-        </main>
+        </div>
     );
 }
