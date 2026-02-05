@@ -1,13 +1,13 @@
-
 'use client';
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { School, Banknote, User, HandHelping, Share2 } from 'lucide-react';
-import { UnderConstruction } from '@/components/common/under-construction';
 import { DisFinanceDashboard } from './dis-finance-dashboard';
 import { DisAdminDashboard } from './dis-admin-dashboard';
+import { DisTeacherArea } from './dis-teacher-area';
+import { DisStudentArea } from './dis-student-area';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering } from '@/contexts/volunteering-context';
@@ -32,14 +32,14 @@ const modules = [
         title: "Área do Professor",
         icon: User,
         description: "Agenda de aulas, diário de classe, repositório de arquivos e solicitações.",
-        component: <UnderConstruction pageTitle="Área do Professor" pageDescription="Agenda de aulas, diário de classe, repositório de arquivos e solicitações." />
+        component: <DisTeacherArea />
     },
     {
         id: "student",
         title: "Área do Aluno",
         icon: HandHelping,
         description: "Carteirinha digital, cronograma, material didático, registro de estudos e financeiro simplificado.",
-        component: <UnderConstruction pageTitle="Área do Aluno" pageDescription="Carteirinha digital, cronograma, material didático, registro de estudos e financeiro simplificado." />
+        component: <DisStudentArea />
     }
 ];
 
