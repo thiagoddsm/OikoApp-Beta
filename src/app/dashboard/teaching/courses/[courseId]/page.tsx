@@ -1,9 +1,10 @@
+
 'use client';
 
 import React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDoc } from '@/firebase';
-import { Loader2, ArrowLeft, BookOpen, Users, User, FileText, ClipboardCheck, Folder } from 'lucide-react';
+import { Loader2, ArrowLeft, BookOpen, Users, User, FileText, ClipboardCheck, Folder, Inbox } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,6 +12,7 @@ import { VolunteeringProvider } from '@/contexts/volunteering-context';
 import { CourseDetailsForm } from '@/components/teaching/course-details-form';
 import { CourseClassesManager } from '@/components/teaching/course-classes-manager';
 import { CourseTeachersManager } from '@/components/teaching/course-teachers-manager';
+import { EnrollmentRequestsList } from '@/components/teaching/enrollment-requests-list';
 import { UnderConstruction } from '@/components/common/under-construction';
 
 type Course = {
@@ -44,7 +46,7 @@ function CourseDetailPageContent() {
                     <CardTitle>Curso não encontrado</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p>O curso que você está procurando não existe ou foi removido.</p>
+                    <p>O curso que você está procurando não existe ou foi removida.</p>
                      <Button onClick={() => router.back()} className="mt-4"><ArrowLeft className="mr-2"/>Voltar</Button>
                 </CardContent>
             </Card>
@@ -61,16 +63,20 @@ function CourseDetailPageContent() {
                 </CardHeader>
                 <CardContent>
                     <Tabs defaultValue="general">
-                        <TabsList className="grid w-full grid-cols-6">
-                            <TabsTrigger value="general"><BookOpen className="mr-2"/>Geral</TabsTrigger>
-                            <TabsTrigger value="classes"><Users className="mr-2"/>Turmas</TabsTrigger>
-                            <TabsTrigger value="teachers"><User className="mr-2"/>Professores</TabsTrigger>
-                            <TabsTrigger value="syllabus"><FileText className="mr-2"/>Ementa</TabsTrigger>
-                            <TabsTrigger value="assessments"><ClipboardCheck className="mr-2"/>Avaliações</TabsTrigger>
-                            <TabsTrigger value="materials"><Folder className="mr-2"/>Materiais</TabsTrigger>
+                        <TabsList className="grid w-full grid-cols-7">
+                            <TabsTrigger value="general"><BookOpen className="mr-2 size-4"/>Geral</TabsTrigger>
+                            <TabsTrigger value="requests"><Inbox className="mr-2 size-4"/>Solicitações</TabsTrigger>
+                            <TabsTrigger value="classes"><Users className="mr-2 size-4"/>Turmas</TabsTrigger>
+                            <TabsTrigger value="teachers"><User className="mr-2 size-4"/>Professores</TabsTrigger>
+                            <TabsTrigger value="syllabus"><FileText className="mr-2 size-4"/>Ementa</TabsTrigger>
+                            <TabsTrigger value="assessments"><ClipboardCheck className="mr-2 size-4"/>Avaliações</TabsTrigger>
+                            <TabsTrigger value="materials"><Folder className="mr-2 size-4"/>Materiais</TabsTrigger>
                         </TabsList>
                         <TabsContent value="general" className="mt-6">
                             <CourseDetailsForm course={course} />
+                        </TabsContent>
+                        <TabsContent value="requests" className="mt-6">
+                            <EnrollmentRequestsList courseId={course.id} />
                         </TabsContent>
                         <TabsContent value="classes" className="mt-6">
                             <CourseClassesManager course={course} />

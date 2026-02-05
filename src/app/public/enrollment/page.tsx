@@ -1,27 +1,25 @@
 
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
+import { useFirebase, addDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, Timestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Logo } from '@/components/icons';
-import { Loader2, CheckCircle, ArrowRight, User, Mail, Phone, BookOpen } from 'lucide-react';
+import { Loader2, CheckCircle2, GraduationCap, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Logo } from '@/components/icons';
+import Link from 'next/link';
 
-type Course = { id: string; name: string; ministryName: string; };
-type Class = { id: string; courseId: string; name: string; dayOfWeek?: string; startTime?: string; };
-
-export default function PublicEnrollmentPage() {
+function EnrollmentForm() {
+    const searchParams = useSearchParams();
+    const courseIdParam = searchParams.get('courseId');
     const { firestore } = useFirebase();
     const { toast } = useToast();
-    const searchParams = useSearchParams();
-    const preselectedCourseId = searchParams.get('courseId');
 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
@@ -36,52 +34,51 @@ export default function PublicEnrollmentPage() {
     });
 
     const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
-    const classesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'classes')) : null, [firestore]);
+    const { data: courses, isLoading: isLoadingCourses } = useCollection<any>(coursesQuery);
 
-    const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery);
-    const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesQuery);
+    const classesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'classes')) : null, [firestore]);
+    const { data: allClasses, isLoading: isLoadingClasses } = useCollection<any>(classesQuery);
 
     useEffect(() => {
-        if (preselectedCourseId && courses) {
-            const courseExists = courses.some(c => c.id === preselectedCourseId);
-            if (courseExists) {
-                setFormData(prev => ({ ...prev, courseId: preselectedCourseId }));
-            }
+        if (courseIdParam) {
+            setFormData(prev => ({ ...prev, courseId: courseIdParam }));
         }
-    }, [preselectedCourseId, courses]);
+    }, [courseIdParam]);
 
     const availableClasses = useMemo(() => {
-        if (!formData.courseId || !classes) return [];
-        return classes.filter(cls => cls.courseId === formData.courseId);
-    }, [formData.courseId, classes]);
+        if (!formData.courseId || !allClasses) return [];
+        return allClasses.filter(c => c.courseId === formData.courseId);
+    }, [formData.courseId, allClasses]);
 
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleSelectChange = (name: string, value: string) => {
-        setFormData(prev => ({ ...prev, [name]: value, ...(name === 'courseId' ? { classId: '' } : {}) }));
+        setFormData(prev => ({ ...prev, [name]: value }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.name || !formData.phone || !formData.courseId) {
-            toast({ variant: 'destructive', title: 'Campos obrigatórios', description: 'Por favor, preencha os dados de contato e o curso desejado.' });
+            toast({ variant: 'destructive', title: 'Campos Obrigatórios', description: 'Por favor, preencha nome, telefone e escolha um curso.' });
             return;
         }
 
         setIsSubmitting(true);
         try {
-            const requestsCollection = collection(firestore!, 'enrollment_requests');
-            await addDocumentNonBlocking(requestsCollection, {
+            const collectionRef = collection(firestore, 'enrollment_requests');
+            await addDocumentNonBlocking(collectionRef, {
                 ...formData,
                 status: 'pending',
                 createdAt: Timestamp.now(),
             });
             setIsSuccess(true);
+            window.scrollTo(0, 0);
         } catch (error) {
-            toast({ variant: 'destructive', title: 'Erro ao enviar', description: 'Não foi possível completar sua inscrição. Tente novamente mais tarde.' });
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Erro ao enviar', description: 'Não foi possível enviar sua inscrição. Tente novamente.' });
         } finally {
             setIsSubmitting(false);
         }
@@ -89,123 +86,120 @@ export default function PublicEnrollmentPage() {
 
     if (isSuccess) {
         return (
-            <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
-                <Card className="max-w-md w-full text-center p-8 border-t-8 border-primary">
-                    <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-6">
-                        <CheckCircle className="text-green-600 w-10 h-10" />
+            <Card className="border-t-8 border-green-600">
+                <CardHeader className="text-center">
+                    <div className="mx-auto bg-green-100 p-3 rounded-full w-16 h-16 flex items-center justify-center mb-4">
+                        <CheckCircle2 className="text-green-600 size-10" />
                     </div>
-                    <CardTitle className="text-2xl mb-2">Inscrição Enviada!</CardTitle>
-                    <CardDescription className="text-base">
-                        Olá, {formData.name.split(' ')[0]}! Sua solicitação de inscrição foi recebida com sucesso.
+                    <CardTitle className="text-2xl">Inscrição Enviada!</CardTitle>
+                    <CardDescription>
+                        Recebemos sua solicitação com sucesso. Nossa equipe entrará em contato em breve para confirmar sua matrícula.
                     </CardDescription>
-                    <CardContent className="mt-6">
-                        <p className="text-muted-foreground text-sm">
-                            Nossa equipe ministerial entrará em contato em breve via WhatsApp ou E-mail para confirmar sua vaga e os próximos passos.
-                        </p>
-                    </CardContent>
-                    <CardFooter className="flex justify-center">
-                        <Button variant="outline" onClick={() => window.location.reload()}>Fazer outra inscrição</Button>
-                    </CardFooter>
-                </Card>
-            </div>
+                </CardHeader>
+                <CardFooter className="justify-center">
+                    <Button asChild variant="outline">
+                        <Link href="/">Voltar para o Início</Link>
+                    </Button>
+                </CardFooter>
+            </Card>
         );
     }
 
     return (
-        <div className="min-h-screen bg-muted/30 flex flex-col items-center py-12 px-4">
-            <div className="flex items-center gap-2 mb-8">
-                <Logo className="size-8 text-primary" />
-                <h1 className="text-2xl font-bold tracking-tight">OikoApp</h1>
+        <Card className="shadow-2xl border-none">
+            <CardHeader className="bg-primary text-primary-foreground rounded-t-lg">
+                <div className="flex items-center gap-3 mb-2">
+                    <GraduationCap className="size-8" />
+                    <CardTitle className="text-2xl">Portal de Inscrições</CardTitle>
+                </div>
+                <CardDescription className="text-primary-foreground/80">
+                    Preencha os dados abaixo para solicitar sua participação em um de nossos cursos.
+                </CardDescription>
+            </CardHeader>
+            <form onSubmit={handleSubmit}>
+                <CardContent className="space-y-6 pt-6">
+                    <div className="space-y-2">
+                        <Label htmlFor="courseId">Curso de Interesse *</Label>
+                        <Select 
+                            value={formData.courseId} 
+                            onValueChange={(v) => handleSelectChange('courseId', v)}
+                            disabled={isLoadingCourses}
+                        >
+                            <SelectTrigger id="courseId">
+                                <SelectValue placeholder={isLoadingCourses ? "Carregando cursos..." : "Selecione o curso"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {courses?.map(course => (
+                                    <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {availableClasses.length > 0 && (
+                        <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                            <Label htmlFor="classId">Turma Disponível (Opcional)</Label>
+                            <Select value={formData.classId} onValueChange={(v) => handleSelectChange('classId', v)}>
+                                <SelectTrigger id="classId">
+                                    <SelectValue placeholder="Escolha uma turma" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="null">Ainda não sei / Qualquer uma</SelectItem>
+                                    {availableClasses.map(cls => (
+                                        <SelectItem key={cls.id} value={cls.id}>{cls.name} ({cls.dayOfWeek} às {cls.startTime})</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+
+                    <div className="space-y-4 pt-4 border-t">
+                        <div className="space-y-2">
+                            <Label htmlFor="name">Nome Completo *</Label>
+                            <Input id="name" name="name" value={formData.name} onChange={handleChange} placeholder="Seu nome" required />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="phone">Telefone / WhatsApp *</Label>
+                                <Input id="phone" name="phone" value={formData.phone} onChange={handleChange} placeholder="(00) 00000-0000" required />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="email">E-mail</Label>
+                                <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} placeholder="seu@email.com" />
+                            </div>
+                        </div>
+                    </div>
+                </CardContent>
+                <CardFooter className="bg-muted/30 rounded-b-lg flex flex-col gap-4 border-t pt-6">
+                    <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
+                        {isSubmitting ? <><Loader2 className="mr-2 animate-spin" /> Processando...</> : "Confirmar Solicitação de Inscrição"}
+                    </Button>
+                    <p className="text-[10px] text-center text-muted-foreground">
+                        Ao se inscrever, você concorda em ser contatado pela nossa equipe ministerial.
+                    </p>
+                </CardFooter>
+            </form>
+        </Card>
+    );
+}
+
+export default function EnrollmentPage() {
+    return (
+        <main className="min-h-screen bg-[#F2F0F7] py-12 px-4 flex flex-col items-center">
+            <div className="w-full max-w-xl space-y-8">
+                <div className="flex flex-col items-center gap-2 mb-4">
+                    <Logo className="size-12 text-primary" />
+                    <h1 className="text-3xl font-bold tracking-tight">OikoApp</h1>
+                </div>
+                <Suspense fallback={<div className="flex justify-center p-12"><Loader2 className="animate-spin text-primary size-10" /></div>}>
+                    <EnrollmentForm />
+                </Suspense>
+                <div className="text-center">
+                    <Button variant="link" asChild>
+                        <Link href="/"><ArrowLeft className="mr-2 size-4" /> Voltar para o Site</Link>
+                    </Button>
+                </div>
             </div>
-
-            <Card className="max-w-xl w-full shadow-lg">
-                <CardHeader className="text-center border-b bg-primary/5">
-                    <CardTitle className="text-2xl">Ficha de Inscrição</CardTitle>
-                    <CardDescription>
-                        Preencha os dados abaixo para iniciar sua jornada de aprendizado na IBM.
-                    </CardDescription>
-                </CardHeader>
-                <form onSubmit={handleSubmit}>
-                    <CardContent className="space-y-6 pt-8">
-                        <section className="space-y-4">
-                            <h3 className="text-sm font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
-                                <User className="size-4" /> Dados de Contato
-                            </h3>
-                            <div className="grid gap-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="name">Nome Completo</Label>
-                                    <Input id="name" name="name" value={formData.name} onChange={handleInputChange} placeholder="Como gostaria de ser chamado(a)?" required />
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="email">E-mail</Label>
-                                        <Input id="email" name="email" type="email" value={formData.email} onChange={handleInputChange} placeholder="seu@email.com" />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="phone">WhatsApp / Celular</Label>
-                                        <Input id="phone" name="phone" value={formData.phone} onChange={handleInputChange} placeholder="(00) 00000-0000" required />
-                                    </div>
-                                </div>
-                            </div>
-                        </section>
-
-                        <section className="space-y-4 pt-4 border-t">
-                            <h3 className="text-sm font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-2">
-                                <BookOpen className="size-4" /> Escolha o Curso
-                            </h3>
-                            <div className="grid gap-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="courseId">Curso Desejado</Label>
-                                    <Select 
-                                        value={formData.courseId} 
-                                        onValueChange={(v) => handleSelectChange('courseId', v)}
-                                        disabled={isLoadingCourses}
-                                    >
-                                        <SelectTrigger id="courseId">
-                                            <SelectValue placeholder={isLoadingCourses ? "Carregando cursos..." : "Selecione um curso..."} />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {courses?.map(course => (
-                                                <SelectItem key={course.id} value={course.id}>{course.name} ({course.ministryName})</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                {availableClasses.length > 0 && (
-                                    <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                                        <Label htmlFor="classId">Turma / Horário Disponível</Label>
-                                        <Select value={formData.classId} onValueChange={(v) => handleSelectChange('classId', v)}>
-                                            <SelectTrigger id="classId">
-                                                <SelectValue placeholder="Selecione um horário..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {availableClasses.map(cls => (
-                                                    <SelectItem key={cls.id} value={cls.id}>
-                                                        {cls.name} {cls.dayOfWeek ? `- ${cls.dayOfWeek} às ${cls.startTime}` : ''}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                )}
-                            </div>
-                        </section>
-                    </CardContent>
-                    <CardFooter className="bg-muted/50 border-t p-6">
-                        <Button type="submit" className="w-full h-12 text-lg" disabled={isSubmitting}>
-                            {isSubmitting ? (
-                                <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Processando...</>
-                            ) : (
-                                <><ArrowRight className="mr-2 h-5 w-5" /> Enviar Minha Inscrição</>
-                            )}
-                        </Button>
-                    </CardFooter>
-                </form>
-            </Card>
-            <p className="mt-8 text-sm text-muted-foreground">
-                © {new Date().getFullYear()} Igreja Batista da Manhã. Todos os direitos reservados.
-            </p>
-        </div>
+        </main>
     );
 }

@@ -3,16 +3,27 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow public read access for features like server-side AI analysis,
-    // but restrict writes to authenticated users to protect data integrity.
-    match /{document=**} {
+    
+    // 1. Permite criação pública de solicitações de matrícula (Portal Público)
+    match /enrollment_requests/{requestId} {
+      allow create: if true;
+      allow read, update, delete: if request.auth != null;
+    }
+
+    // 2. Permite leitura pública de cursos e turmas (para o Portal de Inscrição saber o que exibir)
+    match /courses/{courseId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    match /classes/{classId} {
       allow read: if true;
       allow write: if request.auth != null;
     }
 
-    // Allow public creation of enrollment requests from the public form
-    match /enrollment_requests/{requestId} {
-      allow create: if true;
+    // 3. Regra geral para o restante do banco: Leitura livre, Escrita apenas para logados
+    match /{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
     }
   }
 }
