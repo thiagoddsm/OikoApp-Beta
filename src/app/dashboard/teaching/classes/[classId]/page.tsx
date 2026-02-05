@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -9,7 +10,8 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VolunteeringProvider } from '@/contexts/volunteering-context';
 import { ClassStudentsManager } from '@/components/teaching/class-students-manager';
-import { UnderConstruction } from '@/components/common/under-construction';
+import { ClassGradesManager } from '@/components/teaching/class-grades-manager';
+import { ClassMaterialsManager } from '@/components/teaching/class-materials-manager';
 import { ClassFormDialog } from '@/components/teaching/class-form-dialog';
 import Link from 'next/link';
 
@@ -38,7 +40,7 @@ function ClassDetailPageContent() {
     const isLoading = isLoadingClass || isLoadingCourse;
 
     if (isLoading) {
-        return <div className="flex justify-center p-10"><Loader2 className="animate-spin h-8 w-8" /></div>
+        return <div className="flex justify-center p-10"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>
     }
 
     if (!classData || !courseData) {
@@ -78,22 +80,28 @@ function ClassDetailPageContent() {
                             <TabsTrigger value="log"><BookOpen className="mr-2 h-4 w-4"/>Diário de Classe</TabsTrigger>
                             <TabsTrigger value="materials"><Folder className="mr-2 h-4 w-4"/>Materiais</TabsTrigger>
                         </TabsList>
+                        
                         <TabsContent value="students" className="mt-6">
                             <ClassStudentsManager classData={classData} />
                         </TabsContent>
-                         <TabsContent value="grades" className="mt-6">
-                             <UnderConstruction pageTitle="Gerenciamento de Notas" pageDescription="Lance e acompanhe as notas e o desempenho dos alunos."/>
+                        
+                        <TabsContent value="grades" className="mt-6">
+                             <ClassGradesManager classData={classData} />
                         </TabsContent>
-                         <TabsContent value="log" className="mt-6">
-                            <div className="text-center py-10">
-                                 <p className="text-muted-foreground">O Diário de Classe é acessado pelo professor em sua própria área.</p>
-                                 <Button asChild variant="link">
-                                    <Link href={`/dashboard/teaching/log/${classId}`}>Ir para o Diário (Visão do Professor)</Link>
+                        
+                        <TabsContent value="log" className="mt-6">
+                            <div className="text-center py-10 border-2 border-dashed rounded-lg">
+                                 <p className="text-muted-foreground mb-4">O Diário de Classe é usado pelos professores para lançar presenças e conteúdos.</p>
+                                 <Button asChild>
+                                    <Link href={`/dashboard/teaching/log/${classId}`}>
+                                        <BookOpen className="mr-2 size-4" /> Ir para o Diário da Turma
+                                    </Link>
                                  </Button>
                             </div>
                         </TabsContent>
-                         <TabsContent value="materials" className="mt-6">
-                             <UnderConstruction pageTitle="Materiais de Apoio" pageDescription="Faça o upload de arquivos, apostilas e links para os alunos."/>
+                        
+                        <TabsContent value="materials" className="mt-6">
+                             <ClassMaterialsManager classData={classData} />
                         </TabsContent>
                     </Tabs>
                 </CardContent>

@@ -32,7 +32,7 @@ export type User = {
   serviceTeamId?: string;
   eligibleEventIds?: string[];
   blockedDates?: string[];
-  lastServedDate?: Timestamp; // "YYYY-MM-DD"
+  lastServedDate?: Timestamp;
   financialStatus?: 'active' | 'blocked' | 'delinquent';
   absenceCount?: number;
   integrationStatus?: string;
@@ -77,6 +77,7 @@ export type Class = {
   locationId?: string;
   attendance?: { date: string; presentStudentIds: string[] }[];
   grades?: { studentId: string, assessmentName: string, grade: number }[];
+  materials?: { title: string; url: string; description?: string }[];
 };
 
 export type PedagogicalLog = {
@@ -93,7 +94,7 @@ export type RoomReservation = {
     eventName: string;
     requesterId: string;
     rooms: string[];
-    startDateTime: any; // Using `any` to be compatible with Firestore Timestamp
+    startDateTime: any;
     endDateTime: any;
     status: 'pending' | 'approved' | 'rejected';
     notes?: string;
@@ -109,8 +110,8 @@ export type RoomReservation = {
 export type SavedSchedule = {
   id: string;
   areaId: string;
-  month: string; // "YYYY-MM"
-  schedule: any; // The actual schedule data
+  month: string;
+  schedule: any;
 }
 
 export type WavePlan = {
@@ -123,7 +124,7 @@ export type WavePayment = {
   id: string;
   userId: string;
   planId: string;
-  month: string; // "YYYY-MM"
+  month: string;
   amount: number;
   status: 'pending' | 'paid' | 'overdue';
   splits?: {
@@ -152,7 +153,7 @@ export type DisPayment = {
   id: string;
   userId: string;
   planId: string;
-  month: string; // "YYYY-MM"
+  month: string;
   amount: number;
   status: 'pending' | 'paid' | 'overdue';
   contaAzulInvoiceId?: string;
@@ -169,7 +170,6 @@ export type EnrollmentRequest = {
     createdAt: Timestamp;
 };
 
-
 type AreaData = Omit<AreaOfService, 'id'>;
 type TeamData = Omit<Team, 'id'>;
 type RoomData = Omit<Room, 'id'>;
@@ -185,10 +185,7 @@ type PedagogicalLogData = Omit<PedagogicalLog, 'id'>;
 type ClassData = Omit<Class, 'id'>;
 type EnrollmentRequestData = Omit<EnrollmentRequest, 'id'>;
 
-
-// --- CONTEXT DEFINITION ---
 interface VolunteeringContextType {
-  // State
   areas: AreaOfService[];
   users: User[];
   teams: Team[];
@@ -207,43 +204,26 @@ interface VolunteeringContextType {
   enrollmentRequests: EnrollmentRequest[];
   isLoading: boolean;
   
-  // Functions for Areas
   addArea: (data: AreaData) => Promise<void>;
   updateArea: (id: string, data: Partial<AreaData>) => Promise<void>;
   deleteArea: (id: string) => Promise<void>;
-
-  // Functions for Teams
   addTeam: (data: TeamData) => Promise<void>;
   updateTeam: (id: string, data: Partial<TeamData>) => Promise<void>;
   deleteTeam: (id: string) => Promise<void>;
-  
-  // Functions for Rooms
   addRoom: (data: RoomData) => Promise<void>;
   updateRoom: (id: string, data: Partial<RoomData>) => Promise<void>;
   deleteRoom: (id: string) => Promise<void>;
-
-  // Functions for Events
   addEvent: (data: EventData) => Promise<void>;
   updateEvent: (id: string, data: Partial<EventData>) => Promise<void>;
   deleteEvent: (id: string) => Promise<void>;
-  
-  // Functions for Reservations
   addReservation: (data: ReservationData) => Promise<void>;
   updateReservation: (id: string, data: Partial<ReservationData>) => Promise<void>;
   deleteReservation: (id: string) => Promise<void>;
-  
-  // Functions for Volunteers/Users
   addUser: (data: Partial<User>) => Promise<string>;
   updateVolunteer: (id: string, data: Partial<User>) => Promise<void>;
-  
-  // Functions for Schedules
   saveSchedule: (data: SavedScheduleData) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
-  
-  // Functions for Classes
   updateClass: (id: string, data: Partial<ClassData>) => Promise<void>;
-
-  // Functions for Wave
   addWavePlan: (data: WavePlanData) => Promise<void>;
   updateWavePlan: (id: string, data: Partial<WavePlanData>) => Promise<void>;
   deleteWavePlan: (id: string) => Promise<void>;
@@ -253,28 +233,21 @@ interface VolunteeringContextType {
   addWaveExpense: (data: WaveExpenseData) => Promise<void>;
   updateWaveExpense: (id: string, data: Partial<WaveExpenseData>) => Promise<void>;
   deleteWaveExpense: (id: string) => Promise<void>;
-
-  // Functions for DIS
   addDisPlan: (data: DisPlanData) => Promise<void>;
   updateDisPlan: (id: string, data: Partial<DisPlanData>) => Promise<void>;
   deleteDisPlan: (id: string) => Promise<void>;
   addDisPayment: (data: DisPaymentData) => Promise<void>;
   updateDisPayment: (id: string, data: Partial<DisPaymentData>) => Promise<void>;
   deleteDisPayment: (id: string) => Promise<void>;
-  
-  // Functions for Pedagogical Logs
   addPedagogicalLog: (data: PedagogicalLogData) => Promise<void>;
   updatePedagogicalLog: (id: string, data: Partial<PedagogicalLogData>) => Promise<void>;
   deletePedagogicalLog: (id: string) => Promise<void>;
-
-  // Functions for Enrollment Requests
   updateEnrollmentRequest: (id: string, data: Partial<EnrollmentRequestData>) => Promise<void>;
   deleteEnrollmentRequest: (id: string) => Promise<void>;
 }
 
 const VolunteeringContext = createContext<VolunteeringContextType | undefined>(undefined);
 
-// --- PROVIDER COMPONENT ---
 export function VolunteeringProvider({ children }: { children: React.ReactNode }) {
   const { firestore, user } = useFirebase();
   const { toast } = useToast();
@@ -313,10 +286,8 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { data: disPayments, isLoading: loadingDisPayments } = useCollection<DisPayment>(disPaymentsQuery);
   const { data: enrollmentRequests, isLoading: loadingEnrollments } = useCollection<EnrollmentRequest>(enrollmentRequestsQuery);
 
-
   const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents || loadingRooms || loadingCourses || loadingClasses || loadingPedagogicalLogs || loadingReservations || loadingSavedSchedules || loadingWavePlans || loadingWavePayments || loadingWaveExpenses || loadingDisPlans || loadingDisPayments || loadingEnrollments;
 
-  // --- GENERIC CRUD FUNCTIONS ---
   const createCrudFunctions = <T extends {id: string}>(collectionName: string, itemType: string) => {
       const collectionRef = firestore ? collection(firestore, collectionName) : null;
       
@@ -347,32 +318,25 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { addItem: addTeam, updateItem: updateTeam, deleteItem: deleteTeam } = createCrudFunctions<Team>('teams', 'Equipe');
   const { addItem: addRoom, updateItem: updateRoom, deleteItem: deleteRoom } = createCrudFunctions<Room>('rooms', 'Ambiente');
   const { addItem: addReservation, updateItem: updateReservation, deleteItem: deleteReservation } = createCrudFunctions<RoomReservation>('room_reservations', 'Reserva');
-  const { addItem: _, updateItem: __, deleteItem: deleteSchedule } = createCrudFunctions<SavedSchedule>('saved_schedules', 'Escala Salva');
+  const { deleteItem: deleteSchedule } = createCrudFunctions<SavedSchedule>('saved_schedules', 'Escala Salva');
   const { updateItem: updateClass } = createCrudFunctions<Class>('classes', 'Turma');
   const { addItem: addWavePlan, updateItem: updateWavePlan, deleteItem: deleteWavePlan } = createCrudFunctions<WavePlan>('wave_plans', 'Plano Wave');
   const { addItem: addWaveExpense, updateItem: updateWaveExpense, deleteItem: deleteWaveExpense } = createCrudFunctions<WaveExpense>('wave_expenses', 'Despesa Wave');
   const { addItem: addPedagogicalLog, updateItem: updatePedagogicalLog, deleteItem: deletePedagogicalLog } = createCrudFunctions<PedagogicalLog>('pedagogical_logs', 'Registro Pedagógico');
-  
   const { addItem: addDisPlan, updateItem: updateDisPlan, deleteItem: deleteDisPlan } = createCrudFunctions<DisPlan>('dis_plans', 'Plano DIS');
   const { addItem: addDisPayment, updateItem: updateDisPayment, deleteItem: deleteDisPayment } = createCrudFunctions<DisPayment>('dis_payments', 'Pagamento DIS');
   const { updateItem: updateEnrollmentRequest, deleteItem: deleteEnrollmentRequest } = createCrudFunctions<EnrollmentRequest>('enrollment_requests', 'Pedido de Inscrição');
 
-
-  // --- CUSTOM EVENT FUNCTIONS ---
   const addEvent = async (data: EventData) => {
     if(!firestore || !user) return;
     const eventsCollection = collection(firestore, 'volunteering_events');
     const newEventRef = doc(eventsCollection);
-    
     const batch = writeBatch(firestore);
     batch.set(newEventRef, data);
-    
-    // If it's a specific (pontual) event with a room, create a reservation
     if (data.date && data.time && data.room) {
         const reservationsCollection = collection(firestore, 'room_reservations');
         const startDateTime = Timestamp.fromDate(new Date(`${data.date}T${data.time}`));
-        const endDateTime = Timestamp.fromDate(new Date(startDateTime.toDate().getTime() + 2 * 60 * 60 * 1000)); // default 2h duration
-        
+        const endDateTime = Timestamp.fromDate(new Date(startDateTime.toDate().getTime() + 2 * 60 * 60 * 1000));
         batch.set(doc(reservationsCollection), {
             eventName: data.name,
             requesterId: user.uid,
@@ -385,30 +349,26 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
             createdAt: Timestamp.now(),
         });
     }
-    
     await batch.commit();
-    toast({ title: 'Sucesso', description: `Evento "${data.name}" criado e reserva de sala (se aplicável) efetuada.` });
+    toast({ title: 'Sucesso', description: `Evento "${data.name}" criado.` });
   };
   
   const updateEvent = async (id: string, data: Partial<EventData>) => {
-    if(!firestore || !user) return;
-    const eventDoc = doc(firestore, 'volunteering_events', id);
-    // Here we use updateDocumentNonBlocking because we don't have batch support in non-blocking yet
-    updateDocumentNonBlocking(eventDoc, data);
-    toast({ title: 'Sucesso', description: `Evento será atualizado.` });
+    if(!firestore) return;
+    updateDocumentNonBlocking(doc(firestore, 'volunteering_events', id), data);
+    toast({ title: 'Sucesso', description: `Evento atualizado.` });
   };
   
   const deleteEvent = async (id: string) => {
     if(!firestore) return;
-    const eventDoc = doc(firestore, 'volunteering_events', id);
-    deleteDocumentNonBlocking(eventDoc);
+    deleteDocumentNonBlocking(doc(firestore, 'volunteering_events', id));
     toast({ title: 'Sucesso', description: 'O evento será excluído.' });
   };
 
-  // --- USER FUNCTIONS ---
   const addUser = async (data: Partial<User>) => {
     if (!firestore) throw new Error('Firestore not available');
-    const docRef = await addDocumentNonBlocking(collection(firestore, 'users'), {
+    const col = collection(firestore, 'users');
+    const docRef = await addDocumentNonBlocking(col, {
         ...data,
         createdAt: Timestamp.now(),
         integrationStatus: data.integrationStatus || 'nao_alcancado',
@@ -418,42 +378,25 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
 
   const updateVolunteer = async (id: string, data: Partial<User>) => {
     if (!firestore) return;
-    const userDoc = doc(firestore, 'users', id);
-    updateDocumentNonBlocking(userDoc, data);
-    toast({ title: 'Sucesso', description: `O status de serviço do membro será atualizado.` });
+    updateDocumentNonBlocking(doc(firestore, 'users', id), data);
+    toast({ title: 'Sucesso', description: `Membro atualizado.` });
   };
   
-  // --- SAVED SCHEDULE FUNCTIONS ---
   const saveSchedule = async (data: SavedScheduleData) => {
     if (!firestore) return;
-    const scheduleId = `${data.areaId}_${data.month}`;
-    const scheduleDoc = doc(firestore, 'saved_schedules', scheduleId);
-    setDocumentNonBlocking(scheduleDoc, data, { merge: true });
-
-    // After saving, update the lastServedDate for each volunteer
+    const docRef = doc(firestore, 'saved_schedules', `${data.areaId}_${data.month}`);
+    setDocumentNonBlocking(docRef, data, { merge: true });
     const batch = writeBatch(firestore);
-    const volunteerLastServed: Record<string, Timestamp> = {};
-
     data.schedule.forEach(item => {
         const itemDate = Timestamp.fromDate(new Date(item.date.split('/').reverse().join('-') + 'T12:00:00'));
         item.memberIds.forEach((memberId: string) => {
-            if (!volunteerLastServed[memberId] || itemDate > volunteerLastServed[memberId]) {
-                volunteerLastServed[memberId] = itemDate;
-            }
+            batch.update(doc(firestore, 'users', memberId), { lastServedDate: itemDate });
         });
     });
-
-    for (const [userId, lastDate] of Object.entries(volunteerLastServed)) {
-        const userDocRef = doc(firestore, 'users', userId);
-        batch.update(userDocRef, { lastServedDate: lastDate });
-    }
-
     await batch.commit();
-
-    toast({ title: 'Sucesso', description: 'A escala foi salva e as datas de último serviço foram atualizadas.' });
+    toast({ title: 'Sucesso', description: 'Escala salva.' });
   };
 
-  // --- WAVE PAYMENT FUNCTIONS ---
   const calculateSplits = (totalAmount: number) => ({
       teacher: totalAmount * 0.4,
       wave: totalAmount * 0.3,
@@ -463,26 +406,18 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
 
   const addWavePayment = async (data: WavePaymentData) => {
       if (!firestore) return;
-      const collectionRef = collection(firestore, 'wave_payments');
       const splits = calculateSplits(data.amount);
-      const dataWithSplits = { ...data, splits };
-      addDocumentNonBlocking(collectionRef, dataWithSplits);
-      toast({ title: 'Sucesso', description: 'Pagamento será registrado.' });
+      addDocumentNonBlocking(collection(firestore, 'wave_payments'), { ...data, splits });
+      toast({ title: 'Sucesso', description: 'Pagamento registrado.' });
   };
 
   const updateWavePayment = async (id: string, data: Partial<WavePaymentData>) => {
       if (!firestore) return;
-      const itemDoc = doc(firestore, 'wave_payments', id);
-      let dataWithSplits: Partial<WavePaymentData> & { splits?: any } = { ...data };
-      if (data.amount) {
-          const splits = calculateSplits(data.amount);
-          dataWithSplits.splits = splits;
-      }
-      updateDocumentNonBlocking(itemDoc, dataWithSplits);
-      toast({ title: 'Sucesso', description: 'Pagamento será atualizado.' });
+      let updateData = { ...data };
+      if (data.amount) updateData = { ...updateData, splits: calculateSplits(data.amount) } as any;
+      updateDocumentNonBlocking(doc(firestore, 'wave_payments', id), updateData);
+      toast({ title: 'Sucesso', description: 'Pagamento atualizado.' });
   };
-
-  const { deleteItem: deleteWavePayment } = createCrudFunctions<WavePayment>('wave_payments', 'Pagamento Wave');
 
   const value = useMemo(() => ({
     areas: areas || [],
@@ -545,13 +480,12 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   }), [areas, teams, users, events, rooms, courses, classes, pedagogicalLogs, reservations, savedSchedules, wavePlans, wavePayments, waveExpenses, disPlans, disPayments, enrollmentRequests, isLoading]);
 
   return (
-    < VolunteeringContext.Provider value={value}>
+    <VolunteeringContext.Provider value={value}>
       {children}
     </VolunteeringContext.Provider>
   );
 }
 
-// --- HOOK ---
 export function useVolunteering() {
   const context = useContext(VolunteeringContext);
   if (context === undefined) {
