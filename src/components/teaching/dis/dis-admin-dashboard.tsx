@@ -7,12 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Users, Inbox, BookOpen, GraduationCap, ChevronRight, TrendingUp, UserPlus } from 'lucide-react';
+import { Loader2, Users, Inbox, BookOpen, GraduationCap, ChevronRight, TrendingUp, UserPlus, PlusCircle } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from 'recharts';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
 import { EnrollmentDialog } from '../enrollment-dialog';
+import { ClassFormDialog } from '../class-form-dialog';
 
 // Dados simulados para o gráfico de crescimento
 const growthData = [
@@ -25,6 +26,7 @@ const growthData = [
 export function DisAdminDashboard() {
   const { users, classes, courses, enrollmentRequests, isLoading } = useVolunteering();
   const [isEnrollmentOpen, setEnrollmentOpen] = useState(false);
+  const [isClassFormOpen, setClassFormOpen] = useState(false);
 
   // Filtrar dados específicos do DIS
   const disCourses = useMemo(() => 
@@ -33,6 +35,7 @@ export function DisAdminDashboard() {
   );
 
   const disCourseIds = useMemo(() => disCourses.map(c => c.id), [disCourses]);
+  const primaryDisCourseId = disCourseIds[0];
 
   const disClasses = useMemo(() => 
     classes.filter(c => disCourseIds.includes(c.courseId)),
@@ -67,11 +70,17 @@ export function DisAdminDashboard() {
     <div className="space-y-6">
       {/* KPI Cards & Main Action */}
       <div className="flex justify-between items-center mb-2">
-          <h3 className="text-lg font-bold">Indicadores DIS</h3>
-          <Button onClick={() => setEnrollmentOpen(true)}>
-              <UserPlus className="mr-2 size-4" />
-              Inscrição Manual
-          </Button>
+          <h3 className="text-lg font-bold">Gestão DIS</h3>
+          <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setClassFormOpen(true)} disabled={!primaryDisCourseId}>
+                  <PlusCircle className="mr-2 size-4" />
+                  Nova Turma
+              </Button>
+              <Button onClick={() => setEnrollmentOpen(true)}>
+                  <UserPlus className="mr-2 size-4" />
+                  Inscrição Manual
+              </Button>
+          </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -163,7 +172,7 @@ export function DisAdminDashboard() {
                 <p className="text-sm text-muted-foreground text-center py-4">Nenhuma solicitação recente.</p>
               )}
               <Button variant="link" className="w-full text-xs" asChild>
-                <Link href={`/dashboard/teaching/courses/${disCourseIds[0]}`}>Ver todas as solicitações</Link>
+                <Link href={primaryDisCourseId ? `/dashboard/teaching/courses/${primaryDisCourseId}` : '#'}>Ver todas as solicitações</Link>
               </Button>
             </div>
           </CardContent>
@@ -219,6 +228,15 @@ export function DisAdminDashboard() {
       </Card>
 
       <EnrollmentDialog open={isEnrollmentOpen} onOpenChange={setEnrollmentOpen} />
+      
+      {primaryDisCourseId && (
+        <ClassFormDialog 
+            open={isClassFormOpen} 
+            onOpenChange={setClassFormOpen} 
+            courseId={primaryDisCourseId} 
+            existingClass={null} 
+        />
+      )}
     </div>
   );
 }

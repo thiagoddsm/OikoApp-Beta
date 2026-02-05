@@ -1,10 +1,13 @@
+
 'use client';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Loader2, UserPlus, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering } from '@/contexts/volunteering-context';
 
@@ -14,88 +17,148 @@ interface EnrollmentDialogProps {
 }
 
 export function EnrollmentDialog({ open, onOpenChange }: EnrollmentDialogProps) {
-  const { users, classes, courses, updateClass, isLoading } = useVolunteering();
+  const { users, classes, courses, updateClass, addUser, isLoading } = useVolunteering();
   const { toast } = useToast();
 
+  const [mode, setMode] = useState<'existing' | 'new'>('existing');
   const [studentId, setStudentId] = useState('');
   const [classId, setClassId] = useState('');
+  
+  // Fields for new user
+  const [newName, setNewName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  
   const [isSaving, setIsSaving] = useState(false);
 
   const courseMap = useMemo(() => new Map(courses.map(c => [c.id, c.name])), [courses]);
 
   useEffect(() => {
     if (open) {
-      // Reset form when opening
       setStudentId('');
       setClassId('');
+      setNewName('');
+      setNewEmail('');
+      setNewPhone('');
+      setMode('existing');
     }
   }, [open]);
 
   const handleSave = async () => {
-    if (!studentId || !classId) {
-      toast({ variant: 'destructive', title: 'Campos obrigatórios', description: 'Por favor, selecione um aluno e uma turma.' });
+    if (mode === 'existing' && !studentId) {
+        toast({ variant: 'destructive', title: 'Campo obrigatório', description: 'Selecione um aluno.' });
+        return;
+    }
+    if (mode === 'new' && !newName.trim()) {
+        toast({ variant: 'destructive', title: 'Campo obrigatório', description: 'Digite o nome do aluno.' });
+        return;
+    }
+    if (!classId) {
+      toast({ variant: 'destructive', title: 'Campo obrigatório', description: 'Selecione uma turma.' });
       return;
     }
+
     setIsSaving(true);
 
-    const selectedClass = classes.find(c => c.id === classId);
-    if (!selectedClass) {
-        toast({ variant: 'destructive', title: 'Erro', description: 'Turma não encontrada.' });
-        setIsSaving(false);
-        return;
-    }
+    try {
+        let finalStudentId = studentId;
 
-    const currentStudents = selectedClass.students || [];
-    if (currentStudents.includes(studentId)) {
-        toast({ variant: 'default', title: 'Aviso', description: 'Este aluno já está matriculado nesta turma.' });
-        setIsSaving(false);
+        if (mode === 'new') {
+            finalStudentId = await addUser({
+                name: newName,
+                email: newEmail,
+                phone: newPhone,
+            });
+        }
+
+        const selectedClass = classes.find(c => c.id === classId);
+        if (!selectedClass) throw new Error("Turma não encontrada");
+
+        const currentStudents = selectedClass.students || [];
+        if (currentStudents.includes(finalStudentId)) {
+            toast({ title: 'Aviso', description: 'Este aluno já está matriculado nesta turma.' });
+        } else {
+            const updatedStudents = [...currentStudents, finalStudentId];
+            await updateClass(classId, { students: updatedStudents });
+            toast({ title: 'Sucesso!', description: 'Matrícula realizada com sucesso.' });
+        }
+
         onOpenChange(false);
-        return;
+    } catch (error) {
+        console.error(error);
+        toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível concluir a matrícula.' });
+    } finally {
+        setIsSaving(false);
     }
-
-    const updatedStudents = [...currentStudents, studentId];
-    await updateClass(classId, { students: updatedStudents });
-    
-    toast({ title: 'Sucesso!', description: 'Aluno matriculado na turma.' });
-
-    setIsSaving(false);
-    onOpenChange(false);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Nova Matrícula</DialogTitle>
+          <DialogTitle>Realizar Matrícula</DialogTitle>
           <DialogDescription>
-            Selecione o aluno e a turma para realizar a matrícula.
+            Matricule um aluno existente ou cadastre um novo interessado no sistema.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
-          <div>
-            <Label htmlFor="student-id">Aluno</Label>
-            <Select value={studentId} onValueChange={setStudentId} disabled={isLoading}>
-                <SelectTrigger id="student-id"><SelectValue placeholder="Selecione um aluno..." /></SelectTrigger>
-                <SelectContent>
-                    {users.map(user => <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>)}
-                </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor="class-id">Turma</Label>
-             <Select value={classId} onValueChange={setClassId} disabled={isLoading}>
-                <SelectTrigger id="class-id"><SelectValue placeholder="Selecione uma turma..." /></SelectTrigger>
-                <SelectContent>
-                    {classes.map(cls => <SelectItem key={cls.id} value={cls.id}>{cls.name} ({courseMap.get(cls.courseId) || 'Curso desconhecido'})</SelectItem>)}
-                </SelectContent>
-            </Select>
+        <div className="space-y-6 py-4">
+          <RadioGroup value={mode} onValueChange={(v: any) => setMode(v)} className="flex gap-4 p-1 bg-muted rounded-md">
+            <Label htmlFor="mode-existing" className={`flex-1 flex items-center justify-center p-2 rounded-sm cursor-pointer transition-all ${mode === 'existing' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}>
+                <RadioGroupItem value="existing" id="mode-existing" className="sr-only" />
+                <Search className="size-4 mr-2" /> Selecionar Aluno
+            </Label>
+            <Label htmlFor="mode-new" className={`flex-1 flex items-center justify-center p-2 rounded-sm cursor-pointer transition-all ${mode === 'new' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}>
+                <RadioGroupItem value="new" id="mode-new" className="sr-only" />
+                <UserPlus className="size-4 mr-2" /> Cadastrar Novo
+            </Label>
+          </RadioGroup>
+
+          <div className="space-y-4">
+            {mode === 'existing' ? (
+                <div>
+                    <Label htmlFor="student-id">Pesquisar Aluno</Label>
+                    <Select value={studentId} onValueChange={setStudentId} disabled={isLoading}>
+                        <SelectTrigger id="student-id"><SelectValue placeholder="Selecione um aluno..." /></SelectTrigger>
+                        <SelectContent>
+                            {users.map(user => <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+            ) : (
+                <div className="space-y-3">
+                    <div>
+                        <Label htmlFor="newName">Nome Completo *</Label>
+                        <Input id="newName" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Ex: João da Silva" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <Label htmlFor="newPhone">Telefone</Label>
+                            <Input id="newPhone" value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="(21) 9..." />
+                        </div>
+                        <div>
+                            <Label htmlFor="newEmail">E-mail</Label>
+                            <Input id="newEmail" value={newEmail} onChange={e => setNewEmail(e.target.value)} type="email" placeholder="exemplo@mail.com" />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div>
+                <Label htmlFor="class-id">Turma de Destino *</Label>
+                <Select value={classId} onValueChange={setClassId} disabled={isLoading}>
+                    <SelectTrigger id="class-id"><SelectValue placeholder="Selecione uma turma..." /></SelectTrigger>
+                    <SelectContent>
+                        {classes.map(cls => <SelectItem key={cls.id} value={cls.id}>{cls.name} ({courseMap.get(cls.courseId) || 'Curso'})</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </div>
           </div>
         </div>
         <DialogFooter>
           <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
           <Button onClick={handleSave} disabled={isSaving}>
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Matricular Aluno
+            {mode === 'new' ? 'Cadastrar e Matricular' : 'Efetivar Matrícula'}
           </Button>
         </DialogFooter>
       </DialogContent>

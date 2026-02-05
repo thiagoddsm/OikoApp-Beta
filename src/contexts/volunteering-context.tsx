@@ -232,7 +232,8 @@ interface VolunteeringContextType {
   updateReservation: (id: string, data: Partial<ReservationData>) => Promise<void>;
   deleteReservation: (id: string) => Promise<void>;
   
-  // Functions for Volunteers
+  // Functions for Volunteers/Users
+  addUser: (data: Partial<User>) => Promise<string>;
   updateVolunteer: (id: string, data: Partial<User>) => Promise<void>;
   
   // Functions for Schedules
@@ -404,7 +405,17 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     toast({ title: 'Sucesso', description: 'O evento será excluído.' });
   };
 
-  // --- VOLUNTEER FUNCTIONS ---
+  // --- USER FUNCTIONS ---
+  const addUser = async (data: Partial<User>) => {
+    if (!firestore) throw new Error('Firestore not available');
+    const docRef = await addDocumentNonBlocking(collection(firestore, 'users'), {
+        ...data,
+        createdAt: Timestamp.now(),
+        integrationStatus: data.integrationStatus || 'nao_alcancado',
+    });
+    return docRef.id;
+  };
+
   const updateVolunteer = async (id: string, data: Partial<User>) => {
     if (!firestore) return;
     const userDoc = doc(firestore, 'users', id);
@@ -506,6 +517,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     addReservation,
     updateReservation,
     deleteReservation,
+    addUser,
     updateVolunteer,
     saveSchedule,
     deleteSchedule,
