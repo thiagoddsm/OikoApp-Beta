@@ -1,170 +1,223 @@
 
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useFirebase, addDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, Timestamp } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, Timestamp, addDoc } from 'firebase/firestore';
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, CheckCircle, GraduationCap, ArrowLeft, Send } from 'lucide-react';
+import { Loader2, CheckCircle, GraduationCap, LogIn } from 'lucide-react';
 import { Logo } from '@/components/icons';
-import Link from 'next/link';
+import { useToast } from '@/hooks/use-toast';
 
 type Course = { id: string; name: string; ministryName: string };
 type Class = { id: string; name: string; courseId: string };
 
-function EnrollmentForm() {
-  const { firestore } = useFirebase();
+function EnrollmentFormContent() {
+  const { firestore, auth, user, isUserLoading } = useFirebase();
+  const { toast } = useToast();
   const searchParams = useSearchParams();
-  const preSelectedCourseId = searchParams.get('courseId') || '';
+  const preSelectedCourseId = searchParams.get('courseId');
 
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
-    courseId: preSelectedCourseId,
+    courseId: '',
     classId: '',
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Fetch Courses
   const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
+  const classesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'classes')) : null, [firestore]);
+
   const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery);
+  const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesQuery);
 
-  // Fetch Classes for selected course
-  const classesQuery = useMemoFirebase(() => {
-    if (!firestore || !formData.courseId) return null;
-    return query(collection(firestore, 'classes')); // We filter locally for simplicity in public view
-  }, [firestore, formData.courseId]);
-  const { data: allClasses, isLoading: isLoadingClasses } = useCollection<Class>(classesQuery);
+  // Pre-fill user data and course from URL
+  useEffect(() => {
+    if (user) {
+      setFormData(prev => ({
+        ...prev,
+        name: user.displayName || '',
+        email: user.email || '',
+      }));
+    }
+    if (preSelectedCourseId) {
+      setFormData(prev => ({ ...prev, courseId: preSelectedCourseId }));
+    }
+  }, [user, preSelectedCourseId]);
 
-  const availableClasses = React.useMemo(() => {
-    return allClasses?.filter(c => c.courseId === formData.courseId) || [];
-  }, [allClasses, formData.courseId]);
+  const availableClasses = classes?.filter(c => c.courseId === formData.courseId) || [];
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+  const handleGoogleLogin = async () => {
+    if (!auth) return;
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+    } catch (error) {
+      console.error("Login failed", error);
+      toast({ variant: 'destructive', title: 'Erro no Login', description: 'Não foi possível autenticar com o Google.' });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.phone || !formData.courseId) {
-        setErrorMessage("Por favor, preencha todos os campos obrigatórios.");
-        return;
-    }
+    if (!firestore || !user) return;
 
     setIsSubmitting(true);
-    setErrorMessage(null);
 
     try {
       const requestsCollection = collection(firestore, 'enrollment_requests');
-      
-      // Enviando os dados. Note que usamos o firestore diretamente aqui para garantir
-      // que o erro seja capturado pelo try/catch local se possível.
-      await addDocumentNonBlocking(requestsCollection, {
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        courseId: formData.courseId,
-        classId: formData.classId || '',
+      await addDoc(requestsCollection, {
+        ...formData,
+        userId: user.uid,
         status: 'pending',
-        createdAt: Timestamp.now(), // Usando o objeto Timestamp nativo
+        createdAt: Timestamp.now(),
       });
 
       setIsSuccess(true);
+      toast({ title: "Inscrição Enviada!", description: "Sua solicitação foi recebida com sucesso." });
     } catch (error: any) {
-      console.error("Erro na inscrição:", error);
-      setErrorMessage("Ocorreu um erro ao enviar sua inscrição. Por favor, tente novamente ou entre em contato com a secretaria.");
+      console.error("Error submitting enrollment:", error);
+      toast({
+        variant: 'destructive',
+        title: "Erro ao Enviar",
+        description: "Ocorreu um problema ao salvar sua inscrição. Tente novamente.",
+      });
     } finally {
+      setIsSubmitting(true);
+      // Mantemos o loading true para evitar cliques duplos se o estado de sucesso não for imediato
       setIsSubmitting(false);
     }
   };
 
-  if (isSuccess) {
+  if (isUserLoading || isLoadingCourses) {
     return (
-      <Card className="border-t-8 border-green-500">
-        <CardContent className="pt-8 text-center space-y-4">
-          <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-            <CheckCircle className="text-green-600 size-10" />
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground">Preparando seu formulário...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <Card className="border-primary/20 shadow-xl">
+        <CardHeader className="text-center">
+          <div className="mx-auto bg-primary/10 p-4 rounded-full w-16 h-16 flex items-center justify-center mb-4 text-primary">
+            <LogIn className="size-8" />
           </div>
-          <CardTitle className="text-2xl">Inscrição Recebida!</CardTitle>
-          <CardDescription className="text-base">
-            Olá <strong>{formData.name}</strong>, sua solicitação foi enviada com sucesso. 
-            Em breve nossa equipe entrará em contato para confirmar sua matrícula.
+          <CardTitle className="text-2xl">Quase lá!</CardTitle>
+          <CardDescription>
+            Para garantir a segurança dos seus dados e agilizar sua inscrição, precisamos que você se identifique.
           </CardDescription>
-          <Button asChild variant="outline" className="mt-4">
-            <Link href="/"><ArrowLeft className="mr-2 size-4" /> Voltar para o início</Link>
+        </CardHeader>
+        <CardContent className="text-center py-6">
+          <p className="text-sm text-muted-foreground mb-8">
+            Usaremos apenas seu nome e e-mail públicos do Google para preencher o formulário.
+          </p>
+          <Button onClick={handleGoogleLogin} size="lg" className="w-full sm:w-auto px-12">
+            Entrar com Google e Continuar
           </Button>
         </CardContent>
       </Card>
     );
   }
 
+  if (isSuccess) {
+    return (
+      <Card className="border-green-200 bg-green-50/30 text-center py-12 px-6">
+        <div className="mx-auto bg-green-100 p-4 rounded-full w-20 h-20 flex items-center justify-center mb-6 text-green-600">
+          <CheckCircle className="size-12" />
+        </div>
+        <CardTitle className="text-3xl font-bold text-green-800 mb-4">Inscrição Protocolada!</CardTitle>
+        <CardDescription className="text-lg text-green-700 max-w-md mx-auto">
+          Obrigado, <strong>{formData.name}</strong>! Recebemos seu interesse e a equipe do ministério entrará em contato em breve para confirmar sua matrícula.
+        </CardDescription>
+        <CardFooter className="justify-center mt-8">
+          <Button asChild variant="outline" className="border-green-200 hover:bg-green-100">
+            <a href="/">Voltar para o Início</a>
+          </Button>
+        </CardFooter>
+      </Card>
+    );
+  }
+
   return (
-    <form onSubmit={handleSubmit}>
-      <Card>
-        <CardHeader>
-          <CardTitle>Formulário de Inscrição</CardTitle>
-          <CardDescription>Preencha seus dados abaixo para iniciar sua jornada de aprendizado.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {errorMessage && (
-            <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-md">
-              {errorMessage}
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label htmlFor="name">Nome Completo *</Label>
-            <Input id="name" name="name" value={formData.name} onChange={handleChange} placeholder="Seu nome" required />
-          </div>
-
+    <Card className="border-primary/20 shadow-2xl">
+      <CardHeader>
+        <CardTitle className="text-2xl flex items-center gap-2">
+          <GraduationCap className="text-primary" />
+          Formulário de Inscrição
+        </CardTitle>
+        <CardDescription>
+          Olá {user.displayName?.split(' ')[0]}, preencha os detalhes abaixo para solicitar sua vaga.
+        </CardDescription>
+      </CardHeader>
+      <form onSubmit={handleSubmit}>
+        <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="phone">Telefone / WhatsApp *</Label>
-              <Input id="phone" name="phone" value={formData.phone} onChange={handleChange} placeholder="(99) 99999-9999" required />
+              <Label htmlFor="name">Seu Nome</Label>
+              <Input id="name" value={formData.name} disabled className="bg-muted" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">E-mail</Label>
-              <Input id="email" name="email" type="email" value={formData.email} onChange={handleChange} placeholder="seu@email.com" />
+              <Input id="email" type="email" value={formData.email} disabled className="bg-muted" />
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="courseId">Curso de Interesse *</Label>
-            <Select 
-              value={formData.courseId} 
-              onValueChange={(v) => setFormData(p => ({...p, courseId: v, classId: ''}))}
-              disabled={isLoadingCourses || !!preSelectedCourseId}
+            <Label htmlFor="phone">Telefone / WhatsApp *</Label>
+            <Input
+              id="phone"
+              required
+              placeholder="(21) 9..."
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="course">Curso Desejado *</Label>
+            <Select
+              required
+              value={formData.courseId}
+              onValueChange={(v) => setFormData({ ...formData, courseId: v, classId: '' })}
             >
-              <SelectTrigger id="courseId">
-                <SelectValue placeholder={isLoadingCourses ? "Carregando cursos..." : "Selecione o curso"} />
+              <SelectTrigger id="course">
+                <SelectValue placeholder="Selecione o curso" />
               </SelectTrigger>
               <SelectContent>
                 {courses?.map(course => (
-                  <SelectItem key={course.id} value={course.id}>{course.name} ({course.ministryName})</SelectItem>
+                  <SelectItem key={course.id} value={course.id}>
+                    {course.name} ({course.ministryName})
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {formData.courseId && (
+          {formData.courseId && availableClasses.length > 0 && (
             <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-              <Label htmlFor="classId">Turma Preferencial (Opcional)</Label>
-              <Select value={formData.classId} onValueChange={(v) => setFormData(p => ({...p, classId: v}))} disabled={isLoadingClasses}>
-                <SelectTrigger id="classId">
-                  <SelectValue placeholder={isLoadingClasses ? "Carregando turmas..." : "Selecione uma turma (opcional)"} />
+              <Label htmlFor="class">Turma de Preferência</Label>
+              <Select
+                value={formData.classId}
+                onValueChange={(v) => setFormData({ ...formData, classId: v })}
+              >
+                <SelectTrigger id="class">
+                  <SelectValue placeholder="Selecione a turma (opcional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="null">Qualquer horário</SelectItem>
+                  <SelectItem value="null">Ainda não decidi</SelectItem>
                   {availableClasses.map(cls => (
                     <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
                   ))}
@@ -173,45 +226,44 @@ function EnrollmentForm() {
             </div>
           )}
         </CardContent>
-        <CardFooter>
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
+        <CardFooter className="flex flex-col gap-4">
+          <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
             {isSubmitting ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Enviando...</>
-            ) : (
-              <><Send className="mr-2 h-4 w-4" /> Concluir Inscrição</>
-            )}
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processando...</>
+            ) : 'Enviar Solicitação de Matrícula'}
           </Button>
+          <p className="text-[10px] text-center text-muted-foreground uppercase tracking-widest">
+            Ao se inscrever, você concorda com nossa política de privacidade.
+          </p>
         </CardFooter>
-      </Card>
-    </form>
+      </form>
+    </Card>
   );
 }
 
 export default function EnrollmentPage() {
   return (
-    <div className="min-h-screen bg-muted/30 flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-xl space-y-6">
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <Logo className="size-10 text-primary" />
-          <h1 className="text-3xl font-bold text-primary">OikoApp</h1>
-        </div>
-        
-        <div className="text-center space-y-2">
-          <h2 className="text-2xl font-bold flex items-center justify-center gap-2">
-            <GraduationCap className="size-6" />
-            Portal de Inscrições
-          </h2>
-          <p className="text-muted-foreground">Bem-vindo(a)! Escolha seu curso e comece hoje mesmo.</p>
+    <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-2xl">
+        <div className="flex justify-center items-center gap-2 mb-8">
+          <Logo className="h-10 w-10 text-primary" />
+          <h1 className="text-4xl font-black tracking-tighter text-slate-900">OikoApp</h1>
         </div>
 
-        <Suspense fallback={<div className="flex justify-center p-12"><Loader2 className="animate-spin text-primary" /></div>}>
-          <EnrollmentForm />
+        <Suspense fallback={
+          <div className="flex justify-center p-12">
+            <Loader2 className="animate-spin text-primary h-8 w-8" />
+          </div>
+        }>
+          <EnrollmentFormContent />
         </Suspense>
 
-        <p className="text-center text-xs text-muted-foreground">
-          © {new Date().getFullYear()} OikoApp - Sistema Operacional da Igreja. Todos os direitos reservados.
-        </p>
+        <div className="text-center mt-12">
+          <p className="text-sm text-muted-foreground">
+            &copy; {new Date().getFullYear()} IBM - Garantindo que a Organização sirva ao Organismo.
+          </p>
+        </div>
       </div>
-    </div>
+    </main>
   );
 }
