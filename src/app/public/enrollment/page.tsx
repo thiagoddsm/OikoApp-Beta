@@ -3,267 +3,232 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, Timestamp, addDoc } from 'firebase/firestore';
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
+import { collection, query, Timestamp } from 'firebase/firestore';
+import { GoogleAuthProvider, signInWithRedirect, getRedirectResult } from 'firebase/auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, CheckCircle, GraduationCap, LogIn } from 'lucide-react';
-import { Logo } from '@/components/icons';
+import { Loader2, CheckCircle, GraduationCap, User, Phone, Mail, Send, LogIn } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Logo } from '@/components/icons';
 
-type Course = { id: string; name: string; ministryName: string };
-type Class = { id: string; name: string; courseId: string };
+type Course = { id: string; name: string };
 
 function EnrollmentFormContent() {
-  const { firestore, auth, user, isUserLoading } = useFirebase();
-  const { toast } = useToast();
+  const { auth, firestore, user, isUserLoading } = useFirebase();
   const searchParams = useSearchParams();
-  const preSelectedCourseId = searchParams.get('courseId');
-
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    courseId: '',
-    classId: '',
-  });
-
+  const { toast } = useToast();
+  
+  const courseIdParam = searchParams.get('courseId');
+  const [selectedCourseId, setSelectedCourseId] = useState(courseIdParam || '');
+  const [phone, setPhone] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
 
   const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
-  const classesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'classes')) : null, [firestore]);
-
   const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery);
-  const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesQuery);
 
-  // Pre-fill user data and course from URL
+  // Lidar com o resultado do redirecionamento do Google
   useEffect(() => {
-    if (user) {
-      setFormData(prev => ({
-        ...prev,
-        name: user.displayName || '',
-        email: user.email || '',
-      }));
+    if (auth) {
+      setIsAuthenticating(true);
+      getRedirectResult(auth)
+        .then(() => {
+          setIsAuthenticating(false);
+        })
+        .catch((error) => {
+          console.error("Erro ao processar retorno do Google:", error);
+          setIsAuthenticating(false);
+          if (error.code !== 'auth/popup-closed-by-user') {
+             toast({
+                variant: 'destructive',
+                title: 'Erro no Login',
+                description: 'Não foi possível completar a autenticação com o Google.',
+            });
+          }
+        });
     }
-    if (preSelectedCourseId) {
-      setFormData(prev => ({ ...prev, courseId: preSelectedCourseId }));
-    }
-  }, [user, preSelectedCourseId]);
+  }, [auth, toast]);
 
-  const availableClasses = classes?.filter(c => c.courseId === formData.courseId) || [];
+  useEffect(() => {
+    if (courseIdParam) {
+      setSelectedCourseId(courseIdParam);
+    }
+  }, [courseIdParam]);
 
   const handleGoogleLogin = async () => {
     if (!auth) return;
+    const provider = new GoogleAuthProvider();
     try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      // Usar Redirect em vez de Popup para evitar problemas em ambientes de container/mobile
+      await signInWithRedirect(auth, provider);
     } catch (error) {
-      console.error("Login failed", error);
-      toast({ variant: 'destructive', title: 'Erro no Login', description: 'Não foi possível autenticar com o Google.' });
+      console.error("Erro ao iniciar login:", error);
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firestore || !user) return;
+    if (!user || !selectedCourseId || !phone) {
+        toast({ variant: 'destructive', title: 'Campos Obrigatórios', description: 'Por favor, preencha todos os campos.' });
+        return;
+    }
 
     setIsSubmitting(true);
-
     try {
-      const requestsCollection = collection(firestore, 'enrollment_requests');
-      await addDoc(requestsCollection, {
-        ...formData,
-        userId: user.uid,
-        status: 'pending',
-        createdAt: Timestamp.now(),
-      });
-
-      setIsSuccess(true);
-      toast({ title: "Inscrição Enviada!", description: "Sua solicitação foi recebida com sucesso." });
-    } catch (error: any) {
-      console.error("Error submitting enrollment:", error);
-      toast({
-        variant: 'destructive',
-        title: "Erro ao Enviar",
-        description: "Ocorreu um problema ao salvar sua inscrição. Tente novamente.",
-      });
+        const collectionRef = collection(firestore, 'enrollment_requests');
+        await addDocumentNonBlocking(collectionRef, {
+            name: user.displayName || 'Sem nome',
+            email: user.email || '',
+            phone,
+            courseId: selectedCourseId,
+            classId: '', // Será atribuído pelo admin
+            status: 'pending',
+            createdAt: Timestamp.now(),
+        });
+        setIsSubmitted(true);
+        toast({ title: 'Sucesso!', description: 'Sua solicitação foi enviada.' });
+    } catch (error) {
+        console.error("Erro ao enviar:", error);
+        toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível enviar sua inscrição.' });
     } finally {
-      setIsSubmitting(true);
-      // Mantemos o loading true para evitar cliques duplos se o estado de sucesso não for imediato
-      setIsSubmitting(false);
+        setIsSubmitting(false);
     }
   };
 
-  if (isUserLoading || isLoadingCourses) {
+  if (isUserLoading || isAuthenticating) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-muted-foreground">Preparando seu formulário...</p>
+        <p className="text-muted-foreground animate-pulse">
+            {isAuthenticating ? "Autenticando com o Google..." : "Carregando portal..."}
+        </p>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <Card className="border-primary/20 shadow-xl">
-        <CardHeader className="text-center">
-          <div className="mx-auto bg-primary/10 p-4 rounded-full w-16 h-16 flex items-center justify-center mb-4 text-primary">
-            <LogIn className="size-8" />
-          </div>
-          <CardTitle className="text-2xl">Quase lá!</CardTitle>
-          <CardDescription>
-            Para garantir a segurança dos seus dados e agilizar sua inscrição, precisamos que você se identifique.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="text-center py-6">
-          <p className="text-sm text-muted-foreground mb-8">
-            Usaremos apenas seu nome e e-mail públicos do Google para preencher o formulário.
-          </p>
-          <Button onClick={handleGoogleLogin} size="lg" className="w-full sm:w-auto px-12">
-            Entrar com Google e Continuar
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="text-center space-y-6 py-10">
+        <div className="bg-primary/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <User className="size-10 text-primary" />
+        </div>
+        <div className="space-y-2">
+            <h2 className="text-2xl font-bold">Identifique-se para continuar</h2>
+            <p className="text-muted-foreground max-w-sm mx-auto">
+                Para garantir a segurança dos seus dados, utilize sua conta Google para realizar a inscrição.
+            </p>
+        </div>
+        <Button onClick={handleGoogleLogin} size="lg" className="w-full max-w-xs h-12 text-lg">
+            <LogIn className="mr-2 size-5" />
+            Entrar com Google
+        </Button>
+      </div>
     );
   }
 
-  if (isSuccess) {
+  if (isSubmitted) {
     return (
-      <Card className="border-green-200 bg-green-50/30 text-center py-12 px-6">
-        <div className="mx-auto bg-green-100 p-4 rounded-full w-20 h-20 flex items-center justify-center mb-6 text-green-600">
-          <CheckCircle className="size-12" />
+      <div className="text-center py-12 space-y-6">
+        <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto">
+            <CheckCircle className="size-10 text-green-600" />
         </div>
-        <CardTitle className="text-3xl font-bold text-green-800 mb-4">Inscrição Protocolada!</CardTitle>
-        <CardDescription className="text-lg text-green-700 max-w-md mx-auto">
-          Obrigado, <strong>{formData.name}</strong>! Recebemos seu interesse e a equipe do ministério entrará em contato em breve para confirmar sua matrícula.
-        </CardDescription>
-        <CardFooter className="justify-center mt-8">
-          <Button asChild variant="outline" className="border-green-200 hover:bg-green-100">
-            <a href="/">Voltar para o Início</a>
-          </Button>
-        </CardFooter>
-      </Card>
+        <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-green-800">Inscrição Recebida!</h2>
+            <p className="text-muted-foreground">
+                Obrigado, <strong>{user.displayName}</strong>. Recebemos seu interesse e entraremos em contato em breve via WhatsApp.
+            </p>
+        </div>
+        <Button variant="outline" onClick={() => window.location.reload()}>
+            Fazer outra inscrição
+        </Button>
+      </div>
     );
   }
 
   return (
-    <Card className="border-primary/20 shadow-2xl">
-      <CardHeader>
-        <CardTitle className="text-2xl flex items-center gap-2">
-          <GraduationCap className="text-primary" />
-          Formulário de Inscrição
-        </CardTitle>
-        <CardDescription>
-          Olá {user.displayName?.split(' ')[0]}, preencha os detalhes abaixo para solicitar sua vaga.
-        </CardDescription>
-      </CardHeader>
-      <form onSubmit={handleSubmit}>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Seu Nome</Label>
-              <Input id="name" value={formData.name} disabled className="bg-muted" />
+                <Label className="flex items-center gap-2"><User className="size-4 text-primary"/> Nome Completo</Label>
+                <Input value={user.displayName || ''} disabled className="bg-muted" />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="email">E-mail</Label>
-              <Input id="email" type="email" value={formData.email} disabled className="bg-muted" />
+                <Label className="flex items-center gap-2"><Mail className="size-4 text-primary"/> E-mail</Label>
+                <Input value={user.email || ''} disabled className="bg-muted" />
             </div>
-          </div>
+        </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="phone">Telefone / WhatsApp *</Label>
-            <Input
-              id="phone"
-              required
-              placeholder="(21) 9..."
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            />
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="phone" className="flex items-center gap-2"><Phone className="size-4 text-primary"/> WhatsApp (com DDD) *</Label>
+          <Input 
+            id="phone" 
+            placeholder="(21) 99999-9999" 
+            value={phone} 
+            onChange={e => setPhone(e.target.value)} 
+            required
+          />
+        </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="course">Curso Desejado *</Label>
-            <Select
-              required
-              value={formData.courseId}
-              onValueChange={(v) => setFormData({ ...formData, courseId: v, classId: '' })}
-            >
-              <SelectTrigger id="course">
-                <SelectValue placeholder="Selecione o curso" />
-              </SelectTrigger>
-              <SelectContent>
-                {courses?.map(course => (
-                  <SelectItem key={course.id} value={course.id}>
-                    {course.name} ({course.ministryName})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        <div className="space-y-2">
+          <Label htmlFor="course" className="flex items-center gap-2"><GraduationCap className="size-4 text-primary"/> Curso Desejado *</Label>
+          <Select value={selectedCourseId} onValueChange={setSelectedCourseId} required>
+            <SelectTrigger id="course">
+              <SelectValue placeholder="Selecione o curso" />
+            </SelectTrigger>
+            <SelectContent>
+              {isLoadingCourses ? (
+                <div className="flex items-center justify-center p-2"><Loader2 className="size-4 animate-spin" /></div>
+              ) : (
+                courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
-          {formData.courseId && availableClasses.length > 0 && (
-            <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-              <Label htmlFor="class">Turma de Preferência</Label>
-              <Select
-                value={formData.classId}
-                onValueChange={(v) => setFormData({ ...formData, classId: v })}
-              >
-                <SelectTrigger id="class">
-                  <SelectValue placeholder="Selecione a turma (opcional)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="null">Ainda não decidi</SelectItem>
-                  {availableClasses.map(cls => (
-                    <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-        </CardContent>
-        <CardFooter className="flex flex-col gap-4">
-          <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processando...</>
-            ) : 'Enviar Solicitação de Matrícula'}
-          </Button>
-          <p className="text-[10px] text-center text-muted-foreground uppercase tracking-widest">
-            Ao se inscrever, você concorda com nossa política de privacidade.
-          </p>
-        </CardFooter>
-      </form>
-    </Card>
+      <Button type="submit" className="w-full h-12 text-lg" disabled={isSubmitting}>
+        {isSubmitting ? (
+          <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Enviando...</>
+        ) : (
+          <><Send className="mr-2 h-5 w-5" /> Confirmar Inscrição</>
+        )}
+      </Button>
+    </form>
   );
 }
 
 export default function EnrollmentPage() {
   return (
-    <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 md:p-8">
       <div className="w-full max-w-2xl">
-        <div className="flex justify-center items-center gap-2 mb-8">
-          <Logo className="h-10 w-10 text-primary" />
-          <h1 className="text-4xl font-black tracking-tighter text-slate-900">OikoApp</h1>
+        <div className="flex items-center justify-center gap-2 mb-8">
+          <Logo className="size-8 text-primary" />
+          <h1 className="text-3xl font-bold tracking-tight">OikoApp</h1>
         </div>
 
-        <Suspense fallback={
-          <div className="flex justify-center p-12">
-            <Loader2 className="animate-spin text-primary h-8 w-8" />
-          </div>
-        }>
-          <EnrollmentFormContent />
-        </Suspense>
-
-        <div className="text-center mt-12">
-          <p className="text-sm text-muted-foreground">
-            &copy; {new Date().getFullYear()} IBM - Garantindo que a Organização sirva ao Organismo.
-          </p>
-        </div>
+        <Card className="shadow-xl border-t-4 border-primary">
+          <CardHeader className="bg-white">
+            <CardTitle className="text-2xl">Portal de Inscrições</CardTitle>
+            <CardDescription>
+              Preencha os dados abaixo para manifestar seu interesse em nossos cursos.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="bg-white">
+            <Suspense fallback={<div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>}>
+                <EnrollmentFormContent />
+            </Suspense>
+          </CardContent>
+          <CardFooter className="bg-slate-50 border-t flex justify-center py-4">
+            <p className="text-xs text-muted-foreground">Igreja Batista da Manhã • Gestão Ministerial Inteligente</p>
+          </CardFooter>
+        </Card>
       </div>
-    </main>
+    </div>
   );
 }
