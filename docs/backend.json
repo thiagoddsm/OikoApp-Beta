@@ -9,6 +9,8 @@
         "name": { "type": "string" },
         "email": { "type": "string", "format": "email" },
         "phone": { "type": "string" },
+        "cpf": { "type": "string" },
+        "sexo": { "type": "string", "enum": ["M", "F"] },
         "roles": {
           "type": "array",
           "items": { "type": "string", "enum": ["admin", "pastor_senior", "pastor", "lider_rede", "lider_area", "lider_gc", "team_leader", "member", "volunteer"] },
@@ -100,6 +102,9 @@
             "name": { "type": "string" },
             "email": { "type": "string" },
             "phone": { "type": "string" },
+            "cpf": { "type": "string" },
+            "sexo": { "type": "string" },
+            "dataNascimento": { "type": "string" },
             "courseId": { "type": "string" },
             "classId": { "type": "string" },
             "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
