@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -7,17 +8,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
 import { useVolunteering } from '@/contexts/volunteering-context';
 
 type User = { id: string; name: string; isTeacher?: boolean; };
 const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
 export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }) {
-  const { firestore } = useFirebase();
+  const { addClass, updateClass, users, rooms, isLoading: isLoadingContext } = useVolunteering();
   const { toast } = useToast();
-  const { users, rooms, isLoading: isLoadingContext } = useVolunteering();
 
   const [name, setName] = useState('');
   const [teacherId, setTeacherId] = useState('');
@@ -103,18 +101,19 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
         locationId: finalLocationId,
     };
 
-    if (existingClass) {
-      const docRef = doc(firestore, 'classes', existingClass.id);
-      await updateDocumentNonBlocking(docRef, classData);
-      toast({ title: 'Turma atualizada!' });
-    } else {
-      const collectionRef = collection(firestore, 'classes');
-      await addDocumentNonBlocking(collectionRef, classData);
-      toast({ title: 'Turma criada!' });
+    try {
+        if (existingClass) {
+            await updateClass(existingClass.id, classData);
+        } else {
+            await addClass(classData);
+        }
+        onOpenChange(false);
+    } catch (error) {
+        console.error(error);
+        toast({ variant: 'destructive', title: 'Erro ao salvar', description: 'Ocorreu um erro técnico.' });
+    } finally {
+        setIsSaving(false);
     }
-
-    setIsSaving(false);
-    onOpenChange(false);
   };
 
   return (
@@ -142,7 +141,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
           </div>
           
            <div className="pt-4 border-t">
-             <h3 className="font-semibold mb-2">Agendamento</h3>
+             <h3 className="font-semibold mb-2">Agendamento & Espaço</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="frequency">Frequência</Label>
@@ -190,8 +189,8 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
                         <Select value={locationType} onValueChange={(v: any) => setLocationType(v)}>
                             <SelectTrigger id="locationType"><SelectValue placeholder="Selecione o local..." /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="ibm">IBM</SelectItem>
-                                <SelectItem value="the_school">The School</SelectItem>
+                                <SelectItem value="ibm">IBM (Ocupa sala interna)</SelectItem>
+                                <SelectItem value="the_school">The School (Local Externo)</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -206,6 +205,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
                                     {rooms.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
+                            <p className="text-[10px] text-muted-foreground mt-1">Ao selecionar uma sala IBM, uma reserva automática será criada no calendário.</p>
                         </div>
                     )}
               </div>

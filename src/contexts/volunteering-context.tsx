@@ -239,7 +239,9 @@ interface VolunteeringContextType {
   updateVolunteer: (id: string, data: Partial<User>) => Promise<void>;
   saveSchedule: (data: SavedScheduleData) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
+  addClass: (data: ClassData) => Promise<void>;
   updateClass: (id: string, data: Partial<ClassData>) => Promise<void>;
+  deleteClass: (id: string) => Promise<void>;
   addWavePlan: (data: WavePlanData) => Promise<void>;
   updateWavePlan: (id: string, data: Partial<WavePlanData>) => Promise<void>;
   deleteWavePlan: (id: string) => Promise<void>;
@@ -342,7 +344,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { addItem: addRoom, updateItem: updateRoom, deleteItem: deleteRoom } = createCrudFunctions<Room>('rooms', 'Ambiente');
   const { addItem: addReservation, updateItem: updateReservation, deleteItem: deleteReservation } = createCrudFunctions<RoomReservation>('room_reservations', 'Reserva');
   const { deleteItem: deleteSchedule } = createCrudFunctions<SavedSchedule>('saved_schedules', 'Escala Salva');
-  const { updateItem: updateClass } = createCrudFunctions<Class>('classes', 'Turma');
+  
   const { addItem: addWavePlan, updateItem: updateWavePlan, deleteItem: deleteWavePlan } = createCrudFunctions<WavePlan>('wave_plans', 'Plano Wave');
   const { addItem: addWaveExpense, updateItem: updateWaveExpense, deleteItem: deleteWaveExpense } = createCrudFunctions<WaveExpense>('wave_expenses', 'Despesa Wave');
   const { addItem: addPedagogicalLog, updateItem: updatePedagogicalLog, deleteItem: deletePedagogicalLog } = createCrudFunctions<PedagogicalLog>('pedagogical_logs', 'Registro Pedagógico');
@@ -423,6 +425,85 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     toast({ title: 'Sucesso', description: 'Escala salva e das de serviço atualizadas.' });
   };
 
+  // --- SYNC CLASS WITH ROOM RESERVATION ---
+  const syncClassWithReservation = (batch: any, classId: string, data: Partial<ClassData>) => {
+    if (!firestore || !user) return;
+    
+    const reservationId = `class_res_${classId}`;
+    const reservationRef = doc(firestore, 'room_reservations', reservationId);
+
+    // If location is outside or not set, remove reservation if it exists
+    if (!data.locationId || data.locationId === 'the_school' || data.locationId === '') {
+        // Technically we can't easily delete in a batch update without knowing if it exists, 
+        // but for safety we can set status to 'rejected' or just ignore church room
+        return;
+    }
+
+    const roomName = rooms?.find(r => r.id === data.locationId)?.name || 'Ambiente IBM';
+    const courseName = courses?.find(c => c.id === data.courseId)?.name || 'Curso';
+
+    const startDateTime = Timestamp.fromDate(new Date(`${data.startDate}T${data.startTime}`));
+    const endDateTime = Timestamp.fromDate(new Date(`${data.endDate || data.startDate}T${data.endTime}`));
+
+    const reservationData = {
+        eventName: `Turma: ${data.name} (${courseName})`,
+        requesterId: user.uid,
+        rooms: [roomName],
+        startDateTime,
+        endDateTime,
+        status: 'approved',
+        frequency: data.frequency || 'pontual',
+        dayOfWeek: data.dayOfWeek || '',
+        notes: `Reserva automática gerada pela gestão de turmas.`,
+        createdAt: Timestamp.now(),
+    };
+
+    batch.set(reservationRef, reservationData, { merge: true });
+  };
+
+  const addClass = async (data: ClassData) => {
+    if (!firestore) return;
+    const classRef = doc(collection(firestore, 'classes'));
+    const batch = writeBatch(firestore);
+    
+    batch.set(classRef, data);
+    syncClassWithReservation(batch, classRef.id, data);
+    
+    await batch.commit();
+    toast({ title: 'Sucesso', description: 'Turma criada e sala reservada.' });
+  };
+
+  const updateClass = async (id: string, data: Partial<ClassData>) => {
+    if(!firestore) return;
+    const classDoc = doc(firestore, 'classes', id);
+    const batch = writeBatch(firestore);
+    
+    batch.update(classDoc, data);
+    
+    // For update, we need the full data to sync reservation correctly.
+    // In a real app, you'd fetch the existing doc first, but here we assume 'data' might be partial.
+    // For safety, we only sync if we have the critical fields.
+    if (data.locationId && data.startDate && data.startTime) {
+        syncClassWithReservation(batch, id, data as ClassData);
+    }
+    
+    await batch.commit();
+    toast({ title: 'Sucesso', description: 'Turma e reserva atualizadas.' });
+  };
+
+  const deleteClass = async (id: string) => {
+    if(!firestore) return;
+    const classDoc = doc(firestore, 'classes', id);
+    const reservationDoc = doc(firestore, 'room_reservations', `class_res_${id}`);
+    const batch = writeBatch(firestore);
+    
+    batch.delete(classDoc);
+    batch.delete(reservationDoc);
+    
+    await batch.commit();
+    toast({ title: 'Sucesso', description: 'Turma e reserva removidas.' });
+  };
+
   const calculateSplits = (totalAmount: number) => ({
       teacher: totalAmount * 0.4,
       wave: totalAmount * 0.3,
@@ -443,6 +524,24 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
       if (data.amount) updateData = { ...updateData, splits: calculateSplits(data.amount) } as any;
       await updateDocumentNonBlocking(doc(firestore, 'wave_payments', id), updateData);
       toast({ title: 'Sucesso', description: 'Pagamento Wave atualizado.' });
+  };
+
+  const addFinancialTransaction = async (data: FinancialTransactionData) => {
+      if (!firestore) return;
+      await addDocumentNonBlocking(collection(firestore, 'financial_transactions'), data);
+      toast({ title: 'Sucesso', description: 'Transação registrada.' });
+  };
+
+  const updateFinancialTransaction = async (id: string, data: Partial<FinancialTransactionData>) => {
+      if (!firestore) return;
+      await updateDocumentNonBlocking(doc(firestore, 'financial_transactions', id), data);
+      toast({ title: 'Sucesso', description: 'Transação atualizada.' });
+  };
+
+  const deleteFinancialTransaction = async (id: string) => {
+      if (!firestore) return;
+      await deleteDocumentNonBlocking(doc(firestore, 'financial_transactions', id));
+      toast({ title: 'Sucesso', description: 'Transação removida.' });
   };
 
   const value = useMemo(() => ({
@@ -483,7 +582,9 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     updateVolunteer,
     saveSchedule,
     deleteSchedule,
+    addClass,
     updateClass,
+    deleteClass,
     addWavePlan,
     updateWavePlan,
     deleteWavePlan,

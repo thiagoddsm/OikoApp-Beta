@@ -1,6 +1,7 @@
+
 'use client';
 import React, { useState, useMemo } from 'react';
-import { useFirebase, useCollection, useMemoFirebase, deleteDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
@@ -17,7 +18,7 @@ type Class = { id: string; name: string; teacherId: string; students: string[]; 
 
 export function CourseClassesManager({ course }) {
     const { firestore } = useFirebase();
-    const { users, rooms } = useVolunteering();
+    const { users, rooms, deleteClass } = useVolunteering();
     const { toast } = useToast();
     const [isClassFormOpen, setClassFormOpen] = useState(false);
     const [editingClass, setEditingClass] = useState<Class | null>(null);
@@ -47,10 +48,9 @@ export function CourseClassesManager({ course }) {
         setClassToDelete(cls);
     };
 
-    const confirmDelete = () => {
-        if (classToDelete && firestore) {
-            deleteDocumentNonBlocking(doc(firestore, 'classes', classToDelete.id));
-            toast({ variant: 'destructive', title: 'Turma excluída', description: `A turma "${classToDelete.name}" foi removida.` });
+    const confirmDelete = async () => {
+        if (classToDelete) {
+            await deleteClass(classToDelete.id);
             setClassToDelete(null);
         }
     };
@@ -132,7 +132,7 @@ export function CourseClassesManager({ course }) {
                     onOpenChange={() => setClassToDelete(null)}
                     onConfirm={confirmDelete}
                     itemName={classToDelete.name}
-                    itemType="Turma"
+                    itemType="Turma (A reserva de sala também será removida)"
                 />
             )}
         </>
