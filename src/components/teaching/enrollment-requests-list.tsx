@@ -73,9 +73,19 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
     };
 
     const handleReject = async (requestId: string) => {
+        if (!requestId) return;
+        
         if (confirm('Deseja realmente rejeitar esta solicitação?')) {
-            await updateEnrollmentRequest(requestId, { status: 'rejected' });
-            toast({ title: 'Solicitação Rejeitada' });
+            setIsActionInProgress(requestId);
+            try {
+                await updateEnrollmentRequest(requestId, { status: 'rejected' });
+                toast({ title: 'Solicitação Rejeitada', description: 'O aluno foi marcado como rejeitado.' });
+            } catch (error) {
+                console.error("Erro ao rejeitar:", error);
+                toast({ variant: 'destructive', title: 'Erro ao Rejeitar' });
+            } finally {
+                setIsActionInProgress(null);
+            }
         }
     };
 
@@ -86,10 +96,7 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
             setIsActionInProgress(requestId);
             try {
                 await deleteEnrollmentRequest(requestId);
-                toast({
-                    title: "Exclusão Iniciada",
-                    description: "O registro está sendo removido do sistema."
-                });
+                // O toast de sucesso já é disparado pelo provider
             } catch (error) {
                 console.error("Erro ao excluir:", error);
                 toast({ 
@@ -98,7 +105,8 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                     description: 'Ocorreu uma falha técnica ao tentar remover o registro.' 
                 });
             } finally {
-                setIsActionInProgress(null);
+                // Pequeno delay para garantir que o usuário perceba a ação
+                setTimeout(() => setIsActionInProgress(null), 500);
             }
         }
     };
@@ -192,7 +200,7 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                                                         className="text-red-600 h-8 w-8"
                                                         disabled={isProcessing}
                                                     >
-                                                        <XCircle className="size-4" />
+                                                        {isProcessing ? <Loader2 className="animate-spin size-4" /> : <XCircle className="size-4" />}
                                                     </Button>
                                                 </>
                                             )}
