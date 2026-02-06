@@ -5,7 +5,7 @@ import { useVolunteering, type EnrollmentRequest } from '@/contexts/volunteering
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle, XCircle, Clock, Trash2 } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Trash2, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -25,7 +25,6 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
         return enrollmentRequests
             .filter(r => !courseId || r.courseId === courseId)
             .sort((a, b) => {
-                // Ordenação segura que não quebra se a data ainda não estiver sincronizada (serverTimestamp)
                 const timeA = a.createdAt?.toMillis?.() || 0;
                 const timeB = b.createdAt?.toMillis?.() || 0;
                 return timeB - timeA;
@@ -54,13 +53,11 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
         setIsActionInProgress(request.id);
         
         try {
-            // 1. Vincular aluno à turma
             const classDocRef = doc(firestore, 'classes', targetClassId);
             await updateDoc(classDocRef, {
                 students: arrayUnion(userId)
             });
 
-            // 2. Atualizar status da solicitação
             await updateEnrollmentRequest(request.id, { 
                 status: 'approved', 
                 classId: targetClassId 
@@ -84,13 +81,24 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
 
     const handleDelete = async (requestId: string) => {
         if (!requestId) return;
+        
         if (confirm('Tem certeza que deseja excluir permanentemente esta solicitação? Esta ação não pode ser desfeita.')) {
+            setIsActionInProgress(requestId);
             try {
                 await deleteEnrollmentRequest(requestId);
-                // A exclusão no Firestore é refletida automaticamente via useCollection
+                toast({
+                    title: "Exclusão Iniciada",
+                    description: "O registro está sendo removido do sistema."
+                });
             } catch (error) {
                 console.error("Erro ao excluir:", error);
-                toast({ variant: 'destructive', title: 'Erro ao Excluir', description: 'Não foi possível remover o registro.' });
+                toast({ 
+                    variant: 'destructive', 
+                    title: 'Erro ao Excluir', 
+                    description: 'Ocorreu uma falha técnica ao tentar remover o registro.' 
+                });
+            } finally {
+                setIsActionInProgress(null);
             }
         }
     };
@@ -122,7 +130,7 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                         ) : (
                             requests.map(req => {
                                 const courseClasses = classes.filter(c => c.courseId === req.courseId);
-                                const isApproving = isActionInProgress === req.id;
+                                const isProcessing = isActionInProgress === req.id;
 
                                 return (
                                 <TableRow key={req.id} className={req.status === 'pending' ? 'bg-primary/5' : ''}>
@@ -172,9 +180,9 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                                                         size="sm" 
                                                         onClick={() => handleApprove(req)} 
                                                         className="bg-green-600 hover:bg-green-700 h-8"
-                                                        disabled={isApproving}
+                                                        disabled={isProcessing}
                                                     >
-                                                        {isApproving ? <Loader2 className="animate-spin size-4" /> : <CheckCircle className="size-4" />}
+                                                        {isProcessing ? <Loader2 className="animate-spin size-4" /> : <CheckCircle className="size-4" />}
                                                         <span className="ml-2 hidden md:inline">Aprovar</span>
                                                     </Button>
                                                     <Button 
@@ -182,7 +190,7 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                                                         size="icon" 
                                                         onClick={() => handleReject(req.id)} 
                                                         className="text-red-600 h-8 w-8"
-                                                        disabled={isApproving}
+                                                        disabled={isProcessing}
                                                     >
                                                         <XCircle className="size-4" />
                                                     </Button>
@@ -192,10 +200,11 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                                                 variant="ghost" 
                                                 size="icon" 
                                                 onClick={() => handleDelete(req.id)} 
-                                                className="h-8 w-8 text-muted-foreground hover:text-destructive transition-colors"
+                                                className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
                                                 title="Excluir Permanentemente"
+                                                disabled={isProcessing}
                                             >
-                                                <Trash2 className="size-4" />
+                                                {isProcessing ? <Loader2 className="animate-spin size-4" /> : <Trash2 className="size-4" />}
                                             </Button>
                                         </div>
                                     </TableCell>
