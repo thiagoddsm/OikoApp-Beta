@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useMemo, useState } from 'react';
 import { useVolunteering, type EnrollmentRequest } from '@/contexts/volunteering-context';
@@ -62,7 +61,6 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                 status: 'approved', 
                 classId: targetClassId 
             });
-            // O toast de sucesso já é disparado pelo contexto
         } catch (error) {
             console.error("Erro ao aprovar:", error);
             toast({ variant: 'destructive', title: 'Erro na Aprovação', description: 'Ocorreu uma falha ao vincular o aluno à turma.' });
@@ -78,7 +76,6 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
             setIsActionInProgress(requestId);
             try {
                 await updateEnrollmentRequest(requestId, { status: 'rejected' });
-                // O toast de sucesso já é disparado pelo contexto
             } catch (error) {
                 console.error("Erro ao reprovar:", error);
                 toast({ variant: 'destructive', title: 'Erro ao Reprovar', description: 'Não foi possível atualizar o status.' });
@@ -95,7 +92,6 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
             setIsActionInProgress(requestId);
             try {
                 await deleteEnrollmentRequest(requestId);
-                // O toast de sucesso já é disparado pelo contexto
             } catch (error) {
                 console.error("Erro ao excluir:", error);
                 toast({ variant: 'destructive', title: 'Erro ao Excluir', description: 'Ocorreu uma falha ao remover o registro.' });

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -14,6 +13,7 @@ import { CourseClassesManager } from '@/components/teaching/course-classes-manag
 import { CourseTeachersManager } from '@/components/teaching/course-teachers-manager';
 import { EnrollmentRequestsList } from '@/components/teaching/enrollment-requests-list';
 import { UnderConstruction } from '@/components/common/under-construction';
+import Link from 'next/link';
 
 type Course = {
   id: string;
@@ -55,7 +55,11 @@ function CourseDetailPageContent() {
 
     return (
         <div className="space-y-6">
-            <Button variant="outline" onClick={() => router.back()}><ArrowLeft className="mr-2"/>Voltar para todos os cursos</Button>
+            <Button variant="outline" asChild>
+                <Link href="/dashboard/teaching/courses">
+                    <ArrowLeft className="mr-2 h-4 w-4"/>Voltar para todos os cursos
+                </Link>
+            </Button>
             <Card>
                 <CardHeader>
                     <CardTitle>{course.name}</CardTitle>

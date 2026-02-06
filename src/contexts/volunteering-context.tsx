@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useMemo } from 'react';
@@ -290,11 +289,9 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents || loadingRooms || loadingCourses || loadingClasses || loadingPedagogicalLogs || loadingReservations || loadingSavedSchedules || loadingWavePlans || loadingWavePayments || loadingWaveExpenses || loadingDisPlans || loadingDisPayments || loadingEnrollments;
 
   const createCrudFunctions = <T extends {id: string}>(collectionName: string, itemType: string) => {
-      const collectionRef = firestore ? collection(firestore, collectionName) : null;
-      
       const addItem = async (data: Omit<T, 'id'>) => {
-          if (!collectionRef) return;
-          await addDocumentNonBlocking(collectionRef, data);
+          if (!firestore) return;
+          await addDocumentNonBlocking(collection(firestore, collectionName), data);
           toast({ title: 'Sucesso', description: `${itemType} cadastrado(a).` });
       };
 
@@ -397,7 +394,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
         });
     });
     await batch.commit();
-    toast({ title: 'Sucesso', description: 'Escala salva e datas de serviço atualizadas.' });
+    toast({ title: 'Sucesso', description: 'Escala salva e das de serviço atualizadas.' });
   };
 
   const calculateSplits = (totalAmount: number) => ({
@@ -483,14 +480,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   }), [
     areas, teams, users, events, rooms, courses, classes, pedagogicalLogs, reservations, 
     savedSchedules, wavePlans, wavePayments, waveExpenses, disPlans, disPayments, 
-    enrollmentRequests, isLoading, firestore, user,
-    addArea, updateArea, deleteArea, addTeam, updateTeam, deleteTeam, addRoom, updateRoom, deleteRoom,
-    addEvent, updateEvent, deleteEvent, addReservation, updateReservation, deleteReservation,
-    addUser, updateVolunteer, saveSchedule, deleteSchedule, updateClass,
-    addWavePlan, updateWavePlan, deleteWavePlan, addWavePayment, updateWavePayment, deleteWavePayment,
-    addWaveExpense, updateWaveExpense, deleteWaveExpense, addDisPlan, updateDisPlan, deleteDisPlan,
-    addDisPayment, updateDisPayment, deleteDisPayment, addPedagogicalLog, updatePedagogicalLog, deletePedagogicalLog,
-    updateEnrollmentRequest, deleteEnrollmentRequest
+    enrollmentRequests, isLoading, firestore, user
   ]);
 
   return (
