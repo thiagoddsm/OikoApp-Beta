@@ -1,7 +1,7 @@
 
 'use client';
-import React, { useMemo } from 'react';
-import { Calendar, momentLocalizer } from 'react-big-calendar';
+import React, { useMemo, useState } from 'react';
+import { Calendar, momentLocalizer, View, Views } from 'react-big-calendar';
 import moment from 'moment';
 import 'moment/locale/pt-br';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -21,15 +21,20 @@ const statusColors = {
 
 export function ReservationsCalendar() {
   const { reservations, isLoading } = useVolunteering();
+  const [date, setDate] = useState(new Date());
+  const [view, setView] = useState<View>(Views.MONTH);
 
   const events = useMemo(() => {
-    if (!reservations) return [];
+    if (!reservations || !Array.isArray(reservations)) return [];
     
     return reservations.map(res => {
       try {
         // Garante que temos objetos de data válidos para o calendário
-        const startDate = res.startDateTime?.toDate ? res.startDateTime.toDate() : null;
-        const endDate = res.endDateTime?.toDate ? res.endDateTime.toDate() : null;
+        // Tratando tanto Timestamps do Firestore quanto objetos Date nativos
+        const startDate = res.startDateTime?.toDate ? res.startDateTime.toDate() : 
+                         (res.startDateTime instanceof Date ? res.startDateTime : null);
+        const endDate = res.endDateTime?.toDate ? res.endDateTime.toDate() : 
+                       (res.endDateTime instanceof Date ? res.endDateTime : null);
 
         if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
           return null;
@@ -46,24 +51,23 @@ export function ReservationsCalendar() {
         console.error("Erro ao formatar evento para o calendário:", e, res);
         return null;
       }
-    }).filter(event => event !== null);
+    }).filter((event): event is any => event !== null);
   }, [reservations]);
   
   const eventStyleGetter = (event: any) => {
     const status = event.resource?.status || 'pending';
-    const style = {
-        backgroundColor: statusColors[status as keyof typeof statusColors] || '#6B7280',
-        borderRadius: '6px',
-        opacity: 0.85,
-        color: 'white',
-        border: 'none',
-        display: 'block',
-        fontSize: '0.75rem',
-        padding: '2px 6px',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-    };
     return {
-        style: style
+        style: {
+            backgroundColor: statusColors[status as keyof typeof statusColors] || '#6B7280',
+            borderRadius: '6px',
+            opacity: 0.85,
+            color: 'white',
+            border: 'none',
+            display: 'block',
+            fontSize: '0.75rem',
+            padding: '2px 6px',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+        }
     };
   };
   
@@ -84,6 +88,14 @@ export function ReservationsCalendar() {
     }
   }), []);
 
+  const handleNavigate = (newDate: Date) => {
+    setDate(newDate);
+  };
+
+  const handleViewChange = (newView: View) => {
+    setView(newView);
+  };
+
   if (isLoading) {
     return (
         <div className="flex items-center justify-center p-8 h-[70vh]">
@@ -92,7 +104,7 @@ export function ReservationsCalendar() {
     );
   }
 
-  if (reservations.length === 0) {
+  if (!reservations || reservations.length === 0) {
       return (
           <Card className="flex flex-col items-center justify-center p-12 h-[75vh] border-dashed">
               <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
@@ -108,12 +120,15 @@ export function ReservationsCalendar() {
     <Card className="p-4 h-[75vh] w-full overflow-hidden shadow-inner bg-slate-50/30">
         <Calendar
             localizer={localizer}
-            events={events as any}
+            events={events}
             startAccessor="start"
             endAccessor="end"
             style={{ height: '100%' }}
+            date={date}
+            view={view}
+            onNavigate={handleNavigate}
+            onView={handleViewChange}
             eventPropGetter={eventStyleGetter}
-            onSelectEvent={(event) => console.log("Evento selecionado:", event)}
             messages={{
                 next: "Próximo",
                 previous: "Anterior",
