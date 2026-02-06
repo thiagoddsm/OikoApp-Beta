@@ -1,13 +1,12 @@
+
 'use client';
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { School, Banknote, User, HandHelping, Share2 } from 'lucide-react';
+import { School, Banknote, Share2 } from 'lucide-react';
 import { DisFinanceDashboard } from './dis-finance-dashboard';
 import { DisAdminDashboard } from './dis-admin-dashboard';
-import { DisTeacherArea } from './dis-teacher-area';
-import { DisStudentArea } from './dis-student-area';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering } from '@/contexts/volunteering-context';
@@ -26,20 +25,6 @@ const modules = [
         icon: Banknote,
         description: "Gestão de faturas, integração com Conta Azul e acompanhamento de pagamentos.",
         component: <DisFinanceDashboard />
-    },
-    {
-        id: "teacher",
-        title: "Área do Professor",
-        icon: User,
-        description: "Agenda de aulas, diário de classe, repositório de arquivos e solicitações.",
-        component: <DisTeacherArea />
-    },
-    {
-        id: "student",
-        title: "Área do Aluno",
-        icon: HandHelping,
-        description: "Carteirinha digital, cronograma, material didático, registro de estudos e financeiro simplificado.",
-        component: <DisStudentArea />
     }
 ];
 
@@ -68,7 +53,7 @@ export function DisSchoolPage() {
           <div>
             <CardTitle>DIS - Escola de Inclusão</CardTitle>
             <CardDescription>
-                Centro de gerenciamento completo para a escola de inclusão e Libras.
+                Gerenciamento administrativo e financeiro da escola de inclusão.
             </CardDescription>
           </div>
           <Button variant="outline" onClick={handleCopyLink}>
@@ -78,7 +63,7 @@ export function DisSchoolPage() {
         </CardHeader>
         <CardContent>
             <Tabs defaultValue="admin" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+                <TabsList className="grid w-full grid-cols-2 max-w-sm">
                     {modules.map((mod) => (
                         <TabsTrigger key={mod.id} value={mod.id}>
                             <mod.icon className="mr-2 size-4" />

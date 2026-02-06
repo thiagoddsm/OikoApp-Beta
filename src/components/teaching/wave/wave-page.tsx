@@ -4,12 +4,9 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { School, Banknote, User, Music } from 'lucide-react';
+import { School, Banknote } from 'lucide-react';
 import { WaveAdminDashboard } from '@/components/teaching/wave/admin-dashboard';
 import { WaveFinanceDashboard } from './wave-finance-dashboard';
-import { TeacherDashboard } from './teacher-dashboard';
-import { StudentDashboard } from './student-dashboard';
-
 
 const modules = [
     {
@@ -25,20 +22,6 @@ const modules = [
         icon: Banknote,
         description: "Automação de cobranças, gateway de pagamento, régua de cobrança e pagamento de professores.",
         component: <WaveFinanceDashboard />
-    },
-    {
-        id: "teacher",
-        title: "Área do Professor",
-        icon: User,
-        description: "Agenda de aulas, diário de classe, repositório de arquivos e solicitações.",
-        component: <TeacherDashboard />
-    },
-    {
-        id: "student",
-        title: "Área do Aluno",
-        icon: Music,
-        description: "Carteirinha digital, cronograma, material didático, registro de estudos e financeiro simplificado.",
-        component: <StudentDashboard />
     }
 ]
 
@@ -51,12 +34,12 @@ export function WaveMusicSchoolPage() {
             Wave - Escola de Música
           </CardTitle>
           <CardDescription>
-            Este é o centro de gerenciamento completo para a escola de música. Navegue pelas abas para acessar cada módulo.
+            Gerenciamento administrativo e financeiro da escola de música.
           </CardDescription>
         </CardHeader>
         <CardContent>
             <Tabs defaultValue="admin" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+                <TabsList className="grid w-full grid-cols-2 max-w-sm">
                     {modules.map((mod) => (
                         <TabsTrigger key={mod.id} value={mod.id}>
                             <mod.icon className="mr-2 size-4" />
