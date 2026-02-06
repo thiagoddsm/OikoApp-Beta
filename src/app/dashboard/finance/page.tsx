@@ -13,7 +13,8 @@ import {
   LayoutDashboard, HeartHandshake, History, RefreshCw
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, useDoc, setDocumentNonBlocking, useVolunteering } from '@/firebase';
+import { useFirebase, useDoc, setDocumentNonBlocking } from '@/firebase';
+import { useVolunteering, VolunteeringProvider } from '@/contexts/volunteering-context';
 import { doc } from 'firebase/firestore';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { TithesOfferingsManager } from '@/components/finance/tithes-offerings-manager';
@@ -185,7 +186,7 @@ function ContaAzulConnect() {
   );
 }
 
-export default function FinancePage() {
+function FinancePageContent() {
     const { financialTransactions, isLoading: isLoadingFinances } = useVolunteering();
     const [activeTab, setActiveTab] = useState('dashboard');
 
@@ -314,4 +315,12 @@ export default function FinancePage() {
       </Tabs>
     </div>
   );
+}
+
+export default function FinancePage() {
+    return (
+        <VolunteeringProvider>
+            <FinancePageContent />
+        </VolunteeringProvider>
+    );
 }
