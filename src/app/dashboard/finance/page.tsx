@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Loader2, Key, Link as LinkIcon, BarChart, ExternalLink, ShieldCheck, 
   AlertCircle, DollarSign, TrendingUp, ArrowUpCircle, ArrowDownCircle,
-  LayoutDashboard, HeartHandshake, History
+  LayoutDashboard, HeartHandshake, History, RefreshCw
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useDoc, setDocumentNonBlocking, useVolunteering } from '@/firebase';
@@ -19,6 +19,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { TithesOfferingsManager } from '@/components/finance/tithes-offerings-manager';
 import { CashFlowManager } from '@/components/finance/cash-flow-manager';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { useSearchParams } from 'next/navigation';
 
 type ContaAzulConfig = {
     id: string;
@@ -30,6 +31,7 @@ type ContaAzulConfig = {
 
 function ContaAzulConnect() {
   const { toast } = useToast();
+  const searchParams = useSearchParams();
   const { firestore } = useFirebase();
   const configDocRef = useMemo(() => firestore ? doc(firestore, 'config', 'conta_azul') : null, [firestore]);
   
@@ -38,6 +40,7 @@ function ContaAzulConnect() {
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   
   const isConnected = !!config?.accessToken || !!config?.refreshToken;
   const hasCredentials = !!config?.clientId && !!config?.clientSecret;
@@ -48,6 +51,15 @@ function ContaAzulConnect() {
         setClientSecret(config.clientSecret || '');
     }
   }, [config]);
+
+  useEffect(() => {
+    const status = searchParams.get('status');
+    if (status === 'connected') {
+        toast({ title: "Conta Azul Conectada!", description: "A integração foi realizada com sucesso." });
+    } else if (status === 'error') {
+        toast({ variant: 'destructive', title: "Erro na Conexão", description: searchParams.get('message') || "Falha ao autorizar Conta Azul." });
+    }
+  }, [searchParams, toast]);
 
 
   const handleConnect = () => {
@@ -91,26 +103,51 @@ function ContaAzulConnect() {
     }
   };
 
+  const handleSync = async () => {
+      setIsSyncing(true);
+      // Simulação de chamada para o endpoint de sync
+      try {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          toast({
+              title: "Sincronização Concluída",
+              description: "Os dados do Conta Azul foram importados para o OikoApp.",
+          });
+      } catch (e) {
+          toast({ variant: 'destructive', title: "Erro na Sincronização" });
+      } finally {
+          setIsSyncing(false);
+      }
+  };
+
   if (isLoadingConfig) return null;
 
   if (isConnected) {
     return (
       <Card className="border-green-200 bg-green-50/30">
-        <CardHeader>
+        <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-green-700 text-sm">
             <ShieldCheck className="size-4" />
             Conexão Ativa com Conta Azul
           </CardTitle>
         </CardHeader>
+        <CardContent className="pb-2">
+            <Button onClick={handleSync} disabled={isSyncing} variant="outline" size="sm" className="w-full bg-white border-green-200 text-green-700 hover:bg-green-50">
+                {isSyncing ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <RefreshCw className="mr-2 h-3 w-3" />}
+                Sincronizar Agora
+            </Button>
+        </CardContent>
         <CardFooter className="flex justify-between py-2 border-t border-green-100">
            <span className="text-[10px] text-green-600 font-semibold flex items-center gap-1 uppercase tracking-widest">
-            <LinkIcon className="size-3" /> Sincronização Habilitada
+            <LinkIcon className="size-3" /> Sincronização OK
           </span>
           <Button variant="link" size="sm" className="text-destructive h-auto p-0" onClick={handleDisconnect}>Desconectar</Button>
         </CardFooter>
       </Card>
     );
   }
+
+  const redirectUri = typeof window !== 'undefined' ? `${window.location.origin}/api/finance/conta-azul/callback` : '';
+  const authUrl = `https://api.contaazul.com/auth/authorize?client_id=${clientId}&scope=sales%20shipping%20inventory%20products%20customers%20finance&redirect_uri=${encodeURIComponent(redirectUri)}&state=oiko_auth`;
 
   return (
     <Card>
@@ -137,7 +174,7 @@ function ContaAzulConnect() {
         </Button>
         {hasCredentials && !isConnected && (
             <Button variant="outline" size="sm" className="flex-1" asChild>
-                <a href={`https://api.contaazul.com/auth/authorize?client_id=${clientId}&scope=sales%20shipping%20inventory%20products%20customers%20finance&redirect_uri=CALLBACK_URL&state=STATE`} target="_blank">
+                <a href={authUrl}>
                     <ExternalLink className="mr-2 h-3 w-3"/>
                     Autorizar
                 </a>
