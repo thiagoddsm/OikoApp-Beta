@@ -1,3 +1,4 @@
+'use server';
 
 'use client';
 
@@ -326,6 +327,8 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { addItem: addDisPlan, updateItem: updateDisPlan, deleteItem: deleteDisPlan } = createCrudFunctions<DisPlan>('dis_plans', 'Plano DIS');
   const { addItem: addDisPayment, updateItem: updateDisPayment, deleteItem: deleteDisPayment } = createCrudFunctions<DisPayment>('dis_payments', 'Pagamento DIS');
   const { updateItem: updateEnrollmentRequest, deleteItem: deleteEnrollmentRequest } = createCrudFunctions<EnrollmentRequest>('enrollment_requests', 'Pedido de Inscrição');
+  
+  // Custom functions for Wave Payments to handle splits
   const { deleteItem: deleteWavePayment } = createCrudFunctions<WavePayment>('wave_payments', 'Pagamento Wave');
 
   const addEvent = async (data: EventData) => {
@@ -478,7 +481,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     deletePedagogicalLog,
     updateEnrollmentRequest,
     deleteEnrollmentRequest,
-  }), [areas, teams, users, events, rooms, courses, classes, pedagogicalLogs, reservations, savedSchedules, wavePlans, wavePayments, waveExpenses, disPlans, disPayments, enrollmentRequests, isLoading, addArea, updateArea, deleteArea, addTeam, updateTeam, deleteTeam, addRoom, updateRoom, deleteRoom, addEvent, updateEvent, deleteEvent, addReservation, updateReservation, deleteReservation, addUser, updateVolunteer, saveSchedule, deleteSchedule, updateClass, addWavePlan, updateWavePlan, deleteWavePlan, addWavePayment, updateWavePayment, deleteWavePayment, addWaveExpense, updateWaveExpense, deleteWaveExpense, addDisPlan, updateDisPlan, deleteDisPlan, addDisPayment, updateDisPayment, deleteDisPayment, addPedagogicalLog, updatePedagogicalLog, deletePedagogicalLog, updateEnrollmentRequest, deleteEnrollmentRequest]);
+  }), [areas, teams, users, events, rooms, courses, classes, pedagogicalLogs, reservations, savedSchedules, wavePlans, wavePayments, waveExpenses, disPlans, disPayments, enrollmentRequests, isLoading]);
 
   return (
     <VolunteeringContext.Provider value={value}>
