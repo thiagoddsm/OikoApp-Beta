@@ -75,14 +75,14 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
     const handleReject = async (requestId: string) => {
         if (!requestId) return;
         
-        if (confirm('Deseja realmente rejeitar esta solicitação?')) {
+        if (confirm('Deseja realmente reprovar esta solicitação?')) {
             setIsActionInProgress(requestId);
             try {
                 await updateEnrollmentRequest(requestId, { status: 'rejected' });
-                toast({ title: 'Solicitação Rejeitada', description: 'O registro foi atualizado para Rejeitado.' });
+                toast({ title: 'Solicitação Reprovada', description: 'O status foi atualizado para Reprovado.' });
             } catch (error) {
-                console.error("Erro ao rejeitar:", error);
-                toast({ variant: 'destructive', title: 'Erro ao Rejeitar', description: 'Não foi possível atualizar o status.' });
+                console.error("Erro ao reprovar:", error);
+                toast({ variant: 'destructive', title: 'Erro ao Reprovar', description: 'Não foi possível atualizar o status.' });
             } finally {
                 setIsActionInProgress(null);
             }
@@ -175,11 +175,11 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                                     </TableCell>
                                     <TableCell>
                                         <Badge variant={req.status === 'pending' ? 'outline' : req.status === 'approved' ? 'default' : 'destructive'} className="font-bold">
-                                            {req.status === 'pending' ? 'Pendente' : req.status === 'approved' ? 'Aprovado' : 'Rejeitado'}
+                                            {req.status === 'pending' ? 'Pendente' : req.status === 'approved' ? 'Aprovado' : 'Reprovado'}
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        <div className="flex justify-end gap-1">
+                                        <div className="flex justify-end gap-2">
                                             {req.status === 'pending' && (
                                                 <>
                                                     <Button 
@@ -193,13 +193,14 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                                                         <span className="ml-2 hidden md:inline">Aprovar</span>
                                                     </Button>
                                                     <Button 
-                                                        variant="ghost" 
-                                                        size="icon" 
+                                                        variant="destructive" 
+                                                        size="sm" 
                                                         onClick={() => handleReject(req.id)} 
-                                                        className="text-red-600 h-8 w-8 hover:bg-red-50"
+                                                        className="h-8"
                                                         disabled={isProcessing}
                                                     >
                                                         {isProcessing ? <Loader2 className="animate-spin size-4" /> : <XCircle className="size-4" />}
+                                                        <span className="ml-2 hidden md:inline">Reprovar</span>
                                                     </Button>
                                                 </>
                                             )}
@@ -211,7 +212,7 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                                                 title="Excluir Permanentemente"
                                                 disabled={isProcessing}
                                             >
-                                                {isProcessing ? <Loader2 className="animate-spin size-4" /> : <Trash2 className="size-4" />}
+                                                {isProcessing ? <Loader2 className="animate-spin size-4" /> : <Trash2 className="size-4 text-destructive" />}
                                             </Button>
                                         </div>
                                     </TableCell>
