@@ -480,7 +480,18 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     deletePedagogicalLog,
     updateEnrollmentRequest,
     deleteEnrollmentRequest,
-  }), [areas, teams, users, events, rooms, courses, classes, pedagogicalLogs, reservations, savedSchedules, wavePlans, wavePayments, waveExpenses, disPlans, disPayments, enrollmentRequests, isLoading]);
+  }), [
+    areas, teams, users, events, rooms, courses, classes, pedagogicalLogs, reservations, 
+    savedSchedules, wavePlans, wavePayments, waveExpenses, disPlans, disPayments, 
+    enrollmentRequests, isLoading, firestore, user,
+    addArea, updateArea, deleteArea, addTeam, updateTeam, deleteTeam, addRoom, updateRoom, deleteRoom,
+    addEvent, updateEvent, deleteEvent, addReservation, updateReservation, deleteReservation,
+    addUser, updateVolunteer, saveSchedule, deleteSchedule, updateClass,
+    addWavePlan, updateWavePlan, deleteWavePlan, addWavePayment, updateWavePayment, deleteWavePayment,
+    addWaveExpense, updateWaveExpense, deleteWaveExpense, addDisPlan, updateDisPlan, deleteDisPlan,
+    addDisPayment, updateDisPayment, deleteDisPayment, addPedagogicalLog, updatePedagogicalLog, deletePedagogicalLog,
+    updateEnrollmentRequest, deleteEnrollmentRequest
+  ]);
 
   return (
     <VolunteeringContext.Provider value={value}>

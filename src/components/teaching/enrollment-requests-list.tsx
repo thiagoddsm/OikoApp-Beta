@@ -5,7 +5,7 @@ import { useVolunteering, type EnrollmentRequest } from '@/contexts/volunteering
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle, XCircle, Trash2, ChevronRight } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -62,10 +62,9 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                 status: 'approved', 
                 classId: targetClassId 
             });
-            
-            toast({ title: 'Matrícula Efetivada!', description: `${request.name} agora faz parte da turma.` });
+            // O toast de sucesso já é disparado pelo contexto
         } catch (error) {
-            console.error(error);
+            console.error("Erro ao aprovar:", error);
             toast({ variant: 'destructive', title: 'Erro na Aprovação', description: 'Ocorreu uma falha ao vincular o aluno à turma.' });
         } finally {
             setIsActionInProgress(null);
@@ -79,7 +78,7 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
             setIsActionInProgress(requestId);
             try {
                 await updateEnrollmentRequest(requestId, { status: 'rejected' });
-                toast({ title: 'Solicitação Reprovada', description: 'O status foi atualizado para Reprovado.' });
+                // O toast de sucesso já é disparado pelo contexto
             } catch (error) {
                 console.error("Erro ao reprovar:", error);
                 toast({ variant: 'destructive', title: 'Erro ao Reprovar', description: 'Não foi possível atualizar o status.' });
@@ -92,18 +91,14 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
     const handleDelete = async (requestId: string) => {
         if (!requestId) return;
         
-        if (confirm('Tem certeza que deseja excluir permanentemente esta solicitação? Esta ação não pode ser desfeita.')) {
+        if (confirm('Tem certeza que deseja excluir permanentemente esta solicitação?')) {
             setIsActionInProgress(requestId);
             try {
                 await deleteEnrollmentRequest(requestId);
-                toast({ title: 'Solicitação Excluída', description: 'O registro foi removido permanentemente.' });
+                // O toast de sucesso já é disparado pelo contexto
             } catch (error) {
                 console.error("Erro ao excluir:", error);
-                toast({ 
-                    variant: 'destructive', 
-                    title: 'Erro ao Excluir', 
-                    description: 'Ocorreu uma falha técnica ao tentar remover o registro.' 
-                });
+                toast({ variant: 'destructive', title: 'Erro ao Excluir', description: 'Ocorreu uma falha ao remover o registro.' });
             } finally {
                 setIsActionInProgress(null);
             }
@@ -142,7 +137,7 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                                 return (
                                 <TableRow key={req.id} className={req.status === 'pending' ? 'bg-primary/5' : ''}>
                                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                                        {req.createdAt ? format(req.createdAt.toDate(), 'dd/MM/yy HH:mm', { locale: ptBR }) : 'Processando...'}
+                                        {req.createdAt ? format(req.createdAt.toDate(), 'dd/MM/yy HH:mm', { locale: ptBR }) : '...'}
                                     </TableCell>
                                     <TableCell>
                                         <div className="font-bold">{req.name}</div>
@@ -187,7 +182,7 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                                                         size="sm" 
                                                         onClick={() => handleApprove(req)} 
                                                         className="bg-green-600 hover:bg-green-700 h-8"
-                                                        disabled={isProcessing}
+                                                        disabled={!!isProcessing}
                                                     >
                                                         {isProcessing ? <Loader2 className="animate-spin size-4" /> : <CheckCircle className="size-4" />}
                                                         <span className="ml-2 hidden md:inline">Aprovar</span>
@@ -197,7 +192,7 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                                                         size="sm" 
                                                         onClick={() => handleReject(req.id)} 
                                                         className="h-8"
-                                                        disabled={isProcessing}
+                                                        disabled={!!isProcessing}
                                                     >
                                                         {isProcessing ? <Loader2 className="animate-spin size-4" /> : <XCircle className="size-4" />}
                                                         <span className="ml-2 hidden md:inline">Reprovar</span>
@@ -210,7 +205,7 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                                                 onClick={() => handleDelete(req.id)} 
                                                 className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
                                                 title="Excluir Permanentemente"
-                                                disabled={isProcessing}
+                                                disabled={!!isProcessing}
                                             >
                                                 {isProcessing ? <Loader2 className="animate-spin size-4" /> : <Trash2 className="size-4 text-destructive" />}
                                             </Button>
