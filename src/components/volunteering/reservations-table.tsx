@@ -11,7 +11,17 @@ import { ptBR } from 'date-fns/locale';
 import { CreateReservationDialog } from './create-reservation-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 
-export function ReservationsTable() {
+interface ReservationsTableProps {
+    searchTerm?: string;
+    roomFilter?: string;
+    categoryFilter?: string;
+}
+
+export function ReservationsTable({ 
+    searchTerm = '', 
+    roomFilter = 'all', 
+    categoryFilter = 'all' 
+}: ReservationsTableProps) {
     const { reservations, users, updateReservation, deleteReservation, isLoading } = useVolunteering();
     const [isFormOpen, setFormOpen] = useState(false);
     const [isDeleteOpen, setDeleteOpen] = useState(false);
@@ -19,14 +29,28 @@ export function ReservationsTable() {
 
     const userMap = useMemo(() => new Map(users.map(u => [u.id, u.name])), [users]);
     
-    const sortedReservations = useMemo(() => {
+    const filteredReservations = useMemo(() => {
         if (!reservations) return [];
-        return [...reservations].sort((a, b) => {
+        
+        return [...reservations].filter(res => {
+            // Filtro de Categoria
+            const isEnsino = res.id.startsWith('class_res_');
+            if (categoryFilter === 'ensino' && !isEnsino) return false;
+            if (categoryFilter === 'geral' && isEnsino) return false;
+
+            // Filtro de Ambiente
+            if (roomFilter !== 'all' && !res.rooms?.includes(roomFilter)) return false;
+
+            // Filtro de Busca
+            if (searchTerm && !res.eventName.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+
+            return true;
+        }).sort((a, b) => {
             const timeA = a.createdAt?.toMillis?.() || 0;
             const timeB = b.createdAt?.toMillis?.() || 0;
             return timeB - timeA;
         });
-    }, [reservations]);
+    }, [reservations, searchTerm, roomFilter, categoryFilter]);
 
 
     const handleEdit = (reservation: RoomReservation) => {
@@ -100,14 +124,14 @@ export function ReservationsTable() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                         {sortedReservations.length === 0 ? (
+                         {filteredReservations.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="h-24 text-center">
-                                    Nenhuma reserva solicitada.
+                                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground italic">
+                                    Nenhuma reserva encontrada para os filtros aplicados.
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            sortedReservations.map(res => {
+                            filteredReservations.map(res => {
                                 const statusInfo = statusConfig[res.status || 'pending'];
                                 const Icon = statusInfo.icon;
                                 const isFromClass = res.id.startsWith('class_res_');

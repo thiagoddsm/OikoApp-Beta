@@ -29,9 +29,17 @@ const weekDayMap: Record<string, number> = {
 
 interface ReservationsCalendarProps {
     onEventClick?: (res: RoomReservation) => void;
+    searchTerm?: string;
+    roomFilter?: string;
+    categoryFilter?: string;
 }
 
-export function ReservationsCalendar({ onEventClick }: ReservationsCalendarProps) {
+export function ReservationsCalendar({ 
+    onEventClick, 
+    searchTerm = '', 
+    roomFilter = 'all', 
+    categoryFilter = 'all' 
+}: ReservationsCalendarProps) {
   const { reservations, isLoading } = useVolunteering();
   const [date, setDate] = useState(new Date());
   const [view, setView] = useState<View>(Views.MONTH);
@@ -39,9 +47,25 @@ export function ReservationsCalendar({ onEventClick }: ReservationsCalendarProps
   const events = useMemo(() => {
     if (!reservations || !Array.isArray(reservations)) return [];
     
+    // Aplicar filtros básicos antes da expansão
+    const filteredBase = reservations.filter(res => {
+        // Filtro de Categoria
+        const isEnsino = res.id.startsWith('class_res_');
+        if (categoryFilter === 'ensino' && !isEnsino) return false;
+        if (categoryFilter === 'geral' && isEnsino) return false;
+
+        // Filtro de Ambiente
+        if (roomFilter !== 'all' && !res.rooms?.includes(roomFilter)) return false;
+
+        // Filtro de Busca
+        if (searchTerm && !res.eventName.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+
+        return true;
+    });
+
     const allOccurrences: any[] = [];
 
-    reservations.forEach(res => {
+    filteredBase.forEach(res => {
       try {
         const baseStart = res.startDateTime?.toDate ? res.startDateTime.toDate() : 
                          (res.startDateTime instanceof Date ? res.startDateTime : null);
@@ -51,7 +75,6 @@ export function ReservationsCalendar({ onEventClick }: ReservationsCalendarProps
         if (!baseStart || !baseEnd || isNaN(baseStart.getTime())) return;
 
         const duration = baseEnd.getTime() - baseStart.getTime();
-        // Aumentado para 2 anos para permitir planejamento futuro
         const limitDate = moment().add(24, 'months');
         
         let recurrenceStop = res.recurrenceEndDate?.toDate ? res.recurrenceEndDate.toDate() : 
@@ -116,7 +139,7 @@ export function ReservationsCalendar({ onEventClick }: ReservationsCalendarProps
     });
 
     return allOccurrences;
-  }, [reservations]);
+  }, [reservations, searchTerm, roomFilter, categoryFilter]);
   
   const eventStyleGetter = (event: any) => {
     const status = event.resource?.status || 'pending';
