@@ -27,6 +27,17 @@ const ReservationsCalendar = dynamic(
 
 export default function ReservationsPage() {
     const [isDialogOpen, setDialogOpen] = useState(false);
+    const [selectedReservation, setSelectedReservation] = useState<any>(null);
+
+    const handleNewReservation = () => {
+        setSelectedReservation(null);
+        setDialogOpen(true);
+    };
+
+    const handleEventClick = (res: any) => {
+        setSelectedReservation(res);
+        setDialogOpen(true);
+    };
 
     return (
         <VolunteeringProvider>
@@ -42,7 +53,7 @@ export default function ReservationsPage() {
                                 Gerencie as solicitações, o calendário e os ambientes disponíveis para reserva.
                             </CardDescription>
                         </div>
-                        <Button onClick={() => setDialogOpen(true)}>
+                        <Button onClick={handleNewReservation}>
                             <PlusCircle className="mr-2 h-4 w-4"/>
                             Nova Reserva
                         </Button>
@@ -58,7 +69,7 @@ export default function ReservationsPage() {
                                 <ReservationsTable />
                             </TabsContent>
                             <TabsContent value="calendar" className="mt-4">
-                                <ReservationsCalendar />
+                                <ReservationsCalendar onEventClick={handleEventClick} />
                             </TabsContent>
                             <TabsContent value="rooms" className="mt-4">
                                 <RoomsManagement />
@@ -67,7 +78,11 @@ export default function ReservationsPage() {
                     </CardContent>
                 </Card>
             </div>
-            <CreateReservationDialog open={isDialogOpen} onOpenChange={setDialogOpen} />
+            <CreateReservationDialog 
+                open={isDialogOpen} 
+                onOpenChange={setDialogOpen} 
+                existingReservation={selectedReservation} 
+            />
         </VolunteeringProvider>
     );
 }

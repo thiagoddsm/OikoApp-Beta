@@ -27,7 +27,11 @@ const weekDayMap: Record<string, number> = {
     "Sábado": 6
 };
 
-export function ReservationsCalendar() {
+interface ReservationsCalendarProps {
+    onEventClick?: (res: RoomReservation) => void;
+}
+
+export function ReservationsCalendar({ onEventClick }: ReservationsCalendarProps) {
   const { reservations, isLoading } = useVolunteering();
   const [date, setDate] = useState(new Date());
   const [view, setView] = useState<View>(Views.MONTH);
@@ -49,9 +53,14 @@ export function ReservationsCalendar() {
         const duration = baseEnd.getTime() - baseStart.getTime();
         const limitDate = moment().add(6, 'months');
         
-        // Define o limite real da recorrência
-        let recurrenceStop = res.recurrenceEndDate?.toDate ? res.recurrenceEndDate.toDate() : limitDate.toDate();
-        if (recurrenceStop > limitDate.toDate()) recurrenceStop = limitDate.toDate();
+        // Define o limite real da recorrência respeitando o que foi salvo no banco
+        let recurrenceStop = res.recurrenceEndDate?.toDate ? res.recurrenceEndDate.toDate() : 
+                            (res.recurrenceEndDate instanceof Date ? res.recurrenceEndDate : limitDate.toDate());
+        
+        // Garante que não ultrapasse 6 meses de qualquer forma por segurança de performance
+        if (moment(recurrenceStop).isAfter(limitDate)) {
+            recurrenceStop = limitDate.toDate();
+        }
 
         // Se for pontual, adiciona apenas uma vez
         if (!res.frequency || res.frequency === 'pontual') {
@@ -72,7 +81,8 @@ export function ReservationsCalendar() {
         // Limite de segurança para evitar loops infinitos (máximo 100 ocorrências por reserva)
         let safeCounter = 0;
 
-        while (current.isBefore(moment(recurrenceStop).endOf('day')) && safeCounter < 100) {
+        // Comparamos apenas o dia para garantir que o evento no último dia também apareça
+        while (current.isSameOrBefore(moment(recurrenceStop), 'day') && safeCounter < 100) {
             safeCounter++;
             let shouldAdd = false;
 
@@ -133,6 +143,7 @@ export function ReservationsCalendar() {
             fontSize: '0.75rem',
             padding: '2px 6px',
             boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+            cursor: 'pointer'
         }
     };
   };
@@ -143,7 +154,7 @@ export function ReservationsCalendar() {
       const isRecurring = event.resource?.frequency && event.resource?.frequency !== 'pontual';
       
       return (
-        <div className="overflow-hidden">
+        <div className="overflow-hidden h-full">
           <div className="font-bold flex items-center gap-1 truncate">
             {isClass && <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
             {event.title}
@@ -180,6 +191,7 @@ export function ReservationsCalendar() {
             view={view}
             onNavigate={handleNavigate}
             onView={handleViewChange}
+            onSelectEvent={(event) => onEventClick?.(event.resource)}
             eventPropGetter={eventStyleGetter}
             messages={{
                 next: "Próximo",
