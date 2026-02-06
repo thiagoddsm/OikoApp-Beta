@@ -1,8 +1,7 @@
-
 'use client';
 import React, { useMemo, useState } from 'react';
 import { useVolunteering, type User, type Class, type Course } from '@/contexts/volunteering-context';
-import { Loader2, User as UserIcon, Search, Edit, PlusCircle } from 'lucide-react';
+import { Loader2, User as UserIcon, Search, Edit, PlusCircle, ChevronRight } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
