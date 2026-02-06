@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useVolunteering, type RoomReservation } from '@/contexts/volunteering-context';
@@ -5,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { Loader2, MoreHorizontal, Pencil, Trash2, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Loader2, MoreHorizontal, Pencil, Trash2, CheckCircle, XCircle, Clock, GraduationCap } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CreateReservationDialog } from './create-reservation-dialog';
@@ -57,11 +58,15 @@ export function ReservationsTable() {
       if (!res.frequency) {
         return "Frequência não definida";
       }
-      if (res.frequency === 'pontual') {
-        const startDate = res.startDateTime.toDate();
-        return format(startDate, "dd/MM/yy 'às' HH:mm");
+      try {
+        if (res.frequency === 'pontual') {
+            const startDate = res.startDateTime.toDate();
+            return format(startDate, "dd/MM/yy 'às' HH:mm", { locale: ptBR });
+        }
+        return `${res.frequency.charAt(0).toUpperCase() + res.frequency.slice(1)} - ${res.dayOfWeek}, ${res.startDateTime.toDate().toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}`;
+      } catch (e) {
+          return "Erro na data";
       }
-      return `${res.frequency.charAt(0).toUpperCase() + res.frequency.slice(1)} - ${res.dayOfWeek}, ${res.startDateTime.toDate().toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}`;
     }
 
     if (isLoading) {
@@ -78,7 +83,7 @@ export function ReservationsTable() {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Evento</TableHead>
+                            <TableHead>Evento / Origem</TableHead>
                             <TableHead>Sala</TableHead>
                             <TableHead>Período / Frequência</TableHead>
                             <TableHead>Solicitante</TableHead>
@@ -97,12 +102,23 @@ export function ReservationsTable() {
                             sortedReservations.map(res => {
                                 const statusInfo = statusConfig[res.status];
                                 const Icon = statusInfo.icon;
+                                const isFromClass = res.id.startsWith('class_res_');
+
                                 return (
                                     <TableRow key={res.id}>
-                                        <TableCell className="font-medium">{res.eventName}</TableCell>
+                                        <TableCell>
+                                            <div className="flex flex-col">
+                                                <span className="font-medium">{res.eventName}</span>
+                                                {isFromClass && (
+                                                    <Badge variant="outline" className="w-fit text-[9px] mt-1 h-4 bg-indigo-50 text-indigo-700 border-indigo-200">
+                                                        <GraduationCap className="size-2.5 mr-1" /> ENSINO / TURMA
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        </TableCell>
                                         <TableCell className="text-muted-foreground">{res.rooms?.join(', ') || '-'}</TableCell>
                                         <TableCell className="text-muted-foreground text-sm">{getFrequencyText(res)}</TableCell>
-                                        <TableCell className="text-muted-foreground">{userMap.get(res.requesterId) || 'Desconhecido'}</TableCell>
+                                        <TableCell className="text-muted-foreground">{userMap.get(res.requesterId) || 'Sistema'}</TableCell>
                                         <TableCell>
                                             <Badge variant="outline" className={`border ${statusInfo.color}`}>
                                                 <Icon className="mr-1.5 h-3.5 w-3.5" />

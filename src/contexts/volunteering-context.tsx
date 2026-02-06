@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, useMemo } from 'react';
 import { useFirebase, useCollection, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
-import { collection, doc, writeBatch, Timestamp, query, orderBy } from 'firebase/firestore';
+import { collection, doc, writeBatch, Timestamp, query, orderBy, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 // --- TYPES ---
@@ -426,39 +426,43 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   };
 
   // --- SYNC CLASS WITH ROOM RESERVATION ---
-  const syncClassWithReservation = (batch: any, classId: string, data: Partial<ClassData>) => {
+  const syncClassWithReservation = (batch: any, classId: string, classFullData: any) => {
     if (!firestore || !user) return;
     
     const reservationId = `class_res_${classId}`;
     const reservationRef = doc(firestore, 'room_reservations', reservationId);
 
     // If location is outside or not set, remove reservation if it exists
-    if (!data.locationId || data.locationId === 'the_school' || data.locationId === '') {
-        // Technically we can't easily delete in a batch update without knowing if it exists, 
-        // but for safety we can set status to 'rejected' or just ignore church room
+    if (!classFullData.locationId || classFullData.locationId === 'the_school' || classFullData.locationId === '') {
+        batch.delete(reservationRef);
         return;
     }
 
-    const roomName = rooms?.find(r => r.id === data.locationId)?.name || 'Ambiente IBM';
-    const courseName = courses?.find(c => c.id === data.courseId)?.name || 'Curso';
+    const roomName = rooms?.find(r => r.id === classFullData.locationId)?.name || 'Ambiente IBM';
+    const courseName = courses?.find(c => c.id === classFullData.courseId)?.name || 'Curso';
 
-    const startDateTime = Timestamp.fromDate(new Date(`${data.startDate}T${data.startTime}`));
-    const endDateTime = Timestamp.fromDate(new Date(`${data.endDate || data.startDate}T${data.endTime}`));
+    // Cria as datas de forma robusta
+    try {
+        const startDateTime = Timestamp.fromDate(new Date(`${classFullData.startDate}T${classFullData.startTime}`));
+        const endDateTime = Timestamp.fromDate(new Date(`${classFullData.endDate || classFullData.startDate}T${classFullData.endTime}`));
 
-    const reservationData = {
-        eventName: `Turma: ${data.name} (${courseName})`,
-        requesterId: user.uid,
-        rooms: [roomName],
-        startDateTime,
-        endDateTime,
-        status: 'approved',
-        frequency: data.frequency || 'pontual',
-        dayOfWeek: data.dayOfWeek || '',
-        notes: `Reserva automática gerada pela gestão de turmas.`,
-        createdAt: Timestamp.now(),
-    };
+        const reservationData = {
+            eventName: `Turma: ${classFullData.name} (${courseName})`,
+            requesterId: user.uid,
+            rooms: [roomName],
+            startDateTime,
+            endDateTime,
+            status: 'approved',
+            frequency: classFullData.frequency || 'pontual',
+            dayOfWeek: classFullData.dayOfWeek || '',
+            notes: `Reserva automática gerada pela gestão de turmas.`,
+            createdAt: Timestamp.now(),
+        };
 
-    batch.set(reservationRef, reservationData, { merge: true });
+        batch.set(reservationRef, reservationData, { merge: true });
+    } catch (e) {
+        console.error("Erro ao sincronizar reserva de sala para turma:", e);
+    }
   };
 
   const addClass = async (data: ClassData) => {
@@ -475,20 +479,27 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
 
   const updateClass = async (id: string, data: Partial<ClassData>) => {
     if(!firestore) return;
-    const classDoc = doc(firestore, 'classes', id);
-    const batch = writeBatch(firestore);
     
-    batch.update(classDoc, data);
-    
-    // For update, we need the full data to sync reservation correctly.
-    // In a real app, you'd fetch the existing doc first, but here we assume 'data' might be partial.
-    // For safety, we only sync if we have the critical fields.
-    if (data.locationId && data.startDate && data.startTime) {
-        syncClassWithReservation(batch, id, data as ClassData);
+    try {
+        const classDocRef = doc(firestore, 'classes', id);
+        const classSnap = await getDoc(classDocRef);
+        
+        if (!classSnap.exists()) {
+            throw new Error("Turma não encontrada");
+        }
+
+        const classFullData = { ...classSnap.data(), ...data };
+        const batch = writeBatch(firestore);
+        
+        batch.update(classDocRef, data);
+        syncClassWithReservation(batch, id, classFullData);
+        
+        await batch.commit();
+        toast({ title: 'Sucesso', description: 'Turma e reserva atualizadas.' });
+    } catch (error) {
+        console.error("Erro ao atualizar turma:", error);
+        toast({ variant: 'destructive', title: 'Erro', description: 'Falha ao atualizar turma.' });
     }
-    
-    await batch.commit();
-    toast({ title: 'Sucesso', description: 'Turma e reserva atualizadas.' });
   };
 
   const deleteClass = async (id: string) => {
