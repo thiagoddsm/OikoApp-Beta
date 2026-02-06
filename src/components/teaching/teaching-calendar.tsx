@@ -23,9 +23,10 @@ const weekDayMap: Record<string, number> = {
 
 interface TeachingCalendarProps {
     onEventClick?: (cls: Class) => void;
+    searchTerm?: string;
 }
 
-export function TeachingCalendar({ onEventClick }: TeachingCalendarProps) {
+export function TeachingCalendar({ onEventClick, searchTerm = '' }: TeachingCalendarProps) {
   const { classes, courses, rooms, isLoading } = useVolunteering();
   const [date, setDate] = useState(new Date());
   const [view, setView] = useState<View>(Views.MONTH);
@@ -36,9 +37,20 @@ export function TeachingCalendar({ onEventClick }: TeachingCalendarProps) {
   const events = useMemo(() => {
     if (!classes || !Array.isArray(classes)) return [];
     
+    // Filtrar turmas com base no termo de pesquisa
+    const filteredClasses = classes.filter(cls => {
+        if (!searchTerm) return true;
+        const courseName = courseMap.get(cls.courseId) || '';
+        const searchLower = searchTerm.toLowerCase();
+        return (
+            cls.name.toLowerCase().includes(searchLower) ||
+            courseName.toLowerCase().includes(searchLower)
+        );
+    });
+
     const allOccurrences: any[] = [];
 
-    classes.forEach(cls => {
+    filteredClasses.forEach(cls => {
       try {
         if (!cls.startDate || !cls.startTime) return;
 
@@ -77,7 +89,7 @@ export function TeachingCalendar({ onEventClick }: TeachingCalendarProps) {
         const targetDay = cls.dayOfWeek ? weekDayMap[cls.dayOfWeek] : -1;
         let safeCounter = 0;
 
-        while (current.isSameOrBefore(moment(recurrenceStop), 'day') && safeCounter < 200) {
+        while (current.isSameOrBefore(moment(recurrenceStop), 'day') && safeCounter < 500) {
             safeCounter++;
             let shouldAdd = false;
 
@@ -111,7 +123,7 @@ export function TeachingCalendar({ onEventClick }: TeachingCalendarProps) {
     });
 
     return allOccurrences;
-  }, [classes, courseMap]);
+  }, [classes, courseMap, searchTerm]);
   
   const eventStyleGetter = () => {
     return {
@@ -177,7 +189,7 @@ export function TeachingCalendar({ onEventClick }: TeachingCalendarProps) {
                 date: "Data",
                 time: "Hora",
                 event: "Aula/Turma",
-                noEventsInRange: "Sem aulas neste período.",
+                noEventsInRange: "Sem aulas para esta pesquisa neste período.",
                 showMore: (total) => `+ Ver mais (${total})`
             }}
             components={components}
