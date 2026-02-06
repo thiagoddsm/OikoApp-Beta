@@ -79,10 +79,10 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
             setIsActionInProgress(requestId);
             try {
                 await updateEnrollmentRequest(requestId, { status: 'rejected' });
-                toast({ title: 'Solicitação Rejeitada', description: 'O aluno foi marcado como rejeitado.' });
+                toast({ title: 'Solicitação Rejeitada', description: 'O registro foi atualizado para Rejeitado.' });
             } catch (error) {
                 console.error("Erro ao rejeitar:", error);
-                toast({ variant: 'destructive', title: 'Erro ao Rejeitar' });
+                toast({ variant: 'destructive', title: 'Erro ao Rejeitar', description: 'Não foi possível atualizar o status.' });
             } finally {
                 setIsActionInProgress(null);
             }
@@ -96,7 +96,7 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
             setIsActionInProgress(requestId);
             try {
                 await deleteEnrollmentRequest(requestId);
-                // O toast de sucesso já é disparado pelo provider
+                toast({ title: 'Solicitação Excluída', description: 'O registro foi removido permanentemente.' });
             } catch (error) {
                 console.error("Erro ao excluir:", error);
                 toast({ 
@@ -105,8 +105,7 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                     description: 'Ocorreu uma falha técnica ao tentar remover o registro.' 
                 });
             } finally {
-                // Pequeno delay para garantir que o usuário perceba a ação
-                setTimeout(() => setIsActionInProgress(null), 500);
+                setIsActionInProgress(null);
             }
         }
     };
@@ -197,7 +196,7 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                                                         variant="ghost" 
                                                         size="icon" 
                                                         onClick={() => handleReject(req.id)} 
-                                                        className="text-red-600 h-8 w-8"
+                                                        className="text-red-600 h-8 w-8 hover:bg-red-50"
                                                         disabled={isProcessing}
                                                     >
                                                         {isProcessing ? <Loader2 className="animate-spin size-4" /> : <XCircle className="size-4" />}

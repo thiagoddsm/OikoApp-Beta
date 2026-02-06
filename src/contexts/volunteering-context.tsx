@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useMemo } from 'react';
@@ -160,6 +161,7 @@ export type DisPayment = {
 
 export type EnrollmentRequest = {
     id: string;
+    userId: string;
     name: string;
     email?: string;
     phone: string;
@@ -292,22 +294,22 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
       
       const addItem = async (data: Omit<T, 'id'>) => {
           if (!collectionRef) return;
-          addDocumentNonBlocking(collectionRef, data);
-          toast({ title: 'Sucesso', description: `${itemType} será criado(a).` });
+          await addDocumentNonBlocking(collectionRef, data);
+          toast({ title: 'Sucesso', description: `${itemType} cadastrado(a).` });
       };
 
       const updateItem = async (id: string, data: Partial<Omit<T, 'id'>>) => {
           if(!firestore) return;
           const itemDoc = doc(firestore, collectionName, id);
-          updateDocumentNonBlocking(itemDoc, data);
-          toast({ title: 'Sucesso', description: `${itemType} será atualizado(a).` });
+          await updateDocumentNonBlocking(itemDoc, data);
+          toast({ title: 'Sucesso', description: `${itemType} atualizado(a).` });
       };
 
       const deleteItem = async (id: string) => {
           if(!firestore) return;
           const itemDoc = doc(firestore, collectionName, id);
-          deleteDocumentNonBlocking(itemDoc);
-          toast({ title: 'Sucesso', description: `${itemType} será excluído(a).` });
+          await deleteDocumentNonBlocking(itemDoc);
+          toast({ title: 'Sucesso', description: `${itemType} removido(a) do sistema.` });
       };
       
       return { addItem, updateItem, deleteItem };
@@ -324,7 +326,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { addItem: addPedagogicalLog, updateItem: updatePedagogicalLog, deleteItem: deletePedagogicalLog } = createCrudFunctions<PedagogicalLog>('pedagogical_logs', 'Registro Pedagógico');
   const { addItem: addDisPlan, updateItem: updateDisPlan, deleteItem: deleteDisPlan } = createCrudFunctions<DisPlan>('dis_plans', 'Plano DIS');
   const { addItem: addDisPayment, updateItem: updateDisPayment, deleteItem: deleteDisPayment } = createCrudFunctions<DisPayment>('dis_payments', 'Pagamento DIS');
-  const { updateItem: updateEnrollmentRequest, deleteItem: deleteEnrollmentRequest } = createCrudFunctions<EnrollmentRequest>('enrollment_requests', 'Pedido de Inscrição');
+  const { updateItem: updateEnrollmentRequest, deleteItem: deleteEnrollmentRequest } = createCrudFunctions<EnrollmentRequest>('enrollment_requests', 'Solicitação');
   
   const { deleteItem: deleteWavePayment } = createCrudFunctions<WavePayment>('wave_payments', 'Pagamento Wave');
 
@@ -356,14 +358,14 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   
   const updateEvent = async (id: string, data: Partial<EventData>) => {
     if(!firestore) return;
-    updateDocumentNonBlocking(doc(firestore, 'volunteering_events', id), data);
+    await updateDocumentNonBlocking(doc(firestore, 'volunteering_events', id), data);
     toast({ title: 'Sucesso', description: `Evento atualizado.` });
   };
   
   const deleteEvent = async (id: string) => {
     if(!firestore) return;
-    deleteDocumentNonBlocking(doc(firestore, 'volunteering_events', id));
-    toast({ title: 'Sucesso', description: 'O evento será excluído.' });
+    await deleteDocumentNonBlocking(doc(firestore, 'volunteering_events', id));
+    toast({ title: 'Sucesso', description: 'O evento foi excluído.' });
   };
 
   const addUser = async (data: Partial<User>) => {
@@ -379,14 +381,14 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
 
   const updateVolunteer = async (id: string, data: Partial<User>) => {
     if (!firestore) return;
-    updateDocumentNonBlocking(doc(firestore, 'users', id), data);
-    toast({ title: 'Sucesso', description: `Membro atualizado.` });
+    await updateDocumentNonBlocking(doc(firestore, 'users', id), data);
+    toast({ title: 'Sucesso', description: `Perfil do membro atualizado.` });
   };
   
   const saveSchedule = async (data: SavedScheduleData) => {
     if (!firestore) return;
     const docRef = doc(firestore, 'saved_schedules', `${data.areaId}_${data.month}`);
-    setDocumentNonBlocking(docRef, data, { merge: true });
+    await setDocumentNonBlocking(docRef, data, { merge: true });
     const batch = writeBatch(firestore);
     data.schedule.forEach(item => {
         const itemDate = Timestamp.fromDate(new Date(item.date.split('/').reverse().join('-') + 'T12:00:00'));
@@ -395,7 +397,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
         });
     });
     await batch.commit();
-    toast({ title: 'Sucesso', description: 'Escala salva.' });
+    toast({ title: 'Sucesso', description: 'Escala salva e datas de serviço atualizadas.' });
   };
 
   const calculateSplits = (totalAmount: number) => ({
@@ -408,16 +410,16 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const addWavePayment = async (data: WavePaymentData) => {
       if (!firestore) return;
       const splits = calculateSplits(data.amount);
-      addDocumentNonBlocking(collection(firestore, 'wave_payments'), { ...data, splits });
-      toast({ title: 'Sucesso', description: 'Pagamento registrado.' });
+      await addDocumentNonBlocking(collection(firestore, 'wave_payments'), { ...data, splits });
+      toast({ title: 'Sucesso', description: 'Pagamento Wave registrado.' });
   };
 
   const updateWavePayment = async (id: string, data: Partial<WavePaymentData>) => {
       if (!firestore) return;
       let updateData = { ...data };
       if (data.amount) updateData = { ...updateData, splits: calculateSplits(data.amount) } as any;
-      updateDocumentNonBlocking(doc(firestore, 'wave_payments', id), updateData);
-      toast({ title: 'Sucesso', description: 'Pagamento atualizado.' });
+      await updateDocumentNonBlocking(doc(firestore, 'wave_payments', id), updateData);
+      toast({ title: 'Sucesso', description: 'Pagamento Wave atualizado.' });
   };
 
   const value = useMemo(() => ({
