@@ -1,5 +1,3 @@
-'use server';
-
 'use client';
 
 import React, { createContext, useContext, useState, useMemo } from 'react';
@@ -328,7 +326,6 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { addItem: addDisPayment, updateItem: updateDisPayment, deleteItem: deleteDisPayment } = createCrudFunctions<DisPayment>('dis_payments', 'Pagamento DIS');
   const { updateItem: updateEnrollmentRequest, deleteItem: deleteEnrollmentRequest } = createCrudFunctions<EnrollmentRequest>('enrollment_requests', 'Pedido de Inscrição');
   
-  // Custom functions for Wave Payments to handle splits
   const { deleteItem: deleteWavePayment } = createCrudFunctions<WavePayment>('wave_payments', 'Pagamento Wave');
 
   const addEvent = async (data: EventData) => {
