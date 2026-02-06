@@ -9,12 +9,9 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase } from '@/firebase';
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 
 export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
-    const { firestore } = useFirebase();
-    const { enrollmentRequests, classes, updateEnrollmentRequest, deleteEnrollmentRequest, isLoading } = useVolunteering();
+    const { enrollmentRequests, classes, approveEnrollmentRequest, updateEnrollmentRequest, deleteEnrollmentRequest, isLoading } = useVolunteering();
     const { toast } = useToast();
     const [selectedClassMap, setSelectedClassMap] = useState<Record<string, string>>({});
     const [isActionInProgress, setIsActionInProgress] = useState<string | null>(null);
@@ -35,7 +32,6 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
     };
 
     const handleApprove = async (request: EnrollmentRequest) => {
-        if (!firestore) return;
         const targetClassId = selectedClassMap[request.id] || request.classId;
         
         if (!targetClassId || targetClassId === 'null') {
@@ -43,27 +39,13 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
             return;
         }
 
-        const userId = (request as any).userId;
-        if (!userId) {
-            toast({ variant: 'destructive', title: 'Erro de Dados', description: 'Esta solicitação não possui um ID de usuário vinculado.' });
-            return;
-        }
-
         setIsActionInProgress(request.id);
         
         try {
-            const classDocRef = doc(firestore, 'classes', targetClassId);
-            await updateDoc(classDocRef, {
-                students: arrayUnion(userId)
-            });
-
-            await updateEnrollmentRequest(request.id, { 
-                status: 'approved', 
-                classId: targetClassId 
-            });
+            await approveEnrollmentRequest(request.id, targetClassId);
         } catch (error) {
             console.error("Erro ao aprovar:", error);
-            toast({ variant: 'destructive', title: 'Erro na Aprovação', description: 'Ocorreu uma falha ao vincular o aluno à turma.' });
+            toast({ variant: 'destructive', title: 'Erro na Aprovação', description: 'Ocorreu uma falha ao vincular o aluno e gerar a fatura.' });
         } finally {
             setIsActionInProgress(null);
         }

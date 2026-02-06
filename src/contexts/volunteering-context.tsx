@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useMemo } from 'react';
 import { useFirebase, useCollection, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
-import { collection, doc, writeBatch, Timestamp, query, orderBy, getDoc } from 'firebase/firestore';
+import { collection, doc, writeBatch, Timestamp, query, orderBy, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 // --- TYPES ---
@@ -262,6 +262,7 @@ interface VolunteeringContextType {
   deletePedagogicalLog: (id: string) => Promise<void>;
   updateEnrollmentRequest: (id: string, data: Partial<EnrollmentRequestData>) => Promise<void>;
   deleteEnrollmentRequest: (id: string) => Promise<void>;
+  approveEnrollmentRequest: (requestId: string, classId: string) => Promise<void>;
   addFinancialTransaction: (data: FinancialTransactionData) => Promise<void>;
   updateFinancialTransaction: (id: string, data: Partial<FinancialTransactionData>) => Promise<void>;
   deleteFinancialTransaction: (id: string) => Promise<void>;
@@ -570,6 +571,61 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
       toast({ title: 'Sucesso', description: 'Pagamento Wave atualizado.' });
   };
 
+  const approveEnrollmentRequest = async (requestId: string, classId: string) => {
+    if (!firestore) return;
+    const request = enrollmentRequests.find(r => r.id === requestId);
+    if (!request) return;
+
+    const course = courses.find(c => c.id === request.courseId);
+    const userId = (request as any).userId;
+
+    const batch = writeBatch(firestore);
+
+    // 1. Adicionar aluno à turma
+    const classRef = doc(firestore, 'classes', classId);
+    batch.update(classRef, { students: arrayUnion(userId) });
+
+    // 2. Atualizar status da solicitação
+    const requestRef = doc(firestore, 'enrollment_requests', requestId);
+    batch.update(requestRef, { status: 'approved', classId });
+
+    // 3. Gerar fatura se for curso pago (Wave ou DIS)
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    
+    if (course?.ministryName.toLowerCase().includes('wave')) {
+        const defaultPlan = (wavePlans && wavePlans.length > 0) ? wavePlans[0] : null;
+        if (defaultPlan) {
+            const paymentRef = doc(collection(firestore, 'wave_payments'));
+            const amount = defaultPlan.price;
+            batch.set(paymentRef, {
+                userId,
+                planId: defaultPlan.id,
+                month: currentMonth,
+                amount,
+                status: 'pending',
+                splits: calculateSplits(amount),
+                createdAt: Timestamp.now()
+            });
+        }
+    } else if (course?.ministryName.toLowerCase() === 'dis') {
+        const defaultPlan = (disPlans && disPlans.length > 0) ? disPlans[0] : null;
+        if (defaultPlan) {
+            const paymentRef = doc(collection(firestore, 'dis_payments'));
+            batch.set(paymentRef, {
+                userId,
+                planId: defaultPlan.id,
+                month: currentMonth,
+                amount: defaultPlan.price,
+                status: 'pending',
+                createdAt: Timestamp.now()
+            });
+        }
+    }
+
+    await batch.commit();
+    toast({ title: 'Matrícula Efetivada', description: 'O aluno foi vinculado à turma e a fatura inicial foi gerada.' });
+  };
+
   const value = useMemo(() => ({
     areas: areas || [],
     teams: teams || [],
@@ -631,6 +687,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     deletePedagogicalLog,
     updateEnrollmentRequest,
     deleteEnrollmentRequest,
+    approveEnrollmentRequest,
     addFinancialTransaction,
     updateFinancialTransaction,
     deleteFinancialTransaction,
