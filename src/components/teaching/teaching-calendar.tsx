@@ -1,14 +1,12 @@
-
 'use client';
 import React, { useMemo, useState } from 'react';
 import { Calendar, momentLocalizer, View, Views } from 'react-big-calendar';
 import moment from 'moment';
 import 'moment/locale/pt-br';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { useVolunteering, type RoomReservation } from '@/contexts/volunteering-context';
-import { Loader2, GraduationCap, Info } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
-import { Badge } from '../ui/badge';
+import { useVolunteering, type Class } from '@/contexts/volunteering-context';
+import { Loader2, GraduationCap } from 'lucide-react';
+import { Card } from '../ui/card';
 
 moment.locale('pt-br');
 const localizer = momentLocalizer(moment);
@@ -24,96 +22,96 @@ const weekDayMap: Record<string, number> = {
 };
 
 interface TeachingCalendarProps {
-    onEventClick?: (res: RoomReservation) => void;
+    onEventClick?: (cls: Class) => void;
 }
 
 export function TeachingCalendar({ onEventClick }: TeachingCalendarProps) {
-  const { reservations, isLoading } = useVolunteering();
+  const { classes, courses, rooms, isLoading } = useVolunteering();
   const [date, setDate] = useState(new Date());
   const [view, setView] = useState<View>(Views.MONTH);
 
+  const courseMap = useMemo(() => new Map(courses.map(c => [c.id, c.name])), [courses]);
+  const roomMap = useMemo(() => new Map(rooms.map(r => [r.id, r.name])), [rooms]);
+
   const events = useMemo(() => {
-    if (!reservations || !Array.isArray(reservations)) return [];
-    
-    // FILTRO: Apenas reservas que são turmas/ensino
-    const teachingReservations = reservations.filter(res => res.id.startsWith('class_res_'));
+    if (!classes || !Array.isArray(classes)) return [];
     
     const allOccurrences: any[] = [];
 
-    teachingReservations.forEach(res => {
+    classes.forEach(cls => {
       try {
-        const baseStart = res.startDateTime?.toDate ? res.startDateTime.toDate() : 
-                         (res.startDateTime instanceof Date ? res.startDateTime : null);
-        const baseEnd = res.endDateTime?.toDate ? res.endDateTime.toDate() : 
-                       (res.endDateTime instanceof Date ? res.endDateTime : null);
+        if (!cls.startDate || !cls.startTime) return;
 
-        if (!baseStart || !baseEnd || isNaN(baseStart.getTime())) return;
+        // Horários base
+        const baseStart = new Date(`${cls.startDate}T${cls.startTime}`);
+        const baseEnd = new Date(`${cls.startDate}T${cls.endTime || cls.startTime}`);
+
+        if (isNaN(baseStart.getTime())) return;
 
         const duration = baseEnd.getTime() - baseStart.getTime();
-        const limitDate = moment().add(6, 'months');
         
-        let recurrenceStop = res.recurrenceEndDate?.toDate ? res.recurrenceEndDate.toDate() : 
-                            (res.recurrenceEndDate instanceof Date ? res.recurrenceEndDate : limitDate.toDate());
+        // Limite de visualização futura (2 anos para permitir planejamento de longo prazo)
+        const limitDate = moment().add(24, 'months');
+        
+        // Define o limite real da recorrência respeitando a data de término da turma
+        let recurrenceStop = cls.endDate ? new Date(`${cls.endDate}T23:59:59`) : limitDate.toDate();
         
         if (moment(recurrenceStop).isAfter(limitDate)) {
             recurrenceStop = limitDate.toDate();
         }
 
-        if (!res.frequency || res.frequency === 'pontual') {
+        // Se for pontual, adiciona apenas uma vez
+        if (!cls.frequency || cls.frequency === 'pontual') {
           allOccurrences.push({
-            id: res.id,
-            title: res.eventName,
+            id: cls.id,
+            title: `Turma: ${cls.name} (${courseMap.get(cls.courseId) || 'Ensino'})`,
             start: baseStart,
             end: baseEnd,
-            resource: res,
+            resource: cls,
           });
           return;
         }
 
+        // --- EXPANSÃO DE RECORRÊNCIA ---
         let current = moment(baseStart);
-        const targetDay = res.dayOfWeek ? weekDayMap[res.dayOfWeek] : -1;
+        const targetDay = cls.dayOfWeek ? weekDayMap[cls.dayOfWeek] : -1;
         let safeCounter = 0;
 
-        while (current.isSameOrBefore(moment(recurrenceStop), 'day') && safeCounter < 100) {
+        while (current.isSameOrBefore(moment(recurrenceStop), 'day') && safeCounter < 200) {
             safeCounter++;
             let shouldAdd = false;
 
-            if (res.frequency === 'semanal') {
+            if (cls.frequency === 'semanal') {
                 if (targetDay === -1 || current.day() === targetDay) shouldAdd = true;
-            } else if (res.frequency === 'quinzenal') {
+            } else if (cls.frequency === 'quinzenal') {
                 const diffWeeks = current.diff(moment(baseStart), 'weeks');
                 if (diffWeeks % 2 === 0 && (targetDay === -1 || current.day() === targetDay)) shouldAdd = true;
-            } else if (res.frequency === 'mensal') {
-                if (res.weekOfMonth) {
-                    const week = Math.ceil(current.date() / 7);
-                    const isLastWeek = current.date() > (moment(current).endOf('month').date() - 7);
-                    const matchesWeek = (res.weekOfMonth === 'last' && isLastWeek) || (week.toString() === res.weekOfMonth);
-                    if (matchesWeek && current.day() === targetDay) shouldAdd = true;
-                } else {
-                    if (current.date() === moment(baseStart).date()) shouldAdd = true;
-                }
+            } else if (cls.frequency === 'mensal') {
+                // Lógica simplificada para dia do mês
+                if (current.date() === moment(baseStart).date()) shouldAdd = true;
             }
 
             if (shouldAdd) {
                 const occStart = current.toDate();
                 const occEnd = new Date(occStart.getTime() + duration);
+                
                 allOccurrences.push({
-                    id: `${res.id}_${occStart.getTime()}`,
-                    title: res.eventName,
+                    id: `${cls.id}_${occStart.getTime()}`,
+                    title: `Turma: ${cls.name} (${courseMap.get(cls.courseId) || 'Ensino'})`,
                     start: occStart,
                     end: occEnd,
-                    resource: res,
+                    resource: cls,
                 });
             }
             current.add(1, 'day'); 
         }
       } catch (e) {
-        console.error("Erro ao expandir recorrência no ensino:", e, res);
+        console.error("Erro ao expandir recorrência da turma:", e, cls);
       }
     });
 
     return allOccurrences;
-  }, [reservations]);
+  }, [classes, courseMap]);
   
   const eventStyleGetter = () => {
     return {
@@ -140,11 +138,11 @@ export function TeachingCalendar({ onEventClick }: TeachingCalendarProps) {
           {event.title.replace('Turma: ', '')}
         </div>
         <div className="text-[9px] opacity-80 truncate">
-          {event.resource?.rooms?.[0] || 'IBM'}
+          {event.resource?.locationId === 'the_school' ? 'The School' : (roomMap.get(event.resource?.locationId) || 'IBM')}
         </div>
       </div>
     )
-  }), []);
+  }), [roomMap]);
 
   if (isLoading) {
     return (

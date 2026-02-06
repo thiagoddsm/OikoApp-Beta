@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -12,11 +11,9 @@ export default function TeachingCalendarPage() {
     const [selectedClass, setSelectedClass] = useState<any>(null);
     const [isEditDialogOpen, setEditDialogOpen] = useState(false);
 
-    const handleEventClick = (reservation: any) => {
-        // Extrair o ID da turma a partir do ID da reserva (class_res_ID)
-        const classId = reservation.id.replace('class_res_', '');
-        // Criar um objeto parcial para o dialog de edição
-        setSelectedClass({ id: classId, ...reservation });
+    const handleEventClick = (cls: any) => {
+        // Agora recebemos o objeto Class diretamente
+        setSelectedClass(cls);
         setEditDialogOpen(true);
     };
 
@@ -36,10 +33,10 @@ export default function TeachingCalendarPage() {
                     <CardContent className="space-y-6">
                         <Alert className="bg-blue-50 border-blue-200">
                             <Info className="h-4 w-4 text-blue-600" />
-                            <AlertTitle className="text-blue-800">Sincronização Ativa</AlertTitle>
+                            <AlertTitle className="text-blue-800">Sincronização Direta</AlertTitle>
                             <AlertDescription className="text-blue-700 text-xs">
-                                Este calendário exibe automaticamente as aulas cadastradas em "Cursos e Turmas". 
-                                Alterações feitas aqui refletem no mapa de ocupação global da igreja.
+                                Este calendário exibe as turmas cadastradas em tempo real. 
+                                Navegue até 2026 para visualizar o próximo semestre planejado.
                             </AlertDescription>
                         </Alert>
 

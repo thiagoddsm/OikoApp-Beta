@@ -51,18 +51,16 @@ export function ReservationsCalendar({ onEventClick }: ReservationsCalendarProps
         if (!baseStart || !baseEnd || isNaN(baseStart.getTime())) return;
 
         const duration = baseEnd.getTime() - baseStart.getTime();
-        const limitDate = moment().add(6, 'months');
+        // Aumentado para 2 anos para permitir planejamento futuro
+        const limitDate = moment().add(24, 'months');
         
-        // Define o limite real da recorrência respeitando o que foi salvo no banco
         let recurrenceStop = res.recurrenceEndDate?.toDate ? res.recurrenceEndDate.toDate() : 
                             (res.recurrenceEndDate instanceof Date ? res.recurrenceEndDate : limitDate.toDate());
         
-        // Garante que não ultrapasse 6 meses de qualquer forma por segurança de performance
         if (moment(recurrenceStop).isAfter(limitDate)) {
             recurrenceStop = limitDate.toDate();
         }
 
-        // Se for pontual, adiciona apenas uma vez
         if (!res.frequency || res.frequency === 'pontual') {
           allOccurrences.push({
             id: res.id,
@@ -74,15 +72,11 @@ export function ReservationsCalendar({ onEventClick }: ReservationsCalendarProps
           return;
         }
 
-        // --- LÓGICA DE EXPANSÃO DE RECORRÊNCIA ---
         let current = moment(baseStart);
         const targetDay = res.dayOfWeek ? weekDayMap[res.dayOfWeek] : -1;
-
-        // Limite de segurança para evitar loops infinitos (máximo 100 ocorrências por reserva)
         let safeCounter = 0;
 
-        // Comparamos apenas o dia para garantir que o evento no último dia também apareça
-        while (current.isSameOrBefore(moment(recurrenceStop), 'day') && safeCounter < 100) {
+        while (current.isSameOrBefore(moment(recurrenceStop), 'day') && safeCounter < 200) {
             safeCounter++;
             let shouldAdd = false;
 
@@ -95,10 +89,7 @@ export function ReservationsCalendar({ onEventClick }: ReservationsCalendarProps
                 if (res.weekOfMonth) {
                     const week = Math.ceil(current.date() / 7);
                     const isLastWeek = current.date() > (moment(current).endOf('month').date() - 7);
-                    
-                    const matchesWeek = (res.weekOfMonth === 'last' && isLastWeek) || 
-                                      (week.toString() === res.weekOfMonth);
-                    
+                    const matchesWeek = (res.weekOfMonth === 'last' && isLastWeek) || (week.toString() === res.weekOfMonth);
                     if (matchesWeek && current.day() === targetDay) shouldAdd = true;
                 } else {
                     if (current.date() === moment(baseStart).date()) shouldAdd = true;
@@ -107,7 +98,6 @@ export function ReservationsCalendar({ onEventClick }: ReservationsCalendarProps
 
             if (shouldAdd) {
                 const occStart = current.toDate();
-                // O fim da sessão deve ser no mesmo dia da ocorrência calculada
                 const occEnd = new Date(occStart.getTime() + duration);
                 
                 allOccurrences.push({
@@ -118,12 +108,10 @@ export function ReservationsCalendar({ onEventClick }: ReservationsCalendarProps
                     resource: res,
                 });
             }
-
             current.add(1, 'day'); 
         }
-
       } catch (e) {
-        console.error("Erro ao expandir recorrência:", e, res);
+        console.error("Erro ao expandir recorrência no calendário global:", e, res);
       }
     });
 
@@ -168,9 +156,6 @@ export function ReservationsCalendar({ onEventClick }: ReservationsCalendarProps
     }
   }), []);
 
-  const handleNavigate = (newDate: Date) => setDate(newDate);
-  const handleViewChange = (newView: View) => setView(newView);
-
   if (isLoading) {
     return (
         <div className="flex items-center justify-center p-8 h-[70vh]">
@@ -189,8 +174,8 @@ export function ReservationsCalendar({ onEventClick }: ReservationsCalendarProps
             style={{ height: '100%' }}
             date={date}
             view={view}
-            onNavigate={handleNavigate}
-            onView={handleViewChange}
+            onNavigate={setDate}
+            onView={setView}
             onSelectEvent={(event) => onEventClick?.(event.resource)}
             eventPropGetter={eventStyleGetter}
             messages={{
