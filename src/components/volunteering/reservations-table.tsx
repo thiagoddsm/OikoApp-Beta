@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useVolunteering, type RoomReservation } from '@/contexts/volunteering-context';
@@ -22,7 +21,11 @@ export function ReservationsTable() {
     
     const sortedReservations = useMemo(() => {
         if (!reservations) return [];
-        return [...reservations].sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+        return [...reservations].sort((a, b) => {
+            const timeA = a.createdAt?.toMillis?.() || 0;
+            const timeB = b.createdAt?.toMillis?.() || 0;
+            return timeB - timeA;
+        });
     }, [reservations]);
 
 
@@ -55,15 +58,20 @@ export function ReservationsTable() {
     };
     
     const getFrequencyText = (res: RoomReservation) => {
-      if (!res.frequency) {
-        return "Frequência não definida";
-      }
+      if (!res.frequency) return "Frequência não definida";
+      
       try {
+        const baseDate = res.startDateTime?.toDate ? res.startDateTime.toDate() : new Date();
+        const timeStr = baseDate.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'});
+
         if (res.frequency === 'pontual') {
-            const startDate = res.startDateTime.toDate();
-            return format(startDate, "dd/MM/yy 'às' HH:mm", { locale: ptBR });
+            return format(baseDate, "dd/MM/yy 'às' HH:mm", { locale: ptBR });
         }
-        return `${res.frequency.charAt(0).toUpperCase() + res.frequency.slice(1)} - ${res.dayOfWeek}, ${res.startDateTime.toDate().toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}`;
+        
+        let freqLabel = res.frequency.charAt(0).toUpperCase() + res.frequency.slice(1);
+        let dayLabel = res.dayOfWeek ? `, ${res.dayOfWeek}` : '';
+        
+        return `${freqLabel}${dayLabel} às ${timeStr}`;
       } catch (e) {
           return "Erro na data";
       }
@@ -100,7 +108,7 @@ export function ReservationsTable() {
                             </TableRow>
                         ) : (
                             sortedReservations.map(res => {
-                                const statusInfo = statusConfig[res.status];
+                                const statusInfo = statusConfig[res.status || 'pending'];
                                 const Icon = statusInfo.icon;
                                 const isFromClass = res.id.startsWith('class_res_');
 

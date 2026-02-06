@@ -465,8 +465,13 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
 
     // Cria as datas de forma robusta
     try {
+        if (!classFullData.startDate || !classFullData.startTime) {
+            console.warn("Sincronização de reserva ignorada: faltam dados de data/hora na turma.");
+            return;
+        }
+
         const startDateTime = Timestamp.fromDate(new Date(`${classFullData.startDate}T${classFullData.startTime}`));
-        const endDateTime = Timestamp.fromDate(new Date(`${classFullData.endDate || classFullData.startDate}T${classFullData.endTime}`));
+        const endDateTime = Timestamp.fromDate(new Date(`${classFullData.endDate || classFullData.startDate}T${classFullData.endTime || classFullData.startTime}`));
 
         const reservationData = {
             eventName: `Turma: ${classFullData.name} (${courseName})`,

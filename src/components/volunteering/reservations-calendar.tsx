@@ -5,10 +5,9 @@ import moment from 'moment';
 import 'moment/locale/pt-br';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useVolunteering, type RoomReservation } from '@/contexts/volunteering-context';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Card } from '../ui/card';
 
-// Configura o localizador do Moment.js para Português Brasil
 moment.locale('pt-br');
 const localizer = momentLocalizer(moment);
 
@@ -48,6 +47,7 @@ export function ReservationsCalendar() {
         if (!baseStart || !baseEnd || isNaN(baseStart.getTime())) return;
 
         const duration = baseEnd.getTime() - baseStart.getTime();
+        const limitDate = moment().add(6, 'months'); // Expande por 6 meses para performance
 
         // Se for pontual, adiciona apenas uma vez
         if (!res.frequency || res.frequency === 'pontual') {
@@ -61,63 +61,48 @@ export function ReservationsCalendar() {
           return;
         }
 
-        // Para eventos recorrentes, expandimos as ocorrências
-        // Vamos expandir por até 1 ano a partir do início ou até a data final definida
-        const limitDate = moment().add(1, 'year');
-        const recurrenceEnd = res.endDateTime?.toDate ? moment(res.endDateTime.toDate()) : limitDate;
-        const actualEndLimit = moment.min(limitDate, recurrenceEnd);
-
+        // --- LÓGICA DE EXPANSÃO DE RECORRÊNCIA ---
         let current = moment(baseStart);
+        const targetDay = res.dayOfWeek ? weekDayMap[res.dayOfWeek] : -1;
 
-        if (res.frequency === 'semanal' && res.dayOfWeek) {
-          const targetDay = weekDayMap[res.dayOfWeek];
-          // Ajusta para o primeiro dia válido
-          while (current.day() !== targetDay) {
-            current.add(1, 'day');
-          }
+        while (current.isBefore(limitDate)) {
+            let shouldAdd = false;
 
-          while (current.isBefore(actualEndLimit)) {
-            const occStart = current.toDate();
-            const occEnd = new Date(occStart.getTime() + duration);
-            
-            allOccurrences.push({
-              id: `${res.id}_${occStart.getTime()}`,
-              title: `${res.eventName} (${res.rooms?.join(', ') || 'N/A'})`,
-              start: occStart,
-              end: occEnd,
-              resource: res,
-            });
-            current.add(1, 'week');
-          }
-        } else if (res.frequency === 'quinzenal') {
-           while (current.isBefore(actualEndLimit)) {
-            const occStart = current.toDate();
-            const occEnd = new Date(occStart.getTime() + duration);
-            
-            allOccurrences.push({
-              id: `${res.id}_${occStart.getTime()}`,
-              title: `${res.eventName} (${res.rooms?.join(', ') || 'N/A'})`,
-              start: occStart,
-              end: occEnd,
-              resource: res,
-            });
-            current.add(2, 'weeks');
-          }
-        } else if (res.frequency === 'mensal') {
-            // Lógica simplificada para mensal (mesma data todo mês)
-            while (current.isBefore(actualEndLimit)) {
+            if (res.frequency === 'semanal') {
+                if (targetDay === -1 || current.day() === targetDay) shouldAdd = true;
+            } else if (res.frequency === 'quinzenal') {
+                const diffWeeks = current.diff(moment(baseStart), 'weeks');
+                if (diffWeeks % 2 === 0 && (targetDay === -1 || current.day() === targetDay)) shouldAdd = true;
+            } else if (res.frequency === 'mensal') {
+                // Suporte para lógica de "Primeira Segunda", etc.
+                if (res.weekOfMonth) {
+                    const week = Math.ceil(current.date() / 7);
+                    const isLastWeek = current.date() > (moment(current).endOf('month').date() - 7);
+                    
+                    const matchesWeek = (res.weekOfMonth === 'last' && isLastWeek) || 
+                                      (week.toString() === res.weekOfMonth);
+                    
+                    if (matchesWeek && current.day() === targetDay) shouldAdd = true;
+                } else {
+                    // Mensal simples: mesmo dia do mês
+                    if (current.date() === moment(baseStart).date()) shouldAdd = true;
+                }
+            }
+
+            if (shouldAdd) {
                 const occStart = current.toDate();
                 const occEnd = new Date(occStart.getTime() + duration);
                 
                 allOccurrences.push({
-                  id: `${res.id}_${occStart.getTime()}`,
-                  title: `${res.eventName} (${res.rooms?.join(', ') || 'N/A'})`,
-                  start: occStart,
-                  end: occEnd,
-                  resource: res,
+                    id: `${res.id}_${occStart.getTime()}`,
+                    title: `${res.eventName} (${res.rooms?.join(', ') || 'N/A'})`,
+                    start: occStart,
+                    end: occEnd,
+                    resource: res,
                 });
-                current.add(1, 'month');
             }
+
+            current.add(1, 'day'); // Itera dia a dia para precisão nas verificações complexas
         }
 
       } catch (e) {
@@ -165,13 +150,8 @@ export function ReservationsCalendar() {
     }
   }), []);
 
-  const handleNavigate = (newDate: Date) => {
-    setDate(newDate);
-  };
-
-  const handleViewChange = (newView: View) => {
-    setView(newView);
-  };
+  const handleNavigate = (newDate: Date) => setDate(newDate);
+  const handleViewChange = (newView: View) => setView(newView);
 
   if (isLoading) {
     return (
