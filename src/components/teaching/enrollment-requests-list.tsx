@@ -5,7 +5,7 @@ import { useVolunteering, type EnrollmentRequest } from '@/contexts/volunteering
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle, XCircle, Clock, UserPlus, Trash2 } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Clock, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -21,9 +21,15 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
     const [isActionInProgress, setIsActionInProgress] = useState<string | null>(null);
 
     const requests = useMemo(() => {
+        if (!enrollmentRequests) return [];
         return enrollmentRequests
             .filter(r => !courseId || r.courseId === courseId)
-            .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+            .sort((a, b) => {
+                // Ordenação segura que não quebra se a data ainda não estiver sincronizada (serverTimestamp)
+                const timeA = a.createdAt?.toMillis?.() || 0;
+                const timeB = b.createdAt?.toMillis?.() || 0;
+                return timeB - timeA;
+            });
     }, [enrollmentRequests, courseId]);
 
     const handleClassSelect = (requestId: string, classId: string) => {
@@ -48,13 +54,13 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
         setIsActionInProgress(request.id);
         
         try {
-            // 1. Add user to class students list
+            // 1. Vincular aluno à turma
             const classDocRef = doc(firestore, 'classes', targetClassId);
             await updateDoc(classDocRef, {
                 students: arrayUnion(userId)
             });
 
-            // 2. Update request status to approved
+            // 2. Atualizar status da solicitação
             await updateEnrollmentRequest(request.id, { 
                 status: 'approved', 
                 classId: targetClassId 
@@ -72,12 +78,20 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
     const handleReject = async (requestId: string) => {
         if (confirm('Deseja realmente rejeitar esta solicitação?')) {
             await updateEnrollmentRequest(requestId, { status: 'rejected' });
+            toast({ title: 'Solicitação Rejeitada' });
         }
     };
 
     const handleDelete = async (requestId: string) => {
-        if (confirm('Deseja excluir permanentemente este registro?')) {
-            await deleteEnrollmentRequest(requestId);
+        if (!requestId) return;
+        if (confirm('Tem certeza que deseja excluir permanentemente esta solicitação? Esta ação não pode ser desfeita.')) {
+            try {
+                await deleteEnrollmentRequest(requestId);
+                // A exclusão no Firestore é refletida automaticamente via useCollection
+            } catch (error) {
+                console.error("Erro ao excluir:", error);
+                toast({ variant: 'destructive', title: 'Erro ao Excluir', description: 'Não foi possível remover o registro.' });
+            }
         }
     };
 
@@ -102,7 +116,7 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                         {requests.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
-                                    Nenhuma solicitação pendente encontrada.
+                                    Nenhuma solicitação encontrada.
                                 </TableCell>
                             </TableRow>
                         ) : (
@@ -113,7 +127,7 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                                 return (
                                 <TableRow key={req.id} className={req.status === 'pending' ? 'bg-primary/5' : ''}>
                                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                                        {format(req.createdAt.toDate(), 'dd/MM/yy HH:mm', { locale: ptBR })}
+                                        {req.createdAt ? format(req.createdAt.toDate(), 'dd/MM/yy HH:mm', { locale: ptBR }) : 'Processando...'}
                                     </TableCell>
                                     <TableCell>
                                         <div className="font-bold">{req.name}</div>
@@ -122,7 +136,6 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                                     <TableCell>
                                         {req.status === 'pending' ? (
                                             <div className="flex flex-col gap-1.5">
-                                                <Badge variant="outline" className="w-fit text-[10px] h-4 mb-1">Curso ID: {req.courseId.substring(0,6)}</Badge>
                                                 <Select 
                                                     value={selectedClassMap[req.id] || req.classId || 'null'} 
                                                     onValueChange={(v) => handleClassSelect(req.id, v)}
@@ -141,7 +154,7 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                                         ) : (
                                             <div className="text-sm">
                                                 <p className="font-medium">{courseClasses.find(c => c.id === req.classId)?.name || 'Sem turma'}</p>
-                                                <p className="text-[10px] text-muted-foreground uppercase">{req.courseId}</p>
+                                                <p className="text-[10px] text-muted-foreground uppercase">{req.courseId.substring(0,8)}</p>
                                             </div>
                                         )}
                                     </TableCell>
@@ -175,7 +188,13 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                                                     </Button>
                                                 </>
                                             )}
-                                            <Button variant="ghost" size="icon" onClick={() => handleDelete(req.id)} className="h-8 w-8 text-muted-foreground">
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                onClick={() => handleDelete(req.id)} 
+                                                className="h-8 w-8 text-muted-foreground hover:text-destructive transition-colors"
+                                                title="Excluir Permanentemente"
+                                            >
                                                 <Trash2 className="size-4" />
                                             </Button>
                                         </div>
