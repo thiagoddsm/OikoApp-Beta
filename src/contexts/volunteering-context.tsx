@@ -526,24 +526,6 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
       toast({ title: 'Sucesso', description: 'Pagamento Wave atualizado.' });
   };
 
-  const addFinancialTransaction = async (data: FinancialTransactionData) => {
-      if (!firestore) return;
-      await addDocumentNonBlocking(collection(firestore, 'financial_transactions'), data);
-      toast({ title: 'Sucesso', description: 'Transação registrada.' });
-  };
-
-  const updateFinancialTransaction = async (id: string, data: Partial<FinancialTransactionData>) => {
-      if (!firestore) return;
-      await updateDocumentNonBlocking(doc(firestore, 'financial_transactions', id), data);
-      toast({ title: 'Sucesso', description: 'Transação atualizada.' });
-  };
-
-  const deleteFinancialTransaction = async (id: string) => {
-      if (!firestore) return;
-      await deleteDocumentNonBlocking(doc(firestore, 'financial_transactions', id));
-      toast({ title: 'Sucesso', description: 'Transação removida.' });
-  };
-
   const value = useMemo(() => ({
     areas: areas || [],
     teams: teams || [],
