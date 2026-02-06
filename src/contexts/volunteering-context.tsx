@@ -95,6 +95,7 @@ export type RoomReservation = {
     rooms: string[];
     startDateTime: any;
     endDateTime: any;
+    recurrenceEndDate?: any;
     status: 'pending' | 'approved' | 'rejected';
     notes?: string;
     equipmentNotes?: string;
@@ -470,8 +471,12 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
             return;
         }
 
+        // Para turmas recorrentes, o start/end DateTime deve representar apenas a primeira sessão (mesmo dia)
         const startDateTime = Timestamp.fromDate(new Date(`${classFullData.startDate}T${classFullData.startTime}`));
-        const endDateTime = Timestamp.fromDate(new Date(`${classFullData.endDate || classFullData.startDate}T${classFullData.endTime || classFullData.startTime}`));
+        const endDateTime = Timestamp.fromDate(new Date(`${classFullData.startDate}T${classFullData.endTime || classFullData.startTime}`));
+        
+        // A data de término da recorrência (fim do curso)
+        const recurrenceEndDate = classFullData.endDate ? Timestamp.fromDate(new Date(`${classFullData.endDate}T23:59:59`)) : null;
 
         const reservationData = {
             eventName: `Turma: ${classFullData.name} (${courseName})`,
@@ -479,6 +484,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
             rooms: [roomName],
             startDateTime,
             endDateTime,
+            recurrenceEndDate,
             status: 'approved',
             frequency: classFullData.frequency || 'pontual',
             dayOfWeek: classFullData.dayOfWeek || '',

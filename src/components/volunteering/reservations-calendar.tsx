@@ -47,7 +47,11 @@ export function ReservationsCalendar() {
         if (!baseStart || !baseEnd || isNaN(baseStart.getTime())) return;
 
         const duration = baseEnd.getTime() - baseStart.getTime();
-        const limitDate = moment().add(6, 'months'); // Expande por 6 meses para performance
+        const limitDate = moment().add(6, 'months');
+        
+        // Define o limite real da recorrência
+        let recurrenceStop = res.recurrenceEndDate?.toDate ? res.recurrenceEndDate.toDate() : limitDate.toDate();
+        if (recurrenceStop > limitDate.toDate()) recurrenceStop = limitDate.toDate();
 
         // Se for pontual, adiciona apenas uma vez
         if (!res.frequency || res.frequency === 'pontual') {
@@ -65,7 +69,11 @@ export function ReservationsCalendar() {
         let current = moment(baseStart);
         const targetDay = res.dayOfWeek ? weekDayMap[res.dayOfWeek] : -1;
 
-        while (current.isBefore(limitDate)) {
+        // Limite de segurança para evitar loops infinitos (máximo 100 ocorrências por reserva)
+        let safeCounter = 0;
+
+        while (current.isBefore(moment(recurrenceStop).endOf('day')) && safeCounter < 100) {
+            safeCounter++;
             let shouldAdd = false;
 
             if (res.frequency === 'semanal') {
@@ -74,7 +82,6 @@ export function ReservationsCalendar() {
                 const diffWeeks = current.diff(moment(baseStart), 'weeks');
                 if (diffWeeks % 2 === 0 && (targetDay === -1 || current.day() === targetDay)) shouldAdd = true;
             } else if (res.frequency === 'mensal') {
-                // Suporte para lógica de "Primeira Segunda", etc.
                 if (res.weekOfMonth) {
                     const week = Math.ceil(current.date() / 7);
                     const isLastWeek = current.date() > (moment(current).endOf('month').date() - 7);
@@ -84,13 +91,13 @@ export function ReservationsCalendar() {
                     
                     if (matchesWeek && current.day() === targetDay) shouldAdd = true;
                 } else {
-                    // Mensal simples: mesmo dia do mês
                     if (current.date() === moment(baseStart).date()) shouldAdd = true;
                 }
             }
 
             if (shouldAdd) {
                 const occStart = current.toDate();
+                // O fim da sessão deve ser no mesmo dia da ocorrência calculada
                 const occEnd = new Date(occStart.getTime() + duration);
                 
                 allOccurrences.push({
@@ -102,7 +109,7 @@ export function ReservationsCalendar() {
                 });
             }
 
-            current.add(1, 'day'); // Itera dia a dia para precisão nas verificações complexas
+            current.add(1, 'day'); 
         }
 
       } catch (e) {

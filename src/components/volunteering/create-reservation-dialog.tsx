@@ -34,8 +34,8 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
   const [selectedRooms, setSelectedRooms] = useState<string[]>([]);
   const [startDate, setStartDate] = useState('');
   const [startTime, setStartTime] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [endTime, setEndTime] = useState('');
+  const [endDate, setEndDate] = useState(''); // This will be the end of the RECURRENCE if recurring
+  const [endTime, setEndTime] = useState(''); // This is the end of the session time
   const [notes, setNotes] = useState('');
   const [equipmentNotes, setEquipmentNotes] = useState('');
   const [kitchenUsage, setKitchenUsage] = useState(false);
@@ -63,10 +63,18 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
 
         const start = existingReservation.startDateTime?.toDate();
         const end = existingReservation.endDateTime?.toDate();
+        const recEnd = existingReservation.recurrenceEndDate?.toDate();
 
         setStartDate(start ? start.toISOString().split('T')[0] : '');
         setStartTime(start ? start.toTimeString().split(' ')[0].substring(0, 5) : '');
-        setEndDate(end ? end.toISOString().split('T')[0] : '');
+        
+        // For recurring, the recurrence limit is stored separately
+        if (existingReservation.frequency !== 'pontual') {
+            setEndDate(recEnd ? recEnd.toISOString().split('T')[0] : (start ? start.toISOString().split('T')[0] : ''));
+        } else {
+            setEndDate(end ? end.toISOString().split('T')[0] : '');
+        }
+        
         setEndTime(end ? end.toTimeString().split(' ')[0].substring(0, 5) : '');
       } else {
         // Reset form for new reservation
@@ -97,8 +105,18 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
     }
     setIsSaving(true);
     
+    // Para reservas recorrentes, o endDateTime deve ser no mesmo dia do startDate, usando o endTime.
+    // O campo recurrenceEndDate guardará o limite final da recorrência.
     const startDateTime = Timestamp.fromDate(new Date(`${startDate}T${startTime}`));
-    const endDateTime = Timestamp.fromDate(new Date(`${endDate}T${endTime}`));
+    let endDateTime: Timestamp;
+    let recurrenceEndDate: Timestamp | null = null;
+
+    if (frequency === 'pontual') {
+        endDateTime = Timestamp.fromDate(new Date(`${endDate}T${endTime}`));
+    } else {
+        endDateTime = Timestamp.fromDate(new Date(`${startDate}T${endTime}`));
+        recurrenceEndDate = Timestamp.fromDate(new Date(`${endDate}T23:59:59`));
+    }
     
     let reservationData: any = {
       eventName,
@@ -106,6 +124,7 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
       rooms: selectedRooms,
       startDateTime,
       endDateTime,
+      recurrenceEndDate,
       notes,
       equipmentNotes,
       kitchenUsage,
@@ -117,9 +136,6 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
     
     if (frequency === 'mensal') {
       reservationData.weekOfMonth = weekOfMonth;
-    } else {
-      // Explicitly ensure weekOfMonth is not in the object if not applicable
-      delete reservationData.weekOfMonth;
     }
 
     if (existingReservation) {
@@ -249,36 +265,21 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
                       <Input id="startDate" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required/>
                   </div>
                   <div>
-                      <Label htmlFor="startTime">Início da Ocupação (com montagem)</Label>
+                      <Label htmlFor="startTime">Início da Ocupação</Label>
                       <Input id="startTime" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} required/>
                   </div>
               </div>
 
-              {frequency === 'pontual' && (
-                  <div className="grid grid-cols-2 gap-4">
-                      <div>
-                          <Label htmlFor="endDate">Data de Fim</Label>
-                          <Input id="endDate" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required/>
-                      </div>
-                      <div>
-                          <Label htmlFor="endTime">Fim da Ocupação (com desmontagem)</Label>
-                          <Input id="endTime" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} required/>
-                      </div>
+              <div className="grid grid-cols-2 gap-4">
+                  <div>
+                      <Label htmlFor="endDateRecurrence">{frequency === 'pontual' ? 'Data de Fim' : 'Data Final da Recorrência'}</Label>
+                      <Input id="endDateRecurrence" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required/>
                   </div>
-              )}
-
-              {frequency !== 'pontual' && (
-                  <div className="grid grid-cols-2 gap-4">
-                      <div>
-                           <Label htmlFor="endDateRecurrence">Data Final da Recorrência</Label>
-                          <Input id="endDateRecurrence" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required/>
-                      </div>
-                      <div>
-                          <Label htmlFor="endTime">Fim da Ocupação (com desmontagem)</Label>
-                          <Input id="endTime" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} required/>
-                      </div>
+                  <div>
+                      <Label htmlFor="endTime">Fim da Ocupação (Mesmo Dia)</Label>
+                      <Input id="endTime" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} required/>
                   </div>
-              )}
+              </div>
 
               <div>
                   <Label htmlFor="notes">Observações Gerais</Label>
