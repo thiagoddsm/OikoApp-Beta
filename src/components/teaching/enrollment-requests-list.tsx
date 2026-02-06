@@ -10,49 +10,62 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { useFirebase } from '@/firebase';
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 
-export function EnrollmentRequestsList({ courseId }: { courseId: string }) {
-    const { enrollmentRequests, classes, updateClass, updateEnrollmentRequest, deleteEnrollmentRequest, isLoading } = useVolunteering();
+export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
+    const { firestore } = useFirebase();
+    const { enrollmentRequests, classes, updateEnrollmentRequest, deleteEnrollmentRequest, isLoading } = useVolunteering();
     const { toast } = useToast();
     const [selectedClassMap, setSelectedClassMap] = useState<Record<string, string>>({});
+    const [isActionInProgress, setIsActionInProgress] = useState<string | null>(null);
 
     const requests = useMemo(() => {
         return enrollmentRequests
-            .filter(r => r.courseId === courseId)
+            .filter(r => !courseId || r.courseId === courseId)
             .sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
     }, [enrollmentRequests, courseId]);
-
-    const courseClasses = useMemo(() => {
-        return classes.filter(c => c.courseId === courseId);
-    }, [classes, courseId]);
 
     const handleClassSelect = (requestId: string, classId: string) => {
         setSelectedClassMap(prev => ({ ...prev, [requestId]: classId }));
     };
 
     const handleApprove = async (request: EnrollmentRequest) => {
-        const classId = selectedClassMap[request.id] || request.classId;
+        if (!firestore) return;
+        const targetClassId = selectedClassMap[request.id] || request.classId;
         
-        if (!classId || classId === 'null') {
+        if (!targetClassId || targetClassId === 'null') {
             toast({ variant: 'destructive', title: 'Turma Necessária', description: 'Por favor, selecione uma turma antes de aprovar.' });
             return;
         }
 
-        const selectedClass = classes.find(c => c.id === classId);
-        if (!selectedClass) return;
+        const userId = (request as any).userId;
+        if (!userId) {
+            toast({ variant: 'destructive', title: 'Erro de Dados', description: 'Esta solicitação não possui um ID de usuário vinculado.' });
+            return;
+        }
 
-        // 1. In a real scenario, we would create a User here if they don't exist.
-        // For now, we simulate the approval by updating the request and class.
+        setIsActionInProgress(request.id);
         
         try {
-            // Update the request status
-            await updateEnrollmentRequest(request.id, { status: 'approved', classId });
+            // 1. Add user to class students list
+            const classDocRef = doc(firestore, 'classes', targetClassId);
+            await updateDoc(classDocRef, {
+                students: arrayUnion(userId)
+            });
+
+            // 2. Update request status to approved
+            await updateEnrollmentRequest(request.id, { 
+                status: 'approved', 
+                classId: targetClassId 
+            });
             
-            // Note: In this prototype, we don't have a direct "add student to class" that creates users.
-            // We just notify the success.
-            toast({ title: 'Solicitação Aprovada!', description: `${request.name} foi marcado como aprovado.` });
+            toast({ title: 'Matrícula Efetivada!', description: `${request.name} agora faz parte da turma.` });
         } catch (error) {
             console.error(error);
+            toast({ variant: 'destructive', title: 'Erro na Aprovação', description: 'Ocorreu uma falha ao vincular o aluno à turma.' });
+        } finally {
+            setIsActionInProgress(null);
         }
     };
 
@@ -74,18 +87,13 @@ export function EnrollmentRequestsList({ courseId }: { courseId: string }) {
 
     return (
         <div className="space-y-4">
-            <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold">Solicitações Recebidas</h3>
-                <Badge variant="secondary">{requests.length} total</Badge>
-            </div>
-            
-            <div className="rounded-lg border">
+            <div className="rounded-lg border bg-card overflow-hidden">
                 <Table>
-                    <TableHeader>
+                    <TableHeader className="bg-muted/50">
                         <TableRow>
                             <TableHead>Data</TableHead>
                             <TableHead>Interessado</TableHead>
-                            <TableHead>Turma Desejada</TableHead>
+                            <TableHead>Curso e Turma Desejada</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead className="text-right">Ações</TableHead>
                         </TableRow>
@@ -93,44 +101,52 @@ export function EnrollmentRequestsList({ courseId }: { courseId: string }) {
                     <TableBody>
                         {requests.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                                    Nenhuma solicitação pendente para este curso.
+                                <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                                    Nenhuma solicitação pendente encontrada.
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            requests.map(req => (
-                                <TableRow key={req.id}>
-                                    <TableCell className="text-xs text-muted-foreground">
-                                        {format(req.createdAt.toDate(), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                            requests.map(req => {
+                                const courseClasses = classes.filter(c => c.courseId === req.courseId);
+                                const isApproving = isActionInProgress === req.id;
+
+                                return (
+                                <TableRow key={req.id} className={req.status === 'pending' ? 'bg-primary/5' : ''}>
+                                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                        {format(req.createdAt.toDate(), 'dd/MM/yy HH:mm', { locale: ptBR })}
                                     </TableCell>
                                     <TableCell>
-                                        <div className="font-medium">{req.name}</div>
+                                        <div className="font-bold">{req.name}</div>
                                         <div className="text-xs text-muted-foreground">{req.phone}</div>
                                     </TableCell>
                                     <TableCell>
                                         {req.status === 'pending' ? (
-                                            <Select 
-                                                value={selectedClassMap[req.id] || req.classId || 'null'} 
-                                                onValueChange={(v) => handleClassSelect(req.id, v)}
-                                            >
-                                                <SelectTrigger className="w-[200px]">
-                                                    <SelectValue placeholder="Selecionar turma" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="null">Definir depois</SelectItem>
-                                                    {courseClasses.map(c => (
-                                                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <div className="flex flex-col gap-1.5">
+                                                <Badge variant="outline" className="w-fit text-[10px] h-4 mb-1">Curso ID: {req.courseId.substring(0,6)}</Badge>
+                                                <Select 
+                                                    value={selectedClassMap[req.id] || req.classId || 'null'} 
+                                                    onValueChange={(v) => handleClassSelect(req.id, v)}
+                                                >
+                                                    <SelectTrigger className="w-[220px] h-8 text-xs">
+                                                        <SelectValue placeholder="Selecionar turma..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="null">Definir depois</SelectItem>
+                                                        {courseClasses.map(c => (
+                                                            <SelectItem key={c.id} value={c.id}>{c.name} ({c.dayOfWeek})</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
                                         ) : (
-                                            <span className="text-sm">
-                                                {courseClasses.find(c => c.id === req.classId)?.name || '-'}
-                                            </span>
+                                            <div className="text-sm">
+                                                <p className="font-medium">{courseClasses.find(c => c.id === req.classId)?.name || 'Sem turma'}</p>
+                                                <p className="text-[10px] text-muted-foreground uppercase">{req.courseId}</p>
+                                            </div>
                                         )}
                                     </TableCell>
                                     <TableCell>
-                                        <Badge variant={req.status === 'pending' ? 'outline' : req.status === 'approved' ? 'default' : 'destructive'}>
+                                        <Badge variant={req.status === 'pending' ? 'outline' : req.status === 'approved' ? 'default' : 'destructive'} className="font-bold">
                                             {req.status === 'pending' ? 'Pendente' : req.status === 'approved' ? 'Aprovado' : 'Rejeitado'}
                                         </Badge>
                                     </TableCell>
@@ -138,21 +154,34 @@ export function EnrollmentRequestsList({ courseId }: { courseId: string }) {
                                         <div className="flex justify-end gap-1">
                                             {req.status === 'pending' && (
                                                 <>
-                                                    <Button variant="ghost" size="icon" onClick={() => handleApprove(req)} className="text-green-600">
-                                                        <CheckCircle className="size-4" />
+                                                    <Button 
+                                                        variant="default" 
+                                                        size="sm" 
+                                                        onClick={() => handleApprove(req)} 
+                                                        className="bg-green-600 hover:bg-green-700 h-8"
+                                                        disabled={isApproving}
+                                                    >
+                                                        {isApproving ? <Loader2 className="animate-spin size-4" /> : <CheckCircle className="size-4" />}
+                                                        <span className="ml-2 hidden md:inline">Aprovar</span>
                                                     </Button>
-                                                    <Button variant="ghost" size="icon" onClick={() => handleReject(req.id)} className="text-red-600">
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="icon" 
+                                                        onClick={() => handleReject(req.id)} 
+                                                        className="text-red-600 h-8 w-8"
+                                                        disabled={isApproving}
+                                                    >
                                                         <XCircle className="size-4" />
                                                     </Button>
                                                 </>
                                             )}
-                                            <Button variant="ghost" size="icon" onClick={() => handleDelete(req.id)}>
-                                                <Trash2 className="size-4 text-muted-foreground" />
+                                            <Button variant="ghost" size="icon" onClick={() => handleDelete(req.id)} className="h-8 w-8 text-muted-foreground">
+                                                <Trash2 className="size-4" />
                                             </Button>
                                         </div>
                                     </TableCell>
                                 </TableRow>
-                            ))
+                            )})
                         )}
                     </TableBody>
                 </Table>

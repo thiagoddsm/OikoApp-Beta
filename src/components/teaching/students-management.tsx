@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useMemo, useState } from 'react';
 import { useVolunteering, type User, type Class, type Course } from '@/contexts/volunteering-context';
@@ -12,7 +13,11 @@ import { Button } from '../ui/button';
 import Link from 'next/link';
 import { EnrollmentDialog } from './enrollment-dialog';
 
-export function StudentsManagement() {
+interface StudentsManagementProps {
+    filterCourseIds?: string[];
+}
+
+export function StudentsManagement({ filterCourseIds }: StudentsManagementProps) {
   const { users, classes, courses, isLoading } = useVolunteering();
   const [searchTerm, setSearchTerm] = useState('');
   const [isEnrollmentOpen, setEnrollmentOpen] = useState(false);
@@ -26,6 +31,9 @@ export function StudentsManagement() {
     const allEnrollments: { id: string; user: User; class: Class; course: Course }[] = [];
 
     classes.forEach(cls => {
+        // Apply filter if provided
+        if (filterCourseIds && !filterCourseIds.includes(cls.courseId)) return;
+
         const course = courseMap.get(cls.courseId);
         if (course) {
             cls.students?.forEach(studentId => {
@@ -43,7 +51,7 @@ export function StudentsManagement() {
     });
 
     return allEnrollments.sort((a, b) => a.user.name.localeCompare(b.user.name));
-  }, [users, classes, courses]);
+  }, [users, classes, courses, filterCourseIds]);
 
 
   const filteredEnrollments = useMemo(() => {
@@ -66,12 +74,12 @@ export function StudentsManagement() {
 
   return (
       <>
-      <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+      <Card className="border-none shadow-none">
+          <CardHeader className="flex flex-row items-center justify-between px-0">
               <div>
                   <CardTitle>Alunos Matriculados</CardTitle>
                   <CardDescription>
-                      Visualize e gerencie todos os alunos matriculados nos cursos da igreja.
+                      {filterCourseIds ? "Alunos vinculados ao DIS/Libras." : "Visualize todos os alunos matriculados."}
                   </CardDescription>
               </div>
               <div className="flex items-center gap-2">
@@ -79,21 +87,21 @@ export function StudentsManagement() {
                       <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
                           placeholder="Buscar por aluno, curso, turma..."
-                          className="pl-8"
+                          className="pl-8 w-[250px]"
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
                       />
                   </div>
                    <Button onClick={() => setEnrollmentOpen(true)}>
                         <PlusCircle className="mr-2 h-4 w-4"/>
-                        Nova Matrícula
+                        Matrícula Direta
                     </Button>
               </div>
           </CardHeader>
-          <CardContent>
-              <div className="rounded-lg border">
+          <CardContent className="px-0">
+              <div className="rounded-lg border overflow-hidden">
                   <Table>
-                      <TableHeader>
+                      <TableHeader className="bg-muted/50">
                           <TableRow>
                               <TableHead>Aluno</TableHead>
                               <TableHead>Curso</TableHead>
@@ -104,8 +112,8 @@ export function StudentsManagement() {
                       <TableBody>
                           {filteredEnrollments.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={4} className="h-24 text-center">
-                                    Nenhum aluno encontrado.
+                                <TableCell colSpan={4} className="h-32 text-center text-muted-foreground italic">
+                                    Nenhum aluno encontrado para os critérios selecionados.
                                 </TableCell>
                             </TableRow>
                           ) : (
@@ -114,7 +122,7 @@ export function StudentsManagement() {
                                 const avatar = PlaceHolderImages.find(p => p.id === 'avatar-1');
                                 
                                 return (
-                                <TableRow key={enrollment.id}>
+                                <TableRow key={enrollment.id} className="hover:bg-muted/30 group">
                                     <TableCell>
                                         <div className="flex items-center gap-3">
                                             <Avatar className="h-9 w-9">
@@ -122,22 +130,22 @@ export function StudentsManagement() {
                                                 <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                                             </Avatar>
                                             <div>
-                                                <p className="font-medium">{user.name}</p>
-                                                <p className="text-xs text-muted-foreground">{user.email}</p>
+                                                <p className="font-bold">{user.name}</p>
+                                                <p className="text-[10px] text-muted-foreground uppercase">{user.email || 'Sem e-mail'}</p>
                                             </div>
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                      <Badge variant="outline">{course.name}</Badge>
+                                      <Badge variant="outline" className="font-semibold">{course.name}</Badge>
                                     </TableCell>
-                                    <TableCell className="text-muted-foreground">
-                                      {cls.name}
+                                    <TableCell>
+                                      <div className="text-sm font-medium">{cls.name}</div>
+                                      <div className="text-[10px] text-muted-foreground">{cls.dayOfWeek} às {cls.startTime}</div>
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        <Button variant="ghost" size="sm" asChild>
+                                        <Button variant="ghost" size="sm" asChild className="opacity-0 group-hover:opacity-100 transition-opacity">
                                             <Link href={`/dashboard/people/${user.id}`}>
-                                                <Edit className="size-4 mr-2" />
-                                                Ver Perfil
+                                                Ver Perfil <ChevronRight className="ml-1 size-3" />
                                             </Link>
                                         </Button>
                                     </TableCell>
