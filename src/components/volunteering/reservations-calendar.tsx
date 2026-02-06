@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useMemo, useState } from 'react';
 import { Calendar, momentLocalizer, View, Views } from 'react-big-calendar';
@@ -19,6 +18,16 @@ const statusColors = {
     rejected: '#EF4444', // red-500
 };
 
+const weekDayMap: Record<string, number> = {
+    "Domingo": 0,
+    "Segunda-feira": 1,
+    "Terça-feira": 2,
+    "Quarta-feira": 3,
+    "Quinta-feira": 4,
+    "Sexta-feira": 5,
+    "Sábado": 6
+};
+
 export function ReservationsCalendar() {
   const { reservations, isLoading } = useVolunteering();
   const [date, setDate] = useState(new Date());
@@ -27,31 +36,96 @@ export function ReservationsCalendar() {
   const events = useMemo(() => {
     if (!reservations || !Array.isArray(reservations)) return [];
     
-    return reservations.map(res => {
+    const allOccurrences: any[] = [];
+
+    reservations.forEach(res => {
       try {
-        // Garante que temos objetos de data válidos para o calendário
-        // Tratando tanto Timestamps do Firestore quanto objetos Date nativos
-        const startDate = res.startDateTime?.toDate ? res.startDateTime.toDate() : 
+        const baseStart = res.startDateTime?.toDate ? res.startDateTime.toDate() : 
                          (res.startDateTime instanceof Date ? res.startDateTime : null);
-        const endDate = res.endDateTime?.toDate ? res.endDateTime.toDate() : 
+        const baseEnd = res.endDateTime?.toDate ? res.endDateTime.toDate() : 
                        (res.endDateTime instanceof Date ? res.endDateTime : null);
 
-        if (!startDate || !endDate || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-          return null;
+        if (!baseStart || !baseEnd || isNaN(baseStart.getTime())) return;
+
+        const duration = baseEnd.getTime() - baseStart.getTime();
+
+        // Se for pontual, adiciona apenas uma vez
+        if (!res.frequency || res.frequency === 'pontual') {
+          allOccurrences.push({
+            id: res.id,
+            title: `${res.eventName} (${res.rooms?.join(', ') || 'N/A'})`,
+            start: baseStart,
+            end: baseEnd,
+            resource: res,
+          });
+          return;
         }
 
-        return {
-          id: res.id,
-          title: `${res.eventName} (${res.rooms?.join(', ') || 'N/A'})`,
-          start: startDate,
-          end: endDate,
-          resource: res,
-        };
+        // Para eventos recorrentes, expandimos as ocorrências
+        // Vamos expandir por até 1 ano a partir do início ou até a data final definida
+        const limitDate = moment().add(1, 'year');
+        const recurrenceEnd = res.endDateTime?.toDate ? moment(res.endDateTime.toDate()) : limitDate;
+        const actualEndLimit = moment.min(limitDate, recurrenceEnd);
+
+        let current = moment(baseStart);
+
+        if (res.frequency === 'semanal' && res.dayOfWeek) {
+          const targetDay = weekDayMap[res.dayOfWeek];
+          // Ajusta para o primeiro dia válido
+          while (current.day() !== targetDay) {
+            current.add(1, 'day');
+          }
+
+          while (current.isBefore(actualEndLimit)) {
+            const occStart = current.toDate();
+            const occEnd = new Date(occStart.getTime() + duration);
+            
+            allOccurrences.push({
+              id: `${res.id}_${occStart.getTime()}`,
+              title: `${res.eventName} (${res.rooms?.join(', ') || 'N/A'})`,
+              start: occStart,
+              end: occEnd,
+              resource: res,
+            });
+            current.add(1, 'week');
+          }
+        } else if (res.frequency === 'quinzenal') {
+           while (current.isBefore(actualEndLimit)) {
+            const occStart = current.toDate();
+            const occEnd = new Date(occStart.getTime() + duration);
+            
+            allOccurrences.push({
+              id: `${res.id}_${occStart.getTime()}`,
+              title: `${res.eventName} (${res.rooms?.join(', ') || 'N/A'})`,
+              start: occStart,
+              end: occEnd,
+              resource: res,
+            });
+            current.add(2, 'weeks');
+          }
+        } else if (res.frequency === 'mensal') {
+            // Lógica simplificada para mensal (mesma data todo mês)
+            while (current.isBefore(actualEndLimit)) {
+                const occStart = current.toDate();
+                const occEnd = new Date(occStart.getTime() + duration);
+                
+                allOccurrences.push({
+                  id: `${res.id}_${occStart.getTime()}`,
+                  title: `${res.eventName} (${res.rooms?.join(', ') || 'N/A'})`,
+                  start: occStart,
+                  end: occEnd,
+                  resource: res,
+                });
+                current.add(1, 'month');
+            }
+        }
+
       } catch (e) {
-        console.error("Erro ao formatar evento para o calendário:", e, res);
-        return null;
+        console.error("Erro ao expandir recorrência:", e, res);
       }
-    }).filter((event): event is any => event !== null);
+    });
+
+    return allOccurrences;
   }, [reservations]);
   
   const eventStyleGetter = (event: any) => {
@@ -73,15 +147,18 @@ export function ReservationsCalendar() {
   
   const components = useMemo(() => ({
     event: ({ event }: any) => {
-      const isClass = event.id?.startsWith('class_res_');
+      const isClass = event.id?.toString().includes('class_res_');
+      const isRecurring = event.resource?.frequency && event.resource?.frequency !== 'pontual';
+      
       return (
         <div className="overflow-hidden">
           <div className="font-bold flex items-center gap-1 truncate">
             {isClass && <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
             {event.title}
           </div>
-          <div className="text-[10px] opacity-80 uppercase font-black truncate">
+          <div className="text-[10px] opacity-80 uppercase font-black truncate flex items-center gap-1">
             {event.resource?.status === 'approved' ? 'Confirmado' : 'Pendente'}
+            {isRecurring && <span className="ml-1">🔄</span>}
           </div>
         </div>
       );
@@ -102,18 +179,6 @@ export function ReservationsCalendar() {
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
     );
-  }
-
-  if (!reservations || reservations.length === 0) {
-      return (
-          <Card className="flex flex-col items-center justify-center p-12 h-[75vh] border-dashed">
-              <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold">Nenhuma reserva para exibir</h3>
-              <p className="text-sm text-muted-foreground text-center max-w-xs">
-                  O calendário está vazio. Crie uma nova reserva ou verifique se as turmas possuem salas atribuídas.
-              </p>
-          </Card>
-      )
   }
 
   return (

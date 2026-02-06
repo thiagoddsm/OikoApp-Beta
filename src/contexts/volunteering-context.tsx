@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useMemo } from 'react';
@@ -360,11 +359,32 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     const eventsCollection = collection(firestore, 'volunteering_events');
     const newEventRef = doc(eventsCollection);
     const batch = writeBatch(firestore);
+    
     batch.set(newEventRef, data);
-    if (data.date && data.time && data.room) {
+
+    // Reserva automática de sala para o evento
+    if (data.time && data.room) {
         const reservationsCollection = collection(firestore, 'room_reservations');
-        const startDateTime = Timestamp.fromDate(new Date(`${data.date}T${data.time}`));
-        const endDateTime = Timestamp.fromDate(new Date(startDateTime.toDate().getTime() + 2 * 60 * 60 * 1000));
+        
+        let startDateTime: Timestamp;
+        let endDateTime: Timestamp;
+
+        if (data.frequency === 'semanal' && data.dayOfWeek) {
+            // Para eventos semanais, definimos o início como a data atual ajustada para o dia da semana
+            const now = new Date();
+            const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            startDateTime = Timestamp.fromDate(new Date(`${startOfToday.toISOString().split('T')[0]}T${data.time}`));
+            endDateTime = Timestamp.fromDate(new Date(startDateTime.toDate().getTime() + 2 * 60 * 60 * 1000));
+        } else if (data.date) {
+            startDateTime = Timestamp.fromDate(new Date(`${data.date}T${data.time}`));
+            endDateTime = Timestamp.fromDate(new Date(startDateTime.toDate().getTime() + 2 * 60 * 60 * 1000));
+        } else {
+            // Se não houver data nem for semanal, não podemos criar reserva
+            await batch.commit();
+            toast({ title: 'Sucesso', description: `Evento "${data.name}" criado (sem reserva).` });
+            return;
+        }
+
         batch.set(doc(reservationsCollection), {
             eventName: data.name,
             requesterId: user.uid,
@@ -372,11 +392,13 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
             startDateTime,
             endDateTime,
             status: 'approved',
-            frequency: 'pontual',
+            frequency: data.frequency || 'pontual',
+            dayOfWeek: data.dayOfWeek || '',
             notes: `Reserva automática criada a partir do evento: ${data.name}`,
             createdAt: Timestamp.now(),
         });
     }
+    
     await batch.commit();
     toast({ title: 'Sucesso', description: `Evento "${data.name}" criado.` });
   };
