@@ -125,8 +125,11 @@ const TimelineCard = ({ item, isEven, onToggle, isExpanded, isCurrent, isFuture,
                                 )}
                                 {item.questions && item.questions.length > 0 && (
                                     <ul className="list-disc list-inside text-xs space-y-1 mt-2">
-                                        {item.questions.map(q => <li key={q.id}>{q.label}</li>)}
+                                        {item.questions.map((q, idx) => <li key={idx}>{q.label}</li>)}
                                     </ul>
+                                )}
+                                {!item.questions?.length && !hasTechnicalReq && !hasHumanReq && (
+                                    <p className="text-xs italic">Nenhum requisito específico cadastrado para esta fase.</p>
                                 )}
                             </div>
                         </div>
@@ -149,10 +152,19 @@ export function DiscipleshipTrail({ currentStatusId }: { currentStatusId?: strin
 
     const courseMap = useMemo(() => new Map(courses?.map(c => [c.id, c.name]) || []), [courses]);
     
-    const sortedTimelineData = useMemo(() => {
-        if (!timelineData) return [];
-        const orderMap = new Map(journeyColumns.map((col, index) => [col.id, index]));
-        return [...timelineData].sort((a, b) => (orderMap.get(a.id) ?? 99) - (orderMap.get(b.id) ?? 99));
+    // Mesclamos as colunas oficiais com os dados técnicos do banco
+    const finalTimelineItems = useMemo(() => {
+        return journeyColumns.map(col => {
+            const dbItem = timelineData?.find(item => item.id === col.id);
+            return {
+                id: col.id,
+                title: col.title,
+                questions: dbItem?.questions || [],
+                requiredCourseId: dbItem?.requiredCourseId,
+                requiresDisciplerApproval: dbItem?.requiresDisciplerApproval,
+                requiresSupervisorApproval: dbItem?.requiresSupervisorApproval,
+            } as TimelineItemData;
+        });
     }, [timelineData]);
 
     const toggleDetails = (id: string) => {
@@ -163,17 +175,9 @@ export function DiscipleshipTrail({ currentStatusId }: { currentStatusId?: strin
         return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
     }
 
-    if (!timelineData || timelineData.length === 0) {
-        return (
-            <div className="text-center py-12 border-2 border-dashed rounded-xl">
-                <p className="text-muted-foreground">Nenhuma etapa da trilha configurada no banco de dados.</p>
-            </div>
-        )
-    }
-
     let lastPhaseId = "";
     const effectiveStatusId = currentStatusId || 'nao_alcancado';
-    const currentIndex = sortedTimelineData.findIndex(item => item.id === effectiveStatusId);
+    const currentIndex = finalTimelineItems.findIndex(item => item.id === effectiveStatusId);
 
     return (
         <div className="bg-background rounded-lg p-4 md:p-8">
@@ -182,7 +186,7 @@ export function DiscipleshipTrail({ currentStatusId }: { currentStatusId?: strin
                 <div className="absolute left-4 md:left-1/2 top-0 bottom-0 w-1 bg-slate-100 -ml-0.5 md:-ml-0.5 z-0 rounded-full"></div>
 
                 <div className="space-y-4 md:space-y-0 relative">
-                    {sortedTimelineData.map((item, index) => {
+                    {finalTimelineItems.map((item, index) => {
                         const phaseId = statusToPhaseMap[item.id] || '1';
                         const showPhase = phaseId !== lastPhaseId;
                         lastPhaseId = phaseId;

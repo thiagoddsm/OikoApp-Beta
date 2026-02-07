@@ -14,7 +14,7 @@ import { Input } from '../ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from '../ui/textarea';
 import { useVolunteering } from '@/contexts/volunteering-context';
-import { journeyColumns } from './journey-status-config';
+import { journeyColumns, statusToPhaseMap, phaseConfig } from './journey-status-config';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
 import { EnrollmentDialog } from '../teaching/enrollment-dialog';
 
@@ -59,6 +59,21 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
 
     const courseMap = useMemo(() => new Map(courses.map(c => [c.id, c.name])), [courses]);
     
+    // Merge official columns with DB data for tabs
+    const finalChecklists = useMemo(() => {
+        return journeyColumns.map(col => {
+            const dbItem = discipleshipChecklists?.find(item => item.id === col.id);
+            return {
+                id: col.id,
+                title: col.title,
+                questions: dbItem?.questions || [],
+                requiredCourseId: dbItem?.requiredCourseId,
+                requiresDisciplerApproval: dbItem?.requiresDisciplerApproval,
+                requiresSupervisorApproval: dbItem?.requiresSupervisorApproval,
+            } as DiscipleshipChecklist;
+        });
+    }, [discipleshipChecklists]);
+
     const handleCompleteStage = (currentStageId: string) => {
         const currentIndex = journeyColumns.findIndex(col => col.id === currentStageId);
 
@@ -158,28 +173,30 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                 <CardDescription>Acompanhamento prático e validação ministerial do líder.</CardDescription>
             </CardHeader>
             <CardContent>
-                 {discipleshipChecklists && discipleshipChecklists.length > 0 ? (
-                    <Tabs defaultValue={currentStatusId || discipleshipChecklists[0].id} className="w-full">
-                        <TabsList className="flex flex-wrap h-auto justify-start bg-muted/50 p-1 mb-6">
-                            {discipleshipChecklists.map(checklist => (
+                 <Tabs defaultValue={currentStatusId || 'nao_alcancado'} className="w-full">
+                    <div className="overflow-x-auto pb-2">
+                        <TabsList className="flex h-auto justify-start bg-muted/50 p-1 mb-6 min-w-max">
+                            {finalChecklists.map(checklist => (
                                 <TabsTrigger 
                                     key={checklist.id} 
                                     value={checklist.id}
-                                    className="data-[state=active]:bg-white"
+                                    className="data-[state=active]:bg-white whitespace-nowrap"
                                 >
                                     {checklist.title}
                                 </TabsTrigger>
                             ))}
                         </TabsList>
-                        {discipleshipChecklists.map(checklist => {
-                            const progress = stageProgress[checklist.id] || { answers: {}, approvals: {} };
-                            return (
-                            <TabsContent key={checklist.id} value={checklist.id} className="mt-0 space-y-8 animate-in fade-in-50">
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                    {/* Checklist de Perguntas */}
-                                    <div className="space-y-4">
-                                        <h4 className="text-xs font-black uppercase text-muted-foreground tracking-widest mb-4">Requisitos da Fase</h4>
-                                        {checklist.questions.map(q => {
+                    </div>
+                    {finalChecklists.map(checklist => {
+                        const progress = stageProgress[checklist.id] || { answers: {}, approvals: {} };
+                        return (
+                        <TabsContent key={checklist.id} value={checklist.id} className="mt-0 space-y-8 animate-in fade-in-50">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                {/* Checklist de Perguntas */}
+                                <div className="space-y-4">
+                                    <h4 className="text-xs font-black uppercase text-muted-foreground tracking-widest mb-4">Requisitos da Fase</h4>
+                                    {checklist.questions.length > 0 ? (
+                                        checklist.questions.map(q => {
                                             const answer = progress.answers[q.id];
                                             const label = q.label.replace('[nome]', memberName);
 
@@ -207,90 +224,88 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                                                     </div>
                                                 </div>
                                             );
-                                        })}
-                                    </div>
-
-                                    {/* Seção de Aprovações */}
-                                    <div className="space-y-6">
-                                        <h4 className="text-xs font-black uppercase text-muted-foreground tracking-widest mb-4">Chancelas Ministeriais</h4>
-                                        
-                                        {(checklist.requiresDisciplerApproval || checklist.requiresSupervisorApproval) ? (
-                                            <div className="space-y-4">
-                                                {checklist.requiresDisciplerApproval && (
-                                                    <div className={cn("p-4 rounded-xl border-2 transition-all", progress.approvals?.discipler?.approved ? "bg-emerald-50 border-emerald-500" : "bg-slate-50 border-slate-200")}>
-                                                        <div className="flex items-center justify-between mb-3">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className={cn("p-1.5 rounded-lg", progress.approvals?.discipler?.approved ? "bg-emerald-500 text-white" : "bg-slate-300 text-slate-500")}>
-                                                                    <ShieldCheck size={16} />
-                                                                </div>
-                                                                <Label className="font-black text-xs uppercase">Aprovação do Discipulador</Label>
-                                                            </div>
-                                                            <Checkbox
-                                                                checked={progress.approvals?.discipler?.approved || false}
-                                                                onCheckedChange={(v) => handleApprovalChange(checklist.id, 'discipler', 'approved', !!v)}
-                                                            />
-                                                        </div>
-                                                        <Textarea
-                                                            placeholder="Notas da entrevista de validação..."
-                                                            className="text-xs bg-white min-h-[60px]"
-                                                            value={progress.approvals?.discipler?.notes || ''}
-                                                            onChange={(e) => handleApprovalChange(checklist.id, 'discipler', 'notes', e.target.value)}
-                                                        />
-                                                    </div>
-                                                )}
-
-                                                {checklist.requiresSupervisorApproval && (
-                                                    <div className={cn("p-4 rounded-xl border-2 transition-all", progress.approvals?.supervisor?.approved ? "bg-indigo-50 border-indigo-500" : "bg-slate-50 border-slate-200")}>
-                                                        <div className="flex items-center justify-between mb-3">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className={cn("p-1.5 rounded-lg", progress.approvals?.supervisor?.approved ? "bg-indigo-500 text-white" : "bg-slate-300 text-slate-500")}>
-                                                                    <ShieldCheck size={16} />
-                                                                </div>
-                                                                <Label className="font-black text-xs uppercase">Aprovação do Supervisor</Label>
-                                                            </div>
-                                                            <Checkbox
-                                                                checked={progress.approvals?.supervisor?.approved || false}
-                                                                onCheckedChange={(v) => handleApprovalChange(checklist.id, 'supervisor', 'approved', !!v)}
-                                                            />
-                                                        </div>
-                                                        <Textarea
-                                                            placeholder="Observações de supervisão..."
-                                                            className="text-xs bg-white min-h-[60px]"
-                                                            value={progress.approvals?.supervisor?.notes || ''}
-                                                            onChange={(e) => handleApprovalChange(checklist.id, 'supervisor', 'notes', e.target.value)}
-                                                        />
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl text-muted-foreground italic">
-                                                <HelpCircle className="size-8 mb-2 opacity-20" />
-                                                <p className="text-center text-xs">Esta fase não exige aprovação formal de líderes.</p>
-                                            </div>
-                                        )}
-                                    </div>
+                                        })
+                                    ) : (
+                                        <div className="p-8 border-2 border-dashed rounded-xl text-center text-muted-foreground text-sm">
+                                            Nenhum checklist configurado para esta fase nas Configurações.
+                                        </div>
+                                    )}
                                 </div>
 
-                                <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t">
-                                    <Button variant="outline" size="lg" onClick={() => handleCompleteStage(checklist.id)} className="font-bold">
-                                        <CheckCircle className="mr-2 h-4 w-4 text-emerald-600" />
-                                        Consolidar Fase e Avançar
-                                    </Button>
-                                    <Button size="lg" onClick={() => handleSaveStage(checklist)} disabled={isSaving === checklist.id} className="min-w-[180px]">
-                                        {isSaving === checklist.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                                        Salvar Anotações
-                                    </Button>
+                                {/* Seção de Aprovações */}
+                                <div className="space-y-6">
+                                    <h4 className="text-xs font-black uppercase text-muted-foreground tracking-widest mb-4">Chancelas Ministeriais</h4>
+                                    
+                                    {(checklist.requiresDisciplerApproval || checklist.requiresSupervisorApproval) ? (
+                                        <div className="space-y-4">
+                                            {checklist.requiresDisciplerApproval && (
+                                                <div className={cn("p-4 rounded-xl border-2 transition-all", progress.approvals?.discipler?.approved ? "bg-emerald-50 border-emerald-500" : "bg-slate-50 border-slate-200")}>
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className={cn("p-1.5 rounded-lg", progress.approvals?.discipler?.approved ? "bg-emerald-500 text-white" : "bg-slate-300 text-slate-500")}>
+                                                                <ShieldCheck size={16} />
+                                                            </div>
+                                                            <Label className="font-black text-xs uppercase">Aprovação do Discipulador</Label>
+                                                        </div>
+                                                        <Checkbox
+                                                            checked={progress.approvals?.discipler?.approved || false}
+                                                            onCheckedChange={(v) => handleApprovalChange(checklist.id, 'discipler', 'approved', !!v)}
+                                                        />
+                                                    </div>
+                                                    <Textarea
+                                                        placeholder="Notas da entrevista de validação..."
+                                                        className="text-xs bg-white min-h-[60px]"
+                                                        value={progress.approvals?.discipler?.notes || ''}
+                                                        onChange={(e) => handleApprovalChange(checklist.id, 'discipler', 'notes', e.target.value)}
+                                                    />
+                                                </div>
+                                            )}
+
+                                            {checklist.requiresSupervisorApproval && (
+                                                <div className={cn("p-4 rounded-xl border-2 transition-all", progress.approvals?.supervisor?.approved ? "bg-indigo-50 border-indigo-500" : "bg-slate-50 border-slate-200")}>
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className={cn("p-1.5 rounded-lg", progress.approvals?.supervisor?.approved ? "bg-indigo-500 text-white" : "bg-slate-300 text-slate-500")}>
+                                                                <ShieldCheck size={16} />
+                                                            </div>
+                                                            <Label className="font-black text-xs uppercase">Aprovação do Supervisor</Label>
+                                                        </div>
+                                                        <Checkbox
+                                                            checked={progress.approvals?.supervisor?.approved || false}
+                                                            onCheckedChange={(v) => handleApprovalChange(checklist.id, 'supervisor', 'approved', !!v)}
+                                                        />
+                                                    </div>
+                                                    <Textarea
+                                                        placeholder="Observações de supervisão..."
+                                                        className="text-xs bg-white min-h-[60px]"
+                                                        value={progress.approvals?.supervisor?.notes || ''}
+                                                        onChange={(e) => handleApprovalChange(checklist.id, 'supervisor', 'notes', e.target.value)}
+                                                    />
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl text-muted-foreground italic">
+                                            <HelpCircle className="size-8 mb-2 opacity-20" />
+                                            <p className="text-center text-xs">Esta fase não exige aprovação formal de líderes.</p>
+                                        </div>
+                                    )}
                                 </div>
-                            </TabsContent>
-                        )})}
-                    </Tabs>
-                 ) : (
-                    <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-lg">
-                        <HelpCircle className="mx-auto h-8 w-8 mb-2"/>
-                        <p className="font-semibold">Nenhum checklist definido.</p>
-                        <p className="text-sm">Vá para <a href="/dashboard/people/settings" className="underline font-medium">Configurações</a> para criar checklists.</p>
-                    </div>
-                 )}
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t">
+                                <Button variant="outline" size="lg" onClick={() => handleCompleteStage(checklist.id)} className="font-bold">
+                                    <CheckCircle className="mr-2 h-4 w-4 text-emerald-600" />
+                                    Consolidar Fase e Avançar
+                                </Button>
+                                <Button size="lg" onClick={() => handleSaveStage(checklist)} disabled={isSaving === checklist.id} className="min-w-[180px]">
+                                    {isSaving === checklist.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                                    Salvar Anotações
+                                </Button>
+                            </div>
+                        </TabsContent>
+                    )})}
+                </Tabs>
             </CardContent>
         </Card>
 
