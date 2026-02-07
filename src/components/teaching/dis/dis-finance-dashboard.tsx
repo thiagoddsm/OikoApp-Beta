@@ -61,7 +61,6 @@ export function DisFinanceDashboard() {
           title: "Sincronizando...",
           description: "Conectando com Conta Azul para atualizar status das faturas.",
       });
-      // Simulando delay de rede
       setTimeout(() => {
           toast({
               title: "Sincronizado",

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo } from 'react';
@@ -15,19 +16,16 @@ export function DisStudentArea() {
   const { user } = useFirebase();
   const { classes, courses, disPayments, pedagogicalLogs, isLoading } = useVolunteering();
 
-  // Filtrar turmas onde o usuário logado é aluno
   const myClasses = useMemo(() => {
     if (!user) return [];
     return classes.filter(c => c.students?.includes(user.uid));
   }, [classes, user]);
 
-  // Filtrar pagamentos do aluno
   const myPayments = useMemo(() => {
     if (!user) return [];
     return disPayments.filter(p => p.userId === user.uid).sort((a, b) => b.month.localeCompare(a.month));
   }, [disPayments, user]);
 
-  // Filtrar feedback pedagógico (logs das aulas das turmas do aluno)
   const myFeedback = useMemo(() => {
     if (!user || myClasses.length === 0) return [];
     const myClassIds = myClasses.map(c => c.id);
@@ -51,7 +49,6 @@ export function DisStudentArea() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Carteirinha Digital */}
         <Card className="bg-gradient-to-br from-primary to-accent text-primary-foreground overflow-hidden relative shadow-xl border-none">
           <div className="absolute top-0 right-0 p-4 opacity-10">
             <GraduationCap size={120} />
@@ -76,7 +73,6 @@ export function DisStudentArea() {
                 </Badge>
               </div>
               <div className="bg-white p-1 rounded-md shadow-inner">
-                {/* QR Code Placeholder */}
                 <div className="size-14 bg-black rounded-sm flex items-center justify-center">
                    <div className="size-10 border-2 border-white/20"></div>
                 </div>
@@ -85,7 +81,6 @@ export function DisStudentArea() {
           </CardContent>
         </Card>
 
-        {/* Minha Agenda */}
         <Card className="md:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -127,7 +122,6 @@ export function DisStudentArea() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Feedback Pedagógico */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -168,7 +162,6 @@ export function DisStudentArea() {
           </CardContent>
         </Card>
 
-        {/* Financeiro */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">

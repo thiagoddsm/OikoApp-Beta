@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo } from 'react';
@@ -14,7 +15,6 @@ export function DisTeacherArea() {
   const { user } = useFirebase();
   const { classes, courses, isLoading } = useVolunteering();
 
-  // Filtrar turmas onde o usuário logado é o professor
   const myClasses = useMemo(() => {
     if (!user) return [];
     return classes.filter(c => c.teacherId === user.uid);

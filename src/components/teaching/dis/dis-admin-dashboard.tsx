@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo, useState } from 'react';
@@ -17,7 +18,6 @@ import { TeachersManagement } from '../teachers-management';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
-// Dados simulados para o gráfico de crescimento
 const growthData = [
   { name: 'Jul', matriculas: 12, solicitacoes: 18 },
   { name: 'Ago', matriculas: 15, solicitacoes: 22 },
@@ -31,7 +31,6 @@ export function DisAdminDashboard() {
   const [isEnrollmentOpen, setEnrollmentOpen] = useState(false);
   const [isClassFormOpen, setClassFormOpen] = useState(false);
 
-  // Filtrar dados específicos do DIS (Ministério "DIS" ou cursos de Libras)
   const disCourses = useMemo(() => 
     courses.filter(c => c.ministryName.toLowerCase() === 'dis' || c.name.toLowerCase().includes('libras')),
     [courses]
@@ -80,7 +79,6 @@ export function DisAdminDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* KPI Cards Interactive */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((kpi) => (
           <button 
