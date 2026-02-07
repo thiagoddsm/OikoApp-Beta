@@ -17,7 +17,7 @@ interface EnrollmentDialogProps {
 }
 
 export function EnrollmentDialog({ open, onOpenChange }: EnrollmentDialogProps) {
-  const { users, classes, courses, updateClass, addUser, isLoading } = useVolunteering();
+  const { users, classes, courses, enrollStudent, addUser, isLoading } = useVolunteering();
   const { toast } = useToast();
 
   const [mode, setMode] = useState<'existing' | 'new'>('existing');
@@ -74,15 +74,10 @@ export function EnrollmentDialog({ open, onOpenChange }: EnrollmentDialogProps) 
         const selectedClass = classes.find(c => c.id === classId);
         if (!selectedClass) throw new Error("Turma não encontrada");
 
-        const currentStudents = selectedClass.students || [];
-        if (currentStudents.includes(finalStudentId)) {
-            toast({ title: 'Aviso', description: 'Este aluno já está matriculado nesta turma.' });
-        } else {
-            const updatedStudents = [...currentStudents, finalStudentId];
-            await updateClass(classId, { students: updatedStudents });
-            toast({ title: 'Sucesso!', description: 'Matrícula realizada com sucesso.' });
-        }
-
+        // Utiliza a função unificada de matrícula que gera faturas automaticamente
+        await enrollStudent(finalStudentId, classId);
+        
+        toast({ title: 'Sucesso!', description: 'Matrícula realizada e financeiro iniciado.' });
         onOpenChange(false);
     } catch (error) {
         console.error(error);

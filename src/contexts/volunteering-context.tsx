@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useMemo } from 'react';
@@ -263,6 +264,7 @@ interface VolunteeringContextType {
   updateEnrollmentRequest: (id: string, data: Partial<EnrollmentRequestData>) => Promise<void>;
   deleteEnrollmentRequest: (id: string) => Promise<void>;
   approveEnrollmentRequest: (requestId: string, classId: string) => Promise<void>;
+  enrollStudent: (studentId: string, classId: string) => Promise<void>;
   addFinancialTransaction: (data: FinancialTransactionData) => Promise<void>;
   updateFinancialTransaction: (id: string, data: Partial<FinancialTransactionData>) => Promise<void>;
   deleteFinancialTransaction: (id: string) => Promise<void>;
@@ -571,25 +573,22 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
       toast({ title: 'Sucesso', description: 'Pagamento Wave atualizado.' });
   };
 
-  const approveEnrollmentRequest = async (requestId: string, classId: string) => {
+  const enrollStudent = async (studentId: string, classId: string) => {
     if (!firestore) return;
-    const request = enrollmentRequests.find(r => r.id === requestId);
-    if (!request) return;
-
-    const course = courses.find(c => c.id === request.courseId);
-    const userId = (request as any).userId;
-
-    const batch = writeBatch(firestore);
-
-    // 1. Adicionar aluno à turma
+    
     const classRef = doc(firestore, 'classes', classId);
-    batch.update(classRef, { students: arrayUnion(userId) });
-
-    // 2. Atualizar status da solicitação
-    const requestRef = doc(firestore, 'enrollment_requests', requestId);
-    batch.update(requestRef, { status: 'approved', classId });
-
-    // 3. Gerar fatura se for curso pago (Wave ou DIS)
+    const classSnap = await getDoc(classRef);
+    if (!classSnap.exists()) throw new Error("Turma não encontrada");
+    
+    const classData = classSnap.data() as Class;
+    const course = courses.find(c => c.id === classData.courseId);
+    
+    const batch = writeBatch(firestore);
+    
+    // 1. Adicionar aluno à turma
+    batch.update(classRef, { students: arrayUnion(studentId) });
+    
+    // 2. Gerar fatura se for curso pago (Wave ou DIS)
     const currentMonth = new Date().toISOString().slice(0, 7);
     
     if (course?.ministryName.toLowerCase().includes('wave')) {
@@ -598,7 +597,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
             const paymentRef = doc(collection(firestore, 'wave_payments'));
             const amount = defaultPlan.price;
             batch.set(paymentRef, {
-                userId,
+                userId: studentId,
                 planId: defaultPlan.id,
                 month: currentMonth,
                 amount,
@@ -612,7 +611,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
         if (defaultPlan) {
             const paymentRef = doc(collection(firestore, 'dis_payments'));
             batch.set(paymentRef, {
-                userId,
+                userId: studentId,
                 planId: defaultPlan.id,
                 month: currentMonth,
                 amount: defaultPlan.price,
@@ -621,8 +620,24 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
             });
         }
     }
-
+    
     await batch.commit();
+  };
+
+  const approveEnrollmentRequest = async (requestId: string, classId: string) => {
+    if (!firestore) return;
+    const request = enrollmentRequests.find(r => r.id === requestId);
+    if (!request) return;
+
+    const userId = (request as any).userId;
+
+    // Utiliza a nova lógica centralizada de matrícula que gera fatura
+    await enrollStudent(userId, classId);
+
+    // Atualiza status da solicitação
+    const requestRef = doc(firestore, 'enrollment_requests', requestId);
+    await updateDoc(requestRef, { status: 'approved', classId });
+
     toast({ title: 'Matrícula Efetivada', description: 'O aluno foi vinculado à turma e a fatura inicial foi gerada.' });
   };
 
@@ -688,6 +703,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     updateEnrollmentRequest,
     deleteEnrollmentRequest,
     approveEnrollmentRequest,
+    enrollStudent,
     addFinancialTransaction,
     updateFinancialTransaction,
     deleteFinancialTransaction,
