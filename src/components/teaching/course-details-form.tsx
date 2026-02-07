@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, ShieldCheck, Mail, Info } from 'lucide-react';
+import { Loader2, ShieldCheck, Mail, Info, School } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,8 +21,11 @@ export function CourseDetailsForm({ course }) {
     responsibleId: '',
     description: '',
     type: 'complete' as any,
+    ebdTrack: '', // For Lumine ministry
   });
   const [isSaving, setIsSaving] = useState(false);
+
+  const isLumine = course.ministryName?.toLowerCase().includes('lumine') || course.ministryName?.toLowerCase().includes('ebd');
 
   useEffect(() => {
     if (course) {
@@ -30,6 +33,7 @@ export function CourseDetailsForm({ course }) {
         responsibleId: course.responsibleId || '',
         description: course.description || '',
         type: course.type || 'complete',
+        ebdTrack: course.ebdTrack || '',
       });
     }
   }, [course]);
@@ -75,6 +79,23 @@ export function CourseDetailsForm({ course }) {
                           </SelectContent>
                       </Select>
                   </div>
+                  
+                  {isLumine && (
+                    <div className="space-y-2 animate-in slide-in-from-top-2">
+                        <Label htmlFor="ebdTrack" className="flex items-center gap-2">
+                            <School className="size-3 text-primary" />
+                            Trilho EBD (Escola Bíblica Discipuladora)
+                        </Label>
+                        <Select value={formData.ebdTrack} onValueChange={v => handleChange('ebdTrack', v)}>
+                            <SelectTrigger id="ebdTrack"><SelectValue placeholder="Selecione o trilho..." /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="teologico">Trilho Teológico</SelectItem>
+                                <SelectItem value="biblico">Trilho Bíblico</SelectItem>
+                                <SelectItem value="discipulado">Trilho de Discipulado</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                  )}
               </div>
           </div>
           <div className="flex justify-end pt-4">

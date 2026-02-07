@@ -9,8 +9,6 @@
         "name": { "type": "string" },
         "email": { "type": "string", "format": "email" },
         "phone": { "type": "string" },
-        "cpf": { "type": "string" },
-        "sexo": { "type": "string", "enum": ["M", "F"] },
         "roles": {
           "type": "array",
           "items": { "type": "string", "enum": ["admin", "pastor_senior", "pastor", "lider_rede", "lider_area", "lider_gc", "team_leader", "member", "volunteer"] },
@@ -23,7 +21,17 @@
           "properties": {
             "td": { "type": "boolean", "description": "Trilho do Crescimento" },
             "baptism": { "type": "boolean" },
-            "membership_course": { "type": "boolean" }
+            "membership_course": { "type": "boolean" },
+            "memberCourseProgress": {
+              "type": "object",
+              "properties": {
+                "module1": { "type": "boolean", "description": "História e Visão" },
+                "module2": { "type": "boolean", "description": "DNA e Células" },
+                "module3": { "type": "boolean", "description": "Mordomia e Finanças" },
+                "module4": { "type": "boolean", "description": "Governança e Ética" },
+                "module5": { "type": "boolean", "description": "Comissionamento" }
+              }
+            }
           }
         },
         "skills": {
@@ -94,6 +102,23 @@
       },
       "required": ["name", "email", "createdAt"]
     },
+    "FinancialTransaction": {
+      "title": "Financial Transaction",
+      "type": "object",
+      "description": "A general financial entry for the church (income or expense).",
+      "properties": {
+        "type": { "type": "string", "enum": ["income", "expense"] },
+        "category": { "type": "string", "description": "e.g., Dízimo, Oferta, Aluguel, Salário" },
+        "amount": { "type": "number" },
+        "date": { "type": "string", "format": "date-time" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "paid"] },
+        "memberId": { "type": "string", "description": "Optional: User ID for tithes/offerings" },
+        "paymentMethod": { "type": "string", "enum": ["PIX", "Dinheiro", "Cartão", "Transferência"] },
+        "contaAzulSync": { "type": "boolean" }
+      },
+      "required": ["type", "category", "amount", "date", "status"]
+    },
     "Class": {
       "title": "Class",
       "type": "object",
@@ -109,6 +134,7 @@
         "startTime": { "type": "string", "format": "time" },
         "endTime": { "type": "string", "format": "time" },
         "dayOfWeek": { "type": "string" },
+        "weekOfMonth": { "type": "string", "enum": ["1", "2", "3", "4", "5", "last"] },
         "locationId": { "type": "string" },
         "attendance": { "type": "array" },
         "grades": {
@@ -134,24 +160,6 @@
             }
         }
       }
-    },
-    "EnrollmentRequest": {
-        "title": "Enrollment Request",
-        "type": "object",
-        "description": "A request for course enrollment from the public portal.",
-        "properties": {
-            "name": { "type": "string" },
-            "email": { "type": "string" },
-            "phone": { "type": "string" },
-            "cpf": { "type": "string" },
-            "sexo": { "type": "string" },
-            "dataNascimento": { "type": "string" },
-            "courseId": { "type": "string" },
-            "classId": { "type": "string" },
-            "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
-            "createdAt": { "type": "string", "format": "date-time" }
-        },
-        "required": ["name", "phone", "courseId", "status", "createdAt"]
     }
   }
 }

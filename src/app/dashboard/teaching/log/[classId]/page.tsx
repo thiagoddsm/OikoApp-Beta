@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, ArrowLeft, BookOpen, Star, Users } from 'lucide-react';
+import { Loader2, ArrowLeft, BookOpen, Star, Users, CheckCircle2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -15,10 +15,13 @@ import { Timestamp } from 'firebase/firestore';
 import { VolunteeringProvider } from '@/contexts/volunteering-context';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { doc } from 'firebase/firestore';
 
 function PedagogicalLogPageContent() {
     const params = useParams();
     const router = useRouter();
+    const { firestore } = useFirebase();
     const classId = params.classId as string;
     const { 
         classes, 
@@ -41,6 +44,8 @@ function PedagogicalLogPageContent() {
     const teacherData = useMemo(() => classData ? users.find(u => u.id === classData.teacherId) : null, [classData, users]);
     const classLogs = useMemo(() => pedagogicalLogs.filter(log => log.classId === classId).sort((a,b) => b.date.toMillis() - a.date.toMillis()), [pedagogicalLogs, classId]);
     
+    const isMemberCourse = courseData?.name?.toLowerCase().includes('membro') || courseData?.name?.toLowerCase().includes('integração');
+
     const studentList = useMemo(() => {
         if (!users || !classData?.students) return [];
         const studentSet = new Set(classData.students);
@@ -64,39 +69,59 @@ function PedagogicalLogPageContent() {
         }
         setIsSaving(true);
         
-        const logPromise = addPedagogicalLog({
-            classId,
-            date: Timestamp.now() as any, // Cast to any to satisfy the type
-            content_taught: contentTaught,
-            student_performance: performance,
-            observations,
-        });
+        try {
+            // 1. Save Pedagogical Log
+            const logPromise = addPedagogicalLog({
+                classId,
+                date: Timestamp.now() as any,
+                content_taught: contentTaught,
+                student_performance: performance,
+                observations,
+            });
 
-        const attendancePromise = classData ? (() => {
-            const today = format(new Date(), 'yyyy-MM-dd');
-            const newAttendanceRecord = { date: today, presentStudentIds: presentStudents };
-            
-            const existingAttendance = classData.attendance || [];
-            const todayRecordIndex = existingAttendance.findIndex(att => att.date === today);
-            
-            let updatedAttendance;
-            if (todayRecordIndex > -1) {
-                updatedAttendance = [...existingAttendance];
-                updatedAttendance[todayRecordIndex] = newAttendanceRecord;
-            } else {
-                updatedAttendance = [...existingAttendance, newAttendanceRecord];
+            // 2. Update Class Attendance
+            const attendancePromise = classData ? (() => {
+                const today = format(new Date(), 'yyyy-MM-dd');
+                const newAttendanceRecord = { date: today, presentStudentIds: presentStudents };
+                
+                const existingAttendance = classData.attendance || [];
+                const todayRecordIndex = existingAttendance.findIndex(att => att.date === today);
+                
+                let updatedAttendance;
+                if (todayRecordIndex > -1) {
+                    updatedAttendance = [...existingAttendance];
+                    updatedAttendance[todayRecordIndex] = newAttendanceRecord;
+                } else {
+                    updatedAttendance = [...existingAttendance, newAttendanceRecord];
+                }
+
+                return updateClass(classId, { attendance: updatedAttendance });
+            })() : Promise.resolve();
+
+            // 3. IF MEMBER COURSE: Update individual progress in user profile
+            const progressPromises: Promise<any>[] = [];
+            if (isMemberCourse && classData?.weekOfMonth && firestore) {
+                const moduleKey = `module${classData.weekOfMonth === 'last' ? '5' : classData.weekOfMonth}`;
+                presentStudents.forEach(studentId => {
+                    const userRef = doc(firestore, 'users', studentId);
+                    // Non-blocking update for student progress
+                    progressPromises.push(updateDocumentNonBlocking(userRef, {
+                        [`journey.memberCourseProgress.${moduleKey}`]: true
+                    }));
+                });
             }
+            
+            await Promise.all([logPromise, attendancePromise, ...progressPromises]);
 
-            return updateClass(classId, { attendance: updatedAttendance });
-        })() : Promise.resolve();
-        
-        await Promise.all([logPromise, attendancePromise]);
-
-        setContentTaught('');
-        setObservations('');
-        setPerformance(3);
-        setPresentStudents([]);
-        setIsSaving(false);
+            setContentTaught('');
+            setObservations('');
+            setPerformance(3);
+            setPresentStudents([]);
+            setIsSaving(false);
+        } catch (error) {
+            console.error(error);
+            setIsSaving(false);
+        }
     };
 
     if (isLoading) {
@@ -109,9 +134,18 @@ function PedagogicalLogPageContent() {
 
     return (
         <div className="space-y-6">
-            <Button variant="outline" onClick={() => router.back()}>
-                <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para o Painel
-            </Button>
+            <div className="flex justify-between items-center">
+                <Button variant="outline" onClick={() => router.back()}>
+                    <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para o Painel
+                </Button>
+                {isMemberCourse && (
+                    <Badge className="bg-amber-100 text-amber-800 border-amber-200">
+                        <CheckCircle2 className="size-3 mr-1" />
+                        Curso de Membro: Módulo {classData.weekOfMonth === 'last' ? '5' : classData.weekOfMonth}
+                    </Badge>
+                )}
+            </div>
+            
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><BookOpen />Diário de Classe: {classData.name}</CardTitle>
@@ -150,7 +184,7 @@ function PedagogicalLogPageContent() {
                                 
                                 <div className="pt-4 border-t">
                                     <Label className="flex items-center gap-2 mb-2"><Users className="size-4" />Chamada / Presença</Label>
-                                    <p className="text-sm text-muted-foreground mb-2">Marque os alunos presentes.</p>
+                                    <p className="text-sm text-muted-foreground mb-2">Marque os alunos presentes. A conclusão do módulo será registrada automaticamente no perfil do aluno.</p>
                                     <ScrollArea className="h-40 w-full rounded-md border p-4">
                                          <div className="space-y-2">
                                             {studentList.map(student => (

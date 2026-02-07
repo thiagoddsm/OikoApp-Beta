@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -21,6 +22,7 @@ import { MemberDetails } from '@/components/users/member-details';
 import { VolunteerServiceForm } from '@/components/volunteering/volunteer-service-form';
 import { VolunteeringProvider } from '@/contexts/volunteering-context';
 import { AIProfileAnalysis } from '@/components/users/ai-profile-analysis';
+import { MemberCourseProgress } from '@/components/users/member-course-progress';
 
 
 type UserProfile = {
@@ -56,6 +58,9 @@ type UserProfile = {
   contatoTurno?: string[];
   dizimista?: 'sim' | 'nao';
   observacoes?: string;
+  journey?: {
+      memberCourseProgress?: Record<string, boolean>;
+  }
 };
 
 
@@ -166,7 +171,7 @@ export default function UserProfilePage() {
   if (!userProfile) {
     return (
       <div className="flex h-[calc(100vh-8rem)] items-center justify-center">
-        <Card className="w-full max-w-md text-center p-8">
+        <Card className="w-full max-md text-center p-8">
           <User className="h-12 w-12 mx-auto text-muted-foreground" />
           <h3 className="mt-4 text-lg font-medium">Usuário não encontrado</h3>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -241,7 +246,8 @@ export default function UserProfilePage() {
                 <TabsTrigger value="ai"><Bot className="mr-2 size-4"/>Análise IA</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="trail">
+            <TabsContent value="trail" className="space-y-6">
+                <MemberCourseProgress user={userProfile} />
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2"><Footprints/>Trilha de Discipulado</CardTitle>
