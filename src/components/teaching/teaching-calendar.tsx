@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useMemo, useState } from 'react';
 import { Calendar, momentLocalizer, View, Views } from 'react-big-calendar';
@@ -99,8 +100,14 @@ export function TeachingCalendar({ onEventClick, searchTerm = '' }: TeachingCale
                 const diffWeeks = current.diff(moment(baseStart), 'weeks');
                 if (diffWeeks % 2 === 0 && (targetDay === -1 || current.day() === targetDay)) shouldAdd = true;
             } else if (cls.frequency === 'mensal') {
-                // Lógica simplificada para dia do mês
-                if (current.date() === moment(baseStart).date()) shouldAdd = true;
+                if (cls.weekOfMonth) {
+                    const week = Math.ceil(current.date() / 7);
+                    const isLastWeek = current.date() > (moment(current).endOf('month').date() - 7);
+                    const matchesWeek = (cls.weekOfMonth === 'last' && isLastWeek) || (week.toString() === cls.weekOfMonth);
+                    if (matchesWeek && current.day() === targetDay) shouldAdd = true;
+                } else {
+                    if (current.date() === moment(baseStart).date()) shouldAdd = true;
+                }
             }
 
             if (shouldAdd) {

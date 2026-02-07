@@ -74,6 +74,7 @@ export type Class = {
   startTime?: string;
   endTime?: string;
   dayOfWeek?: string;
+  weekOfMonth?: '1' | '2' | '3' | '4' | 'last' | '5';
   locationId?: string;
   attendance?: { date: string; presentStudentIds: string[] }[];
   grades?: { studentId: string, assessmentName: string, grade: number }[];
@@ -105,7 +106,7 @@ export type RoomReservation = {
     createdAt: any;
     frequency: 'pontual' | 'semanal' | 'quinzenal' | 'mensal';
     dayOfWeek?: string;
-    weekOfMonth?: '1' | '2' | '3' | '4' | 'last';
+    weekOfMonth?: '1' | '2' | '3' | '4' | 'last' | '5';
 }
 
 export type SavedSchedule = {
@@ -491,6 +492,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
             status: 'approved',
             frequency: classFullData.frequency || 'pontual',
             dayOfWeek: classFullData.dayOfWeek || '',
+            weekOfMonth: classFullData.weekOfMonth || '',
             notes: `Reserva automática gerada pela gestão de turmas.`,
             createdAt: Timestamp.now(),
         };

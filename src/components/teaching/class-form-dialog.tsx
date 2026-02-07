@@ -27,6 +27,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [dayOfWeek, setDayOfWeek] = useState('');
+  const [weekOfMonth, setWeekOfMonth] = useState('');
   
   const [locationType, setLocationType] = useState<'ibm' | 'the_school' | ''>('');
   const [ibmRoomId, setIbmRoomId] = useState('');
@@ -46,6 +47,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
         setStartTime(existingClass.startTime || '');
         setEndTime(existingClass.endTime || '');
         setDayOfWeek(existingClass.dayOfWeek || '');
+        setWeekOfMonth(existingClass.weekOfMonth || '');
         
         if (existingClass.locationId === 'the_school') {
             setLocationType('the_school');
@@ -67,6 +69,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
         setStartTime('');
         setEndTime('');
         setDayOfWeek('');
+        setWeekOfMonth('');
         setLocationType('');
         setIbmRoomId('');
       }
@@ -98,6 +101,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
         startTime,
         endTime,
         dayOfWeek,
+        weekOfMonth: frequency === 'mensal' ? (weekOfMonth as any) : '',
         locationId: finalLocationId,
     };
 
@@ -165,6 +169,22 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
                         </SelectContent>
                     </Select>
                   </div>
+                )}
+                {frequency === 'mensal' && (
+                    <div>
+                        <Label htmlFor="weekOfMonth">Semana do Mês</Label>
+                        <Select value={weekOfMonth} onValueChange={setWeekOfMonth}>
+                            <SelectTrigger id="weekOfMonth"><SelectValue placeholder="Selecione a semana" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="1">1ª Semana</SelectItem>
+                                <SelectItem value="2">2ª Semana</SelectItem>
+                                <SelectItem value="3">3ª Semana</SelectItem>
+                                <SelectItem value="4">4ª Semana</SelectItem>
+                                <SelectItem value="5">5ª Semana (Opcional)</SelectItem>
+                                <SelectItem value="last">Última Semana</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
                 )}
                  <div>
                     <Label htmlFor="startDate">Data de Início {frequency !== 'pontual' && '(primeira ocorrência)'}</Label>

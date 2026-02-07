@@ -1,3 +1,4 @@
+
 export type Course = {
     id: string;
     level: number;
@@ -30,12 +31,13 @@ export const theoflixDB: Course[] = [
         title: "Curso de Membros",
         type: "Obrigatório",
         image: "https://lh3.googleusercontent.com/gg-dl/AOI_d_-qefSPpUiQFhY6iaVb5Gc0mnj5h-8OslJahFT-aCoPdqAaioagTyUtMnDUpMd1rwMn0AE4Rg0Zr8nuZkNLPaoirlMuj0e4TCUqIZutrt_bRwk7pupZJOPN8Zsjjh6hmXshyFY85Q60I7-mPzc4iGiwmFKLE5Epcpuz38ZfECYj63j0Ng",
-        desc: "Onboarding institucional. Alinhamento de visão, cultura e governo da nossa igreja local.",
+        desc: "Jornada de integração em 5 etapas. As aulas ocorrem sucessivamente em cada domingo do mês.",
         episodes: [
-            "A História e o Futuro da IBM",
-            "DNA Ministerial: Visão de Células e Discipulado",
-            "Mordomia Cristã: Dízimos, Ofertas e Talentos",
-            "Direitos, Deveres e o Estatuto da Igreja"
+            "Aula 1: Introdução & História da IBM (1º Domingo)",
+            "Aula 2: DNA Ministerial & Visão de Células (2º Domingo)",
+            "Aula 3: Mordomia Cristã & Finanças do Reino (3º Domingo)",
+            "Aula 4: Governança, Estatuto & Ética (4º Domingo)",
+            "Aula 5: Comissionamento & Compromisso (5º Domingo / Prerrequisito: Aulas 1-4)"
         ]
     },
     // NIVEL 2: MATURIDADE (Rose)

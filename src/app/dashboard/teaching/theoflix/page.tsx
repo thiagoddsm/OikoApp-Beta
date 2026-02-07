@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -20,8 +21,9 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { theoflixDB, type Course } from '@/lib/theoflix-data';
-import { PlayCircle, Plus } from 'lucide-react';
+import { PlayCircle, Plus, Lock, Info } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const levelConfig: Record<number, { title: string; color: string; shadow: string }> = {
   1: {
@@ -164,16 +166,38 @@ export default function TheoFlixPage() {
                     <Separator className="my-6"/>
                     <h3 className="text-xl font-bold">Aulas</h3>
                     <div className="space-y-2">
-                        {selectedCourse.episodes.map((ep, idx) => (
-                            <div key={idx} className="flex items-center justify-between p-3 hover:bg-muted rounded-lg cursor-pointer group">
-                                <div className="flex items-center gap-4">
-                                    <span className="text-muted-foreground font-bold w-4 text-center">{idx + 1}</span>
-                                    <h4 className="font-medium group-hover:text-primary">{ep}</h4>
+                        {selectedCourse.episodes.map((ep, idx) => {
+                            const isMemberCourse = selectedCourse.id === 'membros';
+                            const isEpisode5 = idx === 4;
+                            const isLocked = isMemberCourse && isEpisode5;
+
+                            return (
+                                <div key={idx} className={`flex items-center justify-between p-3 rounded-lg group ${isLocked ? 'bg-muted/50 cursor-not-allowed grayscale opacity-70' : 'hover:bg-muted cursor-pointer'}`}>
+                                    <div className="flex items-center gap-4">
+                                        <span className="text-muted-foreground font-bold w-4 text-center">{idx + 1}</span>
+                                        <div className="flex flex-col">
+                                            <h4 className={`font-medium ${!isLocked && 'group-hover:text-primary'}`}>{ep}</h4>
+                                            {isLocked && <span className="text-[10px] text-destructive font-bold uppercase mt-0.5 flex items-center gap-1"><Lock size={10}/> Bloqueado: Conclua as 4 aulas anteriores</span>}
+                                        </div>
+                                    </div>
+                                    {isLocked ? (
+                                        <Lock className="size-4 text-muted-foreground" />
+                                    ) : (
+                                        <span className="text-xs text-muted-foreground">Presencial</span>
+                                    )}
                                 </div>
-                                <span className="text-xs text-muted-foreground">45m</span>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
+                    {selectedCourse.id === 'membros' && (
+                        <Alert className="mt-6 bg-blue-50 border-blue-200">
+                            <Info className="h-4 w-4 text-blue-600" />
+                            <AlertTitle className="text-blue-800">Sobre a Frequência</AlertTitle>
+                            <AlertDescription className="text-blue-700 text-xs">
+                                As aulas 1 a 4 podem ser cursadas em qualquer ordem ao longo dos domingos do mês. A Aula 5 é o encerramento e requer a conclusão de todos os outros módulos.
+                            </AlertDescription>
+                        </Alert>
+                    )}
                 </div>
                 <div className="space-y-3 text-sm">
                      <h4 className="font-semibold">Sobre o curso</h4>
