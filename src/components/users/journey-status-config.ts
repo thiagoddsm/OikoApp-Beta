@@ -2,6 +2,10 @@
 
 import { Handshake, School, MapIcon, Briefcase, Church, Group, BookOpen, UserPlus, Award, Shield, Target, UserX, UserCheck, GraduationCap, User, LogIn } from 'lucide-react';
 
+/**
+ * Definição central das etapas da jornada de um membro na igreja.
+ * Esta lista dita a ordem de progressão na trilha de discipulado.
+ */
 export const journeyColumns = [
     { id: 'nao_alcancado', title: 'Não Alcançado' },
     { id: 'visitante_celula', title: 'Visitante de GC' },
@@ -18,6 +22,9 @@ export const journeyColumns = [
     { id: 'pastor', title: 'Pastor' },
 ];
 
+/**
+ * Mapeamento das etapas para as 4 grandes fases do organismo da igreja.
+ */
 export const statusToPhaseMap: { [key: string]: string } = {
     nao_alcancado: '1',
     visitante_celula: '1',
@@ -35,10 +42,10 @@ export const statusToPhaseMap: { [key: string]: string } = {
 };
 
 export const phaseConfig: { [key: string]: { name: string; color: string } } = {
-    '1': { name: 'Integração', color: 'bg-blue-100 text-blue-700' },
-    '2': { name: 'Comunhão', color: 'bg-emerald-100 text-emerald-700' },
-    '3': { name: 'Serviço', color: 'bg-amber-100 text-amber-700' },
-    '4': { name: 'Liderança', color: 'bg-indigo-100 text-indigo-700' },
+    '1': { name: 'Integração', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+    '2': { name: 'Comunhão', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+    '3': { name: 'Serviço', color: 'bg-amber-100 text-amber-700 border-amber-200' },
+    '4': { name: 'Liderança', color: 'bg-indigo-100 text-indigo-700 border-indigo-200' },
 };
 
 export const iconMap: { [key: string]: React.ElementType } = {

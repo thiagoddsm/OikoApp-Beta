@@ -6,14 +6,8 @@ import { collection, query } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Handshake, School, MapIcon, Briefcase, Church, Group, BookOpen, UserPlus, Award, Shield, Target, UserX, UserCheck, Loader2, GraduationCap } from 'lucide-react';
+import { Handshake, GraduationCap, Target, Loader2, CheckCircle2, ShieldAlert } from 'lucide-react';
 import { journeyColumns, statusToPhaseMap, phaseConfig, iconMap } from './journey-status-config';
-
-const mainColors = {
-    status: 'border-primary text-primary',
-    course: 'border-emerald-500 text-emerald-600',
-    discipulado: 'border-amber-500 text-amber-600'
-}
 
 type TimelineItemData = {
     id: string;
@@ -29,72 +23,83 @@ type Course = {
     name: string;
 };
 
-
-const TimelineCard = ({ item, isEven, onToggle, isExpanded, isCurrent, isFuture, courseName }) => {
-    const mainColor = mainColors['status'];
+const TimelineCard = ({ item, isEven, onToggle, isExpanded, isCurrent, isFuture, isCompleted, courseName }) => {
     const Icon = iconMap[item.id] || iconMap['default'];
+    const hasTechnicalReq = !!item.requiredCourseId;
+    const hasHumanReq = item.requiresDisciplerApproval || item.requiresSupervisorApproval;
 
     return (
         <div className={cn("md:grid md:grid-cols-2 w-full")}>
             <div className={cn(
                 "pl-12 md:pl-0 py-2 relative group",
                 isEven ? 'md:text-right pr-8' : 'md:text-left pl-8 md:col-start-2',
-                isFuture && 'opacity-60 grayscale-[50%]'
+                isFuture && 'opacity-60'
             )}>
+                 {/* Conector Central */}
                  <div className={cn(
                     "absolute top-6 w-4 h-4 rounded-full bg-background border-4 z-20 shadow-sm transition-transform duration-300",
-                    isFuture ? 'border-slate-300' : mainColor,
-                    isCurrent ? 'scale-125' : 'group-hover:scale-110',
+                    isFuture ? 'border-slate-300' : isCompleted ? 'border-emerald-500 bg-emerald-500' : 'border-primary',
+                    isCurrent ? 'scale-125 ring-4 ring-primary/20' : 'group-hover:scale-110',
                     isEven ? 'md:-right-2 -left-[9px]' : 'md:-left-2 -left-[9px]'
                  )}>
-                    {isCurrent && <div className="absolute -inset-1.5 bg-primary/20 rounded-full animate-pulse"></div>}
+                    {isCompleted && <CheckCircle2 className="size-3 text-white -ml-0.5 -mt-0.5" />}
                  </div>
-                <div className={cn("hidden md:block absolute top-7 w-8 h-1 bg-slate-200 group-hover:bg-slate-300 transition-colors", isEven ? 'right-0' : 'left-0')}></div>
                 
-                <Card className={cn("shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden relative", isCurrent && "shadow-lg ring-2 ring-primary/50")} onClick={() => onToggle(item.id)}>
-                    <div className={cn("absolute left-0 top-0 bottom-0 w-1.5", isFuture ? 'bg-slate-300' : mainColor.split(' ')[0].replace('border-', 'bg-'))}></div>
+                <Card className={cn(
+                    "shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden relative border-l-4",
+                    isCurrent ? "ring-2 ring-primary/50 border-l-primary" : 
+                    isCompleted ? "border-l-emerald-500" : "border-l-slate-300"
+                )} onClick={() => onToggle(item.id)}>
                     <CardContent className="p-4">
                         <div className="flex items-start justify-between gap-3 mb-2">
                              <div className={cn("flex-1", isEven ? 'md:order-1' : '')}>
                                 <div className={cn("flex items-center gap-2", isEven ? 'md:flex-row-reverse' : '')}>
                                     <h3 className="font-bold text-base text-foreground">{item.title}</h3>
-                                    <Icon className={cn("size-5", isFuture ? 'text-slate-400' : mainColor.split(' ')[1])} />
+                                    <Icon className={cn("size-5", isFuture ? 'text-slate-400' : isCompleted ? 'text-emerald-600' : 'text-primary')} />
                                 </div>
                             </div>
                             {isCurrent && (
-                                <div className="p-1 bg-primary/10 rounded-full">
-                                    <Target className="size-4 text-primary" />
-                                </div>
+                                <Badge className="bg-primary text-white text-[10px] uppercase font-black">Você está aqui</Badge>
                              )}
                         </div>
-                        {(item.requiredCourseId || item.requiresDisciplerApproval || item.requiresSupervisorApproval) && (
-                            <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
-                                {item.requiredCourseId && (
-                                    <div className="flex items-center gap-1.5">
-                                        <GraduationCap className="size-3.5" />
-                                        <span className="font-medium">{courseName || 'Curso'}</span>
-                                    </div>
-                                )}
-                                {(item.requiresDisciplerApproval || item.requiresSupervisorApproval) && (
-                                     <div className="flex items-center gap-1.5">
-                                        <Handshake className="size-3.5" />
-                                        <span className="font-medium">Requer Aprovação</span>
-                                    </div>
-                                )}
-                            </div>
-                        )}
+
+                        {/* Requisitos (Validação Técnica e Humana) */}
+                        <div className={cn("flex items-center gap-3 mt-3", isEven ? "md:justify-end" : "md:justify-start")}>
+                            {hasTechnicalReq && (
+                                <TooltipProvider>
+                                    <Badge variant="outline" className="text-[9px] py-0 h-5 border-emerald-200 bg-emerald-50 text-emerald-700">
+                                        <GraduationCap className="size-3 mr-1" /> Validação Técnica
+                                    </Badge>
+                                </TooltipProvider>
+                            )}
+                            {hasHumanReq && (
+                                <Badge variant="outline" className="text-[9px] py-0 h-5 border-amber-200 bg-amber-50 text-amber-700">
+                                    <Handshake className="size-3 mr-1" /> Validação Humana
+                                </Badge>
+                            )}
+                        </div>
                     </CardContent>
 
                     {isExpanded && (
                          <div className="bg-muted/50 border-t border-border p-4 text-sm text-muted-foreground space-y-3">
-                            <p><strong className="text-foreground text-xs uppercase">Checklist desta fase:</strong></p>
-                            {item.questions && item.questions.length > 0 ? (
-                                <ul className="list-disc list-inside space-y-1">
-                                    {item.questions.map(q => <li key={q.id}>{q.label}</li>)}
-                                </ul>
-                            ) : (
-                                <p className="italic">Nenhum checklist definido para esta etapa.</p>
-                            )}
+                            <div className="space-y-2">
+                                <p className="text-[10px] font-black uppercase text-foreground/60 tracking-widest">Critérios desta Fase:</p>
+                                {item.requiredCourseId && (
+                                    <div className="flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-100/50 p-2 rounded">
+                                        <GraduationCap size={14} /> Conclusão do curso: {courseName}
+                                    </div>
+                                )}
+                                {hasHumanReq && (
+                                    <div className="flex items-center gap-2 text-xs font-bold text-amber-700 bg-amber-100/50 p-2 rounded">
+                                        <ShieldAlert size={14} /> Aprovação do {item.requiresSupervisorApproval ? 'Supervisor' : 'Discipulador'}
+                                    </div>
+                                )}
+                                {item.questions && item.questions.length > 0 && (
+                                    <ul className="list-disc list-inside text-xs space-y-1 mt-2">
+                                        {item.questions.map(q => <li key={q.id}>{q.label}</li>)}
+                                    </ul>
+                                )}
+                            </div>
                         </div>
                     )}
                 </Card>
@@ -115,7 +120,6 @@ export function DiscipleshipTrail({ currentStatusId }: { currentStatusId?: strin
 
     const courseMap = useMemo(() => new Map(courses?.map(c => [c.id, c.name]) || []), [courses]);
     
-    // Sort timelineData based on the order defined in journeyColumns
     const sortedTimelineData = useMemo(() => {
         if (!timelineData) return [];
         const orderMap = new Map(journeyColumns.map((col, index) => [col.id, index]));
@@ -127,22 +131,26 @@ export function DiscipleshipTrail({ currentStatusId }: { currentStatusId?: strin
     };
 
     if (isLoading || isLoadingCourses) {
-        return <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>;
+        return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
     }
 
-    if (!timelineData) {
-        return <p>Não foi possível carregar as etapas da jornada.</p>
+    if (!timelineData || timelineData.length === 0) {
+        return (
+            <div className="text-center py-12 border-2 border-dashed rounded-xl">
+                <p className="text-muted-foreground">Nenhuma etapa da trilha configurada no banco de dados.</p>
+            </div>
+        )
     }
 
     let lastPhaseId = "";
-    
     const effectiveStatusId = currentStatusId || 'nao_alcancado';
     const currentIndex = sortedTimelineData.findIndex(item => item.id === effectiveStatusId);
 
     return (
         <div className="bg-background rounded-lg p-4 md:p-8">
-            <div className="max-w-5xl mx-auto px-4 py-8 relative overflow-hidden">
-                <div className="absolute left-4 md:left-1/2 top-0 bottom-0 w-1 md:w-1.5 bg-slate-200 -ml-0.5 md:-ml-1 z-0 rounded-full"></div>
+            <div className="max-w-5xl mx-auto px-4 py-8 relative">
+                {/* Linha de fundo */}
+                <div className="absolute left-4 md:left-1/2 top-0 bottom-0 w-1 bg-slate-100 -ml-0.5 md:-ml-0.5 z-0 rounded-full"></div>
 
                 <div className="space-y-4 md:space-y-0 relative">
                     {sortedTimelineData.map((item, index) => {
@@ -151,14 +159,19 @@ export function DiscipleshipTrail({ currentStatusId }: { currentStatusId?: strin
                         lastPhaseId = phaseId;
                         const phaseInfo = phaseConfig[phaseId];
                         const isCurrent = item.id === effectiveStatusId;
+                        const isCompleted = currentIndex !== -1 && index < currentIndex;
                         const isFuture = currentIndex !== -1 && index > currentIndex;
                         const courseName = item.requiredCourseId ? courseMap.get(item.requiredCourseId) : null;
 
                         return (
                             <React.Fragment key={item.id}>
                                 {showPhase && (
-                                    <div className="md:col-span-2 flex justify-center py-4 relative z-10">
-                                        <span className={cn("px-4 py-1 rounded-full text-xs font-bold uppercase tracking-widest shadow-sm border", phaseInfo.color, isFuture && 'opacity-60 grayscale-[50%]')}>
+                                    <div className="md:col-span-2 flex justify-center py-6 relative z-10">
+                                        <span className={cn(
+                                            "px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-sm border-2", 
+                                            phaseInfo.color, 
+                                            isFuture && 'opacity-40 grayscale'
+                                        )}>
                                             {phaseInfo.name}
                                         </span>
                                     </div>
@@ -169,6 +182,7 @@ export function DiscipleshipTrail({ currentStatusId }: { currentStatusId?: strin
                                     onToggle={toggleDetails}
                                     isExpanded={expandedId === item.id}
                                     isCurrent={isCurrent}
+                                    isCompleted={isCompleted}
                                     isFuture={isFuture}
                                     courseName={courseName}
                                 />

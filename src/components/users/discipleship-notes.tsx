@@ -1,16 +1,15 @@
-
 'use client';
-import React, { useState, useMemo } from 'react';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useFirebase, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, HelpCircle, CheckCircle, Send, GraduationCap, PlusCircle, BookOpen } from 'lucide-react';
+import { Loader2, HelpCircle, CheckCircle, Send, GraduationCap, PlusCircle, BookOpen, ShieldCheck, UserCheck, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '../ui/checkbox';
 import { Label } from '../ui/label';
 import { cn } from '@/lib/utils';
 import { FollowUpTimeline, Note } from './follow-up-timeline';
-import { query, collection } from 'firebase/firestore';
+import { query, collection, doc } from 'firebase/firestore';
 import { Input } from '../ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from '../ui/textarea';
@@ -18,7 +17,6 @@ import { useVolunteering } from '@/contexts/volunteering-context';
 import { journeyColumns } from './journey-status-config';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
 import { EnrollmentDialog } from '../teaching/enrollment-dialog';
-
 
 type ChecklistQuestion = {
     id: string;
@@ -30,99 +28,29 @@ type DiscipleshipChecklist = {
     id: string;
     title: string;
     questions: ChecklistQuestion[];
+    requiredCourseId?: string;
     requiresDisciplerApproval?: boolean;
     requiresSupervisorApproval?: boolean;
 };
 
-function NotificationScheduler({ memberName }: { memberName: string }) {
-    const { toast } = useToast();
-    const [isSaving, setIsSaving] = useState(false);
-    const [reminder, setReminder] = useState('');
-    const [date, setDate] = useState('');
-    const [channel, setChannel] = useState('whatsapp');
-
-    const handleScheduleReminder = () => {
-        if (!reminder || !date) {
-            toast({ variant: 'destructive', title: 'Campos obrigatórios', description: 'Por favor, preencha a mensagem e a data.'});
-            return;
-        }
-        setIsSaving(true);
-        setTimeout(() => {
-            toast({ title: 'Lembrete Agendado!', description: `Você será lembrado em ${date} via ${channel} sobre ${memberName}.`});
-            setIsSaving(false);
-            setReminder('');
-            setDate('');
-        }, 1000);
-    };
-
-    return (
-        <Card className="bg-muted/30 border-dashed">
-            <CardHeader>
-                <CardTitle>Agendar Lembrete Pessoal</CardTitle>
-                <CardDescription>
-                    Crie um lembrete para você mesmo sobre {memberName}. A notificação será enviada para você no canal escolhido na data agendada.
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="space-y-2">
-                    <Label htmlFor="reminder-message">Mensagem do Lembrete</Label>
-                    <Textarea 
-                        id="reminder-message" 
-                        value={reminder}
-                        onChange={(e) => setReminder(e.target.value)}
-                        placeholder={`Ex: Verificar como foi a semana de ${memberName} e se ele(a) precisa de oração...`}
-                    />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="reminder-date">Data do Lembrete</Label>
-                        <Input id="reminder-date" type="date" value={date} onChange={e => setDate(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="reminder-channel">Canal</Label>
-                         <Select value={channel} onValueChange={setChannel}>
-                            <SelectTrigger id="reminder-channel"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                                <SelectItem value="email">Email</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-            </CardContent>
-            <CardFooter>
-                 <Button onClick={handleScheduleReminder} disabled={isSaving}>
-                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send className="mr-2 h-4 w-4"/>}
-                    Agendar
-                </Button>
-            </CardFooter>
-        </Card>
-    )
-}
-
 export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { memberId: string, memberName: string, currentStatusId: string }) {
     const { user, firestore } = useFirebase();
     const { toast } = useToast();
-    const { updateVolunteer, classes, courses } = useVolunteering();
+    const { updateVolunteer, classes, courses, users } = useVolunteering();
     const [isSaving, setIsSaving] = useState<string | null>(null);
     const [isEnrollmentOpen, setEnrollmentOpen] = useState(false);
+    
+    // Member specific data from Volunteering context (for persistence)
+    const memberData = useMemo(() => users.find(u => u.id === memberId), [users, memberId]);
     
     const checklistsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'discipleship_checklists')) : null, [firestore]);
     const { data: discipleshipChecklists, isLoading: isLoadingChecklists } = useCollection<DiscipleshipChecklist>(checklistsQuery);
     
-    const [phaseData, setPhaseData] = useState<Record<string, {
-        notes: string;
-        answers: Record<string, boolean | string>;
-        approvals?: {
-            discipler?: { approved: boolean; notes: string };
-            supervisor?: { approved: boolean; notes: string };
-        }
-    }>>({});
+    // State managed via Volunteering Context / User Document
+    const stageProgress = memberData?.journey?.stageProgress || {};
 
     const [timelineNotes, setTimelineNotes] = useState<Note[]>([
         { id: '1', authorId: 'admin', type: 'system', content: `Perfil criado.`, createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
-        { id: '2', authorId: 'admin', type: 'system', content: `Status alterado para: Novo Convertido`, createdAt: new Date(Date.now() - 28 * 24 * 60 * 60 * 1000) },
-        { id: '3', authorId: 'leader1', type: 'user', content: `Mostrou grande interesse na célula e fez perguntas pertinentes sobre a fé. Conectei com o João para iniciar o discipulado.`, createdAt: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000) },
     ]);
 
     const myClasses = useMemo(() => {
@@ -134,110 +62,50 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
     const handleCompleteStage = (currentStageId: string) => {
         const currentIndex = journeyColumns.findIndex(col => col.id === currentStageId);
 
-        if (currentIndex === -1) {
-            toast({
-                variant: "destructive",
-                title: "Erro",
-                description: "Não foi possível encontrar a etapa atual na configuração da jornada.",
-            });
-            return;
-        }
-        
+        if (currentIndex === -1) return;
         if (currentIndex >= journeyColumns.length - 1) {
-             toast({
-                title: "Jornada Completa",
-                description: `${memberName} já está na última etapa.`,
-            });
+             toast({ title: "Jornada Completa", description: `${memberName} já está na última etapa.` });
             return;
         }
 
         const nextStage = journeyColumns[currentIndex + 1];
         updateVolunteer(memberId, { integrationStatus: nextStage.id });
         toast({
-            title: "Etapa Concluída!",
-            description: `${memberName} foi avançado(a) para "${nextStage.title}".`,
+            title: "Status Atualizado!",
+            description: `${memberName} avançou para "${nextStage.title}".`,
         });
     };
 
     const handleAnswerChange = (checklistId: string, questionId: string, value: boolean | string) => {
-         setPhaseData(prev => ({
-            ...prev,
-            [checklistId]: {
-                ...(prev[checklistId] || { notes: '', answers: {} }),
-                answers: {
-                    ...(prev[checklistId]?.answers || {}),
-                    [questionId]: value
-                }
-            }
-        }));
+        const currentProgress = stageProgress[checklistId] || { answers: {}, approvals: {} };
+        const updatedProgress = {
+            ...currentProgress,
+            answers: { ...currentProgress.answers, [questionId]: value }
+        };
+        
+        updateVolunteer(memberId, {
+            [`journey.stageProgress.${checklistId}`]: updatedProgress
+        });
     };
     
-    const handleApprovalChange = (checklistId: string, approver: 'discipler' | 'supervisor', field: 'approved' | 'notes', value: boolean | string) => {
-        setPhaseData(prev => ({
-            ...prev,
-            [checklistId]: {
-                ...(prev[checklistId] || { answers: {}, notes: '', approvals: {} }),
-                approvals: {
-                    ...(prev[checklistId]?.approvals || {}),
-                    [approver]: {
-                        ...(prev[checklistId]?.approvals?.[approver] || { approved: false, notes: '' }),
-                        [field]: value
-                    }
-                }
-            }
-        }));
+    const handleApprovalChange = (checklistId: string, role: 'discipler' | 'supervisor', field: 'approved' | 'notes', value: any) => {
+        const currentProgress = stageProgress[checklistId] || { answers: {}, approvals: {} };
+        const updatedApprovals = {
+            ...currentProgress.approvals,
+            [role]: { ...(currentProgress.approvals?.[role] || { approved: false, notes: '' }), [field]: value }
+        };
+        
+        updateVolunteer(memberId, {
+            [`journey.stageProgress.${checklistId}`]: { ...currentProgress, approvals: updatedApprovals }
+        });
     };
 
-
-    const handleSave = (checklist: DiscipleshipChecklist) => {
+    const handleSaveStage = (checklist: DiscipleshipChecklist) => {
         setIsSaving(checklist.id);
-        
-        const phaseQuestions = checklist.questions || [];
-        const newNotes: Note[] = [];
-
-        // Log question answers
-        for (const question of phaseQuestions) {
-            const answer = phaseData[checklist.id]?.answers[question.id];
-            if (answer) { 
-                 const noteContent = question.type === 'checkbox' 
-                    ? `Checklist '${question.label}' foi completado.`
-                    : `Anotação para '${question.label}': ${answer}`;
-                
-                 const alreadyLogged = timelineNotes.some(note => note.content === noteContent);
-                 if(!alreadyLogged) {
-                    newNotes.push({
-                        id: (timelineNotes.length + newNotes.length + 1).toString(),
-                        authorId: user?.uid || 'admin',
-                        type: 'system',
-                        content: noteContent,
-                        createdAt: new Date(),
-                    });
-                 }
-            }
-        }
-        
-        // Log approvals
-        const approvalData = phaseData[checklist.id]?.approvals;
-        if (approvalData?.discipler?.approved) {
-             const noteContent = `Aprovação do Discipulador concedida para "${checklist.title}". Observações: ${approvalData.discipler.notes || 'Nenhuma'}`;
-             if(!timelineNotes.some(note => note.content === noteContent)){
-                 newNotes.push({ id: `apr-d-${Date.now()}`, authorId: user?.uid || 'admin', type: 'system', content: noteContent, createdAt: new Date() });
-             }
-        }
-        if (approvalData?.supervisor?.approved) {
-             const noteContent = `Aprovação do Supervisor concedida para "${checklist.title}". Observações: ${approvalData.supervisor.notes || 'Nenhuma'}`;
-             if(!timelineNotes.some(note => note.content === noteContent)){
-                 newNotes.push({ id: `apr-s-${Date.now()}`, authorId: user?.uid || 'admin', type: 'system', content: noteContent, createdAt: new Date() });
-             }
-        }
-        
         setTimeout(() => {
-            if (newNotes.length > 0) {
-                setTimelineNotes(prev => [...newNotes, ...prev]);
-            }
             setIsSaving(null);
-            toast({ title: `Progresso de "${checklist.title}" salvo!`});
-        }, 1000);
+            toast({ title: "Progresso Salvo", description: `A fase "${checklist.title}" foi atualizada.` });
+        }, 800);
     };
 
     if (isLoadingChecklists) {
@@ -250,32 +118,31 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
     
     return (
       <div className="space-y-6">
-        {/* Seção de Ensino & Trilho */}
-        <Card className="bg-primary/5 border-primary/20">
+        {/* Validação Técnica (Cursos) */}
+        <Card className="bg-emerald-50/50 border-emerald-200">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <div>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                        <GraduationCap className="size-5 text-primary" />
-                        Ensino & Trilho do Discípulo
+                    <CardTitle className="text-lg flex items-center gap-2 text-emerald-800">
+                        <GraduationCap className="size-5" />
+                        Validação Técnica (Cursos & Trilho)
                     </CardTitle>
-                    <CardDescription>Gerencie as matrículas obrigatórias para a membresia.</CardDescription>
+                    <CardDescription className="text-emerald-700/70">Checklist de formações obrigatórias.</CardDescription>
                 </div>
-                <Button size="sm" onClick={() => setEnrollmentOpen(true)}>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Matricular em Curso
+                <Button size="sm" onClick={() => setEnrollmentOpen(true)} className="bg-emerald-600 hover:bg-emerald-700">
+                    <PlusCircle className="mr-2 h-4 w-4" /> Matricular
                 </Button>
             </CardHeader>
             <CardContent>
                 <div className="flex flex-wrap gap-3">
                     {myClasses.length === 0 ? (
-                        <p className="text-xs text-muted-foreground italic py-2">Nenhuma matrícula ativa identificada.</p>
+                        <p className="text-xs text-muted-foreground italic py-2">Nenhuma formação técnica iniciada.</p>
                     ) : (
                         myClasses.map(cls => (
-                            <div key={cls.id} className="flex items-center gap-2 bg-white p-2 rounded-lg border shadow-sm">
-                                <BookOpen className="size-3 text-primary" />
+                            <div key={cls.id} className="flex items-center gap-2 bg-white p-2 rounded-lg border border-emerald-100 shadow-sm">
+                                <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
                                 <div className="text-xs">
-                                    <span className="font-bold">{courseMap.get(cls.courseId)}</span>
-                                    <span className="text-muted-foreground ml-1">({cls.name})</span>
+                                    <span className="font-bold text-emerald-900">{courseMap.get(cls.courseId)}</span>
+                                    <span className="text-[10px] text-emerald-600 ml-1 block uppercase font-black">{cls.name}</span>
                                 </div>
                             </div>
                         ))
@@ -284,136 +151,150 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
             </CardContent>
         </Card>
 
+        {/* Validação Humana (Checklists e Aprovações) */}
         <Card>
             <CardHeader>
-                <CardTitle className="flex items-center gap-2">Checklists de Discipulado</CardTitle>
-                <CardDescription>Registre o progresso de {memberName} utilizando os checklists, ou agende lembretes.</CardDescription>
+                <CardTitle className="flex items-center gap-2"><UserCheck className="size-5 text-primary" /> Validação Humana & Discipulado</CardTitle>
+                <CardDescription>Acompanhamento prático e validação ministerial do líder.</CardDescription>
             </CardHeader>
             <CardContent>
                  {discipleshipChecklists && discipleshipChecklists.length > 0 ? (
-                    <Tabs defaultValue={discipleshipChecklists[0].id} className="w-full">
-                        <TabsList className="flex flex-wrap h-auto justify-start">
+                    <Tabs defaultValue={currentStatusId || discipleshipChecklists[0].id} className="w-full">
+                        <TabsList className="flex flex-wrap h-auto justify-start bg-muted/50 p-1 mb-6">
                             {discipleshipChecklists.map(checklist => (
-                                <TabsTrigger key={checklist.id} value={checklist.id}>{checklist.title}</TabsTrigger>
+                                <TabsTrigger 
+                                    key={checklist.id} 
+                                    value={checklist.id}
+                                    className="data-[state=active]:bg-white"
+                                >
+                                    {checklist.title}
+                                </TabsTrigger>
                             ))}
-                            <TabsTrigger value="notifications">Lembretes</TabsTrigger>
                         </TabsList>
-                        {discipleshipChecklists.map(checklist => (
-                            <TabsContent key={checklist.id} value={checklist.id} className="mt-6">
-                                <div className="space-y-6">
+                        {discipleshipChecklists.map(checklist => {
+                            const progress = stageProgress[checklist.id] || { answers: {}, approvals: {} };
+                            return (
+                            <TabsContent key={checklist.id} value={checklist.id} className="mt-0 space-y-8 animate-in fade-in-50">
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                                    {/* Checklist de Perguntas */}
                                     <div className="space-y-4">
+                                        <h4 className="text-xs font-black uppercase text-muted-foreground tracking-widest mb-4">Requisitos da Fase</h4>
                                         {checklist.questions.map(q => {
-                                            const answer = phaseData[checklist.id]?.answers[q.id];
-                                            const questionLabel = q.label.replace('[nome da pessoa]', memberName);
+                                            const answer = progress.answers[q.id];
+                                            const label = q.label.replace('[nome]', memberName);
 
-                                            switch (q.type) {
-                                                case 'text':
-                                                    return (
-                                                        <div key={q.id} className="space-y-1.5">
-                                                            <Label htmlFor={`${checklist.id}-${q.id}`}>{questionLabel}</Label>
+                                            return (
+                                                <div key={q.id} className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex items-start gap-3">
+                                                    {q.type === 'checkbox' ? (
+                                                        <Checkbox
+                                                            id={`${checklist.id}-${q.id}`}
+                                                            checked={!!answer}
+                                                            onCheckedChange={(checked) => handleAnswerChange(checklist.id, q.id, !!checked)}
+                                                            className="mt-0.5"
+                                                        />
+                                                    ) : null}
+                                                    <div className="flex-1 space-y-1.5">
+                                                        <Label htmlFor={`${checklist.id}-${q.id}`} className="font-bold text-sm cursor-pointer">{label}</Label>
+                                                        {q.type !== 'checkbox' && (
                                                             <Input
                                                                 id={`${checklist.id}-${q.id}`}
+                                                                type={q.type === 'date' ? 'date' : 'text'}
                                                                 value={typeof answer === 'string' ? answer : ''}
                                                                 onChange={(e) => handleAnswerChange(checklist.id, q.id, e.target.value)}
+                                                                className="h-8 text-xs bg-white"
                                                             />
-                                                        </div>
-                                                    );
-                                                case 'date':
-                                                    return (
-                                                        <div key={q.id} className="space-y-1.5">
-                                                            <Label htmlFor={`${checklist.id}-${q.id}`}>{questionLabel}</Label>
-                                                            <Input
-                                                                id={`${checklist.id}-${q.id}`}
-                                                                type="date"
-                                                                value={typeof answer === 'string' ? answer : ''}
-                                                                onChange={(e) => handleAnswerChange(checklist.id, q.id, e.target.value)}
-                                                            />
-                                                        </div>
-                                                    );
-                                                case 'checkbox':
-                                                default:
-                                                    return (
-                                                        <div key={q.id} className="flex items-center space-x-2">
-                                                            <Checkbox
-                                                                id={`${checklist.id}-${q.id}`}
-                                                                checked={!!answer}
-                                                                onCheckedChange={(checked) => handleAnswerChange(checklist.id, q.id, !!checked)}
-                                                            />
-                                                            <Label htmlFor={`${checklist.id}-${q.id}`} className="font-normal">{questionLabel}</Label>
-                                                        </div>
-                                                    );
-                                            }
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
                                         })}
                                     </div>
 
-                                    {(checklist.requiresDisciplerApproval || checklist.requiresSupervisorApproval) && (
-                                        <div className="mt-6 pt-6 border-t">
-                                            <h4 className="font-semibold text-foreground mb-4">Aprovações da Liderança</h4>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {/* Seção de Aprovações */}
+                                    <div className="space-y-6">
+                                        <h4 className="text-xs font-black uppercase text-muted-foreground tracking-widest mb-4">Chancelas Ministeriais</h4>
+                                        
+                                        {(checklist.requiresDisciplerApproval || checklist.requiresSupervisorApproval) ? (
+                                            <div className="space-y-4">
                                                 {checklist.requiresDisciplerApproval && (
-                                                    <div className="space-y-3 p-4 border rounded-lg bg-background">
-                                                        <div className="flex items-center space-x-2">
+                                                    <div className={cn("p-4 rounded-xl border-2 transition-all", progress.approvals?.discipler?.approved ? "bg-emerald-50 border-emerald-500" : "bg-slate-50 border-slate-200")}>
+                                                        <div className="flex items-center justify-between mb-3">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className={cn("p-1.5 rounded-lg", progress.approvals?.discipler?.approved ? "bg-emerald-500 text-white" : "bg-slate-300 text-slate-500")}>
+                                                                    <ShieldCheck size={16} />
+                                                                </div>
+                                                                <Label className="font-black text-xs uppercase">Aprovação do Discipulador</Label>
+                                                            </div>
                                                             <Checkbox
-                                                                id={`discipler-approval-${checklist.id}`}
-                                                                checked={phaseData[checklist.id]?.approvals?.discipler?.approved || false}
-                                                                onCheckedChange={(checked) => handleApprovalChange(checklist.id, 'discipler', 'approved', !!checked)}
+                                                                checked={progress.approvals?.discipler?.approved || false}
+                                                                onCheckedChange={(v) => handleApprovalChange(checklist.id, 'discipler', 'approved', !!v)}
                                                             />
-                                                            <Label htmlFor={`discipler-approval-${checklist.id}`} className="font-semibold">Aprovado pelo Discipulador</Label>
                                                         </div>
                                                         <Textarea
-                                                            placeholder="Observações do discipulador..."
-                                                            value={phaseData[checklist.id]?.approvals?.discipler?.notes || ''}
+                                                            placeholder="Notas da entrevista de validação..."
+                                                            className="text-xs bg-white min-h-[60px]"
+                                                            value={progress.approvals?.discipler?.notes || ''}
                                                             onChange={(e) => handleApprovalChange(checklist.id, 'discipler', 'notes', e.target.value)}
                                                         />
                                                     </div>
                                                 )}
+
                                                 {checklist.requiresSupervisorApproval && (
-                                                    <div className="space-y-3 p-4 border rounded-lg bg-background">
-                                                        <div className="flex items-center space-x-2">
+                                                    <div className={cn("p-4 rounded-xl border-2 transition-all", progress.approvals?.supervisor?.approved ? "bg-indigo-50 border-indigo-500" : "bg-slate-50 border-slate-200")}>
+                                                        <div className="flex items-center justify-between mb-3">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className={cn("p-1.5 rounded-lg", progress.approvals?.supervisor?.approved ? "bg-indigo-500 text-white" : "bg-slate-300 text-slate-500")}>
+                                                                    <ShieldCheck size={16} />
+                                                                </div>
+                                                                <Label className="font-black text-xs uppercase">Aprovação do Supervisor</Label>
+                                                            </div>
                                                             <Checkbox
-                                                                id={`supervisor-approval-${checklist.id}`}
-                                                                checked={phaseData[checklist.id]?.approvals?.supervisor?.approved || false}
-                                                                onCheckedChange={(checked) => handleApprovalChange(checklist.id, 'supervisor', 'approved', !!checked)}
+                                                                checked={progress.approvals?.supervisor?.approved || false}
+                                                                onCheckedChange={(v) => handleApprovalChange(checklist.id, 'supervisor', 'approved', !!v)}
                                                             />
-                                                            <Label htmlFor={`supervisor-approval-${checklist.id}`} className="font-semibold">Aprovado pelo Supervisor</Label>
                                                         </div>
                                                         <Textarea
-                                                            placeholder="Observações do supervisor..."
-                                                            value={phaseData[checklist.id]?.approvals?.supervisor?.notes || ''}
+                                                            placeholder="Observações de supervisão..."
+                                                            className="text-xs bg-white min-h-[60px]"
+                                                            value={progress.approvals?.supervisor?.notes || ''}
                                                             onChange={(e) => handleApprovalChange(checklist.id, 'supervisor', 'notes', e.target.value)}
                                                         />
                                                     </div>
                                                 )}
                                             </div>
-                                        </div>
-                                    )}
-
-                                    <div className="flex justify-end mt-6 gap-2">
-                                        <Button variant="outline" onClick={() => handleCompleteStage(checklist.id)}>
-                                            <CheckCircle className="mr-2 h-4 w-4" />
-                                            Marcar como Concluído e Avançar
-                                        </Button>
-                                        <Button onClick={() => handleSave(checklist)} disabled={isSaving === checklist.id}>
-                                            {isSaving === checklist.id && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                            Salvar Anotações
-                                        </Button>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl text-muted-foreground italic">
+                                                <HelpCircle className="size-8 mb-2 opacity-20" />
+                                                <p className="text-center text-xs">Esta fase não exige aprovação formal de líderes.</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
+
+                                <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t">
+                                    <Button variant="outline" size="lg" onClick={() => handleCompleteStage(checklist.id)} className="font-bold">
+                                        <CheckCircle className="mr-2 h-4 w-4 text-emerald-600" />
+                                        Consolidar Fase e Avançar
+                                    </Button>
+                                    <Button size="lg" onClick={() => handleSaveStage(checklist)} disabled={isSaving === checklist.id} className="min-w-[180px]">
+                                        {isSaving === checklist.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                                        Salvar Anotações
+                                    </Button>
+                                </div>
                             </TabsContent>
-                        ))}
-                         <TabsContent value="notifications" className="mt-6">
-                            <NotificationScheduler memberName={memberName} />
-                        </TabsContent>
+                        )})}
                     </Tabs>
                  ) : (
                     <div className="text-center py-10 text-muted-foreground border-2 border-dashed rounded-lg">
                         <HelpCircle className="mx-auto h-8 w-8 mb-2"/>
-                        <p className="font-semibold">Nenhum checklist de acompanhamento definido.</p>
-                        <p className="text-sm">Vá para <a href="/dashboard/people/settings" className="underline font-medium">Configurações da Jornada</a> para criar o primeiro.</p>
+                        <p className="font-semibold">Nenhum checklist definido.</p>
+                        <p className="text-sm">Vá para <a href="/dashboard/people/settings" className="underline font-medium">Configurações</a> para criar checklists.</p>
                     </div>
                  )}
             </CardContent>
         </Card>
+
+        {/* Timeline de Histórico */}
         <FollowUpTimeline memberId={memberId} memberName={memberName} initialNotes={timelineNotes} onNoteAdded={setTimelineNotes} />
         
         <EnrollmentDialog 
