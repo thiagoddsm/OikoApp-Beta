@@ -1,10 +1,10 @@
 'use client';
 
-import { Handshake, MapIcon, Briefcase, Church, Group, UserPlus, Award, Shield, UserX, UserCheck, GraduationCap, User, LogIn, Target } from 'lucide-react';
+import { Handshake, MapIcon, Briefcase, Church, Group, UserPlus, Award, Shield, UserX, UserCheck, GraduationCap, Target } from 'lucide-react';
 
 /**
  * Definição central das etapas da jornada de um membro na igreja.
- * Esta lista dita a ordem de progressão na trilha de discipulado.
+ * Esta lista dita a ordem de progressão na trilha de discipulado (11 níveis oficiais).
  */
 export const journeyColumns = [
     { id: 'nao_alcancado', title: 'Cidade (Não Alcançado)' },
@@ -13,7 +13,7 @@ export const journeyColumns = [
     { id: 'transferido', title: 'Transferido' },
     { id: 'membro', title: 'Membro' },
     { id: 'consolidado', title: 'Consolidado' },
-    { id: 'lider_treinamento', title: 'Líder em treinamento' },
+    { id: 'lider_treinamento', title: 'Líder em Treinamento' },
     { id: 'lider_gc', title: 'Líder de GC' },
     { id: 'lider_area', title: 'Líder de Área' },
     { id: 'lider_rede', title: 'Líder de Rede' },
