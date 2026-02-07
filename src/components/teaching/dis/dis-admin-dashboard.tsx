@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo, useState } from 'react';
@@ -241,7 +240,7 @@ export function DisAdminDashboard() {
         </TabsContent>
 
         <TabsContent value="teachers" className="animate-in slide-in-from-left-4">
-            <TeachersManagement filterCourseId={primaryDisCourseId} />
+            <TeachersManagement filterCourseIds={disCourseIds} />
         </TabsContent>
       </Tabs>
 

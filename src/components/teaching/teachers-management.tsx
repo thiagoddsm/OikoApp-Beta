@@ -10,7 +10,11 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useVolunteering, type User } from '@/contexts/volunteering-context';
 import { EditTeacherCoursesDialog } from './edit-teacher-courses-dialog';
 
-export function TeachersManagement() {
+interface TeachersManagementProps {
+    filterCourseIds?: string[];
+}
+
+export function TeachersManagement({ filterCourseIds }: TeachersManagementProps) {
     const { users, courses, isLoading } = useVolunteering();
     
     const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -22,7 +26,17 @@ export function TeachersManagement() {
         const courseMap = new Map<string, string>();
         courses.forEach(c => courseMap.set(c.id, c.name));
 
-        return users.map(user => ({
+        let filteredUsers = users;
+
+        // Apply filtering if course IDs are provided
+        if (filterCourseIds && filterCourseIds.length > 0) {
+            filteredUsers = users.filter(user => 
+                user.isTeacher === true && 
+                user.taughtCourseIds?.some(id => filterCourseIds.includes(id))
+            );
+        }
+
+        return filteredUsers.map(user => ({
             ...user,
             isTeacher: user.isTeacher === true,
             taughtCourses: user.taughtCourseIds?.map(id => courseMap.get(id) || 'Curso não encontrado') || []
@@ -31,7 +45,7 @@ export function TeachersManagement() {
             if (!a.isTeacher && b.isTeacher) return 1;
             return a.name.localeCompare(b.name);
         });
-    }, [users, courses]);
+    }, [users, courses, filterCourseIds]);
     
     const handleEdit = (user: User) => {
         setEditingUser(user);
@@ -48,17 +62,19 @@ export function TeachersManagement() {
     
     return (
         <>
-            <Card>
-                <CardHeader>
+            <Card className={filterCourseIds ? "border-none shadow-none" : ""}>
+                <CardHeader className={filterCourseIds ? "px-0" : ""}>
                     <CardTitle>Gerenciamento de Professores</CardTitle>
                     <CardDescription>
-                        Habilite usuários como professores e atribua os cursos que eles podem lecionar.
+                        {filterCourseIds 
+                            ? "Professores habilitados para lecionar os cursos deste departamento." 
+                            : "Habilite usuários como professores e atribua os cursos que eles podem lecionar."}
                     </CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <div className="rounded-lg border">
+                <CardContent className={filterCourseIds ? "px-0" : ""}>
+                    <div className="rounded-lg border overflow-hidden">
                         <Table>
-                            <TableHeader>
+                            <TableHeader className="bg-muted/50">
                                 <TableRow>
                                     <TableHead>Professor</TableHead>
                                     <TableHead>Status</TableHead>
@@ -67,44 +83,52 @@ export function TeachersManagement() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {teachersData.map(teacher => {
-                                    const avatar = PlaceHolderImages.find(p => p.id === (teacher.avatar || 'avatar-2'));
-                                    return (
-                                    <TableRow key={teacher.id}>
-                                        <TableCell>
-                                            <div className="flex items-center gap-3">
-                                                <Avatar className="h-9 w-9">
-                                                    {avatar && <AvatarImage src={avatar.imageUrl} alt={teacher.name} />}
-                                                    <AvatarFallback>{teacher.name.charAt(0)}</AvatarFallback>
-                                                </Avatar>
-                                                <div>
-                                                    <p className="font-medium">{teacher.name}</p>
-                                                    <p className="text-xs text-muted-foreground">{teacher.email}</p>
-                                                </div>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            {teacher.isTeacher ? (
-                                                <Badge>Professor</Badge>
-                                            ) : (
-                                                <Badge variant="outline">Não é professor</Badge>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-wrap gap-1">
-                                                {teacher.taughtCourses.map(courseName => (
-                                                    <Badge key={courseName} variant="secondary">{courseName}</Badge>
-                                                ))}
-                                            </div>
-                                        </TableCell>
-                                         <TableCell className="text-right">
-                                            <Button variant="ghost" size="sm" onClick={() => handleEdit(teacher)}>
-                                                <Edit className="size-4 mr-2" />
-                                                Gerenciar
-                                            </Button>
+                                {teachersData.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="h-24 text-center text-muted-foreground italic">
+                                            Nenhum professor encontrado.
                                         </TableCell>
                                     </TableRow>
-                                )})}
+                                ) : (
+                                    teachersData.map(teacher => {
+                                        const avatar = PlaceHolderImages.find(p => p.id === (teacher.avatar || 'avatar-2'));
+                                        return (
+                                        <TableRow key={teacher.id}>
+                                            <TableCell>
+                                                <div className="flex items-center gap-3">
+                                                    <Avatar className="h-9 w-9">
+                                                        {avatar && <AvatarImage src={avatar.imageUrl} alt={teacher.name} />}
+                                                        <AvatarFallback>{teacher.name.charAt(0)}</AvatarFallback>
+                                                    </Avatar>
+                                                    <div>
+                                                        <p className="font-medium">{teacher.name}</p>
+                                                        <p className="text-xs text-muted-foreground">{teacher.email}</p>
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                {teacher.isTeacher ? (
+                                                    <Badge>Professor</Badge>
+                                                ) : (
+                                                    <Badge variant="outline">Não é professor</Badge>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {teacher.taughtCourses.map(courseName => (
+                                                        <Badge key={courseName} variant="secondary">{courseName}</Badge>
+                                                    ))}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <Button variant="ghost" size="sm" onClick={() => handleEdit(teacher)}>
+                                                    <Edit className="size-4 mr-2" />
+                                                    Gerenciar
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    )})
+                                )}
                             </TableBody>
                         </Table>
                     </div>
