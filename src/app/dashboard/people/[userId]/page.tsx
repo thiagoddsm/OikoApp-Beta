@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -9,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, User, ArrowLeft, Pencil, MapPin, Phone, Mail, Calendar, Users, Footprints, Church, MessageSquare, Award, TrendingUp, UserCheck, HeartHandshake, Handshake, GraduationCap, HandHelping, UserPlus, Target, Info, CheckCircle, Smartphone, Clock, BadgeHelp, Network, Building2, UserX, Briefcase, MapIcon, HandCoins, Bot, LogIn } from 'lucide-react';
+import { Loader2, User, ArrowLeft, Pencil, MapPin, Phone, Mail, Calendar, Users, Footprints, Church, MessageSquare, Award, TrendingUp, UserCheck, HeartHandshake, Handshake, GraduationCap, HandHelping, UserPlus, Target, Info, CheckCircle, Smartphone, Clock, BadgeHelp, Network, Building2, UserX, Briefcase, MapIcon, HandCoins, Bot, LogIn, Group, Shield } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import Link from 'next/link';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -87,19 +86,17 @@ type Supervisor = {
 }
 
 const statusConfig: { [key: string]: { label: string; level: number; icon: React.ElementType } } = {
-  nao_alcancado: { label: "Não Alcançado", level: 1, icon: UserX },
-  visitante_celula: { label: "Visitante de GC", level: 2, icon: LogIn },
-  participante_gc: { label: "Participante de GC", level: 3, icon: User },
-  novo_convertido: { label: "Novo Convertido", level: 4, icon: UserPlus },
-  reconciliado: { label: "Em processo de reconciliação", level: 5, icon: Handshake },
-  transferido: { label: "Em processo de transferência", level: 6, icon: Church },
-  membro: { label: "Membro", level: 7, icon: Award },
-  consolidado: { label: "Consolidado", level: 8, icon: UserCheck },
-  lider_treinamento: { label: "Líder em Treinamento", level: 9, icon: GraduationCap },
-  lider_gc: { label: "Líder de GC", level: 10, icon: Users },
-  lider_area: { label: "Líder de Área", level: 11, icon: MapIcon },
-  lider_rede: { label: "Líder de Rede", level: 12, icon: Network },
-  pastor: { label: "Pastor", level: 13, icon: Briefcase },
+  nao_alcancado: { label: "Cidade (Não Alcançado)", level: 1, icon: UserX },
+  novo_convertido: { label: "Novo Convertido", level: 2, icon: UserPlus },
+  reconciliado: { label: "Reconciliado", level: 3, icon: Handshake },
+  transferido: { label: "Transferido", level: 4, icon: Church },
+  membro: { label: "Membro", level: 5, icon: Award },
+  consolidado: { label: "Consolidado", level: 6, icon: UserCheck },
+  lider_treinamento: { label: "Líder em Treinamento", level: 7, icon: GraduationCap },
+  lider_gc: { label: "Líder de GC", level: 8, icon: Group },
+  lider_area: { label: "Líder de Área", level: 9, icon: MapIcon },
+  lider_rede: { label: "Líder de Rede", level: 10, icon: Shield },
+  pastor: { label: "Pastor", level: 11, icon: Briefcase },
 };
 
 const totalLevels = Object.keys(statusConfig).length;

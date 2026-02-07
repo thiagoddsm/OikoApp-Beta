@@ -47,15 +47,13 @@ type AreaOfService = {
 };
 
 const journeyStatusLabels: { [key: string]: string } = {
-    'nao_alcancado': 'Não Alcançado',
-    'visitante_celula': 'Visitante de GC',
-    'participante_gc': 'Participante de GC',
+    'nao_alcancado': 'Cidade (Não Alcançado)',
     'novo_convertido': 'Novo Convertido',
-    'reconciliado': 'Em processo de reconciliação',
-    'transferido': 'Em processo de transferência',
+    'reconciliado': 'Reconciliado',
+    'transferido': 'Transferido',
     'membro': 'Membro',
     'consolidado': 'Consolidado',
-    'lider_treinamento': 'Líder em Treinamento',
+    'lider_treinamento': 'Líder em treinamento',
     'lider_gc': 'Líder de GC',
     'lider_area': 'Líder de Área',
     'lider_rede': 'Líder de Rede',
@@ -216,5 +214,3 @@ export function PeopleTable() {
         </Card>
     );
 }
-
-    
