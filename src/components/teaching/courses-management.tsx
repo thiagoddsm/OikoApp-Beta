@@ -5,15 +5,33 @@ import { useFirebase, useCollection, useMemoFirebase, deleteDocumentNonBlocking 
 import { collection, query, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Loader2, PlusCircle, BookOpen, Edit, Trash2, Waves, ChevronRight, HandHelping, Link as LinkIcon } from 'lucide-react';
+import { 
+  Loader2, 
+  PlusCircle, 
+  BookOpen, 
+  Edit, 
+  Trash2, 
+  Waves, 
+  ChevronRight, 
+  HandHelping, 
+  Link as LinkIcon, 
+  Lightbulb, 
+  School 
+} from 'lucide-react';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 import { CourseFormDialog } from './course-form-dialog';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { Badge } from '../ui/badge';
+import { Badge } from '@/components/ui/badge';
 
-type Course = { id: string; name: string; description: string; ministryName: string; type: 'basic' | 'complete' };
+type Course = { 
+  id: string; 
+  name: string; 
+  description: string; 
+  ministryName: string; 
+  type: 'basic' | 'complete' 
+};
 
 export function CoursesManagement() {
   const { firestore } = useFirebase();
@@ -23,22 +41,19 @@ export function CoursesManagement() {
   const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery);
 
   const [isCourseFormOpen, setCourseFormOpen] = useState(false);
-  const [editingCourse, setEditingCourse] = useState(null);
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [deletingCourse, setDeletingCourse] = useState<Course | null>(null);
 
-  const { completeCourses, basicCourses } = useMemo(() => {
-    const complete: Course[] = [];
-    const basic: Course[] = [];
-    courses?.forEach(c => {
-        const isWave = c.ministryName?.toLowerCase().includes('wave');
-        const isDis = c.ministryName?.toLowerCase() === 'dis';
-        if (c.type === 'complete' || isWave || isDis) {
-            complete.push(c);
-        } else {
-            basic.push(c);
-        }
+  // Grouping logic
+  const groupedCourses = useMemo(() => {
+    if (!courses) return {};
+    const groups: Record<string, Course[]> = {};
+    courses.forEach(c => {
+      const ministry = c.ministryName || 'Geral';
+      if (!groups[ministry]) groups[ministry] = [];
+      groups[ministry].push(c);
     });
-    return { completeCourses: complete, basicCourses: basic };
+    return groups;
   }, [courses]);
 
   const handleEditCourse = (course: Course) => {
@@ -72,6 +87,23 @@ export function CoursesManagement() {
         description: "Link direto para inscrição deste curso copiado com sucesso.",
     });
   };
+
+  const getMinistryIcon = (name: string) => {
+    const n = name.toLowerCase();
+    if (n.includes('wave')) return Waves;
+    if (n === 'dis') return HandHelping;
+    if (n.includes('lumine')) return Lightbulb;
+    if (n.includes('college') || n.includes('escola')) return School;
+    return BookOpen;
+  };
+
+  const getCourseHref = (course: Course) => {
+    const n = course.ministryName?.toLowerCase() || '';
+    if (n.includes('wave')) return "/dashboard/teaching/wave";
+    if (n === 'dis') return "/dashboard/teaching/dis";
+    // Lumine and others currently use the generic detail view
+    return `/dashboard/teaching/courses/${course.id}`;
+  };
   
   const isLoading = isLoadingCourses;
 
@@ -80,86 +112,86 @@ export function CoursesManagement() {
       <Card>
         <CardHeader className="flex flex-row justify-between items-center">
           <div>
-            <CardTitle className="flex items-center gap-2"><BookOpen/>Cursos e Turmas</CardTitle>
-            <CardDescription>Gerencie os cursos oferecidos e as turmas de cada um.</CardDescription>
+            <CardTitle className="flex items-center gap-2"><BookOpen/>Gestão de Ensino</CardTitle>
+            <CardDescription>Cursos e turmas organizados por ministério.</CardDescription>
           </div>
           <Button onClick={handleAddCourse}><PlusCircle className="mr-2 size-4"/>Novo Curso</Button>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="flex justify-center items-center h-48"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>
+          ) : Object.keys(groupedCourses).length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
+                Nenhum curso cadastrado no sistema.
+            </div>
           ) : (
-             <div className="space-y-6">
-                {completeCourses.length > 0 && (
-                    <div>
-                        <p className="text-sm font-semibold text-muted-foreground mb-2 px-2">Módulos Completos</p>
-                        <div className="space-y-2">
-                            {completeCourses.map(course => {
-                                const isWave = course.ministryName?.toLowerCase().includes('wave');
-                                const isDis = course.ministryName?.toLowerCase() === 'dis';
-                                const href = isWave ? "/dashboard/teaching/wave" : isDis ? "/dashboard/teaching/dis" : `/dashboard/teaching/courses/${course.id}`;
-                                const Icon = isWave ? Waves : isDis ? HandHelping : BookOpen;
-                                const isDisabled = !isWave && !isDis && course.type !== 'complete';
+             <div className="space-y-8">
+                {Object.entries(groupedCourses).sort(([a], [b]) => a.localeCompare(b)).map(([ministry, ministryCourses]) => (
+                    <div key={ministry} className="space-y-3">
+                        <div className="flex items-center gap-2 px-2">
+                            <span className="h-4 w-1 bg-primary rounded-full"></span>
+                            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                                {ministry}
+                            </h3>
+                            <Badge variant="secondary" className="ml-auto text-[10px] h-5">{ministryCourses.length} {ministryCourses.length === 1 ? 'curso' : 'cursos'}</Badge>
+                        </div>
+                        
+                        <div className="grid gap-2">
+                            {ministryCourses.map(course => {
+                                const Icon = getMinistryIcon(ministry);
+                                const href = getCourseHref(course);
 
                                 return (
-                                <div key={course.id} className="border rounded-md relative group hover:bg-muted/50 transition-colors">
-                                    <Link href={href} className={cn("block w-full h-full", isDisabled && "pointer-events-none opacity-60")}>
+                                <div key={course.id} className="border rounded-xl relative group hover:bg-muted/50 transition-all hover:border-primary/30 shadow-sm">
+                                    <Link href={href} className="block w-full h-full">
                                         <div className="flex items-center justify-between p-4 cursor-pointer">
-                                            <div className="flex items-center gap-3 flex-1 text-left">
-                                                <Icon className="size-5 text-primary" />
+                                            <div className="flex items-center gap-4 flex-1 text-left">
+                                                <div className="p-2 bg-primary/5 rounded-lg text-primary group-hover:bg-primary/10 transition-colors">
+                                                    <Icon className="size-5" />
+                                                </div>
                                                 <div>
-                                                    <p className="font-semibold">{course.name}</p>
-                                                    <p className="text-sm text-muted-foreground">{course.ministryName}</p>
+                                                    <p className="font-bold text-slate-900 leading-tight">{course.name}</p>
+                                                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{course.description || 'Sem descrição definida.'}</p>
                                                 </div>
                                             </div>
-                                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                                            <ChevronRight className="h-5 w-5 text-muted-foreground opacity-50 group-hover:translate-x-1 transition-transform" />
                                         </div>
                                     </Link>
-                                    <div className="absolute right-12 top-1/2 -translate-y-1/2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleCopyEnrollmentLink(course.id);}} title="Copiar link de inscrição"><LinkIcon className="size-4 text-blue-600"/></Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleEditCourse(course);}}><Edit className="size-4"/></Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleDeleteCourse(course);}}><Trash2 className="size-4 text-destructive"/></Button>
+                                    
+                                    <div className="absolute right-12 top-1/2 -translate-y-1/2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity pr-2">
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" 
+                                            onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleCopyEnrollmentLink(course.id);}} 
+                                            title="Copiar link de inscrição"
+                                        >
+                                            <LinkIcon className="size-4"/>
+                                        </Button>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-8 w-8 text-slate-600 hover:text-slate-900 hover:bg-slate-100" 
+                                            onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleEditCourse(course);}}
+                                            title="Editar curso"
+                                        >
+                                            <Edit className="size-4"/>
+                                        </Button>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" 
+                                            onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleDeleteCourse(course);}}
+                                            title="Excluir curso"
+                                        >
+                                            <Trash2 className="size-4"/>
+                                        </Button>
                                     </div>
-                                    {isDisabled && <Badge variant="outline" className="absolute top-2 right-2">Em breve</Badge>}
                                 </div>
                             )})}
                         </div>
                     </div>
-                )}
-                
-                {basicCourses.length > 0 && (
-                  <div className="pt-4 mt-4 border-t">
-                    <p className="text-sm font-semibold text-muted-foreground mb-2 px-2">Cursos Gerais (Básico)</p>
-                     <div className="space-y-2">
-                        {basicCourses.map(course => {
-                            const href = `/dashboard/teaching/courses/${course.id}`;
-                            const Icon = BookOpen;
-
-                            return (
-                                <div key={course.id} className="border rounded-md relative group hover:bg-muted/50 transition-colors">
-                                    <Link href={href} className="block w-full h-full">
-                                        <div className="flex items-center justify-between p-4 cursor-pointer">
-                                            <div className="flex items-center gap-3 flex-1 text-left">
-                                                <Icon className="size-5 text-primary" />
-                                                <div>
-                                                    <p className="font-semibold">{course.name}</p>
-                                                    <p className="text-sm text-muted-foreground">{course.ministryName}</p>
-                                                </div>
-                                            </div>
-                                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                                        </div>
-                                    </Link>
-                                    <div className="absolute right-12 top-1/2 -translate-y-1/2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleCopyEnrollmentLink(course.id);}} title="Copiar link de inscrição"><LinkIcon className="size-4 text-blue-600"/></Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleEditCourse(course);}}><Edit className="size-4"/></Button>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleDeleteCourse(course);}}><Trash2 className="size-4 text-destructive"/></Button>
-                                    </div>
-                                </div>
-                            )
-                        })}
-                    </div>
-                  </div>
-                )}
+                ))}
              </div>
           )}
         </CardContent>
@@ -177,7 +209,7 @@ export function CoursesManagement() {
             onOpenChange={() => setDeletingCourse(null)}
             onConfirm={confirmDeleteCourse}
             itemName={deletingCourse.name}
-            itemType="Curso (Turmas não serão excluídas)"
+            itemType="Curso (As turmas vinculadas não serão excluídas automaticamente)"
           />
       )}
     </>
