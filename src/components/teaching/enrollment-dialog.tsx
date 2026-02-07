@@ -14,9 +14,10 @@ import { useVolunteering } from '@/contexts/volunteering-context';
 interface EnrollmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialStudentId?: string;
 }
 
-export function EnrollmentDialog({ open, onOpenChange }: EnrollmentDialogProps) {
+export function EnrollmentDialog({ open, onOpenChange, initialStudentId }: EnrollmentDialogProps) {
   const { users, classes, courses, enrollStudent, addUser, isLoading } = useVolunteering();
   const { toast } = useToast();
 
@@ -35,14 +36,14 @@ export function EnrollmentDialog({ open, onOpenChange }: EnrollmentDialogProps) 
 
   useEffect(() => {
     if (open) {
-      setStudentId('');
+      setStudentId(initialStudentId || '');
       setClassId('');
       setNewName('');
       setNewEmail('');
       setNewPhone('');
-      setMode('existing');
+      setMode(initialStudentId ? 'existing' : 'existing');
     }
-  }, [open]);
+  }, [open, initialStudentId]);
 
   const handleSave = async () => {
     if (mode === 'existing' && !studentId) {
@@ -97,22 +98,24 @@ export function EnrollmentDialog({ open, onOpenChange }: EnrollmentDialogProps) 
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-6 py-4">
-          <RadioGroup value={mode} onValueChange={(v: any) => setMode(v)} className="flex gap-4 p-1 bg-muted rounded-md">
-            <Label htmlFor="mode-existing" className={`flex-1 flex items-center justify-center p-2 rounded-sm cursor-pointer transition-all ${mode === 'existing' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}>
-                <RadioGroupItem value="existing" id="mode-existing" className="sr-only" />
-                <Search className="size-4 mr-2" /> Selecionar Aluno
-            </Label>
-            <Label htmlFor="mode-new" className={`flex-1 flex items-center justify-center p-2 rounded-sm cursor-pointer transition-all ${mode === 'new' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}>
-                <RadioGroupItem value="new" id="mode-new" className="sr-only" />
-                <UserPlus className="size-4 mr-2" /> Cadastrar Novo
-            </Label>
-          </RadioGroup>
+          {!initialStudentId && (
+            <RadioGroup value={mode} onValueChange={(v: any) => setMode(v)} className="flex gap-4 p-1 bg-muted rounded-md">
+                <Label htmlFor="mode-existing" className={`flex-1 flex items-center justify-center p-2 rounded-sm cursor-pointer transition-all ${mode === 'existing' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}>
+                    <RadioGroupItem value="existing" id="mode-existing" className="sr-only" />
+                    <Search className="size-4 mr-2" /> Selecionar Aluno
+                </Label>
+                <Label htmlFor="mode-new" className={`flex-1 flex items-center justify-center p-2 rounded-sm cursor-pointer transition-all ${mode === 'new' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}>
+                    <RadioGroupItem value="new" id="mode-new" className="sr-only" />
+                    <UserPlus className="size-4 mr-2" /> Cadastrar Novo
+                </Label>
+            </RadioGroup>
+          )}
 
           <div className="space-y-4">
             {mode === 'existing' ? (
                 <div>
-                    <Label htmlFor="student-id">Pesquisar Aluno</Label>
-                    <Select value={studentId} onValueChange={setStudentId} disabled={isLoading}>
+                    <Label htmlFor="student-id">Aluno</Label>
+                    <Select value={studentId} onValueChange={setStudentId} disabled={isLoading || !!initialStudentId}>
                         <SelectTrigger id="student-id"><SelectValue placeholder="Selecione um aluno..." /></SelectTrigger>
                         <SelectContent>
                             {users.map(user => <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>)}
@@ -143,9 +146,14 @@ export function EnrollmentDialog({ open, onOpenChange }: EnrollmentDialogProps) 
                 <Select value={classId} onValueChange={setClassId} disabled={isLoading}>
                     <SelectTrigger id="class-id"><SelectValue placeholder="Selecione uma turma..." /></SelectTrigger>
                     <SelectContent>
-                        {classes.map(cls => <SelectItem key={cls.id} value={cls.id}>{cls.name} ({courseMap.get(cls.courseId) || 'Curso'})</SelectItem>)}
+                        {classes.map(cls => (
+                            <SelectItem key={cls.id} value={cls.id}>
+                                {cls.name} ({courseMap.get(cls.courseId) || 'Curso'})
+                            </SelectItem>
+                        ))}
                     </SelectContent>
                 </Select>
+                <p className="text-[10px] text-muted-foreground mt-1">Selecione uma das 5 turmas do Curso de Membro ou qualquer outro curso do trilho.</p>
             </div>
           </div>
         </div>

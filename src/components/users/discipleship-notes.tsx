@@ -1,9 +1,10 @@
+
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, HelpCircle, CheckCircle, Send } from 'lucide-react';
+import { Loader2, HelpCircle, CheckCircle, Send, GraduationCap, PlusCircle, BookOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '../ui/checkbox';
 import { Label } from '../ui/label';
@@ -16,6 +17,7 @@ import { Textarea } from '../ui/textarea';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { journeyColumns } from './journey-status-config';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../ui/select';
+import { EnrollmentDialog } from '../teaching/enrollment-dialog';
 
 
 type ChecklistQuestion = {
@@ -101,8 +103,9 @@ function NotificationScheduler({ memberName }: { memberName: string }) {
 export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { memberId: string, memberName: string, currentStatusId: string }) {
     const { user, firestore } = useFirebase();
     const { toast } = useToast();
-    const { updateVolunteer } = useVolunteering();
+    const { updateVolunteer, classes, courses } = useVolunteering();
     const [isSaving, setIsSaving] = useState<string | null>(null);
+    const [isEnrollmentOpen, setEnrollmentOpen] = useState(false);
     
     const checklistsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'discipleship_checklists')) : null, [firestore]);
     const { data: discipleshipChecklists, isLoading: isLoadingChecklists } = useCollection<DiscipleshipChecklist>(checklistsQuery);
@@ -121,6 +124,12 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         { id: '2', authorId: 'admin', type: 'system', content: `Status alterado para: Novo Convertido`, createdAt: new Date(Date.now() - 28 * 24 * 60 * 60 * 1000) },
         { id: '3', authorId: 'leader1', type: 'user', content: `Mostrou grande interesse na célula e fez perguntas pertinentes sobre a fé. Conectei com o João para iniciar o discipulado.`, createdAt: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000) },
     ]);
+
+    const myClasses = useMemo(() => {
+        return classes.filter(cls => cls.students?.includes(memberId));
+    }, [classes, memberId]);
+
+    const courseMap = useMemo(() => new Map(courses.map(c => [c.id, c.name])), [courses]);
     
     const handleCompleteStage = (currentStageId: string) => {
         const currentIndex = journeyColumns.findIndex(col => col.id === currentStageId);
@@ -239,28 +248,49 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
       );
     }
     
-    if (!discipleshipChecklists) {
-        return (
-            <Card>
-                <CardHeader>
-                     <CardTitle>Nenhum Checklist Encontrado</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-muted-foreground">Não foi possível carregar os checklists de discipulado.</p>
-                </CardContent>
-            </Card>
-        )
-    }
-
     return (
       <div className="space-y-6">
+        {/* Seção de Ensino & Trilho */}
+        <Card className="bg-primary/5 border-primary/20">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                        <GraduationCap className="size-5 text-primary" />
+                        Ensino & Trilho do Discípulo
+                    </CardTitle>
+                    <CardDescription>Gerencie as matrículas obrigatórias para a membresia.</CardDescription>
+                </div>
+                <Button size="sm" onClick={() => setEnrollmentOpen(true)}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Matricular em Curso
+                </Button>
+            </CardHeader>
+            <CardContent>
+                <div className="flex flex-wrap gap-3">
+                    {myClasses.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic py-2">Nenhuma matrícula ativa identificada.</p>
+                    ) : (
+                        myClasses.map(cls => (
+                            <div key={cls.id} className="flex items-center gap-2 bg-white p-2 rounded-lg border shadow-sm">
+                                <BookOpen className="size-3 text-primary" />
+                                <div className="text-xs">
+                                    <span className="font-bold">{courseMap.get(cls.courseId)}</span>
+                                    <span className="text-muted-foreground ml-1">({cls.name})</span>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </CardContent>
+        </Card>
+
         <Card>
             <CardHeader>
-                <CardTitle className="flex items-center gap-2">Acompanhamento do Discipulado</CardTitle>
+                <CardTitle className="flex items-center gap-2">Checklists de Discipulado</CardTitle>
                 <CardDescription>Registre o progresso de {memberName} utilizando os checklists, ou agende lembretes.</CardDescription>
             </CardHeader>
             <CardContent>
-                 {discipleshipChecklists.length > 0 ? (
+                 {discipleshipChecklists && discipleshipChecklists.length > 0 ? (
                     <Tabs defaultValue={discipleshipChecklists[0].id} className="w-full">
                         <TabsList className="flex flex-wrap h-auto justify-start">
                             {discipleshipChecklists.map(checklist => (
@@ -385,6 +415,12 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
             </CardContent>
         </Card>
         <FollowUpTimeline memberId={memberId} memberName={memberName} initialNotes={timelineNotes} onNoteAdded={setTimelineNotes} />
+        
+        <EnrollmentDialog 
+            open={isEnrollmentOpen} 
+            onOpenChange={setEnrollmentOpen} 
+            initialStudentId={memberId} 
+        />
       </div>
     );
 }
