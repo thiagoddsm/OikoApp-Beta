@@ -5,7 +5,7 @@ import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
-import { Loader2, PlusCircle, Edit, Trash2, ChevronRight } from 'lucide-react';
+import { Loader2, PlusCircle, Edit, Trash2, ChevronRight, Wand2 } from 'lucide-react';
 import { ClassFormDialog } from './class-form-dialog';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { format } from 'date-fns';
@@ -14,15 +14,16 @@ import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 
-type Class = { id: string; name: string; teacherId: string; students: string[]; courseId: string; frequency?: 'pontual' | 'semanal' | 'quinzenal' | 'mensal', startDate?: string, endDate?: string, startTime?: string, endTime?: string, dayOfWeek?: string, locationId?: string };
+type Class = { id: string; name: string; teacherId: string; students: string[]; courseId: string; frequency?: 'pontual' | 'semanal' | 'quinzenal' | 'mensal', startDate?: string, endDate?: string, startTime?: string, endTime?: string, dayOfWeek?: string, weekOfMonth?: string, locationId?: string };
 
 export function CourseClassesManager({ course }) {
     const { firestore } = useFirebase();
-    const { users, rooms, deleteClass } = useVolunteering();
+    const { users, rooms, deleteClass, addClass } = useVolunteering();
     const { toast } = useToast();
     const [isClassFormOpen, setClassFormOpen] = useState(false);
     const [editingClass, setEditingClass] = useState<Class | null>(null);
     const [classToDelete, setClassToDelete] = useState<Class | null>(null);
+    const [isGenerating, setIsGenerating] = useState(false);
 
     const classesQuery = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -33,6 +34,8 @@ export function CourseClassesManager({ course }) {
 
     const userMap = useMemo(() => new Map(users?.map(u => [u.id, u.name]) || []), [users]);
     const roomMap = useMemo(() => new Map(rooms?.map(r => [r.id, r.name]) || []), [rooms]);
+
+    const isMemberCourse = course.name?.toLowerCase().includes('membro') || course.name?.toLowerCase().includes('integração');
 
     const handleAddClass = () => {
         setEditingClass(null);
@@ -55,11 +58,52 @@ export function CourseClassesManager({ course }) {
         }
     };
 
+    const handleGenerateCycle = async () => {
+        if (!isMemberCourse) return;
+        setIsGenerating(true);
+
+        const aulas = [
+            { name: "Aula 1: História & Visão", week: "1" },
+            { name: "Aula 2: DNA & Células", week: "2" },
+            { name: "Aula 3: Mordomia & Finanças", week: "3" },
+            { name: "Aula 4: Governança & Ética", week: "4" },
+            { name: "Aula 5: Comissionamento", week: "last" },
+        ];
+
+        try {
+            for (const aula of aulas) {
+                await addClass({
+                    courseId: course.id,
+                    name: aula.name,
+                    teacherId: "",
+                    students: [],
+                    frequency: 'mensal',
+                    dayOfWeek: "Domingo",
+                    weekOfMonth: aula.week as any,
+                    startTime: "09:00",
+                    endTime: "10:30",
+                    startDate: new Date().toISOString().split('T')[0],
+                    locationId: ""
+                });
+            }
+            toast({ title: "Ciclo Gerado!", description: "As 5 aulas dominicais foram criadas com sucesso." });
+        } catch (error) {
+            console.error(error);
+            toast({ variant: "destructive", title: "Erro", description: "Falha ao gerar o ciclo de turmas." });
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
     const formatSchedule = (cls: Class) => {
         if (!cls.frequency) return 'Não definido';
         if (cls.frequency === 'pontual') {
             if (!cls.startDate) return 'Data não definida';
             return `Único: ${format(new Date(cls.startDate + 'T12:00:00'), 'dd/MM/yyyy')} às ${cls.startTime}`;
+        }
+        if (cls.frequency === 'mensal') {
+            const weekLabel = cls.weekOfMonth === 'last' ? 'Último' : `${cls.weekOfMonth}º`;
+            return `${weekLabel} ${cls.dayOfWeek} às ${cls.startTime}`;
         }
         return `${cls.frequency.charAt(0).toUpperCase() + cls.frequency.slice(1)} - ${cls.dayOfWeek || 'Dia não definido'} às ${cls.startTime}`;
     };
@@ -68,7 +112,15 @@ export function CourseClassesManager({ course }) {
         <>
             <div className="flex justify-between items-center mb-4">
                 <p className="text-sm text-muted-foreground">Gerencie as turmas ativas para este curso.</p>
-                <Button size="sm" onClick={handleAddClass}><PlusCircle className="mr-2 size-4"/>Nova Turma</Button>
+                <div className="flex gap-2">
+                    {isMemberCourse && classes?.length === 0 && (
+                        <Button variant="outline" size="sm" onClick={handleGenerateCycle} disabled={isGenerating}>
+                            {isGenerating ? <Loader2 className="mr-2 size-4 animate-spin"/> : <Wand2 className="mr-2 size-4"/>}
+                            Gerar Ciclo de 5 Aulas
+                        </Button>
+                    )}
+                    <Button size="sm" onClick={handleAddClass}><PlusCircle className="mr-2 size-4"/>Nova Turma</Button>
+                </div>
             </div>
             <div className="rounded-md border bg-background">
                 <Table>
