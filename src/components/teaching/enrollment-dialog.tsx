@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Loader2, UserPlus, Search } from 'lucide-react';
+import { Loader2, UserPlus, Search, BookOpen, School } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering } from '@/contexts/volunteering-context';
 
@@ -23,6 +23,7 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId }: Enrol
 
   const [mode, setMode] = useState<'existing' | 'new'>('existing');
   const [studentId, setStudentId] = useState('');
+  const [selectedCourseId, setSelectedCourseId] = useState('');
   const [classId, setClassId] = useState('');
   
   // Fields for new user
@@ -32,11 +33,10 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId }: Enrol
   
   const [isSaving, setIsSaving] = useState(false);
 
-  const courseMap = useMemo(() => new Map(courses.map(c => [c.id, c.name])), [courses]);
-
   useEffect(() => {
     if (open) {
       setStudentId(initialStudentId || '');
+      setSelectedCourseId('');
       setClassId('');
       setNewName('');
       setNewEmail('');
@@ -45,6 +45,12 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId }: Enrol
     }
   }, [open, initialStudentId]);
 
+  // Filtra as turmas com base no curso selecionado
+  const filteredClasses = useMemo(() => {
+    if (!selectedCourseId) return [];
+    return classes.filter(cls => cls.courseId === selectedCourseId);
+  }, [classes, selectedCourseId]);
+
   const handleSave = async () => {
     if (mode === 'existing' && !studentId) {
         toast({ variant: 'destructive', title: 'Campo obrigatório', description: 'Selecione um aluno.' });
@@ -52,6 +58,10 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId }: Enrol
     }
     if (mode === 'new' && !newName.trim()) {
         toast({ variant: 'destructive', title: 'Campo obrigatório', description: 'Digite o nome do aluno.' });
+        return;
+    }
+    if (!selectedCourseId) {
+        toast({ variant: 'destructive', title: 'Campo obrigatório', description: 'Selecione um curso.' });
         return;
     }
     if (!classId) {
@@ -94,10 +104,11 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId }: Enrol
         <DialogHeader>
           <DialogTitle>Realizar Matrícula</DialogTitle>
           <DialogDescription>
-            Matricule um aluno existente ou cadastre um novo interessado no sistema.
+            Siga os passos: Identifique o aluno, escolha o curso e defina a turma.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-6 py-4">
+          {/* Passo 1: Aluno */}
           {!initialStudentId && (
             <RadioGroup value={mode} onValueChange={(v: any) => setMode(v)} className="flex gap-4 p-1 bg-muted rounded-md">
                 <Label htmlFor="mode-existing" className={`flex-1 flex items-center justify-center p-2 rounded-sm cursor-pointer transition-all ${mode === 'existing' ? 'bg-background shadow-sm' : 'text-muted-foreground'}`}>
@@ -114,9 +125,9 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId }: Enrol
           <div className="space-y-4">
             {mode === 'existing' ? (
                 <div>
-                    <Label htmlFor="student-id">Aluno</Label>
+                    <Label htmlFor="student-id" className="text-[10px] uppercase font-black text-muted-foreground">1. Aluno</Label>
                     <Select value={studentId} onValueChange={setStudentId} disabled={isLoading || !!initialStudentId}>
-                        <SelectTrigger id="student-id"><SelectValue placeholder="Selecione um aluno..." /></SelectTrigger>
+                        <SelectTrigger id="student-id" className="mt-1"><SelectValue placeholder="Selecione um aluno..." /></SelectTrigger>
                         <SelectContent>
                             {users.map(user => <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>)}
                         </SelectContent>
@@ -124,42 +135,77 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId }: Enrol
                 </div>
             ) : (
                 <div className="space-y-3">
+                    <Label className="text-[10px] uppercase font-black text-muted-foreground">1. Novos Dados do Aluno</Label>
                     <div>
-                        <Label htmlFor="newName">Nome Completo *</Label>
+                        <Label htmlFor="newName" className="text-xs">Nome Completo *</Label>
                         <Input id="newName" value={newName} onChange={e => setNewName(e.target.value)} placeholder="Ex: João da Silva" />
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <Label htmlFor="newPhone">Telefone</Label>
+                            <Label htmlFor="newPhone" className="text-xs">Telefone</Label>
                             <Input id="newPhone" value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="(21) 9..." />
                         </div>
                         <div>
-                            <Label htmlFor="newEmail">E-mail</Label>
+                            <Label htmlFor="newEmail" className="text-xs">E-mail</Label>
                             <Input id="newEmail" value={newEmail} onChange={e => setNewEmail(e.target.value)} type="email" placeholder="exemplo@mail.com" />
                         </div>
                     </div>
                 </div>
             )}
 
+            {/* Passo 2: Curso */}
             <div>
-                <Label htmlFor="class-id">Turma de Destino *</Label>
-                <Select value={classId} onValueChange={setClassId} disabled={isLoading}>
-                    <SelectTrigger id="class-id"><SelectValue placeholder="Selecione uma turma..." /></SelectTrigger>
+                <Label htmlFor="course-id" className="text-[10px] uppercase font-black text-muted-foreground">2. Selecionar Curso</Label>
+                <Select value={selectedCourseId} onValueChange={(v) => { setSelectedCourseId(v); setClassId(''); }} disabled={isLoading}>
+                    <SelectTrigger id="course-id" className="mt-1">
+                        <SelectValue placeholder="Escolha o curso..." />
+                    </SelectTrigger>
                     <SelectContent>
-                        {classes.map(cls => (
-                            <SelectItem key={cls.id} value={cls.id}>
-                                {cls.name} ({courseMap.get(cls.courseId) || 'Curso'})
+                        {courses.map(course => (
+                            <SelectItem key={course.id} value={course.id}>
+                                <div className="flex items-center gap-2">
+                                    <BookOpen className="size-3 text-muted-foreground" />
+                                    {course.name}
+                                </div>
                             </SelectItem>
                         ))}
                     </SelectContent>
                 </Select>
-                <p className="text-[10px] text-muted-foreground mt-1">Selecione uma das 5 turmas do Curso de Membro ou qualquer outro curso do trilho.</p>
+            </div>
+
+            {/* Passo 3: Turma */}
+            <div>
+                <Label htmlFor="class-id" className="text-[10px] uppercase font-black text-muted-foreground">3. Turma de Destino</Label>
+                <Select value={classId} onValueChange={setClassId} disabled={isLoading || !selectedCourseId}>
+                    <SelectTrigger id="class-id" className="mt-1">
+                        <SelectValue placeholder={!selectedCourseId ? "Selecione o curso primeiro" : "Selecione uma turma..."} />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {filteredClasses.length === 0 ? (
+                            <SelectItem value="none" disabled>Nenhuma turma ativa</SelectItem>
+                        ) : (
+                            filteredClasses.map(cls => (
+                                <SelectItem key={cls.id} value={cls.id}>
+                                    <div className="flex flex-col">
+                                        <span className="font-bold">{cls.name}</span>
+                                        <span className="text-[10px] opacity-70">
+                                            {cls.dayOfWeek || 'Dia não definido'} às {cls.startTime}
+                                        </span>
+                                    </div>
+                                </SelectItem>
+                            ))
+                        )}
+                    </SelectContent>
+                </Select>
+                {selectedCourseId && filteredClasses.length === 0 && (
+                    <p className="text-[10px] text-destructive mt-1 font-bold">Aviso: Não existem turmas cadastradas para este curso.</p>
+                )}
             </div>
           </div>
         </div>
         <DialogFooter>
           <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-          <Button onClick={handleSave} disabled={isSaving}>
+          <Button onClick={handleSave} disabled={isSaving || !classId}>
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {mode === 'new' ? 'Cadastrar e Matricular' : 'Efetivar Matrícula'}
           </Button>
