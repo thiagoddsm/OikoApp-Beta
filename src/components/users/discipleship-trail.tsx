@@ -6,7 +6,20 @@ import { collection, query } from 'firebase/firestore';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Handshake, GraduationCap, Target, Loader2, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { 
+    Handshake, 
+    GraduationCap, 
+    Target, 
+    Loader2, 
+    CheckCircle2, 
+    ShieldAlert 
+} from 'lucide-react';
+import { 
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { journeyColumns, statusToPhaseMap, phaseConfig, iconMap } from './journey-status-config';
 
 type TimelineItemData = {
@@ -67,15 +80,31 @@ const TimelineCard = ({ item, isEven, onToggle, isExpanded, isCurrent, isFuture,
                         <div className={cn("flex items-center gap-3 mt-3", isEven ? "md:justify-end" : "md:justify-start")}>
                             {hasTechnicalReq && (
                                 <TooltipProvider>
-                                    <Badge variant="outline" className="text-[9px] py-0 h-5 border-emerald-200 bg-emerald-50 text-emerald-700">
-                                        <GraduationCap className="size-3 mr-1" /> Validação Técnica
-                                    </Badge>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Badge variant="outline" className="text-[9px] py-0 h-5 border-emerald-200 bg-emerald-50 text-emerald-700">
+                                                <GraduationCap className="size-3 mr-1" /> Validação Técnica
+                                            </Badge>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p className="text-xs">Requer conclusão do curso: {courseName}</p>
+                                        </TooltipContent>
+                                    </Tooltip>
                                 </TooltipProvider>
                             )}
                             {hasHumanReq && (
-                                <Badge variant="outline" className="text-[9px] py-0 h-5 border-amber-200 bg-amber-50 text-amber-700">
-                                    <Handshake className="size-3 mr-1" /> Validação Humana
-                                </Badge>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Badge variant="outline" className="text-[9px] py-0 h-5 border-amber-200 bg-amber-50 text-amber-700">
+                                                <Handshake className="size-3 mr-1" /> Validação Humana
+                                            </Badge>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p className="text-xs">Requer aprovação formal de líderes</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                             )}
                         </div>
                     </CardContent>
