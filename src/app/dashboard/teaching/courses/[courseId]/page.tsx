@@ -7,7 +7,8 @@ import { useDoc, useFirebase } from '@/firebase';
 import { 
   Loader2, ArrowLeft, BookOpen, Users, User, FileText, 
   ClipboardCheck, Folder, Inbox, GraduationCap, TrendingUp,
-  LayoutDashboard, PlusCircle, UserPlus, Waves, Lightbulb, School, HandHelping
+  LayoutDashboard, PlusCircle, UserPlus, Waves, Lightbulb, School, HandHelping,
+  CheckCircle2
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,7 @@ import { CourseClassesManager } from '@/components/teaching/course-classes-manag
 import { CourseTeachersManager } from '@/components/teaching/course-teachers-manager';
 import { EnrollmentRequestsList } from '@/components/teaching/enrollment-requests-list';
 import { StudentsManagement } from '@/components/teaching/students-management';
+import { CourseAttendanceMatrix } from '@/components/teaching/course-attendance-matrix';
 import { UnderConstruction } from '@/components/common/under-construction';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -140,18 +142,24 @@ function CourseDetailPageContent() {
                 </CardHeader>
                 <CardContent>
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                        <TabsList className="grid w-full grid-cols-7 mb-8">
-                            <TabsTrigger value="overview"><LayoutDashboard className="mr-2 size-4"/>Geral</TabsTrigger>
-                            <TabsTrigger value="requests">Solicitações {pendingRequests.length > 0 && <Badge className="ml-2 h-4 px-1">{pendingRequests.length}</Badge>}</TabsTrigger>
-                            <TabsTrigger value="students">Alunos</TabsTrigger>
-                            <TabsTrigger value="classes">Turmas</TabsTrigger>
-                            <TabsTrigger value="teachers">Professores</TabsTrigger>
-                            <TabsTrigger value="syllabus">Ementa</TabsTrigger>
-                            <TabsTrigger value="materials">Materiais</TabsTrigger>
-                        </TabsList>
+                        <div className="overflow-x-auto pb-2">
+                            <TabsList className="flex h-auto justify-start bg-muted/50 p-1 mb-8 min-w-max">
+                                <TabsTrigger value="overview"><LayoutDashboard className="mr-2 size-4"/>Geral</TabsTrigger>
+                                <TabsTrigger value="attendance"><CheckCircle2 className="mr-2 size-4"/>Frequência & Aprovação</TabsTrigger>
+                                <TabsTrigger value="requests">Solicitações {pendingRequests.length > 0 && <Badge className="ml-2 h-4 px-1">{pendingRequests.length}</Badge>}</TabsTrigger>
+                                <TabsTrigger value="students">Alunos</TabsTrigger>
+                                <TabsTrigger value="classes">Turmas</TabsTrigger>
+                                <TabsTrigger value="teachers">Professores</TabsTrigger>
+                                <TabsTrigger value="syllabus">Ementa</TabsTrigger>
+                            </TabsList>
+                        </div>
 
                         <TabsContent value="overview" className="mt-0 animate-in fade-in-50 duration-300">
                             <CourseDetailsForm course={course} />
+                        </TabsContent>
+
+                        <TabsContent value="attendance" className="mt-0 animate-in fade-in-50 duration-300">
+                            <CourseAttendanceMatrix courseId={course.id} />
                         </TabsContent>
 
                         <TabsContent value="requests" className="mt-0 animate-in slide-in-from-left-4 duration-300">
@@ -172,10 +180,6 @@ function CourseDetailPageContent() {
 
                         <TabsContent value="syllabus" className="mt-0 animate-in slide-in-from-left-4 duration-300">
                             <UnderConstruction pageTitle="Ementa do Curso" pageDescription="O conteúdo programático e cronograma de aulas estão sendo digitalizados."/>
-                        </TabsContent>
-
-                        <TabsContent value="materials" className="mt-0 animate-in slide-in-from-left-4 duration-300">
-                             <UnderConstruction pageTitle="Materiais de Apoio" pageDescription="Área para download de apostilas, slides e links úteis."/>
                         </TabsContent>
                     </Tabs>
                 </CardContent>

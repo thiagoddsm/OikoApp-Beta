@@ -17,6 +17,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
+import { Badge } from '@/components/ui/badge';
 
 function PedagogicalLogPageContent() {
     const params = useParams();
