@@ -3,10 +3,12 @@ import React, { useMemo } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Clock, Award, Loader2 } from 'lucide-react';
+import { CheckCircle2, Clock, Award, Loader2, Users, GraduationCap, ChevronRight } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
     const { classes, users, courses, updateVolunteer, isLoading } = useVolunteering();
@@ -14,12 +16,11 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
     const course = useMemo(() => courses.find(c => c.id === courseId), [courses, courseId]);
     const isMemberCourse = course?.name?.toLowerCase().includes('membro') || course?.name?.toLowerCase().includes('integração');
 
-    // Filter classes for this course and sort them (especially for members course)
+    // Filter classes for this course and sort them
     const courseClasses = useMemo(() => {
         return classes
             .filter(c => c.courseId === courseId)
             .sort((a, b) => {
-                // Member course classes use weekOfMonth '1', '2', '3', '4', 'last'
                 const order: Record<string, number> = { '1': 1, '2': 2, '3': 3, '4': 4, 'last': 5 };
                 if (a.weekOfMonth && b.weekOfMonth) {
                     return (order[a.weekOfMonth] || 0) - (order[b.weekOfMonth] || 0);
@@ -28,7 +29,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
             });
     }, [classes, courseId]);
 
-    // Unique list of students enrolled in any of these classes
+    // Unique list of students enrolled
     const students = useMemo(() => {
         const studentSet = new Set<string>();
         courseClasses.forEach(cls => cls.students?.forEach(sId => studentSet.add(sId)));
@@ -37,6 +38,22 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
             .filter(u => studentSet.has(u.id))
             .sort((a, b) => a.name.localeCompare(b.name));
     }, [users, courseClasses]);
+
+    const stats = useMemo(() => {
+        if (!isMemberCourse) return null;
+        
+        const counts = { ready: 0, finishing: 0, missing: 0 };
+        students.forEach(s => {
+            const progress = s.journey?.memberCourseProgress || {};
+            const completedCount = Object.values(progress).filter(Boolean).length;
+            const has1to4 = ['module1', 'module2', 'module3', 'module4'].every(m => progress[m]);
+            
+            if (completedCount === 5) counts.finishing++;
+            else if (has1to4) counts.ready++;
+            else counts.missing++;
+        });
+        return counts;
+    }, [students, isMemberCourse]);
 
     const handleStatusChange = (userId: string, newStatus: string) => {
         updateVolunteer(userId, { [`journey.courseStatus.${courseId}`]: newStatus });
@@ -48,19 +65,37 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center bg-muted/30 p-4 rounded-xl border border-dashed">
-                <div>
-                    <h3 className="text-lg font-bold flex items-center gap-2">
-                        <Award className="text-primary" />
-                        Matriz de Frequência & Aprovação
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                        {isMemberCourse 
-                            ? "Aprovação automática: Participar de todas as 5 aulas dominicais é obrigatório para membresia."
-                            : "Acompanhe a frequência e defina o status final do aluno no curso."}
-                    </p>
+            {isMemberCourse && stats && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <Card className="bg-amber-50 border-amber-200">
+                        <CardContent className="p-4 flex items-center gap-4">
+                            <div className="p-2 bg-amber-500 text-white rounded-lg"><GraduationCap size={20}/></div>
+                            <div>
+                                <p className="text-[10px] font-black uppercase text-amber-700">Aptos para Comissionamento</p>
+                                <p className="text-2xl font-black text-amber-900">{stats.ready}</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-emerald-50 border-emerald-200">
+                        <CardContent className="p-4 flex items-center gap-4">
+                            <div className="p-2 bg-emerald-500 text-white rounded-lg"><Award size={20}/></div>
+                            <div>
+                                <p className="text-[10px] font-black uppercase text-emerald-700">Curso Concluído</p>
+                                <p className="text-2xl font-black text-emerald-900">{stats.finishing}</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-slate-50 border-slate-200">
+                        <CardContent className="p-4 flex items-center gap-4">
+                            <div className="p-2 bg-slate-500 text-white rounded-lg"><Users size={20}/></div>
+                            <div>
+                                <p className="text-[10px] font-black uppercase text-slate-700">Em Jornada (Módulos 1-4)</p>
+                                <p className="text-2xl font-black text-slate-900">{stats.missing}</p>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
-            </div>
+            )}
 
             <div className="rounded-xl border bg-background overflow-x-auto shadow-sm">
                 <Table>
@@ -100,15 +135,17 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
 
                                 return (
                                     <TableRow key={student.id} className="hover:bg-muted/30">
-                                        <TableCell className="sticky left-0 bg-background z-10 font-medium">
+                                        <TableCell className="sticky left-0 bg-background z-10 font-medium border-r">
                                             <div className="flex items-center gap-3">
                                                 <Avatar className="h-8 w-8">
                                                     <AvatarImage src={PlaceHolderImages.find(p => p.id === 'avatar-1')?.imageUrl} />
                                                     <AvatarFallback>{student.name.charAt(0)}</AvatarFallback>
                                                 </Avatar>
                                                 <div className="min-w-0">
-                                                    <p className="truncate text-sm">{student.name}</p>
-                                                    <p className="text-[9px] text-muted-foreground uppercase">{attendanceCount}/{totalClasses} aulas</p>
+                                                    <p className="truncate text-sm font-bold">{student.name}</p>
+                                                    <p className={cn("text-[9px] uppercase font-black", is100Percent ? "text-emerald-600" : "text-muted-foreground")}>
+                                                        {attendanceCount}/{totalClasses} módulos concluídos
+                                                    </p>
                                                 </div>
                                             </div>
                                         </TableCell>
@@ -120,12 +157,12 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                                     {isPresent ? (
                                                         <div className="flex flex-col items-center gap-1 animate-in zoom-in-95">
                                                             <CheckCircle2 className="text-emerald-500 size-5" />
-                                                            <span className="text-[9px] font-bold text-emerald-700 uppercase">Presente</span>
+                                                            <span className="text-[9px] font-bold text-emerald-700 uppercase">OK</span>
                                                         </div>
                                                     ) : (
-                                                        <div className="flex flex-col items-center gap-1 opacity-30">
+                                                        <div className="flex flex-col items-center gap-1 opacity-20">
                                                             <Clock className="text-slate-400 size-5" />
-                                                            <span className="text-[9px] font-bold text-slate-500 uppercase">Pendente</span>
+                                                            <span className="text-[9px] font-bold text-slate-500 uppercase">-</span>
                                                         </div>
                                                     )}
                                                 </TableCell>
@@ -136,9 +173,14 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                             <div className="flex flex-col items-center">
                                                 {isMemberCourse ? (
                                                     is100Percent ? (
-                                                        <Badge className="bg-emerald-600 hover:bg-emerald-600 font-bold uppercase text-[10px]">Aprovado</Badge>
+                                                        <div className="flex flex-col items-center gap-1">
+                                                            <Badge className="bg-emerald-600 hover:bg-emerald-600 font-bold uppercase text-[10px]">Aprovado</Badge>
+                                                            {student.integrationStatus !== 'membro' && (
+                                                                <span className="text-[8px] font-black text-amber-600 uppercase">Pendente Oficiailização</span>
+                                                            )}
+                                                        </div>
                                                     ) : (
-                                                        <Badge variant="secondary" className="text-[10px] uppercase font-bold">Em Andamento</Badge>
+                                                        <Badge variant="secondary" className="text-[10px] uppercase font-bold">Em Jornada</Badge>
                                                     )
                                                 ) : (
                                                     <Select value={currentStatus} onValueChange={(v) => handleStatusChange(student.id, v)}>
