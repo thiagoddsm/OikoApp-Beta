@@ -18,11 +18,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
 
 function PedagogicalLogPageContent() {
     const params = useParams();
     const router = useRouter();
     const { firestore } = useFirebase();
+    const { toast } = useToast();
     const classId = params.classId as string;
     const { 
         classes, 
@@ -65,7 +67,11 @@ function PedagogicalLogPageContent() {
 
     const handleSaveLog = async () => {
         if (!contentTaught.trim()) {
-            alert('O conteúdo ensinado é obrigatório.');
+            toast({
+                variant: 'destructive',
+                title: 'Campo obrigatório',
+                description: 'Por favor, descreva o conteúdo ensinado na aula de hoje.',
+            });
             return;
         }
         setIsSaving(true);
@@ -74,7 +80,7 @@ function PedagogicalLogPageContent() {
             // 1. Save Pedagogical Log
             const logPromise = addPedagogicalLog({
                 classId,
-                date: Timestamp.now() as any,
+                date: Timestamp.now(),
                 content_taught: contentTaught,
                 student_performance: performance,
                 observations,
@@ -114,13 +120,23 @@ function PedagogicalLogPageContent() {
             
             await Promise.all([logPromise, attendancePromise, ...progressPromises]);
 
+            toast({
+                title: 'Sucesso!',
+                description: 'Registro de aula e presença salvos com sucesso.',
+            });
+
             setContentTaught('');
             setObservations('');
             setPerformance(3);
             setPresentStudents([]);
-            setIsSaving(false);
         } catch (error) {
-            console.error(error);
+            console.error("Erro ao salvar diário de classe:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Erro ao salvar',
+                description: 'Ocorreu um erro ao tentar salvar os dados. Verifique sua conexão.',
+            });
+        } finally {
             setIsSaving(false);
         }
     };
@@ -130,7 +146,7 @@ function PedagogicalLogPageContent() {
     }
 
     if (!classData) {
-        return <p>Turma não encontrada.</p>;
+        return <div className="p-8 text-center"><p>Turma não encontrada.</p></div>;
     }
 
     return (
