@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, ArrowLeft, BookOpen, Star, Users, CheckCircle2 } from 'lucide-react';
+import { Loader2, ArrowLeft, BookOpen, Star, Users, CheckCircle2, ClipboardCheck } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -48,6 +48,10 @@ function PedagogicalLogPageContent() {
     const classLogs = useMemo(() => pedagogicalLogs.filter(log => log.classId === classId).sort((a,b) => b.date.toMillis() - a.date.toMillis()), [pedagogicalLogs, classId]);
     
     const isMemberCourse = courseData?.name?.toLowerCase().includes('membro') || courseData?.name?.toLowerCase().includes('integração');
+    const isWaveOrDis = courseData?.ministryName.toLowerCase().includes('wave') || courseData?.ministryName.toLowerCase().includes('dis');
+    
+    // Se for Wave ou DIS, precisa do diário completo. Se for Membro ou Geral, apenas presença.
+    const showPedagogicalFields = isWaveOrDis;
 
     const studentList = useMemo(() => {
         if (!users || !classData?.students) return [];
@@ -66,7 +70,7 @@ function PedagogicalLogPageContent() {
     };
 
     const handleSaveLog = async () => {
-        if (!contentTaught.trim()) {
+        if (showPedagogicalFields && !contentTaught.trim()) {
             toast({
                 variant: 'destructive',
                 title: 'Campo obrigatório',
@@ -74,14 +78,15 @@ function PedagogicalLogPageContent() {
             });
             return;
         }
+        
         setIsSaving(true);
         
         try {
-            // 1. Save Pedagogical Log
+            // 1. Save Pedagogical Log (Mesmo que não mostre campos, criamos o registro para histórico)
             const logPromise = addPedagogicalLog({
                 classId,
                 date: Timestamp.now(),
-                content_taught: contentTaught,
+                content_taught: contentTaught || (isMemberCourse ? `Presença em ${classData?.name}` : "Aula realizada"),
                 student_performance: performance,
                 observations,
             });
@@ -111,7 +116,6 @@ function PedagogicalLogPageContent() {
                 const moduleKey = `module${classData.weekOfMonth === 'last' ? '5' : classData.weekOfMonth}`;
                 presentStudents.forEach(studentId => {
                     const userRef = doc(firestore, 'users', studentId);
-                    // Non-blocking update for student progress
                     progressPromises.push(updateDocumentNonBlocking(userRef, {
                         [`journey.memberCourseProgress.${moduleKey}`]: true
                     }));
@@ -122,7 +126,7 @@ function PedagogicalLogPageContent() {
 
             toast({
                 title: 'Sucesso!',
-                description: 'Registro de aula e presença salvos com sucesso.',
+                description: 'Registro de presença salvo com sucesso.',
             });
 
             setContentTaught('');
@@ -130,11 +134,11 @@ function PedagogicalLogPageContent() {
             setPerformance(3);
             setPresentStudents([]);
         } catch (error) {
-            console.error("Erro ao salvar diário de classe:", error);
+            console.error("Erro ao salvar:", error);
             toast({
                 variant: 'destructive',
                 title: 'Erro ao salvar',
-                description: 'Ocorreu um erro ao tentar salvar os dados. Verifique sua conexão.',
+                description: 'Não foi possível salvar os dados. Tente novamente.',
             });
         } finally {
             setIsSaving(false);
@@ -165,86 +169,106 @@ function PedagogicalLogPageContent() {
             
             <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><BookOpen />Diário de Classe: {classData.name}</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                        {showPedagogicalFields ? <BookOpen /> : <ClipboardCheck />}
+                        {showPedagogicalFields ? `Diário de Classe: ${classData.name}` : `Lista de Chamada: ${classData.name}`}
+                    </CardTitle>
                     <CardDescription>
                         Curso: {courseData?.name || '...'} | Professor(a): {teacherData?.name || '...'}
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    {/* Form for new log */}
+                    {/* Form for new log / attendance */}
                     <div className="md:col-span-2 space-y-6">
                         <Card>
                             <CardHeader>
-                                <CardTitle className="text-lg">Registrar Aula de Hoje</CardTitle>
+                                <CardTitle className="text-lg">
+                                    {showPedagogicalFields ? 'Registrar Aula de Hoje' : 'Lançar Presença de Hoje'}
+                                </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <div>
-                                    <Label htmlFor="content">Conteúdo Ensinado</Label>
-                                    <Input id="content" value={contentTaught} onChange={e => setContentTaught(e.target.value)} placeholder="Ex: Escalas maiores, inversão de acordes..." />
-                                </div>
-                                <div>
-                                    <Label htmlFor="observations">Observações Pedagógicas</Label>
-                                    <Textarea id="observations" value={observations} onChange={e => setObservations(e.target.value)} placeholder="Ex: Aluno X teve dificuldade com o ritmo. Reforçar na próxima aula."/>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Desempenho Geral da Turma</Label>
-                                    <div className="flex items-center gap-1">
-                                        {[1, 2, 3, 4, 5].map(star => (
-                                            <Star
-                                                key={star}
-                                                className={`cursor-pointer transition-colors ${performance >= star ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 hover:text-gray-400'}`}
-                                                onClick={() => setPerformance(star)}
-                                            />
-                                        ))}
-                                    </div>
-                                </div>
-                                
-                                <div className="pt-4 border-t">
-                                    <Label className="flex items-center gap-2 mb-2"><Users className="size-4" />Chamada / Presença</Label>
-                                    <p className="text-sm text-muted-foreground mb-2">Marque os alunos presentes. A conclusão do módulo será registrada automaticamente no perfil do aluno.</p>
-                                    <ScrollArea className="h-40 w-full rounded-md border p-4">
-                                         <div className="space-y-2">
-                                            {studentList.map(student => (
-                                                <div key={student.id} className="flex items-center space-x-2">
-                                                    <Checkbox
-                                                        id={`student-${student.id}`}
-                                                        checked={presentStudents.includes(student.id)}
-                                                        onCheckedChange={checked => handleStudentCheck(student.id, !!checked)}
+                                {showPedagogicalFields && (
+                                    <>
+                                        <div>
+                                            <Label htmlFor="content">Conteúdo Ensinado</Label>
+                                            <Input id="content" value={contentTaught} onChange={e => setContentTaught(e.target.value)} placeholder="Ex: Escalas maiores, inversão de acordes..." />
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="observations">Observações Pedagógicas</Label>
+                                            <Textarea id="observations" value={observations} onChange={e => setObservations(e.target.value)} placeholder="Ex: Aluno X teve dificuldade com o ritmo. Reforçar na próxima aula."/>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Desempenho Geral da Turma</Label>
+                                            <div className="flex items-center gap-1">
+                                                {[1, 2, 3, 4, 5].map(star => (
+                                                    <Star
+                                                        key={star}
+                                                        className={`cursor-pointer transition-colors ${performance >= star ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 hover:text-gray-400'}`}
+                                                        onClick={() => setPerformance(star)}
                                                     />
-                                                    <Label htmlFor={`student-${student.id}`} className="font-normal cursor-pointer">
-                                                        {student.name}
-                                                    </Label>
-                                                </div>
-                                            ))}
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                                
+                                <div className={cn("pt-4", showPedagogicalFields && "border-t")}>
+                                    <Label className="flex items-center gap-2 mb-2"><Users className="size-4" />Chamada / Presença</Label>
+                                    <p className="text-sm text-muted-foreground mb-2">Marque os alunos presentes na data de hoje ({format(new Date(), 'dd/MM/yyyy')}).</p>
+                                    <ScrollArea className="h-60 w-full rounded-md border p-4">
+                                         <div className="space-y-2">
+                                            {studentList.length === 0 ? (
+                                                <p className="text-sm text-muted-foreground italic">Nenhum aluno matriculado nesta turma.</p>
+                                            ) : (
+                                                studentList.map(student => (
+                                                    <div key={student.id} className="flex items-center space-x-2 p-2 hover:bg-muted/50 rounded-lg transition-colors">
+                                                        <Checkbox
+                                                            id={`student-${student.id}`}
+                                                            checked={presentStudents.includes(student.id)}
+                                                            onCheckedChange={checked => handleStudentCheck(student.id, !!checked)}
+                                                        />
+                                                        <Label htmlFor={`student-${student.id}`} className="flex-1 font-medium cursor-pointer">
+                                                            {student.name}
+                                                        </Label>
+                                                    </div>
+                                                ))
+                                            )}
                                         </div>
                                     </ScrollArea>
                                 </div>
 
-                                <Button onClick={handleSaveLog} disabled={isSaving} className="mt-4">
+                                <Button onClick={handleSaveLog} disabled={isSaving} className="mt-4 w-full md:w-auto">
                                     {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Salvar Registro e Presença
+                                    {showPedagogicalFields ? 'Salvar Registro e Chamada' : 'Salvar Lista de Presença'}
                                 </Button>
                             </CardContent>
                         </Card>
                     </div>
                     
-                    {/* List of past logs */}
+                    {/* List of past logs / history */}
                     <div>
-                        <h3 className="text-lg font-semibold mb-4">Histórico de Aulas</h3>
+                        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <History className="size-4" />
+                            Histórico
+                        </h3>
                         <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
                             {classLogs.length === 0 ? (
-                                <p className="text-muted-foreground text-sm p-4 text-center">Nenhum registro encontrado para esta turma.</p>
+                                <p className="text-muted-foreground text-sm p-4 text-center">Nenhum registro anterior.</p>
                             ) : (
                                 classLogs.map(log => (
                                     <div key={log.id} className="p-4 border rounded-lg bg-muted/50">
-                                        <p className="font-bold text-sm">{format(log.date.toDate(), 'dd/MM/yyyy', { locale: ptBR })}</p>
-                                        <p className="text-sm mt-2">{log.content_taught}</p>
-                                        {log.observations && <p className="text-xs italic text-muted-foreground mt-1">"{log.observations}"</p>}
-                                        <div className="flex items-center gap-1 mt-2">
-                                            {[...Array(5)].map((_, i) => (
-                                                <Star key={i} className={`h-3 w-3 ${i < log.student_performance ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
-                                            ))}
-                                        </div>
+                                        <p className="font-bold text-xs text-primary">{format(log.date.toDate(), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                                        <p className="text-sm mt-2 font-medium">{log.content_taught}</p>
+                                        {showPedagogicalFields && (
+                                            <>
+                                                {log.observations && <p className="text-xs italic text-muted-foreground mt-1">"{log.observations}"</p>}
+                                                <div className="flex items-center gap-1 mt-2">
+                                                    {[...Array(5)].map((_, i) => (
+                                                        <Star key={i} className={`h-3 w-3 ${i < log.student_performance ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
+                                                    ))}
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
                                 ))
                             )}

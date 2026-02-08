@@ -5,7 +5,7 @@ import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
-import { Loader2, PlusCircle, Edit, Trash2, ChevronRight, Wand2 } from 'lucide-react';
+import { Loader2, PlusCircle, Edit, Trash2, ChevronRight, Wand2, ClipboardCheck, BookOpen } from 'lucide-react';
 import { ClassFormDialog } from './class-form-dialog';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { format } from 'date-fns';
@@ -36,6 +36,7 @@ export function CourseClassesManager({ course }) {
     const roomMap = useMemo(() => new Map(rooms?.map(r => [r.id, r.name]) || []), [rooms]);
 
     const isMemberCourse = course.name?.toLowerCase().includes('membro') || course.name?.toLowerCase().includes('integração');
+    const isWaveOrDis = course.ministryName?.toLowerCase().includes('wave') || course.ministryName?.toLowerCase().includes('dis');
 
     const handleAddClass = () => {
         setEditingClass(null);
@@ -159,7 +160,13 @@ export function CourseClassesManager({ course }) {
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteClass(cls)}>
                                                 <Trash2 className="size-4" />
                                             </Button>
-                                            <Button asChild variant="ghost" size="icon" className="h-8 w-8">
+                                            <Button asChild variant="outline" size="sm" className="h-8 ml-2">
+                                                <Link href={`/dashboard/teaching/log/${cls.id}`} className="flex items-center">
+                                                    {isWaveOrDis ? <BookOpen className="size-3 mr-1" /> : <ClipboardCheck className="size-3 mr-1" />}
+                                                    {isWaveOrDis ? 'Diário' : 'Chamada'}
+                                                </Link>
+                                            </Button>
+                                            <Button asChild variant="ghost" size="icon" className="h-8 w-8 ml-1">
                                                 <Link href={`/dashboard/teaching/classes/${cls.id}`}>
                                                     <ChevronRight className="size-4" />
                                                 </Link>

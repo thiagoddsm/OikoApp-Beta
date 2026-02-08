@@ -4,7 +4,7 @@ import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, Users, Loader2, ChevronRight, GraduationCap } from 'lucide-react';
+import { BookOpen, Users, Loader2, ChevronRight, GraduationCap, ClipboardCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useFirebase } from '@/firebase';
@@ -91,6 +91,8 @@ export function TeacherDashboard() {
                             ) : (
                                 teacherClasses.map(cls => {
                                     const course = courseMap.get(cls.courseId);
+                                    const isWaveOrDis = course?.ministryName.toLowerCase().includes('wave') || course?.ministryName.toLowerCase().includes('dis');
+                                    
                                     return (
                                         <TableRow key={cls.id} className="group">
                                             <TableCell className="font-bold">{cls.name}</TableCell>
@@ -113,7 +115,8 @@ export function TeacherDashboard() {
                                             <TableCell className="text-right">
                                                 <Button variant="ghost" size="sm" asChild>
                                                     <Link href={`/dashboard/teaching/log/${cls.id}`}>
-                                                        Diário de Classe
+                                                        {isWaveOrDis ? <BookOpen className="size-4 mr-2"/> : <ClipboardCheck className="size-4 mr-2"/>}
+                                                        {isWaveOrDis ? 'Diário de Classe' : 'Lançar Presença'}
                                                         <ChevronRight className="ml-1 size-4" />
                                                     </Link>
                                                 </Button>
