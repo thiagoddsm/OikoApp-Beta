@@ -3,7 +3,7 @@
 
 import React, { createContext, useContext, useState, useMemo } from 'react';
 import { useFirebase, useCollection, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
-import { collection, doc, writeBatch, Timestamp, query, orderBy, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { collection, doc, writeBatch, Timestamp, query, orderBy, getDoc, updateDoc, arrayUnion, getDocs, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 
 // --- TYPES ---
@@ -36,6 +36,11 @@ export type User = {
   financialStatus?: 'active' | 'blocked' | 'delinquent';
   absenceCount?: number;
   integrationStatus?: string;
+  journey?: {
+      memberCourseProgress?: Record<string, boolean>;
+      courseStatus?: Record<string, string>;
+      stageProgress?: Record<string, any>;
+  }
 }
 
 export type VolunteeringEvent = {
@@ -264,8 +269,8 @@ interface VolunteeringContextType {
   deletePedagogicalLog: (id: string) => Promise<void>;
   updateEnrollmentRequest: (id: string, data: Partial<EnrollmentRequestData>) => Promise<void>;
   deleteEnrollmentRequest: (id: string) => Promise<void>;
-  approveEnrollmentRequest: (requestId: string, classId: string) => Promise<void>;
-  enrollStudent: (studentId: string, classId: string) => Promise<void>;
+  approveEnrollmentRequest: (requestId: string, classId?: string) => Promise<void>;
+  enrollStudent: (studentId: string, courseId: string, specificClassId?: string) => Promise<void>;
   addFinancialTransaction: (data: FinancialTransactionData) => Promise<void>;
   updateFinancialTransaction: (id: string, data: Partial<FinancialTransactionData>) => Promise<void>;
   deleteFinancialTransaction: (id: string) => Promise<void>;
@@ -375,7 +380,6 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
         let endDateTime: Timestamp;
 
         if (data.frequency === 'semanal' && data.dayOfWeek) {
-            // Para eventos semanais, definimos o início como a data atual ajustada para o dia da semana
             const now = new Date();
             const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             startDateTime = Timestamp.fromDate(new Date(`${startOfToday.toISOString().split('T')[0]}T${data.time}`));
@@ -384,7 +388,6 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
             startDateTime = Timestamp.fromDate(new Date(`${data.date}T${data.time}`));
             endDateTime = Timestamp.fromDate(new Date(startDateTime.toDate().getTime() + 2 * 60 * 60 * 1000));
         } else {
-            // Se não houver data nem for semanal, não podemos criar reserva
             await batch.commit();
             toast({ title: 'Sucesso', description: `Evento "${data.name}" criado (sem reserva).` });
             return;
@@ -452,14 +455,12 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     toast({ title: 'Sucesso', description: 'Escala salva e das de serviço atualizadas.' });
   };
 
-  // --- SYNC CLASS WITH ROOM RESERVATION ---
   const syncClassWithReservation = (batch: any, classId: string, classFullData: any) => {
     if (!firestore || !user) return;
     
     const reservationId = `class_res_${classId}`;
     const reservationRef = doc(firestore, 'room_reservations', reservationId);
 
-    // If location is outside or not set, remove reservation if it exists
     if (!classFullData.locationId || classFullData.locationId === 'the_school' || classFullData.locationId === '') {
         batch.delete(reservationRef);
         return;
@@ -468,18 +469,14 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     const roomName = rooms?.find(r => r.id === classFullData.locationId)?.name || 'Ambiente IBM';
     const courseName = courses?.find(c => c.id === classFullData.courseId)?.name || 'Curso';
 
-    // Cria as datas de forma robusta
     try {
         if (!classFullData.startDate || !classFullData.startTime) {
             console.warn("Sincronização de reserva ignorada: faltam dados de data/hora na turma.");
             return;
         }
 
-        // Para turmas recorrentes, o start/end DateTime deve representar apenas a primeira sessão (mesmo dia)
         const startDateTime = Timestamp.fromDate(new Date(`${classFullData.startDate}T${classFullData.startTime}`));
         const endDateTime = Timestamp.fromDate(new Date(`${classFullData.startDate}T${classFullData.endTime || classFullData.startTime}`));
-        
-        // A data de término da recorrência (fim do curso)
         const recurrenceEndDate = classFullData.endDate ? Timestamp.fromDate(new Date(`${classFullData.endDate}T23:59:59`)) : null;
 
         const reservationData = {
@@ -575,25 +572,30 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
       toast({ title: 'Sucesso', description: 'Pagamento Wave atualizado.' });
   };
 
-  const enrollStudent = async (studentId: string, classId: string) => {
+  const enrollStudent = async (studentId: string, courseId: string, specificClassId?: string) => {
     if (!firestore) return;
     
-    const classRef = doc(firestore, 'classes', classId);
-    const classSnap = await getDoc(classRef);
-    if (!classSnap.exists()) throw new Error("Turma não encontrada");
-    
-    const classData = classSnap.data() as Class;
-    const course = courses.find(c => c.id === classData.courseId);
+    const course = courses.find(c => c.id === courseId);
+    if (!course) throw new Error("Curso não encontrado");
+
+    const isMemberCourse = course.name.toLowerCase().includes('membro') || course.name.toLowerCase().includes('integração');
     
     const batch = writeBatch(firestore);
-    
-    // 1. Adicionar aluno à turma
-    batch.update(classRef, { students: arrayUnion(studentId) });
-    
-    // 2. Gerar fatura se for curso pago (Wave ou DIS)
     const currentMonth = new Date().toISOString().slice(0, 7);
-    
-    if (course?.ministryName.toLowerCase().includes('wave')) {
+
+    // 1. Matrícula em todas as disciplinas (classes) se for Curso de Membro
+    if (isMemberCourse) {
+        const classesSnap = await getDocs(query(collection(firestore, 'classes'), where('courseId', '==', courseId)));
+        classesSnap.forEach(clsDoc => {
+            batch.update(clsDoc.ref, { students: arrayUnion(studentId) });
+        });
+    } else if (specificClassId) {
+        // Matrícula em turma única para outros cursos
+        batch.update(doc(firestore, 'classes', specificClassId), { students: arrayUnion(studentId) });
+    }
+
+    // 2. Gerar fatura se for curso pago (Wave ou DIS)
+    if (course.ministryName.toLowerCase().includes('wave')) {
         const defaultPlan = (wavePlans && wavePlans.length > 0) ? wavePlans[0] : null;
         if (defaultPlan) {
             const paymentRef = doc(collection(firestore, 'wave_payments'));
@@ -608,7 +610,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
                 createdAt: Timestamp.now()
             });
         }
-    } else if (course?.ministryName.toLowerCase() === 'dis') {
+    } else if (course.ministryName.toLowerCase() === 'dis') {
         const defaultPlan = (disPlans && disPlans.length > 0) ? disPlans[0] : null;
         if (defaultPlan) {
             const paymentRef = doc(collection(firestore, 'dis_payments'));
@@ -626,21 +628,22 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     await batch.commit();
   };
 
-  const approveEnrollmentRequest = async (requestId: string, classId: string) => {
+  const approveEnrollmentRequest = async (requestId: string, classId?: string) => {
     if (!firestore) return;
     const request = enrollmentRequests.find(r => r.id === requestId);
     if (!request) return;
 
-    const userId = (request as any).userId;
+    const userId = request.userId;
+    const courseId = request.courseId;
 
-    // Utiliza a nova lógica centralizada de matrícula que gera fatura
-    await enrollStudent(userId, classId);
+    // Utiliza a lógica centralizada de ciclo
+    await enrollStudent(userId, courseId, classId);
 
     // Atualiza status da solicitação
     const requestRef = doc(firestore, 'enrollment_requests', requestId);
-    await updateDoc(requestRef, { status: 'approved', classId });
+    await updateDoc(requestRef, { status: 'approved', classId: classId || '' });
 
-    toast({ title: 'Matrícula Efetivada', description: 'O aluno foi vinculado à turma e a fatura inicial foi gerada.' });
+    toast({ title: 'Matrícula Efetivada', description: 'O aluno foi matriculado no ciclo de disciplinas.' });
   };
 
   const value = useMemo(() => ({

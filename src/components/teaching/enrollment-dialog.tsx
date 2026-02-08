@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Loader2, UserPlus, Search, BookOpen, School } from 'lucide-react';
+import { Loader2, UserPlus, Search, BookOpen, Layers } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering } from '@/contexts/volunteering-context';
 
@@ -45,11 +45,14 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId }: Enrol
     }
   }, [open, initialStudentId]);
 
+  const selectedCourse = useMemo(() => courses.find(c => c.id === selectedCourseId), [courses, selectedCourseId]);
+  const isMemberCourse = selectedCourse?.name?.toLowerCase().includes('membro') || selectedCourse?.name?.toLowerCase().includes('integração');
+
   // Filtra as turmas com base no curso selecionado
   const filteredClasses = useMemo(() => {
-    if (!selectedCourseId) return [];
+    if (!selectedCourseId || isMemberCourse) return [];
     return classes.filter(cls => cls.courseId === selectedCourseId);
-  }, [classes, selectedCourseId]);
+  }, [classes, selectedCourseId, isMemberCourse]);
 
   const handleSave = async () => {
     if (mode === 'existing' && !studentId) {
@@ -64,7 +67,7 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId }: Enrol
         toast({ variant: 'destructive', title: 'Campo obrigatório', description: 'Selecione um curso.' });
         return;
     }
-    if (!classId) {
+    if (!isMemberCourse && !classId) {
       toast({ variant: 'destructive', title: 'Campo obrigatório', description: 'Selecione uma turma.' });
       return;
     }
@@ -82,13 +85,11 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId }: Enrol
             });
         }
 
-        const selectedClass = classes.find(c => c.id === classId);
-        if (!selectedClass) throw new Error("Turma não encontrada");
-
-        // Utiliza a função unificada de matrícula que gera faturas automaticamente
-        await enrollStudent(finalStudentId, classId);
+        // Utiliza a função unificada de matrícula: 
+        // Se for curso de membro, matricula em todas as disciplinas automaticamente.
+        await enrollStudent(finalStudentId, selectedCourseId, isMemberCourse ? undefined : classId);
         
-        toast({ title: 'Sucesso!', description: 'Matrícula realizada e financeiro iniciado.' });
+        toast({ title: 'Sucesso!', description: 'Matrícula realizada com sucesso em todas as disciplinas do ciclo.' });
         onOpenChange(false);
     } catch (error) {
         console.error(error);
@@ -104,7 +105,7 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId }: Enrol
         <DialogHeader>
           <DialogTitle>Realizar Matrícula</DialogTitle>
           <DialogDescription>
-            Siga os passos: Identifique o aluno, escolha o curso e defina a turma.
+            Escolha o aluno e o curso. {isMemberCourse && "A matrícula será feita em todas as disciplinas do curso automaticamente."}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-6 py-4">
@@ -173,39 +174,51 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId }: Enrol
                 </Select>
             </div>
 
-            {/* Passo 3: Turma */}
+            {/* Passo 3: Disciplinas / Turmas */}
             <div>
-                <Label htmlFor="class-id" className="text-[10px] uppercase font-black text-muted-foreground">3. Turma de Destino</Label>
-                <Select value={classId} onValueChange={setClassId} disabled={isLoading || !selectedCourseId}>
-                    <SelectTrigger id="class-id" className="mt-1">
-                        <SelectValue placeholder={!selectedCourseId ? "Selecione o curso primeiro" : "Selecione uma turma..."} />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {filteredClasses.length === 0 ? (
-                            <SelectItem value="none" disabled>Nenhuma turma ativa</SelectItem>
-                        ) : (
-                            filteredClasses.map(cls => (
-                                <SelectItem key={cls.id} value={cls.id}>
-                                    <div className="flex flex-col">
-                                        <span className="font-bold">{cls.name}</span>
-                                        <span className="text-[10px] opacity-70">
-                                            {cls.dayOfWeek || 'Dia não definido'} às {cls.startTime}
-                                        </span>
-                                    </div>
-                                </SelectItem>
-                            ))
+                <Label htmlFor="class-id" className="text-[10px] uppercase font-black text-muted-foreground">3. Disciplinas de Destino</Label>
+                {isMemberCourse ? (
+                    <div className="mt-2 p-4 bg-primary/5 border border-primary/20 rounded-lg flex items-start gap-3 animate-in fade-in zoom-in-95">
+                        <Layers className="size-5 text-primary shrink-0 mt-0.5" />
+                        <div>
+                            <p className="text-xs font-bold text-primary uppercase">Ciclo de Membresia Ativo</p>
+                            <p className="text-[11px] text-muted-foreground mt-1">Este curso contempla 5 módulos dominicais sucessivos. O aluno será inscrito em todas as disciplinas automaticamente.</p>
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                        <Select value={classId} onValueChange={setClassId} disabled={isLoading || !selectedCourseId}>
+                            <SelectTrigger id="class-id" className="mt-1">
+                                <SelectValue placeholder={!selectedCourseId ? "Selecione o curso primeiro" : "Selecione uma turma..."} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {filteredClasses.length === 0 ? (
+                                    <SelectItem value="none" disabled>Nenhuma turma ativa</SelectItem>
+                                ) : (
+                                    filteredClasses.map(cls => (
+                                        <SelectItem key={cls.id} value={cls.id}>
+                                            <div className="flex flex-col">
+                                                <span className="font-bold">{cls.name}</span>
+                                                <span className="text-[10px] opacity-70">
+                                                    {cls.dayOfWeek || 'Dia não definido'} às {cls.startTime}
+                                                </span>
+                                            </div>
+                                        </SelectItem>
+                                    ))
+                                )}
+                            </SelectContent>
+                        </Select>
+                        {selectedCourseId && !isMemberCourse && filteredClasses.length === 0 && (
+                            <p className="text-[10px] text-destructive mt-1 font-bold">Aviso: Não existem turmas cadastradas para este curso.</p>
                         )}
-                    </SelectContent>
-                </Select>
-                {selectedCourseId && filteredClasses.length === 0 && (
-                    <p className="text-[10px] text-destructive mt-1 font-bold">Aviso: Não existem turmas cadastradas para este curso.</p>
+                    </>
                 )}
             </div>
           </div>
         </div>
         <DialogFooter>
           <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-          <Button onClick={handleSave} disabled={isSaving || !classId}>
+          <Button onClick={handleSave} disabled={isSaving || (!isMemberCourse && !classId)}>
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {mode === 'new' ? 'Cadastrar e Matricular' : 'Efetivar Matrícula'}
           </Button>
