@@ -1,13 +1,11 @@
-
 'use client';
 import React, { useMemo } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, XCircle, Clock, User, AlertCircle, Award } from 'lucide-react';
+import { CheckCircle2, Clock, Award, Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
@@ -33,7 +31,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
     // Unique list of students enrolled in any of these classes
     const students = useMemo(() => {
         const studentSet = new Set<string>();
-        courseClasses.forEach(cls => cls.students?.forEach(sId => studentSet.add(studentId)));
+        courseClasses.forEach(cls => cls.students?.forEach(sId => studentSet.add(sId)));
         
         return users
             .filter(u => studentSet.has(u.id))
