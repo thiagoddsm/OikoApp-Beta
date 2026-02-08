@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
@@ -14,8 +13,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Badge } from '@/components/ui/badge';
 import { UserCheck, PlusCircle, Loader2 } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 
-export function CourseTeachersManager({ course }) {
+export function CourseTeachersManager({ course }: { course: any }) {
   const { users, isLoading } = useVolunteering();
   const { firestore } = useFirebase();
   const { toast } = useToast();
