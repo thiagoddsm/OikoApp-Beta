@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, ArrowLeft, BookOpen, Star, Users, CheckCircle2, ClipboardCheck, History } from 'lucide-react';
+import { Loader2, ArrowLeft, BookOpen, Star, Users, CheckCircle2, ClipboardCheck, History, Lock, AlertCircle } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -19,6 +19,7 @@ import { doc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 function PedagogicalLogPageContent() {
     const params = useParams();
@@ -50,6 +51,8 @@ function PedagogicalLogPageContent() {
     const isMemberCourse = courseData?.name?.toLowerCase().includes('membro') || courseData?.name?.toLowerCase().includes('integração');
     const isWaveOrDis = courseData?.ministryName.toLowerCase().includes('wave') || courseData?.ministryName.toLowerCase().includes('dis');
     
+    const isModule5 = isMemberCourse && classData?.weekOfMonth === 'last';
+
     // Se for Wave ou DIS, precisa do diário completo. Se for Membro ou Geral, apenas presença.
     const showPedagogicalFields = isWaveOrDis;
 
@@ -82,7 +85,7 @@ function PedagogicalLogPageContent() {
         setIsSaving(true);
         
         try {
-            // 1. Save Pedagogical Log (Mesmo que não mostre campos, criamos o registro para histórico)
+            // 1. Save Pedagogical Log
             const logPromise = addPedagogicalLog({
                 classId,
                 date: Timestamp.now(),
@@ -214,27 +217,57 @@ function PedagogicalLogPageContent() {
                                 
                                 <div className={cn("pt-4", showPedagogicalFields && "border-t")}>
                                     <Label className="flex items-center gap-2 mb-2"><Users className="size-4" />Chamada / Presença</Label>
-                                    <p className="text-sm text-muted-foreground mb-2">Marque os alunos presentes na data de hoje ({format(new Date(), 'dd/MM/yyyy')}).</p>
-                                    <ScrollArea className="h-60 w-full rounded-md border p-4">
+                                    <p className="text-sm text-muted-foreground mb-4">Marque os alunos presentes na data de hoje ({format(new Date(), 'dd/MM/yyyy')}).</p>
+                                    
+                                    <TooltipProvider>
+                                    <ScrollArea className="h-80 w-full rounded-md border p-4">
                                          <div className="space-y-2">
                                             {studentList.length === 0 ? (
                                                 <p className="text-sm text-muted-foreground italic">Nenhum aluno matriculado nesta turma.</p>
                                             ) : (
-                                                studentList.map(student => (
-                                                    <div key={student.id} className="flex items-center space-x-2 p-2 hover:bg-muted/50 rounded-lg transition-colors">
-                                                        <Checkbox
-                                                            id={`student-${student.id}`}
-                                                            checked={presentStudents.includes(student.id)}
-                                                            onCheckedChange={checked => handleStudentCheck(student.id, !!checked)}
-                                                        />
-                                                        <Label htmlFor={`student-${student.id}`} className="flex-1 font-medium cursor-pointer">
-                                                            {student.name}
-                                                        </Label>
-                                                    </div>
-                                                ))
+                                                studentList.map(student => {
+                                                    const progress = student.journey?.memberCourseProgress || {};
+                                                    const hasFinishedFirstFour = ['module1', 'module2', 'module3', 'module4'].every(m => progress[m]);
+                                                    const isLocked = isModule5 && !hasFinishedFirstFour;
+
+                                                    return (
+                                                        <div key={student.id} className={cn(
+                                                            "flex items-center space-x-3 p-3 rounded-lg transition-colors border",
+                                                            isLocked ? "bg-slate-50 opacity-60 border-slate-100" : "hover:bg-muted/50 border-transparent"
+                                                        )}>
+                                                            <Checkbox
+                                                                id={`student-${student.id}`}
+                                                                checked={presentStudents.includes(student.id)}
+                                                                onCheckedChange={checked => handleStudentCheck(student.id, !!checked)}
+                                                                disabled={isLocked}
+                                                            />
+                                                            <div className="flex-1 flex items-center justify-between">
+                                                                <Label 
+                                                                    htmlFor={`student-${student.id}`} 
+                                                                    className={cn("font-medium", isLocked ? "cursor-not-allowed" : "cursor-pointer")}
+                                                                >
+                                                                    {student.name}
+                                                                </Label>
+                                                                {isLocked && (
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <div className="flex items-center gap-1.5 text-destructive font-black text-[10px] uppercase bg-destructive/10 px-2 py-1 rounded">
+                                                                                <Lock size={12} /> BLOQUEADO
+                                                                            </div>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent className="max-w-[200px]">
+                                                                            <p className="text-xs">Este aluno ainda não concluiu os 4 módulos anteriores obrigatórios para participar do Comissionamento.</p>
+                                                                        </TooltipContent>
+                                                                    </Tooltip>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                })
                                             )}
                                         </div>
                                     </ScrollArea>
+                                    </TooltipProvider>
                                 </div>
 
                                 <Button onClick={handleSaveLog} disabled={isSaving} className="mt-4 w-full md:w-auto">
