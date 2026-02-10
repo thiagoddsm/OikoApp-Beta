@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -226,7 +225,7 @@ export default function DashboardLayout({
 
   useEffect(() => {
     if (!isLoading && !user) {
-      router.push('/');
+      router.push('/login');
     }
   }, [isLoading, user, router]);
 
@@ -252,8 +251,6 @@ export default function DashboardLayout({
   };
 
   const getPageTitle = (path: string) => {
-      // This is a simple implementation. For a more robust solution,
-      // you might want to traverse the menuItems array recursively.
       if (path === '/dashboard') return 'Dashboard';
       if (path.startsWith('/dashboard/people/journey')) return 'Jornada do Membro';
       if (path.startsWith('/dashboard/people/list')) return 'Lista de Pessoas';
@@ -298,7 +295,7 @@ export default function DashboardLayout({
 
 
   if (user && !hasAccess) {
-    return <PendingAccess userName={user.displayName} onLogout={handleLogout} />;
+    return <div className="p-4"><PendingAccess userName={user.displayName} onLogout={handleLogout} /></div>;
   }
 
   if (user && hasAccess) {
@@ -360,7 +357,7 @@ export default function DashboardLayout({
                       {getPageTitle(pathname)}
                   </h1>
               </div>
-              <Button size="sm">Hoje</Button>
+              <Button size="sm" asChild variant="ghost"><Link href="/">Voltar ao Site</Link></Button>
           </header>
           <main className="flex-1 p-4 md:p-6">{children}</main>
         </SidebarInset>
