@@ -227,7 +227,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                                         })
                                     ) : (
                                         <div className="p-8 border-2 border-dashed rounded-xl text-center text-muted-foreground text-sm">
-                                            Nenhum checklist configurado para esta fase. Configure em Pessoas > Configurações.
+                                            Nenhum checklist configurado para esta fase. Configure em Pessoas &gt; Configurações.
                                         </div>
                                     )}
                                 </div>
