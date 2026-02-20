@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase, deleteDocumentNonBlocking } from '@/firebase';
@@ -29,7 +30,8 @@ type Course = {
   name: string; 
   description: string; 
   ministryName: string; 
-  type: 'trilho' | 'eletivo' 
+  type: 'trilho' | 'eletivo';
+  ebdTrack?: 'teologico' | 'biblico' | 'discipulado';
 };
 
 export function CoursesManagement() {
@@ -83,7 +85,7 @@ export function CoursesManagement() {
     navigator.clipboard.writeText(link);
     toast({
         title: "Link Copiado!",
-        description: "Link direto para inscription deste curso copiado com sucesso.",
+        description: "Link direto para inscrição deste curso copiado com sucesso.",
     });
   };
 
@@ -100,8 +102,61 @@ export function CoursesManagement() {
     const n = course.ministryName?.toLowerCase() || '';
     if (n.includes('wave')) return "/dashboard/teaching/wave";
     if (n === 'dis') return "/dashboard/teaching/dis";
-    // Lumine and others currently use the generic detail view
     return `/dashboard/teaching/courses/${course.id}`;
+  };
+
+  const renderCourseCard = (course: Course, ministry: string) => {
+    const Icon = getMinistryIcon(ministry);
+    const href = getCourseHref(course);
+
+    return (
+        <div key={course.id} className="border rounded-xl relative group hover:bg-muted/50 transition-all hover:border-primary/30 shadow-sm bg-card">
+            <Link href={href} className="block w-full h-full">
+                <div className="flex items-center justify-between p-4 cursor-pointer">
+                    <div className="flex items-center gap-4 flex-1 text-left">
+                        <div className="p-2 bg-primary/5 rounded-lg text-primary group-hover:bg-primary/10 transition-colors">
+                            <Icon className="size-5" />
+                        </div>
+                        <div>
+                            <p className="font-bold text-slate-900 leading-tight">{course.name}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{course.description || 'Sem descrição definida.'}</p>
+                        </div>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground opacity-50 group-hover:translate-x-1 transition-transform" />
+                </div>
+            </Link>
+            
+            <div className="absolute right-12 top-1/2 -translate-y-1/2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity pr-2">
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" 
+                    onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleCopyEnrollmentLink(course.id);}} 
+                    title="Copiar link de inscrição"
+                >
+                    <LinkIcon className="size-4"/>
+                </Button>
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-slate-600 hover:text-slate-900 hover:bg-slate-100" 
+                    onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleEditCourse(course);}}
+                    title="Editar curso"
+                >
+                    <Edit className="size-4"/>
+                </Button>
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" 
+                    onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleDeleteCourse(course);}}
+                    title="Excluir curso"
+                >
+                    <Trash2 className="size-4"/>
+                </Button>
+            </div>
+        </div>
+    );
   };
   
   const isLoading = isLoadingCourses;
@@ -125,72 +180,65 @@ export function CoursesManagement() {
             </div>
           ) : (
              <div className="space-y-8">
-                {Object.entries(groupedCourses).sort(([a], [b]) => a.localeCompare(b)).map(([ministry, ministryCourses]) => (
-                    <div key={ministry} className="space-y-3">
-                        <div className="flex items-center gap-2 px-2">
-                            <span className="h-4 w-1 bg-primary rounded-full"></span>
-                            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-                                {ministry}
-                            </h3>
-                            <Badge variant="secondary" className="ml-auto text-[10px] h-5">{ministryCourses.length} {ministryCourses.length === 1 ? 'curso' : 'cursos'}</Badge>
-                        </div>
-                        
-                        <div className="grid gap-2">
-                            {ministryCourses.map(course => {
-                                const Icon = getMinistryIcon(ministry);
-                                const href = getCourseHref(course);
+                {Object.entries(groupedCourses).sort(([a], [b]) => a.localeCompare(b)).map(([ministry, ministryCourses]) => {
+                    const isLumine = ministry.toLowerCase().includes('lumine');
+                    
+                    if (isLumine) {
+                        const tracks = {
+                            teologico: ministryCourses.filter(c => c.ebdTrack === 'teologico'),
+                            biblico: ministryCourses.filter(c => c.ebdTrack === 'biblico'),
+                            discipulado: ministryCourses.filter(c => c.ebdTrack === 'discipulado'),
+                            other: ministryCourses.filter(c => !c.ebdTrack)
+                        };
 
-                                return (
-                                <div key={course.id} className="border rounded-xl relative group hover:bg-muted/50 transition-all hover:border-primary/30 shadow-sm">
-                                    <Link href={href} className="block w-full h-full">
-                                        <div className="flex items-center justify-between p-4 cursor-pointer">
-                                            <div className="flex items-center gap-4 flex-1 text-left">
-                                                <div className="p-2 bg-primary/5 rounded-lg text-primary group-hover:bg-primary/10 transition-colors">
-                                                    <Icon className="size-5" />
-                                                </div>
-                                                <div>
-                                                    <p className="font-bold text-slate-900 leading-tight">{course.name}</p>
-                                                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{course.description || 'Sem descrição definida.'}</p>
-                                                </div>
-                                            </div>
-                                            <ChevronRight className="h-5 w-5 text-muted-foreground opacity-50 group-hover:translate-x-1 transition-transform" />
-                                        </div>
-                                    </Link>
-                                    
-                                    <div className="absolute right-12 top-1/2 -translate-y-1/2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity pr-2">
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" 
-                                            onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleCopyEnrollmentLink(course.id);}} 
-                                            title="Copiar link de inscrição"
-                                        >
-                                            <LinkIcon className="size-4"/>
-                                        </Button>
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            className="h-8 w-8 text-slate-600 hover:text-slate-900 hover:bg-slate-100" 
-                                            onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleEditCourse(course);}}
-                                            title="Editar curso"
-                                        >
-                                            <Edit className="size-4"/>
-                                        </Button>
-                                        <Button 
-                                            variant="ghost" 
-                                            size="icon" 
-                                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" 
-                                            onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleDeleteCourse(course);}}
-                                            title="Excluir curso"
-                                        >
-                                            <Trash2 className="size-4"/>
-                                        </Button>
-                                    </div>
+                        return (
+                            <div key={ministry} className="space-y-6">
+                                <div className="flex items-center gap-2 px-2">
+                                    <span className="h-4 w-1 bg-primary rounded-full"></span>
+                                    <h3 className="text-sm font-black uppercase tracking-[0.2em] text-muted-foreground">
+                                        {ministry}
+                                    </h3>
+                                    <Badge variant="secondary" className="ml-auto text-[10px] h-5">{ministryCourses.length} cursos</Badge>
                                 </div>
-                            )})}
+                                
+                                <div className="pl-4 space-y-8 border-l-2 border-primary/10 ml-2">
+                                    {[
+                                        { id: 'teologico', label: 'Trilho Teológico', list: tracks.teologico },
+                                        { id: 'biblico', label: 'Trilho Bíblico', list: tracks.biblico },
+                                        { id: 'discipulado', label: 'Trilho de Discipulado', list: tracks.discipulado },
+                                        { id: 'other', label: 'Eletivos / Outras Disciplinas', list: tracks.other }
+                                    ].map(track => track.list.length > 0 && (
+                                        <div key={track.id} className="space-y-3">
+                                            <h4 className="text-xs font-black text-primary/60 uppercase tracking-[0.15em] flex items-center gap-2">
+                                                <ChevronRight className="size-3" />
+                                                {track.label}
+                                            </h4>
+                                            <div className="grid gap-2">
+                                                {track.list.map(course => renderCourseCard(course, ministry))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    }
+
+                    return (
+                        <div key={ministry} className="space-y-3">
+                            <div className="flex items-center gap-2 px-2">
+                                <span className="h-4 w-1 bg-primary rounded-full"></span>
+                                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                                    {ministry}
+                                </h3>
+                                <Badge variant="secondary" className="ml-auto text-[10px] h-5">{ministryCourses.length} {ministryCourses.length === 1 ? 'curso' : 'cursos'}</Badge>
+                            </div>
+                            
+                            <div className="grid gap-2">
+                                {ministryCourses.map(course => renderCourseCard(course, ministry))}
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
              </div>
           )}
         </CardContent>

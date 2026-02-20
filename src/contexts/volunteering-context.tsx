@@ -64,7 +64,8 @@ export type Course = {
   name: string;
   ministryName: string;
   description?: string;
-  type?: 'basic' | 'complete';
+  type?: 'trilho' | 'eletivo';
+  ebdTrack?: 'teologico' | 'biblico' | 'discipulado';
 };
 
 export type Class = {
