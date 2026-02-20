@@ -1,5 +1,6 @@
+
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
@@ -19,8 +20,17 @@ export function CourseTeachersManager({ course }: { course: any }) {
   const { users, isLoading } = useVolunteering();
   const { firestore } = useFirebase();
   const { toast } = useToast();
-  const [selectedTeachers, setSelectedTeachers] = React.useState(course.teacherIds || []);
+  
+  // Estado local sincronizado com a prop do curso
+  const [selectedTeachers, setSelectedTeachers] = useState<string[]>(course.teacherIds || []);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Sincroniza o estado se o curso mudar (ex: após um save bem sucedido vindo do servidor)
+  useEffect(() => {
+    if (course.teacherIds) {
+        setSelectedTeachers(course.teacherIds);
+    }
+  }, [course.teacherIds]);
 
   const availableTeachers = useMemo(() => {
       return users.filter(u => u.isTeacher);
@@ -44,9 +54,16 @@ export function CourseTeachersManager({ course }: { course: any }) {
     if (!firestore) return;
     setIsSaving(true);
     const courseDocRef = doc(firestore, 'courses', course.id);
-    await updateDocumentNonBlocking(courseDocRef, { teacherIds: selectedTeachers });
-    toast({ title: 'Professores atualizados!' });
-    setIsSaving(false);
+    
+    try {
+        await updateDocumentNonBlocking(courseDocRef, { teacherIds: selectedTeachers });
+        toast({ title: 'Sucesso!', description: 'Corpo docente atualizado para este curso.' });
+    } catch (error) {
+        console.error(error);
+        toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível salvar a lista de professores.' });
+    } finally {
+        setIsSaving(false);
+    }
   };
   
   return (
@@ -67,7 +84,7 @@ export function CourseTeachersManager({ course }: { course: any }) {
                                         id={`teacher-${course.id}-${teacher.id}`}
                                         checked={selectedTeachers.includes(teacher.id)}
                                         onCheckedChange={(checked) => handleTeacherSelectionChange(teacher.id, !!checked)}
-                                        disabled={isLoading}
+                                        disabled={isLoading || isSaving}
                                     />
                                     <Label htmlFor={`teacher-${course.id}-${teacher.id}`} className="flex-1 cursor-pointer flex items-center gap-2">
                                         <Avatar className="h-6 w-6">

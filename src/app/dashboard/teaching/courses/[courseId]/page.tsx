@@ -52,14 +52,17 @@ function CourseDetailPageContent() {
     // --- KPIs Calculations ---
     const courseClasses = useMemo(() => classes.filter(c => c.courseId === courseId), [classes, courseId]);
     const pendingRequests = useMemo(() => enrollmentRequests.filter(r => r.courseId === courseId && r.status === 'pending'), [enrollmentRequests, courseId]);
+    
     const courseStudentsCount = useMemo(() => {
         const studentSet = new Set<string>();
         courseClasses.forEach(c => c.students?.forEach(s => studentSet.add(s)));
         return studentSet.size;
     }, [courseClasses]);
+
+    // Corrigido: O contador agora olha para o array teacherIds dentro do objeto do curso
     const courseTeachersCount = useMemo(() => {
-        return users.filter(u => u.isTeacher && u.taughtCourseIds?.includes(courseId)).length;
-    }, [users, courseId]);
+        return course?.teacherIds?.length || 0;
+    }, [course?.teacherIds]);
 
     const getMinistryIcon = (name: string) => {
         const n = name?.toLowerCase() || '';
