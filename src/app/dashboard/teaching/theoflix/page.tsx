@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState } from 'react';
@@ -17,6 +16,9 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -134,6 +136,12 @@ export default function TheoFlixPage() {
         <DialogContent className="max-w-4xl p-0 overflow-hidden">
           {selectedCourse && (
             <>
+              {/* Accessibility components (hidden visually) */}
+              <DialogHeader className="sr-only">
+                <DialogTitle>{selectedCourse.title}</DialogTitle>
+                <DialogDescription>{selectedCourse.desc}</DialogDescription>
+              </DialogHeader>
+
               <div className="relative h-96">
                 <Image
                   src={selectedCourse.image}
