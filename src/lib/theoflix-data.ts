@@ -46,6 +46,22 @@ export const theoflixDB: Course[] = [
             "Aula 5: Comissionamento & Compromisso"
         ]
     },
+    {
+        id: 'fundamentos-biblicos',
+        level: 1,
+        title: "Fundamentos Bíblicos",
+        type: "Eletivo",
+        tags: ["Bíblia", "Ensino"],
+        duration: "5h 45min",
+        image: "https://images.unsplash.com/photo-1504052434569-70ad5836ab65?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxiaWJsZXxlbnwwfHx8fDE3NjMyNTM0NjB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+        desc: "Uma visão panorâmica sobre a estrutura da Bíblia, autoria e como estudar as escrituras de forma eficaz.",
+        episodes: [
+            "A Origem da Bíblia: Cânon e Inspiração",
+            "Antigo Testamento: A Promessa",
+            "Novo Testamento: O Cumprimento",
+            "Ferramentas de Estudo e Hermenêutica Básica"
+        ]
+    },
     // NIVEL 2: MATURIDADE (Rose)
     {
         id: 'cresca',
@@ -78,6 +94,22 @@ export const theoflixDB: Course[] = [
             "Comunicação e Intimidade no Casamento",
             "Educação de Filhos: Herança do Senhor",
             "Finanças em Família e Legado"
+        ]
+    },
+    {
+        id: 'financas-reino',
+        level: 2,
+        title: "Finanças do Reino",
+        type: "Masterclass",
+        tags: ["Finanças", "Mordomia"],
+        duration: "3h 15min",
+        image: "https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxtb25leSUyMGJpYmxlfGVufDB8fHx8MTc2MzI1MzU0Mnww&ixlib=rb-4.1.0&q=80&w=1080",
+        desc: "Como gerir seus recursos de acordo com a sabedoria bíblica. Do endividamento à generosidade extravagante.",
+        episodes: [
+            "Princípios de Prosperidade e Mordomia",
+            "Vencendo a Mentalidade de Escassez",
+            "Planejamento e Orçamento Cristão",
+            "Investindo no Reino e nas Pessoas"
         ]
     },
     // NIVEL 3: LIDERANÇA (Amber)
@@ -120,13 +152,29 @@ export const theoflixDB: Course[] = [
         type: "Nível Técnico",
         tags: ["Células", "Gestão"],
         duration: "5h 45min",
-        image: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHhmcmllbmRzfGVufDB8fHx8MTc2MzI1MzYzN3ww&ixlib=rb-4.1.0&q=80&w=1080",
+        image: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHhmcmllbmRzfGVufDB8fHx8MTc2MzI1MzYzN3ww&ixlib=rb-4.1.0&q=80&w=1080",
         desc: "Capacitação técnica para assumir a direção de uma célula. Aprenda a arte de pastorear pequenos grupos.",
         episodes: [
             "Estrutura de uma Reunião de GC Eficaz",
             "Dinâmicas de Grupo e Quebra-gelos Estratégicos",
             "Pastoreio 1-a-1: Como cuidar das ovelhas",
             "Estratégias de Multiplicação e Formação de Co-líderes"
+        ]
+    },
+    {
+        id: 'lideranca-criativa',
+        level: 3,
+        title: "Liderança Criativa",
+        type: "Laboratório",
+        tags: ["Criatividade", "Visão"],
+        duration: "2h 45min",
+        image: "https://images.unsplash.com/photo-1513364776144-60967b0f800f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxjb2xvcnxlbnwwfHx8fDE3NjMyNTM2Mzd8MA&ixlib=rb-4.1.0&q=80&w=1080",
+        desc: "Como inovar no ministério sem perder a essência do evangelho. Desbloqueando o potencial criativo da sua equipe.",
+        episodes: [
+            "O Criador e a Criatividade Humana",
+            "Design Thinking para Ministérios",
+            "Cultura de Inovação na Igreja",
+            "Executando Ideias com Excelência"
         ]
     },
     // NIVEL 4: GESTÃO (Purple)
@@ -160,6 +208,22 @@ export const theoflixDB: Course[] = [
             "Aconselhamento e Mentoria de Casais/Famílias",
             "Apologética: Defesa da Fé no mundo contemporâneo",
             "Gestão de Crises e Ética Eclesiástica Superior"
+        ]
+    },
+    {
+        id: 'apocalipse-revelado',
+        level: 4,
+        title: "Apocalipse Revelado",
+        type: "Teologia",
+        tags: ["Escatologia", "Profecia"],
+        duration: "8h 30min",
+        image: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxtb3VudGFpbnxlbnwwfHx8fDE3NjMyNTM3MzB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+        desc: "Uma análise exegética e histórica do livro de Apocalipse. Entenda os símbolos e a mensagem de esperança para a igreja.",
+        episodes: [
+            "Introdução e Contexto das 7 Igrejas",
+            "Os Selos, Trombetas e Taças",
+            "A Mulher, o Dragão e as Bestas",
+            "O Novo Céu e a Nova Terra"
         ]
     }
 ];
