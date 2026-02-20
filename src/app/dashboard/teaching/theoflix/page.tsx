@@ -25,8 +25,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { theoflixDB, type Course, type Episode } from '@/lib/theoflix-data';
-import { Play, Info, Plus, Lock, Search, Clock, CheckCircle2, PlayCircle, Star, Heart, X, Volume2, Maximize2, Loader2 } from 'lucide-react';
+import { Play, Info, Plus, Lock, Search, Clock, CheckCircle2, PlayCircle, Star, Heart, X, Volume2, Maximize2, Loader2, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, query } from 'firebase/firestore';
+import { TheoflixManager } from '@/components/teaching/theoflix/theoflix-manager';
 
 const levelConfig: Record<number, { title: string; color: string; shadow: string; bg: string }> = {
   1: {
@@ -56,11 +59,25 @@ const levelConfig: Record<number, { title: string; color: string; shadow: string
 };
 
 export default function TheoFlixPage() {
+  const { firestore, user } = useFirebase();
+  const { data: userData } = useDoc<{ hierarchy?: { role?: string } }>(user ? `users/${user.uid}` : null);
+  const isAdmin = userData?.hierarchy?.role === 'admin' || userData?.hierarchy?.role === 'pastor_senior';
+
+  const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'theoflix_courses')) : null, [firestore]);
+  const { data: dbCourses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery);
+
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [currentEpisode, setCurrentEpisode] = useState<Episode | null>(null);
   const [searchQuery, setSearchTerm] = useState('');
   const [myList, setMyList] = useState<string[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isManagerOpen, setManagerOpen] = useState(false);
+
+  // Merge static data with DB data
+  const allCourses = useMemo(() => {
+    if (!dbCourses || dbCourses.length === 0) return theoflixDB;
+    return dbCourses;
+  }, [dbCourses]);
 
   useEffect(() => {
     const saved = localStorage.getItem('theoflix_mylist');
@@ -75,33 +92,41 @@ export default function TheoFlixPage() {
     });
   };
 
-  const featuredCourse = theoflixDB.find(c => c.id === 'membros') || theoflixDB[0];
+  const featuredCourse = allCourses.find(c => c.id === 'membros') || allCourses[0];
 
   const filteredCourses = useMemo(() => {
-    if (!searchQuery.trim()) return theoflixDB;
+    if (!searchQuery.trim()) return allCourses;
     const term = searchQuery.toLowerCase();
-    return theoflixDB.filter(c => 
+    return allCourses.filter(c => 
         c.title.toLowerCase().includes(term) || 
         c.desc.toLowerCase().includes(term) ||
         c.tags?.some(t => t.toLowerCase().includes(term))
     );
-  }, [searchQuery]);
+  }, [searchQuery, allCourses]);
 
   const myListCourses = useMemo(() => {
-    return theoflixDB.filter(c => myList.includes(c.id));
-  }, [myList]);
+    return allCourses.filter(c => myList.includes(c.id));
+  }, [myList, allCourses]);
 
   const levels = [1, 2, 3, 4];
 
   const handleCourseClick = (course: Course) => {
     setSelectedCourse(course);
-    setCurrentEpisode(course.episodes[0]); // Começa pelo primeiro episódio
+    setCurrentEpisode(course.episodes[0]); 
   };
 
   const handlePlayEpisode = (episode: Episode) => {
     setCurrentEpisode(episode);
     setIsPlaying(true);
   };
+
+  if (isLoadingCourses) {
+    return (
+        <div className="flex items-center justify-center h-96">
+            <Loader2 className="size-10 animate-spin text-primary" />
+        </div>
+    );
+  }
 
   return (
     <div className="space-y-10 pb-20 overflow-x-hidden">
@@ -114,19 +139,26 @@ export default function TheoFlixPage() {
             </h1>
             <p className="text-muted-foreground text-sm">O streaming oficial da trilha de crescimento IBM.</p>
         </div>
-        <div className="relative w-full md:w-80 group">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-            <Input 
-                placeholder="Buscar cursos, temas..." 
-                className="pl-10 bg-background/50 border-muted-foreground/20 focus:ring-primary rounded-full"
-                value={searchQuery}
-                onChange={(e) => setSearchTerm(e.target.value)}
-            />
+        <div className="flex items-center gap-3 w-full md:w-auto">
+            <div className="relative w-full md:w-80 group">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                <Input 
+                    placeholder="Buscar cursos, temas..." 
+                    className="pl-10 bg-background/50 border-muted-foreground/20 focus:ring-primary rounded-full"
+                    value={searchQuery}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+            {isAdmin && (
+                <Button variant="outline" size="icon" className="rounded-full shrink-0" onClick={() => setManagerOpen(true)}>
+                    <Settings className="size-5" />
+                </Button>
+            )}
         </div>
       </div>
 
       {/* Hero Section (Featured) */}
-      {!searchQuery && (
+      {featuredCourse && !searchQuery && (
         <section className="relative h-[450px] md:h-[550px] rounded-[2.5rem] overflow-hidden group shadow-2xl animate-in fade-in zoom-in-95 duration-1000">
             <Image 
                 src={featuredCourse.image} 
@@ -317,8 +349,8 @@ export default function TheoFlixPage() {
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent"></div>
                         <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 space-y-6">
-                            <Badge className={cn("text-white shadow-lg border-none font-black px-4 py-1 text-xs", levelConfig[selectedCourse.level].color)}>
-                                NÍVEL {selectedCourse.level} • {levelConfig[selectedCourse.level].title}
+                            <Badge className={cn("text-white shadow-lg border-none font-black px-4 py-1 text-xs", levelConfig[selectedCourse.level]?.color || 'bg-slate-600')}>
+                                NÍVEL {selectedCourse.level} • {levelConfig[selectedCourse.level]?.title || 'Geral'}
                             </Badge>
                             <h2 className="text-4xl md:text-6xl font-black text-white uppercase italic tracking-tighter">
                                 {currentEpisode?.title || selectedCourse.title}
@@ -357,13 +389,13 @@ export default function TheoFlixPage() {
                     <section className="space-y-6">
                         <div className="flex items-center justify-between">
                             <h3 className="text-xs font-black uppercase text-primary tracking-[0.3em]">Grade de Aulas</h3>
-                            <span className="text-[10px] font-black text-slate-500 uppercase">{selectedCourse.episodes.length} EPISÓDIOS</span>
+                            <span className="text-[10px] font-black text-slate-500 uppercase">{selectedCourse.episodes?.length || 0} EPISÓDIOS</span>
                         </div>
                         <div className="space-y-4">
-                            {selectedCourse.episodes.map((ep, idx) => {
+                            {selectedCourse.episodes?.map((ep, idx) => {
                                 const isMemberCourse = selectedCourse.id === 'membros';
                                 const isEpisode5 = idx === 4;
-                                const isLocked = isMemberCourse && isEpisode5; // Exemplo de regra IBM
+                                const isLocked = isMemberCourse && isEpisode5; 
                                 const isActive = currentEpisode?.title === ep.title;
 
                                 return (
@@ -417,7 +449,7 @@ export default function TheoFlixPage() {
                         <div className="space-y-5 text-sm font-bold">
                             <div className="flex flex-col gap-1">
                                 <span className="text-slate-500 text-[10px] uppercase">Nível de Maturidade</span>
-                                <span className="text-slate-200">{selectedCourse.level} - {levelConfig[selectedCourse.level].title}</span>
+                                <span className="text-slate-200">{selectedCourse.level} - {levelConfig[selectedCourse.level]?.title || 'Geral'}</span>
                             </div>
                             <div className="flex flex-col gap-1">
                                 <span className="text-slate-500 text-[10px] uppercase">Formato</span>
@@ -446,6 +478,12 @@ export default function TheoFlixPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      <TheoflixManager 
+        open={isManagerOpen}
+        onOpenChange={setManagerOpen}
+        existingCourses={allCourses}
+      />
     </div>
   );
 }
