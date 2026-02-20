@@ -102,7 +102,7 @@ const statusConfig: { [key: string]: { label: string; level: number; icon: React
 const totalLevels = Object.keys(statusConfig).length;
 
 
-function KpiCard({ icon: Icon, title, value, footer }) {
+function KpiCard({ icon: Icon, title, value, footer }: { icon: any, title: string, value: string, footer?: string }) {
   return (
     <Card>
       <CardHeader className="pb-4">
@@ -168,7 +168,7 @@ export default function UserProfilePage() {
   if (!userProfile) {
     return (
       <div className="flex h-[calc(100vh-8rem)] items-center justify-center">
-        <Card className="w-full max-md text-center p-8">
+        <Card className="w-full max-w-md text-center p-8">
           <User className="h-12 w-12 mx-auto text-muted-foreground" />
           <h3 className="mt-4 text-lg font-medium">Usuário não encontrado</h3>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -183,7 +183,7 @@ export default function UserProfilePage() {
   }
   
   return (
-    <>
+    <VolunteeringProvider>
       <div className="space-y-6">
         {/* Profile Header */}
         <Card className="w-full overflow-hidden">
@@ -257,30 +257,26 @@ export default function UserProfilePage() {
             </TabsContent>
             
             <TabsContent value="discipleship">
-              <VolunteeringProvider>
-                  <DiscipleshipNotes 
-                    memberId={userId}
-                    memberName={userProfile.name}
-                    currentStatusId={userProfile.integrationStatus || 'nao_alcancado'}
-                  />
-              </VolunteeringProvider>
+              <DiscipleshipNotes 
+                memberId={userId}
+                memberName={userProfile.name}
+                currentStatusId={userProfile.integrationStatus || 'nao_alcancado'}
+              />
             </TabsContent>
 
             <TabsContent value="details">
                  <MemberDetails user={userProfile} />
             </TabsContent>
             <TabsContent value="service">
-                <VolunteeringProvider>
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Configurações de Serviço Voluntário</CardTitle>
-                            <CardDescription>Gerencie a disponibilidade e as áreas de atuação deste membro.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <VolunteerServiceForm user={userProfile} />
-                        </CardContent>
-                    </Card>
-                </VolunteeringProvider>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Configurações de Serviço Voluntário</CardTitle>
+                        <CardDescription>Gerencie a disponibilidade e as áreas de atuação deste membro.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <VolunteerServiceForm user={userProfile} />
+                    </CardContent>
+                </Card>
             </TabsContent>
             <TabsContent value="ai">
               <AIProfileAnalysis userProfile={userProfile} />
@@ -303,6 +299,6 @@ export default function UserProfilePage() {
             />
         </DialogContent>
       </Dialog>
-    </>
+    </VolunteeringProvider>
   );
 }
