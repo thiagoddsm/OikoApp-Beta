@@ -5,7 +5,6 @@ import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, ShieldCheck, Mail, Info, School } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -19,8 +18,8 @@ export function CourseDetailsForm({ course }) {
   const [formData, setFormData] = useState({
     responsibleId: '',
     description: '',
-    type: 'trilho' as any,
-    ebdTrack: '', // For Lumine ministry
+    type: 'trilho' as 'trilho' | 'eletivo',
+    ebdTrack: '',
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -45,9 +44,21 @@ export function CourseDetailsForm({ course }) {
     if(!firestore) return;
     setIsSaving(true);
     const courseDocRef = doc(firestore, 'courses', course.id);
-    await updateDocumentNonBlocking(courseDocRef, formData);
-    toast({ title: 'Sucesso!', description: 'As configurações do curso foram atualizadas.'});
-    setIsSaving(false);
+    
+    try {
+        await updateDocumentNonBlocking(courseDocRef, {
+            responsibleId: formData.responsibleId === 'null' ? '' : formData.responsibleId,
+            description: formData.description,
+            type: formData.type,
+            ebdTrack: formData.ebdTrack
+        });
+        toast({ title: 'Sucesso!', description: 'As configurações do curso foram atualizadas.'});
+    } catch (e) {
+        console.error(e);
+        toast({ variant: 'destructive', title: 'Erro ao salvar', description: 'Não foi possível atualizar o curso.' });
+    } finally {
+        setIsSaving(false);
+    }
   };
 
   const responsible = users.find(u => u.id === formData.responsibleId);

@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CheckCircle2, Circle, GraduationCap, Lock, ArrowRight } from 'lucide-react';
+import { CheckCircle2, Circle, GraduationCap, Lock, ArrowRight, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '../ui/button';
 import { useVolunteering } from '@/contexts/volunteering-context';
@@ -24,7 +24,18 @@ export function MemberCourseProgress({ user }) {
     const isReadyForModule5 = modules.slice(0, 4).every(m => progress[m.id]);
     const isAllDone = completedCount === 5;
 
+    const baptismCheck = user.integrationStatus === 'novo_convertido' ? user.batizado === 'sim' : true;
+
     const handleMakeMember = async () => {
+        if (!baptismCheck) {
+            toast({
+                variant: 'destructive',
+                title: 'Impossível Oficializar',
+                description: 'Este membro é um Novo Convertido e precisa do Batismo nas águas para ser oficializado.',
+            });
+            return;
+        }
+
         await updateVolunteer(user.id, { integrationStatus: 'membro' });
         toast({ title: "Bem-vindo!", description: `${user.name} agora é oficialmente um Membro IBM.` });
     };
@@ -75,13 +86,27 @@ export function MemberCourseProgress({ user }) {
                 </div>
                 
                 {isAllDone && (
-                    <div className="mt-6 p-4 bg-emerald-600 text-white rounded-xl text-center animate-in zoom-in-95 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className={cn(
+                        "mt-6 p-4 rounded-xl text-center animate-in zoom-in-95 flex flex-col md:flex-row items-center justify-between gap-4",
+                        baptismCheck ? "bg-emerald-600 text-white" : "bg-amber-100 border-2 border-amber-500 text-amber-900"
+                    )}>
                         <div className="text-left">
-                            <p className="font-black text-lg">🎉 Curso de Membro Concluído!</p>
-                            <p className="text-xs opacity-90">Este membro completou todos os requisitos e está apto para a oficialização.</p>
+                            <p className="font-black text-lg">
+                                {baptismCheck ? "🎉 Curso de Membro Concluído!" : "⚠️ Pendência de Batismo"}
+                            </p>
+                            <p className="text-xs opacity-90">
+                                {baptismCheck 
+                                    ? "Este membro completou todos os requisitos e está apto para a oficialização."
+                                    : "As aulas foram concluídas, mas o Batismo é obrigatório para Novos Convertidos antes da oficialização."}
+                            </p>
                         </div>
                         {user.integrationStatus !== 'membro' ? (
-                            <Button variant="secondary" className="font-bold whitespace-nowrap" onClick={handleMakeMember}>
+                            <Button 
+                                variant={baptismCheck ? "secondary" : "destructive"} 
+                                className="font-bold whitespace-nowrap" 
+                                onClick={handleMakeMember}
+                            >
+                                {!baptismCheck && <AlertTriangle size={16} className="mr-2" />}
                                 Oficializar Membresia Agora
                             </Button>
                         ) : (

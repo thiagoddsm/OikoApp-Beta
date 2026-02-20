@@ -1,9 +1,9 @@
 'use client';
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, HelpCircle, CheckCircle, Send, GraduationCap, PlusCircle, ShieldCheck, UserCheck, History } from 'lucide-react';
+import { Loader2, HelpCircle, CheckCircle, Send, GraduationCap, PlusCircle, ShieldCheck, UserCheck, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '../ui/checkbox';
 import { Label } from '../ui/label';
@@ -56,11 +56,8 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
 
     const courseMap = useMemo(() => new Map(courses.map(c => [c.id, c.name])), [courses]);
     
-    // Mostra as abas baseadas no que existe no banco (Acolhimento, etc),
-    // ou usa as colunas de jornada como fallback se o banco estiver vazio.
     const finalChecklists = useMemo(() => {
         if (dbChecklists && dbChecklists.length > 0) {
-            // Ordena os checklists do banco seguindo a ordem da jornada para consistência
             return [...dbChecklists].sort((a, b) => {
                 const indexA = journeyColumns.findIndex(col => col.id === a.id);
                 const indexB = journeyColumns.findIndex(col => col.id === b.id);
@@ -74,6 +71,40 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         } as DiscipleshipChecklist));
     }, [dbChecklists]);
 
+    const validateTransition = (targetStageId: string): { valid: boolean; message?: string } => {
+        if (!memberData) return { valid: false };
+
+        const currentStageId = memberData.integrationStatus || 'nao_alcancado';
+        
+        // Regras Específicas
+        if (targetStageId === 'novo_convertido' && currentStageId === 'nao_alcancado') {
+            const hasDecision = memberData.decisao?.includes('Decisão por Cristo') || memberData.initialStatus === 'novo_convertido';
+            if (!hasDecision) return { valid: false, message: "Este membro precisa registrar uma 'Decisão por Cristo' antes de se tornar Novo Convertido." };
+        }
+
+        if (targetStageId === 'reconciliado' && currentStageId === 'nao_alcancado') {
+            const hasDecision = memberData.decisao?.includes('Reconciliação') || memberData.initialStatus === 'reconciliado';
+            if (!hasDecision) return { valid: false, message: "Este membro precisa registrar uma 'Reconciliação' antes de mudar de fase." };
+        }
+
+        if (targetStageId === 'transferido' && currentStageId === 'nao_alcancado') {
+            const isTransfer = memberData.initialStatus === 'membro_outra_igreja';
+            if (!isTransfer) return { valid: false, message: "O status inicial deve ser 'Membro de outra igreja' para esta fase." };
+        }
+
+        if (targetStageId === 'membro') {
+            const progress = memberData.journey?.memberCourseProgress || {};
+            const completedModules = Object.values(progress).filter(Boolean).length;
+            if (completedModules < 5) return { valid: false, message: "O membro precisa concluir todos os 5 módulos do Curso Pertencer (Membros) primeiro." };
+
+            if (memberData.integrationStatus === 'novo_convertido' && memberData.batizado !== 'sim') {
+                return { valid: false, message: "Novos convertidos precisam do Batismo nas águas para se tornarem membros IBM." };
+            }
+        }
+
+        return { valid: true };
+    };
+
     const handleCompleteStage = (currentStageId: string) => {
         const currentIndex = journeyColumns.findIndex(col => col.id === currentStageId);
 
@@ -84,6 +115,17 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         }
 
         const nextStage = journeyColumns[currentIndex + 1];
+        const validation = validateTransition(nextStage.id);
+
+        if (!validation.valid) {
+            toast({
+                variant: 'destructive',
+                title: "Critério não atingido",
+                description: validation.message,
+            });
+            return;
+        }
+
         updateVolunteer(memberId, { integrationStatus: nextStage.id });
         toast({
             title: "Status Atualizado!",
@@ -189,10 +231,11 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                     </div>
                     {finalChecklists.map(checklist => {
                         const progress = stageProgress[checklist.id] || { answers: {}, approvals: {} };
+                        const validation = validateTransition(journeyColumns[journeyColumns.findIndex(c => c.id === checklist.id) + 1]?.id);
+
                         return (
                         <TabsContent key={checklist.id} value={checklist.id} className="mt-0 space-y-8 animate-in fade-in-50">
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                {/* Checklist de Perguntas */}
                                 <div className="space-y-4">
                                     <h4 className="text-xs font-black uppercase text-muted-foreground tracking-widest mb-4">Checklist da Etapa</h4>
                                     {checklist.questions.length > 0 ? (
@@ -232,7 +275,6 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                                     )}
                                 </div>
 
-                                {/* Seção de Aprovações */}
                                 <div className="space-y-6">
                                     <h4 className="text-xs font-black uppercase text-muted-foreground tracking-widest mb-4">Aprovações de Líderes</h4>
                                     
@@ -294,10 +336,22 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                             </div>
 
                             <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t">
-                                <Button variant="outline" size="lg" onClick={() => handleCompleteStage(checklist.id)} className="font-bold">
-                                    <CheckCircle className="mr-2 h-4 w-4 text-emerald-600" />
-                                    Avançar Status Oficial
-                                </Button>
+                                <div className="flex flex-col gap-1 items-end">
+                                    <Button 
+                                        variant="outline" 
+                                        size="lg" 
+                                        onClick={() => handleCompleteStage(checklist.id)} 
+                                        className={cn("font-bold", !validation.valid && "opacity-50 cursor-not-allowed")}
+                                    >
+                                        <CheckCircle className="mr-2 h-4 w-4 text-emerald-600" />
+                                        Avançar Status Oficial
+                                    </Button>
+                                    {!validation.valid && (
+                                        <p className="text-[10px] text-destructive flex items-center gap-1 font-bold animate-pulse">
+                                            <AlertTriangle size={10} /> Critérios pendentes para próxima fase.
+                                        </p>
+                                    )}
+                                </div>
                                 <Button size="lg" onClick={() => handleSaveStage(checklist)} disabled={isSaving === checklist.id} className="min-w-[180px]">
                                     {isSaving === checklist.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                                     Salvar Anotações
@@ -309,7 +363,6 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
             </CardContent>
         </Card>
 
-        {/* Timeline de Histórico */}
         <FollowUpTimeline memberId={memberId} memberName={memberName} initialNotes={timelineNotes} onNoteAdded={setTimelineNotes} />
         
         <EnrollmentDialog 
