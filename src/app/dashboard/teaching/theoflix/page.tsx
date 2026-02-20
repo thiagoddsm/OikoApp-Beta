@@ -24,10 +24,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { theoflixDB, type Course } from '@/lib/theoflix-data';
-import { Play, Info, Plus, Lock, Search, Clock, CheckCircle2, PlayCircle, Star, Heart, X, Volume2, Maximize2 } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { theoflixDB, type Course, type Episode } from '@/lib/theoflix-data';
+import { Play, Info, Plus, Lock, Search, Clock, CheckCircle2, PlayCircle, Star, Heart, X, Volume2, Maximize2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const levelConfig: Record<number, { title: string; color: string; shadow: string; bg: string }> = {
@@ -59,11 +57,11 @@ const levelConfig: Record<number, { title: string; color: string; shadow: string
 
 export default function TheoFlixPage() {
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [currentEpisode, setCurrentEpisode] = useState<Episode | null>(null);
   const [searchQuery, setSearchTerm] = useState('');
   const [myList, setMyList] = useState<string[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
 
-  // Load My List from localStorage
   useEffect(() => {
     const saved = localStorage.getItem('theoflix_mylist');
     if (saved) setMyList(JSON.parse(saved));
@@ -97,9 +95,11 @@ export default function TheoFlixPage() {
 
   const handleCourseClick = (course: Course) => {
     setSelectedCourse(course);
+    setCurrentEpisode(course.episodes[0]); // Começa pelo primeiro episódio
   };
 
-  const handlePlay = () => {
+  const handlePlayEpisode = (episode: Episode) => {
+    setCurrentEpisode(episode);
     setIsPlaying(true);
   };
 
@@ -108,8 +108,8 @@ export default function TheoFlixPage() {
       {/* Header com Busca */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-            <h1 className="text-3xl font-black tracking-tight flex items-center gap-2">
-                <PlayCircle className="text-primary size-8" />
+            <h1 className="text-3xl font-black tracking-tight flex items-center gap-2 text-primary">
+                <PlayCircle className="size-8" />
                 TheoFlix
             </h1>
             <p className="text-muted-foreground text-sm">O streaming oficial da trilha de crescimento IBM.</p>
@@ -246,13 +246,6 @@ export default function TheoFlixPage() {
                                     fill
                                     className="object-cover transition-transform duration-700 group-hover:scale-110"
                                 />
-                                {/* Barra de Progresso Simulada */}
-                                <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/40">
-                                    <div
-                                        className={cn("h-full transition-all duration-1000", config.color)}
-                                        style={{ width: `${Math.random() * 60 + 10}%` }}
-                                    ></div>
-                                </div>
                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center backdrop-blur-[3px]">
                                     <div className="size-14 rounded-full bg-white/20 border-2 border-white/50 flex items-center justify-center scale-75 group-hover:scale-100 transition-transform duration-500">
                                         <PlayCircle className="text-white size-10" />
@@ -297,31 +290,21 @@ export default function TheoFlixPage() {
                 <DialogDescription>{selectedCourse.desc}</DialogDescription>
               </DialogHeader>
 
-              {/* Player / Banner Area */}
-              <div className="relative h-[350px] md:h-[500px]">
-                {isPlaying ? (
-                    <div className="absolute inset-0 bg-black flex flex-col items-center justify-center animate-in fade-in duration-500">
-                        <video 
-                            className="w-full h-full object-contain"
-                            controls
-                            autoPlay
-                            poster={selectedCourse.image}
-                        >
-                            <source src="#" type="video/mp4" />
-                        </video>
+              {/* Player Area */}
+              <div className="relative aspect-video w-full bg-black">
+                {isPlaying && currentEpisode?.vimeoId ? (
+                    <div className="absolute inset-0 animate-in fade-in duration-500">
+                        <iframe
+                            src={`https://player.vimeo.com/video/${currentEpisode.vimeoId}?autoplay=1&title=0&byline=0&portrait=0`}
+                            className="w-full h-full"
+                            frameBorder="0"
+                            allow="autoplay; fullscreen; picture-in-picture"
+                            allowFullScreen
+                        ></iframe>
                         <div className="absolute top-6 left-6 z-20">
                             <Button variant="ghost" className="text-white hover:bg-white/10" onClick={() => setIsPlaying(false)}>
                                 <X className="mr-2" /> Fechar Player
                             </Button>
-                        </div>
-                        {/* Overlay simulado para demonstração */}
-                        <div className="absolute inset-0 bg-slate-900/90 flex flex-col items-center justify-center space-y-6">
-                            <PlayCircle className="size-20 text-primary animate-pulse" />
-                            <div className="text-center space-y-2">
-                                <h3 className="text-2xl font-black text-white uppercase italic tracking-widest">Iniciando Transmissão...</h3>
-                                <p className="text-slate-400 text-sm font-bold">O vídeo está sendo processado para o seu perfil.</p>
-                            </div>
-                            <Button onClick={() => setIsPlaying(false)} variant="outline" className="border-white/20 text-white hover:bg-white/10">Voltar para Detalhes</Button>
                         </div>
                     </div>
                 ) : (
@@ -330,24 +313,19 @@ export default function TheoFlixPage() {
                             src={selectedCourse.image}
                             alt={selectedCourse.title}
                             fill
-                            className="object-cover"
+                            className="object-cover opacity-40 blur-sm"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent"></div>
-                        <div className="absolute bottom-10 left-10 right-10 z-10 space-y-6">
-                            <div className="flex items-center gap-3">
-                                <Badge className={cn("text-white shadow-lg border-none font-black px-4 py-1 text-xs", levelConfig[selectedCourse.level].color)}>
-                                    NÍVEL {selectedCourse.level} • {levelConfig[selectedCourse.level].title}
-                                </Badge>
-                                <span className="text-white/80 text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
-                                    <Clock size={14} className="text-primary" /> {selectedCourse.duration || '4h 30min'}
-                                </span>
-                            </div>
-                            <h2 className="text-5xl md:text-7xl font-black text-white drop-shadow-2xl uppercase italic tracking-tighter">
-                                {selectedCourse.title}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 space-y-6">
+                            <Badge className={cn("text-white shadow-lg border-none font-black px-4 py-1 text-xs", levelConfig[selectedCourse.level].color)}>
+                                NÍVEL {selectedCourse.level} • {levelConfig[selectedCourse.level].title}
+                            </Badge>
+                            <h2 className="text-4xl md:text-6xl font-black text-white uppercase italic tracking-tighter">
+                                {currentEpisode?.title || selectedCourse.title}
                             </h2>
-                            <div className="flex items-center gap-4 pt-4">
-                                <Button className="h-16 px-12 font-black text-xl shadow-2xl transition-all hover:scale-105 active:scale-95 group" onClick={handlePlay}>
-                                    <Play className="mr-3 size-7 fill-current group-hover:animate-bounce"/> RETOMAR AULA
+                            <div className="flex items-center gap-4">
+                                <Button className="h-16 px-12 font-black text-xl shadow-2xl transition-all hover:scale-105 active:scale-95 group" onClick={() => currentEpisode && handlePlayEpisode(currentEpisode)}>
+                                    <Play className="mr-3 size-7 fill-current group-hover:animate-bounce"/> ASSISTIR AGORA
                                 </Button>
                                 <Button 
                                     variant="outline" 
@@ -360,10 +338,6 @@ export default function TheoFlixPage() {
                                 >
                                     <Heart className={cn("size-8", myList.includes(selectedCourse.id) && "fill-current")} />
                                 </Button>
-                                <div className="ml-auto flex gap-3">
-                                    <Button variant="ghost" size="icon" className="text-white/50 hover:text-white"><Volume2 /></Button>
-                                    <Button variant="ghost" size="icon" className="text-white/50 hover:text-white"><Maximize2 /></Button>
-                                </div>
                             </div>
                         </div>
                     </>
@@ -371,7 +345,7 @@ export default function TheoFlixPage() {
               </div>
 
               {/* Content Area */}
-              <div className="bg-slate-950 text-slate-100 p-10 grid grid-cols-1 md:grid-cols-3 gap-16 max-h-[45vh] overflow-y-auto no-scrollbar border-t border-white/5">
+              <div className="bg-slate-950 text-slate-100 p-10 grid grid-cols-1 md:grid-cols-3 gap-16 max-h-[40vh] overflow-y-auto no-scrollbar border-t border-white/5">
                 <div className="md:col-span-2 space-y-12">
                     <section>
                         <h3 className="text-xs font-black uppercase text-primary tracking-[0.3em] mb-4">Sinopse</h3>
@@ -382,33 +356,36 @@ export default function TheoFlixPage() {
 
                     <section className="space-y-6">
                         <div className="flex items-center justify-between">
-                            <h3 className="text-xs font-black uppercase text-primary tracking-[0.3em]">Grade de Episódios</h3>
-                            <span className="text-[10px] font-black text-slate-500 uppercase">{selectedCourse.episodes.length} AULAS DISPONÍVEIS</span>
+                            <h3 className="text-xs font-black uppercase text-primary tracking-[0.3em]">Grade de Aulas</h3>
+                            <span className="text-[10px] font-black text-slate-500 uppercase">{selectedCourse.episodes.length} EPISÓDIOS</span>
                         </div>
                         <div className="space-y-4">
                             {selectedCourse.episodes.map((ep, idx) => {
                                 const isMemberCourse = selectedCourse.id === 'membros';
                                 const isEpisode5 = idx === 4;
-                                const isLocked = isMemberCourse && isEpisode5;
+                                const isLocked = isMemberCourse && isEpisode5; // Exemplo de regra IBM
+                                const isActive = currentEpisode?.title === ep.title;
 
                                 return (
                                     <div key={idx} className={cn(
                                         "flex items-center justify-between p-5 rounded-2xl transition-all border group relative overflow-hidden",
                                         isLocked 
                                             ? "bg-slate-900/30 border-slate-800 opacity-40 grayscale cursor-not-allowed" 
-                                            : "bg-slate-900/50 border-slate-800 hover:border-primary/50 hover:bg-slate-800/50 cursor-pointer"
-                                    )} onClick={!isLocked ? handlePlay : undefined}>
+                                            : isActive 
+                                                ? "bg-primary/20 border-primary shadow-[0_0_20px_rgba(var(--primary),0.2)]" 
+                                                : "bg-slate-900/50 border-slate-800 hover:border-primary/50 hover:bg-slate-800/50 cursor-pointer"
+                                    )} onClick={() => !isLocked && handlePlayEpisode(ep)}>
                                         <div className="flex items-center gap-6">
-                                            <div className="text-slate-700 font-black text-2xl w-8 text-center group-hover:text-primary transition-colors">
+                                            <div className={cn("font-black text-2xl w-8 text-center transition-colors", isActive ? "text-primary" : "text-slate-700 group-hover:text-primary")}>
                                                 {String(idx + 1).padStart(2, '0')}
                                             </div>
                                             <div className="flex flex-col">
-                                                <h4 className={cn("font-black text-base md:text-lg transition-colors uppercase italic tracking-tight", !isLocked && "group-hover:text-white")}>
-                                                    {ep}
+                                                <h4 className={cn("font-black text-base md:text-lg transition-colors uppercase italic tracking-tight", isActive ? "text-white" : "group-hover:text-white")}>
+                                                    {ep.title}
                                                 </h4>
                                                 <div className="flex items-center gap-4 mt-1.5">
                                                     <span className="text-[10px] text-slate-500 font-black uppercase tracking-widest flex items-center gap-1">
-                                                        <Play className="size-2 fill-current" /> 45 MINUTOS • HD
+                                                        <Clock className="size-2 fill-current" /> {ep.duration || '45 MIN'}
                                                     </span>
                                                     {isLocked && (
                                                         <span className="text-[10px] text-rose-500 font-black uppercase flex items-center gap-1.5 bg-rose-500/10 px-2 py-0.5 rounded">
@@ -422,7 +399,7 @@ export default function TheoFlixPage() {
                                             {isLocked ? (
                                                 <Lock className="size-6 text-slate-700" />
                                             ) : (
-                                                <div className="size-10 rounded-full border border-white/10 flex items-center justify-center group-hover:bg-primary group-hover:border-primary transition-all">
+                                                <div className={cn("size-10 rounded-full border flex items-center justify-center transition-all", isActive ? "bg-primary border-primary" : "border-white/10 group-hover:bg-primary group-hover:border-primary")}>
                                                     <Play className="size-4 fill-white text-white translate-x-0.5" />
                                                 </div>
                                             )}
@@ -447,7 +424,7 @@ export default function TheoFlixPage() {
                                 <span className="text-slate-200 uppercase italic tracking-tighter">{selectedCourse.type}</span>
                             </div>
                             <div className="flex flex-col gap-1">
-                                <span className="text-slate-500 text-[10px] uppercase">Tempo Estimado</span>
+                                <span className="text-slate-500 text-[10px] uppercase">Tempo Total</span>
                                 <span className="text-slate-200">{selectedCourse.duration || '4h'}</span>
                             </div>
                         </div>
@@ -463,16 +440,6 @@ export default function TheoFlixPage() {
                             ))}
                         </div>
                     </div>
-
-                    {selectedCourse.id === 'membros' && (
-                        <Alert className="bg-blue-950/50 border-blue-900/50 text-blue-300 rounded-3xl p-6">
-                            <Info className="h-5 w-5" />
-                            <AlertTitle className="font-black uppercase italic tracking-widest text-xs mb-2">Aviso IBM</AlertTitle>
-                            <AlertDescription className="text-xs font-medium leading-relaxed opacity-80">
-                                As aulas dominicais presenciais são insubstituíveis. O TheoFlix atua como suporte para revisão, download de materiais e aprofundamento individual.
-                            </AlertDescription>
-                        </Alert>
-                    )}
                 </div>
               </div>
             </>
