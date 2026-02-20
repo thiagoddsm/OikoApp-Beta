@@ -56,7 +56,7 @@ export default function LandingPage() {
               <Button size="lg" className="h-14 px-8 text-lg font-bold" asChild>
                 <Link href="/public/enrollment">Fazer parte de um GC</Link>
               </Button>
-              <Button size="lg" variant="outline" className="h-14 px-8 text-lg font-bold border-white/20 hover:bg-white/10" asChild>
+              <Button size="lg" className="h-14 px-8 text-lg font-bold bg-white text-white border-white hover:bg-white/90 transition-colors" asChild>
                 <Link href="/login">
                   <LogIn className="mr-2 size-5" />
                   Portal do Membro
