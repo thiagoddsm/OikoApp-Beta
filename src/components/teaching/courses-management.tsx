@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase, deleteDocumentNonBlocking } from '@/firebase';
@@ -30,7 +29,7 @@ type Course = {
   name: string; 
   description: string; 
   ministryName: string; 
-  type: 'basic' | 'complete' 
+  type: 'trilho' | 'eletivo' 
 };
 
 export function CoursesManagement() {
@@ -84,7 +83,7 @@ export function CoursesManagement() {
     navigator.clipboard.writeText(link);
     toast({
         title: "Link Copiado!",
-        description: "Link direto para inscrição deste curso copiado com sucesso.",
+        description: "Link direto para inscription deste curso copiado com sucesso.",
     });
   };
 

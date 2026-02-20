@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo, useState } from 'react';
@@ -35,7 +34,7 @@ type Course = {
   defaultDay?: string;
   defaultTime?: string;
   teacherIds?: string[];
-  type?: 'basic' | 'complete';
+  type?: 'trilho' | 'eletivo';
 };
 
 function CourseDetailPageContent() {

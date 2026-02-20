@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
@@ -20,7 +19,7 @@ export function CourseDetailsForm({ course }) {
   const [formData, setFormData] = useState({
     responsibleId: '',
     description: '',
-    type: 'complete' as any,
+    type: 'trilho' as any,
     ebdTrack: '', // For Lumine ministry
   });
   const [isSaving, setIsSaving] = useState(false);
@@ -32,7 +31,7 @@ export function CourseDetailsForm({ course }) {
       setFormData({
         responsibleId: course.responsibleId || '',
         description: course.description || '',
-        type: course.type || 'complete',
+        type: course.type || 'trilho',
         ebdTrack: course.ebdTrack || '',
       });
     }
@@ -73,9 +72,8 @@ export function CourseDetailsForm({ course }) {
                       <Select value={formData.type} onValueChange={v => handleChange('type', v)}>
                           <SelectTrigger id="type"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                              <SelectItem value="basic">Básico / Workshop</SelectItem>
-                              <SelectItem value="complete">Formação Completa</SelectItem>
-                              <SelectItem value="theological">Teológico / Doutrinário</SelectItem>
+                              <SelectItem value="trilho">Trilhos</SelectItem>
+                              <SelectItem value="eletivo">Eletivos</SelectItem>
                           </SelectContent>
                       </Select>
                   </div>
