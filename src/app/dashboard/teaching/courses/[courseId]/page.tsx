@@ -19,7 +19,7 @@ import { CourseTeachersManager } from '@/components/teaching/course-teachers-man
 import { EnrollmentRequestsList } from '@/components/teaching/enrollment-requests-list';
 import { StudentsManagement } from '@/components/teaching/students-management';
 import { CourseAttendanceMatrix } from '@/components/teaching/course-attendance-matrix';
-import { UnderConstruction } from '@/components/common/under-construction';
+import { CourseSyllabusManager } from '@/components/teaching/course-syllabus-manager';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -35,6 +35,7 @@ type Course = {
   defaultTime?: string;
   teacherIds?: string[];
   type?: 'trilho' | 'eletivo';
+  syllabus?: { id: string; title: string; description: string }[];
 };
 
 function CourseDetailPageContent() {
@@ -58,7 +59,6 @@ function CourseDetailPageContent() {
         return studentSet.size;
     }, [courseClasses]);
 
-    // Corrigido: O contador agora olha para o array teacherIds dentro do objeto do curso
     const courseTeachersCount = useMemo(() => {
         return course?.teacherIds?.length || 0;
     }, [course?.teacherIds]);
@@ -181,7 +181,7 @@ function CourseDetailPageContent() {
                         </TabsContent>
 
                         <TabsContent value="syllabus" className="mt-0 animate-in slide-in-from-left-4 duration-300">
-                            <UnderConstruction pageTitle="Ementa do Curso" pageDescription="O conteúdo programático e cronograma de aulas estão sendo digitalizados."/>
+                            <CourseSyllabusManager course={course} />
                         </TabsContent>
                     </Tabs>
                 </CardContent>
