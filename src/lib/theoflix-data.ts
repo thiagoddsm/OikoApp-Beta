@@ -7,6 +7,8 @@ export type Course = {
     image: string;
     desc: string;
     episodes: string[];
+    duration?: string;
+    tags?: string[];
 };
 
 export const theoflixDB: Course[] = [
@@ -16,8 +18,10 @@ export const theoflixDB: Course[] = [
         level: 1,
         title: "Imersão (Batismo)",
         type: "Obrigatório",
-        image: "https://lh3.googleusercontent.com/gg-dl/AOI_d__nwiCWj79KpbxD5mJp7UhCLgqGfFDCLMrK4j8VDr_G7fKqZBpSv5q7JiweK0PAJDCAzDhc4LWsncvLrqx6lfUowTnDGeqYwPfn2omWO8eE5I9wwWqp8f1hFuUe3XF_bkqHklO0XqYOKcUM_GFup2YYoNHKMKUXLOknBeg7o93nJhO8dA",
-        desc: "Fundamentação doutrinária para o início da caminhada pública com Cristo. Prepare-se para um mergulho profundo na fé.",
+        tags: ["Doutrina", "Início"],
+        duration: "4h 30min",
+        image: "https://images.unsplash.com/photo-1510154221590-ff63e90a136f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHx3YXRlciUyMGJhcHRpc218ZW58MHx8fHwxNzYzMjUzNDYwfDA&ixlib=rb-4.1.0&q=80&w=1080",
+        desc: "Fundamentação doutrinária para o início da caminhada pública com Cristo. Prepare-se para um mergulho profundo na fé e no compromisso com o Reino.",
         episodes: [
             "Salvação, Arrependimento e Fé Proporcional",
             "O simbolismo bíblico do Batismo nas Águas",
@@ -30,14 +34,16 @@ export const theoflixDB: Course[] = [
         level: 1,
         title: "Curso de Membros",
         type: "Obrigatório",
-        image: "https://lh3.googleusercontent.com/gg-dl/AOI_d_-qefSPpUiQFhY6iaVb5Gc0mnj5h-8OslJahFT-aCoPdqAaioagTyUtMnDUpMd1rwMn0AE4Rg0Zr8nuZkNLPaoirlMuj0e4TCUqIZutrt_bRwk7pupZJOPN8Zsjjh6hmXshyFY85Q60I7-mPzc4iGiwmFKLE5Epcpuz38ZfECYj63j0Ng",
-        desc: "Jornada de integração em 5 etapas. As aulas ocorrem sucessivamente em cada domingo do mês.",
+        tags: ["Integração", "DNA"],
+        duration: "7h 15min",
+        image: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxtdXNpYyUyMGNodXJjaHxlbnwwfHx8fDE3NjMyNTMyNDZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+        desc: "Jornada de integração em 5 etapas fundamentais para quem deseja se tornar parte do organismo da Igreja Batista da Manhã. Entenda nossa história, visão e como você se encaixa.",
         episodes: [
-            "Aula 1: Introdução & História da IBM (1º Domingo)",
-            "Aula 2: DNA Ministerial & Visão de Células (2º Domingo)",
-            "Aula 3: Mordomia Cristã & Finanças do Reino (3º Domingo)",
-            "Aula 4: Governança, Estatuto & Ética (4º Domingo)",
-            "Aula 5: Comissionamento & Compromisso (5º Domingo / Prerrequisito: Aulas 1-4)"
+            "Aula 1: Introdução & História da IBM",
+            "Aula 2: DNA Ministerial & Visão de Células",
+            "Aula 3: Mordomia Cristã & Finanças do Reino",
+            "Aula 4: Governança, Estatuto & Ética",
+            "Aula 5: Comissionamento & Compromisso"
         ]
     },
     // NIVEL 2: MATURIDADE (Rose)
@@ -46,8 +52,10 @@ export const theoflixDB: Course[] = [
         level: 2,
         title: "Cresça",
         type: "Obrigatório",
-        image: "https://lh3.googleusercontent.com/gg-dl/AOI_d_8iI9N5O_IVkLcTQCMUA3v57eo1Itq1rD_m_pUYUnHN619Ypq7aQEXwarnAA6FuMVYTYbgNAWVFKw1i6WQYpytE_UdJp3glPuwhV6CkZXxReRzhCKWiDe0ckm6spQMsCEM63irV0hCnYcRzQC4b_X6XS8uZjcJUcHErWDut5JmU9tEzGA",
-        desc: "Tratamento de emoções e fundamentação da identidade filial. Uma jornada de cura interior.",
+        tags: ["Cura Interior", "Identidade"],
+        duration: "6h 00min",
+        image: "https://images.unsplash.com/photo-1490730141103-6cac27aaab94?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxzcmn0dWFsfGVufDB8fHx8MTc2MzI1MzUxMXww&ixlib=rb-4.1.0&q=80&w=1080",
+        desc: "Tratamento de emoções e fundamentação da identidade filial. Uma jornada de cura interior para que você possa crescer de forma saudável no espírito.",
         episodes: [
             "Identidade: Quem sou eu em Cristo?",
             "Paternidade: Curando a imagem do Pai",
@@ -56,14 +64,32 @@ export const theoflixDB: Course[] = [
             "Enchimento do Espírito e Vida Vitoriosa"
         ]
     },
+    {
+        id: 'familia',
+        level: 2,
+        title: "Aliança (Família)",
+        type: "Eletivo",
+        tags: ["Casais", "Família"],
+        duration: "5h 20min",
+        image: "https://images.unsplash.com/photo-1511895426328-dc8714191300?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxmYW1pbHl8ZW58MHx8fHwxNzYzMjUzNTQyfDA&ixlib=rb-4.1.0&q=80&w=1080",
+        desc: "Princípios bíblicos para o fortalecimento do casamento e da criação de filhos na luz da palavra.",
+        episodes: [
+            "O Papel do Homem e da Mulher no Lar",
+            "Comunicação e Intimidade no Casamento",
+            "Educação de Filhos: Herança do Senhor",
+            "Finanças em Família e Legado"
+        ]
+    },
     // NIVEL 3: LIDERANÇA (Amber)
     {
         id: 'lidere1',
         level: 3,
         title: "Lidere 1",
         type: "Formação",
-        image: "https://lh3.googleusercontent.com/gg-dl/AOI_d_9_Ky5Xl4sKtmiJspRPDTHqRBCtST3_jSIToRbwwN1lqpYky4b3EebuZcFgMoACsq_SKZJl2AMkkrXQw6gp8WjKxN_beaOjnfisZIZh65kgsXVtNC7CtzvJGN6iQqJr8ZoliDLQ0PuX5Qh92IXK74Q0xiq2MeaZNYpSLGGwUUu4IYXFVQ",
-        desc: "Princípios fundamentais do caráter e influência do líder cristão.",
+        tags: ["Caráter", "Serviço"],
+        duration: "4h 00min",
+        image: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHx0ZWFtd29ya3xlbnwwfHx8fDE3NjMyNTM1NzR8MA&ixlib=rb-4.1.0&q=80&w=1080",
+        desc: "Princípios fundamentais do caráter e influência do líder cristão. Lidere a si mesmo antes de liderar outros.",
         episodes: [
             "Liderança segundo o modelo de Jesus (Servo)",
             "O caráter do líder: Integridade e Vida Privada",
@@ -76,8 +102,10 @@ export const theoflixDB: Course[] = [
         level: 3,
         title: "Molde de Servo",
         type: "Workshop",
-        image: "https://lh3.googleusercontent.com/gg-dl/AOI_d_9b5huFDPMhmWRUliM29ymqkEeh5ID6nbeddknTRTvAd9vYEAo1iWqkrp2FEUdPZObJBiHCeFxz6uyi3tGCo76WR2fXrKDzI9GGYsYp3CZ3ZuOGD1zaCeLaC6TSKYIKg5Ldvtj6tZlj0S4I8PRMJDCv7ohcXwUizywJ_-O7tSVI8Hya",
-        desc: "Autoconhecimento e descoberta de vocação para o serviço prático.",
+        tags: ["Dons", "Vocação"],
+        duration: "3h 30min",
+        image: "https://images.unsplash.com/photo-1521737711867-e3b97375f902?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHx3b3Jrc2hvcHxlbnwwfHx8fDE3NjMyNTM2MDV8MA&ixlib=rb-4.1.0&q=80&w=1080",
+        desc: "Autoconhecimento e descoberta de vocação para o serviço prático dentro do organismo da igreja local.",
         episodes: [
             "Inventário de Dons Espirituais",
             "Perfil Comportamental (DISC) aplicado ao ministério",
@@ -90,8 +118,10 @@ export const theoflixDB: Course[] = [
         level: 3,
         title: "Lidere 2 (Gestão de GC)",
         type: "Nível Técnico",
-        image: "https://lh3.googleusercontent.com/gg-dl/AOI_d__baxiPBm3ea4eF1y8k1tT5gpdOEcMux8VLBS-j9ZHLj6ySdk0WlQRH0xSnexrN3WmHZ6-oB84LyVVPxXPAx5TE4pYfEsQxHEK5g5K5Y9Q2EQazrvB03w5R9q95_xRGvGKen7VQ2dJRN_FmyA60DUkWE5WsCDgqDruvC1SigrBb5oTj8Q",
-        desc: "Capacitação técnica para assumir a direção de uma célula.",
+        tags: ["Células", "Gestão"],
+        duration: "5h 45min",
+        image: "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHhmcmllbmRzfGVufDB8fHx8MTc2MzI1MzYzN3ww&ixlib=rb-4.1.0&q=80&w=1080",
+        desc: "Capacitação técnica para assumir a direção de uma célula. Aprenda a arte de pastorear pequenos grupos.",
         episodes: [
             "Estrutura de uma Reunião de GC Eficaz",
             "Dinâmicas de Grupo e Quebra-gelos Estratégicos",
@@ -105,8 +135,10 @@ export const theoflixDB: Course[] = [
         level: 4,
         title: "Supervisione 1",
         type: "Líder de Área",
-        image: "https://lh3.googleusercontent.com/gg-dl/AOI_d__jED8KhtEsVxgkE9YuEpx9Ms4mUQYO0pEAReBGOJ30lLbaS3e2kCU_iW2YSg88PmfBb8MOXPgIeJ07BApomIrfu9fmCeqjyjCakQt2MBcka4YzS3wZA0bMiqFEU9Pm5i4ulqAdLwbM8zD6E1npl5G8QoVVC3wXrVYLjMsumB4jOrWjQw",
-        desc: "A arte de liderar líderes e gerir processos coletivos.",
+        tags: ["Estratégia", "Mentoria"],
+        duration: "4h 15min",
+        image: "https://images.unsplash.com/photo-1454165833767-027ffea9e778?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxNXx8YnVzaW5lc3N8ZW58MHx8fHwxNzYzMjUzNjg4fDA&ixlib=rb-4.1.0&q=80&w=1080",
+        desc: "A arte de liderar líderes e gerir processos coletivos em nível de área. Foco em mentoria e resultados ministeriais.",
         episodes: [
             "Como Mentorear Líderes de GC",
             "Gestão de Conflitos em níveis intermediários",
@@ -115,26 +147,14 @@ export const theoflixDB: Course[] = [
         ]
     },
     {
-        id: 'supervisione2',
-        level: 4,
-        title: "Supervisione 2",
-        type: "Líder de Rede",
-        image: "https://lh3.googleusercontent.com/gg-dl/AOI_d_8UmBJIXRbcy1JuzClviRNODDZ4AxYbDuZa1nhnBc-rI_6TCPCN17o6BaNTLZ-1t0cWQWlkWM0ETwKbxbCCee38brT2C1Lypj6GW1bBcN1glLCF6Ihg7yS9KQFgGLcVuA2ymRxrsXFonLPFZ9dCpx2bTxOOw_bimowNsd-_HCxW6VsC2g",
-        desc: "Visão macro-estratégica e expansão de território ministerial.",
-        episodes: [
-            "Desenvolvimento de Visão de Longo Prazo",
-            "Formação e Treinamento de Novos Supervisores",
-            "Planejamento Estratégico de Rede e Eventos Macro",
-            "Alinhamento Financeiro e Administrativo de Redes"
-        ]
-    },
-    {
         id: 'avance',
         level: 4,
         title: "Avance",
         type: "Nível Pastoral",
-        image: "https://lh3.googleusercontent.com/gg-dl/AOI_d__f6UEEGhSw45EsKsaHtmjO5OgAxoy774TfRA6L1nCR-UFcj9S2PbNmoH7DdSu28CnDVfKQocVq9C489l9eH_B3pRGm4SKaJK67Zwn6CHnjrof7P2gZwgocT7ZW_vDCpb3N9yO4CnvHNR0QWidgV4BO09FatBi3kdAddDRu-hfAh9zIHA",
-        desc: "Teologia aprofundada e mentoria contínua para o corpo ministerial.",
+        tags: ["Teologia", "Pastoreio"],
+        duration: "12h 00min",
+        image: "https://images.unsplash.com/photo-1504052434569-70ad5836ab65?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMnx8Ym9va3xlbnwwfHx8fDE3NjMyNTM3MzB8MA&ixlib=rb-4.1.0&q=80&w=1080",
+        desc: "Teologia aprofundada e mentoria contínua para o corpo ministerial e aspirantes ao pastorado.",
         episodes: [
             "Panorama Teológico e Doutrina de Fé",
             "Aconselhamento e Mentoria de Casais/Famílias",
