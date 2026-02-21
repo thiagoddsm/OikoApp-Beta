@@ -5,21 +5,20 @@ import { collection, query, where, getDocs, addDoc, Timestamp, doc, getDoc } fro
 
 /**
  * API Route to send WhatsApp messages using direct fetch to api-wa.me
- * Supports individual users, groups, and segmented audiences.
+ * Supports text and interactive button messages.
  */
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { channel, audience, message, userIds, targetNumber } = body;
+    const { channel, audience, message, userIds, targetNumber, type, buttons, footer, title } = body;
 
-    if (!channel || !message || (!audience && !targetNumber)) {
+    if (!channel || (!message && type !== 'button') || (!audience && !targetNumber)) {
       return NextResponse.json({ error: 'Parâmetros insuficientes para o envio.' }, { status: 400 });
     }
 
     const { firestore } = initializeFirebase();
     
-    // 1. Buscar Configuração do WhatsApp
     let waKey = null;
     try {
         const configRef = doc(firestore, 'config', 'notifications');
@@ -28,177 +27,77 @@ export async function POST(request: Request) {
             waKey = configSnap.data()?.whatsappApiKey;
         }
     } catch (e: any) {
-        console.error("Erro ao ler config de notificações do Firestore:", e);
-        return NextResponse.json({ 
-            error: `Erro de permissão ao ler banco de dados: ${e.message}.` 
-        }, { status: 500 });
+        return NextResponse.json({ error: `Erro de permissão ao ler banco de dados.` }, { status: 500 });
     }
 
     if (!waKey && channel === 'whatsapp') {
-        return NextResponse.json({ 
-            error: "API Key do WhatsApp não encontrada nas configurações." 
-        }, { status: 400 });
+        return NextResponse.json({ error: "API Key não configurada." }, { status: 400 });
     }
 
-    // 2. Lógica de Destinatários
     const targetUsers: any[] = [];
 
-    // CASO A: Disparo para Número Único ou Grupo ID (via targetNumber)
-    if (targetNumber && (audience === 'whatsapp_group' || targetNumber.includes('@'))) {
-        targetUsers.push({
-            id: 'target-id',
-            name: 'Destinatário Especial',
-            phone: targetNumber // Se for grupo, mantém o @g.us
-        });
-    } else if (targetNumber) {
-        targetUsers.push({
-            id: 'test-user',
-            name: 'Líder IBM (Teste)',
-            phone: targetNumber.replace(/\D/g, '')
-        });
-    } 
-    // CASO B: Membros Específicos Selecionados
-    else if (audience === 'specific_members' && userIds && Array.isArray(userIds) && userIds.length > 0) {
+    if (targetNumber) {
+        targetUsers.push({ id: 'custom', name: 'Destinatário', phone: targetNumber });
+    } else if (audience === 'specific_members' && userIds) {
         const usersRef = collection(firestore, 'users');
-        const chunks = [];
-        for (let i = 0; i < userIds.length; i += 30) {
-            chunks.push(userIds.slice(i, i + 30));
-        }
-        
-        for (const chunk of chunks) {
-            const q = query(usersRef, where('__name__', 'in', chunk));
-            const querySnapshot = await getDocs(q);
-            querySnapshot.forEach((doc) => {
-                const data = doc.data();
-                if (data.phone) {
-                    targetUsers.push({
-                        id: doc.id,
-                        name: data.name,
-                        phone: data.phone.replace(/\D/g, '')
-                    });
-                }
-            });
-        }
-    } 
-    // CASO C: Audiência Segmentada (Todos, Líderes, etc)
-    else {
+        const q = query(usersRef, where('__name__', 'in', userIds.slice(0, 30)));
+        const snap = await getDocs(q);
+        snap.forEach(d => {
+            const data = d.data();
+            if (data.phone) targetUsers.push({ id: d.id, name: data.name, phone: data.phone });
+        });
+    } else {
         const usersRef = collection(firestore, 'users');
-        let q;
-        switch (audience) {
-            case 'all_members':
-                q = query(usersRef);
-                break;
-            case 'all_leaders':
-                q = query(usersRef, where('hierarchy.role', 'in', ['admin', 'pastor_senior', 'pastor', 'lider_rede', 'lider_area', 'lider_gc']));
-                break;
-            case 'cell_leaders':
-                q = query(usersRef, where('hierarchy.role', '==', 'lider_gc'));
-                break;
-            default:
-                q = query(usersRef);
-        }
-        const querySnapshot = await getDocs(q);
-        querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            if (data.phone) {
-                targetUsers.push({
-                    id: doc.id,
-                    name: data.name,
-                    phone: data.phone.replace(/\D/g, '')
-                });
-            }
+        const snap = await getDocs(query(usersRef));
+        snap.forEach(d => {
+            const data = d.data();
+            if (data.phone) targetUsers.push({ id: d.id, name: data.name, phone: data.phone });
         });
     }
 
-    if (targetUsers.length === 0) {
-        return NextResponse.json({ error: 'Nenhum destinatário válido encontrado.' }, { status: 404 });
-    }
-
-    // 3. ENVIO REAL (via fetch ao gateway api-wa.me)
     let sentCount = 0;
     let errorCount = 0;
-    let lastError = null;
 
     for (const user of targetUsers) {
-        const personalizedMessage = message.replace('{{nome}}', user.name);
+        const phone = user.phone.replace(/\D/g, '');
+        const formattedPhone = phone.includes('@') ? phone : (phone.length <= 11 ? `55${phone}` : phone);
         
-        if (waKey && channel === 'whatsapp') {
-            try {
-                let formattedNumber = user.phone;
-                // Só formata se não for ID de grupo
-                if (!formattedNumber.includes('@')) {
-                    formattedNumber = formattedNumber.replace(/\D/g, '');
-                    if (formattedNumber.length <= 11) { 
-                        formattedNumber = `55${formattedNumber}`;
-                    }
-                }
-                
-                const response = await fetch(`https://us.api-wa.me/${waKey}/message/text`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        to: formattedNumber,
-                        text: personalizedMessage
-                    })
-                });
+        const endpoint = type === 'button' ? 'message/button' : 'message/text';
+        const url = `https://us.api-wa.me/${waKey}/${endpoint}`;
+        
+        const payload = type === 'button' ? {
+            to: formattedPhone,
+            title: (title || message).replace('{{nome}}', user.name),
+            footer: footer || 'Igreja Batista da Manhã',
+            buttons: buttons || []
+        } : {
+            to: formattedPhone,
+            text: message.replace('{{nome}}', user.name)
+        };
 
-                if (!response.ok) {
-                    const errData = await response.json().catch(() => ({}));
-                    throw new Error(errData.message || `Erro ${response.status} no gateway.`);
-                }
-
-                sentCount++;
-            } catch (err: any) {
-                console.error(`Erro ao enviar para ${user.phone}:`, err);
-                errorCount++;
-                lastError = err.message;
-            }
-        } else {
-            // Modo simulação se não houver chave salva (para segurança em dev)
-            sentCount++;
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (response.ok) sentCount++; else errorCount++;
+        } catch (e) {
+            errorCount++;
         }
     }
 
-    // 4. Registrar no Histórico para Auditoria
-    try {
-        await addDoc(collection(firestore, 'notifications_history'), {
-            channel,
-            audience: audience || 'custom_dispatch',
-            message,
-            recipientCount: targetUsers.length,
-            successCount: sentCount,
-            errorCount: errorCount,
-            sentAt: Timestamp.now(),
-            status: errorCount === 0 ? 'success' : (sentCount > 0 ? 'partial' : 'error'),
-            isSimulation: !waKey,
-            lastErrorMessage: lastError
-        });
-    } catch (e) {
-        console.warn("Aviso: Falha ao gravar histórico de notificação.");
-    }
+    await addDoc(collection(firestore, 'notifications_history'), {
+        channel,
+        message: type === 'button' ? `[BOTÕES] ${title || message}` : message,
+        recipientCount: targetUsers.length,
+        successCount: sentCount,
+        status: errorCount === 0 ? 'success' : 'partial',
+        sentAt: Timestamp.now()
+    });
 
-    if (errorCount > 0 && sentCount === 0) {
-        return NextResponse.json({ 
-            success: false, 
-            message: `Falha no envio: ${lastError}`,
-            sentCount,
-            errorCount
-        }, { status: 500 });
-    }
-
-    const resultMessage = waKey 
-        ? (errorCount === 0 ? `Sucesso! ${sentCount} mensagens enviadas.` : `Concluído com avisos: ${sentCount} enviadas, ${errorCount} falhas.`)
-        : `Simulação concluída! ${sentCount} mensagens seriam enviadas.`;
-
-    return NextResponse.json({ 
-      success: true, 
-      message: resultMessage,
-      sentCount,
-      errorCount
-    }, { status: 200 });
-
+    return NextResponse.json({ success: true, sentCount });
   } catch (error: any) {
-    console.error('Erro crítico na API de notificações:', error);
-    return NextResponse.json({ error: `Erro interno no servidor: ${error.message}` }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

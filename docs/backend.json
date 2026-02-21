@@ -119,47 +119,18 @@
       },
       "required": ["type", "category", "amount", "date", "status"]
     },
-    "Class": {
-      "title": "Class",
+    "NotificationResponse": {
+      "title": "Notification Response",
       "type": "object",
-      "description": "Represents a specific class or group for a course.",
+      "description": "Responses from interactive WhatsApp messages (buttons).",
       "properties": {
-        "courseId": { "type": "string" },
-        "name": { "type": "string" },
-        "teacherId": { "type": "string" },
-        "students": { "type": "array", "items": { "type": "string" }},
-        "frequency": { "type": "string", "enum": ["pontual", "semanal", "quinzenal", "mensal"] },
-        "startDate": { "type": "string", "format": "date" },
-        "endDate": { "type": "string", "format": "date" },
-        "startTime": { "type": "string", "format": "time" },
-        "endTime": { "type": "string", "format": "time" },
-        "dayOfWeek": { "type": "string" },
-        "weekOfMonth": { "type": "string", "enum": ["1", "2", "3", "4", "5", "last"] },
-        "locationId": { "type": "string" },
-        "attendance": { "type": "array" },
-        "grades": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "studentId": { "type": "string" },
-                    "assessmentName": { "type": "string" },
-                    "grade": { "type": "number" }
-                }
-            }
-        },
-        "materials": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "title": { "type": "string" },
-                    "url": { "type": "string" },
-                    "description": { "type": "string" }
-                }
-            }
-        }
-      }
+        "from": { "type": "string" },
+        "buttonId": { "type": "string" },
+        "buttonText": { "type": "string" },
+        "receivedAt": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string" }
+      },
+      "required": ["from", "buttonId", "receivedAt"]
     }
   }
 }
