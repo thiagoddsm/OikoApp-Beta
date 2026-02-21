@@ -87,13 +87,21 @@ export default function DashboardPage() {
   // Memoize sorted and sliced data for UI
   const reports = useMemo(() => {
     if (!allReports) return [];
-    return [...allReports].sort((a, b) => b.data.toMillis() - a.data.toMillis());
+    return [...allReports].sort((a, b) => {
+      const timeA = a.date?.toMillis?.() || 0;
+      const timeB = b.date?.toMillis?.() || 0;
+      return timeB - timeA;
+    });
   }, [allReports]);
 
   const registrosPresenca = useMemo(() => {
     if (!allRegistrosPresenca) return null;
     return [...allRegistrosPresenca]
-        .sort((a, b) => b.data.toMillis() - a.data.toMillis())
+        .sort((a, b) => {
+          const timeA = a.data?.toMillis?.() || 0;
+          const timeB = b.data?.toMillis?.() || 0;
+          return timeB - timeA;
+        })
         .slice(0, 8);
   }, [allRegistrosPresenca]);
 
