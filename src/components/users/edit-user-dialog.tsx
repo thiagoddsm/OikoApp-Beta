@@ -54,7 +54,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
     igrejaBatismo: '',
     membroAntigo: 'nao',
     igrejaAntiga: '',
-    decisao: [],
+    decisao: [] as string[],
     initialStatus: '',
     dataDecisao: '',
     estadoCivil: '',
@@ -113,7 +113,6 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         observacoes: user.observacoes || '',
       });
     } else {
-       // Reset for new user
       setFormData({
         name: '',
         phone: '',
@@ -158,7 +157,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
 
   const handleCheckboxChange = (name: string, value: string, checked: boolean) => {
     setFormData(prev => {
-        const currentValues = prev[name] || [];
+        const currentValues = (prev[name] as string[]) || [];
         if (checked) {
             return { ...prev, [name]: [...currentValues, value] };
         } else {
@@ -185,6 +184,21 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         return;
     }
     setIsSaving(true);
+
+    // Lógica de Transição Automática solicitada pelo usuário
+    let finalIntegrationStatus = formData.integrationStatus;
+    if (finalIntegrationStatus === 'nao_alcancado') {
+        if (formData.decisao.includes('Decisão por Cristo')) {
+            finalIntegrationStatus = 'novo_convertido';
+            toast({ title: "Movido para Novo Convertido", description: "O estágio foi atualizado automaticamente devido à decisão registrada." });
+        } else if (formData.decisao.includes('Reconciliação')) {
+            finalIntegrationStatus = 'reconciliado';
+            toast({ title: "Movido para Reconciliado", description: "O estágio foi atualizado automaticamente devido à decisão registrada." });
+        } else if (formData.initialStatus === 'membro_outra_igreja') {
+            finalIntegrationStatus = 'transferido';
+            toast({ title: "Movido para Transferido", description: "O estágio foi atualizado automaticamente por vir de outra igreja." });
+        }
+    }
     
     const dataToSave = {
         name: formData.name,
@@ -195,7 +209,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         address: {
             street: formData.addressStreet,
         },
-        integrationStatus: formData.integrationStatus,
+        integrationStatus: finalIntegrationStatus,
         hierarchy: {
             celulaId: formData.celulaId || null,
             supervisorId: formData.supervisorId || null,
@@ -338,7 +352,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
                 </div>
                 
                  <div className="space-y-1.5">
-                    <Label>Decisão</Label>
+                    <Label>Decisões Tomadas</Label>
                      <div className="flex flex-col space-y-2">
                         {decisaoOptions.map(item => (<div key={item} className="flex items-center gap-2"><Checkbox id={`decisao-${item}`} checked={formData.decisao.includes(item)} onCheckedChange={(checked) => handleCheckboxChange('decisao', item, !!checked)}/><Label htmlFor={`decisao-${item}`}>{item}</Label></div>))}
                     </div>

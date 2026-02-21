@@ -15,6 +15,7 @@ export function CourseDetailsForm({ course }) {
   const { users, isLoading } = useVolunteering();
   const { firestore } = useFirebase();
   const { toast } = useToast();
+  
   const [formData, setFormData] = useState({
     responsibleId: '',
     description: '',
@@ -36,7 +37,7 @@ export function CourseDetailsForm({ course }) {
     }
   }, [course]);
 
-  const handleChange = (name: string, value: string) => {
+  const handleFieldChange = (name: string, value: string) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
   
@@ -73,14 +74,14 @@ export function CourseDetailsForm({ course }) {
                     id="desc" 
                     rows={5} 
                     value={formData.description} 
-                    onChange={e => handleChange('description', e.target.value)}
+                    onChange={e => handleFieldChange('description', e.target.value)}
                     placeholder="Descreva os objetivos, público-alvo e resultados esperados deste curso..."
                   />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                       <Label htmlFor="type">Tipo de Curso</Label>
-                      <Select value={formData.type} onValueChange={v => handleChange('type', v)}>
+                      <Select value={formData.type} onValueChange={v => handleFieldChange('type', v)}>
                           <SelectTrigger id="type"><SelectValue /></SelectTrigger>
                           <SelectContent>
                               <SelectItem value="trilho">Trilhos</SelectItem>
@@ -95,7 +96,7 @@ export function CourseDetailsForm({ course }) {
                             <School className="size-3 text-primary" />
                             Trilho EBD (Escola Bíblica Discipuladora)
                         </Label>
-                        <Select value={formData.ebdTrack} onValueChange={v => handleChange('ebdTrack', v)}>
+                        <Select value={formData.ebdTrack} onValueChange={v => handleFieldChange('ebdTrack', v)}>
                             <SelectTrigger id="ebdTrack"><SelectValue placeholder="Selecione o trilho..." /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="teologico">Trilho Teológico</SelectItem>
@@ -124,7 +125,7 @@ export function CourseDetailsForm({ course }) {
                   <div className="space-y-4">
                       <div>
                         <Label htmlFor="responsibleId" className="text-[10px] uppercase font-black text-muted-foreground">Responsável Designado</Label>
-                        <Select value={formData.responsibleId || 'null'} onValueChange={v => handleChange('responsibleId', v)} disabled={isLoading}>
+                        <Select value={formData.responsibleId || 'null'} onValueChange={v => handleFieldChange('responsibleId', v)} disabled={isLoading}>
                           <SelectTrigger id="responsibleId" className="bg-white mt-1">
                             <SelectValue placeholder="Selecione um líder..." />
                           </SelectTrigger>
