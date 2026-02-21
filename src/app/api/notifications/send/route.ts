@@ -25,7 +25,15 @@ export async function POST(request: Request) {
         }
     } catch (e: any) {
         console.error("Erro ao ler config de notificações do Firestore:", e);
-        // Não travamos o fluxo aqui para permitir logs mais abaixo
+        return NextResponse.json({ 
+            error: `Erro de permissão ao ler banco de dados: ${e.message}. Verifique se a chave foi salva corretamente.` 
+        }, { status: 500 });
+    }
+
+    if (!waKey && channel === 'whatsapp') {
+        return NextResponse.json({ 
+            error: "API Key do WhatsApp não encontrada. Vá na aba Configurações e salve sua chave primeiro." 
+        }, { status: 400 });
     }
 
     let whatsappClient: any = null;
@@ -43,32 +51,35 @@ export async function POST(request: Request) {
     // 2. Lógica de Destinatários
     const targetUsers: any[] = [];
 
-    // Prioridade 1: Número de teste manual
     if (targetNumber) {
         targetUsers.push({
             id: 'test-user',
             name: 'Líder IBM (Teste)',
             phone: targetNumber.replace(/\D/g, '')
         });
-    } 
-    // Prioridade 2: Lista específica de membros
-    else if (audience === 'specific_members' && userIds && Array.isArray(userIds) && userIds.length > 0) {
+    } else if (audience === 'specific_members' && userIds && Array.isArray(userIds) && userIds.length > 0) {
         const usersRef = collection(firestore, 'users');
-        const q = query(usersRef, where('__name__', 'in', userIds));
-        const querySnapshot = await getDocs(q);
-        querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            if (data.phone) {
-                targetUsers.push({
-                    id: doc.id,
-                    name: data.name,
-                    phone: data.phone.replace(/\D/g, '')
-                });
-            }
-        });
-    } 
-    // Prioridade 3: Públicos pré-definidos
-    else {
+        // Firestore 'in' query has limit of 30 items
+        const chunks = [];
+        for (let i = 0; i < userIds.length; i += 30) {
+            chunks.push(userIds.slice(i, i + 30));
+        }
+        
+        for (const chunk of chunks) {
+            const q = query(usersRef, where('__name__', 'in', chunk));
+            const querySnapshot = await getDocs(q);
+            querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                if (data.phone) {
+                    targetUsers.push({
+                        id: doc.id,
+                        name: data.name,
+                        phone: data.phone.replace(/\D/g, '')
+                    });
+                }
+            });
+        }
+    } else {
         const usersRef = collection(firestore, 'users');
         let q;
         switch (audience) {
@@ -104,7 +115,7 @@ export async function POST(request: Request) {
     }
 
     if (targetUsers.length === 0) {
-        return NextResponse.json({ error: 'Nenhum destinatário válido encontrado.' }, { status: 404 });
+        return NextResponse.json({ error: 'Nenhum destinatário válido encontrado com telefone cadastrado.' }, { status: 404 });
     }
 
     // 3. ENVIO
@@ -117,16 +128,21 @@ export async function POST(request: Request) {
         
         if (whatsappClient) {
             try {
-                const formattedNumber = user.phone.startsWith('55') ? user.phone : `55${user.phone}`;
+                // Ensure number has 55 prefix if missing
+                let formattedNumber = user.phone;
+                if (formattedNumber.length <= 11) { // 21 999999999
+                    formattedNumber = `55${formattedNumber}`;
+                }
+                
                 await whatsappClient.sendText(formattedNumber, personalizedMessage);
                 sentCount++;
             } catch (err: any) {
-                console.error(`Erro real ao enviar para ${user.phone}:`, err);
+                console.error(`Erro ao enviar para ${user.phone}:`, err);
                 errorCount++;
-                lastError = err.message || JSON.stringify(err);
+                // Extract more useful error message if available
+                lastError = err.response?.data?.message || err.message || JSON.stringify(err);
             }
         } else {
-            console.log(`[SIMULAÇÃO] Enviando para ${user.phone}: ${personalizedMessage}`);
             sentCount++;
         }
     }
@@ -149,10 +165,10 @@ export async function POST(request: Request) {
         console.warn("Aviso: Falha ao gravar histórico de notificação.");
     }
 
-    if (waKey && errorCount > 0 && sentCount === 0) {
+    if (errorCount > 0 && sentCount === 0) {
         return NextResponse.json({ 
             success: false, 
-            message: `Falha total no envio. Verifique se a chave da instância é válida. Erro: ${lastError}`,
+            message: `Falha no envio: ${lastError}. Verifique se sua instância está conectada no painel da API WA.`,
             sentCount,
             errorCount
         }, { status: 500 });
@@ -160,7 +176,7 @@ export async function POST(request: Request) {
 
     const resultMessage = waKey 
         ? (errorCount === 0 ? `Sucesso! ${sentCount} mensagens enviadas.` : `Concluído com avisos: ${sentCount} enviadas, ${errorCount} falhas. Erro: ${lastError}`)
-        : `Simulação concluída! ${sentCount} mensagens seriam enviadas. (Configure a API Key para envios reais)`;
+        : `Simulação concluída! ${sentCount} mensagens seriam enviadas.`;
 
     return NextResponse.json({ 
       success: true, 

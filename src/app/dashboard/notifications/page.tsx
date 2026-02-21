@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Send, Settings, Key, Bot, History, MessageSquare, Mail, Users, CheckCircle2, Search, UserPlus, X, Info, Layers, RefreshCw, Zap } from 'lucide-react';
+import { Loader2, Send, Settings, Key, Bot, History, MessageSquare, Mail, Users, CheckCircle2, Search, UserPlus, X, Info, Layers, RefreshCw, Zap, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useCollection, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, Timestamp, doc } from 'firebase/firestore';
@@ -74,7 +74,7 @@ function WhatsappSender() {
             const result = await response.json();
             
             if (!response.ok) {
-              throw new Error(result.error || 'Falha no envio');
+              throw new Error(result.error || result.message || 'Falha no envio');
             }
 
             toast({
@@ -286,6 +286,7 @@ function NotificationsConfig() {
     const [aiKey, setAiKey] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [isTesting, setIsTesting] = useState(false);
+    const [lastTestError, setLastTestError] = useState<string | null>(null);
 
     useEffect(() => {
         if (config) {
@@ -322,6 +323,7 @@ function NotificationsConfig() {
             return;
         }
         setIsTesting(true);
+        setLastTestError(null);
         try {
             const response = await fetch('/api/notifications/send', {
                 method: 'POST',
@@ -333,10 +335,12 @@ function NotificationsConfig() {
                 }),
             });
             const result = await response.json();
-            if (response.ok && result.sentCount > 0) {
+            if (response.ok && result.success) {
                 toast({ title: "Teste bem-sucedido!", description: "A mensagem foi disparada para o número de teste." });
             } else {
-                throw new Error(result.error || result.message || "Falha ao enviar mensagem de teste.");
+                const errMsg = result.error || result.message || "Falha ao enviar mensagem de teste.";
+                setLastTestError(errMsg);
+                throw new Error(errMsg);
             }
         } catch (e: any) {
             toast({ variant: 'destructive', title: "Falha na Conexão", description: e.message });
@@ -373,7 +377,7 @@ function NotificationsConfig() {
                     <CardTitle className="flex items-center gap-2 text-indigo-700 text-sm"><Zap className="size-4" />Diagnóstico de Conexão</CardTitle>
                     <CardDescription>Envie um "ping" de teste para validar se sua chave é válida.</CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-4">
                     <div className="flex items-center justify-between p-4 bg-white border border-indigo-100 rounded-lg">
                         <div className="text-xs">
                             <p className="font-bold text-indigo-900">Número de Destino: 5521989001302</p>
@@ -384,6 +388,16 @@ function NotificationsConfig() {
                             Testar Agora
                         </Button>
                     </div>
+                    {lastTestError && (
+                        <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3 animate-in shake-1 duration-300">
+                            <AlertCircle className="size-5 text-red-600 shrink-0 mt-0.5" />
+                            <div className="text-xs text-red-800">
+                                <p className="font-bold uppercase tracking-tight">Detalhes do Erro:</p>
+                                <p className="mt-1 leading-relaxed">{lastTestError}</p>
+                                <p className="mt-2 text-[10px] font-medium text-red-600 italic">Dica: Verifique se sua instância está "Conectada" no painel da api-wa.me.</p>
+                            </div>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 
