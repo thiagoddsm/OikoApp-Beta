@@ -104,12 +104,12 @@ export async function POST(request: Request) {
 
         switch (type) {
             case 'button':
-                // Try message/button_reply based on the categorização
+                // Na versão 5.0.0, o campo principal é 'body' e não 'text' em botões interativos
                 endpoint = 'message/button_reply';
                 payload = {
                     ...payload,
                     title: title || 'Informativo IBM',
-                    text: (message || '').replace('{{nome}}', user.name),
+                    body: (message || '').replace('{{nome}}', user.name),
                     footer: footer || 'Igreja Batista da Manhã',
                     buttons: (buttons || []).map((b: any) => ({
                         id: b.id,
@@ -150,7 +150,7 @@ export async function POST(request: Request) {
                     name: pixName || 'Igreja Batista da Manhã',
                     city: pixCity || 'Sao Goncalo',
                     amount: Number(pixAmount) || 0,
-                    text: (message || '').replace('{{nome}}', user.name)
+                    body: (message || '').replace('{{nome}}', user.name)
                 };
                 break;
             default:
