@@ -27,7 +27,7 @@ const getMimetype = (url: string) => {
 };
 
 export async function POST(request: Request) {
-  let currentEndpoint = 'unknown'; // Global scope to avoid "not defined" error
+  let currentEndpoint = 'message/text';
   
   try {
     const body = await request.json();
@@ -116,7 +116,8 @@ export async function POST(request: Request) {
                     footer: footer || 'Igreja Batista da Manhã',
                     buttons: (buttons || []).map((b: any) => ({
                         id: b.id,
-                        text: b.text
+                        text: b.text,
+                        type: 'reply' // Requisito técnico para renderização correta
                     }))
                 };
                 break;
@@ -164,7 +165,7 @@ export async function POST(request: Request) {
                 };
         }
 
-        currentEndpoint = endpoint; // Record current endpoint for error reporting
+        currentEndpoint = endpoint;
         const url = `https://us.api-wa.me/${waKey}/${endpoint}`;
 
         try {
@@ -174,12 +175,13 @@ export async function POST(request: Request) {
                 body: JSON.stringify(payload)
             });
             
+            const responseData = await response.json().catch(() => ({}));
+
             if (response.ok) {
                 sentCount++;
             } else {
-                const errData = await response.json().catch(() => ({}));
-                rawError = errData;
-                lastError = errData.message || errData.error || `Erro HTTP ${response.status}`;
+                rawError = responseData;
+                lastError = responseData.message || responseData.error || `Erro HTTP ${response.status}`;
                 errorCount++;
             }
         } catch (e: any) {

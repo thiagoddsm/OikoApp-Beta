@@ -46,7 +46,6 @@ export async function GET() {
         // Detecção ultra-resiliente de status
         let rawStatus = 'unknown';
         
-        // Ordem de prioridade para encontrar o status real
         if (data.instance?.state) rawStatus = data.instance.state;
         else if (data.state) rawStatus = data.state;
         else if (data.instance?.status) rawStatus = data.instance.status;
@@ -133,7 +132,12 @@ export async function PUT(request: Request) {
         const response = await fetch(`https://us.api-wa.me/${waKey}/instance`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ webhook: webhookUrl })
+            body: JSON.stringify({ 
+                webhook: webhookUrl,
+                allowWebhook: true,
+                webhookMessage: webhookUrl,
+                webhookMessageFromMe: webhookUrl
+            })
         });
 
         if (!response.ok) {
@@ -156,11 +160,13 @@ export async function PATCH() {
 
         if (!waKey) return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
 
-        // Documentação OAS 3.0: Setting via PATCH
-        // Usando apenas os campos explicitamente documentados no Swagger fornecido
+        // Documentação OAS 3.0 + Ajuste de Permissões Interativas
+        // Adicionando receiveStatusMessage e receivePresence para habilitar botões
         const urlParams = new URLSearchParams({
             markMessageRead: 'true',
-            saveMedia: 'true'
+            saveMedia: 'true',
+            receiveStatusMessage: 'true',
+            receivePresence: 'true'
         });
 
         const url = `https://us.api-wa.me/${waKey}/instance?${urlParams.toString()}`;
