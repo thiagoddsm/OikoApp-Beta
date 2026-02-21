@@ -13,13 +13,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { 
     Loader2, Send, Settings, Key, Bot, History, MessageSquare, Mail, 
     Users, CheckCircle2, Search, UserPlus, X, Info, Layers, RefreshCw, 
     Zap, AlertCircle, Group, LayoutTemplate, Sparkles, MessageCircle, MousePointer2,
     UserCheck, Trash2, BarChart3, FileText, Image as ImageIcon, Link as LinkIcon,
     QrCode, Smartphone, LogOut, PlusCircle, CheckCircle, User as UserIcon,
-    Banknote, Wallet
+    Banknote, Wallet, Bug, ShieldAlert
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useCollection, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
@@ -219,6 +220,7 @@ function WhatsappSender() {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
+    const [debugError, setDebugError] = useState<any>(null);
     const [message, setMessage] = useState('');
     const [targetAudience, setTargetAudience] = useState('all_members');
     const [searchTerm, setSearchTerm] = useState('');
@@ -325,22 +327,24 @@ function WhatsappSender() {
         setMessage(text);
     };
 
-    const handleSend = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSend = async (e?: React.FormEvent, forcePayload?: any) => {
+        if (e) e.preventDefault();
+        setDebugError(null);
         
-        if (targetAudience === 'specific_members' && selectedUserIds.length === 0) {
-            toast({ variant: 'destructive', title: "Selecione pelo menos uma pessoa." });
-            return;
-        }
-
-        if (targetAudience === 'whatsapp_group' && !selectedGroupId) {
-            toast({ variant: 'destructive', title: "Selecione um grupo de WhatsApp." });
-            return;
+        if (!forcePayload) {
+            if (targetAudience === 'specific_members' && selectedUserIds.length === 0) {
+                toast({ variant: 'destructive', title: "Selecione pelo menos uma pessoa." });
+                return;
+            }
+            if (targetAudience === 'whatsapp_group' && !selectedGroupId) {
+                toast({ variant: 'destructive', title: "Selecione um grupo de WhatsApp." });
+                return;
+            }
         }
 
         setIsLoading(true);
 
-        const payload: any = {
+        const payload: any = forcePayload || {
             channel: 'whatsapp',
             audience: targetAudience,
             message,
@@ -349,26 +353,25 @@ function WhatsappSender() {
             type: msgType,
         };
 
-        if (msgType === 'button') {
-            payload.title = msgTitle || "Convite IBM";
-            payload.footer = msgFooter || "Igreja Batista da Manhã";
-            payload.buttons = msgButtons.map(b => ({ id: b.id, text: b.text }));
-        }
-
-        if (msgType === 'survey') {
-            payload.surveyName = surveyName || "Enquete IBM";
-            payload.options = surveyOptions;
-        }
-
-        if (msgType === 'media') {
-            payload.mediaUrl = mediaUrl;
-        }
-
-        if (msgType === 'pix') {
-            payload.pixKey = pixKey;
-            payload.pixName = pixName;
-            payload.pixCity = pixCity;
-            payload.pixAmount = pixAmount;
+        if (!forcePayload) {
+            if (msgType === 'button') {
+                payload.title = msgTitle || "Convite IBM";
+                payload.footer = msgFooter || "Igreja Batista da Manhã";
+                payload.buttons = msgButtons.map(b => ({ id: b.id, text: b.text }));
+            }
+            if (msgType === 'survey') {
+                payload.surveyName = surveyName || "Enquete IBM";
+                payload.options = surveyOptions;
+            }
+            if (msgType === 'media') {
+                payload.mediaUrl = mediaUrl;
+            }
+            if (msgType === 'pix') {
+                payload.pixKey = pixKey;
+                payload.pixName = pixName;
+                payload.pixCity = pixCity;
+                payload.pixAmount = pixAmount;
+            }
         }
 
         try {
@@ -382,15 +385,18 @@ function WhatsappSender() {
             
             if (response.ok) {
                 toast({ title: "Envio Concluído!", description: `${result.sentCount || 0} mensagens processadas.` });
-                if (msgType !== 'pix') setMessage('');
-                setSelectedUserIds([]);
-                setSurveyName('');
-                setMediaUrl('');
+                if (!forcePayload) {
+                    if (msgType !== 'pix') setMessage('');
+                    setSelectedUserIds([]);
+                    setSurveyName('');
+                    setMediaUrl('');
+                }
             } else {
+                setDebugError(result);
                 toast({ 
                     variant: 'destructive', 
-                    title: "Erro no Envio", 
-                    description: result.error || "Falha ao processar. Verifique se sua instância permite recursos interativos." 
+                    title: "Falha no Envio", 
+                    description: result.error || "Ocorreu um erro no gateway." 
                 });
             }
         } catch(error) {
@@ -399,312 +405,376 @@ function WhatsappSender() {
             setIsLoading(false);
         }
     };
+
+    const handleDebugTest = (type: string) => {
+        const testNumber = prompt("Digite um número para teste (ex: 21999999999):");
+        if (!testNumber) return;
+
+        let payload: any = { channel: 'whatsapp', targetNumber: testNumber, type };
+
+        switch(type) {
+            case 'text': payload.message = "Teste de Texto IBM"; break;
+            case 'button':
+                payload.message = "Teste de Botões";
+                payload.buttons = [{ id: 'test_1', text: 'Opção A' }, { id: 'test_2', text: 'Opção B' }];
+                payload.title = "DEBUG MODE";
+                break;
+            case 'media':
+                payload.mediaUrl = "https://placehold.co/600x400/png";
+                payload.message = "Teste de Mídia";
+                break;
+            case 'pix':
+                payload.pixKey = "test@ibm.com";
+                payload.pixAmount = 1.50;
+                payload.message = "Teste de PIX";
+                break;
+            case 'survey':
+                payload.surveyName = "Teste de Enquete";
+                payload.options = ["Opção 1", "Opção 2"];
+                break;
+        }
+
+        handleSend(undefined, payload);
+    }
     
     return (
-        <form onSubmit={handleSend} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                    <Label htmlFor="msgType">Formato da Mensagem</Label>
-                    <Select value={msgType} onValueChange={(v:any) => setMsgType(v)}>
-                        <SelectTrigger className="bg-background">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="text">Apenas Texto (Normal)</SelectItem>
-                            <SelectItem value="button">Mensagem com Botões (Interativa)</SelectItem>
-                            <SelectItem value="survey">Enquete / Votação</SelectItem>
-                            <SelectItem value="media">Imagem ou Documento</SelectItem>
-                            <SelectItem value="pix">QR Code PIX (Pagamento)</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-
-                <div className="space-y-2">
-                    <Label htmlFor="targetAudience">Público-alvo</Label>
-                    <Select value={targetAudience} onValueChange={setTargetAudience}>
-                        <SelectTrigger className="bg-background">
-                            <SelectValue placeholder="Selecione o público" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all_members">Todos os Membros</SelectItem>
-                            <SelectItem value="specific_members">Membros Específicos</SelectItem>
-                            <SelectItem value="whatsapp_group">Grupo de WhatsApp</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-            </div>
-
-            {targetAudience === 'specific_members' && (
-                <div className="space-y-4 p-4 border rounded-lg bg-muted/20 animate-in fade-in zoom-in-95 duration-200">
-                    <Label className="flex items-center gap-2">
-                        <Search size={14} /> Selecionar Pessoas
-                    </Label>
-                    <div className="relative">
-                        <Input 
-                            placeholder="Digite o nome para buscar..." 
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="bg-background"
-                        />
-                        {filteredUsers.length > 0 && (
-                            <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg overflow-hidden">
-                                {filteredUsers.map(u => (
-                                    <button
-                                        key={u.id}
-                                        type="button"
-                                        onClick={() => handleAddUser(u.id)}
-                                        className="w-full px-4 py-2 text-left text-sm hover:bg-primary/10 flex items-center justify-between group"
-                                    >
-                                        <span>{u.name}</span>
-                                        <UserPlus size={14} className="text-muted-foreground group-hover:text-primary" />
-                                    </button>
-                                ))}
-                            </div>
-                        )}
+        <div className="space-y-6">
+            <form onSubmit={handleSend} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                        <Label htmlFor="msgType">Formato da Mensagem</Label>
+                        <Select value={msgType} onValueChange={(v:any) => setMsgType(v)}>
+                            <SelectTrigger className="bg-background">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="text">Apenas Texto (Normal)</SelectItem>
+                                <SelectItem value="button">Mensagem com Botões (Interativa)</SelectItem>
+                                <SelectItem value="survey">Enquete / Votação</SelectItem>
+                                <SelectItem value="media">Imagem ou Documento</SelectItem>
+                                <SelectItem value="pix">QR Code PIX (Pagamento)</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
-                        {selectedUsersList.map(u => (
-                            <Badge key={u.id} variant="secondary" className="pl-3 pr-1 py-1 gap-1">
-                                {u.name}
-                                <button 
-                                    type="button" 
-                                    onClick={() => handleRemoveUser(u.id)}
-                                    className="hover:text-destructive p-0.5"
-                                >
-                                    <X size={12} />
-                                </button>
-                            </Badge>
-                        ))}
-                        {selectedUserIds.length === 0 && (
-                            <p className="text-xs text-muted-foreground italic">Nenhuma pessoa selecionada ainda.</p>
-                        )}
+                    <div className="space-y-2">
+                        <Label htmlFor="targetAudience">Público-alvo</Label>
+                        <Select value={targetAudience} onValueChange={setTargetAudience}>
+                            <SelectTrigger className="bg-background">
+                                <SelectValue placeholder="Selecione o público" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all_members">Todos os Membros</SelectItem>
+                                <SelectItem value="specific_members">Membros Específicos</SelectItem>
+                                <SelectItem value="whatsapp_group">Grupo de WhatsApp</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                 </div>
-            )}
 
-            {targetAudience === 'whatsapp_group' && (
-                <div className="space-y-2 animate-in fade-in zoom-in-95 duration-200">
-                    <div className="flex justify-between items-center">
-                        <Label htmlFor="group-select">Escolha o Grupo</Label>
-                        <button 
-                            type="button" 
-                            className="text-xs flex items-center gap-1 text-primary hover:underline font-bold"
-                            onClick={fetchGroups} 
-                            disabled={isLoadingGroups}
-                        >
-                            <RefreshCw className={cn("size-3", isLoadingGroups && "animate-spin")} /> Atualizar
-                        </button>
-                    </div>
-                    <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
-                        <SelectTrigger id="group-select" className="bg-background">
-                            <SelectValue placeholder={isLoadingGroups ? "Buscando grupos..." : "Selecione um grupo"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {isLoadingGroups ? (
-                                <div className="flex items-center justify-center p-4">
-                                    <Loader2 className="size-4 animate-spin mr-2" />
-                                    <span className="text-xs font-medium">Sincronizando com WhatsApp...</span>
-                                </div>
-                            ) : (
-                                <>
-                                    {Array.isArray(groups) && groups.length > 0 ? (
-                                        groups.map(g => (
-                                            <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
-                                        ))
-                                    ) : (
-                                        <SelectItem value="none" disabled>Nenhum grupo carregado</SelectItem>
-                                    )}
-                                </>
-                            )}
-                        </SelectContent>
-                    </Select>
-                </div>
-            )}
-
-            {msgType === 'button' && (
-                <div className="space-y-4 p-4 border border-dashed rounded-lg bg-indigo-50 animate-in slide-in-from-top-2">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label className="text-xs font-bold uppercase text-indigo-700">Título da Mensagem (Cabeçalho)</Label>
-                            <Input 
-                                value={msgTitle} 
-                                onChange={e => setMsgTitle(e.target.value)} 
-                                placeholder="Ex: Convite IBM"
-                                className="bg-white"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label className="text-xs font-bold uppercase text-indigo-700">Rodapé (Texto secundário)</Label>
-                            <Input 
-                                value={msgFooter} 
-                                onChange={e => setMsgFooter(e.target.value)} 
-                                placeholder="Ex: Igreja Batista da Manhã"
-                                className="bg-white"
-                            />
-                        </div>
-                    </div>
-                    <div className="space-y-3">
-                        <Label className="text-xs font-black uppercase text-muted-foreground flex items-center gap-2">
-                            <MousePointer2 size={12} /> Configurar Botões (Máx 3)
+                {targetAudience === 'specific_members' && (
+                    <div className="space-y-4 p-4 border rounded-lg bg-muted/20 animate-in fade-in zoom-in-95 duration-200">
+                        <Label className="flex items-center gap-2">
+                            <Search size={14} /> Selecionar Pessoas
                         </Label>
-                        {msgButtons.map((btn, idx) => (
-                            <div key={btn.id} className="flex gap-2">
+                        <div className="relative">
+                            <Input 
+                                placeholder="Digite o nome para buscar..." 
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="bg-background"
+                            />
+                            {filteredUsers.length > 0 && (
+                                <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg overflow-hidden">
+                                    {filteredUsers.map(u => (
+                                        <button
+                                            key={u.id}
+                                            type="button"
+                                            onClick={() => handleAddUser(u.id)}
+                                            className="w-full px-4 py-2 text-left text-sm hover:bg-primary/10 flex items-center justify-between group"
+                                        >
+                                            <span>{u.name}</span>
+                                            <UserPlus size={14} className="text-muted-foreground group-hover:text-primary" />
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                            {selectedUsersList.map(u => (
+                                <Badge key={u.id} variant="secondary" className="pl-3 pr-1 py-1 gap-1">
+                                    {u.name}
+                                    <button 
+                                        type="button" 
+                                        onClick={() => handleRemoveUser(u.id)}
+                                        className="hover:text-destructive p-0.5"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                </Badge>
+                            ))}
+                            {selectedUserIds.length === 0 && (
+                                <p className="text-xs text-muted-foreground italic">Nenhuma pessoa selecionada ainda.</p>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {targetAudience === 'whatsapp_group' && (
+                    <div className="space-y-2 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex justify-between items-center">
+                            <Label htmlFor="group-select">Escolha o Grupo</Label>
+                            <button 
+                                type="button" 
+                                className="text-xs flex items-center gap-1 text-primary hover:underline font-bold"
+                                onClick={fetchGroups} 
+                                disabled={isLoadingGroups}
+                            >
+                                <RefreshCw className={cn("size-3", isLoadingGroups && "animate-spin")} /> Atualizar
+                            </button>
+                        </div>
+                        <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+                            <SelectTrigger id="group-select" className="bg-background">
+                                <SelectValue placeholder={isLoadingGroups ? "Buscando grupos..." : "Selecione um grupo"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {isLoadingGroups ? (
+                                    <div className="flex items-center justify-center p-4">
+                                        <Loader2 className="size-4 animate-spin mr-2" />
+                                        <span className="text-xs font-medium">Sincronizando com WhatsApp...</span>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {Array.isArray(groups) && groups.length > 0 ? (
+                                            groups.map(g => (
+                                                <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
+                                            ))
+                                        ) : (
+                                            <SelectItem value="none" disabled>Nenhum grupo carregado</SelectItem>
+                                        )}
+                                    </>
+                                )}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
+
+                {msgType === 'button' && (
+                    <div className="space-y-4 p-4 border border-dashed rounded-lg bg-indigo-50 animate-in slide-in-from-top-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="text-xs font-bold uppercase text-indigo-700">Título da Mensagem (Cabeçalho)</Label>
                                 <Input 
-                                    value={btn.text} 
-                                    onChange={e => handleUpdateBtn(idx, e.target.value)}
-                                    placeholder={`Texto do Botão ${idx + 1}`}
+                                    value={msgTitle} 
+                                    onChange={e => setMsgTitle(e.target.value)} 
+                                    placeholder="Ex: Convite IBM"
                                     className="bg-white"
                                 />
-                                {msgButtons.length > 1 && (
-                                    <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveBtn(idx)}>
-                                        <Trash2 size={14} className="text-destructive" />
-                                    </Button>
-                                )}
                             </div>
-                        ))}
-                        {msgButtons.length < 3 && (
-                            <Button type="button" variant="outline" size="sm" onClick={handleAddBtn} className="bg-white">
-                                <PlusCircle size={12} className="mr-2" /> Adicionar Botão
-                            </Button>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {msgType === 'survey' && (
-                <div className="space-y-4 p-4 border border-dashed rounded-lg bg-primary/5 animate-in slide-in-from-top-2">
-                    <div className="space-y-2">
-                        <Label className="flex items-center gap-2"><BarChart3 size={14} /> Pergunta da Enquete</Label>
-                        <Input 
-                            placeholder="Ex: Qual o melhor horário para o próximo ensaio?" 
-                            value={surveyName}
-                            onChange={e => setSurveyName(e.target.value)}
-                        />
-                    </div>
-                    <div className="space-y-3">
-                        <Label className="text-xs font-bold uppercase text-muted-foreground">Opções de Resposta</Label>
-                        {surveyOptions.map((opt, idx) => (
-                            <div key={idx} className="flex gap-2">
+                            <div className="space-y-2">
+                                <Label className="text-xs font-bold uppercase text-indigo-700">Rodapé (Texto secundário)</Label>
                                 <Input 
-                                    value={opt} 
-                                    onChange={e => handleUpdateSurveyOption(idx, e.target.value)}
-                                    placeholder={`Opção ${idx + 1}`}
-                                    className="bg-background"
+                                    value={msgFooter} 
+                                    onChange={e => setMsgFooter(e.target.value)} 
+                                    placeholder="Ex: Igreja Batista da Manhã"
+                                    className="bg-white"
                                 />
-                                {surveyOptions.length > 2 && (
-                                    <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveSurveyOption(idx)}>
-                                        <Trash2 size={14} className="text-destructive" />
-                                    </Button>
-                                )}
                             </div>
-                        ))}
-                        {surveyOptions.length < 5 && (
-                            <Button type="button" variant="outline" size="sm" onClick={handleAddSurveyOption}>
-                                <PlusCircle size={12} className="mr-2" /> Adicionar Opção
-                            </Button>
-                        )}
+                        </div>
+                        <div className="space-y-3">
+                            <Label className="text-xs font-black uppercase text-muted-foreground flex items-center gap-2">
+                                <MousePointer2 size={12} /> Configurar Botões (Máx 3)
+                            </Label>
+                            {msgButtons.map((btn, idx) => (
+                                <div key={btn.id} className="flex gap-2">
+                                    <Input 
+                                        value={btn.text} 
+                                        onChange={e => handleUpdateBtn(idx, e.target.value)}
+                                        placeholder={`Texto do Botão ${idx + 1}`}
+                                        className="bg-white"
+                                    />
+                                    {msgButtons.length > 1 && (
+                                        <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveBtn(idx)}>
+                                            <Trash2 size={14} className="text-destructive" />
+                                        </Button>
+                                    )}
+                                </div>
+                            ))}
+                            {msgButtons.length < 3 && (
+                                <Button type="button" variant="outline" size="sm" onClick={handleAddBtn} className="bg-white">
+                                    <PlusCircle size={12} className="mr-2" /> Adicionar Botão
+                                </Button>
+                            )}
+                        </div>
                     </div>
+                )}
+
+                {msgType === 'survey' && (
+                    <div className="space-y-4 p-4 border border-dashed rounded-lg bg-primary/5 animate-in slide-in-from-top-2">
+                        <div className="space-y-2">
+                            <Label className="flex items-center gap-2"><BarChart3 size={14} /> Pergunta da Enquete</Label>
+                            <Input 
+                                placeholder="Ex: Qual o melhor horário para o próximo ensaio?" 
+                                value={surveyName}
+                                onChange={e => setSurveyName(e.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-3">
+                            <Label className="text-xs font-bold uppercase text-muted-foreground">Opções de Resposta</Label>
+                            {surveyOptions.map((opt, idx) => (
+                                <div key={idx} className="flex gap-2">
+                                    <Input 
+                                        value={opt} 
+                                        onChange={e => handleUpdateSurveyOption(idx, e.target.value)}
+                                        placeholder={`Opção ${idx + 1}`}
+                                        className="bg-background"
+                                    />
+                                    {surveyOptions.length > 2 && (
+                                        <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveSurveyOption(idx)}>
+                                            <Trash2 size={14} className="text-destructive" />
+                                        </Button>
+                                    )}
+                                </div>
+                            ))}
+                            {surveyOptions.length < 5 && (
+                                <Button type="button" variant="outline" size="sm" onClick={handleAddSurveyOption}>
+                                    <PlusCircle size={12} className="mr-2" /> Adicionar Opção
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {msgType === 'media' && (
+                    <div className="space-y-4 p-4 border border-dashed rounded-lg bg-blue-50 animate-in slide-in-from-top-2">
+                        <div className="space-y-2">
+                            <Label className="flex items-center gap-2"><ImageIcon size={14} /> Link da Imagem ou Documento</Label>
+                            <div className="relative">
+                                <LinkIcon className="absolute left-3 top-3 size-4 text-muted-foreground" />
+                                <Input 
+                                    placeholder="https://..." 
+                                    value={mediaUrl}
+                                    onChange={e => setMediaUrl(e.target.value)}
+                                    className="pl-10 bg-background"
+                                />
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">O sistema detecta automaticamente se é imagem (png, jpg) ou documento (pdf, docx).</p>
+                        </div>
+                    </div>
+                )}
+
+                {msgType === 'pix' && (
+                    <div className="space-y-4 p-4 border border-dashed rounded-lg bg-emerald-50 animate-in slide-in-from-top-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="flex items-center gap-2 text-emerald-700 font-bold"><Banknote size={14} /> Chave PIX</Label>
+                                <Input 
+                                    placeholder="E-mail, CPF ou Aleatória" 
+                                    value={pixKey}
+                                    onChange={e => setPixKey(e.target.value)}
+                                    className="bg-white"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="flex items-center gap-2 text-emerald-700 font-bold"><Wallet size={14} /> Valor (Opcional)</Label>
+                                <Input 
+                                    type="number"
+                                    placeholder="0.00" 
+                                    value={pixAmount}
+                                    onChange={e => setPixAmount(e.target.value)}
+                                    className="bg-white"
+                                />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase text-muted-foreground">Nome do Favorecido</Label>
+                                <Input 
+                                    value={pixName}
+                                    onChange={e => setPixName(e.target.value)}
+                                    className="bg-white h-8 text-xs"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase text-muted-foreground">Cidade</Label>
+                                <Input 
+                                    value={pixCity}
+                                    onChange={e => setPixCity(e.target.value)}
+                                    className="bg-white h-8 text-xs"
+                                />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <div className="space-y-4">
+                    <div className="flex justify-between items-end">
+                        <Label htmlFor="message">{msgType === 'media' ? 'Legenda' : 'Texto Principal'}</Label>
+                        <div className="flex gap-2">
+                            {QUICK_TEMPLATES.map(t => (
+                                <Button 
+                                    key={t.id} 
+                                    type="button" 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="h-7 text-[10px] uppercase font-black"
+                                    onClick={() => applyTemplate(t.text)}
+                                >
+                                    <t.icon size={10} className="mr-1" /> {t.label}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+                    <Textarea 
+                        id="message" 
+                        placeholder={msgType === 'button' ? "Ex: Olá {{nome}}, você confirma sua escala no domingo?" : "Olá {{nome}}..."}
+                        className="min-h-[120px] bg-background"
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        required={msgType !== 'survey'}
+                    />
+                    <p className="text-[10px] text-muted-foreground italic">Use <strong>{"{{nome}}"}</strong> para personalizar com o nome de cada membro.</p>
                 </div>
+
+                <Button type="submit" disabled={isLoading || (msgType !== 'survey' && !message?.trim())} className="w-full h-12 text-base font-bold shadow-lg">
+                    {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
+                    {msgType === 'survey' ? 'Disparar Enquete' : msgType === 'button' ? 'Disparar Convite Interativo' : msgType === 'media' ? 'Enviar Mídia' : msgType === 'pix' ? 'Enviar Cobrança PIX' : 'Enviar Mensagem'}
+                    {targetAudience === 'specific_members' && selectedUserIds.length > 0 && ` (${selectedUserIds.length} pessoas)`}
+                </Button>
+            </form>
+
+            {/* Painel de Debug / Erro Real */}
+            {debugError && (
+                <Alert variant="destructive" className="animate-in shake-1 border-2">
+                    <ShieldAlert className="h-4 w-4" />
+                    <AlertTitle className="font-black uppercase tracking-tighter">Erro de Resposta do Gateway</AlertTitle>
+                    <AlertDescription className="mt-2 space-y-2">
+                        <p className="text-sm font-bold">{debugError.error}</p>
+                        <div className="bg-black/10 p-3 rounded font-mono text-[10px] overflow-auto max-h-40">
+                            <pre>{JSON.stringify(debugError.details || debugError, null, 2)}</pre>
+                        </div>
+                        <p className="text-[10px] opacity-70">Endpoint: /{debugError.endpoint}</p>
+                    </AlertDescription>
+                </Alert>
             )}
 
-            {msgType === 'media' && (
-                <div className="space-y-4 p-4 border border-dashed rounded-lg bg-blue-50 animate-in slide-in-from-top-2">
-                    <div className="space-y-2">
-                        <Label className="flex items-center gap-2"><ImageIcon size={14} /> Link da Imagem ou Documento</Label>
-                        <div className="relative">
-                            <LinkIcon className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                            <Input 
-                                placeholder="https://..." 
-                                value={mediaUrl}
-                                onChange={e => setMediaUrl(e.target.value)}
-                                className="pl-10 bg-background"
-                            />
-                        </div>
-                        <p className="text-[10px] text-muted-foreground">O sistema detecta automaticamente se é imagem (png, jpg) ou documento (pdf, docx).</p>
-                    </div>
+            {/* Seção de Testes Rápidos */}
+            <div className="pt-8 border-t">
+                <div className="flex items-center gap-2 mb-4">
+                    <Bug className="size-4 text-muted-foreground" />
+                    <h3 className="text-xs font-black uppercase text-muted-foreground tracking-widest">Ambiente de Teste (Debug)</h3>
                 </div>
-            )}
-
-            {msgType === 'pix' && (
-                <div className="space-y-4 p-4 border border-dashed rounded-lg bg-emerald-50 animate-in slide-in-from-top-2">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label className="flex items-center gap-2 text-emerald-700 font-bold"><Banknote size={14} /> Chave PIX</Label>
-                            <Input 
-                                placeholder="E-mail, CPF ou Aleatória" 
-                                value={pixKey}
-                                onChange={e => setPixKey(e.target.value)}
-                                className="bg-white"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label className="flex items-center gap-2 text-emerald-700 font-bold"><Wallet size={14} /> Valor (Opcional)</Label>
-                            <Input 
-                                type="number"
-                                placeholder="0.00" 
-                                value={pixAmount}
-                                onChange={e => setPixAmount(e.target.value)}
-                                className="bg-white"
-                            />
-                        </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-muted-foreground">Nome do Favorecido</Label>
-                            <Input 
-                                value={pixName}
-                                onChange={e => setPixName(e.target.value)}
-                                className="bg-white h-8 text-xs"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-muted-foreground">Cidade</Label>
-                            <Input 
-                                value={pixCity}
-                                onChange={e => setPixCity(e.target.value)}
-                                className="bg-white h-8 text-xs"
-                            />
-                        </div>
-                    </div>
+                <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" onClick={() => handleDebugTest('text')} className="h-8 text-[10px] font-bold">TEXTO SIMPLES</Button>
+                    <Button variant="outline" size="sm" onClick={() => handleDebugTest('button')} className="h-8 text-[10px] font-bold border-indigo-200 text-indigo-700">BOTÕES</Button>
+                    <Button variant="outline" size="sm" onClick={() => handleDebugTest('media')} className="h-8 text-[10px] font-bold border-blue-200 text-blue-700">MÍDIA (URL)</Button>
+                    <Button variant="outline" size="sm" onClick={() => handleDebugTest('pix')} className="h-8 text-[10px] font-bold border-emerald-200 text-emerald-700">QR PIX</Button>
+                    <Button variant="outline" size="sm" onClick={() => handleDebugTest('survey')} className="h-8 text-[10px] font-bold border-amber-200 text-amber-700">ENQUETE</Button>
                 </div>
-            )}
-
-            <div className="space-y-4">
-                <div className="flex justify-between items-end">
-                    <Label htmlFor="message">{msgType === 'media' ? 'Legenda' : 'Texto Principal'}</Label>
-                    <div className="flex gap-2">
-                        {QUICK_TEMPLATES.map(t => (
-                            <Button 
-                                key={t.id} 
-                                type="button" 
-                                variant="outline" 
-                                size="sm" 
-                                className="h-7 text-[10px] uppercase font-black"
-                                onClick={() => applyTemplate(t.text)}
-                            >
-                                <t.icon size={10} className="mr-1" /> {t.label}
-                            </Button>
-                        ))}
-                    </div>
-                </div>
-                <Textarea 
-                    id="message" 
-                    placeholder={msgType === 'button' ? "Ex: Olá {{nome}}, você confirma sua escala no domingo?" : "Olá {{nome}}..."}
-                    className="min-h-[120px] bg-background"
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    required={msgType !== 'survey'}
-                />
-                <p className="text-[10px] text-muted-foreground italic">Use <strong>{"{{nome}}"}</strong> para personalizar com o nome de cada membro.</p>
+                <p className="text-[9px] text-muted-foreground mt-2 italic">Dica: Use estes botões para testar se sua instância tem permissão para cada formato.</p>
             </div>
-
-            <Button type="submit" disabled={isLoading || (msgType !== 'survey' && !message?.trim())} className="w-full h-12 text-base font-bold shadow-lg">
-                {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
-                {msgType === 'survey' ? 'Disparar Enquete' : msgType === 'button' ? 'Disparar Convite Interativo' : msgType === 'media' ? 'Enviar Mídia' : msgType === 'pix' ? 'Enviar Cobrança PIX' : 'Enviar Mensagem'}
-                {targetAudience === 'specific_members' && selectedUserIds.length > 0 && ` (${selectedUserIds.length} pessoas)`}
-            </Button>
-        </form>
+        </div>
     );
 }
 

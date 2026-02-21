@@ -5,7 +5,7 @@ import { collection, query, where, getDocs, addDoc, Timestamp, doc, getDoc } fro
 
 /**
  * API Route to send WhatsApp messages using direct fetch to api-wa.me
- * Supports: text, button (interactive), survey, media, and PIX
+ * Refined for v5.0.0 compatibility with clear error reporting.
  */
 
 const getMimetype = (url: string) => {
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     }
 
     if (!waKey && channel === 'whatsapp') {
-        return NextResponse.json({ error: "API Key não configurada." }, { status: 400 });
+        return NextResponse.json({ error: "API Key não configurada no sistema." }, { status: 400 });
     }
 
     const targetUsers: any[] = [];
@@ -94,6 +94,7 @@ export async function POST(request: Request) {
     let sentCount = 0;
     let errorCount = 0;
     let lastError = '';
+    let rawError = null;
 
     for (const user of targetUsers) {
         const phone = user.phone.replace(/\D/g, '');
@@ -104,7 +105,7 @@ export async function POST(request: Request) {
 
         switch (type) {
             case 'button':
-                // Na versão 5.0.0, o campo principal é 'body' e não 'text' em botões interativos
+                // v5.0.0: message/button_reply com corpo 'body'
                 endpoint = 'message/button_reply';
                 payload = {
                     ...payload,
@@ -174,7 +175,8 @@ export async function POST(request: Request) {
                 sentCount++;
             } else {
                 const errData = await response.json().catch(() => ({}));
-                lastError = errData.message || errData.error || `Erro ${response.status}`;
+                rawError = errData;
+                lastError = errData.message || errData.error || `Erro HTTP ${response.status}`;
                 errorCount++;
             }
         } catch (e: any) {
@@ -195,7 +197,11 @@ export async function POST(request: Request) {
     });
 
     if (sentCount === 0 && targetUsers.length > 0) {
-        return NextResponse.json({ error: lastError || 'Falha ao enviar mensagens.' }, { status: 500 });
+        return NextResponse.json({ 
+            error: lastError || 'Falha ao enviar mensagens.',
+            details: rawError,
+            endpoint: type === 'button' ? 'message/button_reply' : type 
+        }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, sentCount });
