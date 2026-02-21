@@ -921,8 +921,8 @@ function NotificationsConfig() {
                 </Card>
 
                 <Card className={cn(
-                    "border-2 transition-all",
-                    instanceStatus?.status === 'connected' ? "border-emerald-200 bg-emerald-50/30" : "border-amber-200 bg-amber-50/30"
+                    "border-2 transition-all shadow-md",
+                    instanceStatus?.status === 'connected' ? "border-emerald-500 bg-emerald-50/30" : "border-amber-500 bg-amber-50/30"
                 )}>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-bold flex items-center justify-between">
@@ -944,18 +944,21 @@ function NotificationsConfig() {
                         </div>
                         
                         {instanceStatus?.status === 'connected' ? (
-                            <div className="py-2 space-y-2">
-                                <p className="text-[10px] text-muted-foreground mb-4 font-medium uppercase">WhatsApp Conectado</p>
-                                <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    onClick={handleConfigureInstance}
-                                    disabled={isConfiguringInstance}
-                                    className="w-full h-8 text-[10px] font-bold"
-                                >
-                                    {isConfiguringInstance ? <Loader2 className="size-3 animate-spin mr-1" /> : <Sparkles className="size-3 mr-1" />} 
-                                    Ativar Recursos Interativos
-                                </Button>
+                            <div className="py-2 space-y-3">
+                                <div className="p-3 bg-white/50 rounded-xl border border-emerald-100">
+                                    <p className="text-[10px] text-emerald-700 font-black uppercase mb-3">WhatsApp Conectado e Ativo</p>
+                                    <Button 
+                                        variant="default" 
+                                        size="sm" 
+                                        onClick={handleConfigureInstance}
+                                        disabled={isConfiguringInstance}
+                                        className="w-full h-10 font-bold bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200"
+                                    >
+                                        {isConfiguringInstance ? <Loader2 className="size-4 animate-spin mr-2" /> : <Sparkles className="size-4 mr-2" />} 
+                                        Ativar Recursos Interativos
+                                    </Button>
+                                    <p className="text-[9px] text-muted-foreground mt-2 italic">Essencial para botões e enquetes.</p>
+                                </div>
                                 <Button 
                                     variant="outline" 
                                     size="sm" 

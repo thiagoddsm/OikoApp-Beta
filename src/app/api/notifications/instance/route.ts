@@ -44,6 +44,7 @@ export async function GET() {
         }
 
         let rawStatus = 'unknown';
+        // Procura em diversas propriedades possíveis que o gateway pode retornar
         if (data.instance?.state) rawStatus = data.instance.state;
         else if (data.state) rawStatus = data.state;
         else if (data.instance?.status && typeof data.instance.status === 'string') rawStatus = data.instance.status;
@@ -88,6 +89,7 @@ export async function POST() {
             return NextResponse.json({ error: "Chave de API não configurada." }, { status: 400 });
         }
 
+        // POST sem corpo para gerar/iniciar instância
         const response = await fetch(`https://us.api-wa.me/${waKey}/instance`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
@@ -144,7 +146,7 @@ export async function PUT(request: Request) {
 
 /**
  * PATCH handler to update instance settings (markMessageRead, saveMedia)
- * Based on provided documentation
+ * Essential for enabling interactive features like buttons and surveys
  */
 export async function PATCH() {
     try {
