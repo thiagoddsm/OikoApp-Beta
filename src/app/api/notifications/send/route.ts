@@ -5,15 +5,29 @@ import { collection, query, where, getDocs, addDoc, Timestamp, doc, getDoc } fro
 
 /**
  * API Route to send WhatsApp messages using direct fetch to api-wa.me
- * Supports text and interactive button messages.
+ * Supports: text, button, survey, image, document
  */
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { channel, audience, message, userIds, targetNumber, type, buttons, footer, title } = body;
+    const { 
+        channel, 
+        audience, 
+        message, 
+        userIds, 
+        targetNumber, 
+        type, 
+        buttons, 
+        footer, 
+        title,
+        surveyName,
+        options,
+        mediaUrl,
+        fileName
+    } = body;
 
-    if (!channel || (!message && type !== 'button') || (!audience && !targetNumber)) {
+    if (!channel || (!audience && !targetNumber)) {
       return NextResponse.json({ error: 'Parâmetros insuficientes para o envio.' }, { status: 400 });
     }
 
@@ -40,6 +54,7 @@ export async function POST(request: Request) {
         targetUsers.push({ id: 'custom', name: 'Destinatário', phone: targetNumber });
     } else if (audience === 'specific_members' && userIds) {
         const usersRef = collection(firestore, 'users');
+        // Firebase 'in' query limit is 30. For MVP we handle the first 30.
         const q = query(usersRef, where('__name__', 'in', userIds.slice(0, 30)));
         const snap = await getDocs(q);
         snap.forEach(d => {
@@ -47,6 +62,7 @@ export async function POST(request: Request) {
             if (data.phone) targetUsers.push({ id: d.id, name: data.name, phone: data.phone });
         });
     } else {
+        // Fallback or groups logic could go here
         const usersRef = collection(firestore, 'users');
         const snap = await getDocs(query(usersRef));
         snap.forEach(d => {
@@ -57,23 +73,53 @@ export async function POST(request: Request) {
 
     let sentCount = 0;
     let errorCount = 0;
+    let lastError = '';
 
     for (const user of targetUsers) {
         const phone = user.phone.replace(/\D/g, '');
         const formattedPhone = phone.includes('@') ? phone : (phone.length <= 11 ? `55${phone}` : phone);
         
-        const endpoint = type === 'button' ? 'message/button' : 'message/text';
+        let endpoint = 'message/text';
+        let payload: any = { to: formattedPhone };
+
+        switch (type) {
+            case 'button':
+                endpoint = 'message/button';
+                payload = {
+                    ...payload,
+                    title: (title || message || '').replace('{{nome}}', user.name),
+                    footer: footer || 'Igreja Batista da Manhã',
+                    buttons: buttons || []
+                };
+                break;
+            case 'survey':
+                endpoint = 'message/survey';
+                payload = {
+                    ...payload,
+                    name: (surveyName || 'Enquete IBM').replace('{{nome}}', user.name),
+                    options: options || []
+                };
+                break;
+            case 'media':
+                // Check if it looks like an image or a document based on URL or extension
+                const isImage = mediaUrl.match(/\.(jpeg|jpg|gif|png)$/i);
+                endpoint = isImage ? 'message/image' : 'message/document';
+                payload = {
+                    ...payload,
+                    url: mediaUrl,
+                    caption: (message || '').replace('{{nome}}', user.name),
+                    fileName: fileName || 'documento'
+                };
+                break;
+            default:
+                endpoint = 'message/text';
+                payload = {
+                    ...payload,
+                    text: (message || '').replace('{{nome}}', user.name)
+                };
+        }
+
         const url = `https://us.api-wa.me/${waKey}/${endpoint}`;
-        
-        const payload = type === 'button' ? {
-            to: formattedPhone,
-            title: (title || message).replace('{{nome}}', user.name),
-            footer: footer || 'Igreja Batista da Manhã',
-            buttons: buttons || []
-        } : {
-            to: formattedPhone,
-            text: message.replace('{{nome}}', user.name)
-        };
 
         try {
             const response = await fetch(url, {
@@ -81,20 +127,34 @@ export async function POST(request: Request) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            if (response.ok) sentCount++; else errorCount++;
-        } catch (e) {
+            
+            if (response.ok) {
+                sentCount++;
+            } else {
+                const errData = await response.json().catch(() => ({}));
+                lastError = errData.message || `Erro ${response.status}`;
+                errorCount++;
+            }
+        } catch (e: any) {
+            lastError = e.message;
             errorCount++;
         }
     }
 
     await addDoc(collection(firestore, 'notifications_history'), {
         channel,
-        message: type === 'button' ? `[BOTÕES] ${title || message}` : message,
+        type: type || 'text',
+        message: type === 'survey' ? `[ENQUETE] ${surveyName}` : (message || title || 'Mídia'),
         recipientCount: targetUsers.length,
         successCount: sentCount,
-        status: errorCount === 0 ? 'success' : 'partial',
+        status: errorCount === 0 ? 'success' : (sentCount > 0 ? 'partial' : 'failed'),
+        lastError: lastError,
         sentAt: Timestamp.now()
     });
+
+    if (sentCount === 0 && targetUsers.length > 0) {
+        return NextResponse.json({ error: lastError || 'Falha ao enviar mensagens.' }, { status: 500 });
+    }
 
     return NextResponse.json({ success: true, sentCount });
   } catch (error: any) {

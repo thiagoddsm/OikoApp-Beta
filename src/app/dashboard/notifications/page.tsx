@@ -16,7 +16,7 @@ import {
     Loader2, Send, Settings, Key, Bot, History, MessageSquare, Mail, 
     Users, CheckCircle2, Search, UserPlus, X, Info, Layers, RefreshCw, 
     Zap, AlertCircle, Group, LayoutTemplate, Sparkles, MessageCircle, MousePointer2,
-    UserCheck, Trash2
+    UserCheck, Trash2, BarChart3, FileText, Image as ImageIcon, Link as LinkIcon
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useCollection, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
@@ -41,7 +41,14 @@ function WhatsappSender() {
     const [selectedGroupId, setSelectedGroupId] = useState<string>('');
     const [groups, setGroups] = useState<any[]>([]);
     const [isLoadingGroups, setIsLoadingGroups] = useState(false);
-    const [msgType, setMsgType] = useState<'text' | 'button'>('text');
+    const [msgType, setMsgType] = useState<'text' | 'button' | 'survey' | 'media'>('text');
+
+    // Survey States
+    const [surveyName, setSurveyName] = useState('');
+    const [surveyOptions, setSurveyOptions] = useState(['Sim', 'Não']);
+    
+    // Media States
+    const [mediaUrl, setMediaUrl] = useState('');
 
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
     const { data: users } = useCollection<any>(usersQuery);
@@ -87,6 +94,22 @@ function WhatsappSender() {
         setSelectedUserIds(prev => prev.filter(id => id !== userId));
     };
 
+    const handleAddSurveyOption = () => {
+        if (surveyOptions.length < 5) {
+            setSurveyOptions([...surveyOptions, `Opção ${surveyOptions.length + 1}`]);
+        }
+    };
+
+    const handleRemoveSurveyOption = (index: number) => {
+        setSurveyOptions(surveyOptions.filter((_, i) => i !== index));
+    };
+
+    const handleUpdateSurveyOption = (index: number, value: string) => {
+        const newOptions = [...surveyOptions];
+        newOptions[index] = value;
+        setSurveyOptions(newOptions);
+    };
+
     const applyTemplate = (text: string) => {
         setMessage(text);
     };
@@ -119,6 +142,15 @@ function WhatsappSender() {
             ];
         }
 
+        if (msgType === 'survey') {
+            payload.surveyName = surveyName || "Enquete IBM";
+            payload.options = surveyOptions;
+        }
+
+        if (msgType === 'media') {
+            payload.mediaUrl = mediaUrl;
+        }
+
         try {
             const response = await fetch('/api/notifications/send', {
               method: 'POST',
@@ -132,6 +164,8 @@ function WhatsappSender() {
                 toast({ title: "Envio Concluído!", description: `${result.sentCount || 0} mensagens processadas.` });
                 setMessage('');
                 setSelectedUserIds([]);
+                setSurveyName('');
+                setMediaUrl('');
             } else {
                 toast({ variant: 'destructive', title: "Erro no Envio", description: result.error || "Falha ao processar." });
             }
@@ -154,6 +188,8 @@ function WhatsappSender() {
                         <SelectContent>
                             <SelectItem value="text">Apenas Texto (Normal)</SelectItem>
                             <SelectItem value="button">Mensagem com Botões (Interativa)</SelectItem>
+                            <SelectItem value="survey">Enquete / Votação</SelectItem>
+                            <SelectItem value="media">Imagem ou Documento</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -252,9 +288,65 @@ function WhatsappSender() {
                 </div>
             )}
 
+            {/* CAMPOS DE ENQUETE */}
+            {msgType === 'survey' && (
+                <div className="space-y-4 p-4 border border-dashed rounded-lg bg-primary/5 animate-in slide-in-from-top-2">
+                    <div className="space-y-2">
+                        <Label className="flex items-center gap-2"><BarChart3 size={14} /> Pergunta da Enquete</Label>
+                        <Input 
+                            placeholder="Ex: Qual o melhor horário para o próximo ensaio?" 
+                            value={surveyName}
+                            onChange={e => setSurveyName(e.target.value)}
+                        />
+                    </div>
+                    <div className="space-y-3">
+                        <Label className="text-xs font-bold uppercase text-muted-foreground">Opções de Resposta</Label>
+                        {surveyOptions.map((opt, idx) => (
+                            <div key={idx} className="flex gap-2">
+                                <Input 
+                                    value={opt} 
+                                    onChange={e => handleUpdateSurveyOption(idx, e.target.value)}
+                                    placeholder={`Opção ${idx + 1}`}
+                                    className="bg-background"
+                                />
+                                {surveyOptions.length > 2 && (
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveSurveyOption(idx)}>
+                                        <Trash2 size={14} className="text-destructive" />
+                                    </Button>
+                                )}
+                            </div>
+                        ))}
+                        {surveyOptions.length < 5 && (
+                            <Button type="button" variant="outline" size="sm" onClick={handleAddSurveyOption}>
+                                <PlusCircle size={12} className="mr-2" /> Adicionar Opção
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* CAMPOS DE MÍDIA */}
+            {msgType === 'media' && (
+                <div className="space-y-4 p-4 border border-dashed rounded-lg bg-blue-50 animate-in slide-in-from-top-2">
+                    <div className="space-y-2">
+                        <Label className="flex items-center gap-2"><ImageIcon size={14} /> Link da Imagem ou Documento</Label>
+                        <div className="relative">
+                            <LinkIcon className="absolute left-3 top-3 size-4 text-muted-foreground" />
+                            <Input 
+                                placeholder="https://..." 
+                                value={mediaUrl}
+                                onChange={e => setMediaUrl(e.target.value)}
+                                className="pl-10 bg-background"
+                            />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">O sistema detecta automaticamente se é imagem (png, jpg) ou documento (pdf, docx).</p>
+                    </div>
+                </div>
+            )}
+
             <div className="space-y-4">
                 <div className="flex justify-between items-end">
-                    <Label htmlFor="message">Texto Principal</Label>
+                    <Label htmlFor="message">{msgType === 'media' ? 'Legenda' : 'Texto Principal'}</Label>
                     <div className="flex gap-2">
                         {QUICK_TEMPLATES.map(t => (
                             <Button 
@@ -276,7 +368,7 @@ function WhatsappSender() {
                     className="min-h-[120px] bg-background"
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    required
+                    required={msgType !== 'survey'}
                 />
                 <p className="text-[10px] text-muted-foreground italic">Use <strong>{"{{nome}}"}</strong> para personalizar com o nome de cada membro.</p>
                 
@@ -293,9 +385,9 @@ function WhatsappSender() {
                 )}
             </div>
 
-            <Button type="submit" disabled={isLoading || !message.trim()} className="w-full h-12 text-base font-bold shadow-lg">
+            <Button type="submit" disabled={isLoading || (msgType !== 'survey' && !message.trim())} className="w-full h-12 text-base font-bold shadow-lg">
                 {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
-                {msgType === 'button' ? 'Disparar Convite Interativo' : 'Enviar Mensagem'}
+                {msgType === 'survey' ? 'Disparar Enquete' : msgType === 'button' ? 'Disparar Convite Interativo' : msgType === 'media' ? 'Enviar Mídia' : 'Enviar Mensagem'}
                 {targetAudience === 'specific_members' && selectedUserIds.length > 0 && ` (${selectedUserIds.length} pessoas)`}
             </Button>
         </form>
@@ -331,9 +423,9 @@ function WhatsappResponses() {
                                 <TableCell className="font-bold">{res.userName || res.from}</TableCell>
                                 <TableCell>
                                     <Badge className={cn(
-                                        res.buttonId.includes('yes') ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
+                                        res.buttonId?.includes('yes') || res.buttonId?.includes('confirm') ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
                                     )}>
-                                        {res.buttonText}
+                                        {res.buttonText || res.buttonId}
                                     </Badge>
                                 </TableCell>
                                 <TableCell className="text-xs text-muted-foreground">
@@ -351,23 +443,45 @@ function WhatsappResponses() {
 function NotificationsConfig() {
     const { firestore } = useFirebase();
     const { toast } = useToast();
-    const { data: config, isLoading } = useDoc<any>('config/notifications');
+    const { data: config, isLoading: isLoadingConfig } = useDoc<any>('config/notifications');
     
     const [waKey, setWaKey] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [isTesting, setIsTesting] = useState(false);
     const [testResult, setTestResult] = useState<{success: boolean, message: string} | null>(null);
+    const [instanceStatus, setInstanceStatus] = useState<{status: string, message?: string} | null>(null);
+    const [isLoadingStatus, setIsLoadingStatus] = useState(false);
 
     useEffect(() => {
         if (config) setWaKey(config.whatsappApiKey || '');
     }, [config]);
+
+    const checkStatus = async () => {
+        setIsLoadingStatus(true);
+        try {
+            const response = await fetch('/api/notifications/instance');
+            const data = await response.json();
+            setInstanceStatus(data);
+        } catch (e) {
+            setInstanceStatus({ status: 'error', message: 'Falha ao consultar gateway.' });
+        } finally {
+            setIsLoadingStatus(false);
+        }
+    };
+
+    useEffect(() => {
+        if (open) checkStatus();
+    }, []);
 
     const handleSave = () => {
         if (!firestore) return;
         setIsSaving(true);
         const configRef = doc(firestore, 'config', 'notifications');
         setDocumentNonBlocking(configRef, { whatsappApiKey: waKey, updatedAt: Timestamp.now() }, { merge: true })
-            .then(() => toast({ title: "Configurações Salvas!" }))
+            .then(() => {
+                toast({ title: "Configurações Salvas!" });
+                checkStatus();
+            })
             .finally(() => setIsSaving(false));
     };
 
@@ -398,30 +512,63 @@ function NotificationsConfig() {
         }
     };
 
-    if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
+    if (isLoadingConfig) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
     const webhookUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/notifications/webhook` : '';
 
     return (
         <div className="space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Key className="size-5 text-primary" />API WhatsApp</CardTitle>
-                    <CardDescription>Configure sua instância do api-wa.me para habilitar disparos reais.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="wa-key">Chave da Instância (API Key)</Label>
-                        <Input id="wa-key" type="password" value={waKey} onChange={e => setWaKey(e.target.value)} placeholder="Sua chave secreta" />
-                    </div>
-                </CardContent>
-                <CardFooter className="flex justify-end border-t pt-4">
-                    <Button onClick={handleSave} disabled={isSaving} className="font-bold">
-                        {isSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Settings className="mr-2 size-4" />}
-                        Salvar Todas as Configurações
-                    </Button>
-                </CardFooter>
-            </Card>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Card className="md:col-span-2">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Key className="size-5 text-primary" />API WhatsApp</CardTitle>
+                        <CardDescription>Configure sua instância do api-wa.me para habilitar disparos reais.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="wa-key">Chave da Instância (API Key)</Label>
+                            <Input id="wa-key" type="password" value={waKey} onChange={e => setWaKey(e.target.value)} placeholder="Sua chave secreta" />
+                        </div>
+                    </CardContent>
+                    <CardFooter className="flex justify-end border-t pt-4">
+                        <Button onClick={handleSave} disabled={isSaving} className="font-bold">
+                            {isSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Settings className="mr-2 size-4" />}
+                            Salvar Todas as Configurações
+                        </Button>
+                    </CardFooter>
+                </Card>
+
+                <Card className={cn(
+                    "border-2 transition-colors",
+                    instanceStatus?.status === 'connected' ? "border-emerald-200 bg-emerald-50/30" : "border-amber-200 bg-amber-50/30"
+                )}>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-bold flex items-center justify-between">
+                            Status da Instância
+                            {isLoadingStatus && <Loader2 className="size-3 animate-spin" />}
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className={cn(
+                                "size-3 rounded-full animate-pulse",
+                                instanceStatus?.status === 'connected' ? "bg-emerald-500" : "bg-amber-500"
+                            )} />
+                            <span className="font-black uppercase text-xs tracking-widest">
+                                {instanceStatus?.status || 'Desconhecido'}
+                            </span>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground leading-relaxed">
+                            {instanceStatus?.status === 'connected' 
+                                ? "Seu WhatsApp está emparelhado e pronto para disparos." 
+                                : "Aguardando conexão. Escaneie o QR Code no painel da api-wa.me."}
+                        </p>
+                        <Button variant="outline" size="sm" className="w-full h-7 text-[10px] font-bold" onClick={checkStatus}>
+                            <RefreshCw className="size-3 mr-1" /> Atualizar Status
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
 
             <Card className="border-primary/20 bg-primary/5">
                 <CardHeader>
