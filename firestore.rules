@@ -4,7 +4,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // REGRAS 100% ABERTAS PARA FASE DE TESTES E INTEGRAÇÕES
+    // V2: REGRAS 100% ABERTAS PARA FASE DE TESTES E INTEGRAÇÕES
     // Permite que processos de servidor e cliente acessem as configurações sem restrições.
     match /{document=**} {
       allow read, write: if true;

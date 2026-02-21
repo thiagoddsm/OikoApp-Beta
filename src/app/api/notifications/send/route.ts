@@ -23,16 +23,21 @@ export async function POST(request: Request) {
         if (configSnap.exists()) {
             waKey = configSnap.data()?.whatsappApiKey;
         }
-    } catch (e) {
-        console.warn("Aviso: Falha ao ler config de notificações do Firestore no servidor.", e);
+    } catch (e: any) {
+        console.error("Erro ao ler config de notificações do Firestore:", e);
+        // Não travamos o fluxo aqui para permitir logs mais abaixo
     }
 
     let whatsappClient: any = null;
     if (waKey && channel === 'whatsapp') {
-        whatsappClient = new WhatsApp({
-            server: "https://us.api-wa.me",
-            key: waKey
-        });
+        try {
+            whatsappClient = new WhatsApp({
+                server: "https://us.api-wa.me",
+                key: waKey
+            });
+        } catch (clientErr: any) {
+            return NextResponse.json({ error: `Falha ao inicializar cliente WhatsApp: ${clientErr.message}` }, { status: 500 });
+        }
     }
 
     // 2. Lógica de Destinatários
@@ -118,7 +123,7 @@ export async function POST(request: Request) {
             } catch (err: any) {
                 console.error(`Erro real ao enviar para ${user.phone}:`, err);
                 errorCount++;
-                lastError = err.message;
+                lastError = err.message || JSON.stringify(err);
             }
         } else {
             console.log(`[SIMULAÇÃO] Enviando para ${user.phone}: ${personalizedMessage}`);
@@ -137,10 +142,20 @@ export async function POST(request: Request) {
             errorCount: errorCount,
             sentAt: Timestamp.now(),
             status: errorCount === 0 ? 'success' : (sentCount > 0 ? 'partial' : 'error'),
-            isSimulation: !waKey
+            isSimulation: !waKey,
+            lastErrorMessage: lastError
         });
     } catch (e) {
         console.warn("Aviso: Falha ao gravar histórico de notificação.");
+    }
+
+    if (waKey && errorCount > 0 && sentCount === 0) {
+        return NextResponse.json({ 
+            success: false, 
+            message: `Falha total no envio. Verifique se a chave da instância é válida. Erro: ${lastError}`,
+            sentCount,
+            errorCount
+        }, { status: 500 });
     }
 
     const resultMessage = waKey 
@@ -156,6 +171,6 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error('Erro crítico na API de notificações:', error);
-    return NextResponse.json({ error: error.message || 'Erro interno no servidor.' }, { status: 500 });
+    return NextResponse.json({ error: `Erro interno no servidor: ${error.message}` }, { status: 500 });
   }
 }

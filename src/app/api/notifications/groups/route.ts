@@ -16,8 +16,8 @@ export async function GET() {
         const configRef = doc(firestore, 'config', 'notifications');
         const configSnap = await getDoc(configRef);
         waKey = configSnap.exists() ? configSnap.data()?.whatsappApiKey : null;
-    } catch (e) {
-        console.warn("Aviso: Falha ao ler config de notificações para listagem de grupos.", e);
+    } catch (e: any) {
+        console.warn("Aviso: Falha ao ler config de notificações para listagem de grupos.", e.message);
     }
 
     if (!waKey) {
@@ -28,32 +28,35 @@ export async function GET() {
                 { id: "456@g.us", name: "Ministério de Louvor", participants: 8 },
                 { id: "789@g.us", name: "IBM - Avisos Oficiais", participants: 145 }
             ],
-            isSimulation: true 
+            isSimulation: true,
+            warning: "Mostrando dados simulados (API Key não encontrada ou erro de permissão)."
         });
     }
 
-    const response = await fetch(`https://us.api-wa.me/${waKey}/groups`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
-    });
-
-    if (!response.ok) {
-        console.warn("API wa.me retornou erro ao buscar grupos. Verifique a chave.");
-        return NextResponse.json({ 
-            groups: [
-                { id: "123@g.us", name: "GC - Conexão Jovem", participants: 12 },
-                { id: "456@g.us", name: "Ministério de Louvor", participants: 8 },
-                { id: "789@g.us", name: "IBM - Avisos Oficiais", participants: 145 }
-            ],
-            isSimulation: true 
+    try {
+        const response = await fetch(`https://us.api-wa.me/${waKey}/groups`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
         });
-    }
 
-    const data = await response.json();
-    return NextResponse.json({ groups: data || [] });
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            console.warn("API wa.me retornou erro ao buscar grupos.", errData);
+            return NextResponse.json({ 
+                groups: [],
+                error: `API retornou erro ${response.status}: ${JSON.stringify(errData)}`,
+                isSimulation: false 
+            }, { status: response.status });
+        }
+
+        const data = await response.json();
+        return NextResponse.json({ groups: data || [] });
+    } catch (fetchErr: any) {
+        return NextResponse.json({ error: `Erro na comunicação com o gateway: ${fetchErr.message}` }, { status: 500 });
+    }
 
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: `Erro interno: ${error.message}` }, { status: 500 });
   }
 }
 
@@ -67,7 +70,7 @@ export async function PUT(request: Request) {
             const configSnap = await getDoc(configRef);
             waKey = configSnap.exists() ? configSnap.data()?.whatsappApiKey : null;
         } catch (e) {
-            console.warn("Aviso: Falha ao ler config para atualização de grupo.", e);
+            console.warn("Aviso: Falha ao ler config para atualização de grupo.");
         }
 
         const { groupId, description, name } = await request.json();
@@ -85,7 +88,11 @@ export async function PUT(request: Request) {
         });
 
         if (!response.ok) {
-            return NextResponse.json({ success: true, message: 'Simulado por falha na API (Verifique sua API Key)' });
+            const errData = await response.json().catch(() => ({}));
+            return NextResponse.json({ 
+                success: false, 
+                error: `Gateway retornou erro ${response.status}: ${JSON.stringify(errData)}` 
+            }, { status: response.status });
         }
 
         return NextResponse.json({ success: true });
