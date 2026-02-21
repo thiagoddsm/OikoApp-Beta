@@ -5,6 +5,7 @@ import { collection, query, where, getDocs, addDoc, Timestamp, doc, getDoc } fro
 
 /**
  * API Route to send WhatsApp messages using direct fetch to api-wa.me
+ * Updated to use standard singular endpoints /message/text
  */
 
 export async function POST(request: Request) {
@@ -123,7 +124,8 @@ export async function POST(request: Request) {
                     formattedNumber = `55${formattedNumber}`;
                 }
                 
-                const response = await fetch(`https://us.api-wa.me/${waKey}/messages/text`, {
+                // Usando o endpoint singular /message/text conforme documentação
+                const response = await fetch(`https://us.api-wa.me/${waKey}/message/text`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -134,7 +136,7 @@ export async function POST(request: Request) {
 
                 if (!response.ok) {
                     const errData = await response.json().catch(() => ({}));
-                    throw new Error(errData.message || `Erro ${response.status} no gateway`);
+                    throw new Error(errData.message || `Erro ${response.status} no gateway. Verifique se a instância está conectada.`);
                 }
 
                 sentCount++;
@@ -144,7 +146,7 @@ export async function POST(request: Request) {
                 lastError = err.message;
             }
         } else {
-            // Modo simulação se não houver chave (mas o frontend já deve barrar)
+            // Modo simulação se não houver chave
             sentCount++;
         }
     }
@@ -170,7 +172,7 @@ export async function POST(request: Request) {
     if (errorCount > 0 && sentCount === 0) {
         return NextResponse.json({ 
             success: false, 
-            message: `Falha no envio: ${lastError}. Verifique se sua instância está conectada no painel da api-wa.me.`,
+            message: `Falha no envio: ${lastError}`,
             sentCount,
             errorCount
         }, { status: 500 });

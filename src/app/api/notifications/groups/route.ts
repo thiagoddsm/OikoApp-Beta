@@ -17,11 +17,10 @@ export async function GET() {
         const configSnap = await getDoc(configRef);
         waKey = configSnap.exists() ? configSnap.data()?.whatsappApiKey : null;
     } catch (e: any) {
-        console.warn("Aviso: Falha ao ler config de notificações para listagem de grupos.", e.message);
+        console.warn("Aviso: Falha ao ler config de notificações.", e.message);
     }
 
     if (!waKey) {
-        // Simulação se não houver chave ou erro de permissão na leitura da config
         return NextResponse.json({ 
             groups: [
                 { id: "123@g.us", name: "GC - Conexão Jovem", participants: 12 },
@@ -29,7 +28,7 @@ export async function GET() {
                 { id: "789@g.us", name: "IBM - Avisos Oficiais", participants: 145 }
             ],
             isSimulation: true,
-            warning: "Mostrando dados simulados (API Key não encontrada ou erro de permissão)."
+            warning: "Mostrando dados simulados (API Key não configurada)."
         });
     }
 
@@ -41,7 +40,6 @@ export async function GET() {
 
         if (!response.ok) {
             const errData = await response.json().catch(() => ({}));
-            console.warn("API wa.me retornou erro ao buscar grupos.", errData);
             return NextResponse.json({ 
                 groups: [],
                 error: `API retornou erro ${response.status}: ${JSON.stringify(errData)}`,
@@ -50,6 +48,7 @@ export async function GET() {
         }
 
         const data = await response.json();
+        // A API retorna um array de grupos diretamente
         return NextResponse.json({ groups: data || [] });
     } catch (fetchErr: any) {
         return NextResponse.json({ error: `Erro na comunicação com o gateway: ${fetchErr.message}` }, { status: 500 });
@@ -70,17 +69,16 @@ export async function PUT(request: Request) {
             const configSnap = await getDoc(configRef);
             waKey = configSnap.exists() ? configSnap.data()?.whatsappApiKey : null;
         } catch (e) {
-            console.warn("Aviso: Falha ao ler config para atualização de grupo.");
+            console.warn("Aviso: Falha ao ler config.");
         }
 
         const { groupId, description, name } = await request.json();
 
         if (!waKey) {
-            console.log("[SIMULAÇÃO] Atualizando descrição do grupo", groupId, description);
-            return NextResponse.json({ success: true, message: 'Simulado com sucesso (Verifique sua API Key)' });
+            return NextResponse.json({ success: true, message: 'Simulado com sucesso' });
         }
 
-        // api-wa.me endpoint for updating group
+        // Endpoint singular para grupos conforme padrão da API
         const response = await fetch(`https://us.api-wa.me/${waKey}/groups/${groupId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },

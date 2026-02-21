@@ -225,9 +225,12 @@ function WhatsappGroups() {
             });
             if (response.ok) {
                 toast({ title: "Mural Atualizado!", description: "A descrição do grupo foi alterada no WhatsApp." });
+            } else {
+                const resData = await response.json();
+                throw new Error(resData.error || "Erro ao atualizar");
             }
-        } catch (e) {
-            toast({ variant: 'destructive', title: "Erro na atualização" });
+        } catch (e: any) {
+            toast({ variant: 'destructive', title: "Erro na atualização", description: e.message });
         } finally {
             setIsUpdating(null);
         }
@@ -249,8 +252,8 @@ function WhatsappGroups() {
                     {groups.map(group => (
                         <Card key={group.id} className="hover:border-primary transition-colors">
                             <CardHeader className="pb-2">
-                                <CardTitle className="text-sm font-bold truncate">{group.name}</CardTitle>
-                                <CardDescription className="text-[10px] uppercase font-black">{group.participants} Participantes</CardDescription>
+                                <CardTitle className="text-sm font-bold truncate">{group.name || group.id}</CardTitle>
+                                <CardDescription className="text-[10px] uppercase font-black">{group.participants?.length || 0} Participantes</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <p className="text-[10px] text-muted-foreground font-mono truncate">{group.id}</p>
