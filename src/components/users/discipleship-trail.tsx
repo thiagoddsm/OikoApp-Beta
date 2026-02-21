@@ -12,7 +12,9 @@ import {
     Target, 
     Loader2, 
     CheckCircle2, 
-    ShieldAlert 
+    ShieldAlert,
+    Info,
+    ChevronDown
 } from 'lucide-react';
 import { 
     Tooltip,
@@ -25,7 +27,7 @@ import { journeyColumns, statusToPhaseMap, phaseConfig, iconMap } from './journe
 type TimelineItemData = {
     id: string;
     title: string;
-    questions: any[];
+    questions: { id: string; label: string }[];
     requiredCourseId?: string;
     requiresDisciplerApproval?: boolean;
     requiresSupervisorApproval?: boolean;
@@ -46,7 +48,7 @@ const TimelineCard = ({ item, isEven, onToggle, isExpanded, isCurrent, isFuture,
             <div className={cn(
                 "pl-12 md:pl-0 py-2 relative group",
                 isEven ? 'md:text-right pr-8' : 'md:text-left pl-8 md:col-start-2',
-                isFuture && 'opacity-60'
+                isFuture && 'opacity-70'
             )}>
                  {/* Conector Central */}
                  <div className={cn(
@@ -60,76 +62,86 @@ const TimelineCard = ({ item, isEven, onToggle, isExpanded, isCurrent, isFuture,
                 
                 <Card className={cn(
                     "shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden relative border-l-4",
-                    isCurrent ? "ring-2 ring-primary/50 border-l-primary" : 
-                    isCompleted ? "border-l-emerald-500" : "border-l-slate-300"
+                    isCurrent ? "ring-2 ring-primary/50 border-l-primary bg-primary/5" : 
+                    isCompleted ? "border-l-emerald-500 bg-emerald-50/30" : "border-l-slate-300"
                 )} onClick={() => onToggle(item.id)}>
                     <CardContent className="p-4">
                         <div className="flex items-start justify-between gap-3 mb-2">
                              <div className={cn("flex-1", isEven ? 'md:order-1' : '')}>
                                 <div className={cn("flex items-center gap-2", isEven ? 'md:flex-row-reverse' : '')}>
-                                    <h3 className="font-bold text-base text-foreground">{item.title}</h3>
-                                    <Icon className={cn("size-5", isFuture ? 'text-slate-400' : isCompleted ? 'text-emerald-600' : 'text-primary')} />
+                                    <h3 className={cn("font-bold text-base", isFuture ? "text-slate-600" : "text-foreground")}>
+                                        {item.title}
+                                    </h3>
+                                    <Icon className={cn("size-5 shrink-0", isFuture ? 'text-slate-400' : isCompleted ? 'text-emerald-600' : 'text-primary')} />
                                 </div>
                             </div>
                             {isCurrent && (
-                                <Badge className="bg-primary text-white text-[10px] uppercase font-black">Você está aqui</Badge>
+                                <Badge className="bg-primary text-white text-[10px] uppercase font-black shrink-0">Atual</Badge>
                              )}
                         </div>
 
-                        {/* Requisitos (Validação Técnica e Humana) */}
-                        <div className={cn("flex items-center gap-3 mt-3", isEven ? "md:justify-end" : "md:justify-start")}>
+                        {/* Badges de Requisitos */}
+                        <div className={cn("flex flex-wrap items-center gap-2 mt-3", isEven ? "md:justify-end" : "md:justify-start")}>
                             {hasTechnicalReq && (
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Badge variant="outline" className="text-[9px] py-0 h-5 border-emerald-200 bg-emerald-50 text-emerald-700">
-                                                <GraduationCap className="size-3 mr-1" /> Validação Técnica
-                                            </Badge>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p className="text-xs">Requer conclusão do curso: {courseName}</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
+                                <Badge variant="outline" className="text-[9px] py-0 h-5 border-emerald-200 bg-emerald-50 text-emerald-700 font-bold">
+                                    <GraduationCap className="size-3 mr-1" /> Requisito Técnico
+                                </Badge>
                             )}
                             {hasHumanReq && (
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Badge variant="outline" className="text-[9px] py-0 h-5 border-amber-200 bg-amber-50 text-amber-700">
-                                                <Handshake className="size-3 mr-1" /> Validação Humana
-                                            </Badge>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p className="text-xs">Requer aprovação formal de líderes</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
+                                <Badge variant="outline" className="text-[9px] py-0 h-5 border-amber-200 bg-amber-50 text-amber-700 font-bold">
+                                    <Handshake className="size-3 mr-1" /> Requisito Humano
+                                </Badge>
                             )}
+                            <div className={cn("text-[10px] text-muted-foreground flex items-center gap-1 mt-1 font-medium", isEven ? "md:flex-row-reverse" : "")}>
+                                <ChevronDown className={cn("size-3 transition-transform", isExpanded && "rotate-180")} />
+                                {isExpanded ? 'Ver menos' : 'Ver requisitos para avançar'}
+                            </div>
                         </div>
                     </CardContent>
 
                     {isExpanded && (
-                         <div className="bg-muted/50 border-t border-border p-4 text-sm text-muted-foreground space-y-3">
-                            <div className="space-y-2">
-                                <p className="text-[10px] font-black uppercase text-foreground/60 tracking-widest">Critérios desta Fase:</p>
+                         <div className="bg-slate-50 border-t border-border p-4 text-sm space-y-4 animate-in slide-in-from-top-2 duration-300">
+                            <div className="space-y-3">
+                                <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest border-b pb-1">O que é necessário para concluir esta fase:</p>
+                                
                                 {item.requiredCourseId && (
-                                    <div className="flex items-center gap-2 text-xs font-bold text-emerald-700 bg-emerald-100/50 p-2 rounded">
-                                        <GraduationCap size={14} /> Conclusão do curso: {courseName}
+                                    <div className="flex items-start gap-2 text-xs font-bold text-emerald-800 bg-white border border-emerald-100 p-2 rounded-lg shadow-sm">
+                                        <GraduationCap size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="uppercase text-[9px] text-emerald-600/70">Curso Obrigatório</p>
+                                            <p>{courseName || 'Curso não identificado'}</p>
+                                        </div>
                                     </div>
                                 )}
+
                                 {hasHumanReq && (
-                                    <div className="flex items-center gap-2 text-xs font-bold text-amber-700 bg-amber-100/50 p-2 rounded">
-                                        <ShieldAlert size={14} /> Aprovação do {item.requiresSupervisorApproval ? 'Supervisor' : 'Discipulador'}
+                                    <div className="flex items-start gap-2 text-xs font-bold text-amber-800 bg-white border border-amber-100 p-2 rounded-lg shadow-sm">
+                                        <ShieldAlert size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="uppercase text-[9px] text-amber-600/70">Aprovação de Liderança</p>
+                                            <p>Requer validação do {item.requiresSupervisorApproval ? 'Supervisor de Área' : 'Discipulador'}</p>
+                                        </div>
                                     </div>
                                 )}
+
                                 {item.questions && item.questions.length > 0 && (
-                                    <ul className="list-disc list-inside text-xs space-y-1 mt-2">
-                                        {item.questions.map((q, idx) => <li key={idx}>{q.label}</li>)}
-                                    </ul>
+                                    <div className="space-y-2">
+                                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Checklist Prático:</p>
+                                        <ul className="space-y-1.5">
+                                            {item.questions.map((q, idx) => (
+                                                <li key={idx} className="flex items-start gap-2 text-[11px] text-slate-600 leading-tight">
+                                                    <div className="size-1.5 rounded-full bg-primary/30 mt-1 shrink-0" />
+                                                    {q.label}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
                                 )}
+
                                 {!item.questions?.length && !hasTechnicalReq && !hasHumanReq && (
-                                    <p className="text-xs italic">Nenhum requisito específico cadastrado para esta fase.</p>
+                                    <p className="text-xs italic text-muted-foreground flex items-center gap-2">
+                                        <Info size={14} /> Nenhum critério especial configurado.
+                                    </p>
                                 )}
                             </div>
                         </div>
@@ -152,7 +164,6 @@ export function DiscipleshipTrail({ currentStatusId }: { currentStatusId?: strin
 
     const courseMap = useMemo(() => new Map(courses?.map(c => [c.id, c.name]) || []), [courses]);
     
-    // Mesclamos as colunas oficiais com os dados técnicos do banco
     const finalTimelineItems = useMemo(() => {
         return journeyColumns.map(col => {
             const dbItem = timelineData?.find(item => item.id === col.id);
@@ -180,12 +191,12 @@ export function DiscipleshipTrail({ currentStatusId }: { currentStatusId?: strin
     const currentIndex = finalTimelineItems.findIndex(item => item.id === effectiveStatusId);
 
     return (
-        <div className="bg-background rounded-lg p-4 md:p-8">
-            <div className="max-w-5xl mx-auto px-4 py-8 relative">
+        <div className="bg-background rounded-lg p-2 md:p-4">
+            <div className="max-w-5xl mx-auto px-2 py-4 relative">
                 {/* Linha de fundo */}
                 <div className="absolute left-4 md:left-1/2 top-0 bottom-0 w-1 bg-slate-100 -ml-0.5 md:-ml-0.5 z-0 rounded-full"></div>
 
-                <div className="space-y-4 md:space-y-0 relative">
+                <div className="space-y-2 md:space-y-0 relative">
                     {finalTimelineItems.map((item, index) => {
                         const phaseId = statusToPhaseMap[item.id] || '1';
                         const showPhase = phaseId !== lastPhaseId;
@@ -199,7 +210,7 @@ export function DiscipleshipTrail({ currentStatusId }: { currentStatusId?: strin
                         return (
                             <React.Fragment key={item.id}>
                                 {showPhase && (
-                                    <div className="md:col-span-2 flex justify-center py-6 relative z-10">
+                                    <div className="md:col-span-2 flex justify-center py-8 relative z-10">
                                         <span className={cn(
                                             "px-6 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] shadow-sm border-2", 
                                             phaseInfo.color, 
