@@ -1,7 +1,8 @@
 
 import { NextResponse } from 'next/server';
 import { initializeFirebase } from '@/firebase';
-import { collection, query, where, getDocs, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, Timestamp, doc, getDoc } from 'firebase/firestore';
+import { WhatsApp } from '@raphaelvserafim/client-api-whatsapp';
 
 export async function POST(request: Request) {
   try {
@@ -13,14 +14,27 @@ export async function POST(request: Request) {
     }
 
     const { firestore } = initializeFirebase();
-    const usersRef = collection(firestore, 'users');
-    let targetUsers: any[] = [];
+    
+    // 1. Buscar Configuração do WhatsApp
+    const configRef = doc(firestore, 'config', 'notifications');
+    const configSnap = await getDoc(configRef);
+    const configData = configSnap.exists() ? configSnap.data() : null;
+    const waKey = configData?.whatsappApiKey;
 
-    // 1. Lógica de Filtragem de Público
+    let whatsappClient: any = null;
+    if (waKey && channel === 'whatsapp') {
+        whatsappClient = new WhatsApp({
+            server: "https://us.api-wa.me",
+            key: waKey
+        });
+    }
+
+    // 2. Lógica de Filtragem de Público
+    const usersRef = collection(firestore, 'users');
     let q;
     switch (audience) {
         case 'all_members':
-            q = query(usersRef); // Pega todos para teste, ou filtra por role 'member'
+            q = query(usersRef);
             break;
         case 'all_leaders':
             q = query(usersRef, where('hierarchy.role', 'in', ['admin', 'pastor_senior', 'pastor', 'lider_rede', 'lider_area', 'lider_gc']));
@@ -39,13 +53,15 @@ export async function POST(request: Request) {
     }
 
     const querySnapshot = await getDocs(q);
+    const targetUsers: any[] = [];
+    
     querySnapshot.forEach((doc) => {
         const data = doc.data();
         if (data.phone) {
             targetUsers.push({
                 id: doc.id,
                 name: data.name,
-                phone: data.phone
+                phone: data.phone.replace(/\D/g, '') // Apenas números
             });
         }
     });
@@ -54,29 +70,54 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Nenhum destinatário com telefone encontrado para este público.' }, { status: 404 });
     }
 
-    // 2. SIMULAÇÃO DE ENVIO
-    // Aqui seria a integração real com o Gateway (api-wa.me, Evolution, etc.)
+    // 3. ENVIO REAL OU SIMULAÇÃO
     console.log(`[LOG] Iniciando envio para ${targetUsers.length} contatos via ${channel}`);
     
-    // Simular processamento individual
-    targetUsers.forEach(user => {
-        const personalizedMessage = message.replace('{{nome}}', user.name);
-        // console.log(`[SIMULAÇÃO] Enviando para ${user.phone}: ${personalizedMessage}`);
-    });
+    let sentCount = 0;
+    let errorCount = 0;
 
-    // 3. Registrar no Histórico do Firestore
+    for (const user of targetUsers) {
+        const personalizedMessage = message.replace('{{nome}}', user.name);
+        
+        if (whatsappClient) {
+            try {
+                // Formatar número para padrão internacional (Brasil 55)
+                const formattedNumber = user.phone.startsWith('55') ? user.phone : `55${user.phone}`;
+                
+                // O método sendText é o padrão para essa API
+                await whatsappClient.sendText(formattedNumber, personalizedMessage);
+                sentCount++;
+            } catch (err) {
+                console.error(`Erro ao enviar para ${user.phone}:`, err);
+                errorCount++;
+            }
+        } else {
+            // Simulação se não houver chave configurada
+            console.log(`[SIMULAÇÃO] Enviando para ${user.phone}: ${personalizedMessage}`);
+            sentCount++;
+        }
+    }
+
+    // 4. Registrar no Histórico do Firestore
     await addDoc(collection(firestore, 'notifications_history'), {
         channel,
         audience,
         message,
         recipientCount: targetUsers.length,
+        successCount: sentCount,
+        errorCount: errorCount,
         sentAt: Timestamp.now(),
-        status: 'success'
+        status: errorCount === 0 ? 'success' : (sentCount > 0 ? 'partial' : 'error'),
+        isSimulation: !waKey
     });
+
+    const resultMessage = waKey 
+        ? `Sucesso! ${sentCount} mensagens enviadas. ${errorCount > 0 ? `${errorCount} falhas.` : ''}`
+        : `Simulação concluída! ${sentCount} mensagens seriam enviadas. (Configure a API Key para envios reais)`;
 
     return NextResponse.json({ 
       success: true, 
-      message: `Sucesso! Mensagem enviada para ${targetUsers.length} pessoas via ${channel}.` 
+      message: resultMessage 
     }, { status: 200 });
 
   } catch (error: any) {
