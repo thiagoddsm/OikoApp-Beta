@@ -923,6 +923,7 @@ function NotificationsConfig() {
             const response = await fetch('/api/notifications/instance', { method: 'PATCH' });
             if (response.ok) {
                 toast({ title: "Recursos Ativados!", description: "Botões e enquetes agora devem funcionar normalmente." });
+                checkStatus(); // Refresh status after activating
             } else {
                 const data = await response.json();
                 toast({ variant: 'destructive', title: "Erro na Configuração", description: data.error || "A instância pode estar ocupada ou offline." });
@@ -954,7 +955,7 @@ function NotificationsConfig() {
 
     useEffect(() => {
         let interval: any;
-        if (qrCode || (instanceStatus && instanceStatus.status !== 'connected' && instanceStatus.status !== 'unconfigured')) {
+        if (qrCode || (instanceStatus && instanceStatus.status !== 'connected' && instanceStatus.status !== 'unconfigured' && instanceStatus.status !== 'error' && instanceStatus.status !== 'invalid_key')) {
             interval = setInterval(checkStatus, 5000);
         }
         return () => clearInterval(interval);
@@ -964,17 +965,25 @@ function NotificationsConfig() {
         checkStatus();
     }, []);
 
-    const handleSaveKey = () => {
+    const handleSaveKey = async () => {
         if (!firestore) return;
         setIsSaving(true);
-        setInstanceStatus(null); // Limpa o status para evitar dados estáticos
+        
+        // Limpa estados de status para forçar atualização "limpa"
+        setInstanceStatus(null);
+        setQrCode(null);
+        
         const configRef = doc(firestore, 'config', 'notifications');
-        setDocumentNonBlocking(configRef, { whatsappApiKey: waKey, updatedAt: Timestamp.now() }, { merge: true })
-            .then(() => {
-                toast({ title: "Chave Salva!" });
-                setTimeout(checkStatus, 1000); // Aguarda a propagação e recarrega
-            })
-            .finally(() => setIsSaving(false));
+        try {
+            await setDocumentNonBlocking(configRef, { whatsappApiKey: waKey, updatedAt: Timestamp.now() }, { merge: true });
+            toast({ title: "Chave Salva!", description: "Sincronizando com o gateway..." });
+            // Aguarda um pouco mais para o Firestore propagar para a API dinâmica
+            setTimeout(checkStatus, 2000);
+        } catch (e) {
+            toast({ variant: 'destructive', title: "Erro ao salvar" });
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const handleGenerateQR = async () => {
@@ -1036,7 +1045,8 @@ function NotificationsConfig() {
             if (response.ok) {
                 toast({ title: "Desconectado!", description: "A sessão do WhatsApp foi encerrada." });
                 setQrCode(null);
-                checkStatus();
+                setInstanceStatus(null);
+                setTimeout(checkStatus, 1000);
             } else {
                 toast({ variant: 'destructive', title: "Erro", description: data.error || "Falha ao desconectar." });
             }
@@ -1086,7 +1096,9 @@ function NotificationsConfig() {
 
                 <Card className={cn(
                     "border-2 transition-all shadow-md",
-                    instanceStatus?.status === 'connected' ? "border-emerald-500 bg-emerald-50/30" : "border-amber-500 bg-amber-50/30"
+                    instanceStatus?.status === 'connected' ? "border-emerald-500 bg-emerald-50/30" : 
+                    instanceStatus?.status === 'invalid_key' || instanceStatus?.status === 'error' ? "border-destructive bg-red-50/30" :
+                    "border-amber-500 bg-amber-50/30"
                 )}>
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-bold flex items-center justify-between">
@@ -1100,13 +1112,17 @@ function NotificationsConfig() {
                         <div className="flex flex-col items-center gap-2">
                             <div className={cn(
                                 "size-4 rounded-full animate-pulse",
-                                instanceStatus?.status === 'connected' ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"
+                                instanceStatus?.status === 'connected' ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : 
+                                instanceStatus?.status === 'invalid_key' || instanceStatus?.status === 'error' ? "bg-destructive" :
+                                "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"
                             )} />
                             <span className="font-black uppercase text-xs tracking-widest">
                                 {instanceStatus?.status || 'Buscando...'}
                             </span>
-                            {instanceStatus?.status === 'unknown' && (
-                                <p className="text-[10px] text-muted-foreground">O gateway retornou um status não mapeado.</p>
+                            {(instanceStatus?.status === 'unknown' || instanceStatus?.status === 'invalid_key') && (
+                                <p className="text-[10px] text-muted-foreground leading-tight">
+                                    {instanceStatus?.message || "O gateway retornou um status não mapeado ou chave inválida."}
+                                </p>
                             )}
                         </div>
                         
@@ -1153,7 +1169,7 @@ function NotificationsConfig() {
                                 <div className="flex flex-col gap-2">
                                     <Button 
                                         onClick={handleGenerateQR} 
-                                        disabled={isGeneratingQR || !waKey}
+                                        disabled={isGeneratingQR || !waKey || instanceStatus?.status === 'invalid_key'}
                                         className="w-full h-9 text-xs font-bold"
                                     >
                                         {isGeneratingQR ? <Loader2 className="size-3 animate-spin mr-1" /> : <QrCode className="size-3 mr-1" />}
