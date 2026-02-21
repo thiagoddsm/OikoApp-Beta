@@ -12,12 +12,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Send, Settings, Key, Bot, History, MessageSquare, Mail, Users, CheckCircle2, Search, UserPlus, X, Info, Layers, RefreshCw } from 'lucide-react';
+import { Loader2, Send, Settings, Key, Bot, History, MessageSquare, Mail, Users, CheckCircle2, Search, UserPlus, X, Info, Layers, RefreshCw, Zap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useCollection, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, Timestamp, doc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 function WhatsappSender() {
     const { firestore } = useFirebase();
@@ -284,6 +285,7 @@ function NotificationsConfig() {
     const [waKey, setWaKey] = useState('');
     const [aiKey, setAiKey] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [isTesting, setIsTesting] = useState(false);
 
     useEffect(() => {
         if (config) {
@@ -314,6 +316,35 @@ function NotificationsConfig() {
         });
     };
 
+    const handleTestConnection = async () => {
+        if (!waKey) {
+            toast({ variant: 'destructive', title: "API Key ausente", description: "Insira a chave da instância antes de testar." });
+            return;
+        }
+        setIsTesting(true);
+        try {
+            const response = await fetch('/api/notifications/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    channel: 'whatsapp', 
+                    message: "Olá! Este é um teste de conexão da Central de Notificações IBM. Se você recebeu isso, sua API Key está funcionando corretamente! 🚀",
+                    targetNumber: "5521989001302"
+                }),
+            });
+            const result = await response.json();
+            if (response.ok && result.sentCount > 0) {
+                toast({ title: "Teste bem-sucedido!", description: "A mensagem foi disparada para o número de teste." });
+            } else {
+                throw new Error(result.error || result.message || "Falha ao enviar mensagem de teste.");
+            }
+        } catch (e: any) {
+            toast({ variant: 'destructive', title: "Falha na Conexão", description: e.message });
+        } finally {
+            setIsTesting(false);
+        }
+    };
+
     if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
@@ -336,6 +367,26 @@ function NotificationsConfig() {
                     </div>
                 </CardContent>
             </Card>
+
+            <Card className="border-indigo-200 bg-indigo-50/20">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-indigo-700 text-sm"><Zap className="size-4" />Diagnóstico de Conexão</CardTitle>
+                    <CardDescription>Envie um "ping" de teste para validar se sua chave é válida.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex items-center justify-between p-4 bg-white border border-indigo-100 rounded-lg">
+                        <div className="text-xs">
+                            <p className="font-bold text-indigo-900">Número de Destino: 5521989001302</p>
+                            <p className="text-indigo-600">Este número receberá uma confirmação de sistema.</p>
+                        </div>
+                        <Button variant="secondary" onClick={handleTestConnection} disabled={isTesting || !waKey} className="bg-indigo-600 text-white hover:bg-indigo-700">
+                            {isTesting ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Zap className="mr-2 size-4" />}
+                            Testar Agora
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+
              <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><Bot className="size-5 text-primary" />Inteligência Artificial (Opcional)</CardTitle>
@@ -408,8 +459,11 @@ function NotificationsHistory() {
                                     <Badge variant="secondary" className="text-[10px] font-black">{item.recipientCount} PESSOAS</Badge>
                                 </TableCell>
                                 <TableCell>
-                                    <div className="flex items-center gap-1.5 text-emerald-600 font-bold text-[10px] uppercase">
-                                        <CheckCircle2 size={12} /> SUCESSO
+                                    <div className={cn(
+                                        "flex items-center gap-1.5 font-bold text-[10px] uppercase",
+                                        item.status === 'success' ? "text-emerald-600" : item.status === 'partial' ? "text-amber-600" : "text-red-600"
+                                    )}>
+                                        <CheckCircle2 size={12} /> {item.status === 'success' ? 'SUCESSO' : item.status === 'partial' ? 'PARCIAL' : 'FALHA'}
                                     </div>
                                 </TableCell>
                             </TableRow>

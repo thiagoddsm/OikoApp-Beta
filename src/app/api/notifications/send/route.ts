@@ -7,16 +7,15 @@ import { WhatsApp } from '@raphaelvserafim/client-api-whatsapp';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { channel, audience, message, userIds } = body;
+    const { channel, audience, message, userIds, targetNumber } = body;
 
-    if (!channel || !audience || !message) {
-      return NextResponse.json({ error: 'Parâmetros ausentes' }, { status: 400 });
+    if (!channel || !message || (!audience && !targetNumber)) {
+      return NextResponse.json({ error: 'Parâmetros insuficientes para o envio.' }, { status: 400 });
     }
 
     const { firestore } = initializeFirebase();
     
     // 1. Buscar Configuração do WhatsApp
-    // Usamos um try/catch específico para a leitura de config para não travar o fluxo se falhar por permissão
     let waKey = null;
     try {
         const configRef = doc(firestore, 'config', 'notifications');
@@ -25,7 +24,7 @@ export async function POST(request: Request) {
             waKey = configSnap.data()?.whatsappApiKey;
         }
     } catch (e) {
-        console.warn("Aviso: Falha ao ler config de notificações do Firestore. Usando modo simulação.", e);
+        console.warn("Aviso: Falha ao ler config de notificações do Firestore no servidor.", e);
     }
 
     let whatsappClient: any = null;
@@ -36,14 +35,37 @@ export async function POST(request: Request) {
         });
     }
 
-    // 2. Lógica de Filtragem de Público
-    const usersRef = collection(firestore, 'users');
-    let q;
+    // 2. Lógica de Destinatários
+    const targetUsers: any[] = [];
 
-    if (audience === 'specific_members' && userIds && Array.isArray(userIds) && userIds.length > 0) {
-        // Busca nominal por IDs específicos
-        q = query(usersRef, where('__name__', 'in', userIds));
-    } else {
+    // Prioridade 1: Número de teste manual
+    if (targetNumber) {
+        targetUsers.push({
+            id: 'test-user',
+            name: 'Líder IBM (Teste)',
+            phone: targetNumber.replace(/\D/g, '')
+        });
+    } 
+    // Prioridade 2: Lista específica de membros
+    else if (audience === 'specific_members' && userIds && Array.isArray(userIds) && userIds.length > 0) {
+        const usersRef = collection(firestore, 'users');
+        const q = query(usersRef, where('__name__', 'in', userIds));
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            if (data.phone) {
+                targetUsers.push({
+                    id: doc.id,
+                    name: data.name,
+                    phone: data.phone.replace(/\D/g, '')
+                });
+            }
+        });
+    } 
+    // Prioridade 3: Públicos pré-definidos
+    else {
+        const usersRef = collection(firestore, 'users');
+        let q;
         switch (audience) {
             case 'all_members':
                 q = query(usersRef);
@@ -63,59 +85,52 @@ export async function POST(request: Request) {
             default:
                 q = query(usersRef);
         }
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            if (data.phone) {
+                targetUsers.push({
+                    id: doc.id,
+                    name: data.name,
+                    phone: data.phone.replace(/\D/g, '')
+                });
+            }
+        });
     }
-
-    const querySnapshot = await getDocs(q);
-    const targetUsers: any[] = [];
-    
-    querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        if (data.phone) {
-            targetUsers.push({
-                id: doc.id,
-                name: data.name,
-                phone: data.phone.replace(/\D/g, '') // Apenas números
-            });
-        }
-    });
 
     if (targetUsers.length === 0) {
-        return NextResponse.json({ error: 'Nenhum destinatário com telefone encontrado para este público.' }, { status: 404 });
+        return NextResponse.json({ error: 'Nenhum destinatário válido encontrado.' }, { status: 404 });
     }
 
-    // 3. ENVIO REAL OU SIMULAÇÃO
-    console.log(`[LOG] Iniciando envio para ${targetUsers.length} contatos via ${channel}`);
-    
+    // 3. ENVIO
     let sentCount = 0;
     let errorCount = 0;
+    let lastError = null;
 
     for (const user of targetUsers) {
         const personalizedMessage = message.replace('{{nome}}', user.name);
         
         if (whatsappClient) {
             try {
-                // Formatar número para padrão internacional (Brasil 55)
                 const formattedNumber = user.phone.startsWith('55') ? user.phone : `55${user.phone}`;
-                
-                // O método sendText é o padrão para essa API
                 await whatsappClient.sendText(formattedNumber, personalizedMessage);
                 sentCount++;
-            } catch (err) {
-                console.error(`Erro ao enviar para ${user.phone}:`, err);
+            } catch (err: any) {
+                console.error(`Erro real ao enviar para ${user.phone}:`, err);
                 errorCount++;
+                lastError = err.message;
             }
         } else {
-            // Simulação se não houver chave configurada ou falha na leitura
             console.log(`[SIMULAÇÃO] Enviando para ${user.phone}: ${personalizedMessage}`);
             sentCount++;
         }
     }
 
-    // 4. Registrar no Histórico do Firestore
+    // 4. Registrar no Histórico
     try {
         await addDoc(collection(firestore, 'notifications_history'), {
             channel,
-            audience,
+            audience: audience || 'test_number',
             message,
             recipientCount: targetUsers.length,
             successCount: sentCount,
@@ -125,20 +140,22 @@ export async function POST(request: Request) {
             isSimulation: !waKey
         });
     } catch (e) {
-        console.warn("Aviso: Falha ao gravar histórico de notificação no Firestore.", e);
+        console.warn("Aviso: Falha ao gravar histórico de notificação.");
     }
 
     const resultMessage = waKey 
-        ? `Sucesso! ${sentCount} mensagens enviadas. ${errorCount > 0 ? `${errorCount} falhas.` : ''}`
-        : `Simulação concluída! ${sentCount} mensagens seriam enviadas. (Verifique sua chave de API nas configurações para envios reais)`;
+        ? (errorCount === 0 ? `Sucesso! ${sentCount} mensagens enviadas.` : `Concluído com avisos: ${sentCount} enviadas, ${errorCount} falhas. Erro: ${lastError}`)
+        : `Simulação concluída! ${sentCount} mensagens seriam enviadas. (Configure a API Key para envios reais)`;
 
     return NextResponse.json({ 
       success: true, 
-      message: resultMessage 
+      message: resultMessage,
+      sentCount,
+      errorCount
     }, { status: 200 });
 
   } catch (error: any) {
-    console.error('Erro na API de notificações:', error);
-    return NextResponse.json({ error: error.message || 'Erro interno do servidor ao processar o envio.' }, { status: 500 });
+    console.error('Erro crítico na API de notificações:', error);
+    return NextResponse.json({ error: error.message || 'Erro interno no servidor.' }, { status: 500 });
   }
 }
