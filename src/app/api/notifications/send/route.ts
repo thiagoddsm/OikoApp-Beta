@@ -54,7 +54,6 @@ export async function POST(request: Request) {
         targetUsers.push({ id: 'custom', name: 'Destinatário', phone: targetNumber });
     } else if (audience === 'specific_members' && userIds) {
         const usersRef = collection(firestore, 'users');
-        // Firebase 'in' query limit is 30. For MVP we handle the first 30.
         const q = query(usersRef, where('__name__', 'in', userIds.slice(0, 30)));
         const snap = await getDocs(q);
         snap.forEach(d => {
@@ -62,7 +61,6 @@ export async function POST(request: Request) {
             if (data.phone) targetUsers.push({ id: d.id, name: data.name, phone: data.phone });
         });
     } else {
-        // Fallback or groups logic could go here
         const usersRef = collection(firestore, 'users');
         const snap = await getDocs(query(usersRef));
         snap.forEach(d => {
@@ -84,6 +82,8 @@ export async function POST(request: Request) {
 
         switch (type) {
             case 'button':
+                // For instances with button restriction, sometimes 'message/title' works better
+                // as it's a structured message rather than pure interactive buttons.
                 endpoint = 'message/button';
                 payload = {
                     ...payload,
@@ -97,11 +97,11 @@ export async function POST(request: Request) {
                 payload = {
                     ...payload,
                     name: (surveyName || 'Enquete IBM').replace('{{nome}}', user.name),
-                    options: options || []
+                    options: options || [],
+                    selectableOptionsCount: 1 // Required for newer API versions
                 };
                 break;
             case 'media':
-                // Check if it looks like an image or a document based on URL or extension
                 const isImage = mediaUrl.match(/\.(jpeg|jpg|gif|png)$/i);
                 endpoint = isImage ? 'message/image' : 'message/document';
                 payload = {
@@ -132,7 +132,8 @@ export async function POST(request: Request) {
                 sentCount++;
             } else {
                 const errData = await response.json().catch(() => ({}));
-                lastError = errData.message || `Erro ${response.status}`;
+                // Capture the specific error from gateway
+                lastError = errData.message || errData.error || `Erro ${response.status}`;
                 errorCount++;
             }
         } catch (e: any) {

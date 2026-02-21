@@ -43,22 +43,16 @@ export async function GET() {
             });
         }
 
-        // Lógica de extração robusta para evitar capturar o HTTP 200 como status
         let rawStatus = 'unknown';
-        
-        // Prioridade de campos retornados pela api-wa.me
         if (data.instance?.state) rawStatus = data.instance.state;
         else if (data.state) rawStatus = data.state;
         else if (data.instance?.status && typeof data.instance.status === 'string') rawStatus = data.instance.status;
         else if (data.status && typeof data.status === 'string' && isNaN(Number(data.status))) rawStatus = data.status;
         else if (data.status === 200 || data.status === 201) {
-            // Se o status for 200 e houver um campo instance.state, usamos o state
             rawStatus = data.instance?.state || data.instance?.status || 'unknown';
         }
 
         const normalizedStatus = String(rawStatus).toLowerCase();
-        
-        // Mapeamento de termos de sucesso comuns em gateways de WhatsApp
         const isConnected = ['open', 'connected', 'conectado', 'authenticated'].includes(normalizedStatus);
         const finalStatus = isConnected ? 'connected' : normalizedStatus;
 
@@ -94,7 +88,6 @@ export async function POST() {
             return NextResponse.json({ error: "Chave de API não configurada." }, { status: 400 });
         }
 
-        // POST para gerar o QR Code ou iniciar instância
         const response = await fetch(`https://us.api-wa.me/${waKey}/instance`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
@@ -132,7 +125,6 @@ export async function PUT(request: Request) {
         const body = await request.json();
         const { webhookUrl } = body;
 
-        // PUT para atualizar o Webhook da instância no gateway
         const response = await fetch(`https://us.api-wa.me/${waKey}/instance`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -142,6 +134,38 @@ export async function PUT(request: Request) {
         if (!response.ok) {
             const data = await response.json().catch(() => ({}));
             return NextResponse.json({ error: data.message || "Falha ao atualizar webhook." }, { status: response.status });
+        }
+
+        return NextResponse.json({ success: true });
+    } catch (error: any) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
+
+/**
+ * PATCH handler to update instance settings (markMessageRead, saveMedia)
+ * Based on provided documentation
+ */
+export async function PATCH() {
+    try {
+        const { firestore } = initializeFirebase();
+        const configRef = doc(firestore, 'config', 'notifications');
+        const configSnap = await getDoc(configRef);
+        const waKey = configSnap.exists() ? configSnap.data()?.whatsappApiKey : null;
+
+        if (!waKey) return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
+
+        // Endpoint according to documentation: /instance?markMessageRead=true&saveMedia=true
+        const url = `https://us.api-wa.me/${waKey}/instance?markMessageRead=true&saveMedia=true`;
+        
+        const response = await fetch(url, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            return NextResponse.json({ error: data.message || "Falha ao configurar instância." }, { status: response.status });
         }
 
         return NextResponse.json({ success: true });
@@ -167,7 +191,6 @@ export async function DELETE() {
             return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
         }
 
-        // DELETE para desconectar a instância (Logout)
         const response = await fetch(`https://us.api-wa.me/${waKey}/instance`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' }

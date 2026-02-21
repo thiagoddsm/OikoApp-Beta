@@ -41,13 +41,11 @@ function WhatsappChats() {
     const [isSending, setIsSending] = useState(false);
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    // Fetch chat list
     const chatsQuery = useMemoFirebase(() => 
         firestore ? query(collection(firestore, 'notifications_chats'), orderBy('lastMessageAt', 'desc')) : null,
     [firestore]);
     const { data: chats, isLoading: isLoadingChats } = useCollection<any>(chatsQuery);
 
-    // Fetch messages for selected chat
     const messagesQuery = useMemoFirebase(() => 
         (firestore && selectedChat) ? query(
             collection(firestore, 'notifications_messages'), 
@@ -82,7 +80,6 @@ function WhatsappChats() {
             });
 
             if (response.ok) {
-                // Registrar a mensagem enviada no Firestore também para o histórico aparecer no chat
                 await addDoc(collection(firestore!, 'notifications_messages'), {
                     from: selectedChat.phoneNumber,
                     fromMe: true,
@@ -91,7 +88,6 @@ function WhatsappChats() {
                     receivedAt: Timestamp.now()
                 });
 
-                // Atualizar o último registro do chat
                 await setDocumentNonBlocking(doc(firestore!, 'notifications_chats', selectedChat.phoneNumber), {
                     lastMessage: replyText,
                     lastMessageAt: Timestamp.now(),
@@ -114,7 +110,6 @@ function WhatsappChats() {
 
     return (
         <div className="flex h-[600px] border rounded-xl overflow-hidden bg-background shadow-sm">
-            {/* Chat List */}
             <div className="w-1/3 border-r bg-muted/10 flex flex-col">
                 <div className="p-4 border-b bg-muted/5">
                     <h3 className="font-bold text-sm uppercase tracking-widest text-muted-foreground">Conversas Recentes</h3>
@@ -149,7 +144,6 @@ function WhatsappChats() {
                 </ScrollArea>
             </div>
 
-            {/* Chat Window */}
             <div className="flex-1 flex flex-col bg-slate-50/30">
                 {selectedChat ? (
                     <>
@@ -233,11 +227,9 @@ function WhatsappSender() {
     const [isLoadingGroups, setIsLoadingGroups] = useState(false);
     const [msgType, setMsgType] = useState<'text' | 'button' | 'survey' | 'media'>('text');
 
-    // Survey States
     const [surveyName, setSurveyName] = useState('');
     const [surveyOptions, setSurveyOptions] = useState(['Sim', 'Não']);
     
-    // Media States
     const [mediaUrl, setMediaUrl] = useState('');
 
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
@@ -363,7 +355,11 @@ function WhatsappSender() {
                 setSurveyName('');
                 setMediaUrl('');
             } else {
-                toast({ variant: 'destructive', title: "Erro no Envio", description: result.error || "Falha ao processar." });
+                toast({ 
+                    variant: 'destructive', 
+                    title: "Erro no Envio", 
+                    description: result.error || "Falha ao processar. Verifique se sua instância permite recursos interativos." 
+                });
             }
         } catch(error) {
              toast({ variant: 'destructive', title: "Erro crítico", description: "Falha na conexão com o servidor." });
@@ -405,7 +401,6 @@ function WhatsappSender() {
                 </div>
             </div>
 
-            {/* BUSCA DE MEMBROS ESPECÍFICOS */}
             {targetAudience === 'specific_members' && (
                 <div className="space-y-4 p-4 border rounded-lg bg-muted/20 animate-in fade-in zoom-in-95 duration-200">
                     <Label className="flex items-center gap-2">
@@ -455,7 +450,6 @@ function WhatsappSender() {
                 </div>
             )}
 
-            {/* SELEÇÃO DE GRUPO */}
             {targetAudience === 'whatsapp_group' && (
                 <div className="space-y-2 animate-in fade-in zoom-in-95 duration-200">
                     <div className="flex justify-between items-center">
@@ -497,7 +491,6 @@ function WhatsappSender() {
                 </div>
             )}
 
-            {/* CAMPOS DE ENQUETE */}
             {msgType === 'survey' && (
                 <div className="space-y-4 p-4 border border-dashed rounded-lg bg-primary/5 animate-in slide-in-from-top-2">
                     <div className="space-y-2">
@@ -534,7 +527,6 @@ function WhatsappSender() {
                 </div>
             )}
 
-            {/* CAMPOS DE MÍDIA */}
             {msgType === 'media' && (
                 <div className="space-y-4 p-4 border border-dashed rounded-lg bg-blue-50 animate-in slide-in-from-top-2">
                     <div className="space-y-2">
@@ -647,6 +639,7 @@ function NotificationsConfig() {
     const [isGeneratingQR, setIsGeneratingQR] = useState(false);
     const [isDisconnecting, setIsDisconnecting] = useState(false);
     const [isSyncingWebhook, setIsSyncingWebhook] = useState(false);
+    const [isConfiguringInstance, setIsConfiguringInstance] = useState(false);
     const [qrCode, setQrCode] = useState<string | null>(null);
     const [instanceStatus, setInstanceStatus] = useState<{status: string, message?: string, qr?: string} | null>(null);
     const [isLoadingStatus, setIsLoadingStatus] = useState(false);
@@ -698,6 +691,23 @@ function NotificationsConfig() {
             toast({ variant: 'destructive', title: "Erro na verificação" });
         } finally {
             setIsCheckingNumber(false);
+        }
+    };
+
+    const handleConfigureInstance = async () => {
+        setIsConfiguringInstance(true);
+        try {
+            const response = await fetch('/api/notifications/instance', { method: 'PATCH' });
+            if (response.ok) {
+                toast({ title: "Recursos Ativados!", description: "Botões e enquetes agora devem funcionar normalmente." });
+            } else {
+                const data = await response.json();
+                toast({ variant: 'destructive', title: "Erro na Configuração", description: data.error });
+            }
+        } catch (e) {
+            toast({ variant: 'destructive', title: "Erro na Requisição" });
+        } finally {
+            setIsConfiguringInstance(false);
         }
     };
 
@@ -856,14 +866,24 @@ function NotificationsConfig() {
                         </div>
                         
                         {instanceStatus?.status === 'connected' ? (
-                            <div className="py-2">
+                            <div className="py-2 space-y-2">
                                 <p className="text-[10px] text-muted-foreground mb-4 font-medium uppercase">WhatsApp Conectado</p>
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={handleConfigureInstance}
+                                    disabled={isConfiguringInstance}
+                                    className="w-full h-8 text-[10px] font-bold"
+                                >
+                                    {isConfiguringInstance ? <Loader2 className="size-3 animate-spin mr-1" /> : <Sparkles className="size-3 mr-1" />} 
+                                    Ativar Recursos Interativos
+                                </Button>
                                 <Button 
                                     variant="outline" 
                                     size="sm" 
                                     onClick={handleDisconnect}
                                     disabled={isDisconnecting}
-                                    className="w-full text-destructive hover:bg-red-50 hover:text-destructive border-red-100"
+                                    className="w-full text-destructive hover:bg-red-50 hover:text-destructive border-red-100 h-8 text-[10px]"
                                 >
                                     {isDisconnecting ? <Loader2 className="size-3 animate-spin mr-1" /> : <LogOut className="size-3 mr-1" />} 
                                     Desconectar
