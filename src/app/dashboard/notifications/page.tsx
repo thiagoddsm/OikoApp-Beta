@@ -12,13 +12,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Send, Settings, Key, Bot, History, MessageSquare, Mail, Users, CheckCircle2, Search, UserPlus, X, Info, Layers, RefreshCw, Zap, AlertCircle } from 'lucide-react';
+import { 
+    Loader2, Send, Settings, Key, Bot, History, MessageSquare, Mail, 
+    Users, CheckCircle2, Search, UserPlus, X, Info, Layers, RefreshCw, 
+    Zap, AlertCircle, Group, LayoutTemplate, Sparkles 
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useCollection, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, Timestamp, doc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+
+const QUICK_TEMPLATES = [
+    { id: 'welcome', label: 'Boas-vindas', icon: HeartHandshake, text: 'Olá {{nome}}, que alegria ter você conosco na IBM! Desejamos que se sinta em casa. Como podemos orar por você hoje?' },
+    { id: 'scale', label: 'Lembrete Escala', icon: Zap, text: 'Olá {{nome}}! Passando para lembrar do seu compromisso no Reino este final de semana. Sua dedicação faz a diferença!' },
+    { id: 'prayer', label: 'Círculo Oração', icon: MessageSquare, text: 'Paz do Senhor, {{nome}}. Hoje teremos nosso momento de intercessão às 19h. Contamos com sua presença!' }
+];
+
+function HeartHandshake(props: any) {
+  return (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M12 5 9.04 7.96a2.17 2.17 0 0 0 0 3.08c.82.82 2.13.82 2.96 0l2.96-2.96"/><path d="m12 10 2.96 2.96c.83.83 2.14.83 2.96 0 .83-.83.83-2.14 0-2.96L15 7.04"/></svg>
+  )
+}
 
 function WhatsappSender() {
     const { firestore } = useFirebase();
@@ -28,6 +44,9 @@ function WhatsappSender() {
     const [targetAudience, setTargetAudience] = useState('all_members');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+    const [selectedGroupId, setSelectedGroupId] = useState<string>('');
+    const [groups, setGroups] = useState<any[]>([]);
+    const [isLoadingGroups, setIsLoadingGroups] = useState(false);
 
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
     const { data: users } = useCollection<any>(usersQuery);
@@ -40,6 +59,25 @@ function WhatsappSender() {
         ).slice(0, 5);
     }, [users, searchTerm, selectedUserIds]);
 
+    const fetchGroups = async () => {
+        setIsLoadingGroups(true);
+        try {
+            const response = await fetch('/api/notifications/groups');
+            const data = await response.json();
+            setGroups(data.groups || []);
+        } catch (e) {
+            console.error("Erro ao buscar grupos", e);
+        } finally {
+            setIsLoadingGroups(false);
+        }
+    };
+
+    useEffect(() => {
+        if (targetAudience === 'whatsapp_group') {
+            fetchGroups();
+        }
+    }, [targetAudience]);
+
     const handleAddUser = (userId: string) => {
         setSelectedUserIds(prev => [...prev, userId]);
         setSearchTerm('');
@@ -49,11 +87,21 @@ function WhatsappSender() {
         setSelectedUserIds(prev => prev.filter(id => id !== userId));
     };
 
+    const handleApplyTemplate = (text: string) => {
+        setMessage(text);
+        toast({ title: "Modelo Aplicado", description: "O texto foi inserido na mensagem." });
+    };
+
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
         
         if (targetAudience === 'specific_members' && selectedUserIds.length === 0) {
             toast({ variant: 'destructive', title: "Selecione destinatários", description: "Adicione pelo menos uma pessoa para o envio individual." });
+            return;
+        }
+
+        if (targetAudience === 'whatsapp_group' && !selectedGroupId) {
+            toast({ variant: 'destructive', title: "Selecione um grupo", description: "Escolha o grupo de destino." });
             return;
         }
 
@@ -67,7 +115,8 @@ function WhatsappSender() {
                   channel: 'whatsapp', 
                   audience: targetAudience, 
                   message,
-                  userIds: targetAudience === 'specific_members' ? selectedUserIds : undefined
+                  userIds: targetAudience === 'specific_members' ? selectedUserIds : undefined,
+                  targetNumber: targetAudience === 'whatsapp_group' ? selectedGroupId : undefined
               }),
             });
             
@@ -79,16 +128,17 @@ function WhatsappSender() {
 
             toast({
                 title: "Envio Concluído!",
-                description: result.message || `Sua mensagem para "${targetAudience}" foi processada.`
+                description: result.message || `Sua mensagem foi processada.`
             });
             setMessage('');
             setSelectedUserIds([]);
+            setSelectedGroupId('');
             
         } catch(error) {
              toast({
                 variant: 'destructive',
                 title: "Erro no Envio",
-                description: (error as Error).message || "Não foi possível processar o envio. Tente novamente."
+                description: (error as Error).message || "Não foi possível processar o envio."
             });
         } finally {
             setIsLoading(false);
@@ -107,10 +157,9 @@ function WhatsappSender() {
                         <SelectContent>
                             <SelectItem value="all_members">Todos os Membros</SelectItem>
                             <SelectItem value="all_leaders">Todos os Líderes</SelectItem>
-                            <SelectItem value="network_leaders">Líderes de Rede</SelectItem>
-                            <SelectItem value="area_leaders">Líderes de Área</SelectItem>
                             <SelectItem value="cell_leaders">Líderes de Célula</SelectItem>
                             <SelectItem value="specific_members">Membros Específicos (Individual)</SelectItem>
+                            <SelectItem value="whatsapp_group">Grupo de WhatsApp (Massa)</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -128,7 +177,7 @@ function WhatsappSender() {
                             />
                         </div>
                         {filteredUsers.length > 0 && (
-                            <div className="border rounded-md mt-1 bg-background shadow-lg overflow-hidden">
+                            <div className="border rounded-md mt-1 bg-background shadow-lg overflow-hidden z-20 absolute w-full md:w-80">
                                 {filteredUsers.map(u => (
                                     <button
                                         key={u.id}
@@ -142,6 +191,23 @@ function WhatsappSender() {
                                 ))}
                             </div>
                         )}
+                    </div>
+                )}
+
+                {targetAudience === 'whatsapp_group' && (
+                    <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                        <Label>Selecionar Grupo IBM</Label>
+                        <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+                            <SelectTrigger className="bg-background">
+                                <SelectValue placeholder={isLoadingGroups ? "Buscando grupos..." : "Escolha o grupo..."} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {groups.map(g => (
+                                    <SelectItem key={g.id} value={g.id}>{g.name || g.id}</SelectItem>
+                                ))}
+                                {groups.length === 0 && !isLoadingGroups && <SelectItem value="none" disabled>Nenhum grupo encontrado</SelectItem>}
+                            </SelectContent>
+                        </Select>
                     </div>
                 )}
             </div>
@@ -169,8 +235,26 @@ function WhatsappSender() {
                 </div>
             )}
 
-            <div className="space-y-2">
-                <Label htmlFor="message">Mensagem Personalizada</Label>
+            <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                    <Label htmlFor="message">Mensagem Personalizada</Label>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground uppercase font-black">Modelos Rápidos:</span>
+                        {QUICK_TEMPLATES.map(tmp => (
+                            <Button 
+                                key={tmp.id} 
+                                type="button" 
+                                variant="outline" 
+                                size="sm" 
+                                className="h-7 text-[10px] gap-1 px-2"
+                                onClick={() => handleApplyTemplate(tmp.text)}
+                            >
+                                <tmp.icon className="size-3" />
+                                {tmp.label}
+                            </Button>
+                        ))}
+                    </div>
+                </div>
                 <Textarea 
                     id="message" 
                     placeholder="Olá {{nome}}, temos um aviso importante..."
@@ -179,11 +263,19 @@ function WhatsappSender() {
                     onChange={(e) => setMessage(e.target.value)}
                     required
                 />
-                <p className="text-[10px] text-muted-foreground italic">Use <strong>{"{{nome}}"}</strong> para inserir o nome do destinatário.</p>
+                <div className="flex justify-between items-center">
+                    <p className="text-[10px] text-muted-foreground italic">Use <strong>{"{{nome}}"}</strong> para personalizar cada disparo.</p>
+                    <Badge variant="outline" className="text-[10px] gap-1.5 border-primary/20">
+                        <Sparkles className="size-3 text-primary" /> IA Sugestão Ativa
+                    </Badge>
+                </div>
             </div>
+
             <Button type="submit" disabled={isLoading} className="w-full h-12 text-base font-bold shadow-lg shadow-primary/20">
                 {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
-                {targetAudience === 'specific_members' ? `Enviar para ${selectedUserIds.length} pessoas` : 'Disparar em Massa'}
+                {targetAudience === 'specific_members' ? `Enviar para ${selectedUserIds.length} membros` : 
+                 targetAudience === 'whatsapp_group' ? `Enviar para Grupo: ${groups.find(g => g.id === selectedGroupId)?.name || 'Selecionado'}` :
+                 'Disparar em Massa'}
             </Button>
         </form>
     );
@@ -239,7 +331,7 @@ function WhatsappGroups() {
     return (
         <div className="space-y-4">
             <div className="flex justify-between items-center">
-                <h3 className="text-lg font-bold">Gestão de Grupos IBM</h3>
+                <h3 className="text-lg font-bold flex items-center gap-2"><Group className="size-5 text-primary" /> Gestão de Grupos IBM</h3>
                 <Button variant="outline" size="sm" onClick={fetchGroups} disabled={isLoading}>
                     <RefreshCw className={cn("size-4 mr-2", isLoading && "animate-spin")} /> Sincronizar Grupos
                 </Button>
@@ -250,16 +342,18 @@ function WhatsappGroups() {
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {groups.map(group => (
-                        <Card key={group.id} className="hover:border-primary transition-colors">
+                        <Card key={group.id} className="hover:border-primary transition-all shadow-sm">
                             <CardHeader className="pb-2">
                                 <CardTitle className="text-sm font-bold truncate">{group.name || group.id}</CardTitle>
-                                <CardDescription className="text-[10px] uppercase font-black">{group.participants?.length || 0} Participantes</CardDescription>
+                                <CardDescription className="text-[10px] uppercase font-black flex items-center gap-1">
+                                    <Users className="size-3" /> {group.participants?.length || 0} Participantes
+                                </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <p className="text-[10px] text-muted-foreground font-mono truncate">{group.id}</p>
                                 <div className="flex gap-2">
                                     <Button variant="secondary" size="sm" className="flex-1 text-[10px] font-black uppercase" onClick={() => handleUpdateMural(group)} disabled={isUpdating === group.id}>
-                                        {isUpdating === group.id ? <Loader2 className="animate-spin size-3 mr-1" /> : <Layers className="size-3 mr-1" />}
+                                        {isUpdating === group.id ? <Loader2 className="animate-spin size-3 mr-1" /> : <LayoutTemplate className="size-3 mr-1" />}
                                         Mural / Descrição
                                     </Button>
                                     <Button variant="outline" size="icon" className="h-8 w-8" disabled>
@@ -271,7 +365,7 @@ function WhatsappGroups() {
                     ))}
                     {groups.length === 0 && (
                         <div className="col-span-full p-12 text-center border-2 border-dashed rounded-xl">
-                            <p className="text-muted-foreground">Nenhum grupo encontrado na instância do WhatsApp.</p>
+                            <p className="text-muted-foreground italic">Nenhum grupo encontrado na sua instância.</p>
                         </div>
                     )}
                 </div>
@@ -312,7 +406,7 @@ function NotificationsConfig() {
         .then(() => {
             toast({ 
                 title: "Configurações Salvas!", 
-                description: "Suas credenciais foram atualizadas com sucesso no banco de dados." 
+                description: "Suas credenciais foram atualizadas." 
             });
         })
         .finally(() => {
@@ -375,7 +469,7 @@ function NotificationsConfig() {
                 </CardContent>
             </Card>
 
-            <Card className="border-indigo-200 bg-indigo-50/20">
+            <Card className="border-indigo-200 bg-indigo-50/20 shadow-sm">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-indigo-700 text-sm"><Zap className="size-4" />Diagnóstico de Conexão</CardTitle>
                     <CardDescription>Envie um "ping" de teste para validar se sua chave é válida.</CardDescription>
@@ -395,9 +489,9 @@ function NotificationsConfig() {
                         <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3 animate-in shake-1 duration-300">
                             <AlertCircle className="size-5 text-red-600 shrink-0 mt-0.5" />
                             <div className="text-xs text-red-800">
-                                <p className="font-bold uppercase tracking-tight">Detalhes do Erro:</p>
+                                <p className="font-bold uppercase tracking-tight">Erro no Gateway:</p>
                                 <p className="mt-1 leading-relaxed">{lastTestError}</p>
-                                <p className="mt-2 text-[10px] font-medium text-red-600 italic">Dica: Verifique se sua instância está "Conectada" no painel da api-wa.me.</p>
+                                <p className="mt-2 text-[10px] font-medium text-red-600 italic">Dica: Verifique se sua instância está conectada no painel da api-wa.me.</p>
                             </div>
                         </div>
                     )}
@@ -421,13 +515,13 @@ function NotificationsConfig() {
                         />
                     </div>
                 </CardContent>
+                <CardFooter className="flex justify-end border-t pt-4">
+                    <Button onClick={handleSave} disabled={isSaving} className="font-bold">
+                        {isSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Settings className="mr-2 size-4" />}
+                        Salvar Todas as Configurações
+                    </Button>
+                </CardFooter>
             </Card>
-            <div className="flex justify-end">
-                <Button onClick={handleSave} disabled={isSaving} className="font-bold">
-                    {isSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Settings className="mr-2 size-4" />}
-                    Salvar Todas as Configurações
-                </Button>
-            </div>
         </div>
     );
 }
@@ -449,7 +543,7 @@ function NotificationsHistory() {
                     <TableRow>
                         <TableHead>Data</TableHead>
                         <TableHead>Canal</TableHead>
-                        <TableHead>Público</TableHead>
+                        <TableHead>Público / Destino</TableHead>
                         <TableHead>Impacto</TableHead>
                         <TableHead>Status</TableHead>
                     </TableRow>
@@ -470,10 +564,12 @@ function NotificationsHistory() {
                                     </div>
                                 </TableCell>
                                 <TableCell className="text-xs font-bold text-slate-600">
-                                    {item.audience.replace('_', ' ').toUpperCase()}
+                                    {item.audience?.replace('_', ' ').toUpperCase() || 'INDIVIDUAL'}
                                 </TableCell>
                                 <TableCell>
-                                    <Badge variant="secondary" className="text-[10px] font-black">{item.recipientCount} PESSOAS</Badge>
+                                    <Badge variant="secondary" className="text-[10px] font-black">
+                                        {item.recipientCount} DESTINATÁRIOS
+                                    </Badge>
                                 </TableCell>
                                 <TableCell>
                                     <div className={cn(
@@ -508,7 +604,7 @@ export default function NotificationsPage() {
         <Tabs defaultValue="sender" className="w-full">
             <TabsList className="grid w-full grid-cols-4 max-w-2xl bg-muted/50 p-1">
                 <TabsTrigger value="sender" className="font-bold data-[state=active]:bg-white shadow-sm"><Send className="mr-2 size-4" /> Disparador</TabsTrigger>
-                <TabsTrigger value="groups" className="font-bold data-[state=active]:bg-white shadow-sm"><Users className="mr-2 size-4" /> Grupos</TabsTrigger>
+                <TabsTrigger value="groups" className="font-bold data-[state=active]:bg-white shadow-sm"><Group className="mr-2 size-4" /> Grupos</TabsTrigger>
                 <TabsTrigger value="history" className="font-bold data-[state=active]:bg-white shadow-sm"><History className="mr-2 size-4" /> Histórico</TabsTrigger>
                 <TabsTrigger value="config" className="font-bold data-[state=active]:bg-white shadow-sm"><Settings className="mr-2 size-4" /> Configurações</TabsTrigger>
             </TabsList>
@@ -517,7 +613,7 @@ export default function NotificationsPage() {
                 <Card className="shadow-sm">
                     <CardHeader>
                         <CardTitle className="text-lg">Novo Disparo em Massa</CardTitle>
-                        <CardDescription>Escolha o canal e o público para enviar sua mensagem personalizada.</CardDescription>
+                        <CardDescription>Escolha o canal, o público ou o grupo para enviar sua mensagem personalizada.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Tabs defaultValue="whatsapp" className="w-full">

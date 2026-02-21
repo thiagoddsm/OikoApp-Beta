@@ -5,7 +5,7 @@ import { collection, query, where, getDocs, addDoc, Timestamp, doc, getDoc } fro
 
 /**
  * API Route to send WhatsApp messages using direct fetch to api-wa.me
- * Updated to use standard singular endpoints /message/text
+ * Supports individual users, groups, and segmented audiences.
  */
 
 export async function POST(request: Request) {
@@ -30,26 +30,35 @@ export async function POST(request: Request) {
     } catch (e: any) {
         console.error("Erro ao ler config de notificações do Firestore:", e);
         return NextResponse.json({ 
-            error: `Erro de permissão ao ler banco de dados: ${e.message}. Verifique se a chave foi salva corretamente.` 
+            error: `Erro de permissão ao ler banco de dados: ${e.message}.` 
         }, { status: 500 });
     }
 
     if (!waKey && channel === 'whatsapp') {
         return NextResponse.json({ 
-            error: "API Key do WhatsApp não encontrada. Vá na aba Configurações e salve sua chave primeiro." 
+            error: "API Key do WhatsApp não encontrada nas configurações." 
         }, { status: 400 });
     }
 
     // 2. Lógica de Destinatários
     const targetUsers: any[] = [];
 
-    if (targetNumber) {
+    // CASO A: Disparo para Número Único ou Grupo ID (via targetNumber)
+    if (targetNumber && (audience === 'whatsapp_group' || targetNumber.includes('@'))) {
+        targetUsers.push({
+            id: 'target-id',
+            name: 'Destinatário Especial',
+            phone: targetNumber // Se for grupo, mantém o @g.us
+        });
+    } else if (targetNumber) {
         targetUsers.push({
             id: 'test-user',
             name: 'Líder IBM (Teste)',
             phone: targetNumber.replace(/\D/g, '')
         });
-    } else if (audience === 'specific_members' && userIds && Array.isArray(userIds) && userIds.length > 0) {
+    } 
+    // CASO B: Membros Específicos Selecionados
+    else if (audience === 'specific_members' && userIds && Array.isArray(userIds) && userIds.length > 0) {
         const usersRef = collection(firestore, 'users');
         const chunks = [];
         for (let i = 0; i < userIds.length; i += 30) {
@@ -70,7 +79,9 @@ export async function POST(request: Request) {
                 }
             });
         }
-    } else {
+    } 
+    // CASO C: Audiência Segmentada (Todos, Líderes, etc)
+    else {
         const usersRef = collection(firestore, 'users');
         let q;
         switch (audience) {
@@ -79,12 +90,6 @@ export async function POST(request: Request) {
                 break;
             case 'all_leaders':
                 q = query(usersRef, where('hierarchy.role', 'in', ['admin', 'pastor_senior', 'pastor', 'lider_rede', 'lider_area', 'lider_gc']));
-                break;
-            case 'network_leaders':
-                q = query(usersRef, where('hierarchy.role', '==', 'lider_rede'));
-                break;
-            case 'area_leaders':
-                q = query(usersRef, where('hierarchy.role', '==', 'lider_area'));
                 break;
             case 'cell_leaders':
                 q = query(usersRef, where('hierarchy.role', '==', 'lider_gc'));
@@ -106,10 +111,10 @@ export async function POST(request: Request) {
     }
 
     if (targetUsers.length === 0) {
-        return NextResponse.json({ error: 'Nenhum destinatário válido encontrado com telefone cadastrado.' }, { status: 404 });
+        return NextResponse.json({ error: 'Nenhum destinatário válido encontrado.' }, { status: 404 });
     }
 
-    // 3. ENVIO REAL (via fetch ao gateway)
+    // 3. ENVIO REAL (via fetch ao gateway api-wa.me)
     let sentCount = 0;
     let errorCount = 0;
     let lastError = null;
@@ -120,11 +125,14 @@ export async function POST(request: Request) {
         if (waKey && channel === 'whatsapp') {
             try {
                 let formattedNumber = user.phone;
-                if (formattedNumber.length <= 11) { 
-                    formattedNumber = `55${formattedNumber}`;
+                // Só formata se não for ID de grupo
+                if (!formattedNumber.includes('@')) {
+                    formattedNumber = formattedNumber.replace(/\D/g, '');
+                    if (formattedNumber.length <= 11) { 
+                        formattedNumber = `55${formattedNumber}`;
+                    }
                 }
                 
-                // Usando o endpoint singular /message/text conforme documentação
                 const response = await fetch(`https://us.api-wa.me/${waKey}/message/text`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -136,7 +144,7 @@ export async function POST(request: Request) {
 
                 if (!response.ok) {
                     const errData = await response.json().catch(() => ({}));
-                    throw new Error(errData.message || `Erro ${response.status} no gateway. Verifique se a instância está conectada.`);
+                    throw new Error(errData.message || `Erro ${response.status} no gateway.`);
                 }
 
                 sentCount++;
@@ -146,16 +154,16 @@ export async function POST(request: Request) {
                 lastError = err.message;
             }
         } else {
-            // Modo simulação se não houver chave
+            // Modo simulação se não houver chave salva (para segurança em dev)
             sentCount++;
         }
     }
 
-    // 4. Registrar no Histórico
+    // 4. Registrar no Histórico para Auditoria
     try {
         await addDoc(collection(firestore, 'notifications_history'), {
             channel,
-            audience: audience || 'test_number',
+            audience: audience || 'custom_dispatch',
             message,
             recipientCount: targetUsers.length,
             successCount: sentCount,
@@ -179,7 +187,7 @@ export async function POST(request: Request) {
     }
 
     const resultMessage = waKey 
-        ? (errorCount === 0 ? `Sucesso! ${sentCount} mensagens enviadas.` : `Concluído com avisos: ${sentCount} enviadas, ${errorCount} falhas. Erro: ${lastError}`)
+        ? (errorCount === 0 ? `Sucesso! ${sentCount} mensagens enviadas.` : `Concluído com avisos: ${sentCount} enviadas, ${errorCount} falhas.`)
         : `Simulação concluída! ${sentCount} mensagens seriam enviadas.`;
 
     return NextResponse.json({ 
