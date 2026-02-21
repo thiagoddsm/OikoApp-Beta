@@ -90,43 +90,34 @@ export async function PUT(request: Request) {
             return NextResponse.json({ success: true, message: 'Simulado com sucesso' });
         }
 
-        // Estratégia de tentativa:
-        // 1. Tentar endpoint específico de descrição (mais comum em gateways modernos)
-        // 2. Fallback para PUT genérico de metadados
-        
         let success = false;
         let lastError = '';
 
-        try {
-            const resDesc = await fetch(`https://us.api-wa.me/${waKey}/groups/${groupId}/description`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ description })
-            });
-            
-            if (resDesc.ok) {
-                success = true;
-            } else {
-                const errorData = await resDesc.json().catch(() => ({}));
-                lastError = errorData.message || `Erro ${resDesc.status} no POST description`;
-            }
-        } catch (e: any) {
-            lastError = e.message;
-        }
+        // Tenta variações de endpoints para descrição
+        const endpoints = [
+            { url: `https://us.api-wa.me/${waKey}/groups/${groupId}/description`, method: 'POST', body: { description } },
+            { url: `https://us.api-wa.me/${waKey}/group/${groupId}/description`, method: 'POST', body: { description } },
+            { url: `https://us.api-wa.me/${waKey}/groups/${groupId}`, method: 'PUT', body: { subject: name, description } },
+            { url: `https://us.api-wa.me/${waKey}/group/${groupId}`, method: 'PUT', body: { subject: name, description } }
+        ];
 
-        if (!success) {
-            // Tenta o PUT genérico enviando o nome atual para não perder
-            const resPut = await fetch(`https://us.api-wa.me/${waKey}/groups/${groupId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, description })
-            });
-            
-            if (resPut.ok) {
-                success = true;
-            } else {
-                const errorData = await resPut.json().catch(() => ({}));
-                lastError = errorData.message || `Erro ${resPut.status} no PUT group`;
+        for (const endpoint of endpoints) {
+            if (success) break;
+            try {
+                const res = await fetch(endpoint.url, {
+                    method: endpoint.method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(endpoint.body)
+                });
+                
+                if (res.ok) {
+                    success = true;
+                } else {
+                    const errorData = await res.json().catch(() => ({}));
+                    lastError = errorData.message || `Erro ${res.status} no endpoint ${endpoint.url}`;
+                }
+            } catch (e: any) {
+                lastError = e.message;
             }
         }
 
