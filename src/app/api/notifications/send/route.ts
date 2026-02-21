@@ -5,7 +5,7 @@ import { collection, query, where, getDocs, addDoc, Timestamp, doc, getDoc } fro
 
 /**
  * API Route to send WhatsApp messages using direct fetch to api-wa.me
- * Refined for v5.0.0 compatibility with strict endpoint mapping.
+ * Optimized for v5.0.0 Pro Plan Features (Buttons, Surveys, Media)
  */
 
 const getMimetype = (url: string) => {
@@ -105,13 +105,16 @@ export async function POST(request: Request) {
         let endpoint = 'message/text';
         let payload: any = { to: formattedPhone };
 
+        const personalizedBody = (message || '').replace('{{nome}}', user.name);
+
         switch (type) {
             case 'button':
-                // v5.0.0 oficial: message/button_reply
+                // v5.0.0 Pro: message/button_reply
                 endpoint = 'message/button_reply';
                 payload = {
                     to: formattedPhone,
-                    title: (message || title || 'Informativo IBM').replace('{{nome}}', user.name),
+                    title: (title || 'Informativo IBM').replace('{{nome}}', user.name),
+                    body: personalizedBody || 'Clique em uma das opções abaixo:',
                     footer: footer || 'Igreja Batista da Manhã',
                     buttons: (buttons || []).map((b: any) => ({
                         id: b.id,
@@ -120,10 +123,10 @@ export async function POST(request: Request) {
                 };
                 break;
             case 'survey':
-                // v5.0.0 oficial: message/survey
+                // v5.0.0 Pro: message/survey
                 endpoint = 'message/survey';
                 payload = {
-                    ...payload,
+                    to: formattedPhone,
                     name: (surveyName || 'Enquete IBM').replace('{{nome}}', user.name),
                     options: options || []
                 };
@@ -137,30 +140,30 @@ export async function POST(request: Request) {
                 
                 endpoint = isImage ? 'message/image' : isVideo ? 'message/video' : isAudio ? 'message/audio' : 'message/document';
                 payload = {
-                    ...payload,
+                    to: formattedPhone,
                     url: mediaUrl,
                     mimetype: mime,
-                    caption: (message || '').replace('{{nome}}', user.name),
+                    caption: personalizedBody,
                     fileName: fileName || 'arquivo'
                 };
                 break;
             case 'pix':
-                // v5.0.0 oficial: message/pix
+                // v5.0.0 Enterprise: message/pix
                 endpoint = 'message/pix';
                 payload = {
-                    ...payload,
+                    to: formattedPhone,
                     key: pixKey,
                     name: pixName || 'Igreja Batista da Manhã',
                     city: pixCity || 'Sao Goncalo',
                     amount: Number(pixAmount) || 0,
-                    body: (message || '').replace('{{nome}}', user.name)
+                    body: personalizedBody
                 };
                 break;
             default:
                 endpoint = 'message/text';
                 payload = {
-                    ...payload,
-                    text: (message || '').replace('{{nome}}', user.name)
+                    to: formattedPhone,
+                    text: personalizedBody
                 };
         }
 

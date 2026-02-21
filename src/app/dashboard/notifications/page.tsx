@@ -20,7 +20,7 @@ import {
     Zap, AlertCircle, Group, LayoutTemplate, Sparkles, MessageCircle, MousePointer2,
     UserCheck, Trash2, BarChart3, FileText, Image as ImageIcon, Link as LinkIcon,
     QrCode, Smartphone, LogOut, PlusCircle, CheckCircle, User as UserIcon,
-    Banknote, Wallet, Bug, ShieldAlert
+    Banknote, Wallet, Bug, ShieldAlert, Award
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useCollection, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
@@ -418,7 +418,7 @@ function WhatsappSender() {
         switch(type) {
             case 'text': payload.message = "Teste de Texto IBM - Sistema OK"; break;
             case 'button':
-                payload.message = "Teste de Botões Interativos v5.0.0";
+                payload.message = "Teste de Botões Interativos v5.0.0 (PLANO PRO)";
                 payload.buttons = [{ id: 'test_1', text: 'Sim, funciona! ✅' }, { id: 'test_2', text: 'Não funciona ❌' }];
                 payload.title = "DEBUG MODE - IBM";
                 payload.footer = "Ambiente de Desenvolvimento";
@@ -671,7 +671,10 @@ function WhatsappSender() {
                 )}
 
                 {msgType === 'pix' && (
-                    <div className="space-y-4 p-4 border border-dashed rounded-lg bg-emerald-50 animate-in slide-in-from-top-2">
+                    <div className="space-y-4 p-4 border border-dashed rounded-lg bg-emerald-50 animate-in slide-in-from-top-2 relative">
+                        <Badge className="absolute -top-3 -right-3 bg-amber-500 hover:bg-amber-600 font-black flex items-center gap-1.5 shadow-lg border-2 border-white">
+                            <Award size={12} /> ENTERPRISE
+                        </Badge>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label className="flex items-center gap-2 text-emerald-700 font-bold"><Banknote size={14} /> Chave PIX</Label>
@@ -711,6 +714,7 @@ function WhatsappSender() {
                                 />
                             </div>
                         </div>
+                        <p className="text-[9px] text-amber-700 font-medium italic mt-2">Aviso: O recurso de PIX automático exige o plano Enterprise do gateway.</p>
                     </div>
                 )}
 
@@ -787,12 +791,12 @@ function WhatsappSender() {
 
                 <div className="flex flex-wrap gap-2">
                     <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('text')} disabled={isLoading} className="h-8 text-[10px] font-bold">TEXTO SIMPLES</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('button')} disabled={isLoading} className="h-8 text-[10px] font-bold border-indigo-200 text-indigo-700">BOTÕES</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('button')} disabled={isLoading} className="h-8 text-[10px] font-bold border-indigo-200 text-indigo-700">BOTÕES (PRO)</Button>
                     <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('media')} disabled={isLoading} className="h-8 text-[10px] font-bold border-blue-200 text-blue-700">MÍDIA (URL)</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('pix')} disabled={isLoading} className="h-8 text-[10px] font-bold border-emerald-200 text-emerald-700">QR PIX</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('survey')} disabled={isLoading} className="h-8 text-[10px] font-bold border-amber-200 text-amber-700">ENQUETE</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('pix')} disabled={isLoading} className="h-8 text-[10px] font-bold border-emerald-200 text-emerald-700">QR PIX (ENT)</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('survey')} disabled={isLoading} className="h-8 text-[10px] font-bold border-amber-200 text-amber-700">ENQUETE (PRO)</Button>
                 </div>
-                <p className="text-[9px] text-muted-foreground mt-2 italic">Dica: Digite seu número acima e clique no formato. O erro detalhado aparecerá acima se o WhatsApp recusar.</p>
+                <p className="text-[9px] text-muted-foreground mt-2 italic">Dica: Com o plano PRO ativo, os botões e enquetes devem ser entregues corretamente.</p>
             </div>
         </div>
     );
@@ -922,7 +926,7 @@ function NotificationsConfig() {
         try {
             const response = await fetch('/api/notifications/instance', { method: 'PATCH' });
             if (response.ok) {
-                toast({ title: "Recursos Ativados!", description: "Botões e enquetes agora devem funcionar normalmente." });
+                toast({ title: "Recursos Ativados!", description: "Botões e enquetes agora devem funcionar normalmente no plano PRO." });
                 checkStatus(); // Refresh status after activating
             } else {
                 const data = await response.json();
@@ -1129,7 +1133,7 @@ function NotificationsConfig() {
                         {instanceStatus?.status === 'connected' ? (
                             <div className="py-2 space-y-3">
                                 <div className="p-3 bg-white/50 rounded-xl border border-emerald-100 space-y-2">
-                                    <p className="text-[10px] text-emerald-700 font-black uppercase">WhatsApp Conectado</p>
+                                    <p className="text-[10px] text-emerald-700 font-black uppercase">Plano Pro Detectado</p>
                                     <Button 
                                         variant="default" 
                                         size="sm" 
@@ -1138,7 +1142,7 @@ function NotificationsConfig() {
                                         className="w-full h-9 font-bold bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200"
                                     >
                                         {isConfiguringInstance ? <Loader2 className="size-4 animate-spin mr-2" /> : <Sparkles className="size-4 mr-2" />} 
-                                        Ativar Recursos
+                                        Habilitar Botões (PRO)
                                     </Button>
                                     <Button 
                                         variant="outline" 
