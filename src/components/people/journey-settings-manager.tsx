@@ -1,22 +1,23 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
-import { Loader2, PlusCircle, Edit, Trash2, GraduationCap, Handshake } from 'lucide-react';
+import { Loader2, PlusCircle, Edit, GraduationCap, ShieldCheck, ListChecks } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { JourneyStageFormDialog } from './journey-stage-form-dialog';
-import { DeleteConfirmationDialog } from '../structure/delete-confirmation-dialog';
-import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
+import { journeyColumns } from '@/components/users/journey-status-config';
 
 type DiscipleshipChecklist = {
     id: string;
     title: string;
-    questions: { id: string; label: string; }[];
+    questions: { id: string; label: string; type: string; }[];
     requiredCourseId?: string;
-    requiresDualApproval?: boolean;
+    requiresDisciplerApproval?: boolean;
+    requiresSupervisorApproval?: boolean;
 };
 
 type Course = {
@@ -26,7 +27,6 @@ type Course = {
 
 export function JourneySettingsManager() {
     const { firestore } = useFirebase();
-    const { toast } = useToast();
 
     const checklistsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'discipleship_checklists')) : null, [firestore]);
     const { data: stages, isLoading } = useCollection<DiscipleshipChecklist>(checklistsQuery);
@@ -35,7 +35,6 @@ export function JourneySettingsManager() {
     const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery);
 
     const [isFormOpen, setFormOpen] = useState(false);
-    const [isDeleteOpen, setDeleteOpen] = useState(false);
     const [selectedStage, setSelectedStage] = useState<DiscipleshipChecklist | null>(null);
 
     const handleAdd = () => {
@@ -43,72 +42,91 @@ export function JourneySettingsManager() {
         setFormOpen(true);
     };
 
-    const handleEdit = (stage: DiscipleshipChecklist) => {
-        setSelectedStage(stage);
+    const handleEdit = (stageId: string) => {
+        const stage = stages?.find(s => s.id === stageId) || { id: stageId, title: '', questions: [] };
+        setSelectedStage(stage as DiscipleshipChecklist);
         setFormOpen(true);
     };
 
-    const handleDelete = (stage: DiscipleshipChecklist) => {
-        setSelectedStage(stage);
-        setDeleteOpen(true);
-    };
-    
-    const confirmDelete = () => {
-        if (!selectedStage || !firestore) return;
-        // Logic to delete the doc
-        // deleteDocumentNonBlocking(doc(firestore, 'discipleship_checklists', selectedStage.id));
-        toast({ title: "Função não implementada", description: "A exclusão de etapas será implementada."});
-        setDeleteOpen(false);
-    }
-
     if (isLoading || isLoadingCourses) {
-        return <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>;
+        return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
     }
 
     return (
-        <>
-            <div className="flex justify-end mb-4">
-                <Button onClick={handleAdd}>
-                    <PlusCircle className="mr-2 h-4 w-4" /> Nova Etapa
+        <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                <div>
+                    <h3 className="text-lg font-bold">Configuração dos Requisitos de Etapa</h3>
+                    <p className="text-sm text-muted-foreground">Defina os cursos, checklists e aprovações necessárias para cada estágio da jornada.</p>
+                </div>
+                <Button onClick={handleAdd} variant="outline" size="sm">
+                    <PlusCircle className="mr-2 h-4 w-4" /> Novo Checklist
                 </Button>
             </div>
-            <div className="rounded-lg border">
+
+            <div className="rounded-xl border shadow-sm bg-card overflow-hidden">
                 <Table>
-                    <TableHeader>
+                    <TableHeader className="bg-muted/50">
                         <TableRow>
-                            <TableHead>Título da Etapa</TableHead>
-                            <TableHead>Nº de Perguntas</TableHead>
-                            <TableHead>Pré-requisitos</TableHead>
-                            <TableHead className="text-right">Ações</TableHead>
+                            <TableHead>Fase da Jornada</TableHead>
+                            <TableHead>Título do Checklist</TableHead>
+                            <TableHead>Validação Técnica</TableHead>
+                            <TableHead>Validação Humana</TableHead>
+                            <TableHead className="text-center">Itens</TableHead>
+                            <TableHead className="text-right">Ação</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {stages && stages.map(stage => {
-                            const course = courses?.find(c => c.id === stage.requiredCourseId);
+                        {journeyColumns.map(col => {
+                            const config = stages?.find(s => s.id === col.id);
+                            const requiredCourse = courses?.find(c => c.id === config?.requiredCourseId);
+                            
                             return (
-                                <TableRow key={stage.id}>
-                                    <TableCell className="font-medium">{stage.title}</TableCell>
-                                    <TableCell>{stage.questions?.length || 0}</TableCell>
+                                <TableRow key={col.id} className="hover:bg-muted/30">
                                     <TableCell>
-                                        <div className="flex items-center gap-4">
-                                            {stage.requiredCourseId && course && (
-                                                <div className="flex items-center gap-1 text-sm text-emerald-700">
-                                                    <GraduationCap className="size-4" /> {course.name}
-                                                </div>
+                                        <div className="flex flex-col">
+                                            <span className="font-bold text-slate-900">{col.title}</span>
+                                            <span className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter">{col.id}</span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className="text-sm italic text-muted-foreground">
+                                        {config?.title || "Não configurado"}
+                                    </TableCell>
+                                    <TableCell>
+                                        {requiredCourse ? (
+                                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">
+                                                <GraduationCap className="size-3 mr-1" /> {requiredCourse.name}
+                                            </Badge>
+                                        ) : (
+                                            <span className="text-xs text-slate-400">-</span>
+                                        )}
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex flex-col gap-1">
+                                            {config?.requiresDisciplerApproval && (
+                                                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] w-fit">
+                                                    <ShieldCheck className="size-3 mr-1" /> Discipulador
+                                                </Badge>
                                             )}
-                                            {stage.requiresDualApproval && (
-                                                <div className="flex items-center gap-1 text-sm text-amber-700">
-                                                    <Handshake className="size-4" /> Aprovação Dupla
-                                                </div>
+                                            {config?.requiresSupervisorApproval && (
+                                                <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[10px] w-fit">
+                                                    <ShieldCheck className="size-3 mr-1" /> Supervisor
+                                                </Badge>
+                                            )}
+                                            {!config?.requiresDisciplerApproval && !config?.requiresSupervisorApproval && (
+                                                <span className="text-xs text-slate-400">Automática</span>
                                             )}
                                         </div>
                                     </TableCell>
+                                    <TableCell className="text-center">
+                                        <div className="flex items-center justify-center gap-1 text-slate-500">
+                                            <ListChecks className="size-3" />
+                                            <span className="text-xs font-bold">{config?.questions?.length || 0}</span>
+                                        </div>
+                                    </TableCell>
                                     <TableCell className="text-right">
-                                        <Button variant="ghost" size="icon" onClick={() => handleEdit(stage)}>
-                                            <Edit className="h-4 w-4" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" onClick={() => handleDelete(stage)}>
-                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        <Button variant="ghost" size="sm" onClick={() => handleEdit(col.id)}>
+                                            <Edit className="h-4 w-4 mr-2" /> Configurar
                                         </Button>
                                     </TableCell>
                                 </TableRow>
@@ -117,21 +135,13 @@ export function JourneySettingsManager() {
                     </TableBody>
                 </Table>
             </div>
+
             <JourneyStageFormDialog
                 open={isFormOpen}
                 onOpenChange={setFormOpen}
                 existingStage={selectedStage}
                 courses={courses || []}
             />
-             {selectedStage && (
-                <DeleteConfirmationDialog
-                    open={isDeleteOpen}
-                    onOpenChange={setDeleteOpen}
-                    onConfirm={confirmDelete}
-                    itemName={selectedStage.title}
-                    itemType="Etapa da Jornada"
-                />
-            )}
-        </>
+        </div>
     );
 }
