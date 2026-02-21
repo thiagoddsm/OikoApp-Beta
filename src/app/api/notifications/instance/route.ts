@@ -43,11 +43,15 @@ export async function GET() {
             });
         }
 
-        // A API costuma retornar status como 'CONNECTED', 'DISCONNECTED' ou 'STANDBY'
-        // Também pode retornar o QR Code no campo 'qr' ou 'qrcode'
-        const statusValue = data.status || data.state || 'unknown';
+        // A API costuma retornar status como 'CONNECTED', 'DISCONNECTED', 'OPEN' ou 'STANDBY'
+        const statusValue = data.status || data.state || data.instance?.state || 'unknown';
+        const normalizedStatus = String(statusValue).toLowerCase();
+        
+        // Mapeamento para garantir que 'open' ou 'connected' sejam tratados como sucesso
+        const finalStatus = (normalizedStatus === 'open' || normalizedStatus === 'connected') ? 'connected' : normalizedStatus;
+
         return NextResponse.json({ 
-            status: String(statusValue).toLowerCase(),
+            status: finalStatus,
             message: data.message || '',
             qr: data.qr || data.qrcode || null,
             details: data 
@@ -71,7 +75,7 @@ export async function POST() {
             const configSnap = await getDoc(configRef);
             waKey = configSnap.exists() ? configSnap.data()?.whatsappApiKey : null;
         } catch (e) {
-            return NextResponse.json({ error: 'Erro de permissão no Firebase.' }, { status: 500 });
+            return NextResponse.json({ error: "Erro de permissão no Firebase." }, { status: 500 });
         }
 
         if (!waKey) {

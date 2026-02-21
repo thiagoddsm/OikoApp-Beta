@@ -485,7 +485,7 @@ function NotificationsConfig() {
         }
     };
 
-    // Polling de status enquanto o QR Code está sendo exibido
+    // Polling de status enquanto o QR Code está sendo exibido ou status não for conectado
     useEffect(() => {
         let interval: any;
         if (qrCode || (instanceStatus && instanceStatus.status !== 'connected' && instanceStatus.status !== 'unconfigured')) {
