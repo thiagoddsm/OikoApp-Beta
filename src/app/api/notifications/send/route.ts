@@ -145,6 +145,7 @@ export async function POST(request: Request) {
                 };
                 break;
             case 'pix':
+                // v5.0.0 oficial: message/pix
                 endpoint = 'message/pix';
                 payload = {
                     ...payload,

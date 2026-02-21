@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -966,11 +967,12 @@ function NotificationsConfig() {
     const handleSaveKey = () => {
         if (!firestore) return;
         setIsSaving(true);
+        setInstanceStatus(null); // Limpa o status para evitar dados estáticos
         const configRef = doc(firestore, 'config', 'notifications');
         setDocumentNonBlocking(configRef, { whatsappApiKey: waKey, updatedAt: Timestamp.now() }, { merge: true })
             .then(() => {
                 toast({ title: "Chave Salva!" });
-                checkStatus();
+                setTimeout(checkStatus, 1000); // Aguarda a propagação e recarrega
             })
             .finally(() => setIsSaving(false));
     };
