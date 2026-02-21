@@ -156,12 +156,11 @@ export async function PATCH() {
 
         if (!waKey) return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
 
-        // Adicionando parâmetros obrigatórios conforme erro da API: receiveStatusMessage e receivePresence
+        // Documentação OAS 3.0: Setting via PATCH
+        // Usando apenas os campos explicitamente documentados no Swagger fornecido
         const urlParams = new URLSearchParams({
             markMessageRead: 'true',
-            saveMedia: 'true',
-            receiveStatusMessage: 'true',
-            receivePresence: 'true'
+            saveMedia: 'true'
         });
 
         const url = `https://us.api-wa.me/${waKey}/instance?${urlParams.toString()}`;

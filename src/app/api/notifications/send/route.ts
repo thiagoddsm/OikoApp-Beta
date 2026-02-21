@@ -5,7 +5,7 @@ import { collection, query, where, getDocs, addDoc, Timestamp, doc, getDoc } fro
 
 /**
  * API Route to send WhatsApp messages using direct fetch to api-wa.me
- * Refined for v5.0.0 compatibility with clear error reporting.
+ * Refined for v5.0.0 compatibility with strict endpoint mapping.
  */
 
 const getMimetype = (url: string) => {
@@ -27,6 +27,8 @@ const getMimetype = (url: string) => {
 };
 
 export async function POST(request: Request) {
+  let currentEndpoint = 'unknown'; // Global scope to avoid "not defined" error
+  
   try {
     const body = await request.json();
     const { 
@@ -105,8 +107,8 @@ export async function POST(request: Request) {
 
         switch (type) {
             case 'button':
-                // v5.0.0 usa message/buttons ou message/button_reply
-                endpoint = 'message/buttons';
+                // v5.0.0 oficial: message/button_reply
+                endpoint = 'message/button_reply';
                 payload = {
                     ...payload,
                     title: title || 'Informativo IBM',
@@ -162,6 +164,7 @@ export async function POST(request: Request) {
                 };
         }
 
+        currentEndpoint = endpoint; // Record current endpoint for error reporting
         const url = `https://us.api-wa.me/${waKey}/${endpoint}`;
 
         try {
@@ -200,12 +203,15 @@ export async function POST(request: Request) {
         return NextResponse.json({ 
             error: lastError || 'Falha ao enviar mensagens.',
             details: rawError,
-            endpoint: endpoint 
+            endpoint: currentEndpoint 
         }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, sentCount });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ 
+        error: error.message, 
+        endpoint: currentEndpoint 
+    }, { status: 500 });
   }
 }
