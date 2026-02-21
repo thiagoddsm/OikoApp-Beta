@@ -33,7 +33,7 @@ export async function GET() {
           headers: { 'Content-Type': 'application/json' }
         });
 
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
         
         if (!response.ok) {
             return NextResponse.json({ 
@@ -45,8 +45,9 @@ export async function GET() {
 
         // A API costuma retornar status como 'CONNECTED', 'DISCONNECTED' ou 'STANDBY'
         // Também pode retornar o QR Code no campo 'qr' ou 'qrcode'
+        const statusValue = data.status || data.state || 'unknown';
         return NextResponse.json({ 
-            status: (data.status || data.state || 'unknown').toLowerCase(),
+            status: String(statusValue).toLowerCase(),
             message: data.message || '',
             qr: data.qr || data.qrcode || null,
             details: data 
@@ -91,15 +92,45 @@ export async function POST() {
             }, { status: response.status });
         }
 
-        // Retornamos o objeto completo, que deve conter a propriedade 'qr'
+        const statusValue = data.status || 'pairing';
         return NextResponse.json({
             success: true,
             qr: data.qr || data.qrcode || null,
-            status: (data.status || 'pairing').toLowerCase(),
+            status: String(statusValue).toLowerCase(),
             details: data
         });
     } catch (error: any) {
         return NextResponse.json({ error: `Erro interno: ${error.message}` }, { status: 500 });
+    }
+}
+
+export async function PUT(request: Request) {
+    try {
+        const { firestore } = initializeFirebase();
+        const configRef = doc(firestore, 'config', 'notifications');
+        const configSnap = await getDoc(configRef);
+        const waKey = configSnap.exists() ? configSnap.data()?.whatsappApiKey : null;
+
+        if (!waKey) return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
+
+        const body = await request.json();
+        const { webhookUrl } = body;
+
+        // PUT para atualizar o Webhook da instância no gateway
+        const response = await fetch(`https://us.api-wa.me/${waKey}/instance`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ webhook: webhookUrl })
+        });
+
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
+            return NextResponse.json({ error: data.message || "Falha ao atualizar webhook." }, { status: response.status });
+        }
+
+        return NextResponse.json({ success: true });
+    } catch (error: any) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
 

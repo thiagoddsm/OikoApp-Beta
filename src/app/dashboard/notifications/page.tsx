@@ -451,6 +451,7 @@ function NotificationsConfig() {
     const [isSaving, setIsSaving] = useState(false);
     const [isGeneratingQR, setIsGeneratingQR] = useState(false);
     const [isDisconnecting, setIsDisconnecting] = useState(false);
+    const [isSyncingWebhook, setIsSyncingWebhook] = useState(false);
     const [qrCode, setQrCode] = useState<string | null>(null);
     const [instanceStatus, setInstanceStatus] = useState<{status: string, message?: string, qr?: string} | null>(null);
     const [isLoadingStatus, setIsLoadingStatus] = useState(false);
@@ -464,12 +465,14 @@ function NotificationsConfig() {
         try {
             const response = await fetch('/api/notifications/instance');
             const data = await response.json();
-            setInstanceStatus(data);
             
             // Se o status retornar um QR Code (comum quando está aguardando conexão), exibimos
-            if (data.qr && !qrCode) {
-                setQrCode(data.qr);
+            if (data.qr) {
+                const qr = data.qr.startsWith('data:') ? data.qr : `data:image/png;base64,${data.qr}`;
+                setQrCode(qr);
             }
+
+            setInstanceStatus(data);
 
             // Se estiver conectado e tiver um QR na tela, limpa o QR
             if (data.status === 'connected') {
@@ -515,7 +518,8 @@ function NotificationsConfig() {
             const data = await response.json();
             
             if (data.qr) {
-                setQrCode(data.qr);
+                const qr = data.qr.startsWith('data:') ? data.qr : `data:image/png;base64,${data.qr}`;
+                setQrCode(qr);
                 toast({ title: "QR Code Gerado", description: "Escaneie com o celular da igreja." });
             } else if (data.status === 'connected') {
                 toast({ title: "Já Conectado", description: "Sua instância já está ativa." });
@@ -524,13 +528,34 @@ function NotificationsConfig() {
                 toast({ 
                     variant: 'destructive', 
                     title: "Erro no Gateway", 
-                    description: data.error || "Não foi possível gerar o código. Verifique se a chave está correta e a instância limpa." 
+                    description: data.error || "Não foi possível gerar o código. Verifique se a chave está correta." 
                 });
             }
         } catch (e: any) {
             toast({ variant: 'destructive', title: "Erro na Requisição", description: "Falha na comunicação com o servidor local." });
         } finally {
             setIsGeneratingQR(false);
+        }
+    };
+
+    const handleSyncWebhook = async () => {
+        setIsSyncingWebhook(true);
+        const webhookUrl = `${window.location.origin}/api/notifications/webhook`;
+        try {
+            const response = await fetch('/api/notifications/instance', { 
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ webhookUrl })
+            });
+            if (response.ok) {
+                toast({ title: "Webhook Sincronizado!", description: "O gateway agora enviará eventos para este app." });
+            } else {
+                toast({ variant: 'destructive', title: "Falha na Sincronização" });
+            }
+        } catch (e) {
+            toast({ variant: 'destructive', title: "Erro na Requisição" });
+        } finally {
+            setIsSyncingWebhook(false);
         }
     };
 
@@ -675,7 +700,13 @@ function NotificationsConfig() {
 
             <Card className="bg-muted/30">
                 <CardHeader>
-                    <CardTitle className="text-sm font-bold flex items-center gap-2"><Layers className="size-4 text-primary" /> Configuração de Webhook</CardTitle>
+                    <div className="flex justify-between items-center">
+                        <CardTitle className="text-sm font-bold flex items-center gap-2"><Layers className="size-4 text-primary" /> Configuração de Webhook</CardTitle>
+                        <Button variant="outline" size="xs" onClick={handleSyncWebhook} disabled={isSyncingWebhook || !waKey}>
+                            {isSyncingWebhook ? <Loader2 className="size-3 animate-spin mr-1" /> : <RefreshCw className="size-3 mr-1" />}
+                            Auto-Sincronizar
+                        </Button>
+                    </div>
                     <CardDescription>Para receber as respostas dos botões, configure esta URL no painel da api-wa.me:</CardDescription>
                 </CardHeader>
                 <CardContent>
