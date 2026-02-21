@@ -16,7 +16,8 @@ import {
     Loader2, Send, Settings, Key, Bot, History, MessageSquare, Mail, 
     Users, CheckCircle2, Search, UserPlus, X, Info, Layers, RefreshCw, 
     Zap, AlertCircle, Group, LayoutTemplate, Sparkles, MessageCircle, MousePointer2,
-    UserCheck, Trash2, BarChart3, FileText, Image as ImageIcon, Link as LinkIcon
+    UserCheck, Trash2, BarChart3, FileText, Image as ImageIcon, Link as LinkIcon,
+    QrCode, Smartphone, LogOut
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useCollection, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
@@ -24,6 +25,7 @@ import { collection, query, orderBy, Timestamp, doc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
 
 const QUICK_TEMPLATES = [
     { id: 'welcome', label: 'Boas-vindas', icon: MessageSquare, text: 'Olá {{nome}}, que alegria ter você conosco na IBM! Desejamos que se sinta em casa. Como podemos orar por você hoje?' },
@@ -447,8 +449,8 @@ function NotificationsConfig() {
     
     const [waKey, setWaKey] = useState('');
     const [isSaving, setIsSaving] = useState(false);
-    const [isTesting, setIsTesting] = useState(false);
-    const [testResult, setTestResult] = useState<{success: boolean, message: string} | null>(null);
+    const [isGeneratingQR, setIsGeneratingQR] = useState(false);
+    const [qrCode, setQrCode] = useState<string | null>(null);
     const [instanceStatus, setInstanceStatus] = useState<{status: string, message?: string} | null>(null);
     const [isLoadingStatus, setIsLoadingStatus] = useState(false);
 
@@ -462,6 +464,11 @@ function NotificationsConfig() {
             const response = await fetch('/api/notifications/instance');
             const data = await response.json();
             setInstanceStatus(data);
+            
+            // Se estiver conectado e tiver um QR na tela, limpa o QR
+            if (data.status === 'connected') {
+                setQrCode(null);
+            }
         } catch (e) {
             setInstanceStatus({ status: 'error', message: 'Falha ao consultar gateway.' });
         } finally {
@@ -469,46 +476,51 @@ function NotificationsConfig() {
         }
     };
 
+    // Polling de status enquanto o QR Code está sendo exibido
     useEffect(() => {
-        if (open) checkStatus();
+        let interval: any;
+        if (qrCode) {
+            interval = setInterval(checkStatus, 5000);
+        }
+        return () => clearInterval(interval);
+    }, [qrCode]);
+
+    useEffect(() => {
+        checkStatus();
     }, []);
 
-    const handleSave = () => {
+    const handleSaveKey = () => {
         if (!firestore) return;
         setIsSaving(true);
         const configRef = doc(firestore, 'config', 'notifications');
         setDocumentNonBlocking(configRef, { whatsappApiKey: waKey, updatedAt: Timestamp.now() }, { merge: true })
             .then(() => {
-                toast({ title: "Configurações Salvas!" });
+                toast({ title: "Chave Salva!" });
                 checkStatus();
             })
             .finally(() => setIsSaving(false));
     };
 
-    const handleTestConnection = async () => {
-        setIsTesting(true);
-        setTestResult(null);
+    const handleGenerateQR = async () => {
+        setIsGeneratingQR(true);
+        setQrCode(null);
         try {
-            const response = await fetch('/api/notifications/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    channel: 'whatsapp',
-                    targetNumber: '5521989001302',
-                    message: "🔔 *IBM OikoApp*: Teste de conexão do gateway realizado com sucesso!",
-                    type: 'text'
-                })
-            });
+            const response = await fetch('/api/notifications/instance', { method: 'POST' });
             const data = await response.json();
-            if (response.ok) {
-                setTestResult({ success: true, message: "Mensagem de teste enviada com sucesso para 5521989001302!" });
+            
+            if (data.qr) {
+                setQrCode(data.qr);
+                toast({ title: "QR Code Gerado", description: "Escaneie com o celular da igreja." });
+            } else if (data.status === 'CONNECTED') {
+                toast({ title: "Já Conectado", description: "Sua instância já está ativa." });
+                checkStatus();
             } else {
-                setTestResult({ success: false, message: data.error || "Erro desconhecido no gateway." });
+                toast({ variant: 'destructive', title: "Erro", description: data.error || "Não foi possível gerar o código." });
             }
         } catch (e: any) {
-            setTestResult({ success: false, message: "Falha na requisição: " + e.message });
+            toast({ variant: 'destructive', title: "Erro na Requisição" });
         } finally {
-            setIsTesting(false);
+            setIsGeneratingQR(false);
         }
     };
 
@@ -521,25 +533,25 @@ function NotificationsConfig() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card className="md:col-span-2">
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><Key className="size-5 text-primary" />API WhatsApp</CardTitle>
-                        <CardDescription>Configure sua instância do api-wa.me para habilitar disparos reais.</CardDescription>
+                        <CardTitle className="flex items-center gap-2"><Key className="size-5 text-primary" />Configuração de Chave</CardTitle>
+                        <CardDescription>Insira a chave da instância do api-wa.me.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="wa-key">Chave da Instância (API Key)</Label>
+                            <Label htmlFor="wa-key">API Key (Instância)</Label>
                             <Input id="wa-key" type="password" value={waKey} onChange={e => setWaKey(e.target.value)} placeholder="Sua chave secreta" />
                         </div>
                     </CardContent>
                     <CardFooter className="flex justify-end border-t pt-4">
-                        <Button onClick={handleSave} disabled={isSaving} className="font-bold">
+                        <Button onClick={handleSaveKey} disabled={isSaving} size="sm">
                             {isSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Settings className="mr-2 size-4" />}
-                            Salvar Todas as Configurações
+                            Salvar Chave
                         </Button>
                     </CardFooter>
                 </Card>
 
                 <Card className={cn(
-                    "border-2 transition-colors",
+                    "border-2 transition-all",
                     instanceStatus?.status === 'connected' ? "border-emerald-200 bg-emerald-50/30" : "border-amber-200 bg-amber-50/30"
                 )}>
                     <CardHeader className="pb-2">
@@ -548,56 +560,68 @@ function NotificationsConfig() {
                             {isLoadingStatus && <Loader2 className="size-3 animate-spin" />}
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="flex items-center gap-3">
+                    <CardContent className="space-y-4 text-center">
+                        <div className="flex flex-col items-center gap-2">
                             <div className={cn(
-                                "size-3 rounded-full animate-pulse",
+                                "size-4 rounded-full animate-pulse",
                                 instanceStatus?.status === 'connected' ? "bg-emerald-500" : "bg-amber-500"
                             )} />
                             <span className="font-black uppercase text-xs tracking-widest">
-                                {instanceStatus?.status || 'Desconhecido'}
+                                {instanceStatus?.status || 'Buscando...'}
                             </span>
                         </div>
-                        <p className="text-[10px] text-muted-foreground leading-relaxed">
-                            {instanceStatus?.status === 'connected' 
-                                ? "Seu WhatsApp está emparelhado e pronto para disparos." 
-                                : "Aguardando conexão. Escaneie o QR Code no painel da api-wa.me."}
-                        </p>
-                        <Button variant="outline" size="sm" className="w-full h-7 text-[10px] font-bold" onClick={checkStatus}>
-                            <RefreshCw className="size-3 mr-1" /> Atualizar Status
-                        </Button>
+                        
+                        {instanceStatus?.status === 'connected' ? (
+                            <div className="py-2">
+                                <p className="text-[10px] text-muted-foreground mb-4">Seu WhatsApp está pronto para disparos.</p>
+                                <Button variant="outline" size="sm" className="w-full text-destructive hover:bg-red-50 hover:text-destructive">
+                                    <LogOut className="size-3 mr-1" /> Desconectar
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                <p className="text-[10px] text-muted-foreground">Instância offline ou aguardando conexão.</p>
+                                <Button 
+                                    onClick={handleGenerateQR} 
+                                    disabled={isGeneratingQR || !waKey}
+                                    className="w-full h-9 text-xs font-bold"
+                                >
+                                    {isGeneratingQR ? <Loader2 className="size-3 animate-spin mr-1" /> : <QrCode className="size-3 mr-1" />}
+                                    Gerar Novo QR Code
+                                </Button>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
 
-            <Card className="border-primary/20 bg-primary/5">
-                <CardHeader>
-                    <CardTitle className="text-sm font-bold flex items-center gap-2"><Zap className="size-4 text-primary" /> Diagnóstico de Conexão</CardTitle>
-                    <CardDescription>Valide se sua chave está correta enviando um sinal real para o suporte/teste.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <p className="text-xs text-muted-foreground">O sistema enviará um "ping" para o número <strong>5521989001302</strong>.</p>
-                    {testResult && (
-                        <div className={cn(
-                            "p-3 rounded-md text-xs flex items-start gap-2 animate-in slide-in-from-top-2",
-                            testResult.success ? "bg-emerald-100 text-emerald-800 border border-emerald-200" : "bg-red-100 text-red-800 border border-red-200"
-                        )}>
-                            {testResult.success ? <CheckCircle2 size={14} className="mt-0.5" /> : <AlertCircle size={14} className="mt-0.5" />}
-                            <span>{testResult.message}</span>
+            {/* AREA DO QR CODE WHITE LABEL */}
+            {qrCode && (
+                <Card className="border-primary border-2 bg-primary/5 animate-in zoom-in-95 duration-300">
+                    <CardHeader className="text-center pb-2">
+                        <CardTitle className="text-primary flex items-center justify-center gap-2">
+                            <Smartphone className="size-5" />
+                            Escaneie para Conectar
+                        </CardTitle>
+                        <CardDescription>Abra o WhatsApp no celular da igreja > Dispositivos Conectados > Conectar.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="flex flex-col items-center justify-center py-6 gap-6">
+                        <div className="p-4 bg-white rounded-2xl shadow-xl border-4 border-primary/20">
+                            <Image 
+                                src={qrCode} 
+                                alt="WhatsApp QR Code" 
+                                width={256} 
+                                height={256} 
+                                className="rounded-lg"
+                            />
                         </div>
-                    )}
-                    <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={handleTestConnection} 
-                        disabled={isTesting || !waKey}
-                        className="w-full bg-white font-bold"
-                    >
-                        {isTesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                        Testar Agora
-                    </Button>
-                </CardContent>
-            </Card>
+                        <div className="flex items-center gap-3 text-sm font-bold text-primary animate-pulse">
+                            <RefreshCw className="size-4 animate-spin" />
+                            Aguardando escaneamento...
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             <Card className="bg-muted/30">
                 <CardHeader>
@@ -655,7 +679,8 @@ function WhatsappGroups() {
             if (response.ok) {
                 toast({ title: "Mural Atualizado!", description: "A descrição do grupo foi alterada no WhatsApp." });
             } else {
-                toast({ variant: 'destructive', title: "Erro", description: "Não foi possível atualizar a descrição." });
+                const errData = await response.json();
+                toast({ variant: 'destructive', title: "Erro", description: errData.error || "Não foi possível atualizar a descrição." });
             }
         } catch (e) {
             toast({ variant: 'destructive', title: "Erro na conexão" });
@@ -679,7 +704,7 @@ function WhatsappGroups() {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {groups.map(group => (
+                {(Array.isArray(groups) ? groups : []).map(group => (
                     <Card key={group.id} className="hover:shadow-md transition-shadow">
                         <CardHeader className="p-4">
                             <CardTitle className="text-sm font-bold flex items-center justify-between">
@@ -695,7 +720,7 @@ function WhatsappGroups() {
                         </CardFooter>
                     </Card>
                 ))}
-                {groups.length === 0 && !isLoading && !error && (
+                {(Array.isArray(groups) ? groups.length : 0) === 0 && !isLoading && !error && (
                     <div className="col-span-full py-12 text-center border-2 border-dashed rounded-lg">
                         <Group className="size-12 text-muted-foreground mx-auto mb-2 opacity-20" />
                         <p className="text-muted-foreground text-sm">Nenhum grupo encontrado nesta instância.</p>
