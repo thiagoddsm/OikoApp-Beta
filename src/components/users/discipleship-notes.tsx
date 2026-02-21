@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, HelpCircle, CheckCircle, Send, GraduationCap, PlusCircle, ShieldCheck, UserCheck, AlertTriangle } from 'lucide-react';
+import { Loader2, HelpCircle, CheckCircle, Send, GraduationCap, PlusCircle, ShieldCheck, UserCheck, AlertTriangle, BookOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '../ui/checkbox';
 import { Label } from '../ui/label';
@@ -16,6 +16,7 @@ import { Textarea } from '../ui/textarea';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { journeyColumns } from './journey-status-config';
 import { EnrollmentDialog } from '../teaching/enrollment-dialog';
+import { Badge } from '../ui/badge';
 
 type ChecklistQuestion = {
     id: string;
@@ -50,12 +51,37 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         { id: '1', authorId: 'admin', type: 'system', content: `Perfil criado na base de dados.`, createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
     ]);
 
-    const myClasses = useMemo(() => {
-        return classes.filter(cls => cls.students?.includes(memberId));
-    }, [classes, memberId]);
+    // Grouping logic for Courses
+    const myCoursesStatus = useMemo(() => {
+        const studentClasses = classes.filter(cls => cls.students?.includes(memberId));
+        const courseIds = Array.from(new Set(studentClasses.map(c => c.courseId)));
+        
+        return courseIds.map(courseId => {
+            const course = courses.find(c => c.id === courseId);
+            const courseClasses = classes.filter(c => c.courseId === courseId);
+            
+            // Count total modules (classes) vs attended modules
+            const attendedCount = courseClasses.filter(cls => 
+                cls.attendance?.some(att => att.presentStudentIds.includes(memberId))
+            ).length;
+            
+            const totalClasses = courseClasses.length;
+            const isFinishedAttendance = totalClasses > 0 && attendedCount === totalClasses;
+            const officialStatus = memberData?.journey?.courseStatus?.[courseId];
+            
+            const isCompleted = officialStatus === 'approved' || isFinishedAttendance;
 
-    const courseMap = useMemo(() => new Map(courses.map(c => [c.id, c.name])), [courses]);
-    
+            return {
+                id: courseId,
+                name: course?.name || 'Curso Desconhecido',
+                ministry: course?.ministryName || 'Ensino',
+                isCompleted,
+                attendedCount,
+                totalCount: totalClasses
+            };
+        });
+    }, [classes, courses, memberId, memberData]);
+
     const finalChecklists = useMemo(() => {
         if (dbChecklists && dbChecklists.length > 0) {
             return [...dbChecklists].sort((a, b) => {
@@ -175,31 +201,44 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
     
     return (
       <div className="space-y-6">
-        {/* Validação Técnica (Cursos) */}
+        {/* Validação Técnica (Cursos & Trilhos) */}
         <Card className="bg-emerald-50/50 border-emerald-200">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <div>
                     <CardTitle className="text-lg flex items-center gap-2 text-emerald-800">
                         <GraduationCap className="size-5" />
-                        Validação Técnica (Cursos & Trilho)
+                        Validação Técnica (Cursos & Trilhos)
                     </CardTitle>
-                    <CardDescription className="text-emerald-700/70">Formações técnicas e cursos obrigatórios.</CardDescription>
+                    <CardDescription className="text-emerald-700/70">Histórico de formação e conclusão de disciplinas.</CardDescription>
                 </div>
                 <Button size="sm" onClick={() => setEnrollmentOpen(true)} className="bg-emerald-600 hover:bg-emerald-700">
-                    <PlusCircle className="mr-2 h-4 w-4" /> Matricular
+                    <PlusCircle className="mr-2 h-4 w-4" /> Matricular Aluno
                 </Button>
             </CardHeader>
             <CardContent>
-                <div className="flex flex-wrap gap-3">
-                    {myClasses.length === 0 ? (
-                        <p className="text-xs text-muted-foreground italic py-2">Nenhum curso técnico em andamento.</p>
+                <div className="flex flex-wrap gap-3 mt-2">
+                    {myCoursesStatus.length === 0 ? (
+                        <p className="text-xs text-muted-foreground italic py-2">Nenhum curso ou trilho vinculado no momento.</p>
                     ) : (
-                        myClasses.map(cls => (
-                            <div key={cls.id} className="flex items-center gap-2 bg-white p-2 rounded-lg border border-emerald-100 shadow-sm">
-                                <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                        myCoursesStatus.map(course => (
+                            <div key={course.id} className="flex items-center gap-3 bg-white p-3 rounded-lg border border-emerald-100 shadow-sm group hover:border-emerald-300 transition-colors">
+                                <div className={cn(
+                                    "size-2.5 rounded-full shrink-0", 
+                                    course.isCompleted ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" : "bg-amber-500 animate-pulse"
+                                )} />
                                 <div className="text-xs">
-                                    <span className="font-bold text-emerald-900">{courseMap.get(cls.courseId)}</span>
-                                    <span className="text-[10px] text-emerald-600 ml-1 block uppercase font-black">{cls.name}</span>
+                                    <span className="font-bold text-emerald-900 block">{course.name}</span>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <Badge variant="outline" className={cn(
+                                            "text-[9px] uppercase font-black px-1.5 h-4 border-none",
+                                            course.isCompleted ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                                        )}>
+                                            {course.isCompleted ? "Concluído" : "Cursando"}
+                                        </Badge>
+                                        <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-tighter">
+                                            {course.attendedCount}/{course.totalCount} módulos
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                         ))
