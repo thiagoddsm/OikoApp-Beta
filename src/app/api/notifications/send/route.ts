@@ -5,7 +5,7 @@ import { collection, query, where, getDocs, addDoc, Timestamp, doc, getDoc } fro
 
 /**
  * API Route to send WhatsApp messages using direct fetch to api-wa.me
- * Supports: text, title (structured buttons), survey, image, document
+ * Supports: text, title (structured), button (interactive), survey, image, document
  */
 
 export async function POST(request: Request) {
@@ -82,8 +82,8 @@ export async function POST(request: Request) {
 
         switch (type) {
             case 'button':
-                // Using 'message/title' for structured buttons as it is more compatible with non-business accounts
-                endpoint = 'message/title';
+                // Using 'message/button' which is the standard for interactive buttons in v5.0
+                endpoint = 'message/button';
                 payload = {
                     ...payload,
                     title: title || 'Informativo IBM',
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
                     ...payload,
                     name: (surveyName || 'Enquete IBM').replace('{{nome}}', user.name),
                     options: options || [],
-                    selectableOptionsCount: 1 // Required for newer API versions (v5.0+)
+                    selectableOptionsCount: 1
                 };
                 break;
             case 'media':
