@@ -82,12 +82,12 @@ export async function POST(request: Request) {
 
         switch (type) {
             case 'button':
-                // Using 'message/button' which is the standard for interactive buttons in v5.0
-                endpoint = 'message/button';
+                // Using 'message/button_reply' as per v5.0 engagement documentation
+                endpoint = 'message/button_reply';
                 payload = {
                     ...payload,
                     title: title || 'Informativo IBM',
-                    text: (message || '').replace('{{nome}}', user.name),
+                    body: (message || '').replace('{{nome}}', user.name),
                     footer: footer || 'Igreja Batista da Manhã',
                     buttons: buttons || []
                 };

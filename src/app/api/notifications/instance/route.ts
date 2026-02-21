@@ -156,12 +156,13 @@ export async function PATCH() {
 
         if (!waKey) return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
 
-        // Adicionando os parâmetros obrigatórios receiveStatusMessage e receivePresence exigidos pelo novo schema da API
-        const url = `https://us.api-wa.me/${waKey}/instance?markMessageRead=true&saveMedia=true&receiveStatusMessage=true&receivePresence=true`;
+        // Retornando ao formato básico sugerido pelo snippet do usuário para evitar Bad Request
+        const url = `https://us.api-wa.me/${waKey}/instance?markMessageRead=true&saveMedia=true`;
         
         const response = await fetch(url, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}) // Enviando corpo vazio para compatibilidade
         });
 
         if (!response.ok) {
