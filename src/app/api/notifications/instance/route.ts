@@ -100,6 +100,7 @@ export async function POST() {
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
+            const data = await response.json().catch(() => ({}));
             return NextResponse.json({ 
                 error: data.message || data.error || `Erro ${response.status} ao gerar instância.` 
             }, { status: response.status });
@@ -160,13 +161,11 @@ export async function PATCH() {
 
         if (!waKey) return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
 
-        // Documentação OAS 3.0 + Ajuste de Permissões Interativas
-        // Adicionando receiveStatusMessage e receivePresence para habilitar botões
+        // Documentação OAS 3.0 v5.0.0 Oficial
+        // Usando apenas parâmetros confirmados no manual para evitar 400 Bad Request
         const urlParams = new URLSearchParams({
             markMessageRead: 'true',
-            saveMedia: 'true',
-            receiveStatusMessage: 'true',
-            receivePresence: 'true'
+            saveMedia: 'true'
         });
 
         const url = `https://us.api-wa.me/${waKey}/instance?${urlParams.toString()}`;

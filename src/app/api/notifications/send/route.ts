@@ -117,17 +117,17 @@ export async function POST(request: Request) {
                     buttons: (buttons || []).map((b: any) => ({
                         id: b.id,
                         text: b.text,
-                        type: 'reply' // Requisito técnico para renderização correta
+                        type: 'reply'
                     }))
                 };
                 break;
             case 'survey':
+                // v5.0.0 oficial: message/survey
                 endpoint = 'message/survey';
                 payload = {
                     ...payload,
                     name: (surveyName || 'Enquete IBM').replace('{{nome}}', user.name),
-                    options: options || [],
-                    selectableOptionsCount: 1
+                    options: options || []
                 };
                 break;
             case 'media':
