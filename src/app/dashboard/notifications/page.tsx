@@ -603,7 +603,7 @@ function NotificationsConfig() {
                             <Smartphone className="size-5" />
                             Escaneie para Conectar
                         </CardTitle>
-                        <CardDescription>Abra o WhatsApp no celular da igreja > Dispositivos Conectados > Conectar.</CardDescription>
+                        <CardDescription>Abra o WhatsApp no celular da igreja &gt; Dispositivos Conectados &gt; Conectar.</CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-col items-center justify-center py-6 gap-6">
                         <div className="p-4 bg-white rounded-2xl shadow-xl border-4 border-primary/20">
