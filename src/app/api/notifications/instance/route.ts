@@ -100,7 +100,6 @@ export async function POST() {
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            const data = await response.json().catch(() => ({}));
             return NextResponse.json({ 
                 error: data.message || data.error || `Erro ${response.status} ao gerar instância.` 
             }, { status: response.status });
@@ -162,10 +161,12 @@ export async function PATCH() {
         if (!waKey) return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
 
         // Documentação OAS 3.0 v5.0.0 Oficial
-        // Usando apenas parâmetros confirmados no manual para evitar 400 Bad Request
+        // O gateway exige receiveStatusMessage e receivePresence como parâmetros de query obrigatórios
         const urlParams = new URLSearchParams({
             markMessageRead: 'true',
-            saveMedia: 'true'
+            saveMedia: 'true',
+            receiveStatusMessage: 'true',
+            receivePresence: 'true'
         });
 
         const url = `https://us.api-wa.me/${waKey}/instance?${urlParams.toString()}`;
