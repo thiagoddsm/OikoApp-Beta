@@ -7,6 +7,7 @@ service cloud.firestore {
     // REGRAS 100% ABERTAS PARA FASE DE TESTES
     // Permite que qualquer pessoa (mesmo sem login) leia e escreva em qualquer documento.
     // Isso é necessário para que o link público de inscrição funcione sem erros de permissão.
+    // Atualização: Reforçando permissões globais para rotas de API.
     match /{document=**} {
       allow read, write: if true;
     }

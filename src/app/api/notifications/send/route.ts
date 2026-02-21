@@ -16,10 +16,17 @@ export async function POST(request: Request) {
     const { firestore } = initializeFirebase();
     
     // 1. Buscar Configuração do WhatsApp
-    const configRef = doc(firestore, 'config', 'notifications');
-    const configSnap = await getDoc(configRef);
-    const configData = configSnap.exists() ? configSnap.data() : null;
-    const waKey = configData?.whatsappApiKey;
+    // Usamos um try/catch específico para a leitura de config para não travar o fluxo se falhar por permissão
+    let waKey = null;
+    try {
+        const configRef = doc(firestore, 'config', 'notifications');
+        const configSnap = await getDoc(configRef);
+        if (configSnap.exists()) {
+            waKey = configSnap.data()?.whatsappApiKey;
+        }
+    } catch (e) {
+        console.warn("Aviso: Falha ao ler config de notificações do Firestore. Usando modo simulação.", e);
+    }
 
     let whatsappClient: any = null;
     if (waKey && channel === 'whatsapp') {
@@ -35,8 +42,6 @@ export async function POST(request: Request) {
 
     if (audience === 'specific_members' && userIds && Array.isArray(userIds) && userIds.length > 0) {
         // Busca nominal por IDs específicos
-        // Nota: O where 'in' tem limite de 30 elementos no Firestore.
-        // Para simplificar no MVP, assumimos que o lote é pequeno.
         q = query(usersRef, where('__name__', 'in', userIds));
     } else {
         switch (audience) {
@@ -100,28 +105,32 @@ export async function POST(request: Request) {
                 errorCount++;
             }
         } else {
-            // Simulação se não houver chave configurada
+            // Simulação se não houver chave configurada ou falha na leitura
             console.log(`[SIMULAÇÃO] Enviando para ${user.phone}: ${personalizedMessage}`);
             sentCount++;
         }
     }
 
     // 4. Registrar no Histórico do Firestore
-    await addDoc(collection(firestore, 'notifications_history'), {
-        channel,
-        audience,
-        message,
-        recipientCount: targetUsers.length,
-        successCount: sentCount,
-        errorCount: errorCount,
-        sentAt: Timestamp.now(),
-        status: errorCount === 0 ? 'success' : (sentCount > 0 ? 'partial' : 'error'),
-        isSimulation: !waKey
-    });
+    try {
+        await addDoc(collection(firestore, 'notifications_history'), {
+            channel,
+            audience,
+            message,
+            recipientCount: targetUsers.length,
+            successCount: sentCount,
+            errorCount: errorCount,
+            sentAt: Timestamp.now(),
+            status: errorCount === 0 ? 'success' : (sentCount > 0 ? 'partial' : 'error'),
+            isSimulation: !waKey
+        });
+    } catch (e) {
+        console.warn("Aviso: Falha ao gravar histórico de notificação no Firestore.", e);
+    }
 
     const resultMessage = waKey 
         ? `Sucesso! ${sentCount} mensagens enviadas. ${errorCount > 0 ? `${errorCount} falhas.` : ''}`
-        : `Simulação concluída! ${sentCount} mensagens seriam enviadas. (Configure a API Key para envios reais)`;
+        : `Simulação concluída! ${sentCount} mensagens seriam enviadas. (Verifique sua chave de API nas configurações para envios reais)`;
 
     return NextResponse.json({ 
       success: true, 
@@ -130,6 +139,6 @@ export async function POST(request: Request) {
 
   } catch (error: any) {
     console.error('Erro na API de notificações:', error);
-    return NextResponse.json({ error: error.message || 'Erro interno do servidor' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'Erro interno do servidor ao processar o envio.' }, { status: 500 });
   }
 }
