@@ -355,7 +355,7 @@ function WhatsappSender() {
                                 key={t.id} 
                                 type="button" 
                                 variant="outline" 
-                                size="xs" 
+                                size="sm" 
                                 className="h-7 text-[10px] uppercase font-black"
                                 onClick={() => applyTemplate(t.text)}
                             >
@@ -452,7 +452,7 @@ function NotificationsConfig() {
     const [isGeneratingQR, setIsGeneratingQR] = useState(false);
     const [isDisconnecting, setIsDisconnecting] = useState(false);
     const [qrCode, setQrCode] = useState<string | null>(null);
-    const [instanceStatus, setInstanceStatus] = useState<{status: string, message?: string} | null>(null);
+    const [instanceStatus, setInstanceStatus] = useState<{status: string, message?: string, qr?: string} | null>(null);
     const [isLoadingStatus, setIsLoadingStatus] = useState(false);
 
     useEffect(() => {
@@ -466,6 +466,11 @@ function NotificationsConfig() {
             const data = await response.json();
             setInstanceStatus(data);
             
+            // Se o status retornar um QR Code (comum quando está aguardando conexão), exibimos
+            if (data.qr && !qrCode) {
+                setQrCode(data.qr);
+            }
+
             // Se estiver conectado e tiver um QR na tela, limpa o QR
             if (data.status === 'connected') {
                 setQrCode(null);
@@ -480,11 +485,11 @@ function NotificationsConfig() {
     // Polling de status enquanto o QR Code está sendo exibido
     useEffect(() => {
         let interval: any;
-        if (qrCode) {
+        if (qrCode || (instanceStatus && instanceStatus.status !== 'connected' && instanceStatus.status !== 'unconfigured')) {
             interval = setInterval(checkStatus, 5000);
         }
         return () => clearInterval(interval);
-    }, [qrCode]);
+    }, [qrCode, instanceStatus]);
 
     useEffect(() => {
         checkStatus();
@@ -512,14 +517,14 @@ function NotificationsConfig() {
             if (data.qr) {
                 setQrCode(data.qr);
                 toast({ title: "QR Code Gerado", description: "Escaneie com o celular da igreja." });
-            } else if (data.status?.toUpperCase() === 'CONNECTED') {
+            } else if (data.status === 'connected') {
                 toast({ title: "Já Conectado", description: "Sua instância já está ativa." });
                 checkStatus();
             } else {
                 toast({ 
                     variant: 'destructive', 
                     title: "Erro no Gateway", 
-                    description: data.error || "Não foi possível gerar o código. Verifique se a chave está correta." 
+                    description: data.error || "Não foi possível gerar o código. Verifique se a chave está correta e a instância limpa." 
                 });
             }
         } catch (e: any) {
@@ -538,6 +543,7 @@ function NotificationsConfig() {
             const data = await response.json();
             if (response.ok) {
                 toast({ title: "Desconectado!", description: "A sessão do WhatsApp foi encerrada." });
+                setQrCode(null);
                 checkStatus();
             } else {
                 toast({ variant: 'destructive', title: "Erro", description: data.error || "Falha ao desconectar." });
@@ -582,14 +588,16 @@ function NotificationsConfig() {
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-bold flex items-center justify-between">
                             Status da Instância
-                            {isLoadingStatus && <Loader2 className="size-3 animate-spin" />}
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={checkStatus} disabled={isLoadingStatus}>
+                                <RefreshCw className={cn("size-3", isLoadingStatus && "animate-spin")} />
+                            </Button>
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4 text-center">
                         <div className="flex flex-col items-center gap-2">
                             <div className={cn(
                                 "size-4 rounded-full animate-pulse",
-                                instanceStatus?.status === 'connected' ? "bg-emerald-500" : "bg-amber-500"
+                                instanceStatus?.status === 'connected' ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"
                             )} />
                             <span className="font-black uppercase text-xs tracking-widest">
                                 {instanceStatus?.status || 'Buscando...'}
@@ -598,13 +606,13 @@ function NotificationsConfig() {
                         
                         {instanceStatus?.status === 'connected' ? (
                             <div className="py-2">
-                                <p className="text-[10px] text-muted-foreground mb-4">Seu WhatsApp está pronto para disparos.</p>
+                                <p className="text-[10px] text-muted-foreground mb-4 font-medium uppercase">WhatsApp Conectado</p>
                                 <Button 
                                     variant="outline" 
                                     size="sm" 
                                     onClick={handleDisconnect}
                                     disabled={isDisconnecting}
-                                    className="w-full text-destructive hover:bg-red-50 hover:text-destructive"
+                                    className="w-full text-destructive hover:bg-red-50 hover:text-destructive border-red-100"
                                 >
                                     {isDisconnecting ? <Loader2 className="size-3 animate-spin mr-1" /> : <LogOut className="size-3 mr-1" />} 
                                     Desconectar
@@ -612,15 +620,25 @@ function NotificationsConfig() {
                             </div>
                         ) : (
                             <div className="space-y-3">
-                                <p className="text-[10px] text-muted-foreground">Instância offline ou aguardando conexão.</p>
-                                <Button 
-                                    onClick={handleGenerateQR} 
-                                    disabled={isGeneratingQR || !waKey}
-                                    className="w-full h-9 text-xs font-bold"
-                                >
-                                    {isGeneratingQR ? <Loader2 className="size-3 animate-spin mr-1" /> : <QrCode className="size-3 mr-1" />}
-                                    Gerar Novo QR Code
-                                </Button>
+                                <p className="text-[10px] text-muted-foreground font-medium uppercase">Aguardando Conexão</p>
+                                <div className="flex flex-col gap-2">
+                                    <Button 
+                                        onClick={handleGenerateQR} 
+                                        disabled={isGeneratingQR || !waKey}
+                                        className="w-full h-9 text-xs font-bold"
+                                    >
+                                        {isGeneratingQR ? <Loader2 className="size-3 animate-spin mr-1" /> : <QrCode className="size-3 mr-1" />}
+                                        Gerar Novo QR Code
+                                    </Button>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        onClick={handleDisconnect}
+                                        className="text-[10px] text-muted-foreground hover:text-destructive"
+                                    >
+                                        Limpar Instância Ocupada
+                                    </Button>
+                                </div>
                             </div>
                         )}
                     </CardContent>

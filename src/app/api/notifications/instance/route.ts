@@ -17,13 +17,13 @@ export async function GET() {
         const configSnap = await getDoc(configRef);
         waKey = configSnap.exists() ? configSnap.data()?.whatsappApiKey : null;
     } catch (e: any) {
-        return NextResponse.json({ error: 'Erro ao ler configurações.' }, { status: 500 });
+        return NextResponse.json({ error: 'Erro de permissão no banco de dados.' }, { status: 500 });
     }
 
     if (!waKey) {
         return NextResponse.json({ 
             status: 'unconfigured',
-            message: 'API Key não configurada.'
+            message: 'API Key não configurada no sistema.'
         });
     }
 
@@ -38,18 +38,21 @@ export async function GET() {
         if (!response.ok) {
             return NextResponse.json({ 
                 status: 'error',
-                message: data.message || `Gateway retornou erro ${response.status}`
+                message: data.message || `O gateway retornou erro ${response.status}`,
+                details: data
             });
         }
 
-        // A API costuma retornar algo como { status: 'CONNECTED', ... }
+        // A API costuma retornar status como 'CONNECTED', 'DISCONNECTED' ou 'STANDBY'
+        // Também pode retornar o QR Code no campo 'qr' ou 'qrcode'
         return NextResponse.json({ 
-            status: data.status?.toLowerCase() || 'unknown',
+            status: (data.status || data.state || 'unknown').toLowerCase(),
             message: data.message || '',
+            qr: data.qr || data.qrcode || null,
             details: data 
         });
     } catch (fetchErr: any) {
-        return NextResponse.json({ status: 'offline', message: fetchErr.message });
+        return NextResponse.json({ status: 'offline', message: `Falha na comunicação: ${fetchErr.message}` });
     }
 
   } catch (error: any) {
@@ -67,31 +70,36 @@ export async function POST() {
             const configSnap = await getDoc(configRef);
             waKey = configSnap.exists() ? configSnap.data()?.whatsappApiKey : null;
         } catch (e) {
-            return NextResponse.json({ error: 'Erro de permissão.' }, { status: 500 });
+            return NextResponse.json({ error: 'Erro de permissão no Firebase.' }, { status: 500 });
         }
 
         if (!waKey) {
-            return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
+            return NextResponse.json({ error: "Chave de API não configurada." }, { status: 400 });
         }
 
-        // POST para gerar o QR Code
+        // POST para gerar o QR Code ou iniciar instância
         const response = await fetch(`https://us.api-wa.me/${waKey}/instance`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({}) // Alguns gateways exigem um corpo mesmo que vazio
+            headers: { 'Content-Type': 'application/json' }
         });
 
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
             return NextResponse.json({ 
-                error: data.message || data.error || "Falha ao gerar instância no gateway." 
+                error: data.message || data.error || `Erro ${response.status} ao gerar instância.` 
             }, { status: response.status });
         }
 
-        return NextResponse.json(data);
+        // Retornamos o objeto completo, que deve conter a propriedade 'qr'
+        return NextResponse.json({
+            success: true,
+            qr: data.qr || data.qrcode || null,
+            status: (data.status || 'pairing').toLowerCase(),
+            details: data
+        });
     } catch (error: any) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        return NextResponse.json({ error: `Erro interno: ${error.message}` }, { status: 500 });
     }
 }
 
@@ -112,7 +120,7 @@ export async function DELETE() {
             return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
         }
 
-        // DELETE para desconectar a instância
+        // DELETE para desconectar a instância (Logout)
         const response = await fetch(`https://us.api-wa.me/${waKey}/instance`, {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' }
@@ -121,7 +129,7 @@ export async function DELETE() {
         if (!response.ok) {
             const data = await response.json().catch(() => ({}));
             return NextResponse.json({ 
-                error: data.message || "Falha ao desconectar instância." 
+                error: data.message || "Falha ao desconectar instância no gateway." 
             }, { status: response.status });
         }
 
