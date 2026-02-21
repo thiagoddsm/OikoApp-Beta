@@ -53,7 +53,7 @@ export async function GET() {
         else if (data.status && typeof data.status === 'string' && isNaN(Number(data.status))) rawStatus = data.status;
         else if (data.authenticated === true || data.instance?.authenticated === true) rawStatus = 'connected';
         else if (data.status === 200 || data.status === 201) {
-            rawStatus = data.instance?.state || data.instance?.status || 'connected'; // Assume conectado se 200 e não há erro
+            rawStatus = data.instance?.state || data.instance?.status || 'connected'; 
         }
 
         const normalizedStatus = String(rawStatus).toLowerCase();
@@ -95,7 +95,7 @@ export async function POST() {
         const response = await fetch(`https://us.api-wa.me/${waKey}/instance`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({}) // Alguns gateways exigem body mesmo vazio
+            body: JSON.stringify({})
         });
 
         const data = await response.json().catch(() => ({}));
@@ -156,13 +156,13 @@ export async function PATCH() {
 
         if (!waKey) return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
 
-        // Retornando ao formato básico sugerido pelo snippet do usuário para evitar Bad Request
+        // Ativação de recursos incluindo leitura e salvamento de mídia
         const url = `https://us.api-wa.me/${waKey}/instance?markMessageRead=true&saveMedia=true`;
         
         const response = await fetch(url, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({}) // Enviando corpo vazio para compatibilidade
+            body: JSON.stringify({}) 
         });
 
         if (!response.ok) {

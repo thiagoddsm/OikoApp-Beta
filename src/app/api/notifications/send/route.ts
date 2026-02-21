@@ -82,14 +82,16 @@ export async function POST(request: Request) {
 
         switch (type) {
             case 'button':
-                // Using 'message/button_reply' as per v5.0 engagement documentation
-                endpoint = 'message/button_reply';
+                // Reverting to 'message/button' with standard payload for better session compatibility
+                endpoint = 'message/button';
                 payload = {
                     ...payload,
-                    title: title || 'Informativo IBM',
-                    body: (message || '').replace('{{nome}}', user.name),
+                    text: (message || '').replace('{{nome}}', user.name),
                     footer: footer || 'Igreja Batista da Manhã',
-                    buttons: buttons || []
+                    buttons: (buttons || []).map((b: any) => ({
+                        id: b.id,
+                        text: b.text
+                    }))
                 };
                 break;
             case 'survey':

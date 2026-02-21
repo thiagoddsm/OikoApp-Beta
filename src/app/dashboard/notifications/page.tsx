@@ -189,7 +189,7 @@ function WhatsappChats() {
                                 <Input 
                                     placeholder="Digite sua resposta..." 
                                     value={replyText}
-                                    onChange={e => replyText && setReplyText(e.target.value)}
+                                    onChange={e => setReplyText(e.target.value)}
                                     className="bg-muted/30 border-none focus-visible:ring-primary h-11"
                                 />
                                 <Button type="submit" size="icon" className="h-11 w-11 shrink-0" disabled={isSending || !replyText?.trim()}>
@@ -708,6 +708,7 @@ function NotificationsConfig() {
     const [isDisconnecting, setIsDisconnecting] = useState(false);
     const [isSyncingWebhook, setIsSyncingWebhook] = useState(false);
     const [isConfiguringInstance, setIsConfiguringInstance] = useState(false);
+    const [isRestarting, setIsRestarting] = useState(false);
     const [qrCode, setQrCode] = useState<string | null>(null);
     const [instanceStatus, setInstanceStatus] = useState<{status: string, message?: string, qr?: string, details?: any} | null>(null);
     const [isLoadingStatus, setIsLoadingStatus] = useState(false);
@@ -783,6 +784,24 @@ function NotificationsConfig() {
             toast({ variant: 'destructive', title: "Erro na Requisição" });
         } finally {
             setIsConfiguringInstance(false);
+        }
+    };
+
+    const handleRestartInstance = async () => {
+        setIsRestarting(true);
+        try {
+            const response = await fetch('/api/notifications/instance/restart', { method: 'POST' });
+            if (response.ok) {
+                toast({ title: "Instância Reiniciada", description: "A conexão será restabelecida em alguns segundos." });
+                setTimeout(checkStatus, 5000);
+            } else {
+                const data = await response.json();
+                toast({ variant: 'destructive', title: "Erro ao Reiniciar", description: data.error });
+            }
+        } catch (e) {
+            toast({ variant: 'destructive', title: "Falha na conexão" });
+        } finally {
+            setIsRestarting(false);
         }
     };
 
@@ -945,19 +964,29 @@ function NotificationsConfig() {
                         
                         {instanceStatus?.status === 'connected' ? (
                             <div className="py-2 space-y-3">
-                                <div className="p-3 bg-white/50 rounded-xl border border-emerald-100">
-                                    <p className="text-[10px] text-emerald-700 font-black uppercase mb-3">WhatsApp Conectado e Ativo</p>
+                                <div className="p-3 bg-white/50 rounded-xl border border-emerald-100 space-y-2">
+                                    <p className="text-[10px] text-emerald-700 font-black uppercase">WhatsApp Conectado</p>
                                     <Button 
                                         variant="default" 
                                         size="sm" 
                                         onClick={handleConfigureInstance}
                                         disabled={isConfiguringInstance}
-                                        className="w-full h-10 font-bold bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200"
+                                        className="w-full h-9 font-bold bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200"
                                     >
                                         {isConfiguringInstance ? <Loader2 className="size-4 animate-spin mr-2" /> : <Sparkles className="size-4 mr-2" />} 
-                                        Ativar Recursos Interativos
+                                        Ativar Recursos
                                     </Button>
-                                    <p className="text-[9px] text-muted-foreground mt-2 italic">Essencial para botões e enquetes.</p>
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        onClick={handleRestartInstance}
+                                        disabled={isRestarting}
+                                        className="w-full h-9 font-bold border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+                                    >
+                                        {isRestarting ? <Loader2 className="size-4 animate-spin mr-2" /> : <RefreshCw className="size-4 mr-2" />} 
+                                        Reiniciar Instância
+                                    </Button>
+                                    <p className="text-[9px] text-muted-foreground italic">Use o reiniciar se botões falharem.</p>
                                 </div>
                                 <Button 
                                     variant="outline" 
