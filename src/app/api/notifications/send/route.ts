@@ -2,7 +2,10 @@
 import { NextResponse } from 'next/server';
 import { initializeFirebase } from '@/firebase';
 import { collection, query, where, getDocs, addDoc, Timestamp, doc, getDoc } from 'firebase/firestore';
-import { WhatsApp } from '@raphaelvserafim/client-api-whatsapp';
+
+/**
+ * API Route to send WhatsApp messages using direct fetch to api-wa.me
+ */
 
 export async function POST(request: Request) {
   try {
@@ -36,18 +39,6 @@ export async function POST(request: Request) {
         }, { status: 400 });
     }
 
-    let whatsappClient: any = null;
-    if (waKey && channel === 'whatsapp') {
-        try {
-            whatsappClient = new WhatsApp({
-                server: "https://us.api-wa.me",
-                key: waKey
-            });
-        } catch (clientErr: any) {
-            return NextResponse.json({ error: `Falha ao inicializar cliente WhatsApp: ${clientErr.message}` }, { status: 500 });
-        }
-    }
-
     // 2. Lógica de Destinatários
     const targetUsers: any[] = [];
 
@@ -59,7 +50,6 @@ export async function POST(request: Request) {
         });
     } else if (audience === 'specific_members' && userIds && Array.isArray(userIds) && userIds.length > 0) {
         const usersRef = collection(firestore, 'users');
-        // Firestore 'in' query has limit of 30 items
         const chunks = [];
         for (let i = 0; i < userIds.length; i += 30) {
             chunks.push(userIds.slice(i, i + 30));
@@ -118,7 +108,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Nenhum destinatário válido encontrado com telefone cadastrado.' }, { status: 404 });
     }
 
-    // 3. ENVIO
+    // 3. ENVIO REAL (via fetch ao gateway)
     let sentCount = 0;
     let errorCount = 0;
     let lastError = null;
@@ -126,23 +116,35 @@ export async function POST(request: Request) {
     for (const user of targetUsers) {
         const personalizedMessage = message.replace('{{nome}}', user.name);
         
-        if (whatsappClient) {
+        if (waKey && channel === 'whatsapp') {
             try {
-                // Ensure number has 55 prefix if missing
                 let formattedNumber = user.phone;
-                if (formattedNumber.length <= 11) { // 21 999999999
+                if (formattedNumber.length <= 11) { 
                     formattedNumber = `55${formattedNumber}`;
                 }
                 
-                await whatsappClient.sendText(formattedNumber, personalizedMessage);
+                const response = await fetch(`https://us.api-wa.me/${waKey}/messages/text`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        to: formattedNumber,
+                        text: personalizedMessage
+                    })
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({}));
+                    throw new Error(errData.message || `Erro ${response.status} no gateway`);
+                }
+
                 sentCount++;
             } catch (err: any) {
                 console.error(`Erro ao enviar para ${user.phone}:`, err);
                 errorCount++;
-                // Extract more useful error message if available
-                lastError = err.response?.data?.message || err.message || JSON.stringify(err);
+                lastError = err.message;
             }
         } else {
+            // Modo simulação se não houver chave (mas o frontend já deve barrar)
             sentCount++;
         }
     }
@@ -168,7 +170,7 @@ export async function POST(request: Request) {
     if (errorCount > 0 && sentCount === 0) {
         return NextResponse.json({ 
             success: false, 
-            message: `Falha no envio: ${lastError}. Verifique se sua instância está conectada no painel da API WA.`,
+            message: `Falha no envio: ${lastError}. Verifique se sua instância está conectada no painel da api-wa.me.`,
             sentCount,
             errorCount
         }, { status: 500 });
