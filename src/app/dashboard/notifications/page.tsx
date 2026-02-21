@@ -17,7 +17,7 @@ import {
     Users, CheckCircle2, Search, UserPlus, X, Info, Layers, RefreshCw, 
     Zap, AlertCircle, Group, LayoutTemplate, Sparkles, MessageCircle, MousePointer2,
     UserCheck, Trash2, BarChart3, FileText, Image as ImageIcon, Link as LinkIcon,
-    QrCode, Smartphone, LogOut
+    QrCode, Smartphone, LogOut, PlusCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useCollection, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
@@ -450,6 +450,7 @@ function NotificationsConfig() {
     const [waKey, setWaKey] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [isGeneratingQR, setIsGeneratingQR] = useState(false);
+    const [isDisconnecting, setIsDisconnecting] = useState(false);
     const [qrCode, setQrCode] = useState<string | null>(null);
     const [instanceStatus, setInstanceStatus] = useState<{status: string, message?: string} | null>(null);
     const [isLoadingStatus, setIsLoadingStatus] = useState(false);
@@ -511,16 +512,40 @@ function NotificationsConfig() {
             if (data.qr) {
                 setQrCode(data.qr);
                 toast({ title: "QR Code Gerado", description: "Escaneie com o celular da igreja." });
-            } else if (data.status === 'CONNECTED') {
+            } else if (data.status?.toUpperCase() === 'CONNECTED') {
                 toast({ title: "Já Conectado", description: "Sua instância já está ativa." });
                 checkStatus();
             } else {
-                toast({ variant: 'destructive', title: "Erro", description: data.error || "Não foi possível gerar o código." });
+                toast({ 
+                    variant: 'destructive', 
+                    title: "Erro no Gateway", 
+                    description: data.error || "Não foi possível gerar o código. Verifique se a chave está correta." 
+                });
             }
         } catch (e: any) {
-            toast({ variant: 'destructive', title: "Erro na Requisição" });
+            toast({ variant: 'destructive', title: "Erro na Requisição", description: "Falha na comunicação com o servidor local." });
         } finally {
             setIsGeneratingQR(false);
+        }
+    };
+
+    const handleDisconnect = async () => {
+        if (!confirm("Isso irá desconectar o WhatsApp da IBM do sistema. Deseja continuar?")) return;
+        
+        setIsDisconnecting(true);
+        try {
+            const response = await fetch('/api/notifications/instance', { method: 'DELETE' });
+            const data = await response.json();
+            if (response.ok) {
+                toast({ title: "Desconectado!", description: "A sessão do WhatsApp foi encerrada." });
+                checkStatus();
+            } else {
+                toast({ variant: 'destructive', title: "Erro", description: data.error || "Falha ao desconectar." });
+            }
+        } catch (e) {
+            toast({ variant: 'destructive', title: "Erro na Requisição" });
+        } finally {
+            setIsDisconnecting(false);
         }
     };
 
@@ -574,8 +599,15 @@ function NotificationsConfig() {
                         {instanceStatus?.status === 'connected' ? (
                             <div className="py-2">
                                 <p className="text-[10px] text-muted-foreground mb-4">Seu WhatsApp está pronto para disparos.</p>
-                                <Button variant="outline" size="sm" className="w-full text-destructive hover:bg-red-50 hover:text-destructive">
-                                    <LogOut className="size-3 mr-1" /> Desconectar
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    onClick={handleDisconnect}
+                                    disabled={isDisconnecting}
+                                    className="w-full text-destructive hover:bg-red-50 hover:text-destructive"
+                                >
+                                    {isDisconnecting ? <Loader2 className="size-3 animate-spin mr-1" /> : <LogOut className="size-3 mr-1" />} 
+                                    Desconectar
                                 </Button>
                             </div>
                         ) : (
