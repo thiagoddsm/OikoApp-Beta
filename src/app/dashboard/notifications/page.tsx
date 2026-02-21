@@ -221,6 +221,7 @@ function WhatsappSender() {
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [debugError, setDebugError] = useState<any>(null);
+    const [testPhoneNumber, setTestPhoneNumber] = useState('');
     const [message, setMessage] = useState('');
     const [targetAudience, setTargetAudience] = useState('all_members');
     const [searchTerm, setSearchTerm] = useState('');
@@ -407,30 +408,35 @@ function WhatsappSender() {
     };
 
     const handleDebugTest = (type: string) => {
-        const testNumber = prompt("Digite um número para teste (ex: 21999999999):");
-        if (!testNumber) return;
+        if (!testPhoneNumber) {
+            toast({ variant: 'destructive', title: "Digite o número de teste acima." });
+            return;
+        }
 
-        let payload: any = { channel: 'whatsapp', targetNumber: testNumber, type };
+        let payload: any = { channel: 'whatsapp', targetNumber: testPhoneNumber, type };
 
         switch(type) {
-            case 'text': payload.message = "Teste de Texto IBM"; break;
+            case 'text': payload.message = "Teste de Texto IBM - Sistema OK"; break;
             case 'button':
-                payload.message = "Teste de Botões";
-                payload.buttons = [{ id: 'test_1', text: 'Opção A' }, { id: 'test_2', text: 'Opção B' }];
-                payload.title = "DEBUG MODE";
+                payload.message = "Teste de Botões Interativos";
+                payload.buttons = [{ id: 'test_1', text: 'Sim, funciona! ✅' }, { id: 'test_2', text: 'Não funciona ❌' }];
+                payload.title = "DEBUG MODE - IBM";
+                payload.footer = "Ambiente de Desenvolvimento";
                 break;
             case 'media':
-                payload.mediaUrl = "https://placehold.co/600x400/png";
-                payload.message = "Teste de Mídia";
+                payload.mediaUrl = "https://picsum.photos/seed/1/600/400";
+                payload.message = "Teste de Mídia (Imagem Dinâmica)";
                 break;
             case 'pix':
                 payload.pixKey = "test@ibm.com";
-                payload.pixAmount = 1.50;
-                payload.message = "Teste de PIX";
+                payload.pixAmount = 1.00;
+                payload.message = "Teste de Cobrança PIX Automática";
+                payload.pixName = "Igreja Batista";
+                payload.pixCity = "Sao Goncalo";
                 break;
             case 'survey':
-                payload.surveyName = "Teste de Enquete";
-                payload.options = ["Opção 1", "Opção 2"];
+                payload.surveyName = "O Ambiente de Teste é útil?";
+                payload.options = ["Sim, muito!", "Mais ou menos", "Não"];
                 break;
         }
 
@@ -765,14 +771,28 @@ function WhatsappSender() {
                     <Bug className="size-4 text-muted-foreground" />
                     <h3 className="text-xs font-black uppercase text-muted-foreground tracking-widest">Ambiente de Teste (Debug)</h3>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" onClick={() => handleDebugTest('text')} className="h-8 text-[10px] font-bold">TEXTO SIMPLES</Button>
-                    <Button variant="outline" size="sm" onClick={() => handleDebugTest('button')} className="h-8 text-[10px] font-bold border-indigo-200 text-indigo-700">BOTÕES</Button>
-                    <Button variant="outline" size="sm" onClick={() => handleDebugTest('media')} className="h-8 text-[10px] font-bold border-blue-200 text-blue-700">MÍDIA (URL)</Button>
-                    <Button variant="outline" size="sm" onClick={() => handleDebugTest('pix')} className="h-8 text-[10px] font-bold border-emerald-200 text-emerald-700">QR PIX</Button>
-                    <Button variant="outline" size="sm" onClick={() => handleDebugTest('survey')} className="h-8 text-[10px] font-bold border-amber-200 text-amber-700">ENQUETE</Button>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div className="space-y-2">
+                        <Label htmlFor="test-phone" className="text-[10px] font-black uppercase text-muted-foreground">Número para Receber Teste (com DDD)</Label>
+                        <Input 
+                            id="test-phone"
+                            placeholder="Ex: 21999999999" 
+                            value={testPhoneNumber}
+                            onChange={e => setTestPhoneNumber(e.target.value)}
+                            className="bg-background border-dashed border-primary/50"
+                        />
+                    </div>
                 </div>
-                <p className="text-[9px] text-muted-foreground mt-2 italic">Dica: Use estes botões para testar se sua instância tem permissão para cada formato.</p>
+
+                <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('text')} disabled={!testPhoneNumber || isLoading} className="h-8 text-[10px] font-bold">TEXTO SIMPLES</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('button')} disabled={!testPhoneNumber || isLoading} className="h-8 text-[10px] font-bold border-indigo-200 text-indigo-700">BOTÕES</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('media')} disabled={!testPhoneNumber || isLoading} className="h-8 text-[10px] font-bold border-blue-200 text-blue-700">MÍDIA (URL)</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('pix')} disabled={!testPhoneNumber || isLoading} className="h-8 text-[10px] font-bold border-emerald-200 text-emerald-700">QR PIX</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('survey')} disabled={!testPhoneNumber || isLoading} className="h-8 text-[10px] font-bold border-amber-200 text-amber-700">ENQUETE</Button>
+                </div>
+                <p className="text-[9px] text-muted-foreground mt-2 italic">Dica: Digite seu número acima e escolha o formato. O erro detalhado aparecerá acima se o WhatsApp recusar.</p>
             </div>
         </div>
     );
