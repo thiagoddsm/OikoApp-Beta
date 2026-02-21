@@ -75,9 +75,6 @@ function WhatsappSender() {
             const data = await response.json();
             const groupsList = Array.isArray(data.groups) ? data.groups : [];
             setGroups(groupsList);
-            if (groupsList.length === 0 && data.error) {
-                console.warn("Erro ao carregar grupos:", data.error);
-            }
         } catch (e) {
             setGroups([]);
         } finally {
@@ -300,7 +297,7 @@ function WhatsappSender() {
                                 <>
                                     {Array.isArray(groups) && groups.length > 0 ? (
                                         groups.map(g => (
-                                            <SelectItem key={g.id} value={g.id}>{g.name || g.id}</SelectItem>
+                                            <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
                                         ))
                                     ) : (
                                         <SelectItem value="none" disabled>Nenhum grupo carregado</SelectItem>
@@ -309,11 +306,6 @@ function WhatsappSender() {
                             )}
                         </SelectContent>
                     </Select>
-                    {(!groups || groups.length === 0) && !isLoadingGroups && (
-                        <p className="text-[10px] text-amber-600 flex items-center gap-1 mt-1 font-bold italic">
-                            <AlertCircle size={10} /> Dica: Verifique se sua instância está conectada na aba Configs.
-                        </p>
-                    )}
                 </div>
             )}
 
@@ -400,18 +392,6 @@ function WhatsappSender() {
                     required={msgType !== 'survey'}
                 />
                 <p className="text-[10px] text-muted-foreground italic">Use <strong>{"{{nome}}"}</strong> para personalizar com o nome de cada membro.</p>
-                
-                {msgType === 'button' && (
-                    <div className="p-4 bg-primary/5 border border-dashed rounded-lg">
-                        <p className="text-xs font-bold text-primary flex items-center gap-2 mb-2">
-                            <MousePointer2 size={14} /> Prévia dos Botões Interativos:
-                        </p>
-                        <div className="flex gap-2">
-                            <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200">Confirmar Presença ✅</Badge>
-                            <Badge className="bg-red-100 text-red-800 border-red-200">Não poderei ir ❌</Badge>
-                        </div>
-                    </div>
-                )}
             </div>
 
             <Button type="submit" disabled={isLoading || (msgType !== 'survey' && !message.trim())} className="w-full h-12 text-base font-bold shadow-lg">
@@ -756,7 +736,6 @@ function WhatsappGroups() {
             const data = await response.json();
             if (response.ok) {
                 setGroups(Array.isArray(data.groups) ? data.groups : []);
-                if (data.warning) console.warn(data.warning);
             } else {
                 setError(data.error || "Erro ao buscar grupos.");
             }
@@ -817,12 +796,12 @@ function WhatsappGroups() {
                     ))
                 ) : (
                     <>
-                        {(Array.isArray(groups) ? groups : []).map(group => (
+                        {groups.map(group => (
                             <Card key={group.id} className="hover:shadow-md transition-shadow">
                                 <CardHeader className="p-4">
                                     <CardTitle className="text-sm font-bold flex items-center justify-between">
-                                        <span className="truncate">{group.name || "Sem Nome"}</span>
-                                        <Badge variant="secondary" className="text-[10px]">{group.participants?.length || 0} p.</Badge>
+                                        <span className="truncate">{group.name}</span>
+                                        <Badge variant="secondary" className="text-[10px]">{group.participantCount} p.</Badge>
                                     </CardTitle>
                                     <CardDescription className="text-[10px] truncate">{group.id}</CardDescription>
                                 </CardHeader>
@@ -833,7 +812,7 @@ function WhatsappGroups() {
                                 </CardFooter>
                             </Card>
                         ))}
-                        {(Array.isArray(groups) ? groups.length : 0) === 0 && !error && (
+                        {groups.length === 0 && !error && (
                             <div className="col-span-full py-12 text-center border-2 border-dashed rounded-lg">
                                 <Group className="size-12 text-muted-foreground mx-auto mb-2 opacity-20" />
                                 <p className="text-muted-foreground text-sm">Nenhum grupo encontrado nesta instância.</p>

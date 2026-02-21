@@ -23,9 +23,9 @@ export async function GET() {
     if (!waKey) {
         return NextResponse.json({ 
             groups: [
-                { id: "123@g.us", name: "GC - Conexão Jovem", participants: [{id: "1"}] },
-                { id: "456@g.us", name: "Ministério de Louvor", participants: [{id: "1"}] },
-                { id: "789@g.us", name: "IBM - Avisos Oficiais", participants: [{id: "1"}] }
+                { id: "123@g.us", name: "GC - Conexão Jovem", participantCount: 15 },
+                { id: "456@g.us", name: "Ministério de Louvor", participantCount: 8 },
+                { id: "789@g.us", name: "IBM - Avisos Oficiais", participantCount: 120 }
             ],
             isSimulation: true,
             warning: "Mostrando dados simulados (API Key não configurada)."
@@ -57,13 +57,19 @@ export async function GET() {
         } else if (data.data && Array.isArray(data.data)) {
             extractedGroups = data.data;
         } else if (typeof data === 'object') {
-            // Tenta encontrar qualquer array dentro do objeto retornado
             const arrays = Object.values(data).filter(v => Array.isArray(v));
             if (arrays.length > 0) extractedGroups = arrays[0] as any[];
         }
 
+        // NORMALIZAÇÃO: Mapeia diferentes nomes de campos (name, subject, etc) para um padrão
+        const normalizedGroups = extractedGroups.map((g: any) => ({
+            id: g.id || g.jid || '',
+            name: g.name || g.subject || g.groupName || 'Grupo sem Nome',
+            participantCount: g.participants?.length || g.size || g.count || 0
+        }));
+
         return NextResponse.json({ 
-            groups: extractedGroups,
+            groups: normalizedGroups,
             isSimulation: false
         });
     } catch (fetchErr: any) {
