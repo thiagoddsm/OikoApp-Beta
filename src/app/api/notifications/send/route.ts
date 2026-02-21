@@ -5,7 +5,7 @@ import { collection, query, where, getDocs, addDoc, Timestamp, doc, getDoc } fro
 
 /**
  * API Route to send WhatsApp messages using direct fetch to api-wa.me
- * Supports: text, title (structured), button (interactive), survey, image, document
+ * Supports: text, button (interactive), survey, media, and PIX
  */
 
 export async function POST(request: Request) {
@@ -24,7 +24,11 @@ export async function POST(request: Request) {
         surveyName,
         options,
         mediaUrl,
-        fileName
+        fileName,
+        pixKey,
+        pixName,
+        pixCity,
+        pixAmount
     } = body;
 
     if (!channel || (!audience && !targetNumber)) {
@@ -82,7 +86,7 @@ export async function POST(request: Request) {
 
         switch (type) {
             case 'button':
-                // Reverting to 'message/button' with standard payload for better session compatibility
+                // Enhanced format for v5.0 compatibility
                 endpoint = 'message/button';
                 payload = {
                     ...payload,
@@ -90,7 +94,8 @@ export async function POST(request: Request) {
                     footer: footer || 'Igreja Batista da Manhã',
                     buttons: (buttons || []).map((b: any) => ({
                         id: b.id,
-                        text: b.text
+                        text: b.text,
+                        type: 'reply' // Critical for v5.0
                     }))
                 };
                 break;
@@ -111,6 +116,17 @@ export async function POST(request: Request) {
                     url: mediaUrl,
                     caption: (message || '').replace('{{nome}}', user.name),
                     fileName: fileName || 'documento'
+                };
+                break;
+            case 'pix':
+                endpoint = 'message/pix';
+                payload = {
+                    ...payload,
+                    key: pixKey,
+                    name: pixName || 'Igreja Batista da Manhã',
+                    city: pixCity || 'Sao Goncalo',
+                    amount: Number(pixAmount) || 0,
+                    text: (message || '').replace('{{nome}}', user.name)
                 };
                 break;
             default:

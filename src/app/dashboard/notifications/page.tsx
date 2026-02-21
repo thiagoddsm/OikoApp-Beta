@@ -18,7 +18,8 @@ import {
     Users, CheckCircle2, Search, UserPlus, X, Info, Layers, RefreshCw, 
     Zap, AlertCircle, Group, LayoutTemplate, Sparkles, MessageCircle, MousePointer2,
     UserCheck, Trash2, BarChart3, FileText, Image as ImageIcon, Link as LinkIcon,
-    QrCode, Smartphone, LogOut, PlusCircle, CheckCircle, User as UserIcon
+    QrCode, Smartphone, LogOut, PlusCircle, CheckCircle, User as UserIcon,
+    Banknote, Wallet
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useCollection, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
@@ -225,7 +226,7 @@ function WhatsappSender() {
     const [selectedGroupId, setSelectedGroupId] = useState<string>('');
     const [groups, setGroups] = useState<any[]>([]);
     const [isLoadingGroups, setIsLoadingGroups] = useState(false);
-    const [msgType, setMsgType] = useState<'text' | 'button' | 'survey' | 'media'>('text');
+    const [msgType, setMsgType] = useState<'text' | 'button' | 'survey' | 'media' | 'pix'>('text');
 
     // Button states
     const [msgTitle, setMsgTitle] = useState('Informativo IBM');
@@ -238,6 +239,12 @@ function WhatsappSender() {
     
     // Media states
     const [mediaUrl, setMediaUrl] = useState('');
+
+    // PIX states
+    const [pixKey, setPixKey] = useState('');
+    const [pixName, setPixName] = useState('Igreja Batista da Manhã');
+    const [pixCity, setPixCity] = useState('Sao Goncalo');
+    const [pixAmount, setPixAmount] = useState('');
 
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
     const { data: users } = useCollection<any>(usersQuery);
@@ -284,7 +291,6 @@ function WhatsappSender() {
         setSelectedUserIds(prev => prev.filter(id => id !== userId));
     };
 
-    // Button helpers
     const handleAddBtn = () => {
         if (msgButtons.length < 3) {
             setMsgButtons([...msgButtons, { id: `btn_${Date.now()}`, text: `Botão ${msgButtons.length + 1}` }]);
@@ -299,7 +305,6 @@ function WhatsappSender() {
         setMsgButtons(newBtns);
     };
 
-    // Survey helpers
     const handleAddSurveyOption = () => {
         if (surveyOptions.length < 5) {
             setSurveyOptions([...surveyOptions, `Opção ${surveyOptions.length + 1}`]);
@@ -359,6 +364,13 @@ function WhatsappSender() {
             payload.mediaUrl = mediaUrl;
         }
 
+        if (msgType === 'pix') {
+            payload.pixKey = pixKey;
+            payload.pixName = pixName;
+            payload.pixCity = pixCity;
+            payload.pixAmount = pixAmount;
+        }
+
         try {
             const response = await fetch('/api/notifications/send', {
               method: 'POST',
@@ -370,7 +382,7 @@ function WhatsappSender() {
             
             if (response.ok) {
                 toast({ title: "Envio Concluído!", description: `${result.sentCount || 0} mensagens processadas.` });
-                setMessage('');
+                if (msgType !== 'pix') setMessage('');
                 setSelectedUserIds([]);
                 setSurveyName('');
                 setMediaUrl('');
@@ -402,6 +414,7 @@ function WhatsappSender() {
                             <SelectItem value="button">Mensagem com Botões (Interativa)</SelectItem>
                             <SelectItem value="survey">Enquete / Votação</SelectItem>
                             <SelectItem value="media">Imagem ou Documento</SelectItem>
+                            <SelectItem value="pix">QR Code PIX (Pagamento)</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
@@ -613,6 +626,50 @@ function WhatsappSender() {
                 </div>
             )}
 
+            {msgType === 'pix' && (
+                <div className="space-y-4 p-4 border border-dashed rounded-lg bg-emerald-50 animate-in slide-in-from-top-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label className="flex items-center gap-2 text-emerald-700 font-bold"><Banknote size={14} /> Chave PIX</Label>
+                            <Input 
+                                placeholder="E-mail, CPF ou Aleatória" 
+                                value={pixKey}
+                                onChange={e => setPixKey(e.target.value)}
+                                className="bg-white"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="flex items-center gap-2 text-emerald-700 font-bold"><Wallet size={14} /> Valor (Opcional)</Label>
+                            <Input 
+                                type="number"
+                                placeholder="0.00" 
+                                value={pixAmount}
+                                onChange={e => setPixAmount(e.target.value)}
+                                className="bg-white"
+                            />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase text-muted-foreground">Nome do Favorecido</Label>
+                            <Input 
+                                value={pixName}
+                                onChange={e => setPixName(e.target.value)}
+                                className="bg-white h-8 text-xs"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase text-muted-foreground">Cidade</Label>
+                            <Input 
+                                value={pixCity}
+                                onChange={e => setPixCity(e.target.value)}
+                                className="bg-white h-8 text-xs"
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="space-y-4">
                 <div className="flex justify-between items-end">
                     <Label htmlFor="message">{msgType === 'media' ? 'Legenda' : 'Texto Principal'}</Label>
@@ -644,7 +701,7 @@ function WhatsappSender() {
 
             <Button type="submit" disabled={isLoading || (msgType !== 'survey' && !message?.trim())} className="w-full h-12 text-base font-bold shadow-lg">
                 {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
-                {msgType === 'survey' ? 'Disparar Enquete' : msgType === 'button' ? 'Disparar Convite Interativo' : msgType === 'media' ? 'Enviar Mídia' : 'Enviar Mensagem'}
+                {msgType === 'survey' ? 'Disparar Enquete' : msgType === 'button' ? 'Disparar Convite Interativo' : msgType === 'media' ? 'Enviar Mídia' : msgType === 'pix' ? 'Enviar Cobrança PIX' : 'Enviar Mensagem'}
                 {targetAudience === 'specific_members' && selectedUserIds.length > 0 && ` (${selectedUserIds.length} pessoas)`}
             </Button>
         </form>
