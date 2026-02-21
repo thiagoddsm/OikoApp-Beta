@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,16 +25,10 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
 const QUICK_TEMPLATES = [
-    { id: 'welcome', label: 'Boas-vindas', icon: HeartHandshake, text: 'Olá {{nome}}, que alegria ter você conosco na IBM! Desejamos que se sinta em casa. Como podemos orar por você hoje?' },
+    { id: 'welcome', label: 'Boas-vindas', icon: MessageSquare, text: 'Olá {{nome}}, que alegria ter você conosco na IBM! Desejamos que se sinta em casa. Como podemos orar por você hoje?' },
     { id: 'scale', label: 'Lembrete Escala', icon: Zap, text: 'Olá {{nome}}! Passando para lembrar do seu compromisso no Reino este final de semana. Sua dedicação faz a diferença!' },
     { id: 'prayer', label: 'Círculo Oração', icon: MessageSquare, text: 'Paz do Senhor, {{nome}}. Hoje teremos nosso momento de intercessão às 19h. Contamos com sua presença!' }
 ];
-
-function HeartHandshake(props: any) {
-  return (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M12 5 9.04 7.96a2.17 2.17 0 0 0 0 3.08c.82.82 2.13.82 2.96 0l2.96-2.96"/><path d="m12 10 2.96 2.96c.83.83 2.14.83 2.96 0 .83-.83.83-2.14 0-2.96L15 7.04"/></svg>
-  )
-}
 
 function WhatsappSender() {
     const { firestore } = useFirebase();
@@ -275,7 +269,7 @@ function WhatsappSender() {
             <Button type="submit" disabled={isLoading} className="w-full h-12 text-base font-bold shadow-lg shadow-primary/20">
                 {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
                 {targetAudience === 'specific_members' ? `Enviar para ${selectedUserIds.length} membros` : 
-                 targetAudience === 'whatsapp_group' ? `Enviar para Grupo: ${groups.find(g => g.id === selectedGroupId)?.name || 'Selecionado'}` :
+                 targetAudience === 'whatsapp_group' ? `Enviar para Grupo: ${groups.find((g:any) => g.id === selectedGroupId)?.name || 'Selecionado'}` :
                  'Disparar em Massa'}
             </Button>
         </form>
