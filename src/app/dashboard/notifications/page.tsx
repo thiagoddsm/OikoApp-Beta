@@ -189,10 +189,10 @@ function WhatsappChats() {
                                 <Input 
                                     placeholder="Digite sua resposta..." 
                                     value={replyText}
-                                    onChange={e => setReplyText(e.target.value)}
+                                    onChange={e => replyText && setReplyText(e.target.value)}
                                     className="bg-muted/30 border-none focus-visible:ring-primary h-11"
                                 />
-                                <Button type="submit" size="icon" className="h-11 w-11 shrink-0" disabled={isSending || !replyText.trim()}>
+                                <Button type="submit" size="icon" className="h-11 w-11 shrink-0" disabled={isSending || !replyText?.trim()}>
                                     {isSending ? <Loader2 className="animate-spin" /> : <Send size={18} />}
                                 </Button>
                             </form>
@@ -642,7 +642,7 @@ function WhatsappSender() {
                 <p className="text-[10px] text-muted-foreground italic">Use <strong>{"{{nome}}"}</strong> para personalizar com o nome de cada membro.</p>
             </div>
 
-            <Button type="submit" disabled={isLoading || (msgType !== 'survey' && !message.trim())} className="w-full h-12 text-base font-bold shadow-lg">
+            <Button type="submit" disabled={isLoading || (msgType !== 'survey' && !message?.trim())} className="w-full h-12 text-base font-bold shadow-lg">
                 {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
                 {msgType === 'survey' ? 'Disparar Enquete' : msgType === 'button' ? 'Disparar Convite Interativo' : msgType === 'media' ? 'Enviar Mídia' : 'Enviar Mensagem'}
                 {targetAudience === 'specific_members' && selectedUserIds.length > 0 && ` (${selectedUserIds.length} pessoas)`}
@@ -897,7 +897,7 @@ function NotificationsConfig() {
                             <Label htmlFor="wa-key">API Key (Instância)</Label>
                             <Input id="wa-key" type="password" value={waKey} onChange={e => setWaKey(e.target.value)} placeholder="Sua chave secreta" />
                         </div>
-                    </ScrollArea>
+                    </CardContent>
                     <CardFooter className="flex justify-between border-t pt-4">
                         <div className="flex items-center gap-2">
                             <Input 
