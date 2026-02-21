@@ -39,7 +39,7 @@ export async function GET() {
             return NextResponse.json({ 
                 status: 'error',
                 message: data.message || `O gateway retornou erro ${response.status}`,
-                details: data
+                details: data 
             });
         }
 
@@ -156,12 +156,10 @@ export async function PATCH() {
 
         if (!waKey) return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
 
-        // CRITICAL: The error shown in the screenshot specifies that receiveStatusMessage and receivePresence are REQUIRED.
+        // Exactly as shown in the documentation screenshot
         const urlParams = new URLSearchParams({
             markMessageRead: 'true',
-            saveMedia: 'true',
-            receiveStatusMessage: 'true',
-            receivePresence: 'true'
+            saveMedia: 'true'
         });
 
         const url = `https://us.api-wa.me/${waKey}/instance?${urlParams.toString()}`;

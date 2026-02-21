@@ -8,6 +8,24 @@ import { collection, query, where, getDocs, addDoc, Timestamp, doc, getDoc } fro
  * Supports: text, button (interactive), survey, media, and PIX
  */
 
+const getMimetype = (url: string) => {
+    const ext = url.split('.').pop()?.toLowerCase();
+    switch (ext) {
+        case 'jpg': case 'jpeg': return 'image/jpeg';
+        case 'png': return 'image/png';
+        case 'gif': return 'image/gif';
+        case 'pdf': return 'application/pdf';
+        case 'mp4': return 'video/mp4';
+        case 'mp3': return 'audio/mpeg';
+        case 'wav': return 'audio/wav';
+        case 'doc': return 'application/msword';
+        case 'docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        case 'xls': return 'application/vnd.ms-excel';
+        case 'xlsx': return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        default: return 'application/octet-stream';
+    }
+};
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -86,16 +104,16 @@ export async function POST(request: Request) {
 
         switch (type) {
             case 'button':
-                // Enhanced format for v5.0 compatibility
-                endpoint = 'message/button';
+                // Try message/button_reply based on the categorização
+                endpoint = 'message/button_reply';
                 payload = {
                     ...payload,
+                    title: title || 'Informativo IBM',
                     text: (message || '').replace('{{nome}}', user.name),
                     footer: footer || 'Igreja Batista da Manhã',
                     buttons: (buttons || []).map((b: any) => ({
                         id: b.id,
-                        text: b.text,
-                        type: 'reply' // Critical for v5.0
+                        text: b.text
                     }))
                 };
                 break;
@@ -109,13 +127,19 @@ export async function POST(request: Request) {
                 };
                 break;
             case 'media':
-                const isImage = mediaUrl.match(/\.(jpeg|jpg|gif|png)$/i);
-                endpoint = isImage ? 'message/image' : 'message/document';
+                if (!mediaUrl) break;
+                const mime = getMimetype(mediaUrl);
+                const isImage = mime.startsWith('image/');
+                const isVideo = mime.startsWith('video/');
+                const isAudio = mime.startsWith('audio/');
+                
+                endpoint = isImage ? 'message/image' : isVideo ? 'message/video' : isAudio ? 'message/audio' : 'message/document';
                 payload = {
                     ...payload,
                     url: mediaUrl,
+                    mimetype: mime,
                     caption: (message || '').replace('{{nome}}', user.name),
-                    fileName: fileName || 'documento'
+                    fileName: fileName || 'arquivo'
                 };
                 break;
             case 'pix':
