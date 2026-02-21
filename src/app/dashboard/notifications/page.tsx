@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Send, Settings, Key, Bot, History, MessageSquare, Mail, Users, CheckCircle2, Search, UserPlus, X } from 'lucide-react';
+import { Loader2, Send, Settings, Key, Bot, History, MessageSquare, Mail, Users, CheckCircle2, Search, UserPlus, X, Info, Layers, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useCollection, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, Timestamp, doc } from 'firebase/firestore';
@@ -28,7 +28,6 @@ function WhatsappSender() {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
 
-    // Fetch users for individual selection
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
     const { data: users } = useCollection<any>(usersQuery);
 
@@ -186,6 +185,94 @@ function WhatsappSender() {
                 {targetAudience === 'specific_members' ? `Enviar para ${selectedUserIds.length} pessoas` : 'Disparar em Massa'}
             </Button>
         </form>
+    );
+}
+
+function WhatsappGroups() {
+    const { toast } = useToast();
+    const [groups, setGroups] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [isUpdating, setIsUpdating] = useState<string | null>(null);
+
+    const fetchGroups = async () => {
+        setIsLoading(true);
+        try {
+            const response = await fetch('/api/notifications/groups');
+            const data = await response.json();
+            setGroups(data.groups || []);
+        } catch (e) {
+            console.error("Erro ao buscar grupos", e);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchGroups();
+    }, []);
+
+    const handleUpdateMural = async (group: any) => {
+        const desc = prompt(`Digite a nova descrição (Boletim) para o grupo: ${group.name}`);
+        if (!desc) return;
+
+        setIsUpdating(group.id);
+        try {
+            const response = await fetch('/api/notifications/groups', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ groupId: group.id, description: desc, name: group.name })
+            });
+            if (response.ok) {
+                toast({ title: "Mural Atualizado!", description: "A descrição do grupo foi alterada no WhatsApp." });
+            }
+        } catch (e) {
+            toast({ variant: 'destructive', title: "Erro na atualização" });
+        } finally {
+            setIsUpdating(null);
+        }
+    };
+
+    return (
+        <div className="space-y-4">
+            <div className="flex justify-between items-center">
+                <h3 className="text-lg font-bold">Gestão de Grupos IBM</h3>
+                <Button variant="outline" size="sm" onClick={fetchGroups} disabled={isLoading}>
+                    <RefreshCw className={cn("size-4 mr-2", isLoading && "animate-spin")} /> Sincronizar Grupos
+                </Button>
+            </div>
+            
+            {isLoading ? (
+                <div className="flex justify-center p-12"><Loader2 className="animate-spin text-primary" /></div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {groups.map(group => (
+                        <Card key={group.id} className="hover:border-primary transition-colors">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm font-bold truncate">{group.name}</CardTitle>
+                                <CardDescription className="text-[10px] uppercase font-black">{group.participants} Participantes</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <p className="text-[10px] text-muted-foreground font-mono truncate">{group.id}</p>
+                                <div className="flex gap-2">
+                                    <Button variant="secondary" size="sm" className="flex-1 text-[10px] font-black uppercase" onClick={() => handleUpdateMural(group)} disabled={isUpdating === group.id}>
+                                        {isUpdating === group.id ? <Loader2 className="animate-spin size-3 mr-1" /> : <Layers className="size-3 mr-1" />}
+                                        Mural / Descrição
+                                    </Button>
+                                    <Button variant="outline" size="icon" className="h-8 w-8" disabled>
+                                        <Info className="size-4" />
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                    {groups.length === 0 && (
+                        <div className="col-span-full p-12 text-center border-2 border-dashed rounded-xl">
+                            <p className="text-muted-foreground">Nenhum grupo encontrado na instância do WhatsApp.</p>
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
     );
 }
 
@@ -348,8 +435,9 @@ export default function NotificationsPage() {
         </Card>
 
         <Tabs defaultValue="sender" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 max-w-xl bg-muted/50 p-1">
+            <TabsList className="grid w-full grid-cols-4 max-w-2xl bg-muted/50 p-1">
                 <TabsTrigger value="sender" className="font-bold data-[state=active]:bg-white shadow-sm"><Send className="mr-2 size-4" /> Disparador</TabsTrigger>
+                <TabsTrigger value="groups" className="font-bold data-[state=active]:bg-white shadow-sm"><Users className="mr-2 size-4" /> Grupos</TabsTrigger>
                 <TabsTrigger value="history" className="font-bold data-[state=active]:bg-white shadow-sm"><History className="mr-2 size-4" /> Histórico</TabsTrigger>
                 <TabsTrigger value="config" className="font-bold data-[state=active]:bg-white shadow-sm"><Settings className="mr-2 size-4" /> Configurações</TabsTrigger>
             </TabsList>
@@ -372,6 +460,10 @@ export default function NotificationsPage() {
                         </Tabs>
                     </CardContent>
                 </Card>
+            </TabsContent>
+
+            <TabsContent value="groups" className="mt-6 animate-in slide-in-from-left-4">
+                <WhatsappGroups />
             </TabsContent>
 
             <TabsContent value="history" className="mt-6 animate-in slide-in-from-left-4">
