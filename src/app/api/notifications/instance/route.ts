@@ -43,17 +43,29 @@ export async function GET() {
             });
         }
 
-        // A API costuma retornar status como 'CONNECTED', 'DISCONNECTED', 'OPEN' ou 'STANDBY'
-        const statusValue = data.status || data.state || data.instance?.state || 'unknown';
-        const normalizedStatus = String(statusValue).toLowerCase();
+        // Lógica de extração robusta para evitar capturar o HTTP 200 como status
+        let rawStatus = 'unknown';
         
-        // Mapeamento para garantir que 'open' ou 'connected' sejam tratados como sucesso
-        const finalStatus = (normalizedStatus === 'open' || normalizedStatus === 'connected') ? 'connected' : normalizedStatus;
+        // Prioridade de campos retornados pela api-wa.me
+        if (data.instance?.state) rawStatus = data.instance.state;
+        else if (data.state) rawStatus = data.state;
+        else if (data.instance?.status && typeof data.instance.status === 'string') rawStatus = data.instance.status;
+        else if (data.status && typeof data.status === 'string' && isNaN(Number(data.status))) rawStatus = data.status;
+        else if (data.status === 200 || data.status === 201) {
+            // Se o status for 200 e houver um campo instance.state, usamos o state
+            rawStatus = data.instance?.state || data.instance?.status || 'unknown';
+        }
+
+        const normalizedStatus = String(rawStatus).toLowerCase();
+        
+        // Mapeamento de termos de sucesso comuns em gateways de WhatsApp
+        const isConnected = ['open', 'connected', 'conectado', 'authenticated'].includes(normalizedStatus);
+        const finalStatus = isConnected ? 'connected' : normalizedStatus;
 
         return NextResponse.json({ 
             status: finalStatus,
             message: data.message || '',
-            qr: data.qr || data.qrcode || null,
+            qr: data.qr || data.qrcode || data.instance?.qr || null,
             details: data 
         });
     } catch (fetchErr: any) {
@@ -96,10 +108,10 @@ export async function POST() {
             }, { status: response.status });
         }
 
-        const statusValue = data.status || 'pairing';
+        const statusValue = data.instance?.state || data.status || 'pairing';
         return NextResponse.json({
             success: true,
-            qr: data.qr || data.qrcode || null,
+            qr: data.qr || data.qrcode || data.instance?.qr || null,
             status: String(statusValue).toLowerCase(),
             details: data
         });
