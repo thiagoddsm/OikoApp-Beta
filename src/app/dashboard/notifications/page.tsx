@@ -64,9 +64,10 @@ function WhatsappSender() {
         try {
             const response = await fetch('/api/notifications/groups');
             const data = await response.json();
-            setGroups(data.groups || []);
+            setGroups(Array.isArray(data.groups) ? data.groups : []);
         } catch (e) {
             console.error("Erro ao buscar grupos", e);
+            setGroups([]);
         } finally {
             setIsLoadingGroups(false);
         }
@@ -202,10 +203,10 @@ function WhatsappSender() {
                                 <SelectValue placeholder={isLoadingGroups ? "Buscando grupos..." : "Escolha o grupo..."} />
                             </SelectTrigger>
                             <SelectContent>
-                                {groups.map(g => (
+                                {Array.isArray(groups) && groups.map(g => (
                                     <SelectItem key={g.id} value={g.id}>{g.name || g.id}</SelectItem>
                                 ))}
-                                {groups.length === 0 && !isLoadingGroups && <SelectItem value="none" disabled>Nenhum grupo encontrado</SelectItem>}
+                                {(!Array.isArray(groups) || groups.length === 0) && !isLoadingGroups && <SelectItem value="none" disabled>Nenhum grupo encontrado</SelectItem>}
                             </SelectContent>
                         </Select>
                     </div>
@@ -292,9 +293,10 @@ function WhatsappGroups() {
         try {
             const response = await fetch('/api/notifications/groups');
             const data = await response.json();
-            setGroups(data.groups || []);
+            setGroups(Array.isArray(data.groups) ? data.groups : []);
         } catch (e) {
             console.error("Erro ao buscar grupos", e);
+            setGroups([]);
         } finally {
             setIsLoading(false);
         }
@@ -341,7 +343,7 @@ function WhatsappGroups() {
                 <div className="flex justify-center p-12"><Loader2 className="animate-spin text-primary" /></div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {groups.map(group => (
+                    {Array.isArray(groups) && groups.map(group => (
                         <Card key={group.id} className="hover:border-primary transition-all shadow-sm">
                             <CardHeader className="pb-2">
                                 <CardTitle className="text-sm font-bold truncate">{group.name || group.id}</CardTitle>
@@ -363,7 +365,7 @@ function WhatsappGroups() {
                             </CardContent>
                         </Card>
                     ))}
-                    {groups.length === 0 && (
+                    {(!Array.isArray(groups) || groups.length === 0) && (
                         <div className="col-span-full p-12 text-center border-2 border-dashed rounded-xl">
                             <p className="text-muted-foreground italic">Nenhum grupo encontrado na sua instância.</p>
                         </div>

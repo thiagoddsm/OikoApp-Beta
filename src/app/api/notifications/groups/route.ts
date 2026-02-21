@@ -23,9 +23,9 @@ export async function GET() {
     if (!waKey) {
         return NextResponse.json({ 
             groups: [
-                { id: "123@g.us", name: "GC - Conexão Jovem", participants: 12 },
-                { id: "456@g.us", name: "Ministério de Louvor", participants: 8 },
-                { id: "789@g.us", name: "IBM - Avisos Oficiais", participants: 145 }
+                { id: "123@g.us", name: "GC - Conexão Jovem", participants: [{id: "1"}] },
+                { id: "456@g.us", name: "Ministério de Louvor", participants: [{id: "1"}] },
+                { id: "789@g.us", name: "IBM - Avisos Oficiais", participants: [{id: "1"}] }
             ],
             isSimulation: true,
             warning: "Mostrando dados simulados (API Key não configurada)."
@@ -48,14 +48,14 @@ export async function GET() {
         }
 
         const data = await response.json();
-        // A API retorna um array de grupos diretamente
-        return NextResponse.json({ groups: data || [] });
+        // A API deve retornar um array de grupos. Se não for array, retornamos vazio para evitar erro no map.
+        return NextResponse.json({ groups: Array.isArray(data) ? data : [] });
     } catch (fetchErr: any) {
-        return NextResponse.json({ error: `Erro na comunicação com o gateway: ${fetchErr.message}` }, { status: 500 });
+        return NextResponse.json({ error: `Erro na comunicação com o gateway: ${fetchErr.message}`, groups: [] }, { status: 500 });
     }
 
   } catch (error: any) {
-    return NextResponse.json({ error: `Erro interno: ${error.message}` }, { status: 500 });
+    return NextResponse.json({ error: `Erro interno: ${error.message}`, groups: [] }, { status: 500 });
   }
 }
 
