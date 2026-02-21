@@ -227,9 +227,16 @@ function WhatsappSender() {
     const [isLoadingGroups, setIsLoadingGroups] = useState(false);
     const [msgType, setMsgType] = useState<'text' | 'button' | 'survey' | 'media'>('text');
 
+    // Button states
+    const [msgTitle, setMsgTitle] = useState('Informativo IBM');
+    const [msgFooter, setMsgFooter] = useState('Igreja Batista da Manhã');
+    const [msgButtons, setMsgButtons] = useState([{ id: 'btn_1', text: 'Confirmar Presença ✅' }, { id: 'btn_2', text: 'Não poderei ir ❌' }]);
+
+    // Survey states
     const [surveyName, setSurveyName] = useState('');
     const [surveyOptions, setSurveyOptions] = useState(['Sim', 'Não']);
     
+    // Media states
     const [mediaUrl, setMediaUrl] = useState('');
 
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
@@ -277,6 +284,22 @@ function WhatsappSender() {
         setSelectedUserIds(prev => prev.filter(id => id !== userId));
     };
 
+    // Button helpers
+    const handleAddBtn = () => {
+        if (msgButtons.length < 3) {
+            setMsgButtons([...msgButtons, { id: `btn_${Date.now()}`, text: `Botão ${msgButtons.length + 1}` }]);
+        }
+    };
+    const handleRemoveBtn = (idx: number) => {
+        setMsgButtons(msgButtons.filter((_, i) => i !== idx));
+    };
+    const handleUpdateBtn = (idx: number, text: string) => {
+        const newBtns = [...msgButtons];
+        newBtns[idx].text = text;
+        setMsgButtons(newBtns);
+    };
+
+    // Survey helpers
     const handleAddSurveyOption = () => {
         if (surveyOptions.length < 5) {
             setSurveyOptions([...surveyOptions, `Opção ${surveyOptions.length + 1}`]);
@@ -322,12 +345,9 @@ function WhatsappSender() {
         };
 
         if (msgType === 'button') {
-            payload.title = "Convite IBM";
-            payload.footer = "Igreja Batista da Manhã";
-            payload.buttons = [
-                { id: 'confirm_yes', text: 'Confirmar Presença ✅' },
-                { id: 'confirm_no', text: 'Não poderei ir ❌' }
-            ];
+            payload.title = msgTitle || "Convite IBM";
+            payload.footer = msgFooter || "Igreja Batista da Manhã";
+            payload.buttons = msgButtons.map(b => ({ id: b.id, text: b.text }));
         }
 
         if (msgType === 'survey') {
@@ -488,6 +508,56 @@ function WhatsappSender() {
                             )}
                         </SelectContent>
                     </Select>
+                </div>
+            )}
+
+            {msgType === 'button' && (
+                <div className="space-y-4 p-4 border border-dashed rounded-lg bg-indigo-50 animate-in slide-in-from-top-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label className="text-xs font-bold uppercase text-indigo-700">Título da Mensagem (Cabeçalho)</Label>
+                            <Input 
+                                value={msgTitle} 
+                                onChange={e => setMsgTitle(e.target.value)} 
+                                placeholder="Ex: Convite IBM"
+                                className="bg-white"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-xs font-bold uppercase text-indigo-700">Rodapé (Texto secundário)</Label>
+                            <Input 
+                                value={msgFooter} 
+                                onChange={e => setMsgFooter(e.target.value)} 
+                                placeholder="Ex: Igreja Batista da Manhã"
+                                className="bg-white"
+                            />
+                        </div>
+                    </div>
+                    <div className="space-y-3">
+                        <Label className="text-xs font-black uppercase text-muted-foreground flex items-center gap-2">
+                            <MousePointer2 size={12} /> Configurar Botões (Máx 3)
+                        </Label>
+                        {msgButtons.map((btn, idx) => (
+                            <div key={btn.id} className="flex gap-2">
+                                <Input 
+                                    value={btn.text} 
+                                    onChange={e => handleUpdateBtn(idx, e.target.value)}
+                                    placeholder={`Texto do Botão ${idx + 1}`}
+                                    className="bg-white"
+                                />
+                                {msgButtons.length > 1 && (
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveBtn(idx)}>
+                                        <Trash2 size={14} className="text-destructive" />
+                                    </Button>
+                                )}
+                            </div>
+                        ))}
+                        {msgButtons.length < 3 && (
+                            <Button type="button" variant="outline" size="sm" onClick={handleAddBtn} className="bg-white">
+                                <PlusCircle size={12} className="mr-2" /> Adicionar Botão
+                            </Button>
+                        )}
+                    </div>
                 </div>
             )}
 
@@ -844,7 +914,7 @@ function NotificationsConfig() {
                             </Button>
                         </div>
                         <Button onClick={handleSaveKey} disabled={isSaving} size="sm">
-                            {isSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Settings className="mr-2 size-4" />}
+                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Settings className="mr-2 size-4" />}
                             Salvar Chave
                         </Button>
                     </CardFooter>
