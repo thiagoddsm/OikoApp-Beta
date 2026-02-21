@@ -38,18 +38,34 @@ export async function GET() {
           headers: { 'Content-Type': 'application/json' }
         });
 
+        const data = await response.json().catch(() => ({}));
+
         if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
             return NextResponse.json({ 
                 groups: [],
-                error: `API retornou erro ${response.status}: ${JSON.stringify(errData)}`,
+                error: data.message || `API retornou erro ${response.status}`,
                 isSimulation: false 
             }, { status: response.status });
         }
 
-        const data = await response.json();
-        // A API deve retornar um array de grupos. Se não for array, retornamos vazio para evitar erro no map.
-        return NextResponse.json({ groups: Array.isArray(data) ? data : [] });
+        // Extração robusta de grupos (pode vir como array direto ou dentro de uma prop)
+        let extractedGroups = [];
+        if (Array.isArray(data)) {
+            extractedGroups = data;
+        } else if (data.groups && Array.isArray(data.groups)) {
+            extractedGroups = data.groups;
+        } else if (data.data && Array.isArray(data.data)) {
+            extractedGroups = data.data;
+        } else if (typeof data === 'object') {
+            // Tenta encontrar qualquer array dentro do objeto retornado
+            const arrays = Object.values(data).filter(v => Array.isArray(v));
+            if (arrays.length > 0) extractedGroups = arrays[0] as any[];
+        }
+
+        return NextResponse.json({ 
+            groups: extractedGroups,
+            isSimulation: false
+        });
     } catch (fetchErr: any) {
         return NextResponse.json({ error: `Erro na comunicação com o gateway: ${fetchErr.message}`, groups: [] }, { status: 500 });
     }
@@ -78,7 +94,6 @@ export async function PUT(request: Request) {
             return NextResponse.json({ success: true, message: 'Simulado com sucesso' });
         }
 
-        // Endpoint singular para grupos conforme padrão da API
         const response = await fetch(`https://us.api-wa.me/${waKey}/groups/${groupId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -89,7 +104,7 @@ export async function PUT(request: Request) {
             const errData = await response.json().catch(() => ({}));
             return NextResponse.json({ 
                 success: false, 
-                error: `Gateway retornou erro ${response.status}: ${JSON.stringify(errData)}` 
+                error: errData.message || `Gateway retornou erro ${response.status}` 
             }, { status: response.status });
         }
 

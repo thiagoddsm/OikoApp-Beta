@@ -73,7 +73,11 @@ function WhatsappSender() {
         try {
             const response = await fetch('/api/notifications/groups');
             const data = await response.json();
-            setGroups(Array.isArray(data.groups) ? data.groups : []);
+            const groupsList = Array.isArray(data.groups) ? data.groups : [];
+            setGroups(groupsList);
+            if (groupsList.length === 0 && data.error) {
+                console.warn("Erro ao carregar grupos:", data.error);
+            }
         } catch (e) {
             setGroups([]);
         } finally {
@@ -121,6 +125,11 @@ function WhatsappSender() {
         
         if (targetAudience === 'specific_members' && selectedUserIds.length === 0) {
             toast({ variant: 'destructive', title: "Selecione pelo menos uma pessoa." });
+            return;
+        }
+
+        if (targetAudience === 'whatsapp_group' && !selectedGroupId) {
+            toast({ variant: 'destructive', title: "Selecione um grupo de WhatsApp." });
             return;
         }
 
@@ -264,29 +273,47 @@ function WhatsappSender() {
             {/* SELEÇÃO DE GRUPO */}
             {targetAudience === 'whatsapp_group' && (
                 <div className="space-y-2 animate-in fade-in zoom-in-95 duration-200">
-                    <Label htmlFor="group-select">Escolha o Grupo</Label>
+                    <div className="flex justify-between items-center">
+                        <Label htmlFor="group-select">Escolha o Grupo</Label>
+                        <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6" 
+                            onClick={fetchGroups} 
+                            disabled={isLoadingGroups}
+                        >
+                            <RefreshCw className={cn("size-3", isLoadingGroups && "animate-spin")} />
+                        </Button>
+                    </div>
                     <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
                         <SelectTrigger id="group-select" className="bg-background">
-                            <SelectValue placeholder={isLoadingGroups ? "Carregando grupos..." : "Selecione um grupo"} />
+                            <SelectValue placeholder={isLoadingGroups ? "Buscando grupos..." : "Selecione um grupo"} />
                         </SelectTrigger>
                         <SelectContent>
                             {isLoadingGroups ? (
-                                <div className="flex items-center justify-center p-2">
+                                <div className="flex items-center justify-center p-4">
                                     <Loader2 className="size-4 animate-spin mr-2" />
-                                    <span className="text-xs">Buscando grupos...</span>
+                                    <span className="text-xs font-medium">Sincronizando com WhatsApp...</span>
                                 </div>
                             ) : (
                                 <>
-                                    {Array.isArray(groups) && groups.map(g => (
-                                        <SelectItem key={g.id} value={g.id}>{g.name || g.id}</SelectItem>
-                                    ))}
-                                    {(!groups || groups.length === 0) && (
-                                        <SelectItem value="none" disabled>Nenhum grupo encontrado</SelectItem>
+                                    {Array.isArray(groups) && groups.length > 0 ? (
+                                        groups.map(g => (
+                                            <SelectItem key={g.id} value={g.id}>{g.name || g.id}</SelectItem>
+                                        ))
+                                    ) : (
+                                        <SelectItem value="none" disabled>Nenhum grupo carregado</SelectItem>
                                     )}
                                 </>
                             )}
                         </SelectContent>
                     </Select>
+                    {(!groups || groups.length === 0) && !isLoadingGroups && (
+                        <p className="text-[10px] text-amber-600 flex items-center gap-1 mt-1 font-bold italic">
+                            <AlertCircle size={10} /> Dica: Verifique se sua instância está conectada na aba Configs.
+                        </p>
+                    )}
                 </div>
             )}
 
@@ -466,7 +493,6 @@ function NotificationsConfig() {
             const response = await fetch('/api/notifications/instance');
             const data = await response.json();
             
-            // Se o status retornar um QR Code (comum quando está aguardando conexão), exibimos
             if (data.qr) {
                 const qr = data.qr.startsWith('data:') ? data.qr : `data:image/png;base64,${data.qr}`;
                 setQrCode(qr);
@@ -474,7 +500,6 @@ function NotificationsConfig() {
 
             setInstanceStatus(data);
 
-            // Se estiver conectado e tiver um QR na tela, limpa o QR
             if (data.status === 'connected') {
                 setQrCode(null);
             }
@@ -485,7 +510,6 @@ function NotificationsConfig() {
         }
     };
 
-    // Polling de status enquanto o QR Code está sendo exibido ou status não for conectado
     useEffect(() => {
         let interval: any;
         if (qrCode || (instanceStatus && instanceStatus.status !== 'connected' && instanceStatus.status !== 'unconfigured')) {
@@ -528,11 +552,11 @@ function NotificationsConfig() {
                 toast({ 
                     variant: 'destructive', 
                     title: "Erro no Gateway", 
-                    description: data.error || "Não foi possível gerar o código. Verifique se a chave está correta." 
+                    description: data.error || "Não foi possível gerar o código." 
                 });
             }
         } catch (e: any) {
-            toast({ variant: 'destructive', title: "Erro na Requisição", description: "Falha na comunicação com o servidor local." });
+            toast({ variant: 'destructive', title: "Erro na Requisição", description: "Falha na comunicação." });
         } finally {
             setIsGeneratingQR(false);
         }
@@ -670,7 +694,6 @@ function NotificationsConfig() {
                 </Card>
             </div>
 
-            {/* AREA DO QR CODE WHITE LABEL */}
             {qrCode && (
                 <Card className="border-primary border-2 bg-primary/5 animate-in zoom-in-95 duration-300">
                     <CardHeader className="text-center pb-2">
@@ -733,6 +756,7 @@ function WhatsappGroups() {
             const data = await response.json();
             if (response.ok) {
                 setGroups(Array.isArray(data.groups) ? data.groups : []);
+                if (data.warning) console.warn(data.warning);
             } else {
                 setError(data.error || "Erro ao buscar grupos.");
             }
@@ -785,27 +809,37 @@ function WhatsappGroups() {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {(Array.isArray(groups) ? groups : []).map(group => (
-                    <Card key={group.id} className="hover:shadow-md transition-shadow">
-                        <CardHeader className="p-4">
-                            <CardTitle className="text-sm font-bold flex items-center justify-between">
-                                <span className="truncate">{group.name || "Sem Nome"}</span>
-                                <Badge variant="secondary" className="text-[10px]">{group.participants?.length || 0} p.</Badge>
-                            </CardTitle>
-                            <CardDescription className="text-[10px] truncate">{group.id}</CardDescription>
-                        </CardHeader>
-                        <CardFooter className="p-4 pt-0 flex justify-end gap-2">
-                            <Button variant="outline" size="xs" className="h-7 text-[10px] uppercase font-black" onClick={() => handleUpdateMural(group.id)}>
-                                <LayoutTemplate size={12} className="mr-1" /> Mural / Descrição
-                            </Button>
-                        </CardFooter>
-                    </Card>
-                ))}
-                {(Array.isArray(groups) ? groups.length : 0) === 0 && !isLoading && !error && (
-                    <div className="col-span-full py-12 text-center border-2 border-dashed rounded-lg">
-                        <Group className="size-12 text-muted-foreground mx-auto mb-2 opacity-20" />
-                        <p className="text-muted-foreground text-sm">Nenhum grupo encontrado nesta instância.</p>
-                    </div>
+                {isLoading ? (
+                    [...Array(3)].map((_, i) => (
+                        <Card key={i} className="animate-pulse">
+                            <CardContent className="h-24 bg-muted rounded-lg" />
+                        </Card>
+                    ))
+                ) : (
+                    <>
+                        {(Array.isArray(groups) ? groups : []).map(group => (
+                            <Card key={group.id} className="hover:shadow-md transition-shadow">
+                                <CardHeader className="p-4">
+                                    <CardTitle className="text-sm font-bold flex items-center justify-between">
+                                        <span className="truncate">{group.name || "Sem Nome"}</span>
+                                        <Badge variant="secondary" className="text-[10px]">{group.participants?.length || 0} p.</Badge>
+                                    </CardTitle>
+                                    <CardDescription className="text-[10px] truncate">{group.id}</CardDescription>
+                                </CardHeader>
+                                <CardFooter className="p-4 pt-0 flex justify-end gap-2">
+                                    <Button variant="outline" size="xs" className="h-7 text-[10px] uppercase font-black" onClick={() => handleUpdateMural(group.id)}>
+                                        <LayoutTemplate size={12} className="mr-1" /> Mural / Descrição
+                                    </Button>
+                                </CardFooter>
+                            </Card>
+                        ))}
+                        {(Array.isArray(groups) ? groups.length : 0) === 0 && !error && (
+                            <div className="col-span-full py-12 text-center border-2 border-dashed rounded-lg">
+                                <Group className="size-12 text-muted-foreground mx-auto mb-2 opacity-20" />
+                                <p className="text-muted-foreground text-sm">Nenhum grupo encontrado nesta instância.</p>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </div>
