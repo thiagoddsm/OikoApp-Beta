@@ -110,14 +110,12 @@ export async function POST(request: Request) {
                 // v5.0.0 oficial: message/button_reply
                 endpoint = 'message/button_reply';
                 payload = {
-                    ...payload,
-                    title: title || 'Informativo IBM',
-                    body: (message || '').replace('{{nome}}', user.name),
+                    to: formattedPhone,
+                    title: (message || title || 'Informativo IBM').replace('{{nome}}', user.name),
                     footer: footer || 'Igreja Batista da Manhã',
                     buttons: (buttons || []).map((b: any) => ({
                         id: b.id,
-                        text: b.text,
-                        type: 'reply'
+                        text: b.text
                     }))
                 };
                 break;
