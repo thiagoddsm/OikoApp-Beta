@@ -5,7 +5,7 @@ import { collection, query, where, getDocs, addDoc, Timestamp, doc, getDoc } fro
 
 /**
  * API Route to send WhatsApp messages using direct fetch to api-wa.me
- * Supports: text, button, survey, image, document
+ * Supports: text, title (structured buttons), survey, image, document
  */
 
 export async function POST(request: Request) {
@@ -82,12 +82,12 @@ export async function POST(request: Request) {
 
         switch (type) {
             case 'button':
-                // For instances with button restriction, sometimes 'message/title' works better
-                // as it's a structured message rather than pure interactive buttons.
-                endpoint = 'message/button';
+                // Using 'message/title' for structured buttons as it is more compatible with non-business accounts
+                endpoint = 'message/title';
                 payload = {
                     ...payload,
-                    title: (title || message || '').replace('{{nome}}', user.name),
+                    title: title || 'Informativo IBM',
+                    text: (message || '').replace('{{nome}}', user.name),
                     footer: footer || 'Igreja Batista da Manhã',
                     buttons: buttons || []
                 };
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
                     ...payload,
                     name: (surveyName || 'Enquete IBM').replace('{{nome}}', user.name),
                     options: options || [],
-                    selectableOptionsCount: 1 // Required for newer API versions
+                    selectableOptionsCount: 1 // Required for newer API versions (v5.0+)
                 };
                 break;
             case 'media':
@@ -132,7 +132,6 @@ export async function POST(request: Request) {
                 sentCount++;
             } else {
                 const errData = await response.json().catch(() => ({}));
-                // Capture the specific error from gateway
                 lastError = errData.message || errData.error || `Erro ${response.status}`;
                 errorCount++;
             }

@@ -322,7 +322,7 @@ function WhatsappSender() {
         };
 
         if (msgType === 'button') {
-            payload.title = message || "Confirmação de Escala";
+            payload.title = "Convite IBM";
             payload.footer = "Igreja Batista da Manhã";
             payload.buttons = [
                 { id: 'confirm_yes', text: 'Confirmar Presença ✅' },
@@ -682,7 +682,15 @@ function NotificationsConfig() {
         try {
             const response = await fetch(`https://us.api-wa.me/${waKey}/actions/registered?to=${formatted}`);
             const data = await response.json();
-            if (data.status === true || data.registered === true) {
+            
+            // Check robustly for registration in various response formats
+            const isRegistered = data.status === true || 
+                                 data.registered === true || 
+                                 data.data?.registered === true ||
+                                 data.result === true ||
+                                 (data.status === 200 && (data.registered === true || data.data?.registered === true));
+
+            if (isRegistered) {
                 toast({ title: "Número Válido ✅", description: "Este contato possui WhatsApp." });
             } else {
                 toast({ variant: 'destructive', title: "Número Inválido ❌", description: "Este contato NÃO possui WhatsApp registrado." });
@@ -702,7 +710,7 @@ function NotificationsConfig() {
                 toast({ title: "Recursos Ativados!", description: "Botões e enquetes agora devem funcionar normalmente." });
             } else {
                 const data = await response.json();
-                toast({ variant: 'destructive', title: "Erro na Configuração", description: data.error });
+                toast({ variant: 'destructive', title: "Erro na Configuração", description: data.error || "A instância pode estar ocupada ou offline." });
             }
         } catch (e) {
             toast({ variant: 'destructive', title: "Erro na Requisição" });
@@ -807,7 +815,7 @@ function NotificationsConfig() {
 
     if (isLoadingConfig) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
-    const webhookUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/notifications/webhook` : '';
+    const webhookUrl = `${window.location.origin}/api/notifications/webhook`;
 
     return (
         <div className="space-y-6">
