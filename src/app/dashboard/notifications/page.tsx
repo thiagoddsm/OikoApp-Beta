@@ -167,7 +167,7 @@ function WhatsappChats() {
                                         <div className={cn(
                                             "max-w-[80%] p-3 rounded-2xl shadow-sm text-sm",
                                             msg.fromMe 
-                                                ? "bg-primary text-primary-foreground rounded-tr-none" 
+                                                ? "bg-primary text-primary-foreground text-right rounded-tr-none" 
                                                 : "bg-white border border-slate-100 rounded-tl-none"
                                         )}>
                                             <p className="leading-relaxed">{msg.content}</p>
@@ -474,16 +474,14 @@ function WhatsappSender() {
                 <div className="space-y-2 animate-in fade-in zoom-in-95 duration-200">
                     <div className="flex justify-between items-center">
                         <Label htmlFor="group-select">Escolha o Grupo</Label>
-                        <Button 
+                        <button 
                             type="button" 
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-6 w-6" 
+                            className="text-xs flex items-center gap-1 text-primary hover:underline font-bold"
                             onClick={fetchGroups} 
                             disabled={isLoadingGroups}
                         >
-                            <RefreshCw className={cn("size-3", isLoadingGroups && "animate-spin")} />
-                        </Button>
+                            <RefreshCw className={cn("size-3", isLoadingGroups && "animate-spin")} /> Atualizar
+                        </button>
                     </div>
                     <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
                         <SelectTrigger id="group-select" className="bg-background">
@@ -711,7 +709,7 @@ function NotificationsConfig() {
     const [isSyncingWebhook, setIsSyncingWebhook] = useState(false);
     const [isConfiguringInstance, setIsConfiguringInstance] = useState(false);
     const [qrCode, setQrCode] = useState<string | null>(null);
-    const [instanceStatus, setInstanceStatus] = useState<{status: string, message?: string, qr?: string} | null>(null);
+    const [instanceStatus, setInstanceStatus] = useState<{status: string, message?: string, qr?: string, details?: any} | null>(null);
     const [isLoadingStatus, setIsLoadingStatus] = useState(false);
     const [testNumber, setTestNumber] = useState('');
     const [isCheckingNumber, setIsCheckingNumber] = useState(false);
@@ -753,7 +751,6 @@ function NotificationsConfig() {
             const response = await fetch(`https://us.api-wa.me/${waKey}/actions/registered?to=${formatted}`);
             const data = await response.json();
             
-            // Check robustly for registration in various response formats
             const isRegistered = data.status === true || 
                                  data.registered === true || 
                                  data.data?.registered === true ||
@@ -900,7 +897,7 @@ function NotificationsConfig() {
                             <Label htmlFor="wa-key">API Key (Instância)</Label>
                             <Input id="wa-key" type="password" value={waKey} onChange={e => setWaKey(e.target.value)} placeholder="Sua chave secreta" />
                         </div>
-                    </CardContent>
+                    </ScrollArea>
                     <CardFooter className="flex justify-between border-t pt-4">
                         <div className="flex items-center gap-2">
                             <Input 
@@ -941,6 +938,9 @@ function NotificationsConfig() {
                             <span className="font-black uppercase text-xs tracking-widest">
                                 {instanceStatus?.status || 'Buscando...'}
                             </span>
+                            {instanceStatus?.status === 'unknown' && (
+                                <p className="text-[10px] text-muted-foreground">O gateway retornou um status não mapeado.</p>
+                            )}
                         </div>
                         
                         {instanceStatus?.status === 'connected' ? (

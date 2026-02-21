@@ -43,18 +43,21 @@ export async function GET() {
             });
         }
 
+        // Detecção ultra-resiliente de status
         let rawStatus = 'unknown';
-        // Procura em diversas propriedades possíveis que o gateway pode retornar
+        
+        // Ordem de prioridade para encontrar o status real
         if (data.instance?.state) rawStatus = data.instance.state;
         else if (data.state) rawStatus = data.state;
-        else if (data.instance?.status && typeof data.instance.status === 'string') rawStatus = data.instance.status;
+        else if (data.instance?.status) rawStatus = data.instance.status;
         else if (data.status && typeof data.status === 'string' && isNaN(Number(data.status))) rawStatus = data.status;
+        else if (data.authenticated === true || data.instance?.authenticated === true) rawStatus = 'connected';
         else if (data.status === 200 || data.status === 201) {
-            rawStatus = data.instance?.state || data.instance?.status || 'unknown';
+            rawStatus = data.instance?.state || data.instance?.status || 'connected'; // Assume conectado se 200 e não há erro
         }
 
         const normalizedStatus = String(rawStatus).toLowerCase();
-        const isConnected = ['open', 'connected', 'conectado', 'authenticated'].includes(normalizedStatus);
+        const isConnected = ['open', 'connected', 'conectado', 'authenticated', 'auth'].some(s => normalizedStatus.includes(s));
         const finalStatus = isConnected ? 'connected' : normalizedStatus;
 
         return NextResponse.json({ 
@@ -89,10 +92,10 @@ export async function POST() {
             return NextResponse.json({ error: "Chave de API não configurada." }, { status: 400 });
         }
 
-        // POST sem corpo para gerar/iniciar instância
         const response = await fetch(`https://us.api-wa.me/${waKey}/instance`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}) // Alguns gateways exigem body mesmo vazio
         });
 
         const data = await response.json().catch(() => ({}));
@@ -103,7 +106,7 @@ export async function POST() {
             }, { status: response.status });
         }
 
-        const statusValue = data.instance?.state || data.status || 'pairing';
+        const statusValue = data.instance?.state || data.instance?.status || data.status || 'pairing';
         return NextResponse.json({
             success: true,
             qr: data.qr || data.qrcode || data.instance?.qr || null,
@@ -144,10 +147,6 @@ export async function PUT(request: Request) {
     }
 }
 
-/**
- * PATCH handler to update instance settings (markMessageRead, saveMedia)
- * Essential for enabling interactive features like buttons and surveys
- */
 export async function PATCH() {
     try {
         const { firestore } = initializeFirebase();
@@ -157,7 +156,6 @@ export async function PATCH() {
 
         if (!waKey) return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
 
-        // Endpoint according to documentation: /instance?markMessageRead=true&saveMedia=true
         const url = `https://us.api-wa.me/${waKey}/instance?markMessageRead=true&saveMedia=true`;
         
         const response = await fetch(url, {
