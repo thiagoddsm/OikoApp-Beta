@@ -48,7 +48,7 @@ function PedagogicalLogPageContent() {
     const teacherData = useMemo(() => classData ? users.find(u => u.id === classData.teacherId) : null, [classData, users]);
     const classLogs = useMemo(() => pedagogicalLogs.filter(log => log.classId === classId).sort((a,b) => b.date.toMillis() - a.date.toMillis()), [pedagogicalLogs, classId]);
     
-    const isMemberCourse = courseData?.name?.toLowerCase().includes('membro') || courseData?.name?.toLowerCase().includes('integração');
+    const isMemberCourse = courseData?.name?.toLowerCase().includes('membro') || courseData?.name?.toLowerCase().includes('integração') || courseData?.name?.toLowerCase().includes('pertencer');
     const isWaveOrDis = courseData?.ministryName.toLowerCase().includes('wave') || courseData?.ministryName.toLowerCase().includes('dis');
     
     const isModule5 = isMemberCourse && classData?.weekOfMonth === 'last';
