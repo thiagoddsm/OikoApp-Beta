@@ -48,7 +48,7 @@ export async function GET() {
             }, { status: response.status });
         }
 
-        // Extração robusta de grupos (pode vir como array direto ou dentro de uma prop)
+        // Extração robusta de grupos
         let extractedGroups = [];
         if (Array.isArray(data)) {
             extractedGroups = data;
@@ -56,12 +56,8 @@ export async function GET() {
             extractedGroups = data.groups;
         } else if (data.data && Array.isArray(data.data)) {
             extractedGroups = data.data;
-        } else if (typeof data === 'object') {
-            const arrays = Object.values(data).filter(v => Array.isArray(v));
-            if (arrays.length > 0) extractedGroups = arrays[0] as any[];
         }
 
-        // NORMALIZAÇÃO: Mapeia diferentes nomes de campos (name, subject, etc) para um padrão
         const normalizedGroups = extractedGroups.map((g: any) => ({
             id: g.id || g.jid || '',
             name: g.name || g.subject || g.groupName || 'Grupo sem Nome',
@@ -73,7 +69,7 @@ export async function GET() {
             isSimulation: false
         });
     } catch (fetchErr: any) {
-        return NextResponse.json({ error: `Erro na comunicação com o gateway: ${fetchErr.message}`, groups: [] }, { status: 500 });
+        return NextResponse.json({ error: `Erro na comunicação: ${fetchErr.message}`, groups: [] }, { status: 500 });
     }
 
   } catch (error: any) {
@@ -84,15 +80,9 @@ export async function GET() {
 export async function PUT(request: Request) {
     try {
         const { firestore } = initializeFirebase();
-        let waKey = null;
-        
-        try {
-            const configRef = doc(firestore, 'config', 'notifications');
-            const configSnap = await getDoc(configRef);
-            waKey = configSnap.exists() ? configSnap.data()?.whatsappApiKey : null;
-        } catch (e) {
-            console.warn("Aviso: Falha ao ler config.");
-        }
+        const configRef = doc(firestore, 'config', 'notifications');
+        const configSnap = await getDoc(configRef);
+        const waKey = configSnap.exists() ? configSnap.data()?.whatsappApiKey : null;
 
         const { groupId, description, name } = await request.json();
 
@@ -100,18 +90,48 @@ export async function PUT(request: Request) {
             return NextResponse.json({ success: true, message: 'Simulado com sucesso' });
         }
 
-        const response = await fetch(`https://us.api-wa.me/${waKey}/groups/${groupId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, description })
-        });
+        // Estratégia de tentativa:
+        // 1. Tentar endpoint específico de descrição (mais comum em gateways modernos)
+        // 2. Fallback para PUT genérico de metadados
+        
+        let success = false;
+        let lastError = '';
 
-        if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
-            return NextResponse.json({ 
-                success: false, 
-                error: errData.message || `Gateway retornou erro ${response.status}` 
-            }, { status: response.status });
+        try {
+            const resDesc = await fetch(`https://us.api-wa.me/${waKey}/groups/${groupId}/description`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ description })
+            });
+            
+            if (resDesc.ok) {
+                success = true;
+            } else {
+                const errorData = await resDesc.json().catch(() => ({}));
+                lastError = errorData.message || `Erro ${resDesc.status} no POST description`;
+            }
+        } catch (e: any) {
+            lastError = e.message;
+        }
+
+        if (!success) {
+            // Tenta o PUT genérico enviando o nome atual para não perder
+            const resPut = await fetch(`https://us.api-wa.me/${waKey}/groups/${groupId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, description })
+            });
+            
+            if (resPut.ok) {
+                success = true;
+            } else {
+                const errorData = await resPut.json().catch(() => ({}));
+                lastError = errorData.message || `Erro ${resPut.status} no PUT group`;
+            }
+        }
+
+        if (!success) {
+            return NextResponse.json({ success: false, error: lastError }, { status: 400 });
         }
 
         return NextResponse.json({ success: true });

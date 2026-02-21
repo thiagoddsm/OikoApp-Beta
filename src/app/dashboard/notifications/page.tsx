@@ -705,7 +705,7 @@ function NotificationsConfig() {
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <CardTitle className="text-sm font-bold flex items-center gap-2"><Layers className="size-4 text-primary" /> Configuração de Webhook</CardTitle>
-                        <Button variant="outline" size="xs" onClick={handleSyncWebhook} disabled={isSyncingWebhook || !waKey}>
+                        <Button variant="outline" size="sm" onClick={handleSyncWebhook} disabled={isSyncingWebhook || !waKey}>
                             {isSyncingWebhook ? <Loader2 className="size-3 animate-spin mr-1" /> : <RefreshCw className="size-3 mr-1" />}
                             Auto-Sincronizar
                         </Button>
@@ -750,24 +750,25 @@ function WhatsappGroups() {
         fetchGroups();
     }, []);
 
-    const handleUpdateMural = async (groupId: string) => {
-        const description = prompt("Digite a nova descrição (Mural) do grupo:");
-        if (!description) return;
+    const handleUpdateMural = async (groupId: string, groupName: string) => {
+        const description = prompt(`Digite a nova descrição (Mural) para o grupo "${groupName}":`);
+        if (description === null) return;
 
         try {
             const response = await fetch('/api/notifications/groups', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ groupId, description })
+                body: JSON.stringify({ groupId, description, name: groupName })
             });
+            
             if (response.ok) {
-                toast({ title: "Mural Atualizado!", description: "A descrição do grupo foi alterada no WhatsApp." });
+                toast({ title: "Mural Atualizado!", description: "A descrição do grupo foi alterada com sucesso." });
             } else {
                 const errData = await response.json();
-                toast({ variant: 'destructive', title: "Erro", description: errData.error || "Não foi possível atualizar a descrição." });
+                toast({ variant: 'destructive', title: "Erro", description: errData.error || "Não foi possível atualizar o Mural." });
             }
         } catch (e) {
-            toast({ variant: 'destructive', title: "Erro na conexão" });
+            toast({ variant: 'destructive', title: "Erro na conexão", description: "Falha ao contatar o servidor." });
         }
     };
 
@@ -806,7 +807,7 @@ function WhatsappGroups() {
                                     <CardDescription className="text-[10px] truncate">{group.id}</CardDescription>
                                 </CardHeader>
                                 <CardFooter className="p-4 pt-0 flex justify-end gap-2">
-                                    <Button variant="outline" size="xs" className="h-7 text-[10px] uppercase font-black" onClick={() => handleUpdateMural(group.id)}>
+                                    <Button variant="outline" size="sm" className="h-7 text-[10px] uppercase font-black" onClick={() => handleUpdateMural(group.id, group.name)}>
                                         <LayoutTemplate size={12} className="mr-1" /> Mural / Descrição
                                     </Button>
                                 </CardFooter>
