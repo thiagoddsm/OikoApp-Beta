@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -7,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Loader2, UserPlus, Search, BookOpen, Layers } from 'lucide-react';
+import { Loader2, UserPlus, Search, BookOpen, Layers, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering } from '@/contexts/volunteering-context';
 
@@ -46,7 +45,17 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId }: Enrol
   }, [open, initialStudentId]);
 
   const selectedCourse = useMemo(() => courses.find(c => c.id === selectedCourseId), [courses, selectedCourseId]);
-  const isMemberCourse = selectedCourse?.name?.toLowerCase().includes('membro') || selectedCourse?.name?.toLowerCase().includes('integração');
+  const isMemberCourse = useMemo(() => 
+    selectedCourse?.name?.toLowerCase().includes('membro') || 
+    selectedCourse?.name?.toLowerCase().includes('pertencer') ||
+    selectedCourse?.name?.toLowerCase().includes('integração'),
+  [selectedCourse]);
+
+  const selectedUser = useMemo(() => users.find(u => u.id === studentId), [users, studentId]);
+  const isStudentInCidade = selectedUser?.integrationStatus === 'nao_alcancado';
+
+  // Rule: Someone in "Cidade" stage CANNOT take the membership course.
+  const isEnrollmentBlocked = isMemberCourse && isStudentInCidade;
 
   // Filtra as turmas com base no curso selecionado
   const filteredClasses = useMemo(() => {
@@ -67,6 +76,14 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId }: Enrol
         toast({ variant: 'destructive', title: 'Campo obrigatório', description: 'Selecione um curso.' });
         return;
     }
+    if (isEnrollmentBlocked) {
+        toast({ 
+            variant: 'destructive', 
+            title: 'Matrícula Bloqueada', 
+            description: 'Visitantes no estágio "Cidade" não podem fazer o curso de membresia. Registre uma decisão primeiro.' 
+        });
+        return;
+    }
     if (!isMemberCourse && !classId) {
       toast({ variant: 'destructive', title: 'Campo obrigatório', description: 'Selecione uma turma.' });
       return;
@@ -82,18 +99,17 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId }: Enrol
                 name: newName,
                 email: newEmail,
                 phone: newPhone,
+                integrationStatus: isMemberCourse ? 'novo_convertido' : 'nao_alcancado', // New users for member courses start as converted
             });
         }
 
-        // Utiliza a função unificada de matrícula: 
-        // Se for curso de membro, matricula em todas as disciplinas automaticamente.
         await enrollStudent(finalStudentId, selectedCourseId, isMemberCourse ? undefined : classId);
         
-        toast({ title: 'Sucesso!', description: 'Matrícula realizada com sucesso em todas as disciplinas do ciclo.' });
+        toast({ title: 'Sucesso!', description: 'Matrícula realizada com sucesso.' });
         onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
         console.error(error);
-        toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível concluir a matrícula.' });
+        toast({ variant: 'destructive', title: 'Erro', description: error.message || 'Não foi possível concluir a matrícula.' });
     } finally {
         setIsSaving(false);
     }
@@ -177,7 +193,18 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId }: Enrol
             {/* Passo 3: Disciplinas / Turmas */}
             <div>
                 <Label htmlFor="class-id" className="text-[10px] uppercase font-black text-muted-foreground">3. Disciplinas de Destino</Label>
-                {isMemberCourse ? (
+                
+                {isEnrollmentBlocked ? (
+                    <div className="mt-2 p-4 bg-destructive/10 border-2 border-destructive rounded-lg flex items-start gap-3 animate-in shake-1 duration-300">
+                        <AlertTriangle className="size-5 text-destructive shrink-0 mt-0.5" />
+                        <div>
+                            <p className="text-xs font-black text-destructive uppercase tracking-tighter">Acesso Negado à Membresia</p>
+                            <p className="text-[11px] text-destructive/80 mt-1 leading-tight font-medium">
+                                Este aluno está no estágio <strong>CIDADE</strong>. Para participar do Curso Pertencer, ele precisa primeiro registrar uma <strong>decisão</strong> (Novo Convertido, Reconciliado ou Transferido).
+                            </p>
+                        </div>
+                    </div>
+                ) : isMemberCourse ? (
                     <div className="mt-2 p-4 bg-primary/5 border border-primary/20 rounded-lg flex items-start gap-3 animate-in fade-in zoom-in-95">
                         <Layers className="size-5 text-primary shrink-0 mt-0.5" />
                         <div>
@@ -218,7 +245,7 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId }: Enrol
         </div>
         <DialogFooter>
           <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-          <Button onClick={handleSave} disabled={isSaving || (!isMemberCourse && !classId)}>
+          <Button onClick={handleSave} disabled={isSaving || isEnrollmentBlocked || (!isMemberCourse && !classId)}>
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {mode === 'new' ? 'Cadastrar e Matricular' : 'Efetivar Matrícula'}
           </Button>

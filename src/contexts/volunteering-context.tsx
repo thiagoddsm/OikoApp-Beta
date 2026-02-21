@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useMemo } from 'react';
@@ -579,8 +578,14 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     const course = courses.find(c => c.id === courseId);
     if (!course) throw new Error("Curso não encontrado");
 
-    const isMemberCourse = course.name.toLowerCase().includes('membro') || course.name.toLowerCase().includes('integração');
+    const studentUser = users.find(u => u.id === studentId);
+    const isMemberCourse = course.name.toLowerCase().includes('membro') || course.name.toLowerCase().includes('pertencer') || course.name.toLowerCase().includes('integração');
     
+    // BLOCK RULE: "Cidade" members cannot enroll in membership courses.
+    if (isMemberCourse && studentUser?.integrationStatus === 'nao_alcancado') {
+        throw new Error("Membros no estágio 'Cidade' precisam de uma decisão registrada para fazer este curso.");
+    }
+
     const batch = writeBatch(firestore);
     const currentMonth = new Date().toISOString().slice(0, 7);
 
@@ -637,14 +642,18 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     const userId = request.userId;
     const courseId = request.courseId;
 
-    // Utiliza a lógica centralizada de ciclo
-    await enrollStudent(userId, courseId, classId);
+    try {
+        // Utiliza a lógica centralizada de ciclo
+        await enrollStudent(userId, courseId, classId);
 
-    // Atualiza status da solicitação
-    const requestRef = doc(firestore, 'enrollment_requests', requestId);
-    await updateDoc(requestRef, { status: 'approved', classId: classId || '' });
+        // Atualiza status da solicitação
+        const requestRef = doc(firestore, 'enrollment_requests', requestId);
+        await updateDoc(requestRef, { status: 'approved', classId: classId || '' });
 
-    toast({ title: 'Matrícula Efetivada', description: 'O aluno foi matriculado no ciclo de disciplinas.' });
+        toast({ title: 'Matrícula Efetivada', description: 'O aluno foi matriculado no ciclo de disciplinas.' });
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Erro na Aprovação', description: e.message });
+    }
   };
 
   const value = useMemo(() => ({

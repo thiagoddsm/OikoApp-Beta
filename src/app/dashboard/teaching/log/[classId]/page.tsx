@@ -228,7 +228,14 @@ function PedagogicalLogPageContent() {
                                                 studentList.map(student => {
                                                     const progress = student.journey?.memberCourseProgress || {};
                                                     const hasFinishedFirstFour = ['module1', 'module2', 'module3', 'module4'].every(m => progress[m]);
-                                                    const isLocked = isModule5 && !hasFinishedFirstFour;
+                                                    
+                                                    // BLOCK RULE: Someone in "Cidade" stage CANNOT take the membership course.
+                                                    const isCidade = student.integrationStatus === 'nao_alcancado';
+                                                    
+                                                    const isLockedModule5 = isModule5 && !hasFinishedFirstFour;
+                                                    const isLockedByStatus = isMemberCourse && isCidade;
+                                                    
+                                                    const isLocked = isLockedModule5 || isLockedByStatus;
 
                                                     return (
                                                         <div key={student.id} className={cn(
@@ -255,8 +262,12 @@ function PedagogicalLogPageContent() {
                                                                                 <Lock size={12} /> BLOQUEADO
                                                                             </div>
                                                                         </TooltipTrigger>
-                                                                        <TooltipContent className="max-w-[200px]">
-                                                                            <p className="text-xs">Este aluno ainda não concluiu os 4 módulos anteriores obrigatórios para participar do Comissionamento.</p>
+                                                                        <TooltipContent className="max-w-[250px]">
+                                                                            <p className="text-xs">
+                                                                                {isLockedByStatus 
+                                                                                    ? "Este aluno está no estágio 'Cidade' e precisa registrar uma decisão para ser admitido no Curso Pertencer."
+                                                                                    : "Este aluno ainda não concluiu os 4 módulos anteriores obrigatórios para o Comissionamento."}
+                                                                            </p>
                                                                         </TooltipContent>
                                                                     </Tooltip>
                                                                 )}
