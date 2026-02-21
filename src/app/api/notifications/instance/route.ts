@@ -156,8 +156,15 @@ export async function PATCH() {
 
         if (!waKey) return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
 
-        // Ativação de recursos incluindo leitura e salvamento de mídia
-        const url = `https://us.api-wa.me/${waKey}/instance?markMessageRead=true&saveMedia=true`;
+        // CRITICAL: The error shown in the screenshot specifies that receiveStatusMessage and receivePresence are REQUIRED.
+        const urlParams = new URLSearchParams({
+            markMessageRead: 'true',
+            saveMedia: 'true',
+            receiveStatusMessage: 'true',
+            receivePresence: 'true'
+        });
+
+        const url = `https://us.api-wa.me/${waKey}/instance?${urlParams.toString()}`;
         
         const response = await fetch(url, {
             method: 'PATCH',
@@ -167,7 +174,10 @@ export async function PATCH() {
 
         if (!response.ok) {
             const data = await response.json().catch(() => ({}));
-            return NextResponse.json({ error: data.message || "Falha ao configurar instância." }, { status: response.status });
+            return NextResponse.json({ 
+                error: data.message || "Falha ao configurar instância.",
+                details: data 
+            }, { status: response.status });
         }
 
         return NextResponse.json({ success: true });
