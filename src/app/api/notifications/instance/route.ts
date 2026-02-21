@@ -40,7 +40,6 @@ export async function GET() {
         const data = await response.json().catch(() => ({}));
         
         if (!response.ok) {
-            // Se o gateway retornar 404 ou 401, a chave provavelmente está errada ou a instância expirou
             return NextResponse.json({ 
                 status: 'invalid_key',
                 message: data.message || `Chave inválida ou instância não encontrada (${response.status})`,
@@ -49,23 +48,24 @@ export async function GET() {
         }
 
         // Detecção ultra-resiliente de status v5.0.0
+        // O portal oficial mostra "Conectada", vamos garantir que o app entenda qualquer variação disso.
         let rawStatus = 'unknown';
         
-        // Verifica múltiplas possibilidades de retorno do gateway
         if (data.instance?.state) rawStatus = data.instance.state;
         else if (data.state) rawStatus = data.state;
         else if (data.instance?.status) rawStatus = data.instance.status;
         else if (data.status) rawStatus = data.status;
-        else if (data.authenticated === true || data.instance?.authenticated === true) rawStatus = 'connected';
-        else if (data.qr || data.instance?.qr) rawStatus = 'pairing'; // Se tem QR, está em modo pareamento
-
+        
+        // Verificação booleana direta (comum em instâncias v5)
+        const isAuthenticated = data.authenticated === true || data.instance?.authenticated === true || data.is_connected === true;
+        
         const normalizedStatus = String(rawStatus).toLowerCase();
         
-        // Mapeamento de termos comuns para o estado "connected"
-        const connectedTerms = ['open', 'connected', 'conectado', 'authenticated', 'auth', 'ready'];
-        const isConnected = connectedTerms.some(s => normalizedStatus.includes(s));
+        // Mapeamento extensivo de termos para o estado "connected"
+        const connectedTerms = ['open', 'connected', 'conectado', 'authenticated', 'auth', 'ready', 'online'];
+        const isConnected = isAuthenticated || connectedTerms.some(s => normalizedStatus.includes(s));
         
-        const finalStatus = isConnected ? 'connected' : normalizedStatus;
+        const finalStatus = isConnected ? 'connected' : (normalizedStatus === 'unknown' && data.qr ? 'pairing' : normalizedStatus);
 
         return NextResponse.json({ 
             status: finalStatus,
@@ -118,12 +118,10 @@ export async function PATCH() {
 
         if (!waKey) return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
 
-        // v5.0.0 Obrigatório: receiveStatusMessage e receivePresence na URL para liberar botões
+        // Parâmetros exatos conforme documentação OAS 3.0 do cliente para ativar recursos
         const urlParams = new URLSearchParams({
             markMessageRead: 'true',
-            saveMedia: 'true',
-            receiveStatusMessage: 'true',
-            receivePresence: 'true'
+            saveMedia: 'true'
         });
 
         const url = `https://us.api-wa.me/${waKey}/instance?${urlParams.toString()}`;

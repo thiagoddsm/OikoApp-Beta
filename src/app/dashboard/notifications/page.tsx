@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from '@/components/ui/button';
@@ -867,10 +867,12 @@ function NotificationsConfig() {
     const [isCheckingNumber, setIsCheckingNumber] = useState(false);
 
     useEffect(() => {
-        if (config) setWaKey(config.whatsappApiKey || '');
+        if (config) {
+            setWaKey(config.whatsappApiKey || '');
+        }
     }, [config]);
 
-    const checkStatus = async () => {
+    const checkStatus = useCallback(async () => {
         setIsLoadingStatus(true);
         try {
             const response = await fetch('/api/notifications/instance');
@@ -891,7 +893,14 @@ function NotificationsConfig() {
         } finally {
             setIsLoadingStatus(false);
         }
-    };
+    }, []);
+
+    // Chama checkStatus quando a chave mudar ou o componente montar
+    useEffect(() => {
+        if (waKey) {
+            checkStatus();
+        }
+    }, [waKey, checkStatus]);
 
     const checkNumberRegistration = async () => {
         if (!testNumber || !waKey) return;
@@ -960,14 +969,10 @@ function NotificationsConfig() {
     useEffect(() => {
         let interval: any;
         if (qrCode || (instanceStatus && instanceStatus.status !== 'connected' && instanceStatus.status !== 'unconfigured' && instanceStatus.status !== 'error' && instanceStatus.status !== 'invalid_key')) {
-            interval = setInterval(checkStatus, 5000);
+            interval = setInterval(checkStatus, 10000); // Poll a cada 10s se não estiver conectado
         }
         return () => clearInterval(interval);
-    }, [qrCode, instanceStatus]);
-
-    useEffect(() => {
-        checkStatus();
-    }, []);
+    }, [qrCode, instanceStatus, checkStatus]);
 
     const handleSaveKey = async () => {
         if (!firestore) return;
@@ -1121,7 +1126,7 @@ function NotificationsConfig() {
                                 "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"
                             )} />
                             <span className="font-black uppercase text-xs tracking-widest">
-                                {instanceStatus?.status || 'Buscando...'}
+                                {instanceStatus?.status === 'connected' ? 'CONECTADO' : instanceStatus?.status === 'pairing' ? 'AGUARDANDO QR' : (instanceStatus?.status || 'DESCONHECIDO')}
                             </span>
                             {(instanceStatus?.status === 'unknown' || instanceStatus?.status === 'invalid_key') && (
                                 <p className="text-[10px] text-muted-foreground leading-tight">
@@ -1133,7 +1138,7 @@ function NotificationsConfig() {
                         {instanceStatus?.status === 'connected' ? (
                             <div className="py-2 space-y-3">
                                 <div className="p-3 bg-white/50 rounded-xl border border-emerald-100 space-y-2">
-                                    <p className="text-[10px] text-emerald-700 font-black uppercase">Plano Pro Detectado</p>
+                                    <p className="text-[10px] text-emerald-700 font-black uppercase">Plano Pro Ativo</p>
                                     <Button 
                                         variant="default" 
                                         size="sm" 
@@ -1154,7 +1159,6 @@ function NotificationsConfig() {
                                         {isRestarting ? <Loader2 className="size-4 animate-spin mr-2" /> : <RefreshCw className="size-4 mr-2" />} 
                                         Reiniciar Instância
                                     </Button>
-                                    <p className="text-[9px] text-muted-foreground italic">Use o reiniciar se botões falharem.</p>
                                 </div>
                                 <Button 
                                     variant="outline" 
