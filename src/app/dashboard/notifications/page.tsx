@@ -11,7 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Send, Settings, Key, Bot, History, MessageSquare, Mail, Users, CheckCircle2 } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Loader2, Send, Settings, Key, Bot, History, MessageSquare, Mail, Users, CheckCircle2, Search, UserPlus, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useCollection, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { collection, query, orderBy, Timestamp } from 'firebase/firestore';
@@ -19,20 +20,55 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 function WhatsappSender() {
+    const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [message, setMessage] = useState('');
     const [targetAudience, setTargetAudience] = useState('all_members');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+
+    // Fetch users for individual selection
+    const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
+    const { data: users } = useCollection<any>(usersQuery);
+
+    const filteredUsers = useMemo(() => {
+        if (!users || !searchTerm) return [];
+        return users.filter(u => 
+            u.name.toLowerCase().includes(searchTerm.toLowerCase()) && 
+            !selectedUserIds.includes(u.id)
+        ).slice(0, 5);
+    }, [users, searchTerm, selectedUserIds]);
+
+    const handleAddUser = (userId: string) => {
+        setSelectedUserIds(prev => [...prev, userId]);
+        setSearchTerm('');
+    };
+
+    const handleRemoveUser = (userId: string) => {
+        setSelectedUserIds(prev => prev.filter(id => id !== userId));
+    };
 
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        if (targetAudience === 'specific_members' && selectedUserIds.length === 0) {
+            toast({ variant: 'destructive', title: "Selecione destinatários", description: "Adicione pelo menos uma pessoa para o envio individual." });
+            return;
+        }
+
         setIsLoading(true);
 
         try {
             const response = await fetch('/api/notifications/send', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ channel: 'whatsapp', audience: targetAudience, message }),
+              body: JSON.stringify({ 
+                  channel: 'whatsapp', 
+                  audience: targetAudience, 
+                  message,
+                  userIds: targetAudience === 'specific_members' ? selectedUserIds : undefined
+              }),
             });
             
             const result = await response.json();
@@ -46,6 +82,7 @@ function WhatsappSender() {
                 description: result.message || `Sua mensagem para "${targetAudience}" foi processada.`
             });
             setMessage('');
+            setSelectedUserIds([]);
             
         } catch(error) {
              toast({
@@ -73,11 +110,65 @@ function WhatsappSender() {
                             <SelectItem value="network_leaders">Líderes de Rede</SelectItem>
                             <SelectItem value="area_leaders">Líderes de Área</SelectItem>
                             <SelectItem value="cell_leaders">Líderes de Célula</SelectItem>
+                            <SelectItem value="specific_members">Membros Específicos (Individual)</SelectItem>
                         </SelectContent>
                     </Select>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">O sistema buscará os contatos automaticamente no banco de dados.</p>
                 </div>
+
+                {targetAudience === 'specific_members' && (
+                    <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
+                        <Label>Pesquisar Membros</Label>
+                        <div className="relative">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input 
+                                placeholder="Digite o nome..." 
+                                className="pl-8" 
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                        {filteredUsers.length > 0 && (
+                            <div className="border rounded-md mt-1 bg-background shadow-lg overflow-hidden">
+                                {filteredUsers.map(u => (
+                                    <button
+                                        key={u.id}
+                                        type="button"
+                                        className="w-full text-left px-3 py-2 text-sm hover:bg-muted flex items-center justify-between"
+                                        onClick={() => handleAddUser(u.id)}
+                                    >
+                                        <span>{u.name}</span>
+                                        <UserPlus className="size-3 text-primary" />
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
+
+            {targetAudience === 'specific_members' && selectedUserIds.length > 0 && (
+                <div className="space-y-2">
+                    <Label className="text-[10px] uppercase font-black text-muted-foreground">Destinatários Selecionados ({selectedUserIds.length})</Label>
+                    <div className="flex flex-wrap gap-2 p-3 border rounded-lg bg-muted/30">
+                        {selectedUserIds.map(id => {
+                            const u = users?.find(user => user.id === id);
+                            return (
+                                <Badge key={id} variant="secondary" className="pl-2 pr-1 py-1 gap-1">
+                                    {u?.name || id}
+                                    <button 
+                                        type="button" 
+                                        onClick={() => handleRemoveUser(id)}
+                                        className="hover:bg-destructive hover:text-white rounded-full p-0.5"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                </Badge>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             <div className="space-y-2">
                 <Label htmlFor="message">Mensagem Personalizada</Label>
                 <Textarea 
@@ -92,7 +183,7 @@ function WhatsappSender() {
             </div>
             <Button type="submit" disabled={isLoading} className="w-full h-12 text-base font-bold shadow-lg shadow-primary/20">
                 {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
-                Disparar via WhatsApp
+                {targetAudience === 'specific_members' ? `Enviar para ${selectedUserIds.length} pessoas` : 'Disparar em Massa'}
             </Button>
         </form>
     );

@@ -7,7 +7,7 @@ import { WhatsApp } from '@raphaelvserafim/client-api-whatsapp';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { channel, audience, message } = body;
+    const { channel, audience, message, userIds } = body;
 
     if (!channel || !audience || !message) {
       return NextResponse.json({ error: 'Parâmetros ausentes' }, { status: 400 });
@@ -32,24 +32,32 @@ export async function POST(request: Request) {
     // 2. Lógica de Filtragem de Público
     const usersRef = collection(firestore, 'users');
     let q;
-    switch (audience) {
-        case 'all_members':
-            q = query(usersRef);
-            break;
-        case 'all_leaders':
-            q = query(usersRef, where('hierarchy.role', 'in', ['admin', 'pastor_senior', 'pastor', 'lider_rede', 'lider_area', 'lider_gc']));
-            break;
-        case 'network_leaders':
-            q = query(usersRef, where('hierarchy.role', '==', 'lider_rede'));
-            break;
-        case 'area_leaders':
-            q = query(usersRef, where('hierarchy.role', '==', 'lider_area'));
-            break;
-        case 'cell_leaders':
-            q = query(usersRef, where('hierarchy.role', '==', 'lider_gc'));
-            break;
-        default:
-            q = query(usersRef);
+
+    if (audience === 'specific_members' && userIds && Array.isArray(userIds)) {
+        // Busca nominal por IDs específicos
+        // Nota: O where 'in' tem limite de 30 elementos no Firestore.
+        // Para simplificar no MVP, assumimos que o lote é pequeno.
+        q = query(usersRef, where('__name__', 'in', userIds));
+    } else {
+        switch (audience) {
+            case 'all_members':
+                q = query(usersRef);
+                break;
+            case 'all_leaders':
+                q = query(usersRef, where('hierarchy.role', 'in', ['admin', 'pastor_senior', 'pastor', 'lider_rede', 'lider_area', 'lider_gc']));
+                break;
+            case 'network_leaders':
+                q = query(usersRef, where('hierarchy.role', '==', 'lider_rede'));
+                break;
+            case 'area_leaders':
+                q = query(usersRef, where('hierarchy.role', '==', 'lider_area'));
+                break;
+            case 'cell_leaders':
+                q = query(usersRef, where('hierarchy.role', '==', 'lider_gc'));
+                break;
+            default:
+                q = query(usersRef);
+        }
     }
 
     const querySnapshot = await getDocs(q);
