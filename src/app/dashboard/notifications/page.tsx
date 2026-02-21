@@ -418,7 +418,7 @@ function WhatsappSender() {
         switch(type) {
             case 'text': payload.message = "Teste de Texto IBM - Sistema OK"; break;
             case 'button':
-                payload.message = "Teste de Botões Interativos";
+                payload.message = "Teste de Botões Interativos v5.0.0";
                 payload.buttons = [{ id: 'test_1', text: 'Sim, funciona! ✅' }, { id: 'test_2', text: 'Não funciona ❌' }];
                 payload.title = "DEBUG MODE - IBM";
                 payload.footer = "Ambiente de Desenvolvimento";
@@ -786,13 +786,13 @@ function WhatsappSender() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('text')} disabled={!testPhoneNumber || isLoading} className="h-8 text-[10px] font-bold">TEXTO SIMPLES</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('button')} disabled={!testPhoneNumber || isLoading} className="h-8 text-[10px] font-bold border-indigo-200 text-indigo-700">BOTÕES</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('media')} disabled={!testPhoneNumber || isLoading} className="h-8 text-[10px] font-bold border-blue-200 text-blue-700">MÍDIA (URL)</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('pix')} disabled={!testPhoneNumber || isLoading} className="h-8 text-[10px] font-bold border-emerald-200 text-emerald-700">QR PIX</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('survey')} disabled={!testPhoneNumber || isLoading} className="h-8 text-[10px] font-bold border-amber-200 text-amber-700">ENQUETE</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('text')} disabled={isLoading} className="h-8 text-[10px] font-bold">TEXTO SIMPLES</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('button')} disabled={isLoading} className="h-8 text-[10px] font-bold border-indigo-200 text-indigo-700">BOTÕES</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('media')} disabled={isLoading} className="h-8 text-[10px] font-bold border-blue-200 text-blue-700">MÍDIA (URL)</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('pix')} disabled={isLoading} className="h-8 text-[10px] font-bold border-emerald-200 text-emerald-700">QR PIX</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('survey')} disabled={isLoading} className="h-8 text-[10px] font-bold border-amber-200 text-amber-700">ENQUETE</Button>
                 </div>
-                <p className="text-[9px] text-muted-foreground mt-2 italic">Dica: Digite seu número acima e escolha o formato. O erro detalhado aparecerá acima se o WhatsApp recusar.</p>
+                <p className="text-[9px] text-muted-foreground mt-2 italic">Dica: Digite seu número acima e clique no formato. O erro detalhado aparecerá acima se o WhatsApp recusar.</p>
             </div>
         </div>
     );

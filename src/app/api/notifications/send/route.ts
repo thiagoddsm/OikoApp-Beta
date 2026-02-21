@@ -105,8 +105,8 @@ export async function POST(request: Request) {
 
         switch (type) {
             case 'button':
-                // v5.0.0: message/button_reply com corpo 'body'
-                endpoint = 'message/button_reply';
+                // v5.0.0 usa message/buttons ou message/button_reply
+                endpoint = 'message/buttons';
                 payload = {
                     ...payload,
                     title: title || 'Informativo IBM',
@@ -200,7 +200,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ 
             error: lastError || 'Falha ao enviar mensagens.',
             details: rawError,
-            endpoint: type === 'button' ? 'message/button_reply' : type 
+            endpoint: endpoint 
         }, { status: 500 });
     }
 
