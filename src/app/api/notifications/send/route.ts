@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     const usersRef = collection(firestore, 'users');
     let q;
 
-    if (audience === 'specific_members' && userIds && Array.isArray(userIds)) {
+    if (audience === 'specific_members' && userIds && Array.isArray(userIds) && userIds.length > 0) {
         // Busca nominal por IDs específicos
         // Nota: O where 'in' tem limite de 30 elementos no Firestore.
         // Para simplificar no MVP, assumimos que o lote é pequeno.
