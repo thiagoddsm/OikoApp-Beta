@@ -93,6 +93,37 @@ export default function TheoFlixPage() {
     return dbCourses;
   }, [dbCourses]);
 
+  // Cálculo da Duração Total Somada
+  const calculatedTotalDuration = useMemo(() => {
+    if (!selectedCourse?.episodes) return "0min";
+    
+    const totalMinutes = selectedCourse.episodes.reduce((acc, ep) => {
+        const duration = ep.duration || "0min";
+        let mins = 0;
+        
+        // Match horas
+        const hMatch = duration.match(/(\d+)\s*h/i);
+        if (hMatch) mins += parseInt(hMatch[1]) * 60;
+        
+        // Match minutos
+        const mMatch = duration.match(/(\d+)\s*min/i);
+        if (mMatch) mins += parseInt(mMatch[1]);
+        
+        // Se for só número (assume minutos)
+        if (!hMatch && !mMatch && /^\d+$/.test(duration.trim())) {
+            mins += parseInt(duration);
+        }
+        
+        return acc + mins;
+    }, 0);
+
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    
+    if (h > 0) return `${h}h ${m}min`;
+    return `${m}min`;
+  }, [selectedCourse]);
+
   // YouTube IFrame API Setup
   useEffect(() => {
     if (!window.YT) {
@@ -220,7 +251,12 @@ export default function TheoFlixPage() {
                 />
             </div>
             {isAdmin && (
-                <Button variant="outline" size="icon" className="rounded-full shrink-0 h-10 w-10" onClick={() => setManagerOpen(true)}>
+                <Button 
+                  variant="outline" 
+                  size="icon" 
+                  className="rounded-full shrink-0 h-10 w-10 hover:bg-primary/10 transition-colors" 
+                  onClick={() => setManagerOpen(true)}
+                >
                     <Settings className="size-5" />
                 </Button>
             )}
@@ -325,7 +361,7 @@ export default function TheoFlixPage() {
       </div>
 
       <Dialog open={!!selectedCourse} onOpenChange={handleClosePlayer}>
-        <DialogContent className="max-w-6xl p-0 overflow-y-auto sm:rounded-[2.5rem] rounded-none bg-slate-950 border-none shadow-2xl h-full sm:h-auto max-h-screen scrollbar-hide">
+        <DialogContent className="max-w-6xl p-0 overflow-y-auto sm:rounded-[2.5rem] rounded-none bg-slate-950 border-none shadow-2xl h-full sm:h-auto max-h-screen scrollbar-hide scroll-smooth">
           <DialogHeader className="p-6 bg-slate-950 flex flex-row items-center justify-between sticky top-0 z-50">
             <div className="flex items-center gap-4">
               <Button variant="ghost" size="icon" onClick={handleClosePlayer} className="text-white hover:bg-white/10 rounded-full h-10 w-10">
@@ -409,8 +445,8 @@ export default function TheoFlixPage() {
                                 <span className="text-slate-200 text-xs sm:text-sm">{selectedCourse.level} - {levelConfig[selectedCourse.level]?.title}</span>
                             </div>
                             <div className="flex flex-col gap-1">
-                                <span className="text-slate-500 text-[9px] sm:text-[10px] uppercase">Tempo Total</span>
-                                <span className="text-slate-200 text-xs sm:text-sm">{selectedCourse.duration || '4h'}</span>
+                                <span className="text-slate-500 text-[9px] sm:text-[10px] uppercase">Tempo Total (Soma das Aulas)</span>
+                                <span className="text-slate-200 text-xs sm:text-sm">{calculatedTotalDuration}</span>
                             </div>
                         </div>
                     </div>
@@ -418,7 +454,7 @@ export default function TheoFlixPage() {
                     <Button 
                       variant="secondary" 
                       onClick={handleClosePlayer} 
-                      className="w-full h-12 rounded-xl font-black bg-slate-800 text-white hover:bg-slate-700 border-none shadow-lg"
+                      className="w-full h-12 rounded-xl font-black bg-slate-800 text-white hover:bg-slate-700 border-none shadow-lg transition-colors"
                     >
                       <ArrowLeft className="mr-2 size-4" /> VOLTAR PARA A GALERIA
                     </Button>
