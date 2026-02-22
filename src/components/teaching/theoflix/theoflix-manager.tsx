@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -214,8 +213,8 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-5xl w-full h-full sm:h-[90vh] flex flex-col p-0 overflow-hidden rounded-none sm:rounded-xl border-none">
-                <DialogHeader className="p-4 sm:p-6 border-b bg-muted/20">
+            <DialogContent className="max-w-5xl w-full h-[100dvh] sm:h-[90vh] flex flex-col p-0 overflow-hidden rounded-none sm:rounded-xl border-none">
+                <DialogHeader className="p-4 sm:p-6 border-b bg-muted/20 shrink-0">
                     <div className="flex justify-between items-center pr-8 sm:pr-0">
                         <div>
                             <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
@@ -233,7 +232,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                 </DialogHeader>
 
                 <Tabs defaultValue="courses" className="flex-1 flex flex-col overflow-hidden">
-                    <div className="px-4 sm:px-6 border-b bg-white overflow-x-auto no-scrollbar">
+                    <div className="px-4 sm:px-6 border-b bg-white overflow-x-auto no-scrollbar shrink-0">
                         <TabsList className="bg-transparent border-b-0 h-12 w-full justify-start sm:justify-center flex-nowrap min-w-max">
                             <TabsTrigger value="courses" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-xs sm:text-sm">Cursos</TabsTrigger>
                             <TabsTrigger value="levels" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-xs sm:text-sm">Níveis</TabsTrigger>
@@ -241,9 +240,9 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                         </TabsList>
                     </div>
 
+                    {/* CONTEÚDO: CURSOS */}
                     <TabsContent value="courses" className="flex-1 flex flex-col md:flex-row overflow-hidden m-0">
-                        {/* Sidebar: Lista de Cursos */}
-                        <div className="w-full md:w-80 border-r bg-muted/10 p-4 flex flex-col gap-4 overflow-y-auto max-h-[25vh] md:max-h-full shrink-0">
+                        <div className="w-full md:w-80 border-r bg-muted/10 p-4 flex flex-col gap-4 overflow-y-auto max-h-[30dvh] md:max-h-full shrink-0">
                             <div className="flex justify-between items-center">
                                 <h3 className="font-black text-[10px] uppercase text-muted-foreground tracking-widest">Biblioteca</h3>
                                 <Button size="icon" variant="ghost" className="h-7 w-7 text-primary" onClick={() => setSelectedCourse(null)}><PlusCircle size={18} /></Button>
@@ -270,9 +269,8 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                             </div>
                         </div>
 
-                        {/* Área de Edição */}
-                        <div className="flex-1 p-4 sm:p-8 overflow-y-auto bg-white">
-                            <div className="max-w-2xl mx-auto space-y-8">
+                        <div className="flex-1 overflow-y-auto bg-white p-4 sm:p-8">
+                            <div className="max-w-2xl mx-auto space-y-8 pb-12">
                                 <div className="flex justify-between items-center pb-2 border-b">
                                     <h4 className="text-lg sm:text-xl font-black uppercase italic tracking-tighter text-slate-900">
                                         {selectedCourse ? `Editar: ${selectedCourse.title}` : 'Novo Curso'}
@@ -360,9 +358,9 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                         </div>
                     </TabsContent>
 
-                    {/* TABS: Níveis */}
+                    {/* CONTEÚDO: NÍVEIS */}
                     <TabsContent value="levels" className="flex-1 flex flex-col md:flex-row overflow-hidden m-0">
-                        <div className="w-full md:w-80 border-r bg-muted/10 p-4 flex flex-col gap-4 overflow-y-auto max-h-[25vh] md:max-h-full shrink-0">
+                        <div className="w-full md:w-80 border-r bg-muted/10 p-4 flex flex-col gap-4 overflow-y-auto max-h-[30dvh] md:max-h-full shrink-0">
                             <div className="flex justify-between items-center">
                                 <h3 className="font-black text-[10px] uppercase text-muted-foreground tracking-widest">Etapas</h3>
                                 <Button size="icon" variant="ghost" className="h-7 w-7 text-primary" onClick={() => setSelectedLevel(null)}><PlusCircle size={18} /></Button>
@@ -386,8 +384,8 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                                 ))}
                             </div>
                         </div>
-                        <div className="flex-1 p-4 sm:p-8 overflow-y-auto bg-white">
-                            <div className="max-w-md mx-auto space-y-8">
+                        <div className="flex-1 overflow-y-auto bg-white p-4 sm:p-8">
+                            <div className="max-w-md mx-auto space-y-8 pb-12">
                                 <div className="flex justify-between items-center pb-2 border-b">
                                     <h4 className="text-lg font-black uppercase italic tracking-tighter">
                                         {selectedLevel ? 'Editar Nível' : 'Novo Nível'}
@@ -420,7 +418,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                                                         className={cn(
                                                             "size-7 rounded-full border-2 transition-all shadow-sm", 
                                                             `bg-${opt.value}-500`, 
-                                                            formLevel.color === opt.value ? "border-black scale-125 z-10" : "border-transparent opacity-60 hover:opacity-100"
+                                                            formLevel.color === opt.value ? "border-primary scale-125 z-10" : "border-transparent opacity-60 hover:opacity-100"
                                                         )}
                                                         title={opt.label}
                                                     ></button>
@@ -429,7 +427,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                                         </div>
                                     </div>
                                     <Button className="w-full h-14 font-black rounded-2xl shadow-lg" onClick={handleSaveLevel} disabled={isSaving}>
-                                        {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" />} 
+                                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin mr-2" /> : <Save className="mr-2" />} 
                                         Salvar Nível
                                     </Button>
                                 </div>
@@ -437,7 +435,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                         </div>
                     </TabsContent>
 
-                    {/* TABS: Configurações */}
+                    {/* CONTEÚDO: CONFIGURAÇÕES */}
                     <TabsContent value="config" className="flex-1 p-4 sm:p-8 m-0 overflow-y-auto bg-white">
                         <Card className="max-w-2xl mx-auto shadow-sm border-2 border-primary/10 rounded-2xl overflow-hidden">
                             <CardHeader className="bg-primary/5 border-b">
@@ -475,7 +473,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                     </TabsContent>
                 </Tabs>
 
-                <DialogFooter className="p-4 sm:p-6 border-t bg-muted/50 flex-none">
+                <DialogFooter className="p-4 sm:p-6 border-t bg-muted/50 shrink-0">
                     <DialogClose asChild><Button variant="outline" className="w-full font-black uppercase text-xs h-11 rounded-xl">Fechar Gerenciador</Button></DialogClose>
                 </DialogFooter>
             </DialogContent>
