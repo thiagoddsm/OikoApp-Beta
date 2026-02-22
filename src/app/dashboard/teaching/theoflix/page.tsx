@@ -90,10 +90,13 @@ export default function TheoFlixPage() {
 
   const allCourses = useMemo(() => {
     if (!dbCourses || dbCourses.length === 0) return theoflixDB;
-    return dbCourses;
+    // Combine local and DB courses, avoiding duplicates by ID
+    const dbIds = new Set(dbCourses.map(c => c.id));
+    const localFiltered = theoflixDB.filter(c => !dbIds.has(c.id));
+    return [...dbCourses, ...localFiltered];
   }, [dbCourses]);
 
-  // Cálculo da Duração Total Somada
+  // Cálculo da Duração Total Somada Dinâmica
   const calculatedTotalDuration = useMemo(() => {
     if (!selectedCourse?.episodes) return "0min";
     
@@ -101,15 +104,12 @@ export default function TheoFlixPage() {
         const duration = ep.duration || "0min";
         let mins = 0;
         
-        // Match horas
         const hMatch = duration.match(/(\d+)\s*h/i);
         if (hMatch) mins += parseInt(hMatch[1]) * 60;
         
-        // Match minutos
         const mMatch = duration.match(/(\d+)\s*min/i);
         if (mMatch) mins += parseInt(mMatch[1]);
         
-        // Se for só número (assume minutos)
         if (!hMatch && !mMatch && /^\d+$/.test(duration.trim())) {
             mins += parseInt(duration);
         }
@@ -126,6 +126,8 @@ export default function TheoFlixPage() {
 
   // YouTube IFrame API Setup
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
     if (!window.YT) {
       const tag = document.createElement('script');
       tag.src = "https://www.youtube.com/iframe_api";
@@ -196,7 +198,7 @@ export default function TheoFlixPage() {
     });
   };
 
-  const featuredCourse = allCourses.find(c => c.id === 'membros') || allCourses[0];
+  const featuredCourse = useMemo(() => allCourses.find(c => c.id === 'membros') || allCourses[0], [allCourses]);
 
   const filteredCourses = useMemo(() => {
     if (!searchQuery.trim()) return allCourses;
@@ -209,7 +211,7 @@ export default function TheoFlixPage() {
 
   const handleCourseClick = (course: Course) => {
     setSelectedCourse(course);
-    setCurrentEpisode(course.episodes[0]); 
+    setCurrentEpisode(course.episodes[0] || null); 
   };
 
   const handlePlayEpisode = (episode: Episode) => {
@@ -266,7 +268,7 @@ export default function TheoFlixPage() {
       {featuredCourse && !searchQuery && (
         <section className="relative h-[450px] rounded-[2.5rem] overflow-hidden group shadow-2xl">
             <Image 
-                src={featuredCourse.image} 
+                src={featuredCourse.image || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4'} 
                 alt={featuredCourse.title} 
                 fill 
                 className="object-cover transition-transform duration-[2000ms] group-hover:scale-110"
@@ -327,7 +329,7 @@ export default function TheoFlixPage() {
                         >
                         <CardContent className="p-0">
                             <div className="relative w-full aspect-video">
-                                <Image src={course.image} alt={course.title} fill className="object-cover" />
+                                <Image src={course.image || 'https://picsum.photos/seed/placeholder/800/450'} alt={course.title} fill className="object-cover" />
                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center backdrop-blur-[2px]">
                                     <PlayCircle className="text-white size-12" />
                                 </div>
@@ -360,7 +362,7 @@ export default function TheoFlixPage() {
         })}
       </div>
 
-      <Dialog open={!!selectedCourse} onOpenChange={handleClosePlayer}>
+      <Dialog open={!!selectedCourse} onOpenChange={(open) => !open && handleClosePlayer()}>
         <DialogContent className="max-w-6xl p-0 overflow-y-auto sm:rounded-[2.5rem] rounded-none bg-slate-950 border-none shadow-2xl h-full sm:h-auto max-h-screen scrollbar-hide scroll-smooth">
           <DialogHeader className="p-6 bg-slate-950 flex flex-row items-center justify-between sticky top-0 z-50">
             <div className="flex items-center gap-4">
@@ -375,13 +377,13 @@ export default function TheoFlixPage() {
           </DialogHeader>
           
           {selectedCourse && (
-            <>
+            <div className="flex flex-col">
               <div className="relative aspect-video w-full bg-black shrink-0">
                 {isPlaying && currentEpisode?.youtubeId ? (
                     <div id="theoflix-player" className="w-full h-full"></div>
                 ) : (
                     <>
-                        <Image src={selectedCourse.image} alt={selectedCourse.title} fill className="object-cover opacity-40 blur-sm" />
+                        <Image src={selectedCourse.image || 'https://picsum.photos/seed/placeholder/800/450'} alt={selectedCourse.title} fill className="object-cover opacity-40 blur-sm" />
                         <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 sm:p-8 space-y-4 sm:space-y-6">
                             <Badge className={cn("text-white font-black", levelConfig[selectedCourse.level]?.color)}>
                                 NÍVEL {selectedCourse.level}
@@ -460,7 +462,7 @@ export default function TheoFlixPage() {
                     </Button>
                 </div>
               </div>
-            </>
+            </div>
           )}
         </DialogContent>
       </Dialog>

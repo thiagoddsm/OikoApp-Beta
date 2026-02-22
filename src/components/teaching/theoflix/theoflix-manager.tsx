@@ -76,7 +76,10 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
 
     useEffect(() => {
         if (selectedCourse) {
-            setFormCourse(selectedCourse);
+            setFormCourse({
+                ...selectedCourse,
+                episodes: selectedCourse.episodes || []
+            });
         } else {
             setFormCourse({
                 title: '',
@@ -88,7 +91,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
                 episodes: []
             });
         }
-    }, [selectedCourse]);
+    }, [selectedCourse, open]);
 
     const handleSaveConfig = async () => {
         if (!firestore) return;
@@ -126,7 +129,6 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
     };
 
     const parseDuration = (duration: string) => {
-      // YouTube duration format: PT#H#M#S
       const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
       if (!match) return '0min';
       
@@ -215,6 +217,17 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
         }));
     };
 
+    const handleDeleteCourse = async (courseId: string) => {
+        if (!firestore || !confirm("Tem certeza que deseja excluir este curso permanentemente?")) return;
+        try {
+            await deleteDocumentNonBlocking(doc(firestore, 'theoflix_courses', courseId));
+            toast({ title: "Curso Excluído" });
+            setSelectedCourse(null);
+        } catch (e) {
+            toast({ variant: 'destructive', title: "Erro ao excluir" });
+        }
+    };
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-5xl h-[90vh] flex flex-col p-0 overflow-hidden">
@@ -223,16 +236,16 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
                         <div>
                             <DialogTitle className="flex items-center gap-2">
                                 <Video className="text-primary" />
-                                TheoFlix Content Manager
+                                Gerenciador TheoFlix
                             </DialogTitle>
                             <DialogDescription>
-                                Gerencie os vídeos e a estrutura dos cursos.
+                                Administre a biblioteca de conteúdos e aulas.
                             </DialogDescription>
                         </div>
                         <div className="flex gap-2">
                             <Button variant="outline" size="sm" onClick={handleSeedData} disabled={isSeeding}>
                                 {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DatabaseZap className="mr-2 size-4" />}
-                                Importar Padrão
+                                Sincronizar Padrão
                             </Button>
                         </div>
                     </div>
@@ -244,12 +257,12 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
                         <div className="space-y-4">
                             <div className="p-3 bg-white rounded-xl border shadow-sm space-y-3">
                                 <div className="flex items-center gap-2 text-[10px] font-black uppercase text-muted-foreground tracking-widest">
-                                    <Settings size={12} /> Configuração YouTube
+                                    <Settings size={12} /> API YouTube
                                 </div>
                                 <div className="flex gap-2">
                                     <Input 
                                         type="password" 
-                                        placeholder="API Key do YouTube" 
+                                        placeholder="Cole sua API Key..." 
                                         value={youtubeApiKey} 
                                         onChange={e => setYoutubeApiKey(e.target.value)} 
                                         className="h-8 text-xs"
@@ -262,7 +275,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
                         </div>
 
                         <div className="flex justify-between items-center pt-4">
-                            <h3 className="font-bold text-sm uppercase text-muted-foreground tracking-widest">Biblioteca</h3>
+                            <h3 className="font-bold text-sm uppercase text-muted-foreground tracking-widest">Cursos</h3>
                             <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setSelectedCourse(null)}>
                                 <PlusCircle className="size-5" />
                             </Button>
@@ -279,10 +292,10 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
                                         )}
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className="size-10 rounded-lg relative overflow-hidden bg-muted">
-                                                <Image src={course.image} alt="" fill className="object-cover" />
+                                            <div className="size-10 rounded-lg relative overflow-hidden bg-muted shrink-0">
+                                                <Image src={course.image || 'https://picsum.photos/seed/placeholder/100/100'} alt="" fill className="object-cover" />
                                             </div>
-                                            <div className="min-w-0">
+                                            <div className="min-w-0 flex-1">
                                                 <p className="text-sm font-bold truncate">{course.title}</p>
                                                 <span className="text-[10px] text-muted-foreground">{course.episodes?.length || 0} aulas</span>
                                             </div>
@@ -296,18 +309,29 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
                     {/* Formulário */}
                     <div className="flex-1 p-8 overflow-y-auto">
                         <div className="max-w-2xl mx-auto space-y-8 pb-20">
+                            <div className="flex justify-between items-center">
+                                <h4 className="text-lg font-bold">{selectedCourse ? 'Editar Curso' : 'Novo Curso'}</h4>
+                                {selectedCourse && (
+                                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteCourse(selectedCourse.id)}>
+                                        <Trash2 size={18} />
+                                    </Button>
+                                )}
+                            </div>
+
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
-                                    <Label className="text-xs uppercase font-black">Título do Curso</Label>
+                                    <Label className="text-xs uppercase font-black">Título</Label>
                                     <Input 
                                         value={formCourse.title} 
                                         onChange={e => setFormCourse(p => ({...p, title: e.target.value}))} 
+                                        placeholder="Ex: Treinamento de Líderes"
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-xs uppercase font-black">Nível</Label>
+                                    <Label className="text-xs uppercase font-black">Nível (1 a 4)</Label>
                                     <Input 
                                         type="number" 
+                                        min={1} max={4}
                                         value={formCourse.level} 
                                         onChange={e => setFormCourse(p => ({...p, level: parseInt(e.target.value)}))} 
                                     />
@@ -315,10 +339,11 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
                             </div>
 
                             <div className="space-y-2">
-                                <Label className="text-xs uppercase font-black">Imagem de Capa</Label>
+                                <Label className="text-xs uppercase font-black">URL da Imagem de Capa</Label>
                                 <Input 
                                     value={formCourse.image} 
                                     onChange={e => setFormCourse(p => ({...p, image: e.target.value}))} 
+                                    placeholder="https://images.unsplash.com/..."
                                 />
                             </div>
 
@@ -328,39 +353,39 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
                                     rows={4}
                                     value={formCourse.desc} 
                                     onChange={e => setFormCourse(p => ({...p, desc: e.target.value}))} 
+                                    placeholder="Descreva o objetivo deste curso..."
                                 />
                             </div>
 
-                            {/* Grade de Aulas */}
                             <div className="pt-6 border-t space-y-4">
                                 <div className="flex justify-between items-center">
-                                    <h4 className="text-sm font-black uppercase tracking-widest text-primary">Aulas & YouTube IDs</h4>
+                                    <h4 className="text-sm font-black uppercase tracking-widest text-primary">Aulas do Curso</h4>
                                     <Button size="sm" variant="outline" onClick={handleAddEpisode}>
                                         <PlusCircle className="mr-2 size-4" /> Adicionar Aula
                                     </Button>
                                 </div>
 
                                 <div className="space-y-3">
-                                    {formCourse.episodes?.map((ep, idx) => (
+                                    {(formCourse.episodes || []).map((ep, idx) => (
                                         <div key={idx} className="p-4 rounded-xl border bg-muted/20 space-y-4 relative group">
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <div className="space-y-1.5">
-                                                    <Label className="text-[10px] font-bold">Título</Label>
+                                                    <Label className="text-[10px] font-bold">Título da Aula</Label>
                                                     <Input 
                                                         value={ep.title} 
                                                         onChange={e => handleUpdateEpisode(idx, 'title', e.target.value)}
-                                                        className="h-8 text-sm"
+                                                        className="h-8 text-sm bg-white"
                                                     />
                                                 </div>
                                                 <div className="space-y-1.5">
-                                                    <Label className="text-[10px] font-bold text-red-600">YouTube ID</Label>
+                                                    <Label className="text-[10px] font-bold text-red-600">YouTube Video ID</Label>
                                                     <div className="flex gap-2">
                                                         <div className="relative flex-1">
                                                             <Youtube className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-red-400" />
                                                             <Input 
                                                                 value={ep.youtubeId} 
                                                                 onChange={e => handleUpdateEpisode(idx, 'youtubeId', e.target.value)}
-                                                                className="h-8 text-sm pl-7"
+                                                                className="h-8 text-sm pl-7 bg-white"
                                                                 placeholder="ex: dQw4w9WgXcQ"
                                                             />
                                                         </div>
@@ -369,11 +394,21 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
                                                             size="icon" 
                                                             className="h-8 w-8 shrink-0" 
                                                             onClick={() => fetchYoutubeMetadata(idx)}
-                                                            title="Sincronizar com YouTube"
+                                                            title="Buscar dados no YouTube"
                                                         >
                                                             <Wand2 size={14} />
                                                         </Button>
                                                     </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <div className="flex-1">
+                                                    <Label className="text-[10px] font-bold">Duração (Ex: 45min)</Label>
+                                                    <Input 
+                                                        value={ep.duration} 
+                                                        onChange={e => handleUpdateEpisode(idx, 'duration', e.target.value)}
+                                                        className="h-8 text-sm bg-white"
+                                                    />
                                                 </div>
                                             </div>
                                             <Button 
@@ -386,6 +421,11 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
                                             </Button>
                                         </div>
                                     ))}
+                                    {(!formCourse.episodes || formCourse.episodes.length === 0) && (
+                                        <p className="text-center py-8 text-xs text-muted-foreground italic border-2 border-dashed rounded-xl">
+                                            Nenhuma aula adicionada. Clique em "Adicionar Aula".
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -398,7 +438,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
                     </DialogClose>
                     <Button onClick={handleSaveCourse} disabled={isSaving || !formCourse.title}>
                         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        Publicar no TheoFlix
+                        Salvar Curso
                     </Button>
                 </DialogFooter>
             </DialogContent>
