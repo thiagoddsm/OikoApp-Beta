@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import {
   Card,
@@ -25,11 +25,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { theoflixDB, type Course, type Episode } from '@/lib/theoflix-data';
-import { Play, Info, Plus, Lock, Search, Clock, CheckCircle2, PlayCircle, Star, Heart, X, Settings, Loader2 } from 'lucide-react';
+import { Play, Info, Plus, Lock, Search, Clock, CheckCircle2, PlayCircle, Star, Heart, X, Settings, Loader2, ArrowLeft, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase, useDoc, updateDocumentNonBlocking } from '@/firebase';
+import { collection, query, doc } from 'firebase/firestore';
 import { TheoflixManager } from '@/components/teaching/theoflix/theoflix-manager';
+import { useToast } from '@/hooks/use-toast';
 
 const levelConfig: Record<number, { title: string; color: string; shadow: string; bg: string }> = {
   1: {
@@ -58,9 +59,17 @@ const levelConfig: Record<number, { title: string; color: string; shadow: string
   },
 };
 
+declare global {
+  interface Window {
+    onYouTubeIframeAPIReady: () => void;
+    YT: any;
+  }
+}
+
 export default function TheoFlixPage() {
   const { firestore, user } = useFirebase();
-  const { data: userData } = useDoc<{ hierarchy?: { role?: string } }>(user ? `users/${user.uid}` : null);
+  const { toast } = useToast();
+  const { data: userData } = useDoc<any>(user ? `users/${user.uid}` : null);
   const isAdmin = userData?.hierarchy?.role === 'admin' || userData?.hierarchy?.role === 'pastor_senior';
 
   const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'theoflix_courses')) : null, [firestore]);
@@ -72,11 +81,76 @@ export default function TheoFlixPage() {
   const [myList, setMyList] = useState<string[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isManagerOpen, setManagerOpen] = useState(false);
+  const [isApiReady, setIsApiReady] = useState(false);
+  
+  const playerRef = useRef<any>(null);
+
+  // Carrega Progresso do Usuário
+  const userProgress = useMemo(() => userData?.journey?.theoflixProgress || {}, [userData]);
 
   const allCourses = useMemo(() => {
     if (!dbCourses || dbCourses.length === 0) return theoflixDB;
     return dbCourses;
   }, [dbCourses]);
+
+  // YouTube IFrame API Setup
+  useEffect(() => {
+    if (!window.YT) {
+      const tag = document.createElement('script');
+      tag.src = "https://www.youtube.com/iframe_api";
+      const firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+
+      window.onYouTubeIframeAPIReady = () => {
+        setIsApiReady(true);
+      };
+    } else {
+      setIsApiReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isPlaying && currentEpisode && isApiReady) {
+      if (playerRef.current) {
+        playerRef.current.loadVideoById(currentEpisode.youtubeId);
+      } else {
+        playerRef.current = new window.YT.Player('theoflix-player', {
+          height: '100%',
+          width: '100%',
+          videoId: currentEpisode.youtubeId,
+          playerVars: {
+            'playsinline': 1,
+            'autoplay': 1,
+            'rel': 0,
+            'modestbranding': 1
+          },
+          events: {
+            'onStateChange': (event: any) => {
+              if (event.data === window.YT.PlayerState.ENDED) {
+                handleMarkAsCompleted();
+              }
+            }
+          }
+        });
+      }
+    }
+  }, [isPlaying, currentEpisode, isApiReady]);
+
+  const handleMarkAsCompleted = () => {
+    if (!user || !selectedCourse || !currentEpisode) return;
+
+    const userDocRef = doc(firestore!, 'users', user.uid);
+    const episodeKey = currentEpisode.youtubeId || currentEpisode.title.replace(/\s+/g, '_');
+    
+    updateDocumentNonBlocking(userDocRef, {
+      [`journey.theoflixProgress.${selectedCourse.id}.${episodeKey}`]: true
+    });
+
+    toast({
+      title: "Aula Concluída! 🎉",
+      description: "Seu progresso foi salvo com sucesso.",
+    });
+  };
 
   useEffect(() => {
     const saved = localStorage.getItem('theoflix_mylist');
@@ -110,6 +184,15 @@ export default function TheoFlixPage() {
   const handlePlayEpisode = (episode: Episode) => {
     setCurrentEpisode(episode);
     setIsPlaying(true);
+  };
+
+  const handleClosePlayer = () => {
+    setSelectedCourse(null);
+    setIsPlaying(false);
+    if (playerRef.current) {
+      playerRef.current.destroy();
+      playerRef.current = null;
+    }
   };
 
   if (isLoadingCourses) {
@@ -241,24 +324,25 @@ export default function TheoFlixPage() {
         })}
       </div>
 
-      <Dialog open={!!selectedCourse} onOpenChange={() => { setSelectedCourse(null); setIsPlaying(false); }}>
+      <Dialog open={!!selectedCourse} onOpenChange={handleClosePlayer}>
         <DialogContent className="max-w-6xl p-0 overflow-y-auto sm:overflow-hidden sm:rounded-[2.5rem] rounded-none bg-slate-950 border-none shadow-2xl h-full sm:h-auto max-h-screen">
           {selectedCourse && (
             <>
-              <DialogHeader className="sr-only">
-                <DialogTitle>{currentEpisode?.title || selectedCourse.title}</DialogTitle>
-                <DialogDescription>{selectedCourse.desc}</DialogDescription>
+              <DialogHeader className="p-6 bg-slate-950 flex flex-row items-center justify-between sticky top-0 z-50">
+                <div className="flex items-center gap-4">
+                  <Button variant="ghost" size="icon" onClick={handleClosePlayer} className="text-white hover:bg-white/10 rounded-full">
+                    <ArrowLeft className="size-6" />
+                  </Button>
+                  <DialogTitle className="text-white font-black uppercase italic tracking-tighter truncate">
+                    {selectedCourse.title}
+                  </DialogTitle>
+                </div>
+                <DialogDescription className="sr-only">Visualizando curso: {selectedCourse.title}</DialogDescription>
               </DialogHeader>
               
               <div className="relative aspect-video w-full bg-black shrink-0">
                 {isPlaying && currentEpisode?.youtubeId ? (
-                    <iframe
-                        src={`https://www.youtube.com/embed/${currentEpisode.youtubeId}?autoplay=1&rel=0&playsinline=1&enablejsapi=1`}
-                        className="w-full h-full"
-                        frameBorder="0"
-                        allow="autoplay; fullscreen; picture-in-picture"
-                        allowFullScreen
-                    ></iframe>
+                    <div id="theoflix-player" className="w-full h-full"></div>
                 ) : (
                     <>
                         <Image src={selectedCourse.image} alt={selectedCourse.title} fill className="object-cover opacity-40 blur-sm" />
@@ -287,21 +371,32 @@ export default function TheoFlixPage() {
                     <section className="space-y-4 sm:space-y-6">
                         <h3 className="text-[10px] sm:text-xs font-black uppercase text-primary tracking-widest">Grade de Aulas</h3>
                         <div className="space-y-3 sm:space-y-4">
-                            {selectedCourse.episodes?.map((ep, idx) => (
+                            {selectedCourse.episodes?.map((ep, idx) => {
+                                const epKey = ep.youtubeId || ep.title.replace(/\s+/g, '_');
+                                const isCompleted = userProgress[selectedCourse.id]?.[epKey];
+                                
+                                return (
                                 <div key={idx} className={cn(
                                     "flex items-center justify-between p-4 sm:p-5 rounded-xl sm:rounded-2xl border transition-all cursor-pointer",
                                     currentEpisode?.title === ep.title ? "bg-primary/20 border-primary" : "bg-slate-900 border-slate-800 hover:bg-slate-800"
                                 )} onClick={() => handlePlayEpisode(ep)}>
                                     <div className="flex items-center gap-4 sm:gap-6 min-w-0">
-                                        <span className="font-black text-xl sm:text-2xl text-slate-700 shrink-0">{String(idx + 1).padStart(2, '0')}</span>
+                                        <div className="relative">
+                                          <span className="font-black text-xl sm:text-2xl text-slate-700 shrink-0">{String(idx + 1).padStart(2, '0')}</span>
+                                          {isCompleted && (
+                                            <div className="absolute -top-2 -right-2 bg-emerald-500 rounded-full p-0.5 text-white">
+                                              <CheckCircle className="size-3 fill-current" />
+                                            </div>
+                                          )}
+                                        </div>
                                         <div className="min-w-0">
                                             <h4 className="font-black text-sm sm:text-lg uppercase italic truncate">{ep.title}</h4>
                                             <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase">{ep.duration || '45 MIN'}</span>
                                         </div>
                                     </div>
-                                    <PlayCircle className="size-6 sm:size-8 text-primary shrink-0 ml-2" />
+                                    <PlayCircle className={cn("size-6 sm:size-8 shrink-0 ml-2", isCompleted ? "text-emerald-500" : "text-primary")} />
                                 </div>
-                            ))}
+                            )})}
                         </div>
                     </section>
                 </div>
@@ -319,6 +414,10 @@ export default function TheoFlixPage() {
                             </div>
                         </div>
                     </div>
+                    
+                    <Button variant="outline" onClick={handleClosePlayer} className="w-full h-12 rounded-xl text-white border-white/10 hover:bg-white/5">
+                      <ArrowLeft className="mr-2 size-4" /> Voltar para a Galeria
+                    </Button>
                 </div>
               </div>
             </>

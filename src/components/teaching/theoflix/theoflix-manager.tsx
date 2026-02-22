@@ -125,6 +125,23 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
         }
     };
 
+    const parseDuration = (duration: string) => {
+      // YouTube duration format: PT#H#M#S
+      const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+      if (!match) return '0min';
+      
+      const hours = parseInt(match[1]) || 0;
+      const minutes = parseInt(match[2]) || 0;
+      const seconds = parseInt(match[3]) || 0;
+      
+      let result = '';
+      if (hours > 0) result += `${hours}h `;
+      if (minutes > 0 || hours > 0) result += `${minutes}min`;
+      else if (seconds > 0) result += `${seconds}s`;
+      
+      return result.trim() || '0min';
+    };
+
     const fetchYoutubeMetadata = async (index: number) => {
         const youtubeId = formCourse.episodes?.[index]?.youtubeId;
         if (!youtubeId || !youtubeApiKey) {
@@ -143,14 +160,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
             if (data.items && data.items.length > 0) {
                 const item = data.items[0];
                 const title = item.snippet.title;
-                const durationRaw = item.contentDetails.duration; // Ex: PT45M10S
-                
-                // Conversão simples de ISO 8601 duration para algo legível
-                const minutesMatch = durationRaw.match(/(\d+)M/);
-                const secondsMatch = durationRaw.match(/(\d+)S/);
-                const minutes = minutesMatch ? minutesMatch[1] : '0';
-                const seconds = secondsMatch ? secondsMatch[1] : '00';
-                const duration = `${minutes}:${seconds.padStart(2, '0')}min`;
+                const duration = parseDuration(item.contentDetails.duration);
 
                 const newEps = [...(formCourse.episodes || [])];
                 newEps[index] = { ...newEps[index], title, duration };
