@@ -2,8 +2,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
-import { doc, collection } from 'firebase/firestore';
+import { useFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking, useDoc } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import { 
     Dialog, 
     DialogContent, 
@@ -28,12 +28,16 @@ import {
     Image as ImageIcon,
     Save,
     Loader2,
-    DatabaseZap
+    DatabaseZap,
+    Youtube,
+    Wand2,
+    Settings
 } from 'lucide-react';
 import { type Course, type Episode } from '@/lib/theoflix-data';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
 
 interface TheoflixManagerProps {
     open: boolean;
@@ -47,6 +51,11 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
     const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [isSeeding, setIsSeeding] = useState(false);
+    
+    // YouTube Config
+    const { data: theoflixConfig } = useDoc<any>('config/theoflix');
+    const [youtubeApiKey, setYoutubeApiKey] = useState('');
+    const [isSavingConfig, setIsSavingConfig] = useState(false);
 
     // Course Form State
     const [formCourse, setFormCourse] = useState<Partial<Course>>({
@@ -58,6 +67,12 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
         tags: [],
         episodes: []
     });
+
+    useEffect(() => {
+        if (theoflixConfig) {
+            setYoutubeApiKey(theoflixConfig.youtubeApiKey || '');
+        }
+    }, [theoflixConfig]);
 
     useEffect(() => {
         if (selectedCourse) {
@@ -75,6 +90,22 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
         }
     }, [selectedCourse]);
 
+    const handleSaveConfig = async () => {
+        if (!firestore) return;
+        setIsSavingConfig(true);
+        try {
+            await setDocumentNonBlocking(doc(firestore, 'config', 'theoflix'), {
+                youtubeApiKey,
+                updatedAt: new Date().toISOString()
+            }, { merge: true });
+            toast({ title: "Configuração Salva!", description: "A API Key do YouTube foi atualizada." });
+        } catch (e) {
+            toast({ variant: 'destructive', title: "Erro ao salvar config" });
+        } finally {
+            setIsSavingConfig(false);
+        }
+    };
+
     const handleSaveCourse = async () => {
         if (!firestore || !formCourse.title) return;
         setIsSaving(true);
@@ -91,6 +122,44 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
             toast({ variant: 'destructive', title: "Erro ao salvar", description: "Ocorreu uma falha técnica." });
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    const fetchYoutubeMetadata = async (index: number) => {
+        const youtubeId = formCourse.episodes?.[index]?.youtubeId;
+        if (!youtubeId || !youtubeApiKey) {
+            toast({ 
+                variant: 'destructive', 
+                title: "Dados ausentes", 
+                description: !youtubeApiKey ? "Configure a API Key do YouTube primeiro." : "Insira o ID do vídeo." 
+            });
+            return;
+        }
+
+        try {
+            const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?id=${youtubeId}&key=${youtubeApiKey}&part=snippet,contentDetails`);
+            const data = await res.json();
+
+            if (data.items && data.items.length > 0) {
+                const item = data.items[0];
+                const title = item.snippet.title;
+                const durationRaw = item.contentDetails.duration; // Ex: PT45M10S
+                
+                // Conversão simples de ISO 8601 duration para algo legível
+                const minutes = durationRaw.match(/(\d+)M/)?.[1] || '0';
+                const seconds = durationRaw.match(/(\d+)S/)?.[1] || '00';
+                const duration = `${minutes}:${seconds.padStart(2, '0')}min`;
+
+                const newEps = [...(formCourse.episodes || [])];
+                newEps[index] = { ...newEps[index], title, duration };
+                setFormCourse(prev => ({ ...prev, episodes: newEps }));
+                
+                toast({ title: "Metadados sincronizados!", description: "Título e duração importados do YouTube." });
+            } else {
+                toast({ variant: 'destructive', title: "Vídeo não encontrado", description: "Verifique se o ID está correto." });
+            }
+        } catch (e) {
+            toast({ variant: 'destructive', title: "Erro na API do YouTube" });
         }
     };
 
@@ -114,7 +183,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
     };
 
     const handleAddEpisode = () => {
-        const newEp: Episode = { title: 'Nova Aula', vimeoId: '', duration: '45min' };
+        const newEp: Episode = { title: 'Nova Aula', youtubeId: '', duration: '45min' };
         setFormCourse(prev => ({
             ...prev,
             episodes: [...(prev.episodes || []), newEp]
@@ -145,20 +214,42 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
                                 TheoFlix Content Manager
                             </DialogTitle>
                             <DialogDescription>
-                                Gerencie os vídeos, metadados e estrutura dos cursos de streaming.
+                                Gerencie os vídeos e a estrutura dos cursos.
                             </DialogDescription>
                         </div>
-                        <Button variant="outline" size="sm" onClick={handleSeedData} disabled={isSeeding}>
-                            {isSeeding ? <Loader2 className="mr-2 size-4 animate-spin" /> : <DatabaseZap className="mr-2 size-4" />}
-                            Importar Dados Padrão
-                        </Button>
+                        <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={handleSeedData} disabled={isSeeding}>
+                                {isSeeding ? <Loader2 className="mr-2 size-4 animate-spin" /> : <DatabaseZap className="mr-2 size-4" />}
+                                Importar Padrão
+                            </Button>
+                        </div>
                     </div>
                 </DialogHeader>
 
                 <div className="flex-1 flex overflow-hidden">
-                    {/* Lista Lateral de Cursos */}
+                    {/* Lista Lateral */}
                     <div className="w-1/3 border-r bg-muted/10 p-4 space-y-4">
-                        <div className="flex justify-between items-center">
+                        <div className="space-y-4">
+                            <div className="p-3 bg-white rounded-xl border shadow-sm space-y-3">
+                                <div className="flex items-center gap-2 text-[10px] font-black uppercase text-muted-foreground tracking-widest">
+                                    <Settings size={12} /> Configuração YouTube
+                                </div>
+                                <div className="flex gap-2">
+                                    <Input 
+                                        type="password" 
+                                        placeholder="API Key do YouTube" 
+                                        value={youtubeApiKey} 
+                                        onChange={e => setYoutubeApiKey(e.target.value)} 
+                                        className="h-8 text-xs"
+                                    />
+                                    <Button size="icon" className="h-8 w-8 shrink-0" onClick={handleSaveConfig} disabled={isSavingConfig}>
+                                        {isSavingConfig ? <Loader2 className="size-3 animate-spin" /> : <Save className="size-3" />}
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-between items-center pt-4">
                             <h3 className="font-bold text-sm uppercase text-muted-foreground tracking-widest">Biblioteca</h3>
                             <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setSelectedCourse(null)}>
                                 <PlusCircle className="size-5" />
@@ -172,7 +263,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
                                         onClick={() => setSelectedCourse(course)}
                                         className={cn(
                                             "w-full p-3 rounded-xl border text-left transition-all hover:bg-white hover:shadow-md group",
-                                            selectedCourse?.id === course.id ? "bg-white border-primary shadow-sm ring-1 ring-primary/20" : "bg-card"
+                                            selectedCourse?.id === course.id ? "bg-white border-primary shadow-sm" : "bg-card"
                                         )}
                                     >
                                         <div className="flex items-center gap-3">
@@ -181,10 +272,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
                                             </div>
                                             <div className="min-w-0">
                                                 <p className="text-sm font-bold truncate">{course.title}</p>
-                                                <div className="flex items-center gap-2 mt-1">
-                                                    <Badge variant="outline" className="text-[8px] py-0 h-4">NÍVEL {course.level}</Badge>
-                                                    <span className="text-[10px] text-muted-foreground">{course.episodes?.length || 0} aulas</span>
-                                                </div>
+                                                <span className="text-[10px] text-muted-foreground">{course.episodes?.length || 0} aulas</span>
                                             </div>
                                         </div>
                                     </button>
@@ -193,61 +281,48 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
                         </ScrollArea>
                     </div>
 
-                    {/* Formulário de Edição */}
+                    {/* Formulário */}
                     <div className="flex-1 p-8 overflow-y-auto">
                         <div className="max-w-2xl mx-auto space-y-8 pb-20">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
                                     <Label className="text-xs uppercase font-black">Título do Curso</Label>
-                                    <div className="flex gap-2">
-                                        <div className="p-2 bg-muted rounded-md"><Type size={16} /></div>
-                                        <Input 
-                                            value={formCourse.title} 
-                                            onChange={e => setFormCourse(p => ({...p, title: e.target.value}))} 
-                                            placeholder="Ex: Teologia do Antigo Testamento"
-                                        />
-                                    </div>
+                                    <Input 
+                                        value={formCourse.title} 
+                                        onChange={e => setFormCourse(p => ({...p, title: e.target.value}))} 
+                                    />
                                 </div>
                                 <div className="space-y-2">
-                                    <Label className="text-xs uppercase font-black">Nível de Maturidade</Label>
-                                    <div className="flex gap-2">
-                                        <div className="p-2 bg-muted rounded-md"><Layers size={16} /></div>
-                                        <Input 
-                                            type="number" 
-                                            min="1" max="4"
-                                            value={formCourse.level} 
-                                            onChange={e => setFormCourse(p => ({...p, level: parseInt(e.target.value)}))} 
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label className="text-xs uppercase font-black">Imagem de Capa (URL)</Label>
-                                <div className="flex gap-2">
-                                    <div className="p-2 bg-muted rounded-md"><ImageIcon size={16} /></div>
+                                    <Label className="text-xs uppercase font-black">Nível</Label>
                                     <Input 
-                                        value={formCourse.image} 
-                                        onChange={e => setFormCourse(p => ({...p, image: e.target.value}))} 
-                                        placeholder="https://images.unsplash.com/..."
+                                        type="number" 
+                                        value={formCourse.level} 
+                                        onChange={e => setFormCourse(p => ({...p, level: parseInt(e.target.value)}))} 
                                     />
                                 </div>
                             </div>
 
                             <div className="space-y-2">
-                                <Label className="text-xs uppercase font-black">Sinopse do Curso</Label>
+                                <Label className="text-xs uppercase font-black">Imagem de Capa</Label>
+                                <Input 
+                                    value={formCourse.image} 
+                                    onChange={e => setFormCourse(p => ({...p, image: e.target.value}))} 
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className="text-xs uppercase font-black">Sinopse</Label>
                                 <Textarea 
                                     rows={4}
                                     value={formCourse.desc} 
                                     onChange={e => setFormCourse(p => ({...p, desc: e.target.value}))} 
-                                    placeholder="Descreva o que os alunos aprenderão neste curso..."
                                 />
                             </div>
 
-                            {/* Gestão de Episódios */}
+                            {/* Grade de Aulas */}
                             <div className="pt-6 border-t space-y-4">
                                 <div className="flex justify-between items-center">
-                                    <h4 className="text-sm font-black uppercase tracking-widest text-primary">Grade de Aulas & Vídeos</h4>
+                                    <h4 className="text-sm font-black uppercase tracking-widest text-primary">Aulas & YouTube IDs</h4>
                                     <Button size="sm" variant="outline" onClick={handleAddEpisode}>
                                         <PlusCircle className="mr-2 size-4" /> Adicionar Aula
                                     </Button>
@@ -258,7 +333,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
                                         <div key={idx} className="p-4 rounded-xl border bg-muted/20 space-y-4 relative group">
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <div className="space-y-1.5">
-                                                    <Label className="text-[10px] font-bold">Título da Aula</Label>
+                                                    <Label className="text-[10px] font-bold">Título</Label>
                                                     <Input 
                                                         value={ep.title} 
                                                         onChange={e => handleUpdateEpisode(idx, 'title', e.target.value)}
@@ -266,15 +341,26 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
                                                     />
                                                 </div>
                                                 <div className="space-y-1.5">
-                                                    <Label className="text-[10px] font-bold text-blue-600">Vimeo ID</Label>
-                                                    <div className="relative">
-                                                        <Video className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-blue-400" />
-                                                        <Input 
-                                                            value={ep.vimeoId} 
-                                                            onChange={e => handleUpdateEpisode(idx, 'vimeoId', e.target.value)}
-                                                            className="h-8 text-sm pl-7 border-blue-200 focus:ring-blue-500"
-                                                            placeholder="Ex: 76979871"
-                                                        />
+                                                    <Label className="text-[10px] font-bold text-red-600">YouTube ID</Label>
+                                                    <div className="flex gap-2">
+                                                        <div className="relative flex-1">
+                                                            <Youtube className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-red-400" />
+                                                            <Input 
+                                                                value={ep.youtubeId} 
+                                                                onChange={e => handleUpdateEpisode(idx, 'youtubeId', e.target.value)}
+                                                                className="h-8 text-sm pl-7"
+                                                                placeholder="ex: dQw4w9WgXcQ"
+                                                            />
+                                                        </div>
+                                                        <Button 
+                                                            variant="secondary" 
+                                                            size="icon" 
+                                                            className="h-8 w-8 shrink-0" 
+                                                            onClick={() => fetchYoutubeMetadata(idx)}
+                                                            title="Sincronizar com YouTube"
+                                                        >
+                                                            <Wand2 size={14} />
+                                                        </Button>
                                                     </div>
                                                 </div>
                                             </div>
@@ -288,11 +374,6 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
                                             </Button>
                                         </div>
                                     ))}
-                                    {formCourse.episodes?.length === 0 && (
-                                        <p className="text-center py-10 text-xs text-muted-foreground italic border-2 border-dashed rounded-xl">
-                                            Nenhuma aula cadastrada. Clique em "Adicionar Aula" para configurar os vídeos.
-                                        </p>
-                                    )}
                                 </div>
                             </div>
                         </div>
@@ -304,8 +385,8 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
                         <Button variant="outline">Cancelar</Button>
                     </DialogClose>
                     <Button onClick={handleSaveCourse} disabled={isSaving || !formCourse.title}>
-                        {isSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Save className="mr-2 size-4" />}
-                        Salvar e Publicar no TheoFlix
+                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        Publicar no TheoFlix
                     </Button>
                 </DialogFooter>
             </DialogContent>
