@@ -416,7 +416,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                                     </div>
                                     {selectedLevel && (
                                         <Button variant="outline" className="w-full text-destructive border-destructive/20 hover:bg-destructive/10 h-10 text-xs" onClick={() => {
-                                            if(confirm("Excluir este nível?")) deleteDocumentNonBlocking(doc(firestore!, 'theoflix_levels', selectedLevel.id));
+                                            if(confirm("Deseja excluir este nível?")) deleteDocumentNonBlocking(doc(firestore!, 'theoflix_levels', selectedLevel.id));
                                         }}>
                                             <Trash2 className="size-4 mr-2" /> Excluir Categoria
                                         </Button>

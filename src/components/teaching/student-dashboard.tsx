@@ -3,11 +3,11 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, DollarSign, Book, GraduationCap, CreditCard, User, MessageSquare, Loader2, PlayCircle, ExternalLink } from 'lucide-react';
+import { Calendar, Clock, DollarSign, Book, GraduationCap, CreditCard, User, MessageSquare, Loader2, PlayCircle, ExternalLink, ChevronRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { useFirebase } from '@/firebase';
-import { useVolunteering } from '@/contexts/volunteering-context';
+import { useVolunteering, type Class } from '@/contexts/volunteering-context';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -17,11 +17,23 @@ export function StudentDashboard() {
     const { user } = useFirebase();
     const { classes, courses, users, wavePayments, disPayments, pedagogicalLogs, isLoading } = useVolunteering();
 
-    // Turmas do aluno
-    const studentClasses = useMemo(() => {
+    // Turmas do aluno agrupadas por curso
+    const groupedClasses = useMemo(() => {
         if (!user || !classes) return [];
-        return classes.filter(cls => cls.students && cls.students.includes(user.uid));
-    }, [user, classes]);
+        const myClasses = classes.filter(cls => cls.students && cls.students.includes(user.uid));
+        
+        const groups: Record<string, Class[]> = {};
+        myClasses.forEach(cls => {
+            if (!groups[cls.courseId]) groups[cls.courseId] = [];
+            groups[cls.courseId].push(cls);
+        });
+        
+        return Object.values(groups).sort((a, b) => {
+            const courseA = courses.find(c => c.id === a[0].courseId)?.name || '';
+            const courseB = courses.find(c => c.id === b[0].courseId)?.name || '';
+            return courseA.localeCompare(courseB);
+        });
+    }, [user, classes, courses]);
 
     // Pagamentos Unificados
     const allPayments = useMemo(() => {
@@ -36,13 +48,13 @@ export function StudentDashboard() {
 
     // Logs de aula (feedback)
     const recentLogs = useMemo(() => {
-        if (!pedagogicalLogs || studentClasses.length === 0) return [];
-        const studentClassIds = studentClasses.map(c => c.id);
+        if (!pedagogicalLogs || groupedClasses.length === 0) return [];
+        const studentClassIds = classes.filter(cls => cls.students?.includes(user?.uid || '')).map(c => c.id);
         return pedagogicalLogs
             .filter(log => studentClassIds.includes(log.classId))
             .sort((a, b) => b.date.toMillis() - a.date.toMillis())
             .slice(0, 3);
-    }, [pedagogicalLogs, studentClasses]);
+    }, [pedagogicalLogs, groupedClasses, classes, user]);
 
     if (isLoading) {
         return (
@@ -88,29 +100,40 @@ export function StudentDashboard() {
                     </CardContent>
                 </Card>
 
-                {/* Agenda Unificada */}
+                {/* Agenda Unificada Agrupada */}
                 <Card className="md:col-span-2">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><Calendar className="size-5 text-primary"/> Minha Agenda</CardTitle>
                         <CardDescription>Seus horários de aula em todos os cursos.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        {studentClasses.length === 0 ? (
+                        {groupedClasses.length === 0 ? (
                             <p className="text-muted-foreground text-center py-8">Você não possui matrículas ativas.</p>
                         ) : (
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {studentClasses.map(cls => {
-                                    const course = courseMap.get(cls.courseId);
+                                {groupedClasses.map(group => {
+                                    const firstCls = group[0];
+                                    const course = courseMap.get(firstCls.courseId);
                                     return (
-                                        <div key={cls.id} className="p-4 bg-muted/30 rounded-xl border hover:bg-muted/50 transition-colors flex flex-col justify-between h-full">
+                                        <div key={firstCls.courseId} className="p-4 bg-muted/30 rounded-xl border hover:bg-muted/50 transition-colors flex flex-col justify-between h-full">
                                             <div>
-                                                <div className="flex justify-between items-start mb-2">
-                                                    <p className="text-sm font-black text-primary">{course?.name}</p>
-                                                    <Badge variant="outline" className="text-[9px] uppercase">{course?.ministryName}</Badge>
+                                                <div className="flex justify-between items-start mb-3">
+                                                    <p className="text-sm font-black text-primary truncate max-w-[150px]">{course?.name}</p>
+                                                    <Badge variant="outline" className="text-[9px] uppercase font-black">{course?.ministryName}</Badge>
                                                 </div>
-                                                <div className="space-y-1.5 text-xs">
-                                                    <div className="flex items-center gap-2"><Clock className="size-3.5" /> <strong>{cls.dayOfWeek} às {cls.startTime}</strong></div>
-                                                    <div className="flex items-center gap-2"><User className="size-3.5" /> Prof. {teacherMap.get(cls.teacherId)?.name || 'A definir'}</div>
+                                                <div className="space-y-3">
+                                                    {group.map(cls => (
+                                                        <div key={cls.id} className="space-y-1">
+                                                            <div className="flex items-center gap-2 text-xs">
+                                                                <Clock className="size-3.5 text-muted-foreground" /> 
+                                                                <span className="font-bold">{cls.dayOfWeek} às {cls.startTime}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                                                <User className="size-3" /> 
+                                                                <span>Prof. {teacherMap.get(cls.teacherId)?.name || 'A definir'}</span>
+                                                            </div>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             </div>
                                             
