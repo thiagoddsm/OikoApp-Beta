@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -43,7 +42,8 @@ import {
     ChevronUp,
     ChevronDown,
     Palette,
-    X
+    X,
+    Info
 } from 'lucide-react';
 import { type Course, type Episode } from '@/lib/theoflix-data';
 import { type TheoLevel } from '@/app/dashboard/teaching/theoflix/page';
