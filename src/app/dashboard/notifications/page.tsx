@@ -875,7 +875,8 @@ function NotificationsConfig() {
     const checkStatus = useCallback(async () => {
         setIsLoadingStatus(true);
         try {
-            const response = await fetch('/api/notifications/instance');
+            // Bust cache with a timestamp
+            const response = await fetch(`/api/notifications/instance?t=${Date.now()}`);
             const data = await response.json();
             
             if (data.qr) {
