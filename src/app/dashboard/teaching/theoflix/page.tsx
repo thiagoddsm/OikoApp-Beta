@@ -28,35 +28,35 @@ import { theoflixDB, type Course, type Episode } from '@/lib/theoflix-data';
 import { Play, Info, Plus, Lock, Search, Clock, CheckCircle2, PlayCircle, Star, Heart, X, Settings, Loader2, ArrowLeft, CheckCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirebase, useCollection, useMemoFirebase, useDoc, updateDocumentNonBlocking } from '@/firebase';
-import { collection, query, doc } from 'firebase/firestore';
+import { collection, query, doc, orderBy } from 'firebase/firestore';
 import { TheoflixManager } from '@/components/teaching/theoflix/theoflix-manager';
 import { useToast } from '@/hooks/use-toast';
 
-const levelConfig: Record<number, { title: string; color: string; shadow: string; bg: string }> = {
-  1: {
-    title: 'Fundamentos & Integração',
-    color: 'bg-blue-600',
-    bg: 'bg-blue-50',
-    shadow: 'shadow-blue-500/30',
-  },
-  2: {
-    title: 'Maturidade & Cura',
-    color: 'bg-rose-600',
-    bg: 'bg-rose-50',
-    shadow: 'shadow-rose-500/30',
-  },
-  3: {
-    title: 'Escola de Líderes',
-    color: 'bg-amber-600',
-    bg: 'bg-amber-50',
-    shadow: 'shadow-amber-500/30',
-  },
-  4: {
-    title: 'Alta Gestão & Supervisão',
-    color: 'bg-purple-600',
-    bg: 'bg-purple-50',
-    shadow: 'shadow-purple-500/30',
-  },
+export type TheoLevel = {
+    id: string;
+    level: number;
+    title: string;
+    color: string;
+};
+
+const defaultLevelConfig: Record<number, { title: string; color: string; shadow: string; bg: string }> = {
+  1: { title: 'Fundamentos & Integração', color: 'bg-blue-600', bg: 'bg-blue-50', shadow: 'shadow-blue-500/30' },
+  2: { title: 'Maturidade & Cura', color: 'bg-rose-600', bg: 'bg-rose-50', shadow: 'shadow-rose-500/30' },
+  3: { title: 'Escola de Líderes', color: 'bg-amber-600', bg: 'bg-amber-50', shadow: 'shadow-amber-500/30' },
+  4: { title: 'Alta Gestão & Supervisão', color: 'bg-purple-600', bg: 'bg-purple-50', shadow: 'shadow-purple-500/30' },
+};
+
+export const getColorClasses = (color: string) => {
+    const maps: Record<string, any> = {
+        blue: { color: 'bg-blue-600', bg: 'bg-blue-50', shadow: 'shadow-blue-500/30' },
+        rose: { color: 'bg-rose-600', bg: 'bg-rose-50', shadow: 'shadow-rose-500/30' },
+        amber: { color: 'bg-amber-600', bg: 'bg-amber-50', shadow: 'shadow-amber-500/30' },
+        purple: { color: 'bg-purple-600', bg: 'bg-purple-50', shadow: 'shadow-purple-500/30' },
+        emerald: { color: 'bg-emerald-600', bg: 'bg-emerald-50', shadow: 'shadow-emerald-500/30' },
+        indigo: { color: 'bg-indigo-600', bg: 'bg-indigo-50', shadow: 'shadow-indigo-500/30' },
+        slate: { color: 'bg-slate-600', bg: 'bg-slate-50', shadow: 'shadow-slate-500/30' },
+    };
+    return maps[color] || maps.blue;
 };
 
 declare global {
@@ -75,6 +75,9 @@ export default function TheoFlixPage() {
   const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'theoflix_courses')) : null, [firestore]);
   const { data: dbCourses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery);
 
+  const levelsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'theoflix_levels'), orderBy('level', 'asc')) : null, [firestore]);
+  const { data: dbLevels, isLoading: isLoadingLevels } = useCollection<TheoLevel>(levelsQuery);
+
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [currentEpisode, setCurrentEpisode] = useState<Episode | null>(null);
   const [searchQuery, setSearchTerm] = useState('');
@@ -85,58 +88,52 @@ export default function TheoFlixPage() {
   
   const playerRef = useRef<any>(null);
 
-  // Carrega Progresso do Usuário
   const userProgress = useMemo(() => userData?.journey?.theoflixProgress || {}, [userData]);
 
+  const levels = useMemo(() => {
+      if (dbLevels && dbLevels.length > 0) return dbLevels;
+      return Object.entries(defaultLevelConfig).map(([lvl, cfg]) => ({
+          id: lvl,
+          level: parseInt(lvl),
+          title: cfg.title,
+          color: cfg.color.replace('bg-', '').replace('-600', '')
+      }));
+  }, [dbLevels]);
+
   const allCourses = useMemo(() => {
-    if (!dbCourses || dbCourses.length === 0) return theoflixDB;
-    // Combine local and DB courses, avoiding duplicates by ID
+    const baseCourses = (dbCourses && dbCourses.length > 0) ? dbCourses : theoflixDB;
+    if (!dbCourses || dbCourses.length === 0) return baseCourses;
     const dbIds = new Set(dbCourses.map(c => c.id));
     const localFiltered = theoflixDB.filter(c => !dbIds.has(c.id));
     return [...dbCourses, ...localFiltered];
   }, [dbCourses]);
 
-  // Cálculo da Duração Total Somada Dinâmica
   const calculatedTotalDuration = useMemo(() => {
     if (!selectedCourse?.episodes) return "0min";
-    
     const totalMinutes = selectedCourse.episodes.reduce((acc, ep) => {
         const duration = ep.duration || "0min";
         let mins = 0;
-        
         const hMatch = duration.match(/(\d+)\s*h/i);
         if (hMatch) mins += parseInt(hMatch[1]) * 60;
-        
         const mMatch = duration.match(/(\d+)\s*min/i);
         if (mMatch) mins += parseInt(mMatch[1]);
-        
-        if (!hMatch && !mMatch && /^\d+$/.test(duration.trim())) {
-            mins += parseInt(duration);
-        }
-        
+        if (!hMatch && !mMatch && /^\d+$/.test(duration.trim())) mins += parseInt(duration);
         return acc + mins;
     }, 0);
-
     const h = Math.floor(totalMinutes / 60);
     const m = totalMinutes % 60;
-    
     if (h > 0) return `${h}h ${m}min`;
     return `${m}min`;
   }, [selectedCourse]);
 
-  // YouTube IFrame API Setup
   useEffect(() => {
     if (typeof window === 'undefined') return;
-
     if (!window.YT) {
       const tag = document.createElement('script');
       tag.src = "https://www.youtube.com/iframe_api";
       const firstScriptTag = document.getElementsByTagName('script')[0];
       firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
-
-      window.onYouTubeIframeAPIReady = () => {
-        setIsApiReady(true);
-      };
+      window.onYouTubeIframeAPIReady = () => setIsApiReady(true);
     } else {
       setIsApiReady(true);
     }
@@ -151,17 +148,10 @@ export default function TheoFlixPage() {
           height: '100%',
           width: '100%',
           videoId: currentEpisode.youtubeId,
-          playerVars: {
-            'playsinline': 1,
-            'autoplay': 1,
-            'rel': 0,
-            'modestbranding': 1
-          },
+          playerVars: { 'playsinline': 1, 'autoplay': 1, 'rel': 0, 'modestbranding': 1 },
           events: {
             'onStateChange': (event: any) => {
-              if (event.data === window.YT.PlayerState.ENDED) {
-                handleMarkAsCompleted();
-              }
+              if (event.data === window.YT.PlayerState.ENDED) handleMarkAsCompleted();
             }
           }
         });
@@ -171,24 +161,13 @@ export default function TheoFlixPage() {
 
   const handleMarkAsCompleted = () => {
     if (!user || !selectedCourse || !currentEpisode || !firestore) return;
-
     const userDocRef = doc(firestore, 'users', user.uid);
     const episodeKey = currentEpisode.youtubeId || currentEpisode.title.replace(/\s+/g, '_');
-    
     updateDocumentNonBlocking(userDocRef, {
       [`journey.theoflixProgress.${selectedCourse.id}.${episodeKey}`]: true
     });
-
-    toast({
-      title: "Aula Concluída! 🎉",
-      description: "Seu progresso foi salvo com sucesso.",
-    });
+    toast({ title: "Aula Concluída! 🎉", description: "Seu progresso foi salvo com sucesso." });
   };
-
-  useEffect(() => {
-    const saved = localStorage.getItem('theoflix_mylist');
-    if (saved) setMyList(JSON.parse(saved));
-  }, []);
 
   const toggleMyList = (id: string) => {
     setMyList(prev => {
@@ -228,7 +207,7 @@ export default function TheoFlixPage() {
     }
   };
 
-  if (isLoadingCourses) {
+  if (isLoadingCourses || isLoadingLevels) {
     return <div className="flex items-center justify-center h-96"><Loader2 className="animate-spin text-primary" /></div>;
   }
 
@@ -268,7 +247,7 @@ export default function TheoFlixPage() {
       {featuredCourse && !searchQuery && (
         <section className="relative h-[450px] rounded-[2.5rem] overflow-hidden group shadow-2xl">
             <Image 
-                src={featuredCourse.image || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4'} 
+                src={featuredCourse.image || 'https://picsum.photos/seed/placeholder/1200/800'} 
                 alt={featuredCourse.title} 
                 fill 
                 className="object-cover transition-transform duration-[2000ms] group-hover:scale-110"
@@ -304,18 +283,17 @@ export default function TheoFlixPage() {
       )}
 
       <div className="space-y-16">
-        {Object.keys(levelConfig).map((lvl) => {
-            const level = parseInt(lvl);
-            const coursesForLevel = filteredCourses.filter((c) => c.level === level);
+        {levels.map((lvl) => {
+            const coursesForLevel = filteredCourses.filter((c) => c.level === lvl.level);
             if (coursesForLevel.length === 0) return null;
-            const config = levelConfig[level];
+            const config = getColorClasses(lvl.color);
             
             return (
-            <section key={level} className="animate-in slide-in-from-bottom-4">
+            <section key={lvl.id} className="animate-in slide-in-from-bottom-4">
                 <div className="flex items-center gap-3 mb-6">
                     <div className={cn("w-1.5 h-10 rounded-full", config.color)}></div>
                     <h2 className="text-2xl font-black tracking-tight text-slate-900 uppercase italic">
-                        {config.title}
+                        {lvl.title}
                     </h2>
                 </div>
                 
@@ -385,7 +363,7 @@ export default function TheoFlixPage() {
                     <>
                         <Image src={selectedCourse.image || 'https://picsum.photos/seed/placeholder/800/450'} alt={selectedCourse.title} fill className="object-cover opacity-40 blur-sm" />
                         <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 sm:p-8 space-y-4 sm:space-y-6">
-                            <Badge className={cn("text-white font-black", levelConfig[selectedCourse.level]?.color)}>
+                            <Badge className={cn("text-white font-black", getColorClasses(levels.find(l => l.level === selectedCourse.level)?.color || 'blue').color)}>
                                 NÍVEL {selectedCourse.level}
                             </Badge>
                             <h2 className="text-2xl sm:text-4xl md:text-6xl font-black text-white uppercase italic tracking-tighter line-clamp-2">
@@ -444,7 +422,9 @@ export default function TheoFlixPage() {
                         <div className="space-y-4 sm:space-y-5 text-sm font-bold">
                             <div className="flex flex-col gap-1">
                                 <span className="text-slate-500 text-[9px] sm:text-[10px] uppercase">Nível</span>
-                                <span className="text-slate-200 text-xs sm:text-sm">{selectedCourse.level} - {levelConfig[selectedCourse.level]?.title}</span>
+                                <span className="text-slate-200 text-xs sm:text-sm">
+                                    {selectedCourse.level} - {levels.find(l => l.level === selectedCourse.level)?.title || 'Outro'}
+                                </span>
                             </div>
                             <div className="flex flex-col gap-1">
                                 <span className="text-slate-500 text-[9px] sm:text-[10px] uppercase">Tempo Total (Soma das Aulas)</span>
@@ -471,6 +451,7 @@ export default function TheoFlixPage() {
         open={isManagerOpen}
         onOpenChange={setManagerOpen}
         existingCourses={allCourses}
+        existingLevels={levels}
       />
     </div>
   );
