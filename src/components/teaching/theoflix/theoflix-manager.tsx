@@ -20,6 +20,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
+    Card,
+    CardHeader,
+    CardTitle,
+    CardContent,
+    CardDescription
+} from '@/components/ui/card';
+import { 
     PlusCircle, 
     Trash2, 
     Edit, 
@@ -218,7 +225,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                             </DialogTitle>
                             <DialogDescription>Administre cursos, aulas e níveis da trilha.</DialogDescription>
                         </div>
-                        <Button variant="outline" size="sm" onClick={handleSeedData} disabled={isSeeding}>
+                        <Button variant="outline" size="icon" onClick={handleSeedData} disabled={isSeeding}>
                             {isSeeding ? <Loader2 className="animate-spin size-4" /> : <DatabaseZap className="size-4" />}
                         </Button>
                     </div>
@@ -233,7 +240,6 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                         </TabsList>
                     </div>
 
-                    {/* TABS: CURSOS */}
                     <TabsContent value="courses" className="flex-1 flex overflow-hidden m-0">
                         <div className="w-1/3 border-r bg-muted/10 p-4 flex flex-col gap-4 overflow-y-auto">
                             <div className="flex justify-between items-center">
@@ -291,7 +297,6 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                         </div>
                     </TabsContent>
 
-                    {/* TABS: NÍVEIS */}
                     <TabsContent value="levels" className="flex-1 flex overflow-hidden m-0">
                         <div className="w-1/3 border-r bg-muted/10 p-4 flex flex-col gap-4 overflow-y-auto">
                             <div className="flex justify-between items-center">
@@ -330,7 +335,6 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                         </div>
                     </TabsContent>
 
-                    {/* TABS: CONFIGURAÇÕES */}
                     <TabsContent value="config" className="p-8 m-0">
                         <Card className="max-w-2xl mx-auto">
                             <CardHeader><CardTitle className="text-sm font-bold uppercase tracking-widest">Integração YouTube Data API</CardTitle></CardHeader>
