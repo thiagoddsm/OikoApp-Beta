@@ -597,7 +597,7 @@ function WhatsappSender() {
                                     <Input 
                                         value={btn.text} 
                                         onChange={e => handleUpdateBtn(idx, e.target.value)}
-                                        placeholder={`Texto do Botão ${idx + 1}`}
+                                        placeholder={`Botão ${idx + 1}`}
                                         className="bg-white"
                                     />
                                     {msgButtons.length > 1 && (
@@ -621,13 +621,13 @@ function WhatsappSender() {
                         <div className="space-y-2">
                             <Label className="flex items-center gap-2"><BarChart3 size={14} /> Pergunta da Enquete</Label>
                             <Input 
-                                placeholder="Ex: Qual o melhor horário para o próximo ensaio?" 
+                                placeholder="Ex: Qual o melhor horário?" 
                                 value={surveyName}
                                 onChange={e => setSurveyName(e.target.value)}
                             />
                         </div>
                         <div className="space-y-3">
-                            <Label className="text-xs font-bold uppercase text-muted-foreground">Opções de Resposta</Label>
+                            <Label className="text-xs font-bold uppercase text-muted-foreground">Opções</Label>
                             {surveyOptions.map((opt, idx) => (
                                 <div key={idx} className="flex gap-2">
                                     <Input 
@@ -655,7 +655,7 @@ function WhatsappSender() {
                 {msgType === 'media' && (
                     <div className="space-y-4 p-4 border border-dashed rounded-lg bg-blue-50 animate-in slide-in-from-top-2">
                         <div className="space-y-2">
-                            <Label className="flex items-center gap-2"><ImageIcon size={14} /> Link da Imagem ou Documento</Label>
+                            <Label className="flex items-center gap-2"><ImageIcon size={14} /> Link da Mídia</Label>
                             <div className="relative">
                                 <LinkIcon className="absolute left-3 top-3 size-4 text-muted-foreground" />
                                 <Input 
@@ -665,7 +665,6 @@ function WhatsappSender() {
                                     className="pl-10 bg-background"
                                 />
                             </div>
-                            <p className="text-[10px] text-muted-foreground">O sistema detecta automaticamente se é imagem (png, jpg) ou documento (pdf, docx).</p>
                         </div>
                     </div>
                 )}
@@ -679,14 +678,14 @@ function WhatsappSender() {
                             <div className="space-y-2">
                                 <Label className="flex items-center gap-2 text-emerald-700 font-bold"><Banknote size={14} /> Chave PIX</Label>
                                 <Input 
-                                    placeholder="E-mail, CPF ou Aleatória" 
+                                    placeholder="E-mail ou CPF" 
                                     value={pixKey}
                                     onChange={e => setPixKey(e.target.value)}
                                     className="bg-white"
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label className="flex items-center gap-2 text-emerald-700 font-bold"><Wallet size={14} /> Valor (Opcional)</Label>
+                                <Label className="flex items-center gap-2 text-emerald-700 font-bold"><Wallet size={14} /> Valor</Label>
                                 <Input 
                                     type="number"
                                     placeholder="0.00" 
@@ -696,25 +695,6 @@ function WhatsappSender() {
                                 />
                             </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase text-muted-foreground">Nome do Favorecido</Label>
-                                <Input 
-                                    value={pixName}
-                                    onChange={e => setPixName(e.target.value)}
-                                    className="bg-white h-8 text-xs"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-[10px] font-black uppercase text-muted-foreground">Cidade</Label>
-                                <Input 
-                                    value={pixCity}
-                                    onChange={e => setPixCity(e.target.value)}
-                                    className="bg-white h-8 text-xs"
-                                />
-                            </div>
-                        </div>
-                        <p className="text-[9px] text-amber-700 font-medium italic mt-2">Aviso: O recurso de PIX automático exige o plano Enterprise do gateway.</p>
                     </div>
                 )}
 
@@ -738,65 +718,55 @@ function WhatsappSender() {
                     </div>
                     <Textarea 
                         id="message" 
-                        placeholder={msgType === 'button' ? "Ex: Olá {{nome}}, você confirma sua escala no domingo?" : "Olá {{nome}}..."}
+                        placeholder="Olá {{nome}}..."
                         className="min-h-[120px] bg-background"
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
                         required={msgType !== 'survey'}
                     />
-                    <p className="text-[10px] text-muted-foreground italic">Use <strong>{"{{nome}}"}</strong> para personalizar com o nome de cada membro.</p>
                 </div>
 
                 <Button type="submit" disabled={isLoading || (msgType !== 'survey' && !message?.trim())} className="w-full h-12 text-base font-bold shadow-lg">
                     {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
-                    {msgType === 'survey' ? 'Disparar Enquete' : msgType === 'button' ? 'Disparar Convite Interativo' : msgType === 'media' ? 'Enviar Mídia' : msgType === 'pix' ? 'Enviar Cobrança PIX' : 'Enviar Mensagem'}
-                    {targetAudience === 'specific_members' && selectedUserIds.length > 0 && ` (${selectedUserIds.length} pessoas)`}
+                    Enviar Notificação
                 </Button>
             </form>
 
-            {/* Painel de Debug / Erro Real */}
             {debugError && (
                 <Alert variant="destructive" className="animate-in shake-1 border-2">
                     <ShieldAlert className="h-4 w-4" />
-                    <AlertTitle className="font-black uppercase tracking-tighter">Erro de Resposta do Gateway</AlertTitle>
+                    <AlertTitle className="font-black uppercase tracking-tighter">Erro do Gateway</AlertTitle>
                     <AlertDescription className="mt-2 space-y-2">
                         <p className="text-sm font-bold">{debugError.error}</p>
                         <div className="bg-black/10 p-3 rounded font-mono text-[10px] overflow-auto max-h-40">
                             <pre>{JSON.stringify(debugError.details || debugError, null, 2)}</pre>
                         </div>
-                        <p className="text-[10px] opacity-70">Endpoint: /{debugError.endpoint}</p>
                     </AlertDescription>
                 </Alert>
             )}
 
-            {/* Seção de Testes Rápidos */}
             <div className="pt-8 border-t">
                 <div className="flex items-center gap-2 mb-4">
                     <Bug className="size-4 text-muted-foreground" />
-                    <h3 className="text-xs font-black uppercase text-muted-foreground tracking-widest">Ambiente de Teste (Debug)</h3>
+                    <h3 className="text-xs font-black uppercase text-muted-foreground tracking-widest">Debug Mode</h3>
                 </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <div className="space-y-2">
-                        <Label htmlFor="test-phone" className="text-[10px] font-black uppercase text-muted-foreground">Número para Receber Teste (com DDD)</Label>
+                <div className="flex flex-wrap gap-4 mb-6">
+                    <div className="flex-1 min-w-[200px] space-y-2">
+                        <Label htmlFor="test-phone" className="text-[10px] font-black uppercase">Número de Teste</Label>
                         <Input 
                             id="test-phone"
-                            placeholder="Ex: 21999999999" 
+                            placeholder="21999999999" 
                             value={testPhoneNumber}
                             onChange={e => setTestPhoneNumber(e.target.value)}
                             className="bg-background border-dashed border-primary/50"
                         />
                     </div>
+                    <div className="flex flex-wrap gap-2 items-end">
+                        <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('text')} disabled={isLoading} className="h-10 text-[10px] font-bold">TEXTO</Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('button')} disabled={isLoading} className="h-10 text-[10px] font-bold border-indigo-200 text-indigo-700">BOTÕES (PRO)</Button>
+                        <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('survey')} disabled={isLoading} className="h-10 text-[10px] font-bold border-amber-200 text-amber-700">ENQUETE (PRO)</Button>
+                    </div>
                 </div>
-
-                <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('text')} disabled={isLoading} className="h-8 text-[10px] font-bold">TEXTO SIMPLES</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('button')} disabled={isLoading} className="h-8 text-[10px] font-bold border-indigo-200 text-indigo-700">BOTÕES (PRO)</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('media')} disabled={isLoading} className="h-8 text-[10px] font-bold border-blue-200 text-blue-700">MÍDIA (URL)</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('pix')} disabled={isLoading} className="h-8 text-[10px] font-bold border-emerald-200 text-emerald-700">QR PIX (ENT)</Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('survey')} disabled={isLoading} className="h-8 text-[10px] font-bold border-amber-200 text-amber-700">ENQUETE (PRO)</Button>
-                </div>
-                <p className="text-[9px] text-muted-foreground mt-2 italic">Dica: Com o plano PRO ativo, os botões e enquetes devem ser entregues corretamente.</p>
             </div>
         </div>
     );
@@ -859,12 +829,9 @@ function NotificationsConfig() {
     const [isDisconnecting, setIsDisconnecting] = useState(false);
     const [isSyncingWebhook, setIsSyncingWebhook] = useState(false);
     const [isConfiguringInstance, setIsConfiguringInstance] = useState(false);
-    const [isRestarting, setIsRestarting] = useState(false);
     const [qrCode, setQrCode] = useState<string | null>(null);
     const [instanceStatus, setInstanceStatus] = useState<{status: string, message?: string, qr?: string, details?: any} | null>(null);
     const [isLoadingStatus, setIsLoadingStatus] = useState(false);
-    const [testNumber, setTestNumber] = useState('');
-    const [isCheckingNumber, setIsCheckingNumber] = useState(false);
 
     useEffect(() => {
         if (config) {
@@ -875,7 +842,6 @@ function NotificationsConfig() {
     const checkStatus = useCallback(async () => {
         setIsLoadingStatus(true);
         try {
-            // Bust cache with a timestamp
             const response = await fetch(`/api/notifications/instance?t=${Date.now()}`);
             const data = await response.json();
             
@@ -885,10 +851,7 @@ function NotificationsConfig() {
             }
 
             setInstanceStatus(data);
-
-            if (data.status === 'connected') {
-                setQrCode(null);
-            }
+            if (data.status === 'connected') setQrCode(null);
         } catch (e) {
             setInstanceStatus({ status: 'error', message: 'Falha ao consultar gateway.' });
         } finally {
@@ -896,51 +859,20 @@ function NotificationsConfig() {
         }
     }, []);
 
-    // Chama checkStatus quando a chave mudar ou o componente montar
     useEffect(() => {
-        if (waKey) {
-            checkStatus();
-        }
+        if (waKey) checkStatus();
     }, [waKey, checkStatus]);
-
-    const checkNumberRegistration = async () => {
-        if (!testNumber || !waKey) return;
-        setIsCheckingNumber(true);
-        const phone = testNumber.replace(/\D/g, '');
-        const formatted = phone.length <= 11 ? `55${phone}` : phone;
-        
-        try {
-            const response = await fetch(`https://us.api-wa.me/${waKey}/actions/registered?to=${formatted}`);
-            const data = await response.json();
-            
-            const isRegistered = data.status === true || 
-                                 data.registered === true || 
-                                 data.data?.registered === true ||
-                                 data.result === true ||
-                                 (data.status === 200 && (data.registered === true || data.data?.registered === true));
-
-            if (isRegistered) {
-                toast({ title: "Número Válido ✅", description: "Este contato possui WhatsApp." });
-            } else {
-                toast({ variant: 'destructive', title: "Número Inválido ❌", description: "Este contato NÃO possui WhatsApp registrado." });
-            }
-        } catch (e) {
-            toast({ variant: 'destructive', title: "Erro na verificação" });
-        } finally {
-            setIsCheckingNumber(false);
-        }
-    };
 
     const handleConfigureInstance = async () => {
         setIsConfiguringInstance(true);
         try {
             const response = await fetch('/api/notifications/instance', { method: 'PATCH' });
             if (response.ok) {
-                toast({ title: "Recursos Ativados!", description: "Botões e enquetes agora devem funcionar normalmente no plano PRO." });
-                checkStatus(); // Refresh status after activating
+                toast({ title: "Recursos Ativados!", description: "Botões e enquetes habilitados." });
+                checkStatus();
             } else {
                 const data = await response.json();
-                toast({ variant: 'destructive', title: "Erro na Configuração", description: data.error || "A instância pode estar ocupada ou offline." });
+                toast({ variant: 'destructive', title: "Erro", description: data.error });
             }
         } catch (e) {
             toast({ variant: 'destructive', title: "Erro na Requisição" });
@@ -949,45 +881,16 @@ function NotificationsConfig() {
         }
     };
 
-    const handleRestartInstance = async () => {
-        setIsRestarting(true);
-        try {
-            const response = await fetch('/api/notifications/instance/restart', { method: 'POST' });
-            if (response.ok) {
-                toast({ title: "Instância Reiniciada", description: "A conexão será restabelecida em alguns segundos." });
-                setTimeout(checkStatus, 5000);
-            } else {
-                const data = await response.json();
-                toast({ variant: 'destructive', title: "Erro ao Reiniciar", description: data.error });
-            }
-        } catch (e) {
-            toast({ variant: 'destructive', title: "Falha na conexão" });
-        } finally {
-            setIsRestarting(false);
-        }
-    };
-
-    useEffect(() => {
-        let interval: any;
-        if (qrCode || (instanceStatus && instanceStatus.status !== 'connected' && instanceStatus.status !== 'unconfigured' && instanceStatus.status !== 'error' && instanceStatus.status !== 'invalid_key')) {
-            interval = setInterval(checkStatus, 10000); // Poll a cada 10s se não estiver conectado
-        }
-        return () => clearInterval(interval);
-    }, [qrCode, instanceStatus, checkStatus]);
-
     const handleSaveKey = async () => {
         if (!firestore) return;
         setIsSaving(true);
-        
-        // Limpa estados de status para forçar atualização "limpa"
         setInstanceStatus(null);
         setQrCode(null);
         
         const configRef = doc(firestore, 'config', 'notifications');
         try {
             await setDocumentNonBlocking(configRef, { whatsappApiKey: waKey, updatedAt: Timestamp.now() }, { merge: true });
-            toast({ title: "Chave Salva!", description: "Sincronizando com o gateway..." });
-            // Aguarda um pouco mais para o Firestore propagar para a API dinâmica
+            toast({ title: "Chave Salva!" });
             setTimeout(checkStatus, 2000);
         } catch (e) {
             toast({ variant: 'destructive', title: "Erro ao salvar" });
@@ -1002,63 +905,30 @@ function NotificationsConfig() {
         try {
             const response = await fetch('/api/notifications/instance', { method: 'POST' });
             const data = await response.json();
-            
             if (data.qr) {
                 const qr = data.qr.startsWith('data:') ? data.qr : `data:image/png;base64,${data.qr}`;
                 setQrCode(qr);
-                toast({ title: "QR Code Gerado", description: "Escaneie com o celular da igreja." });
+                toast({ title: "QR Code Gerado" });
             } else if (data.status === 'connected') {
-                toast({ title: "Já Conectado", description: "Sua instância já está ativa." });
                 checkStatus();
-            } else {
-                toast({ 
-                    variant: 'destructive', 
-                    title: "Erro no Gateway", 
-                    description: data.error || "Não foi possível gerar o código." 
-                });
             }
         } catch (e: any) {
-            toast({ variant: 'destructive', title: "Erro na Requisição", description: "Falha na comunicação." });
+            toast({ variant: 'destructive', title: "Erro na Requisição" });
         } finally {
             setIsGeneratingQR(false);
         }
     };
 
-    const handleSyncWebhook = async () => {
-        setIsSyncingWebhook(true);
-        const webhookUrl = `${window.location.origin}/api/notifications/webhook`;
-        try {
-            const response = await fetch('/api/notifications/instance', { 
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ webhookUrl })
-            });
-            if (response.ok) {
-                toast({ title: "Webhook Sincronizado!", description: "O gateway agora enviará eventos para este app." });
-            } else {
-                toast({ variant: 'destructive', title: "Falha na Sincronização" });
-            }
-        } catch (e) {
-            toast({ variant: 'destructive', title: "Erro na Requisição" });
-        } finally {
-            setIsSyncingWebhook(false);
-        }
-    };
-
     const handleDisconnect = async () => {
-        if (!confirm("Isso irá desconectar o WhatsApp da IBM do sistema. Deseja continuar?")) return;
-        
+        if (!confirm("Deseja desconectar?")) return;
         setIsDisconnecting(true);
         try {
             const response = await fetch('/api/notifications/instance', { method: 'DELETE' });
-            const data = await response.json();
             if (response.ok) {
-                toast({ title: "Desconectado!", description: "A sessão do WhatsApp foi encerrada." });
+                toast({ title: "Desconectado!" });
                 setQrCode(null);
                 setInstanceStatus(null);
                 setTimeout(checkStatus, 1000);
-            } else {
-                toast({ variant: 'destructive', title: "Erro", description: data.error || "Falha ao desconectar." });
             }
         } catch (e) {
             toast({ variant: 'destructive', title: "Erro na Requisição" });
@@ -1085,18 +955,7 @@ function NotificationsConfig() {
                             <Input id="wa-key" type="password" value={waKey} onChange={e => setWaKey(e.target.value)} placeholder="Sua chave secreta" />
                         </div>
                     </CardContent>
-                    <CardFooter className="flex justify-between border-t pt-4">
-                        <div className="flex items-center gap-2">
-                            <Input 
-                                placeholder="Verificar número..." 
-                                value={testNumber} 
-                                onChange={e => setTestNumber(e.target.value)}
-                                className="w-40 h-8 text-xs"
-                            />
-                            <Button onClick={checkNumberRegistration} disabled={isCheckingNumber || !waKey} variant="outline" size="sm">
-                                {isCheckingNumber ? <Loader2 size={12} className="animate-spin" /> : <UserCheck size={12} />}
-                            </Button>
-                        </div>
+                    <CardFooter className="flex justify-end border-t pt-4">
                         <Button onClick={handleSaveKey} disabled={isSaving} size="sm">
                             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Settings className="mr-2 size-4" />}
                             Salvar Chave
@@ -1107,7 +966,6 @@ function NotificationsConfig() {
                 <Card className={cn(
                     "border-2 transition-all shadow-md",
                     instanceStatus?.status === 'connected' ? "border-emerald-500 bg-emerald-50/30" : 
-                    instanceStatus?.status === 'invalid_key' || instanceStatus?.status === 'error' ? "border-destructive bg-red-50/30" :
                     "border-amber-500 bg-amber-50/30"
                 )}>
                     <CardHeader className="pb-2">
@@ -1122,51 +980,31 @@ function NotificationsConfig() {
                         <div className="flex flex-col items-center gap-2">
                             <div className={cn(
                                 "size-4 rounded-full animate-pulse",
-                                instanceStatus?.status === 'connected' ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : 
-                                instanceStatus?.status === 'invalid_key' || instanceStatus?.status === 'error' ? "bg-destructive" :
-                                "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"
+                                instanceStatus?.status === 'connected' ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"
                             )} />
                             <span className="font-black uppercase text-xs tracking-widest">
-                                {instanceStatus?.status === 'connected' ? 'CONECTADO' : instanceStatus?.status === 'pairing' ? 'AGUARDANDO QR' : (instanceStatus?.status || 'DESCONHECIDO')}
+                                {instanceStatus?.status === 'connected' ? 'CONECTADO' : instanceStatus?.status === 'pairing' ? 'AGUARDANDO QR' : (instanceStatus?.status || 'AGUARDANDO CONEXÃO')}
                             </span>
-                            {(instanceStatus?.status === 'unknown' || instanceStatus?.status === 'invalid_key') && (
-                                <p className="text-[10px] text-muted-foreground leading-tight">
-                                    {instanceStatus?.message || "O gateway retornou um status não mapeado ou chave inválida."}
-                                </p>
-                            )}
                         </div>
                         
                         {instanceStatus?.status === 'connected' ? (
                             <div className="py-2 space-y-3">
-                                <div className="p-3 bg-white/50 rounded-xl border border-emerald-100 space-y-2">
-                                    <p className="text-[10px] text-emerald-700 font-black uppercase">Plano Pro Ativo</p>
-                                    <Button 
-                                        variant="default" 
-                                        size="sm" 
-                                        onClick={handleConfigureInstance}
-                                        disabled={isConfiguringInstance}
-                                        className="w-full h-9 font-bold bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200"
-                                    >
-                                        {isConfiguringInstance ? <Loader2 className="size-4 animate-spin mr-2" /> : <Sparkles className="size-4 mr-2" />} 
-                                        Habilitar Botões (PRO)
-                                    </Button>
-                                    <Button 
-                                        variant="outline" 
-                                        size="sm" 
-                                        onClick={handleRestartInstance}
-                                        disabled={isRestarting}
-                                        className="w-full h-9 font-bold border-indigo-200 text-indigo-700 hover:bg-indigo-50"
-                                    >
-                                        {isRestarting ? <Loader2 className="size-4 animate-spin mr-2" /> : <RefreshCw className="size-4 mr-2" />} 
-                                        Reiniciar Instância
-                                    </Button>
-                                </div>
+                                <Button 
+                                    variant="default" 
+                                    size="sm" 
+                                    onClick={handleConfigureInstance}
+                                    disabled={isConfiguringInstance}
+                                    className="w-full h-9 font-bold bg-emerald-600 hover:bg-emerald-700"
+                                >
+                                    {isConfiguringInstance ? <Loader2 className="size-4 animate-spin mr-2" /> : <Sparkles className="size-4 mr-2" />} 
+                                    Ativar Recursos
+                                </Button>
                                 <Button 
                                     variant="outline" 
                                     size="sm" 
                                     onClick={handleDisconnect}
                                     disabled={isDisconnecting}
-                                    className="w-full text-destructive hover:bg-red-50 hover:text-destructive border-red-100 h-8 text-[10px]"
+                                    className="w-full text-destructive hover:bg-red-50 border-red-100 h-8 text-[10px]"
                                 >
                                     {isDisconnecting ? <Loader2 className="size-3 animate-spin mr-1" /> : <LogOut className="size-3 mr-1" />} 
                                     Desconectar
@@ -1174,25 +1012,22 @@ function NotificationsConfig() {
                             </div>
                         ) : (
                             <div className="space-y-3">
-                                <p className="text-[10px] text-muted-foreground font-medium uppercase">Aguardando Conexão</p>
-                                <div className="flex flex-col gap-2">
-                                    <Button 
-                                        onClick={handleGenerateQR} 
-                                        disabled={isGeneratingQR || !waKey || instanceStatus?.status === 'invalid_key'}
-                                        className="w-full h-9 text-xs font-bold"
-                                    >
-                                        {isGeneratingQR ? <Loader2 className="size-3 animate-spin mr-1" /> : <QrCode className="size-3 mr-1" />}
-                                        Gerar Novo QR Code
-                                    </Button>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="sm" 
-                                        onClick={handleDisconnect}
-                                        className="text-[10px] text-muted-foreground hover:text-destructive"
-                                    >
-                                        Limpar Instância Ocupada
-                                    </Button>
-                                </div>
+                                <Button 
+                                    onClick={handleGenerateQR} 
+                                    disabled={isGeneratingQR || !waKey}
+                                    className="w-full h-9 text-xs font-bold"
+                                >
+                                    {isGeneratingQR ? <Loader2 className="size-3 animate-spin mr-1" /> : <QrCode className="size-3 mr-1" />}
+                                    Gerar Novo QR Code
+                                </Button>
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={handleDisconnect}
+                                    className="text-[10px] text-muted-foreground hover:text-destructive"
+                                >
+                                    Limpar Instância Ocupada
+                                </Button>
                             </div>
                         )}
                     </CardContent>
@@ -1206,21 +1041,10 @@ function NotificationsConfig() {
                             <Smartphone className="size-5" />
                             Escaneie para Conectar
                         </CardTitle>
-                        <CardDescription>Abra o WhatsApp no celular da igreja &gt; Dispositivos Conectados &gt; Conectar.</CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-col items-center justify-center py-6 gap-6">
                         <div className="p-4 bg-white rounded-2xl shadow-xl border-4 border-primary/20">
-                            <Image 
-                                src={qrCode} 
-                                alt="WhatsApp QR Code" 
-                                width={256} 
-                                height={256} 
-                                className="rounded-lg"
-                            />
-                        </div>
-                        <div className="flex items-center gap-3 text-sm font-bold text-primary animate-pulse">
-                            <RefreshCw className="size-4 animate-spin" />
-                            Aguardando escaneamento...
+                            <Image src={qrCode} alt="WhatsApp QR Code" width={256} height={256} className="rounded-lg" />
                         </div>
                     </CardContent>
                 </Card>
@@ -1228,14 +1052,8 @@ function NotificationsConfig() {
 
             <Card className="bg-muted/30">
                 <CardHeader>
-                    <div className="flex justify-between items-center">
-                        <CardTitle className="text-sm font-bold flex items-center gap-2"><Layers className="size-4 text-primary" /> Configuração de Webhook</CardTitle>
-                        <Button variant="outline" size="sm" onClick={handleSyncWebhook} disabled={isSyncingWebhook || !waKey}>
-                            {isSyncingWebhook ? <Loader2 className="size-3 animate-spin mr-1" /> : <RefreshCw className="size-3 mr-1" />}
-                            Auto-Sincronizar
-                        </Button>
-                    </div>
-                    <CardDescription>Para receber as respostas dos botões, configure esta URL no painel da api-wa.me:</CardDescription>
+                    <CardTitle className="text-sm font-bold flex items-center gap-2"><Layers className="size-4 text-primary" /> Webhook</CardTitle>
+                    <CardDescription>Para receber respostas, configure esta URL no painel do api-wa.me:</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <div className="p-3 bg-white border rounded font-mono text-xs break-all select-all shadow-inner">
@@ -1276,7 +1094,7 @@ function WhatsappGroups() {
     }, []);
 
     const handleUpdateMural = async (groupId: string, groupName: string) => {
-        const description = prompt(`Digite a nova descrição (Mural) para o grupo "${groupName}":`);
+        const description = prompt(`Nova descrição para "${groupName}":`);
         if (description === null) return;
 
         try {
@@ -1287,64 +1105,41 @@ function WhatsappGroups() {
             });
             
             if (response.ok) {
-                toast({ title: "Mural Atualizado!", description: "A descrição do grupo foi alterada com sucesso." });
-            } else {
-                const errData = await response.json();
-                toast({ variant: 'destructive', title: "Erro", description: errData.error || "Não foi possível atualizar o Mural." });
+                toast({ title: "Mural Atualizado!" });
             }
         } catch (e) {
-            toast({ variant: 'destructive', title: "Erro na conexão", description: "Falha ao contatar o servidor." });
+            toast({ variant: 'destructive', title: "Erro na conexão" });
         }
     };
 
     return (
         <div className="space-y-4">
             <div className="flex justify-between items-center">
-                <h3 className="text-lg font-bold">Meus Grupos no WhatsApp</h3>
+                <h3 className="text-lg font-bold">Grupos no WhatsApp</h3>
                 <Button variant="ghost" size="sm" onClick={fetchGroups} disabled={isLoading}>
-                    <RefreshCw className={cn("size-4 mr-2", isLoading && "animate-spin")} /> Atualizar Lista
+                    <RefreshCw className={cn("size-4 mr-2", isLoading && "animate-spin")} /> Atualizar
                 </Button>
             </div>
 
-            {error && (
-                <div className="p-4 bg-red-50 text-red-800 border border-red-200 rounded-lg flex items-center gap-3">
-                    <AlertCircle />
-                    <p className="text-sm">{error}</p>
-                </div>
-            )}
-
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {isLoading ? (
-                    [...Array(3)].map((_, i) => (
-                        <Card key={i} className="animate-pulse">
-                            <CardContent className="h-24 bg-muted rounded-lg" />
+                    [...Array(3)].map((_, i) => <Card key={i} className="animate-pulse h-24 bg-muted" />)
+                ) : (
+                    groups.map(group => (
+                        <Card key={group.id}>
+                            <CardHeader className="p-4">
+                                <CardTitle className="text-sm font-bold flex items-center justify-between">
+                                    <span className="truncate">{group.name}</span>
+                                    <Badge variant="secondary" className="text-[10px]">{group.participantCount} p.</Badge>
+                                </CardTitle>
+                            </CardHeader>
+                            <CardFooter className="p-4 pt-0">
+                                <Button variant="outline" size="sm" className="w-full text-[10px]" onClick={() => handleUpdateMural(group.id, group.name)}>
+                                    Mural / Descrição
+                                </Button>
+                            </CardFooter>
                         </Card>
                     ))
-                ) : (
-                    <>
-                        {groups.map(group => (
-                            <Card key={group.id} className="hover:shadow-md transition-shadow">
-                                <CardHeader className="p-4">
-                                    <CardTitle className="text-sm font-bold flex items-center justify-between">
-                                        <span className="truncate">{group.name}</span>
-                                        <Badge variant="secondary" className="text-[10px]">{group.participantCount} p.</Badge>
-                                    </CardTitle>
-                                    <CardDescription className="text-[10px] truncate">{group.id}</CardDescription>
-                                </CardHeader>
-                                <CardFooter className="p-4 pt-0 flex justify-end gap-2">
-                                    <Button variant="outline" size="sm" className="h-7 text-[10px] uppercase font-black" onClick={() => handleUpdateMural(group.id, group.name)}>
-                                        <LayoutTemplate size={12} className="mr-1" /> Mural / Descrição
-                                    </Button>
-                                </CardFooter>
-                            </Card>
-                        ))}
-                        {groups.length === 0 && !error && (
-                            <div className="col-span-full py-12 text-center border-2 border-dashed rounded-lg">
-                                <Group className="size-12 text-muted-foreground mx-auto mb-2 opacity-20" />
-                                <p className="text-muted-foreground text-sm">Nenhum grupo encontrado nesta instância.</p>
-                            </div>
-                        )}
-                    </>
                 )}
             </div>
         </div>
@@ -1441,9 +1236,6 @@ function NotificationsHistory() {
                             </TableCell>
                         </TableRow>
                     ))}
-                    {history?.length === 0 && (
-                        <TableRow><TableCell colSpan={4} className="h-24 text-center text-muted-foreground italic">Nenhum histórico disponível.</TableCell></TableRow>
-                    )}
                 </TableBody>
             </Table>
         </div>

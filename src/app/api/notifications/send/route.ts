@@ -51,10 +51,6 @@ export async function POST(request: Request) {
         pixAmount
     } = body;
 
-    if (!channel || (!audience && !targetNumber)) {
-      return NextResponse.json({ error: 'Parâmetros insuficientes para o envio.' }, { status: 400 });
-    }
-
     const { firestore } = initializeFirebase();
     
     let waKey = null;
@@ -109,8 +105,7 @@ export async function POST(request: Request) {
 
         switch (type) {
             case 'button':
-                // v5.0.0 Pro: message/button_reply
-                // Schema requires 'header' and 'text' properties
+                // v5.0.0: Requisito obrigatório de 'header' e 'text'
                 endpoint = 'message/button_reply';
                 payload = {
                     to: formattedPhone,
@@ -124,7 +119,6 @@ export async function POST(request: Request) {
                 };
                 break;
             case 'survey':
-                // v5.0.0 Pro: message/survey
                 endpoint = 'message/survey';
                 payload = {
                     to: formattedPhone,
@@ -149,7 +143,6 @@ export async function POST(request: Request) {
                 };
                 break;
             case 'pix':
-                // v5.0.0 Enterprise: message/pix
                 endpoint = 'message/pix';
                 payload = {
                     to: formattedPhone,

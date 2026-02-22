@@ -5,7 +5,7 @@ import { doc, getDoc } from 'firebase/firestore';
 
 /**
  * API Route to manage WhatsApp Instance (Status and Connection) from api-wa.me
- * Enhanced for v5.0.0 with deep status detection and cache prevention.
+ * Ultra-resilient detection for v5.0.0
  */
 
 export const dynamic = 'force-dynamic';
@@ -31,7 +31,7 @@ export async function GET() {
     }
 
     try {
-        const response = await fetch(`https://us.api-wa.me/${waKey}/instance`, {
+        const response = await fetch(`https://us.api-wa.me/${waKey}/instance?t=${Date.now()}`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
           cache: 'no-store'
@@ -47,28 +47,27 @@ export async function GET() {
             });
         }
 
-        // Detecção ultra-resiliente de status v5.0.0
-        // O portal oficial mostra "Conectada", vamos garantir que o app entenda qualquer variação disso.
-        let rawStatus = 'unknown';
+        // Detecção de autenticação via flags booleanas (mais confiável na v5.0.0)
+        const isAuthenticated = data.authenticated === true || 
+                              data.instance?.authenticated === true || 
+                              data.is_connected === true ||
+                              data.instance?.state === 'open' ||
+                              data.state === 'open';
         
-        if (data.instance?.state) rawStatus = data.instance.state;
-        else if (data.state) rawStatus = data.state;
-        else if (data.instance?.status) rawStatus = data.instance.status;
-        else if (data.status) rawStatus = data.status;
-        
-        // Verificação booleana direta (comum em instâncias v5)
-        const isAuthenticated = data.authenticated === true || data.instance?.authenticated === true || data.is_connected === true;
-        
-        const normalizedStatus = String(rawStatus).toLowerCase();
-        
-        // Mapeamento extensivo de termos para o estado "connected"
-        const connectedTerms = ['open', 'connected', 'conectado', 'authenticated', 'auth', 'ready', 'online'];
-        const isConnected = isAuthenticated || connectedTerms.some(s => normalizedStatus.includes(s));
-        
-        const finalStatus = isConnected ? 'connected' : (normalizedStatus === 'unknown' && data.qr ? 'pairing' : normalizedStatus);
+        let displayStatus = 'unknown';
+        if (isAuthenticated) {
+            displayStatus = 'connected';
+        } else if (data.qr || data.qrcode || data.instance?.qr) {
+            displayStatus = 'pairing';
+        } else {
+            // Se não for booleano, tenta ler o estado textual, ignorando códigos numéricos
+            const raw = data.instance?.state || data.state || data.status || 'unknown';
+            displayStatus = String(raw).toLowerCase();
+            if (displayStatus === '200') displayStatus = 'unknown';
+        }
 
         return NextResponse.json({ 
-            status: finalStatus,
+            status: displayStatus,
             message: data.message || '',
             qr: data.qr || data.qrcode || data.instance?.qr || null,
             details: data 
@@ -118,7 +117,7 @@ export async function PATCH() {
 
         if (!waKey) return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
 
-        // Parâmetros exatos conforme documentação OAS 3.0 do cliente para ativar recursos
+        // Parâmetros exatos do manual OAS 3.0 para v5.0.0
         const urlParams = new URLSearchParams({
             markMessageRead: 'true',
             saveMedia: 'true'
