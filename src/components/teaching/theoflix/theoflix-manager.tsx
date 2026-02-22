@@ -231,7 +231,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
                         </div>
                         <div className="flex gap-2">
                             <Button variant="outline" size="sm" onClick={handleSeedData} disabled={isSeeding}>
-                                {isSeeding ? <Loader2 className="mr-2 size-4 animate-spin" /> : <DatabaseZap className="mr-2 size-4" />}
+                                {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DatabaseZap className="mr-2 size-4" />}
                                 Importar Padrão
                             </Button>
                         </div>
@@ -240,7 +240,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
 
                 <div className="flex-1 flex overflow-hidden">
                     {/* Lista Lateral */}
-                    <div className="w-1/3 border-r bg-muted/10 p-4 space-y-4">
+                    <div className="w-1/3 border-r bg-muted/10 p-4 flex flex-col gap-4">
                         <div className="space-y-4">
                             <div className="p-3 bg-white rounded-xl border shadow-sm space-y-3">
                                 <div className="flex items-center gap-2 text-[10px] font-black uppercase text-muted-foreground tracking-widest">
@@ -267,7 +267,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
                                 <PlusCircle className="size-5" />
                             </Button>
                         </div>
-                        <ScrollArea className="h-full">
+                        <ScrollArea className="flex-1">
                             <div className="space-y-2 pr-4 pb-20">
                                 {existingCourses.map(course => (
                                     <button

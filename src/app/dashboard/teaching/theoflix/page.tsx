@@ -111,7 +111,7 @@ export default function TheoFlixPage() {
 
   useEffect(() => {
     if (isPlaying && currentEpisode && isApiReady) {
-      if (playerRef.current) {
+      if (playerRef.current && playerRef.current.loadVideoById) {
         playerRef.current.loadVideoById(currentEpisode.youtubeId);
       } else {
         playerRef.current = new window.YT.Player('theoflix-player', {
@@ -137,9 +137,9 @@ export default function TheoFlixPage() {
   }, [isPlaying, currentEpisode, isApiReady]);
 
   const handleMarkAsCompleted = () => {
-    if (!user || !selectedCourse || !currentEpisode) return;
+    if (!user || !selectedCourse || !currentEpisode || !firestore) return;
 
-    const userDocRef = doc(firestore!, 'users', user.uid);
+    const userDocRef = doc(firestore, 'users', user.uid);
     const episodeKey = currentEpisode.youtubeId || currentEpisode.title.replace(/\s+/g, '_');
     
     updateDocumentNonBlocking(userDocRef, {
@@ -189,7 +189,7 @@ export default function TheoFlixPage() {
   const handleClosePlayer = () => {
     setSelectedCourse(null);
     setIsPlaying(false);
-    if (playerRef.current) {
+    if (playerRef.current && playerRef.current.destroy) {
       playerRef.current.destroy();
       playerRef.current = null;
     }
@@ -220,7 +220,7 @@ export default function TheoFlixPage() {
                 />
             </div>
             {isAdmin && (
-                <Button variant="outline" size="icon" className="rounded-full shrink-0" onClick={() => setManagerOpen(true)}>
+                <Button variant="outline" size="icon" className="rounded-full shrink-0 h-10 w-10" onClick={() => setManagerOpen(true)}>
                     <Settings className="size-5" />
                 </Button>
             )}
@@ -325,21 +325,21 @@ export default function TheoFlixPage() {
       </div>
 
       <Dialog open={!!selectedCourse} onOpenChange={handleClosePlayer}>
-        <DialogContent className="max-w-6xl p-0 overflow-y-auto sm:rounded-[2.5rem] rounded-none bg-slate-950 border-none shadow-2xl h-full sm:h-auto max-h-screen">
+        <DialogContent className="max-w-6xl p-0 overflow-y-auto sm:rounded-[2.5rem] rounded-none bg-slate-950 border-none shadow-2xl h-full sm:h-auto max-h-screen scrollbar-hide">
+          <DialogHeader className="p-6 bg-slate-950 flex flex-row items-center justify-between sticky top-0 z-50">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="icon" onClick={handleClosePlayer} className="text-white hover:bg-white/10 rounded-full h-10 w-10">
+                <ArrowLeft className="size-6" />
+              </Button>
+              <DialogTitle className="text-white font-black uppercase italic tracking-tighter truncate">
+                {selectedCourse?.title || "Visualizando Curso"}
+              </DialogTitle>
+            </div>
+            <DialogDescription className="sr-only">Assista às aulas do curso e acompanhe seu progresso.</DialogDescription>
+          </DialogHeader>
+          
           {selectedCourse && (
             <>
-              <DialogHeader className="p-6 bg-slate-950 flex flex-row items-center justify-between sticky top-0 z-50">
-                <div className="flex items-center gap-4">
-                  <Button variant="ghost" size="icon" onClick={handleClosePlayer} className="text-white hover:bg-white/10 rounded-full">
-                    <ArrowLeft className="size-6" />
-                  </Button>
-                  <DialogTitle className="text-white font-black uppercase italic tracking-tighter truncate">
-                    {selectedCourse.title}
-                  </DialogTitle>
-                </div>
-                <DialogDescription className="sr-only">Visualizando curso: {selectedCourse.title}</DialogDescription>
-              </DialogHeader>
-              
               <div className="relative aspect-video w-full bg-black shrink-0">
                 {isPlaying && currentEpisode?.youtubeId ? (
                     <div id="theoflix-player" className="w-full h-full"></div>
