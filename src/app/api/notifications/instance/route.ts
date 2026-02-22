@@ -49,28 +49,35 @@ export async function GET() {
             });
         }
 
-        // Mapeamento exaustivo de status para v5.0.0 Pro
-        // Verifica na raiz, dentro do objeto 'instance' e via flags booleanas
-        const rawState = (data.instance?.state || data.state || data.status || data.instance?.status || '').toString().toLowerCase();
+        // Mapeamento ultra-resiliente para v5.0.0 Pro
+        // Verifica na raiz e dentro de objetos aninhados
+        const stateStr = (
+            data.instance?.state || 
+            data.state || 
+            data.status || 
+            data.instance?.status || 
+            ''
+        ).toString().toLowerCase();
         
-        const isAuthenticated = data.authenticated === true || 
-                              data.instance?.authenticated === true || 
-                              data.is_connected === true ||
-                              data.instance?.is_connected === true ||
-                              ['open', 'connected', 'online', 'authenticated'].includes(rawState);
+        // Se authenticated for true ou state for open/connected, consideramos online
+        const isOnline = 
+            data.authenticated === true || 
+            data.instance?.authenticated === true || 
+            data.is_connected === true ||
+            data.instance?.is_connected === true ||
+            ['open', 'connected', 'online', 'authenticated'].includes(stateStr);
         
         let displayStatus = 'unknown';
         
-        if (isAuthenticated) {
+        if (isOnline) {
             displayStatus = 'connected';
-        } else if (data.qr || data.qrcode || data.instance?.qr || rawState.includes('pairing') || rawState.includes('qr')) {
+        } else if (data.qr || data.qrcode || data.instance?.qr || stateStr.includes('pairing') || stateStr.includes('qr')) {
             displayStatus = 'pairing';
-        } else if (['closed', 'logout', 'disconnected', 'offline'].includes(rawState)) {
+        } else if (['closed', 'logout', 'disconnected', 'offline'].includes(stateStr)) {
             displayStatus = 'offline';
         } else {
-            // Se não for possível identificar por flags, tenta usar o estado bruto
-            displayStatus = rawState || 'unknown';
-            if (displayStatus === '200' || displayStatus === '') displayStatus = 'unknown';
+            // Se o estado for numérico (ex: 200), mantemos unknown para não confundir
+            displayStatus = (stateStr === '200' || stateStr === '') ? 'unknown' : stateStr;
         }
 
         return NextResponse.json({ 
