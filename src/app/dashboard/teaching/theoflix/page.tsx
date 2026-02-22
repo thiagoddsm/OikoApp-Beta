@@ -31,7 +31,7 @@ import { useFirebase, useCollection, useMemoFirebase, useDoc, updateDocumentNonB
 import { collection, query, doc, orderBy } from 'firebase/firestore';
 import { TheoflixManager } from '@/components/teaching/theoflix/theoflix-manager';
 import { useToast } from '@/hooks/use-toast';
-import { useVolunteering } from '@/contexts/volunteering-context';
+import { useVolunteering, VolunteeringProvider } from '@/contexts/volunteering-context';
 
 export type TheoLevel = {
     id: string;
@@ -67,7 +67,7 @@ declare global {
   }
 }
 
-export default function TheoFlixPage() {
+function TheoFlixContent() {
   const { firestore, user } = useFirebase();
   const { markAttendanceByTheoflix } = useVolunteering();
   const { toast } = useToast();
@@ -473,4 +473,12 @@ export default function TheoFlixPage() {
       />
     </div>
   );
+}
+
+export default function TheoFlixPage() {
+    return (
+        <VolunteeringProvider>
+            <TheoFlixContent />
+        </VolunteeringProvider>
+    );
 }
