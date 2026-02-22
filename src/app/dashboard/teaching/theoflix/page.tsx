@@ -325,7 +325,7 @@ export default function TheoFlixPage() {
       </div>
 
       <Dialog open={!!selectedCourse} onOpenChange={handleClosePlayer}>
-        <DialogContent className="max-w-6xl p-0 overflow-y-auto sm:overflow-hidden sm:rounded-[2.5rem] rounded-none bg-slate-950 border-none shadow-2xl h-full sm:h-auto max-h-screen">
+        <DialogContent className="max-w-6xl p-0 overflow-y-auto sm:rounded-[2.5rem] rounded-none bg-slate-950 border-none shadow-2xl h-full sm:h-auto max-h-screen">
           {selectedCourse && (
             <>
               <DialogHeader className="p-6 bg-slate-950 flex flex-row items-center justify-between sticky top-0 z-50">
@@ -361,7 +361,7 @@ export default function TheoFlixPage() {
                 )}
               </div>
 
-              <div className="bg-slate-950 text-slate-100 p-6 sm:p-10 grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-16 sm:max-h-[45vh] overflow-y-auto border-t border-white/5">
+              <div className="bg-slate-950 text-slate-100 p-6 sm:p-10 grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-16 border-t border-white/5">
                 <div className="md:col-span-2 space-y-10 sm:space-y-12">
                     <section>
                         <h3 className="text-[10px] sm:text-xs font-black uppercase text-primary tracking-widest mb-3 sm:mb-4">Sinopse</h3>
@@ -415,8 +415,12 @@ export default function TheoFlixPage() {
                         </div>
                     </div>
                     
-                    <Button variant="outline" onClick={handleClosePlayer} className="w-full h-12 rounded-xl text-white border-white/10 hover:bg-white/5">
-                      <ArrowLeft className="mr-2 size-4" /> Voltar para a Galeria
+                    <Button 
+                      variant="secondary" 
+                      onClick={handleClosePlayer} 
+                      className="w-full h-12 rounded-xl font-black bg-slate-800 text-white hover:bg-slate-700 border-none shadow-lg"
+                    >
+                      <ArrowLeft className="mr-2 size-4" /> VOLTAR PARA A GALERIA
                     </Button>
                 </div>
               </div>
