@@ -119,18 +119,18 @@
       },
       "required": ["type", "category", "amount", "date", "status"]
     },
-    "NotificationResponse": {
-      "title": "Notification Response",
+    "Course": {
+      "title": "Course",
       "type": "object",
-      "description": "Responses from interactive WhatsApp messages (buttons).",
+      "description": "Represents a course in the teaching area.",
       "properties": {
-        "from": { "type": "string" },
-        "buttonId": { "type": "string" },
-        "buttonText": { "type": "string" },
-        "receivedAt": { "type": "string", "format": "date-time" },
-        "userId": { "type": "string" }
-      },
-      "required": ["from", "buttonId", "receivedAt"]
+        "name": { "type": "string" },
+        "ministryName": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { "type": "string", "enum": ["trilho", "eletivo"] },
+        "ebdTrack": { "type": "string" },
+        "linkedTheoflixId": { "type": "string", "description": "ID of the corresponding TheoFlix course for online extension." }
+      }
     }
   }
 }

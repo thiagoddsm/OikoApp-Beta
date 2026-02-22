@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
@@ -6,13 +7,14 @@ import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Loader2, ShieldCheck, Mail, Info, School } from 'lucide-react';
+import { Loader2, ShieldCheck, Mail, Info, School, PlayCircle, ExternalLink } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
+import Link from 'next/link';
 
 export function CourseDetailsForm({ course }) {
-  const { users, isLoading } = useVolunteering();
+  const { users, theoflixCourses, isLoading } = useVolunteering();
   const { firestore } = useFirebase();
   const { toast } = useToast();
   
@@ -21,6 +23,7 @@ export function CourseDetailsForm({ course }) {
     description: '',
     type: 'trilho' as 'trilho' | 'eletivo',
     ebdTrack: '',
+    linkedTheoflixId: '',
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -33,6 +36,7 @@ export function CourseDetailsForm({ course }) {
         description: course.description || '',
         type: course.type || 'trilho',
         ebdTrack: course.ebdTrack || '',
+        linkedTheoflixId: course.linkedTheoflixId || '',
       });
     }
   }, [course]);
@@ -51,7 +55,8 @@ export function CourseDetailsForm({ course }) {
             responsibleId: formData.responsibleId === 'null' ? '' : formData.responsibleId,
             description: formData.description,
             type: formData.type,
-            ebdTrack: formData.ebdTrack
+            ebdTrack: formData.ebdTrack,
+            linkedTheoflixId: formData.linkedTheoflixId === 'none' ? '' : formData.linkedTheoflixId,
         });
         toast({ title: 'Sucesso!', description: 'As configurações do curso foram atualizadas.'});
     } catch (e) {
@@ -106,6 +111,32 @@ export function CourseDetailsForm({ course }) {
                         </Select>
                     </div>
                   )}
+              </div>
+
+              <div className="pt-4 border-t">
+                  <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-primary">
+                          <PlayCircle className="size-5" />
+                          <h4 className="font-bold">Extensão Online (TheoFlix)</h4>
+                      </div>
+                      <div className="space-y-2">
+                          <Label htmlFor="theoflix-link">Vincular Curso Online</Label>
+                          <Select value={formData.linkedTheoflixId || 'none'} onValueChange={v => handleFieldChange('linkedTheoflixId', v)}>
+                              <SelectTrigger id="theoflix-link">
+                                  <SelectValue placeholder="Nenhum curso online vinculado" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                  <SelectItem value="none">Nenhum vínculo</SelectItem>
+                                  {theoflixCourses.map(tf => (
+                                      <SelectItem key={tf.id} value={tf.id}>{tf.title}</SelectItem>
+                                  ))}
+                              </SelectContent>
+                          </Select>
+                          <p className="text-[10px] text-muted-foreground italic">
+                              Ao vincular, os alunos matriculados neste curso presencial terão um link direto para assistir as aulas no TheoFlix.
+                          </p>
+                      </div>
+                  </div>
               </div>
           </div>
           <div className="flex justify-end pt-4">

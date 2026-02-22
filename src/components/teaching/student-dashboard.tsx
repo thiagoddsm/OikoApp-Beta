@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, DollarSign, Book, GraduationCap, CreditCard, User, MessageSquare, Loader2 } from 'lucide-react';
+import { Calendar, Clock, DollarSign, Book, GraduationCap, CreditCard, User, MessageSquare, Loader2, PlayCircle, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { useFirebase } from '@/firebase';
@@ -11,6 +11,7 @@ import { useVolunteering } from '@/contexts/volunteering-context';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 export function StudentDashboard() {
     const { user } = useFirebase();
@@ -101,15 +102,27 @@ export function StudentDashboard() {
                                 {studentClasses.map(cls => {
                                     const course = courseMap.get(cls.courseId);
                                     return (
-                                        <div key={cls.id} className="p-4 bg-muted/30 rounded-xl border hover:bg-muted/50 transition-colors">
-                                            <div className="flex justify-between items-start mb-2">
-                                                <p className="text-sm font-black text-primary">{course?.name}</p>
-                                                <Badge variant="outline" className="text-[9px] uppercase">{course?.ministryName}</Badge>
+                                        <div key={cls.id} className="p-4 bg-muted/30 rounded-xl border hover:bg-muted/50 transition-colors flex flex-col justify-between h-full">
+                                            <div>
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <p className="text-sm font-black text-primary">{course?.name}</p>
+                                                    <Badge variant="outline" className="text-[9px] uppercase">{course?.ministryName}</Badge>
+                                                </div>
+                                                <div className="space-y-1.5 text-xs">
+                                                    <div className="flex items-center gap-2"><Clock className="size-3.5" /> <strong>{cls.dayOfWeek} às {cls.startTime}</strong></div>
+                                                    <div className="flex items-center gap-2"><User className="size-3.5" /> Prof. {teacherMap.get(cls.teacherId)?.name || 'A definir'}</div>
+                                                </div>
                                             </div>
-                                            <div className="space-y-1.5 text-xs">
-                                                <div className="flex items-center gap-2"><Clock className="size-3.5" /> <strong>{cls.dayOfWeek} às {cls.startTime}</strong></div>
-                                                <div className="flex items-center gap-2"><User className="size-3.5" /> Prof. {teacherMap.get(cls.teacherId)?.name || 'A definir'}</div>
-                                            </div>
+                                            
+                                            {course?.linkedTheoflixId && (
+                                                <Button size="sm" variant="outline" className="mt-4 w-full text-[10px] font-black uppercase h-8 border-primary/30 hover:bg-primary/5 group" asChild>
+                                                    <Link href="/dashboard/teaching/theoflix">
+                                                        <PlayCircle className="size-3 mr-1.5 text-primary" />
+                                                        Assistir no TheoFlix
+                                                        <ExternalLink className="size-2.5 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                    </Link>
+                                                </Button>
+                                            )}
                                         </div>
                                     )
                                 })}

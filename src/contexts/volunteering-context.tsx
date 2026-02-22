@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useMemo } from 'react';
@@ -65,6 +66,14 @@ export type Course = {
   description?: string;
   type?: 'trilho' | 'eletivo';
   ebdTrack?: 'teologico' | 'biblico' | 'discipulado';
+  linkedTheoflixId?: string;
+};
+
+// TheoFlix Course Type
+export type TheoflixCourse = {
+    id: string;
+    title: string;
+    image?: string;
 };
 
 export type Class = {
@@ -214,6 +223,7 @@ interface VolunteeringContextType {
   rooms: Room[];
   events: VolunteeringEvent[];
   courses: Course[];
+  theoflixCourses: TheoflixCourse[];
   classes: Class[];
   pedagogicalLogs: PedagogicalLog[];
   reservations: RoomReservation[];
@@ -288,6 +298,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const eventsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'volunteering_events') : null, [firestore]);
   const roomsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'rooms') : null, [firestore]);
   const coursesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'courses') : null, [firestore]);
+  const theoflixCoursesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'theoflix_courses') : null, [firestore]);
   const classesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'classes') : null, [firestore]);
   const pedagogicalLogsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'pedagogical_logs') : null, [firestore]);
   const reservationsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'room_reservations') : null, [firestore]);
@@ -310,6 +321,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { data: events, isLoading: loadingEvents } = useCollection<VolunteeringEvent>(eventsQuery);
   const { data: rooms, isLoading: loadingRooms } = useCollection<Room>(roomsQuery);
   const { data: courses, isLoading: loadingCourses } = useCollection<Course>(coursesQuery);
+  const { data: theoflixCourses, isLoading: loadingTheoflix } = useCollection<TheoflixCourse>(theoflixCoursesQuery);
   const { data: classes, isLoading: loadingClasses } = useCollection<Class>(classesQuery);
   const { data: pedagogicalLogs, isLoading: loadingPedagogicalLogs } = useCollection<PedagogicalLog>(pedagogicalLogsQuery);
   const { data: reservations, isLoading: loadingReservations } = useCollection<RoomReservation>(reservationsQuery);
@@ -322,7 +334,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { data: enrollmentRequests, isLoading: loadingEnrollments } = useCollection<EnrollmentRequest>(enrollmentRequestsQuery);
   const { data: financialTransactions, isLoading: loadingFinances } = useCollection<FinancialTransaction>(financialTransactionsQuery);
 
-  const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents || loadingRooms || loadingCourses || loadingClasses || loadingPedagogicalLogs || loadingReservations || loadingSavedSchedules || loadingWavePlans || loadingWavePayments || loadingWaveExpenses || loadingDisPlans || loadingDisPayments || loadingEnrollments || loadingFinances;
+  const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents || loadingRooms || loadingCourses || loadingTheoflix || loadingClasses || loadingPedagogicalLogs || loadingReservations || loadingSavedSchedules || loadingWavePlans || loadingWavePayments || loadingWaveExpenses || loadingDisPlans || loadingDisPayments || loadingEnrollments || loadingFinances;
 
   const createCrudFunctions = <T extends {id: string}>(collectionName: string, itemType: string) => {
       const addItem = async (data: Omit<T, 'id'>) => {
@@ -663,6 +675,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     events: events || [],
     rooms: rooms || [],
     courses: courses || [],
+    theoflixCourses: theoflixCourses || [],
     classes: classes || [],
     pedagogicalLogs: pedagogicalLogs || [],
     reservations: reservations || [],
@@ -723,7 +736,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     updateFinancialTransaction,
     deleteFinancialTransaction,
   }), [
-    areas, teams, users, events, rooms, courses, classes, pedagogicalLogs, reservations, 
+    areas, teams, users, events, rooms, courses, theoflixCourses, classes, pedagogicalLogs, reservations, 
     savedSchedules, wavePlans, wavePayments, waveExpenses, disPlans, disPayments, 
     enrollmentRequests, financialTransactions, isLoading, firestore, user
   ]);
