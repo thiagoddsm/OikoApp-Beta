@@ -77,12 +77,10 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
     const [isSaving, setIsSaving] = useState(false);
     const [isSeeding, setIsSeeding] = useState(false);
     
-    // YouTube Config
     const { data: theoflixConfig } = useDoc<any>('config/theoflix');
     const [youtubeApiKey, setYoutubeApiKey] = useState('');
     const [isSavingConfig, setIsSavingConfig] = useState(false);
 
-    // Course Form State
     const [formCourse, setFormCourse] = useState<Partial<Course>>({
         title: '',
         desc: '',
@@ -93,7 +91,6 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
         episodes: []
     });
 
-    // Level Form State
     const [formLevel, setFormLevel] = useState<Partial<TheoLevel>>({
         title: '',
         level: 1,
@@ -243,9 +240,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                         </TabsList>
                     </div>
 
-                    {/* TABS: CURSOS */}
                     <TabsContent value="courses" className="flex-1 flex flex-col md:flex-row overflow-hidden m-0">
-                        {/* Lista Lateral */}
                         <div className="w-full md:w-80 border-r bg-muted/10 p-4 flex flex-col gap-4 overflow-y-auto max-h-[30vh] md:max-h-full">
                             <div className="flex justify-between items-center">
                                 <h3 className="font-bold text-[10px] uppercase text-muted-foreground tracking-widest">Biblioteca</h3>
@@ -271,7 +266,6 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                                 ))}
                             </div>
                         </div>
-                        {/* Formulário */}
                         <div className="flex-1 p-4 sm:p-8 overflow-y-auto bg-white">
                             <div className="max-w-2xl mx-auto space-y-6">
                                 <div className="flex justify-between items-center">
@@ -355,7 +349,6 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                         </div>
                     </TabsContent>
 
-                    {/* TABS: NÍVEIS */}
                     <TabsContent value="levels" className="flex-1 flex flex-col md:flex-row overflow-hidden m-0">
                         <div className="w-full md:w-80 border-r bg-muted/10 p-4 flex flex-col gap-4 overflow-y-auto max-h-[30vh] md:max-h-full">
                             <div className="flex justify-between items-center">
@@ -430,7 +423,6 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                         </div>
                     </TabsContent>
 
-                    {/* TABS: CONFIGURAÇÕES */}
                     <TabsContent value="config" className="flex-1 p-4 sm:p-8 m-0 overflow-y-auto bg-white">
                         <Card className="max-w-2xl mx-auto shadow-sm border-2 border-primary/10">
                             <CardHeader className="bg-primary/5 border-b">

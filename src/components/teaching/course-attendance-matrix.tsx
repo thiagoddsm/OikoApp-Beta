@@ -3,12 +3,19 @@ import React, { useMemo } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Clock, Award, Loader2, Users, GraduationCap, ChevronRight } from 'lucide-react';
+import { CheckCircle2, Clock, Award, Loader2, Users, GraduationCap, ChevronRight, XCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { format, parseISO, isBefore, startOfDay, addWeeks, addMonths } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
+const weekDayMap: Record<string, number> = {
+    "Domingo": 0, "Segunda-feira": 1, "Terça-feira": 2, "Quarta-feira": 3,
+    "Quinta-feira": 4, "Sexta-feira": 5, "Sábado": 6
+};
 
 export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
     const { classes, users, courses, updateVolunteer, isLoading } = useVolunteering();
@@ -16,52 +23,63 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
     const course = useMemo(() => courses.find(c => c.id === courseId), [courses, courseId]);
     const isMemberCourse = course?.name?.toLowerCase().includes('membro') || course?.name?.toLowerCase().includes('integração');
 
-    // Filter classes for this course and sort them
-    const courseClasses = useMemo(() => {
-        return classes
-            .filter(c => c.courseId === courseId)
-            .sort((a, b) => {
-                const order: Record<string, number> = { '1': 1, '2': 2, '3': 3, '4': 4, 'last': 5 };
-                if (a.weekOfMonth && b.weekOfMonth) {
-                    return (order[a.weekOfMonth] || 0) - (order[b.weekOfMonth] || 0);
+    // Cálculo unificado de ocorrências do curso
+    const allDates = useMemo(() => {
+        const dates = new Set<string>();
+        const courseClasses = classes.filter(c => c.courseId === courseId);
+        
+        courseClasses.forEach(cls => {
+            if (!cls.startDate) return;
+            const start = parseISO(cls.startDate);
+            const end = cls.endDate ? parseISO(cls.endDate) : addMonths(start, 6);
+            const targetDay = cls.dayOfWeek ? weekDayMap[cls.dayOfWeek] : -1;
+
+            if (!cls.frequency || cls.frequency === 'pontual') {
+                dates.add(cls.startDate);
+                return;
+            }
+
+            let current = start;
+            let safe = 0;
+            while (isBefore(current, end) || format(current, 'yyyy-MM-dd') === format(end, 'yyyy-MM-dd')) {
+                if (safe++ > 100) break;
+                let matches = false;
+                if (cls.frequency === 'semanal') matches = targetDay === -1 || current.getDay() === targetDay;
+                else if (cls.frequency === 'quinzenal') matches = (Math.floor((current.getTime() - start.getTime()) / (7*24*60*60*1000)) % 2 === 0) && (targetDay === -1 || current.getDay() === targetDay);
+                else if (cls.frequency === 'mensal') {
+                    const week = Math.ceil(current.getDate() / 7);
+                    const isLast = current.getDate() > (new Date(current.getFullYear(), current.getMonth()+1, 0).getDate() - 7);
+                    matches = (cls.weekOfMonth === 'last' && isLast) || (week.toString() === cls.weekOfMonth);
+                    matches = matches && current.getDay() === targetDay;
                 }
-                return (a.startDate || '').localeCompare(b.startDate || '');
-            });
+                if (matches) dates.add(format(current, 'yyyy-MM-dd'));
+                current = addWeeks(current, 1);
+            }
+        });
+
+        return Array.from(dates).sort();
     }, [classes, courseId]);
 
-    // Unique list of students enrolled
     const students = useMemo(() => {
         const studentSet = new Set<string>();
-        courseClasses.forEach(cls => cls.students?.forEach(sId => studentSet.add(sId)));
-        
-        return users
-            .filter(u => studentSet.has(u.id))
-            .sort((a, b) => a.name.localeCompare(b.name));
-    }, [users, courseClasses]);
+        classes.filter(c => c.courseId === courseId).forEach(cls => cls.students?.forEach(sId => studentSet.add(sId)));
+        return users.filter(u => studentSet.has(u.id)).sort((a, b) => a.name.localeCompare(b.name));
+    }, [users, classes, courseId]);
 
     const stats = useMemo(() => {
         if (!isMemberCourse) return null;
-        
         const counts = { ready: 0, finishing: 0, missing: 0 };
         students.forEach(s => {
             const progress = s.journey?.memberCourseProgress || {};
             const completedCount = Object.values(progress).filter(Boolean).length;
-            const has1to4 = ['module1', 'module2', 'module3', 'module4'].every(m => progress[m]);
-            
             if (completedCount === 5) counts.finishing++;
-            else if (has1to4) counts.ready++;
+            else if (['module1', 'module2', 'module3', 'module4'].every(m => progress[m])) counts.ready++;
             else counts.missing++;
         });
         return counts;
     }, [students, isMemberCourse]);
 
-    const handleStatusChange = (userId: string, newStatus: string) => {
-        updateVolunteer(userId, { [`journey.courseStatus.${courseId}`]: newStatus });
-    };
-
-    if (isLoading) {
-        return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
-    }
+    if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
         <div className="space-y-6">
@@ -102,36 +120,29 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                     <TableHeader className="bg-muted/50">
                         <TableRow>
                             <TableHead className="min-w-[250px] sticky left-0 bg-muted/50 z-20">Aluno</TableHead>
-                            {courseClasses.map(cls => (
-                                <TableHead key={cls.id} className="text-center min-w-[120px]">
+                            {allDates.map(date => (
+                                <TableHead key={date} className="text-center min-w-[100px]">
                                     <div className="flex flex-col items-center">
-                                        <span className="text-[10px] font-black uppercase text-muted-foreground">
-                                            {cls.weekOfMonth ? `Módulo ${cls.weekOfMonth === 'last' ? '5' : cls.weekOfMonth}` : 'Aula'}
-                                        </span>
-                                        <span className="font-bold text-slate-900 truncate max-w-[100px]">{cls.name}</span>
+                                        <span className="text-[10px] font-black uppercase text-muted-foreground">{format(parseISO(date), 'EEE', { locale: ptBR })}</span>
+                                        <span className="font-bold text-slate-900">{format(parseISO(date), 'dd/MM')}</span>
                                     </div>
                                 </TableHead>
                             ))}
-                            <TableHead className="text-center min-w-[150px] bg-primary/5 font-black text-primary">Status Final</TableHead>
+                            <TableHead className="text-center min-w-[150px] bg-primary/5 font-black text-primary">Aproveitamento</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {students.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={courseClasses.length + 2} className="h-32 text-center text-muted-foreground italic">
+                                <TableCell colSpan={allDates.length + 2} className="h-32 text-center text-muted-foreground italic">
                                     Nenhum aluno matriculado neste curso.
                                 </TableCell>
                             </TableRow>
                         ) : (
                             students.map(student => {
-                                const attendanceCount = courseClasses.filter(cls => 
-                                    cls.attendance?.some(att => att.presentStudentIds.includes(student.id))
-                                ).length;
-                                
-                                const totalClasses = courseClasses.length;
-                                const is100Percent = totalClasses > 0 && attendanceCount === totalClasses;
-                                
-                                const currentStatus = student.journey?.courseStatus?.[courseId] || (is100Percent ? 'approved' : 'ongoing');
+                                let attended = 0;
+                                let pastDates = 0;
+                                const today = startOfDay(new Date());
 
                                 return (
                                     <TableRow key={student.id} className="hover:bg-muted/30">
@@ -143,57 +154,36 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                                 </Avatar>
                                                 <div className="min-w-0">
                                                     <p className="truncate text-sm font-bold">{student.name}</p>
-                                                    <p className={cn("text-[9px] uppercase font-black", is100Percent ? "text-emerald-600" : "text-muted-foreground")}>
-                                                        {attendanceCount}/{totalClasses} módulos concluídos
-                                                    </p>
                                                 </div>
                                             </div>
                                         </TableCell>
                                         
-                                        {courseClasses.map(cls => {
-                                            const isPresent = cls.attendance?.some(att => att.presentStudentIds.includes(student.id));
+                                        {allDates.map(date => {
+                                            const isPast = isBefore(parseISO(date), today);
+                                            if (isPast) pastDates++;
+                                            const isPresent = classes.some(cls => 
+                                                cls.courseId === courseId && 
+                                                cls.attendance?.some(att => att.date === date && att.presentStudentIds.includes(student.id))
+                                            );
+                                            if (isPresent) attended++;
+
                                             return (
-                                                <TableCell key={cls.id} className="text-center">
+                                                <TableCell key={date} className="text-center">
                                                     {isPresent ? (
-                                                        <div className="flex flex-col items-center gap-1 animate-in zoom-in-95">
-                                                            <CheckCircle2 className="text-emerald-500 size-5" />
-                                                            <span className="text-[9px] font-bold text-emerald-700 uppercase">OK</span>
-                                                        </div>
+                                                        <CheckCircle2 className="text-emerald-500 size-5 mx-auto" />
+                                                    ) : isPast ? (
+                                                        <XCircle className="text-destructive/20 size-5 mx-auto" />
                                                     ) : (
-                                                        <div className="flex flex-col items-center gap-1 opacity-20">
-                                                            <Clock className="text-slate-400 size-5" />
-                                                            <span className="text-[9px] font-bold text-slate-500 uppercase">-</span>
-                                                        </div>
+                                                        <Clock className="text-slate-200 size-5 mx-auto" />
                                                     )}
                                                 </TableCell>
                                             );
                                         })}
 
-                                        <TableCell className="bg-primary/5">
+                                        <TableCell className="bg-primary/5 text-center">
                                             <div className="flex flex-col items-center">
-                                                {isMemberCourse ? (
-                                                    is100Percent ? (
-                                                        <div className="flex flex-col items-center gap-1">
-                                                            <Badge className="bg-emerald-600 hover:bg-emerald-600 font-bold uppercase text-[10px]">Aprovado</Badge>
-                                                            {student.integrationStatus !== 'membro' && (
-                                                                <span className="text-[8px] font-black text-amber-600 uppercase">Pendente Oficiailização</span>
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <Badge variant="secondary" className="text-[10px] uppercase font-bold">Em Jornada</Badge>
-                                                    )
-                                                ) : (
-                                                    <Select value={currentStatus} onValueChange={(v) => handleStatusChange(student.id, v)}>
-                                                        <SelectTrigger className="h-8 text-[10px] uppercase font-black">
-                                                            <SelectValue />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="ongoing">Em Andamento</SelectItem>
-                                                            <SelectItem value="approved">Aprovado</SelectItem>
-                                                            <SelectItem value="rejected">Reprovado</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                )}
+                                                <span className="font-black text-primary text-sm">{pastDates > 0 ? Math.round((attended/pastDates) * 100) : 0}%</span>
+                                                <span className="text-[9px] uppercase font-bold text-muted-foreground">{attended}/{pastDates} presenciais</span>
                                             </div>
                                         </TableCell>
                                     </TableRow>

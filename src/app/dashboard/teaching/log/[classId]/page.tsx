@@ -1,14 +1,14 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, ArrowLeft, BookOpen, Star, Users, CheckCircle2, ClipboardCheck, History, Lock, AlertCircle } from 'lucide-react';
+import { Loader2, ArrowLeft, BookOpen, Star, Users, CheckCircle2, ClipboardCheck, History, Lock, AlertCircle, Calendar as CalendarIcon, ChevronRight, ChevronLeft } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { format } from 'date-fns';
+import { format, addWeeks, isBefore, isAfter, startOfDay, parseISO, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Timestamp } from 'firebase/firestore';
 import { VolunteeringProvider } from '@/contexts/volunteering-context';
@@ -20,6 +20,12 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const weekDayMap: Record<string, number> = {
+    "Domingo": 0, "Segunda-feira": 1, "Terça-feira": 2, "Quarta-feira": 3,
+    "Quinta-feira": 4, "Sexta-feira": 5, "Sábado": 6
+};
 
 function PedagogicalLogPageContent() {
     const params = useParams();
@@ -37,23 +43,88 @@ function PedagogicalLogPageContent() {
         isLoading 
     } = useVolunteering();
     
+    const [selectedDate, setSelectedDate] = useState<string>('');
     const [contentTaught, setContentTaught] = useState('');
     const [observations, setObservations] = useState('');
-    const [performance, setPerformance] = useState(3); // Default to 3 stars
+    const [performance, setPerformance] = useState(3);
     const [presentStudents, setPresentStudents] = useState<string[]>([]);
     const [isSaving, setIsSaving] = useState(false);
 
     const classData = useMemo(() => classes.find(c => c.id === classId), [classes, classId]);
     const courseData = useMemo(() => classData ? courses.find(c => c.id === classData.courseId) : null, [classData, courses]);
     const teacherData = useMemo(() => classData ? users.find(u => u.id === classData.teacherId) : null, [classData, users]);
-    const classLogs = useMemo(() => pedagogicalLogs.filter(log => log.classId === classId).sort((a,b) => b.date.toMillis() - a.date.toMillis()), [pedagogicalLogs, classId]);
     
+    // Cálculo das datas válidas de aula
+    const classOccurrences = useMemo(() => {
+        if (!classData || !classData.startDate) return [];
+        const occurrences: string[] = [];
+        const start = parseISO(classData.startDate);
+        const end = classData.endDate ? parseISO(classData.endDate) : addMonths(start, 6);
+        const targetDay = classData.dayOfWeek ? weekDayMap[classData.dayOfWeek] : -1;
+
+        let current = start;
+        let safe = 0;
+
+        if (!classData.frequency || classData.frequency === 'pontual') {
+            return [classData.startDate];
+        }
+
+        while (isBefore(current, end) || format(current, 'yyyy-MM-dd') === format(end, 'yyyy-MM-dd')) {
+            if (safe++ > 100) break;
+
+            let matches = false;
+            if (classData.frequency === 'semanal') {
+                matches = targetDay === -1 || current.getDay() === targetDay;
+            } else if (classData.frequency === 'quinzenal') {
+                const diffWeeks = Math.floor((current.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
+                matches = diffWeeks % 2 === 0 && (targetDay === -1 || current.getDay() === targetDay);
+            } else if (classData.frequency === 'mensal') {
+                if (classData.weekOfMonth) {
+                    const week = Math.ceil(current.getDate() / 7);
+                    const isLastWeek = current.getDate() > (new Date(current.getFullYear(), current.getMonth() + 1, 0).getDate() - 7);
+                    matches = (classData.weekOfMonth === 'last' && isLastWeek) || (week.toString() === classData.weekOfMonth);
+                    matches = matches && current.getDay() === targetDay;
+                } else {
+                    matches = current.getDate() === start.getDate();
+                }
+            }
+
+            if (matches) occurrences.push(format(current, 'yyyy-MM-dd'));
+            current = addWeeks(current, 1);
+        }
+        return occurrences;
+    }, [classData]);
+
+    // Inicializar data selecionada
+    useEffect(() => {
+        if (classOccurrences.length > 0 && !selectedDate) {
+            const today = format(new Date(), 'yyyy-MM-dd');
+            const closest = classOccurrences.find(d => d === today) || classOccurrences.find(d => isAfter(parseISO(d), new Date())) || classOccurrences[0];
+            setSelectedDate(closest);
+        }
+    }, [classOccurrences, selectedDate]);
+
+    // Carregar presença da data selecionada
+    useEffect(() => {
+        if (selectedDate && classData?.attendance) {
+            const record = classData.attendance.find(a => a.date === selectedDate);
+            setPresentStudents(record?.presentStudentIds || []);
+            
+            const log = pedagogicalLogs.find(l => l.classId === classId && format(l.date.toDate(), 'yyyy-MM-dd') === selectedDate);
+            if (log) {
+                setContentTaught(log.content_taught);
+                setObservations(log.observations);
+                setPerformance(log.student_performance);
+            } else {
+                setContentTaught('');
+                setObservations('');
+                setPerformance(3);
+            }
+        }
+    }, [selectedDate, classData, pedagogicalLogs, classId]);
+
     const isMemberCourse = courseData?.name?.toLowerCase().includes('membro') || courseData?.name?.toLowerCase().includes('integração') || courseData?.name?.toLowerCase().includes('pertencer');
     const isWaveOrDis = courseData?.ministryName.toLowerCase().includes('wave') || courseData?.ministryName.toLowerCase().includes('dis');
-    
-    const isModule5 = isMemberCourse && classData?.weekOfMonth === 'last';
-
-    // Se for Wave ou DIS, precisa do diário completo. Se for Membro ou Geral, apenas presença.
     const showPedagogicalFields = isWaveOrDis;
 
     const studentList = useMemo(() => {
@@ -63,98 +134,49 @@ function PedagogicalLogPageContent() {
     }, [users, classData]);
 
     const handleStudentCheck = (studentId: string, checked: boolean) => {
-        setPresentStudents(prev => {
-            if (checked) {
-                return [...prev, studentId];
-            } else {
-                return prev.filter(id => id !== studentId);
-            }
-        });
+        setPresentStudents(prev => checked ? [...prev, studentId] : prev.filter(id => id !== studentId));
     };
 
     const handleSaveLog = async () => {
         if (showPedagogicalFields && !contentTaught.trim()) {
-            toast({
-                variant: 'destructive',
-                title: 'Campo obrigatório',
-                description: 'Por favor, descreva o conteúdo ensinado na aula de hoje.',
-            });
+            toast({ variant: 'destructive', title: 'Campo obrigatório', description: 'Descreva o conteúdo ensinado.' });
             return;
         }
         
         setIsSaving(true);
-        
         try {
-            // 1. Save Pedagogical Log
             const logPromise = addPedagogicalLog({
                 classId,
-                date: Timestamp.now(),
-                content_taught: contentTaught || (isMemberCourse ? `Presença em ${classData?.name}` : "Aula realizada"),
+                date: Timestamp.fromDate(new Date(`${selectedDate}T12:00:00`)),
+                content_taught: contentTaught || (isMemberCourse ? `Presença Módulo ${classData?.weekOfMonth}` : "Aula realizada"),
                 student_performance: performance,
                 observations,
             });
 
-            // 2. Update Class Attendance
-            const attendancePromise = classData ? (() => {
-                const today = format(new Date(), 'yyyy-MM-dd');
-                const newAttendanceRecord = { date: today, presentStudentIds: presentStudents };
-                
-                const existingAttendance = classData.attendance || [];
-                const todayRecordIndex = existingAttendance.findIndex(att => att.date === today);
-                
-                let updatedAttendance;
-                if (todayRecordIndex > -1) {
-                    updatedAttendance = [...existingAttendance];
-                    updatedAttendance[todayRecordIndex] = newAttendanceRecord;
-                } else {
-                    updatedAttendance = [...existingAttendance, newAttendanceRecord];
-                }
+            const existingAttendance = classData?.attendance || [];
+            const updatedAttendance = [...existingAttendance.filter(a => a.date !== selectedDate), { date: selectedDate, presentStudentIds: presentStudents }];
+            const attendancePromise = updateClass(classId, { attendance: updatedAttendance });
 
-                return updateClass(classId, { attendance: updatedAttendance });
-            })() : Promise.resolve();
-
-            // 3. IF MEMBER COURSE: Update individual progress in user profile
             const progressPromises: Promise<any>[] = [];
             if (isMemberCourse && classData?.weekOfMonth && firestore) {
                 const moduleKey = `module${classData.weekOfMonth === 'last' ? '5' : classData.weekOfMonth}`;
                 presentStudents.forEach(studentId => {
                     const userRef = doc(firestore, 'users', studentId);
-                    progressPromises.push(updateDocumentNonBlocking(userRef, {
-                        [`journey.memberCourseProgress.${moduleKey}`]: true
-                    }));
+                    progressPromises.push(updateDocumentNonBlocking(userRef, { [`journey.memberCourseProgress.${moduleKey}`]: true }));
                 });
             }
             
             await Promise.all([logPromise, attendancePromise, ...progressPromises]);
-
-            toast({
-                title: 'Sucesso!',
-                description: 'Registro de presença salvo com sucesso.',
-            });
-
-            setContentTaught('');
-            setObservations('');
-            setPerformance(3);
-            setPresentStudents([]);
+            toast({ title: 'Chamada Salva!', description: `Frequência de ${format(parseISO(selectedDate), 'dd/MM')} registrada.` });
         } catch (error) {
-            console.error("Erro ao salvar:", error);
-            toast({
-                variant: 'destructive',
-                title: 'Erro ao salvar',
-                description: 'Não foi possível salvar os dados. Tente novamente.',
-            });
+            toast({ variant: 'destructive', title: 'Erro ao salvar', description: 'Tente novamente.' });
         } finally {
             setIsSaving(false);
         }
     };
 
-    if (isLoading) {
-        return <div className="flex h-64 w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
-    }
-
-    if (!classData) {
-        return <div className="p-8 text-center"><p>Turma não encontrada.</p></div>;
-    }
+    if (isLoading) return <div className="flex h-64 w-full items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    if (!classData) return <div className="p-8 text-center"><p>Turma não encontrada.</p></div>;
 
     return (
         <div className="space-y-6">
@@ -162,166 +184,158 @@ function PedagogicalLogPageContent() {
                 <Button variant="outline" onClick={() => router.back()}>
                     <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para o Painel
                 </Button>
-                {isMemberCourse && (
-                    <Badge className="bg-amber-100 text-amber-800 border-amber-200">
-                        <CheckCircle2 className="size-3 mr-1" />
-                        Curso de Membro: Módulo {classData.weekOfMonth === 'last' ? '5' : classData.weekOfMonth}
-                    </Badge>
-                )}
+                <div className="flex items-center gap-4 bg-white p-2 rounded-xl border shadow-sm">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Data da Aula:</Label>
+                    <Select value={selectedDate} onValueChange={setSelectedDate}>
+                        <SelectTrigger className="w-[200px] h-9 font-bold">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {classOccurrences.map(date => {
+                                const hasAttendance = classData.attendance?.some(a => a.date === date);
+                                return (
+                                    <SelectItem key={date} value={date}>
+                                        <div className="flex items-center justify-between w-full gap-2">
+                                            <span>{format(parseISO(date), 'dd/MM/yyyy')}</span>
+                                            {hasAttendance && <CheckCircle2 className="size-3 text-emerald-500" />}
+                                        </div>
+                                    </SelectItem>
+                                )
+                            })}
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
             
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        {showPedagogicalFields ? <BookOpen /> : <ClipboardCheck />}
-                        {showPedagogicalFields ? `Diário de Classe: ${classData.name}` : `Lista de Chamada: ${classData.name}`}
-                    </CardTitle>
-                    <CardDescription>
-                        Curso: {courseData?.name || '...'} | Professor(a): {teacherData?.name || '...'}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    {/* Form for new log / attendance */}
-                    <div className="md:col-span-2 space-y-6">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-lg">
-                                    {showPedagogicalFields ? 'Registrar Aula de Hoje' : 'Lançar Presença de Hoje'}
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {showPedagogicalFields && (
-                                    <>
-                                        <div>
-                                            <Label htmlFor="content">Conteúdo Ensinado</Label>
-                                            <Input id="content" value={contentTaught} onChange={e => setContentTaught(e.target.value)} placeholder="Ex: Escalas maiores, inversão de acordes..." />
-                                        </div>
-                                        <div>
-                                            <Label htmlFor="observations">Observações Pedagógicas</Label>
-                                            <Textarea id="observations" value={observations} onChange={e => setObservations(e.target.value)} placeholder="Ex: Aluno X teve dificuldade com o ritmo. Reforçar na próxima aula."/>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label>Desempenho Geral da Turma</Label>
-                                            <div className="flex items-center gap-1">
-                                                {[1, 2, 3, 4, 5].map(star => (
-                                                    <Star
-                                                        key={star}
-                                                        className={`cursor-pointer transition-colors ${performance >= star ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300 hover:text-gray-400'}`}
-                                                        onClick={() => setPerformance(star)}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <ClipboardCheck className="text-primary" />
+                                Lista de Chamada: {format(parseISO(selectedDate || '2000-01-01'), 'dd/MM/yyyy')}
+                            </CardTitle>
+                            <CardDescription>Clique nos nomes para marcar a presença.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <TooltipProvider>
+                                <ScrollArea className="h-[500px] w-full rounded-md border p-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {studentList.map(student => {
+                                            const isCidade = student.integrationStatus === 'nao_alcancado';
+                                            const isLockedByStatus = isMemberCourse && isCidade;
+                                            const isPresent = presentStudents.includes(student.id);
+
+                                            return (
+                                                <div key={student.id} className={cn(
+                                                    "flex items-center space-x-3 p-3 rounded-xl transition-all border cursor-pointer",
+                                                    isPresent ? "bg-emerald-50 border-emerald-200" : "hover:bg-muted/50 border-transparent",
+                                                    isLockedByStatus && "opacity-50 grayscale"
+                                                )} onClick={() => !isLockedByStatus && handleStudentCheck(student.id, !isPresent)}>
+                                                    <Checkbox
+                                                        id={`student-${student.id}`}
+                                                        checked={isPresent}
+                                                        onCheckedChange={checked => handleStudentCheck(student.id, !!checked)}
+                                                        disabled={isLockedByStatus}
+                                                        className="pointer-events-none"
                                                     />
+                                                    <div className="flex-1 min-w-0">
+                                                        <Label className="font-bold text-sm block truncate">{student.name}</Label>
+                                                        {isLockedByStatus && <span className="text-[9px] text-destructive font-black uppercase">Bloqueado (Cidade)</span>}
+                                                    </div>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                </ScrollArea>
+                            </TooltipProvider>
+
+                            {showPedagogicalFields && (
+                                <div className="space-y-4 pt-6 border-t">
+                                    <h3 className="font-bold text-sm uppercase text-primary">Relatório da Aula</h3>
+                                    <div className="grid gap-4">
+                                        <div>
+                                            <Label>Conteúdo Ministrado</Label>
+                                            <Input value={contentTaught} onChange={e => setContentTaught(e.target.value)} placeholder="O que foi ensinado hoje?" />
+                                        </div>
+                                        <div>
+                                            <Label>Observações</Label>
+                                            <Textarea value={observations} onChange={e => setObservations(e.target.value)} placeholder="Ex: Aluno com dificuldade no rítmo..." />
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <Label>Desempenho da Turma:</Label>
+                                            <div className="flex gap-1">
+                                                {[1,2,3,4,5].map(s => (
+                                                    <Star key={s} className={cn("size-5 cursor-pointer", performance >= s ? "fill-yellow-400 text-yellow-400" : "text-slate-300")} onClick={() => setPerformance(s)} />
                                                 ))}
                                             </div>
                                         </div>
-                                    </>
-                                )}
-                                
-                                <div className={cn("pt-4", showPedagogicalFields && "border-t")}>
-                                    <Label className="flex items-center gap-2 mb-2"><Users className="size-4" />Chamada / Presença</Label>
-                                    <p className="text-sm text-muted-foreground mb-4">Marque os alunos presentes na data de hoje ({format(new Date(), 'dd/MM/yyyy')}).</p>
-                                    
-                                    <TooltipProvider>
-                                    <ScrollArea className="h-80 w-full rounded-md border p-4">
-                                         <div className="space-y-2">
-                                            {studentList.length === 0 ? (
-                                                <p className="text-sm text-muted-foreground italic">Nenhum aluno matriculado nesta turma.</p>
-                                            ) : (
-                                                studentList.map(student => {
-                                                    const progress = student.journey?.memberCourseProgress || {};
-                                                    const hasFinishedFirstFour = ['module1', 'module2', 'module3', 'module4'].every(m => progress[m]);
-                                                    
-                                                    // BLOCK RULE: Someone in "Cidade" stage CANNOT take the membership course.
-                                                    const isCidade = student.integrationStatus === 'nao_alcancado';
-                                                    
-                                                    const isLockedModule5 = isModule5 && !hasFinishedFirstFour;
-                                                    const isLockedByStatus = isMemberCourse && isCidade;
-                                                    
-                                                    const isLocked = isLockedModule5 || isLockedByStatus;
-
-                                                    return (
-                                                        <div key={student.id} className={cn(
-                                                            "flex items-center space-x-3 p-3 rounded-lg transition-colors border",
-                                                            isLocked ? "bg-slate-50 opacity-60 border-slate-100" : "hover:bg-muted/50 border-transparent"
-                                                        )}>
-                                                            <Checkbox
-                                                                id={`student-${student.id}`}
-                                                                checked={presentStudents.includes(student.id)}
-                                                                onCheckedChange={checked => handleStudentCheck(student.id, !!checked)}
-                                                                disabled={isLocked}
-                                                            />
-                                                            <div className="flex-1 flex items-center justify-between">
-                                                                <Label 
-                                                                    htmlFor={`student-${student.id}`} 
-                                                                    className={cn("font-medium", isLocked ? "cursor-not-allowed" : "cursor-pointer")}
-                                                                >
-                                                                    {student.name}
-                                                                </Label>
-                                                                {isLocked && (
-                                                                    <Tooltip>
-                                                                        <TooltipTrigger asChild>
-                                                                            <div className="flex items-center gap-1.5 text-destructive font-black text-[10px] uppercase bg-destructive/10 px-2 py-1 rounded">
-                                                                                <Lock size={12} /> BLOQUEADO
-                                                                            </div>
-                                                                        </TooltipTrigger>
-                                                                        <TooltipContent className="max-w-[250px]">
-                                                                            <p className="text-xs">
-                                                                                {isLockedByStatus 
-                                                                                    ? "Este aluno está no estágio 'Cidade' e precisa registrar uma decisão para ser admitido no Curso Pertencer."
-                                                                                    : "Este aluno ainda não concluiu os 4 módulos anteriores obrigatórios para o Comissionamento."}
-                                                                            </p>
-                                                                        </TooltipContent>
-                                                                    </Tooltip>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    )
-                                                })
-                                            )}
-                                        </div>
-                                    </ScrollArea>
-                                    </TooltipProvider>
-                                </div>
-
-                                <Button onClick={handleSaveLog} disabled={isSaving} className="mt-4 w-full md:w-auto">
-                                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    {showPedagogicalFields ? 'Salvar Registro e Chamada' : 'Salvar Lista de Presença'}
-                                </Button>
-                            </CardContent>
-                        </Card>
-                    </div>
-                    
-                    {/* List of past logs / history */}
-                    <div>
-                        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                            <History className="size-4" />
-                            Histórico
-                        </h3>
-                        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-                            {classLogs.length === 0 ? (
-                                <p className="text-muted-foreground text-sm p-4 text-center">Nenhum registro anterior.</p>
-                            ) : (
-                                classLogs.map(log => (
-                                    <div key={log.id} className="p-4 border rounded-lg bg-muted/50">
-                                        <p className="font-bold text-xs text-primary">{format(log.date.toDate(), 'dd/MM/yyyy', { locale: ptBR })}</p>
-                                        <p className="text-sm mt-2 font-medium">{log.content_taught}</p>
-                                        {showPedagogicalFields && (
-                                            <>
-                                                {log.observations && <p className="text-xs italic text-muted-foreground mt-1">"{log.observations}"</p>}
-                                                <div className="flex items-center gap-1 mt-2">
-                                                    {[...Array(5)].map((_, i) => (
-                                                        <Star key={i} className={`h-3 w-3 ${i < log.student_performance ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
-                                                    ))}
-                                                </div>
-                                            </>
-                                        )}
                                     </div>
-                                ))
+                                </div>
                             )}
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+
+                            <Button onClick={handleSaveLog} disabled={isSaving} className="w-full h-12 text-base font-bold shadow-lg">
+                                {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" />}
+                                Salvar Chamada de {format(parseISO(selectedDate || '2000-01-01'), 'dd/MM')}
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <div className="space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-sm font-bold uppercase flex items-center gap-2">
+                                <History className="size-4" /> Histórico de Aulas
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <ScrollArea className="h-[600px]">
+                                <div className="space-y-3">
+                                    {classOccurrences.map(date => {
+                                        const attendance = classData.attendance?.find(a => a.date === date);
+                                        const isPast = isBefore(parseISO(date), startOfDay(new Date()));
+                                        const isSelected = selectedDate === date;
+
+                                        return (
+                                            <button
+                                                key={date}
+                                                onClick={() => setSelectedDate(date)}
+                                                className={cn(
+                                                    "w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between group",
+                                                    isSelected ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "bg-card hover:bg-muted/50"
+                                                )}
+                                            >
+                                                <div className="min-w-0">
+                                                    <p className="text-xs font-bold">{format(parseISO(date), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                                                    <p className="text-[10px] text-muted-foreground uppercase">{isPast ? 'Passada' : 'Futura'}</p>
+                                                </div>
+                                                {attendance ? (
+                                                    <div className="text-right">
+                                                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 text-[9px] h-5">
+                                                            {attendance.presentStudentIds.length} presentes
+                                                        </Badge>
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-right opacity-30 group-hover:opacity-100">
+                                                        <Badge variant="outline" className="text-[9px] h-5">Pendente</Badge>
+                                                    </div>
+                                                )}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            </ScrollArea>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
         </div>
     );
+}
+
+function Save({ className, size }: { className?: string, size?: number }) {
+    return <svg xmlns="http://www.w3.org/2000/svg" width={size || 16} height={size || 16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>;
 }
 
 export default function PedagogicalLogPage() {
