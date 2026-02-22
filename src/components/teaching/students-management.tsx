@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useMemo, useState } from 'react';
 import { useVolunteering, type User, type Class, type Course } from '@/contexts/volunteering-context';
@@ -142,7 +143,7 @@ export function StudentsManagement({ filterCourseIds }: StudentsManagementProps)
                                       <div className="text-[10px] text-muted-foreground">{cls.dayOfWeek} às {cls.startTime}</div>
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        <Button variant="ghost" size="sm" asChild className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <Button variant="ghost" size="sm" asChild className="transition-all">
                                             <Link href={`/dashboard/people/${user.id}`}>
                                                 Ver Perfil <ChevronRight className="ml-1 size-3" />
                                             </Link>

@@ -153,7 +153,7 @@ export function CourseClassesManager({ course }) {
                                     <TableCell>{formatSchedule(cls)}</TableCell>
                                     <TableCell>{locationName}</TableCell>
                                     <TableCell className="text-right">
-                                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="flex justify-end items-center gap-1 transition-all">
                                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEditClass(cls)}>
                                                 <Edit className="size-4" />
                                             </Button>

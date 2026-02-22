@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -415,7 +416,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                                         </Button>
                                     )}
                                     <Button className="w-full h-12 font-bold" onClick={handleSaveLevel} disabled={isSaving}>
-                                        {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" />} 
+                                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin mr-2" /> : <Save className="mr-2" />} 
                                         Salvar Nível
                                     </Button>
                                 </div>

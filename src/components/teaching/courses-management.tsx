@@ -117,7 +117,7 @@ export function CoursesManagement() {
                         <div className="p-2 bg-primary/5 rounded-lg text-primary group-hover:bg-primary/10 transition-colors">
                             <Icon className="size-5" />
                         </div>
-                        <div>
+                        <div className="pr-20 sm:pr-32">
                             <p className="font-bold text-slate-900 leading-tight">{course.name}</p>
                             <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{course.description || 'Sem descrição definida.'}</p>
                         </div>
@@ -126,7 +126,7 @@ export function CoursesManagement() {
                 </div>
             </Link>
             
-            <div className="absolute right-12 top-1/2 -translate-y-1/2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity pr-2">
+            <div className="absolute right-12 top-1/2 -translate-y-1/2 z-10 flex gap-1 transition-all pr-2">
                 <Button 
                     variant="ghost" 
                     size="icon" 
