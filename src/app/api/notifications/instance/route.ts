@@ -5,7 +5,7 @@ import { doc, getDoc } from 'firebase/firestore';
 
 /**
  * API Route to manage WhatsApp Instance (Status and Connection) from api-wa.me
- * Ultra-resilient detection for v5.0.0
+ * Ultra-resilient detection for v5.0.0 Pro Plan
  */
 
 export const dynamic = 'force-dynamic';
@@ -49,29 +49,27 @@ export async function GET() {
             });
         }
 
-        // Mapeamento exaustivo de status para v5.0.0
-        // Verifica na raiz e dentro do objeto 'instance' se existir
-        const rawState = (data.instance?.state || data.state || data.status || '').toLowerCase();
+        // Mapeamento exaustivo de status para v5.0.0 Pro
+        // Verifica na raiz, dentro do objeto 'instance' e via flags booleanas
+        const rawState = (data.instance?.state || data.state || data.status || data.instance?.status || '').toString().toLowerCase();
+        
         const isAuthenticated = data.authenticated === true || 
                               data.instance?.authenticated === true || 
                               data.is_connected === true ||
                               data.instance?.is_connected === true ||
-                              rawState === 'open' ||
-                              rawState === 'connected' ||
-                              rawState === 'online';
+                              ['open', 'connected', 'online', 'authenticated'].includes(rawState);
         
         let displayStatus = 'unknown';
         
         if (isAuthenticated) {
             displayStatus = 'connected';
-        } else if (data.qr || data.qrcode || data.instance?.qr || rawState === 'pairing') {
+        } else if (data.qr || data.qrcode || data.instance?.qr || rawState.includes('pairing') || rawState.includes('qr')) {
             displayStatus = 'pairing';
-        } else if (rawState === 'closed' || rawState === 'logout' || rawState === 'disconnected') {
+        } else if (['closed', 'logout', 'disconnected', 'offline'].includes(rawState)) {
             displayStatus = 'offline';
         } else {
             // Se não for possível identificar por flags, tenta usar o estado bruto
             displayStatus = rawState || 'unknown';
-            // Algumas APIs retornam 200 no corpo se for sucesso mas sem info
             if (displayStatus === '200' || displayStatus === '') displayStatus = 'unknown';
         }
 

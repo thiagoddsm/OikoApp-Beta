@@ -5,7 +5,7 @@ import { collection, query, where, getDocs, addDoc, Timestamp, doc, getDoc } fro
 
 /**
  * API Route to send WhatsApp messages using direct fetch to api-wa.me
- * Optimized for v5.0.0 Pro Plan Features (Buttons, Surveys, Media)
+ * Optimized for v5.0.0 Pro Plan Features (SchemaButtonMessageReply)
  */
 
 const getMimetype = (url: string) => {
@@ -105,15 +105,14 @@ export async function POST(request: Request) {
 
         switch (type) {
             case 'button':
-                // v5.0.0: SchemaButtonMessageReply EXIGE 'header' como OBJETO e 'text'
+                // v5.0.0 SchemaButtonMessageReply: Exige 'header' como OBJETO, 'text' e 'buttons'
                 endpoint = 'message/button_reply';
                 payload = {
                     to: formattedPhone,
                     header: {
-                        type: 'text',
-                        text: (title || 'Informativo IBM').replace('{{nome}}', user.name)
+                        title: (title || 'Informativo IBM').replace('{{nome}}', user.name)
                     },
-                    text: personalizedBody || 'Clique em uma das opções abaixo:',
+                    text: personalizedBody || 'Escolha uma opção:',
                     footer: footer || 'Igreja Batista da Manhã',
                     buttons: (buttons || []).map((b: any) => ({
                         id: b.id,
@@ -189,16 +188,18 @@ export async function POST(request: Request) {
         }
     }
 
-    await addDoc(collection(firestore, 'notifications_history'), {
-        channel,
-        type: type || 'text',
-        message: type === 'survey' ? `[ENQUETE] ${surveyName}` : (message || title || 'Mídia'),
-        recipientCount: targetUsers.length,
-        successCount: sentCount,
-        status: errorCount === 0 ? 'success' : (sentCount > 0 ? 'partial' : 'failed'),
-        lastError: lastError,
-        sentAt: Timestamp.now()
-    });
+    if (targetUsers.length > 0) {
+        await addDoc(collection(firestore, 'notifications_history'), {
+            channel,
+            type: type || 'text',
+            message: type === 'survey' ? `[ENQUETE] ${surveyName}` : (message || title || 'Mídia'),
+            recipientCount: targetUsers.length,
+            successCount: sentCount,
+            status: errorCount === 0 ? 'success' : (sentCount > 0 ? 'partial' : 'failed'),
+            lastError: lastError,
+            sentAt: Timestamp.now()
+        });
+    }
 
     if (sentCount === 0 && targetUsers.length > 0) {
         return NextResponse.json({ 
