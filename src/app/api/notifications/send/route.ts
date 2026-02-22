@@ -105,11 +105,14 @@ export async function POST(request: Request) {
 
         switch (type) {
             case 'button':
-                // v5.0.0: SchemaButtonMessageReply EXIGE 'header' e 'text'
+                // v5.0.0: SchemaButtonMessageReply EXIGE 'header' como OBJETO e 'text'
                 endpoint = 'message/button_reply';
                 payload = {
                     to: formattedPhone,
-                    header: (title || 'Informativo IBM').replace('{{nome}}', user.name),
+                    header: {
+                        type: 'text',
+                        text: (title || 'Informativo IBM').replace('{{nome}}', user.name)
+                    },
                     text: personalizedBody || 'Clique em uma das opções abaixo:',
                     footer: footer || 'Igreja Batista da Manhã',
                     buttons: (buttons || []).map((b: any) => ({

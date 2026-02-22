@@ -9,6 +9,7 @@ import { doc, getDoc } from 'firebase/firestore';
  */
 
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET() {
   try {
@@ -49,10 +50,12 @@ export async function GET() {
         }
 
         // Mapeamento exaustivo de status para v5.0.0
+        // Verifica na raiz e dentro do objeto 'instance' se existir
         const rawState = (data.instance?.state || data.state || data.status || '').toLowerCase();
         const isAuthenticated = data.authenticated === true || 
                               data.instance?.authenticated === true || 
                               data.is_connected === true ||
+                              data.instance?.is_connected === true ||
                               rawState === 'open' ||
                               rawState === 'connected' ||
                               rawState === 'online';
@@ -68,6 +71,7 @@ export async function GET() {
         } else {
             // Se não for possível identificar por flags, tenta usar o estado bruto
             displayStatus = rawState || 'unknown';
+            // Algumas APIs retornam 200 no corpo se for sucesso mas sem info
             if (displayStatus === '200' || displayStatus === '') displayStatus = 'unknown';
         }
 
