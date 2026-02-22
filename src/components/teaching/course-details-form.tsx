@@ -7,11 +7,10 @@ import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Loader2, ShieldCheck, Mail, Info, School, PlayCircle, ExternalLink } from 'lucide-react';
+import { Loader2, ShieldCheck, Mail, Info, School, PlayCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import Link from 'next/link';
 
 export function CourseDetailsForm({ course }) {
   const { users, theoflixCourses, isLoading } = useVolunteering();

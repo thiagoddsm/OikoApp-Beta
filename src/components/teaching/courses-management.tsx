@@ -45,7 +45,7 @@ export function CoursesManagement() {
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [deletingCourse, setDeletingCourse] = useState<Course | null>(null);
 
-  // Grouping logic
+  // Grouping logic by "School" (ministryName)
   const groupedCourses = useMemo(() => {
     if (!courses) return {};
     const groups: Record<string, Course[]> = {};
@@ -93,7 +93,7 @@ export function CoursesManagement() {
     const n = name.toLowerCase();
     if (n.includes('wave')) return Waves;
     if (n === 'dis') return HandHelping;
-    if (n.includes('lumine')) return Lightbulb;
+    if (n.includes('lumine') || n.includes('ebd')) return Lightbulb;
     if (n.includes('college') || n.includes('escola')) return School;
     return BookOpen;
   };
@@ -126,7 +126,7 @@ export function CoursesManagement() {
                 </div>
             </Link>
             
-            <div className="absolute right-12 top-1/2 -translate-y-1/2 z-10 flex gap-1 transition-all pr-2">
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 z-10 flex gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-all pr-2">
                 <Button 
                     variant="ghost" 
                     size="icon" 
@@ -159,29 +159,27 @@ export function CoursesManagement() {
     );
   };
   
-  const isLoading = isLoadingCourses;
-
   return (
     <>
       <Card>
         <CardHeader className="flex flex-row justify-between items-center">
           <div>
-            <CardTitle className="flex items-center gap-2"><BookOpen/>Gestão de Ensino</CardTitle>
-            <CardDescription>Cursos e turmas organizados por ministério.</CardDescription>
+            <CardTitle className="flex items-center gap-2"><BookOpen/>Portal de Escolas</CardTitle>
+            <CardDescription>Gerencie o catálogo de ensino organizado por ministérios e trilhos.</CardDescription>
           </div>
           <Button onClick={handleAddCourse}><PlusCircle className="mr-2 size-4"/>Novo Curso</Button>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {isLoadingCourses ? (
             <div className="flex justify-center items-center h-48"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>
           ) : Object.keys(groupedCourses).length === 0 ? (
             <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
                 Nenhum curso cadastrado no sistema.
             </div>
           ) : (
-             <div className="space-y-8">
+             <div className="space-y-10">
                 {Object.entries(groupedCourses).sort(([a], [b]) => a.localeCompare(b)).map(([ministry, ministryCourses]) => {
-                    const isLumine = ministry.toLowerCase().includes('lumine');
+                    const isLumine = ministry.toLowerCase().includes('lumine') || ministry.toLowerCase().includes('ebd');
                     
                     if (isLumine) {
                         const tracks = {
@@ -193,15 +191,20 @@ export function CoursesManagement() {
 
                         return (
                             <div key={ministry} className="space-y-6">
-                                <div className="flex items-center gap-2 px-2">
-                                    <span className="h-4 w-1 bg-primary rounded-full"></span>
-                                    <h3 className="text-sm font-black uppercase tracking-[0.2em] text-muted-foreground">
-                                        {ministry}
-                                    </h3>
+                                <div className="flex items-center gap-3 px-2">
+                                    <div className="p-2 bg-primary text-white rounded-xl shadow-lg shadow-primary/20">
+                                        <Lightbulb className="size-6" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-black uppercase tracking-tight text-slate-900">
+                                            {ministry}
+                                        </h3>
+                                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Escola Bíblica Discipuladora</p>
+                                    </div>
                                     <Badge variant="secondary" className="ml-auto text-[10px] h-5">{ministryCourses.length} cursos</Badge>
                                 </div>
                                 
-                                <div className="pl-4 space-y-8 border-l-2 border-primary/10 ml-2">
+                                <div className="pl-4 space-y-8 border-l-2 border-primary/10 ml-6">
                                     {[
                                         { id: 'teologico', label: 'Trilho Teológico', list: tracks.teologico },
                                         { id: 'biblico', label: 'Trilho Bíblico', list: tracks.biblico },
@@ -213,7 +216,7 @@ export function CoursesManagement() {
                                                 <ChevronRight className="size-3" />
                                                 {track.label}
                                             </h4>
-                                            <div className="grid gap-2">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                                 {track.list.map(course => renderCourseCard(course, ministry))}
                                             </div>
                                         </div>
@@ -223,17 +226,21 @@ export function CoursesManagement() {
                         );
                     }
 
+                    const Icon = getMinistryIcon(ministry);
+
                     return (
-                        <div key={ministry} className="space-y-3">
-                            <div className="flex items-center gap-2 px-2">
-                                <span className="h-4 w-1 bg-primary rounded-full"></span>
-                                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
+                        <div key={ministry} className="space-y-4">
+                            <div className="flex items-center gap-3 px-2">
+                                <div className="p-2 bg-slate-900 text-white rounded-xl">
+                                    <Icon className="size-6" />
+                                </div>
+                                <h3 className="text-lg font-black uppercase tracking-tight text-slate-900">
                                     {ministry}
                                 </h3>
-                                <Badge variant="secondary" className="ml-auto text-[10px] h-5">{ministryCourses.length} {ministryCourses.length === 1 ? 'curso' : 'cursos'}</Badge>
+                                <Badge variant="secondary" className="ml-auto text-[10px] h-5">{ministryCourses.length} cursos</Badge>
                             </div>
                             
-                            <div className="grid gap-2">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {ministryCourses.map(course => renderCourseCard(course, ministry))}
                             </div>
                         </div>
@@ -256,7 +263,7 @@ export function CoursesManagement() {
             onOpenChange={() => setDeletingCourse(null)}
             onConfirm={confirmDeleteCourse}
             itemName={deletingCourse.name}
-            itemType="Curso (As turmas vinculadas não serão excluídas automaticamente)"
+            itemType="Curso"
           />
       )}
     </>

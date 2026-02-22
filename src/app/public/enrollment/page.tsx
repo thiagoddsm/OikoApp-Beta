@@ -1,319 +1,242 @@
+
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, doc, serverTimestamp, setDoc, getDoc } from 'firebase/firestore';
+import React, { useState, useMemo } from 'react';
+import { useFirebase, useCollection, addDocumentNonBlocking, useMemoFirebase } from '@/firebase';
+import { collection, query, Timestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Loader2, UserPlus, CheckCircle, GraduationCap, ChevronRight, LogIn, Mail, Search } from 'lucide-react';
-import { Logo } from '@/components/icons';
+import { 
+    Loader2, 
+    ChevronRight, 
+    ArrowLeft, 
+    CheckCircle2, 
+    BookOpen, 
+    Waves, 
+    Lightbulb, 
+    School, 
+    HandHelping,
+    UserPlus,
+    Smartphone,
+    Mail,
+    ChevronLeft
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, fetchSignInMethodsForEmail } from 'firebase/auth';
+import { cn } from '@/lib/utils';
+import { Logo } from '@/components/icons';
+import Link from 'next/link';
 
-type Course = { id: string; name: string; ministryName: string; };
-type Class = { id: string; courseId: string; name: string; dayOfWeek?: string; startTime?: string; };
+type Course = {
+    id: string;
+    name: string;
+    description: string;
+    ministryName: string;
+};
 
-function EnrollmentForm() {
-  const searchParams = useSearchParams();
-  const initialCourseId = searchParams.get('courseId');
-  const { firestore, user, auth } = useFirebase();
-  const { toast } = useToast();
+const schoolIcons: Record<string, React.ElementType> = {
+    'wave': Waves,
+    'lumine': Lightbulb,
+    'ebd': Lightbulb,
+    'college': School,
+    'dis': HandHelping,
+    'default': BookOpen
+};
 
-  const [step, setStep] = useState<'email' | 'auth' | 'form' | 'success'>('email');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isNewUser, setIsNewUser] = useState(false);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(false);
+export default function PublicEnrollmentPage() {
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+    
+    // Step State
+    const [step, setStep] = useState<'school' | 'course' | 'form' | 'success'>('school');
+    const [selectedSchool, setSelectedSchool] = useState<string | null>(null);
+    const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+    
+    // Form State
+    const [formData, setFormData] = useState({
+        name: '',
+        email: '',
+        phone: '',
+        dataNascimento: '',
+    });
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    cpf: '',
-    dataNascimento: '',
-    sexo: '',
-    courseId: initialCourseId || '',
-    classId: '',
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+    // Fetch Courses
+    const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
+    const { data: courses, isLoading } = useCollection<Course>(coursesQuery);
 
-  const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
-  const { data: courses } = useCollection<Course>(coursesQuery);
+    // Filter Schools
+    const schools = useMemo(() => {
+        if (!courses) return [];
+        const uniqueSchools = Array.from(new Set(courses.map(c => c.ministryName)));
+        return uniqueSchools.sort();
+    }, [courses]);
 
-  const classesQuery = useMemoFirebase(() => {
-    if (!firestore || !formData.courseId) return null;
-    return query(collection(firestore, 'classes'));
-  }, [firestore, formData.courseId]);
-  const { data: allClasses } = useCollection<Class>(classesQuery);
+    // Filter Courses by School
+    const filteredCourses = useMemo(() => {
+        if (!courses || !selectedSchool) return [];
+        return courses.filter(c => c.ministryName === selectedSchool);
+    }, [courses, selectedSchool]);
 
-  const availableClasses = React.useMemo(() => {
-    return allClasses?.filter(c => c.courseId === formData.courseId) || [];
-  }, [allClasses, formData.courseId]);
+    const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    };
 
-  // Pre-fill name if user is already logged in
-  useEffect(() => {
-    if (user && step === 'email') {
-        setFormData(prev => ({ ...prev, name: user.displayName || '' }));
-        setStep('form');
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedCourseId || !firestore) return;
+
+        setIsSubmitting(true);
+        try {
+            await addDocumentNonBlocking(collection(firestore, 'enrollment_requests'), {
+                ...formData,
+                courseId: selectedCourseId,
+                status: 'pending',
+                createdAt: Timestamp.now()
+            });
+            setStep('success');
+        } catch (error) {
+            toast({ variant: 'destructive', title: "Erro ao enviar", description: "Tente novamente mais tarde." });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    if (isLoading) {
+        return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
     }
-  }, [user, step]);
 
-  const checkEmail = async () => {
-    if (!email.trim() || !auth) return;
-    setIsLoadingAuth(true);
-    try {
-      const methods = await fetchSignInMethodsForEmail(auth, email);
-      setIsNewUser(methods.length === 0);
-      setStep('auth');
-    } catch (error) {
-      console.error(error);
-      toast({ variant: 'destructive', title: "Erro", description: "Falha ao verificar e-mail." });
-    } finally {
-      setIsLoadingAuth(false);
-    }
-  };
-
-  const handleEmailAuth = async () => {
-    if (!auth || !password) return;
-    setIsLoadingAuth(true);
-    try {
-      if (isNewUser) {
-        await createUserWithEmailAndPassword(auth, email, password);
-      } else {
-        await signInWithEmailAndPassword(auth, email, password);
-      }
-      setStep('form');
-    } catch (error: any) {
-      toast({ variant: 'destructive', title: "Erro na autenticação", description: "Senha incorreta ou erro no servidor." });
-    } finally {
-      setIsLoadingAuth(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    if (!auth) return;
-    setIsLoadingAuth(true);
-    try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-      setStep('form');
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsLoadingAuth(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user || !firestore) return;
-    setIsSubmitting(true);
-
-    try {
-      const requestData = {
-        ...formData,
-        userId: user.uid,
-        status: 'pending',
-        createdAt: serverTimestamp(),
-      };
-
-      // 1. Save enrollment request
-      await setDoc(doc(collection(firestore, 'enrollment_requests')), requestData);
-
-      // 2. Update/Set user profile with extra info (CPF, birth, etc)
-      const userDocRef = doc(firestore, 'users', user.uid);
-      await setDoc(userDocRef, {
-        name: formData.name,
-        phone: formData.phone,
-        cpf: formData.cpf,
-        dataNascimento: formData.dataNascimento,
-        sexo: formData.sexo,
-        email: user.email,
-      }, { merge: true });
-
-      setStep('success');
-      toast({ title: "Inscrição Enviada!", description: "Sua solicitação está em análise pela secretaria." });
-    } catch (error) {
-      console.error(error);
-      toast({ variant: 'destructive', title: "Erro ao enviar", description: "Não foi possível salvar sua inscrição." });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  if (step === 'success') {
     return (
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <Card className="max-w-md w-full text-center">
-          <CardHeader>
-            <div className="mx-auto bg-green-100 p-3 rounded-full w-fit mb-4 text-green-600">
-              <CheckCircle size={48} />
-            </div>
-            <CardTitle>Inscrição Protocolada!</CardTitle>
-            <CardDescription>
-              Tudo certo, {formData.name.split(' ')[0]}! Recebemos seu pedido de inscrição para {courses?.find(c => c.id === formData.courseId)?.name}.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Em breve a secretaria da escola entrará em contato com você para confirmar sua matrícula e fornecer os próximos passos.
-            </p>
-          </CardContent>
-          <CardFooter>
-            <Button className="w-full" variant="outline" onClick={() => window.location.href = '/'}>
-              Voltar para o Início
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
-    );
-  }
+        <div className="min-h-screen bg-slate-50 flex flex-col items-center py-12 px-4">
+            <Link href="/" className="flex items-center gap-2 mb-12 hover:opacity-80 transition-opacity">
+                <Logo className="size-8 text-primary" />
+                <h1 className="text-2xl font-black tracking-tighter">OikoApp</h1>
+            </Link>
 
-  return (
-    <div className="flex min-h-screen items-center justify-center p-4 bg-muted/30">
-      <div className="max-w-xl w-full space-y-6">
-        <div className="flex justify-center items-center gap-2 mb-2">
-          <Logo className="h-8 w-8 text-primary" />
-          <h1 className="text-2xl font-black tracking-tighter">OikoApp | Portal de Inscrição</h1>
-        </div>
-
-        <Card className="shadow-xl">
-          {step === 'email' && (
-            <>
-              <CardHeader>
-                <CardTitle>Bem-vindo ao Portal</CardTitle>
-                <CardDescription>Para começar, informe seu e-mail institucional ou pessoal.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">E-mail</Label>
-                  <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="seu@email.com" />
-                </div>
-                <Button className="w-full" onClick={checkEmail} disabled={isLoadingAuth || !email.includes('@')}>
-                  {isLoadingAuth ? <Loader2 className="animate-spin" /> : <ChevronRight className="mr-2" />}
-                  Continuar
-                </Button>
-              </CardContent>
-            </>
-          )}
-
-          {step === 'auth' && (
-            <>
-              <CardHeader>
-                <CardTitle>{isNewUser ? 'Criar sua Conta' : 'Fazer Login'}</CardTitle>
-                <CardDescription>
-                  {isNewUser ? 'Não encontramos seu cadastro. Crie uma senha para prosseguir.' : 'Encontramos seu cadastro! Digite sua senha.'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="password">Senha</Label>
-                  <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} />
-                </div>
-                <Button className="w-full" onClick={handleEmailAuth} disabled={isLoadingAuth}>
-                  {isLoadingAuth ? <Loader2 className="animate-spin" /> : <LogIn className="mr-2" />}
-                  {isNewUser ? 'Criar Conta e Continuar' : 'Entrar'}
-                </Button>
-                <div className="relative py-4">
-                  <div className="absolute inset-0 flex items-center"><span className="w-full border-t"></span></div>
-                  <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">Ou use o Google</span></div>
-                </div>
-                <Button variant="outline" className="w-full" onClick={handleGoogleLogin} disabled={isLoadingAuth}>
-                  <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="mr-2 h-4 w-4" alt="Google" />
-                  Entrar com Google
-                </Button>
-              </CardContent>
-              <CardFooter>
-                <Button variant="ghost" size="sm" onClick={() => setStep('email')}>Alterar e-mail</Button>
-              </CardFooter>
-            </>
-          )}
-
-          {step === 'form' && (
-            <form onSubmit={handleSubmit}>
-              <CardHeader>
-                <CardTitle>Dados da Matrícula</CardTitle>
-                <CardDescription>Olá, {user?.displayName || user?.email}! Complete seus dados para finalizar a inscrição.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Nome Completo</Label>
-                    <Input id="name" required value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Celular (WhatsApp)</Label>
-                    <Input id="phone" required placeholder="(21) 9..." value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="cpf">CPF</Label>
-                    <Input id="cpf" required placeholder="000.000.000-00" value={formData.cpf} onChange={e => setFormData(p => ({...p, cpf: e.target.value}))} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="birth">Data de Nascimento</Label>
-                    <Input id="birth" type="date" required value={formData.dataNascimento} onChange={e => setFormData(p => ({...p, dataNascimento: e.target.value}))} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Sexo</Label>
-                    <Select value={formData.sexo} onValueChange={v => setFormData(p => ({...p, sexo: v}))} required>
-                      <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="M">Masculino</SelectItem>
-                        <SelectItem value="F">Feminino</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t space-y-4">
-                  <div className="space-y-2">
-                    <Label>Curso Desejado</Label>
-                    <Select value={formData.courseId} onValueChange={v => setFormData(p => ({...p, courseId: v, classId: ''}))} required>
-                      <SelectTrigger><SelectValue placeholder="Selecione o curso..." /></SelectTrigger>
-                      <SelectContent>
-                        {courses?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {formData.courseId && (
-                    <div className="space-y-2 animate-in fade-in slide-in-from-top-2">
-                      <Label>Turma e Horário Disponível</Label>
-                      <Select value={formData.classId} onValueChange={v => setFormData(p => ({...p, classId: v}))} required>
-                        <SelectTrigger><SelectValue placeholder="Escolha um horário..." /></SelectTrigger>
-                        <SelectContent>
-                          {availableClasses.map(c => (
-                            <SelectItem key={c.id} value={c.id}>{c.name} - {c.dayOfWeek} às {c.startTime}</SelectItem>
-                          ))}
-                          {availableClasses.length === 0 && <SelectItem value="null" disabled>Nenhuma turma aberta no momento</SelectItem>}
-                        </SelectContent>
-                      </Select>
+            <div className="w-full max-w-xl">
+                {step === 'school' && (
+                    <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
+                        <div className="text-center mb-10">
+                            <h2 className="text-3xl font-black text-slate-900">Escolha sua Escola</h2>
+                            <p className="text-muted-foreground mt-2">Selecione o departamento de ensino para ver os cursos.</p>
+                        </div>
+                        <div className="grid gap-4">
+                            {schools.map(school => {
+                                const Icon = schoolIcons[school.toLowerCase()] || schoolIcons.default;
+                                return (
+                                    <button 
+                                        key={school}
+                                        onClick={() => { setSelectedSchool(school); setStep('course'); }}
+                                        className="flex items-center justify-between p-6 bg-white rounded-2xl border-2 border-transparent hover:border-primary hover:shadow-xl transition-all group text-left"
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className="p-3 bg-primary/10 rounded-xl text-primary group-hover:bg-primary group-hover:text-white transition-colors">
+                                                <Icon size={28} />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-lg font-bold text-slate-900">{school}</h3>
+                                                <p className="text-xs text-muted-foreground uppercase tracking-widest font-black">Portal IBM</p>
+                                            </div>
+                                        </div>
+                                        <ChevronRight className="text-slate-300 group-hover:text-primary transition-transform group-hover:translate-x-1" />
+                                    </button>
+                                );
+                            })}
+                        </div>
                     </div>
-                  )}
-                </div>
-              </CardContent>
-              <CardFooter>
-                <Button type="submit" className="w-full" disabled={isSubmitting || !formData.classId}>
-                  {isSubmitting ? <Loader2 className="animate-spin" /> : <UserPlus className="mr-2" />}
-                  Finalizar Inscrição
-                </Button>
-              </CardFooter>
-            </form>
-          )}
-        </Card>
-      </div>
-    </div>
-  );
-}
+                )}
 
-export default function EnrollmentPage() {
-  return (
-    <Suspense fallback={<div className="flex h-screen w-full items-center justify-center"><Loader2 className="animate-spin text-primary h-8 w-8" /></div>}>
-      <EnrollmentForm />
-    </Suspense>
-  );
+                {step === 'course' && (
+                    <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
+                        <button onClick={() => setStep('school')} className="flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-primary transition-colors mb-4">
+                            <ChevronLeft size={16} /> Voltar para Escolas
+                        </button>
+                        <div className="text-center mb-8">
+                            <h2 className="text-2xl font-black text-slate-900">{selectedSchool}</h2>
+                            <p className="text-muted-foreground">Qual curso você deseja realizar?</p>
+                        </div>
+                        <div className="grid gap-3">
+                            {filteredCourses.map(course => (
+                                <button 
+                                    key={course.id}
+                                    onClick={() => { setSelectedCourseId(course.id); setStep('form'); }}
+                                    className="flex flex-col p-5 bg-white rounded-xl border border-slate-200 hover:border-primary hover:shadow-md transition-all text-left group"
+                                >
+                                    <h3 className="font-bold text-slate-900 group-hover:text-primary transition-colors">{course.name}</h3>
+                                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{course.description}</p>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {step === 'form' && (
+                    <Card className="animate-in slide-in-from-right-4 duration-300 shadow-2xl border-none rounded-3xl">
+                        <CardHeader>
+                            <button onClick={() => setStep('course')} className="flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-primary transition-colors mb-4">
+                                <ChevronLeft size={14} /> Voltar para Cursos
+                            </button>
+                            <CardTitle>Dados de Inscrição</CardTitle>
+                            <CardDescription>
+                                Preencha os campos abaixo para solicitar sua matrícula em <strong>{courses?.find(c => c.id === selectedCourseId)?.name}</strong>.
+                            </CardDescription>
+                        </CardHeader>
+                        <form onSubmit={handleSubmit}>
+                            <CardContent className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="name">Nome Completo</Label>
+                                    <div className="relative">
+                                        <UserPlus className="absolute left-3 top-3 size-4 text-muted-foreground" />
+                                        <Input id="name" name="name" className="pl-10" required value={formData.name} onChange={handleFormChange} />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="phone">WhatsApp (com DDD)</Label>
+                                        <div className="relative">
+                                            <Smartphone className="absolute left-3 top-3 size-4 text-muted-foreground" />
+                                            <Input id="phone" name="phone" className="pl-10" required value={formData.phone} onChange={handleFormChange} placeholder="(21) 9..." />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="dataNascimento">Data de Nascimento</Label>
+                                        <Input id="dataNascimento" name="dataNascimento" type="date" required value={formData.dataNascimento} onChange={handleFormChange} />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="email">E-mail (Opcional)</Label>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-3 size-4 text-muted-foreground" />
+                                        <Input id="email" name="email" type="email" className="pl-10" value={formData.email} onChange={handleFormChange} />
+                                    </div>
+                                </div>
+                            </CardContent>
+                            <CardFooter>
+                                <Button type="submit" className="w-full h-12 font-bold text-base" disabled={isSubmitting}>
+                                    {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : "Solicitar Matrícula"}
+                                </Button>
+                            </CardFooter>
+                        </form>
+                    </Card>
+                )}
+
+                {step === 'success' && (
+                    <div className="text-center space-y-6 animate-in zoom-in-95 duration-500 bg-white p-12 rounded-3xl shadow-2xl border-t-8 border-primary">
+                        <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                            <CheckCircle2 size={48} />
+                        </div>
+                        <h2 className="text-3xl font-black text-slate-900">Solicitação Enviada!</h2>
+                        <p className="text-muted-foreground leading-relaxed">
+                            Obrigado pelo seu interesse! A equipe do <strong>{selectedSchool}</strong> recebeu sua solicitação e entrará em contato via WhatsApp para confirmar sua turma e horários.
+                        </p>
+                        <Button asChild className="w-full h-12 font-bold" variant="outline">
+                            <Link href="/">Voltar ao Início</Link>
+                        </Button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 }
