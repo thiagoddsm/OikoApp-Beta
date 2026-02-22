@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -213,7 +214,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-5xl sm:h-[90vh] h-[100vh] flex flex-col p-0 overflow-hidden rounded-none sm:rounded-lg">
+            <DialogContent className="max-w-5xl w-full h-full sm:h-[90vh] flex flex-col p-0 overflow-hidden rounded-none sm:rounded-xl border-none">
                 <DialogHeader className="p-4 sm:p-6 border-b bg-muted/20">
                     <div className="flex justify-between items-center pr-8 sm:pr-0">
                         <div>
@@ -221,7 +222,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                                 <Video className="text-primary size-5" />
                                 Gerenciador TheoFlix
                             </DialogTitle>
-                            <DialogDescription className="text-xs">Administre cursos, aulas e níveis da trilha.</DialogDescription>
+                            <DialogDescription className="text-[10px] sm:text-xs">Administre cursos, aulas e níveis da trilha.</DialogDescription>
                         </div>
                         <div className="flex gap-2">
                             <Button variant="outline" size="icon" onClick={handleSeedData} disabled={isSeeding} className="h-8 w-8 sm:h-10 sm:w-10">
@@ -232,116 +233,126 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                 </DialogHeader>
 
                 <Tabs defaultValue="courses" className="flex-1 flex flex-col overflow-hidden">
-                    <div className="px-4 sm:px-6 border-b bg-white overflow-x-auto">
-                        <TabsList className="bg-transparent border-b-0 h-12 w-full justify-start sm:justify-center">
-                            <TabsTrigger value="courses" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4">Cursos</TabsTrigger>
-                            <TabsTrigger value="levels" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4">Níveis</TabsTrigger>
-                            <TabsTrigger value="config" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4">Configurações</TabsTrigger>
+                    <div className="px-4 sm:px-6 border-b bg-white overflow-x-auto no-scrollbar">
+                        <TabsList className="bg-transparent border-b-0 h-12 w-full justify-start sm:justify-center flex-nowrap min-w-max">
+                            <TabsTrigger value="courses" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-xs sm:text-sm">Cursos</TabsTrigger>
+                            <TabsTrigger value="levels" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-xs sm:text-sm">Níveis</TabsTrigger>
+                            <TabsTrigger value="config" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-xs sm:text-sm">Configurações</TabsTrigger>
                         </TabsList>
                     </div>
 
                     <TabsContent value="courses" className="flex-1 flex flex-col md:flex-row overflow-hidden m-0">
-                        <div className="w-full md:w-80 border-r bg-muted/10 p-4 flex flex-col gap-4 overflow-y-auto max-h-[30vh] md:max-h-full">
+                        {/* Sidebar: Lista de Cursos */}
+                        <div className="w-full md:w-80 border-r bg-muted/10 p-4 flex flex-col gap-4 overflow-y-auto max-h-[25vh] md:max-h-full shrink-0">
                             <div className="flex justify-between items-center">
-                                <h3 className="font-bold text-[10px] uppercase text-muted-foreground tracking-widest">Biblioteca</h3>
-                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setSelectedCourse(null)}><PlusCircle size={16} /></Button>
+                                <h3 className="font-black text-[10px] uppercase text-muted-foreground tracking-widest">Biblioteca</h3>
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-primary" onClick={() => setSelectedCourse(null)}><PlusCircle size={18} /></Button>
                             </div>
-                            <div className="space-y-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-2">
                                 {existingCourses.map(course => (
                                     <button 
                                         key={course.id} 
                                         onClick={() => setSelectedCourse(course)} 
                                         className={cn(
-                                            "w-full p-2 rounded-lg border text-left transition-all hover:bg-white group", 
-                                            selectedCourse?.id === course.id ? "bg-white border-primary shadow-sm" : "bg-card"
+                                            "w-full p-2.5 rounded-xl border text-left transition-all flex items-center gap-3", 
+                                            selectedCourse?.id === course.id ? "bg-white border-primary shadow-sm ring-1 ring-primary/20" : "bg-card hover:bg-white"
                                         )}
                                     >
-                                        <div className="flex items-center gap-3">
-                                            <div className="size-8 rounded-md relative overflow-hidden bg-muted shrink-0">
-                                                <Image src={course.image || 'https://picsum.photos/seed/placeholder/100/100'} alt="" fill className="object-cover" />
-                                            </div>
-                                            <div className="min-w-0 flex-1"><p className="text-xs font-bold truncate">{course.title}</p></div>
+                                        <div className="size-10 rounded-lg relative overflow-hidden bg-muted shrink-0 shadow-sm">
+                                            <Image src={course.image || 'https://picsum.photos/seed/placeholder/100/100'} alt="" fill className="object-cover" />
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-xs font-black truncate text-slate-900 uppercase tracking-tighter">{course.title}</p>
+                                            <Badge variant="outline" className="text-[8px] h-4 mt-0.5 font-bold">Nível {course.level}</Badge>
                                         </div>
                                     </button>
                                 ))}
                             </div>
                         </div>
+
+                        {/* Área de Edição */}
                         <div className="flex-1 p-4 sm:p-8 overflow-y-auto bg-white">
-                            <div className="max-w-2xl mx-auto space-y-6">
-                                <div className="flex justify-between items-center">
-                                    <h4 className="text-base sm:text-lg font-black uppercase italic tracking-tighter">
-                                        {selectedCourse ? 'Editar Curso' : 'Novo Curso'}
+                            <div className="max-w-2xl mx-auto space-y-8">
+                                <div className="flex justify-between items-center pb-2 border-b">
+                                    <h4 className="text-lg sm:text-xl font-black uppercase italic tracking-tighter text-slate-900">
+                                        {selectedCourse ? `Editar: ${selectedCourse.title}` : 'Novo Curso'}
                                     </h4>
                                     {selectedCourse && (
-                                        <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => {
+                                        <Button variant="ghost" size="icon" className="text-destructive h-10 w-10 hover:bg-red-50" onClick={() => {
                                             if(confirm("Deseja excluir este curso?")) deleteDocumentNonBlocking(doc(firestore!, 'theoflix_courses', selectedCourse.id));
                                         }}>
-                                            <Trash2 size={16} />
+                                            <Trash2 size={20} />
                                         </Button>
                                     )}
                                 </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                     <div className="space-y-2">
-                                        <Label className="text-[10px] uppercase font-black text-muted-foreground">Título do Curso</Label>
-                                        <Input value={formCourse.title} onChange={e => setFormCourse(p => ({...p, title: e.target.value}))} placeholder="Ex: Curso de Membros" />
+                                        <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Título do Curso</Label>
+                                        <Input value={formCourse.title} onChange={e => setFormCourse(p => ({...p, title: e.target.value}))} placeholder="Ex: Curso de Membros" className="h-11 font-bold" />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label className="text-[10px] uppercase font-black text-muted-foreground">Nível da Trilha</Label>
-                                        <Input type="number" value={formCourse.level} onChange={e => setFormCourse(p => ({...p, level: parseInt(e.target.value)}))} />
+                                        <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Nível da Trilha</Label>
+                                        <Input type="number" value={formCourse.level} onChange={e => setFormCourse(p => ({...p, level: parseInt(e.target.value)}))} className="h-11" />
                                     </div>
                                 </div>
+
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] uppercase font-black text-muted-foreground">URL da Imagem de Capa</Label>
-                                    <Input value={formCourse.image} onChange={e => setFormCourse(p => ({...p, image: e.target.value}))} placeholder="https://..." />
+                                    <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">URL da Imagem de Capa</Label>
+                                    <div className="relative">
+                                        <ImageIcon className="absolute left-3 top-3 size-4 text-muted-foreground" />
+                                        <Input value={formCourse.image} onChange={e => setFormCourse(p => ({...p, image: e.target.value}))} placeholder="https://..." className="pl-10 h-11" />
+                                    </div>
                                 </div>
+
                                 <div className="space-y-2">
-                                    <Label className="text-[10px] uppercase font-black text-muted-foreground">Sinopse do Curso</Label>
-                                    <Textarea rows={3} value={formCourse.desc} onChange={e => setFormCourse(p => ({...p, desc: e.target.value}))} placeholder="Breve descrição do conteúdo..." />
+                                    <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Sinopse do Curso</Label>
+                                    <Textarea rows={4} value={formCourse.desc} onChange={e => setFormCourse(p => ({...p, desc: e.target.value}))} placeholder="Breve descrição do conteúdo..." className="resize-none" />
                                 </div>
                                 
-                                <div className="space-y-4 pt-4 border-t">
+                                <div className="space-y-6 pt-6 border-t">
                                     <div className="flex justify-between items-center">
-                                        <h4 className="text-xs font-black uppercase text-primary tracking-widest">Grade de Aulas</h4>
-                                        <Button size="sm" variant="outline" onClick={handleAddEpisode} className="h-7 text-[10px]">
-                                            <PlusCircle className="mr-1 size-3" /> Adicionar Aula
+                                        <h4 className="text-xs font-black uppercase text-primary tracking-[0.2em]">Grade de Aulas</h4>
+                                        <Button size="sm" variant="outline" onClick={handleAddEpisode} className="h-8 font-bold border-primary text-primary hover:bg-primary/5">
+                                            <PlusCircle className="mr-2 size-4" /> Adicionar Aula
                                         </Button>
                                     </div>
-                                    <div className="space-y-3">
+                                    <div className="space-y-4">
                                         {(formCourse.episodes || []).map((ep, idx) => (
-                                            <div key={idx} className="p-3 rounded-xl border bg-muted/10 flex flex-col gap-3 relative group transition-colors hover:border-primary/30">
-                                                <div className="space-y-1">
-                                                    <Label className="text-[9px] font-black uppercase text-muted-foreground">Título da Aula</Label>
-                                                    <Input className="h-8 text-xs bg-white" value={ep.title} onChange={e => { const n = [...formCourse.episodes!]; n[idx].title = e.target.value; setFormCourse(p => ({...p, episodes: n})); }} placeholder="Título da aula" />
+                                            <Card key={idx} className="p-4 rounded-2xl border-2 bg-muted/5 flex flex-col gap-4 relative group transition-all hover:border-primary/30">
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Título da Aula {idx + 1}</Label>
+                                                    <Input className="h-10 text-sm bg-white font-bold" value={ep.title} onChange={e => { const n = [...formCourse.episodes!]; n[idx].title = e.target.value; setFormCourse(p => ({...p, episodes: n})); }} />
                                                 </div>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                    <div className="space-y-1">
-                                                        <Label className="text-[9px] font-black uppercase text-muted-foreground">YouTube ID</Label>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">YouTube ID</Label>
                                                         <div className="flex gap-2">
                                                             <div className="relative flex-1">
-                                                                <Youtube className="absolute left-2 top-1/2 -translate-y-1/2 size-3 text-red-500" />
-                                                                <Input className="h-8 text-xs pl-7 bg-white" value={ep.youtubeId} onChange={e => { const n = [...formCourse.episodes!]; n[idx].youtubeId = e.target.value; setFormCourse(p => ({...p, episodes: n})); }} placeholder="ID do Vídeo" />
+                                                                <Youtube className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-red-500" />
+                                                                <Input className="h-10 text-xs pl-10 bg-white font-mono" value={ep.youtubeId} onChange={e => { const n = [...formCourse.episodes!]; n[idx].youtubeId = e.target.value; setFormCourse(p => ({...p, episodes: n})); }} placeholder="ID do Vídeo" />
                                                             </div>
-                                                            <Button variant="secondary" size="icon" className="h-8 w-8 shrink-0" onClick={() => fetchYoutubeMetadata(idx)} title="Sincronizar dados">
-                                                                <Wand2 size={14} />
+                                                            <Button variant="secondary" size="icon" className="h-10 w-10 shrink-0 shadow-sm" onClick={() => fetchYoutubeMetadata(idx)}>
+                                                                <Wand2 size={18} />
                                                             </Button>
                                                         </div>
                                                     </div>
-                                                    <div className="space-y-1">
-                                                        <Label className="text-[9px] font-black uppercase text-muted-foreground">Duração</Label>
-                                                        <Input className="h-8 text-xs bg-white" value={ep.duration} onChange={e => { const n = [...formCourse.episodes!]; n[idx].duration = e.target.value; setFormCourse(p => ({...p, episodes: n})); }} placeholder="Ex: 45min" />
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Duração</Label>
+                                                        <Input className="h-10 text-sm bg-white" value={ep.duration} onChange={e => { const n = [...formCourse.episodes!]; n[idx].duration = e.target.value; setFormCourse(p => ({...p, episodes: n})); }} placeholder="Ex: 45min" />
                                                     </div>
                                                 </div>
-                                                <Button variant="ghost" size="icon" className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-white shadow-md text-destructive border" onClick={() => setFormCourse(p => ({...p, episodes: p.episodes?.filter((_, i) => i !== idx)}))}>
-                                                    <X size={12} />
+                                                <Button variant="ghost" size="icon" className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-white shadow-xl text-destructive border-2 hover:scale-110 active:scale-95 transition-transform" onClick={() => setFormCourse(p => ({...p, episodes: p.episodes?.filter((_, i) => i !== idx)}))}>
+                                                    <X size={16} />
                                                 </Button>
-                                            </div>
+                                            </Card>
                                         ))}
                                         {formCourse.episodes?.length === 0 && (
-                                            <p className="text-center py-6 text-xs text-muted-foreground border-2 border-dashed rounded-lg">Nenhuma aula cadastrada ainda.</p>
+                                            <div className="text-center py-12 text-xs text-muted-foreground border-2 border-dashed rounded-2xl bg-muted/5">Nenhuma aula cadastrada.</div>
                                         )}
                                     </div>
                                 </div>
-                                <Button className="w-full h-12 font-bold shadow-lg" onClick={handleSaveCourse} disabled={isSaving}>
+                                <Button className="w-full h-14 font-black text-base shadow-lg shadow-primary/20 rounded-2xl" onClick={handleSaveCourse} disabled={isSaving}>
                                     {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" />} 
                                     Salvar Alterações do Curso
                                 </Button>
@@ -349,25 +360,26 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                         </div>
                     </TabsContent>
 
+                    {/* TABS: Níveis */}
                     <TabsContent value="levels" className="flex-1 flex flex-col md:flex-row overflow-hidden m-0">
-                        <div className="w-full md:w-80 border-r bg-muted/10 p-4 flex flex-col gap-4 overflow-y-auto max-h-[30vh] md:max-h-full">
+                        <div className="w-full md:w-80 border-r bg-muted/10 p-4 flex flex-col gap-4 overflow-y-auto max-h-[25vh] md:max-h-full shrink-0">
                             <div className="flex justify-between items-center">
-                                <h3 className="font-bold text-[10px] uppercase text-muted-foreground tracking-widest">Etapas da Trilha</h3>
-                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setSelectedLevel(null)}><PlusCircle size={16} /></Button>
+                                <h3 className="font-black text-[10px] uppercase text-muted-foreground tracking-widest">Etapas</h3>
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-primary" onClick={() => setSelectedLevel(null)}><PlusCircle size={18} /></Button>
                             </div>
-                            <div className="space-y-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-2">
                                 {existingLevels.map(lvl => (
                                     <button 
                                         key={lvl.id} 
                                         onClick={() => setSelectedLevel(lvl)} 
                                         className={cn(
-                                            "w-full p-3 rounded-xl border text-left transition-all flex items-center gap-3", 
-                                            selectedLevel?.id === lvl.id ? "bg-white border-primary shadow-sm" : "bg-card"
+                                            "w-full p-3.5 rounded-xl border text-left transition-all flex items-center gap-3", 
+                                            selectedLevel?.id === lvl.id ? "bg-white border-primary shadow-sm ring-1 ring-primary/20" : "bg-card hover:bg-white"
                                         )}
                                     >
                                         <div className={cn("size-3 rounded-full shrink-0", `bg-${lvl.color}-500`)}></div>
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-xs font-bold truncate">{lvl.title}</p>
+                                            <p className="text-xs font-black truncate uppercase tracking-tighter text-slate-900">{lvl.title}</p>
                                             <p className="text-[9px] text-muted-foreground uppercase font-black">Nível {lvl.level}</p>
                                         </div>
                                     </button>
@@ -375,31 +387,40 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                             </div>
                         </div>
                         <div className="flex-1 p-4 sm:p-8 overflow-y-auto bg-white">
-                            <div className="max-w-md mx-auto space-y-6">
-                                <h4 className="text-base sm:text-lg font-black uppercase italic tracking-tighter">
-                                    {selectedLevel ? 'Editar Nível' : 'Novo Nível'}
-                                </h4>
-                                <div className="space-y-4">
+                            <div className="max-w-md mx-auto space-y-8">
+                                <div className="flex justify-between items-center pb-2 border-b">
+                                    <h4 className="text-lg font-black uppercase italic tracking-tighter">
+                                        {selectedLevel ? 'Editar Nível' : 'Novo Nível'}
+                                    </h4>
+                                    {selectedLevel && (
+                                        <Button variant="ghost" size="icon" className="text-destructive h-10 w-10 hover:bg-red-50" onClick={() => {
+                                            if(confirm("Deseja excluir este nível?")) deleteDocumentNonBlocking(doc(firestore!, 'theoflix_levels', selectedLevel.id));
+                                        }}>
+                                            <Trash2 size={20} />
+                                        </Button>
+                                    )}
+                                </div>
+                                <div className="space-y-6">
                                     <div className="space-y-2">
-                                        <Label className="text-[10px] uppercase font-black text-muted-foreground">Nome da Categoria</Label>
-                                        <Input value={formLevel.title} onChange={e => setFormLevel(p => ({...p, title: e.target.value}))} placeholder="Ex: Maturidade Cristã" />
+                                        <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Nome da Categoria</Label>
+                                        <Input value={formLevel.title} onChange={e => setFormLevel(p => ({...p, title: e.target.value}))} placeholder="Ex: Maturidade Cristã" className="h-11 font-bold" />
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                         <div className="space-y-2">
-                                            <Label className="text-[10px] uppercase font-black text-muted-foreground">Ordem (Nível)</Label>
-                                            <Input type="number" value={formLevel.level} onChange={e => setFormLevel(p => ({...p, level: parseInt(e.target.value)}))} />
+                                            <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Ordem (Nível)</Label>
+                                            <Input type="number" value={formLevel.level} onChange={e => setFormLevel(p => ({...p, level: parseInt(e.target.value)}))} className="h-11" />
                                         </div>
                                         <div className="space-y-2">
-                                            <Label className="text-[10px] uppercase font-black text-muted-foreground">Cor Visual</Label>
-                                            <div className="flex flex-wrap gap-2">
+                                            <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Cor Visual</Label>
+                                            <div className="flex flex-wrap gap-2.5 pt-1">
                                                 {colorOptions.map(opt => (
                                                     <button 
                                                         key={opt.value} 
                                                         onClick={() => setFormLevel(p => ({...p, color: opt.value}))} 
                                                         className={cn(
-                                                            "size-6 rounded-full border-2 transition-all", 
+                                                            "size-7 rounded-full border-2 transition-all shadow-sm", 
                                                             `bg-${opt.value}-500`, 
-                                                            formLevel.color === opt.value ? "border-black scale-110 shadow-md" : "border-transparent opacity-60 hover:opacity-100"
+                                                            formLevel.color === opt.value ? "border-black scale-125 z-10" : "border-transparent opacity-60 hover:opacity-100"
                                                         )}
                                                         title={opt.label}
                                                     ></button>
@@ -407,15 +428,8 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                                             </div>
                                         </div>
                                     </div>
-                                    {selectedLevel && (
-                                        <Button variant="outline" className="w-full text-destructive border-destructive/20 hover:bg-destructive/10 h-10 text-xs" onClick={() => {
-                                            if(confirm("Deseja excluir este nível?")) deleteDocumentNonBlocking(doc(firestore!, 'theoflix_levels', selectedLevel.id));
-                                        }}>
-                                            <Trash2 className="size-4 mr-2" /> Excluir Categoria
-                                        </Button>
-                                    )}
-                                    <Button className="w-full h-12 font-bold" onClick={handleSaveLevel} disabled={isSaving}>
-                                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin mr-2" /> : <Save className="mr-2" />} 
+                                    <Button className="w-full h-14 font-black rounded-2xl shadow-lg" onClick={handleSaveLevel} disabled={isSaving}>
+                                        {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" />} 
                                         Salvar Nível
                                     </Button>
                                 </div>
@@ -423,8 +437,9 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                         </div>
                     </TabsContent>
 
+                    {/* TABS: Configurações */}
                     <TabsContent value="config" className="flex-1 p-4 sm:p-8 m-0 overflow-y-auto bg-white">
-                        <Card className="max-w-2xl mx-auto shadow-sm border-2 border-primary/10">
+                        <Card className="max-w-2xl mx-auto shadow-sm border-2 border-primary/10 rounded-2xl overflow-hidden">
                             <CardHeader className="bg-primary/5 border-b">
                                 <CardTitle className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">
                                     <Settings className="size-4 text-primary" />
@@ -434,22 +449,22 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                             </CardHeader>
                             <CardContent className="space-y-6 pt-6">
                                 <div className="space-y-3">
-                                    <Label className="text-[10px] font-black uppercase text-muted-foreground">Google Cloud API Key</Label>
+                                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Google Cloud API Key</Label>
                                     <div className="flex gap-2">
                                         <Input 
                                             type="password" 
                                             value={youtubeApiKey} 
                                             onChange={e => setYoutubeApiKey(e.target.value)} 
                                             placeholder="Cole sua chave aqui..." 
-                                            className="font-mono text-xs h-10"
+                                            className="font-mono text-xs h-11"
                                         />
-                                        <Button onClick={handleSaveConfig} disabled={isSavingConfig} className="h-10 px-4">
+                                        <Button onClick={handleSaveConfig} disabled={isSavingConfig} className="h-11 px-4">
                                             {isSavingConfig ? <Loader2 className="animate-spin size-4" /> : <Save className="size-4" />}
                                         </Button>
                                     </div>
-                                    <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-lg">
-                                        <Info className="size-4 text-blue-600 shrink-0 mt-0.5" />
-                                        <p className="text-[10px] text-blue-700 leading-relaxed italic">
+                                    <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-100 rounded-2xl">
+                                        <Info className="size-5 text-blue-600 shrink-0 mt-0.5" />
+                                        <p className="text-[10px] sm:text-xs text-blue-700 leading-relaxed italic font-medium">
                                             Esta chave é necessária para que o botão de "Varinha Mágica" funcione. 
                                             Ela permite que o sistema busque o título e a duração dos vídeos diretamente do YouTube.
                                         </p>
@@ -460,8 +475,8 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                     </TabsContent>
                 </Tabs>
 
-                <DialogFooter className="p-4 sm:p-6 border-t bg-muted/50">
-                    <DialogClose asChild><Button variant="outline" className="w-full sm:w-auto h-10 font-bold">Fechar Gerenciador</Button></DialogClose>
+                <DialogFooter className="p-4 sm:p-6 border-t bg-muted/50 flex-none">
+                    <DialogClose asChild><Button variant="outline" className="w-full font-black uppercase text-xs h-11 rounded-xl">Fechar Gerenciador</Button></DialogClose>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
