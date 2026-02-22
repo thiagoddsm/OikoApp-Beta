@@ -146,8 +146,10 @@ export function TheoflixManager({ open, onOpenChange, existingCourses }: Theofli
                 const durationRaw = item.contentDetails.duration; // Ex: PT45M10S
                 
                 // Conversão simples de ISO 8601 duration para algo legível
-                const minutes = durationRaw.match(/(\d+)M/)?.[1] || '0';
-                const seconds = durationRaw.match(/(\d+)S/)?.[1] || '00';
+                const minutesMatch = durationRaw.match(/(\d+)M/);
+                const secondsMatch = durationRaw.match(/(\d+)S/);
+                const minutes = minutesMatch ? minutesMatch[1] : '0';
+                const seconds = secondsMatch ? secondsMatch[1] : '00';
                 const duration = `${minutes}:${seconds.padStart(2, '0')}min`;
 
                 const newEps = [...(formCourse.episodes || [])];

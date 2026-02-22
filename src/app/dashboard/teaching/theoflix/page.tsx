@@ -245,10 +245,15 @@ export default function TheoFlixPage() {
         <DialogContent className="max-w-6xl p-0 overflow-hidden rounded-[2.5rem] bg-slate-950 border-none shadow-2xl">
           {selectedCourse && (
             <>
+              <DialogHeader className="sr-only">
+                <DialogTitle>{currentEpisode?.title || selectedCourse.title}</DialogTitle>
+                <DialogDescription>{selectedCourse.desc}</DialogDescription>
+              </DialogHeader>
+              
               <div className="relative aspect-video w-full bg-black">
                 {isPlaying && currentEpisode?.youtubeId ? (
                     <iframe
-                        src={`https://www.youtube.com/embed/${currentEpisode.youtubeId}?autoplay=1&rel=0`}
+                        src={`https://www.youtube.com/embed/${currentEpisode.youtubeId}?autoplay=1&rel=0&playsinline=1&enablejsapi=1`}
                         className="w-full h-full"
                         frameBorder="0"
                         allow="autoplay; fullscreen; picture-in-picture"
