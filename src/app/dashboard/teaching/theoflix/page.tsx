@@ -242,7 +242,7 @@ export default function TheoFlixPage() {
       </div>
 
       <Dialog open={!!selectedCourse} onOpenChange={() => { setSelectedCourse(null); setIsPlaying(false); }}>
-        <DialogContent className="max-w-6xl p-0 overflow-hidden rounded-[2.5rem] bg-slate-950 border-none shadow-2xl">
+        <DialogContent className="max-w-6xl p-0 overflow-y-auto sm:overflow-hidden sm:rounded-[2.5rem] rounded-none bg-slate-950 border-none shadow-2xl h-full sm:h-auto max-h-screen">
           {selectedCourse && (
             <>
               <DialogHeader className="sr-only">
@@ -250,7 +250,7 @@ export default function TheoFlixPage() {
                 <DialogDescription>{selectedCourse.desc}</DialogDescription>
               </DialogHeader>
               
-              <div className="relative aspect-video w-full bg-black">
+              <div className="relative aspect-video w-full bg-black shrink-0">
                 {isPlaying && currentEpisode?.youtubeId ? (
                     <iframe
                         src={`https://www.youtube.com/embed/${currentEpisode.youtubeId}?autoplay=1&rel=0&playsinline=1&enablejsapi=1`}
@@ -262,60 +262,60 @@ export default function TheoFlixPage() {
                 ) : (
                     <>
                         <Image src={selectedCourse.image} alt={selectedCourse.title} fill className="object-cover opacity-40 blur-sm" />
-                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 space-y-6">
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-4 sm:p-8 space-y-4 sm:space-y-6">
                             <Badge className={cn("text-white font-black", levelConfig[selectedCourse.level]?.color)}>
                                 NÍVEL {selectedCourse.level}
                             </Badge>
-                            <h2 className="text-4xl md:text-6xl font-black text-white uppercase italic tracking-tighter">
+                            <h2 className="text-2xl sm:text-4xl md:text-6xl font-black text-white uppercase italic tracking-tighter line-clamp-2">
                                 {currentEpisode?.title || selectedCourse.title}
                             </h2>
-                            <Button className="h-16 px-12 font-black text-xl shadow-2xl" onClick={() => currentEpisode && handlePlayEpisode(currentEpisode)}>
-                                <Play className="mr-3 size-7 fill-current" /> ASSISTIR AGORA
+                            <Button className="h-12 sm:h-16 px-8 sm:px-12 font-black text-base sm:text-xl shadow-2xl" onClick={() => currentEpisode && handlePlayEpisode(currentEpisode)}>
+                                <Play className="mr-2 sm:mr-3 size-5 sm:size-7 fill-current" /> ASSISTIR AGORA
                             </Button>
                         </div>
                     </>
                 )}
               </div>
 
-              <div className="bg-slate-950 text-slate-100 p-10 grid grid-cols-1 md:grid-cols-3 gap-16 max-h-[40vh] overflow-y-auto border-t border-white/5">
-                <div className="md:col-span-2 space-y-12">
+              <div className="bg-slate-950 text-slate-100 p-6 sm:p-10 grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-16 sm:max-h-[45vh] overflow-y-auto border-t border-white/5">
+                <div className="md:col-span-2 space-y-10 sm:space-y-12">
                     <section>
-                        <h3 className="text-xs font-black uppercase text-primary tracking-widest mb-4">Sinopse</h3>
-                        <p className="text-lg text-slate-300 font-medium">{selectedCourse.desc}</p>
+                        <h3 className="text-[10px] sm:text-xs font-black uppercase text-primary tracking-widest mb-3 sm:mb-4">Sinopse</h3>
+                        <p className="text-base sm:text-lg text-slate-300 font-medium leading-relaxed">{selectedCourse.desc}</p>
                     </section>
 
-                    <section className="space-y-6">
-                        <h3 className="text-xs font-black uppercase text-primary tracking-widest">Grade de Aulas</h3>
-                        <div className="space-y-4">
+                    <section className="space-y-4 sm:space-y-6">
+                        <h3 className="text-[10px] sm:text-xs font-black uppercase text-primary tracking-widest">Grade de Aulas</h3>
+                        <div className="space-y-3 sm:space-y-4">
                             {selectedCourse.episodes?.map((ep, idx) => (
                                 <div key={idx} className={cn(
-                                    "flex items-center justify-between p-5 rounded-2xl border transition-all cursor-pointer",
+                                    "flex items-center justify-between p-4 sm:p-5 rounded-xl sm:rounded-2xl border transition-all cursor-pointer",
                                     currentEpisode?.title === ep.title ? "bg-primary/20 border-primary" : "bg-slate-900 border-slate-800 hover:bg-slate-800"
                                 )} onClick={() => handlePlayEpisode(ep)}>
-                                    <div className="flex items-center gap-6">
-                                        <span className="font-black text-2xl text-slate-700">{String(idx + 1).padStart(2, '0')}</span>
-                                        <div>
-                                            <h4 className="font-black text-lg uppercase italic">{ep.title}</h4>
-                                            <span className="text-[10px] text-slate-500 font-bold">{ep.duration || '45 MIN'}</span>
+                                    <div className="flex items-center gap-4 sm:gap-6 min-w-0">
+                                        <span className="font-black text-xl sm:text-2xl text-slate-700 shrink-0">{String(idx + 1).padStart(2, '0')}</span>
+                                        <div className="min-w-0">
+                                            <h4 className="font-black text-sm sm:text-lg uppercase italic truncate">{ep.title}</h4>
+                                            <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold uppercase">{ep.duration || '45 MIN'}</span>
                                         </div>
                                     </div>
-                                    <PlayCircle className="size-8 text-primary" />
+                                    <PlayCircle className="size-6 sm:size-8 text-primary shrink-0 ml-2" />
                                 </div>
                             ))}
                         </div>
                     </section>
                 </div>
-                <div className="space-y-10">
-                    <div className="space-y-6">
-                        <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 pb-3">Ficha Técnica</h4>
-                        <div className="space-y-5 text-sm font-bold">
+                <div className="space-y-8 sm:space-y-10">
+                    <div className="space-y-4 sm:space-y-6">
+                        <h4 className="text-[9px] sm:text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 pb-3">Ficha Técnica</h4>
+                        <div className="space-y-4 sm:space-y-5 text-sm font-bold">
                             <div className="flex flex-col gap-1">
-                                <span className="text-slate-500 text-[10px] uppercase">Nível</span>
-                                <span className="text-slate-200">{selectedCourse.level} - {levelConfig[selectedCourse.level]?.title}</span>
+                                <span className="text-slate-500 text-[9px] sm:text-[10px] uppercase">Nível</span>
+                                <span className="text-slate-200 text-xs sm:text-sm">{selectedCourse.level} - {levelConfig[selectedCourse.level]?.title}</span>
                             </div>
                             <div className="flex flex-col gap-1">
-                                <span className="text-slate-500 text-[10px] uppercase">Tempo Total</span>
-                                <span className="text-slate-200">{selectedCourse.duration || '4h'}</span>
+                                <span className="text-slate-500 text-[9px] sm:text-[10px] uppercase">Tempo Total</span>
+                                <span className="text-slate-200 text-xs sm:text-sm">{selectedCourse.duration || '4h'}</span>
                             </div>
                         </div>
                     </div>
