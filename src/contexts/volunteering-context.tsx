@@ -5,6 +5,7 @@ import React, { createContext, useContext, useState, useMemo } from 'react';
 import { useFirebase, useCollection, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
 import { collection, doc, writeBatch, Timestamp, query, orderBy, getDoc, updateDoc, arrayUnion, getDocs, where } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import { format, addWeeks, isBefore, parseISO, addMonths } from 'date-fns';
 
 // --- TYPES ---
 export type AreaOfService = {
@@ -40,6 +41,7 @@ export type User = {
       memberCourseProgress?: Record<string, boolean>;
       courseStatus?: Record<string, string>;
       stageProgress?: Record<string, any>;
+      theoflixProgress?: Record<string, Record<string, boolean>>;
   }
 }
 
@@ -74,6 +76,7 @@ export type TheoflixCourse = {
     id: string;
     title: string;
     image?: string;
+    episodes: { title: string; youtubeId: string; duration?: string }[];
 };
 
 export type Class = {
@@ -285,7 +288,13 @@ interface VolunteeringContextType {
   addFinancialTransaction: (data: FinancialTransactionData) => Promise<void>;
   updateFinancialTransaction: (id: string, data: Partial<FinancialTransactionData>) => Promise<void>;
   deleteFinancialTransaction: (id: string) => Promise<void>;
+  markAttendanceByTheoflix: (userId: string, theoflixCourseId: string, episodeIndex: number) => Promise<void>;
 }
+
+const weekDayMap: Record<string, number> = {
+    "Domingo": 0, "Segunda-feira": 1, "Terça-feira": 2, "Quarta-feira": 3,
+    "Quinta-feira": 4, "Sexta-feira": 5, "Sábado": 6
+};
 
 const VolunteeringContext = createContext<VolunteeringContextType | undefined>(undefined);
 
@@ -669,6 +678,88 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     }
   };
 
+  /**
+   * Identifica turmas presenciais vinculadas e lança presença baseada no vídeo assistido.
+   */
+  const markAttendanceByTheoflix = async (userId: string, theoflixCourseId: string, episodeIndex: number) => {
+    if (!firestore || !userId || !theoflixCourseId) return;
+
+    // 1. Encontrar cursos físicos que vinculam este Theoflix
+    const linkedPhysicalCourses = courses.filter(c => c.linkedTheoflixId === theoflixCourseId);
+    if (linkedPhysicalCourses.length === 0) return;
+
+    const physicalCourseIds = linkedPhysicalCourses.map(c => c.id);
+
+    // 2. Encontrar turmas desses cursos onde o usuário é aluno
+    const userClasses = classes.filter(cls => 
+        physicalCourseIds.includes(cls.courseId) && 
+        cls.students?.includes(userId)
+    );
+
+    if (userClasses.length === 0) return;
+
+    const batch = writeBatch(firestore);
+    let syncCount = 0;
+
+    userClasses.forEach(cls => {
+        // 3. Calcular datas da turma
+        if (!cls.startDate) return;
+        const occurrences: string[] = [];
+        const start = parseISO(cls.startDate);
+        const end = cls.endDate ? parseISO(cls.endDate) : addMonths(start, 6);
+        const targetDay = cls.dayOfWeek ? weekDayMap[cls.dayOfWeek] : -1;
+        const holidays = new Set(cls.holidayDates || []);
+
+        let current = start;
+        let safe = 0;
+        while ((isBefore(current, end) || format(current, 'yyyy-MM-dd') === format(end, 'yyyy-MM-dd')) && safe++ < 100) {
+            let matches = false;
+            if (cls.frequency === 'semanal') matches = targetDay === -1 || current.getDay() === targetDay;
+            else if (cls.frequency === 'quinzenal') matches = (Math.floor((current.getTime() - start.getTime()) / (7*24*60*60*1000)) % 2 === 0) && (targetDay === -1 || current.getDay() === targetDay);
+            else if (cls.frequency === 'mensal') {
+                const week = Math.ceil(current.getDate() / 7);
+                const isLast = current.getDate() > (new Date(current.getFullYear(), current.getMonth()+1, 0).getDate() - 7);
+                matches = (cls.weekOfMonth === 'last' && isLast) || (week.toString() === cls.weekOfMonth);
+                matches = matches && current.getDay() === targetDay;
+            } else if (cls.frequency === 'pontual') {
+                matches = true;
+            }
+
+            const dateStr = format(current, 'yyyy-MM-dd');
+            if (matches && !holidays.has(dateStr)) occurrences.push(dateStr);
+            if (cls.frequency === 'pontual') break;
+            current = addWeeks(current, 1);
+        }
+
+        // 4. Se o índice do vídeo existe no calendário físico, lançar presença
+        const targetDate = occurrences[episodeIndex];
+        if (targetDate) {
+            const existingAttendance = cls.attendance || [];
+            const recordIdx = existingAttendance.findIndex(a => a.date === targetDate);
+            
+            if (recordIdx > -1) {
+                if (!existingAttendance[recordIdx].presentStudentIds.includes(userId)) {
+                    existingAttendance[recordIdx].presentStudentIds.push(userId);
+                    batch.update(doc(firestore, 'classes', cls.id), { attendance: existingAttendance });
+                    syncCount++;
+                }
+            } else {
+                existingAttendance.push({ date: targetDate, presentStudentIds: [userId] });
+                batch.update(doc(firestore, 'classes', cls.id), { attendance: existingAttendance });
+                syncCount++;
+            }
+        }
+    });
+
+    if (syncCount > 0) {
+        await batch.commit();
+        toast({ 
+            title: "Presença Híbrida!", 
+            description: `Sua participação física na aula ${episodeIndex + 1} foi validada via TheoFlix.` 
+        });
+    }
+  };
+
   const value = useMemo(() => ({
     areas: areas || [],
     teams: teams || [],
@@ -736,6 +827,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     addFinancialTransaction,
     updateFinancialTransaction,
     deleteFinancialTransaction,
+    markAttendanceByTheoflix,
   }), [
     areas, teams, users, events, rooms, courses, theoflixCourses, classes, pedagogicalLogs, reservations, 
     savedSchedules, wavePlans, wavePayments, waveExpenses, disPlans, disPayments, 

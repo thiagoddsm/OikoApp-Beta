@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
@@ -30,6 +31,7 @@ import { useFirebase, useCollection, useMemoFirebase, useDoc, updateDocumentNonB
 import { collection, query, doc, orderBy } from 'firebase/firestore';
 import { TheoflixManager } from '@/components/teaching/theoflix/theoflix-manager';
 import { useToast } from '@/hooks/use-toast';
+import { useVolunteering } from '@/contexts/volunteering-context';
 
 export type TheoLevel = {
     id: string;
@@ -67,6 +69,7 @@ declare global {
 
 export default function TheoFlixPage() {
   const { firestore, user } = useFirebase();
+  const { markAttendanceByTheoflix } = useVolunteering();
   const { toast } = useToast();
   const { data: userData } = useDoc<any>(user ? `users/${user.uid}` : null);
   const isAdmin = userData?.hierarchy?.role === 'admin' || userData?.hierarchy?.role === 'pastor_senior';
@@ -167,11 +170,20 @@ export default function TheoFlixPage() {
 
   const handleMarkAsCompleted = () => {
     if (!user || !selectedCourse || !currentEpisode || !firestore) return;
-    const userDocRef = doc(firestore, 'users', user.uid);
+    
+    const episodeIndex = selectedCourse.episodes.findIndex(e => e.youtubeId === currentEpisode.youtubeId);
     const episodeKey = currentEpisode.youtubeId || currentEpisode.title.replace(/\s+/g, '_');
-    updateDocumentNonBlocking(userDocRef, {
+    
+    // 1. Salvar progresso no usuário
+    updateDocumentNonBlocking(doc(firestore, 'users', user.uid), {
       [`journey.theoflixProgress.${selectedCourse.id}.${episodeKey}`]: true
     });
+
+    // 2. Sincronizar presença física automática via Contexto
+    if (episodeIndex > -1) {
+        markAttendanceByTheoflix(user.uid, selectedCourse.id, episodeIndex);
+    }
+
     toast({ title: "Aula Concluída! 🎉", description: "Seu progresso foi salvo com sucesso." });
   };
 
