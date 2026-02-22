@@ -90,6 +90,7 @@ export type Class = {
   dayOfWeek?: string;
   weekOfMonth?: '1' | '2' | '3' | '4' | 'last' | '5';
   locationId?: string;
+  holidayDates?: string[];
   attendance?: { date: string; presentStudentIds: string[] }[];
   grades?: { studentId: string, assessmentName: string, grade: number }[];
   materials?: { title: string; url: string; description?: string }[];

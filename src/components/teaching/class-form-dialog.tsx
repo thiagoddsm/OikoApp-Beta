@@ -6,9 +6,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering } from '@/contexts/volunteering-context';
+import { Calendar } from '@/components/ui/calendar';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { cn } from '@/lib/utils';
+import { Badge } from '../ui/badge';
 
 type User = { id: string; name: string; isTeacher?: boolean; };
 const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
@@ -28,6 +34,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
   const [endTime, setEndTime] = useState('');
   const [dayOfWeek, setDayOfWeek] = useState('');
   const [weekOfMonth, setWeekOfMonth] = useState('');
+  const [holidayDates, setHolidayDates] = useState<string[]>([]);
   
   const [locationType, setLocationType] = useState<'ibm' | 'the_school' | ''>('');
   const [ibmRoomId, setIbmRoomId] = useState('');
@@ -48,6 +55,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
         setEndTime(existingClass.endTime || '');
         setDayOfWeek(existingClass.dayOfWeek || '');
         setWeekOfMonth(existingClass.weekOfMonth || '');
+        setHolidayDates(existingClass.holidayDates || []);
         
         if (existingClass.locationId === 'the_school') {
             setLocationType('the_school');
@@ -70,6 +78,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
         setEndTime('');
         setDayOfWeek('');
         setWeekOfMonth('');
+        setHolidayDates([]);
         setLocationType('');
         setIbmRoomId('');
       }
@@ -103,6 +112,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
         dayOfWeek,
         weekOfMonth: frequency === 'mensal' ? (weekOfMonth as any) : '',
         locationId: finalLocationId,
+        holidayDates,
     };
 
     try {
@@ -120,19 +130,30 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
     }
   };
 
+  const handleHolidaySelect = (dates: Date[] | undefined) => {
+    const formatted = dates ? dates.map(d => format(d, 'yyyy-MM-dd')) : [];
+    setHolidayDates(formatted);
+  };
+
+  const removeHoliday = (dateStr: string) => {
+    setHolidayDates(prev => prev.filter(d => d !== dateStr));
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl overflow-hidden flex flex-col p-0">
+        <DialogHeader className="p-6 border-b bg-muted/20">
           <DialogTitle>{existingClass ? 'Editar Turma' : 'Nova Turma'}</DialogTitle>
+          <DialogDescription>Configure os detalhes, horários e exceções da turma.</DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+        
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-             <div>
+             <div className="space-y-2">
                 <Label htmlFor="name">Nome da Turma</Label>
                 <Input id="name" value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Turma de Sábado" />
               </div>
-              <div>
+              <div className="space-y-2">
                 <Label htmlFor="teacherId">Professor</Label>
                 <Select value={teacherId || 'null'} onValueChange={setTeacherId} disabled={isLoading}>
                   <SelectTrigger id="teacherId"><SelectValue placeholder={isLoading ? "Carregando..." : "Selecione um professor"} /></SelectTrigger>
@@ -144,10 +165,10 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
               </div>
           </div>
           
-           <div className="pt-4 border-t">
-             <h3 className="font-semibold mb-2">Agendamento & Espaço</h3>
+           <div className="pt-4 border-t space-y-4">
+             <h3 className="font-bold text-sm uppercase text-primary">Agendamento & Espaço</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
+                <div className="space-y-2">
                   <Label htmlFor="frequency">Frequência</Label>
                    <Select value={frequency} onValueChange={(v: any) => setFrequency(v)}>
                       <SelectTrigger id="frequency"><SelectValue /></SelectTrigger>
@@ -160,7 +181,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
                   </Select>
                 </div>
                  {frequency !== 'pontual' && (
-                  <div>
+                  <div className="space-y-2">
                     <Label htmlFor="dayOfWeek">Dia da Semana</Label>
                     <Select value={dayOfWeek} onValueChange={setDayOfWeek}>
                         <SelectTrigger id="dayOfWeek"><SelectValue placeholder="Selecione um dia" /></SelectTrigger>
@@ -171,9 +192,9 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
                   </div>
                 )}
                 {frequency === 'mensal' && (
-                    <div>
+                    <div className="space-y-2">
                         <Label htmlFor="weekOfMonth">Semana do Mês</Label>
-                        <Select value={weekOfMonth} onValueChange={setWeekOfMonth}>
+                        <Select value={weekOfMonth} onValueChange={(v: any) => setWeekOfMonth(v)}>
                             <SelectTrigger id="weekOfMonth"><SelectValue placeholder="Selecione a semana" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="1">1ª Semana</SelectItem>
@@ -186,25 +207,25 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
                         </Select>
                     </div>
                 )}
-                 <div>
+                 <div className="space-y-2">
                     <Label htmlFor="startDate">Data de Início {frequency !== 'pontual' && '(primeira ocorrência)'}</Label>
                     <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required/>
                 </div>
                 {frequency !== 'pontual' && (
-                    <div>
+                    <div className="space-y-2">
                         <Label htmlFor="endDate">Data de Término</Label>
                         <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
                     </div>
                 )}
-                 <div>
+                 <div className="space-y-2">
                     <Label htmlFor="startTime">Horário de Início</Label>
                     <Input id="startTime" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required/>
                   </div>
-                  <div>
+                  <div className="space-y-2">
                     <Label htmlFor="endTime">Horário de Término</Label>
                     <Input id="endTime" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required/>
                   </div>
-                    <div className="md:col-span-2">
+                    <div className="md:col-span-2 space-y-2">
                         <Label htmlFor="locationType">Local</Label>
                         <Select value={locationType} onValueChange={(v: any) => setLocationType(v)}>
                             <SelectTrigger id="locationType"><SelectValue placeholder="Selecione o local..." /></SelectTrigger>
@@ -216,7 +237,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
                     </div>
 
                     {locationType === 'ibm' && (
-                        <div className="md:col-span-2">
+                        <div className="md:col-span-2 space-y-2">
                             <Label htmlFor="ibmRoomId">Ambiente (IBM)</Label>
                             <Select value={ibmRoomId || 'null'} onValueChange={setIbmRoomId} disabled={isLoading}>
                                 <SelectTrigger id="ibmRoomId"><SelectValue placeholder={isLoading ? "Carregando..." : "Selecione o ambiente"} /></SelectTrigger>
@@ -225,16 +246,55 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
                                     {rooms.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
-                            <p className="text-[10px] text-muted-foreground mt-1">Ao selecionar uma sala IBM, uma reserva automática será criada no calendário.</p>
                         </div>
                     )}
               </div>
            </div>
+
+           <div className="pt-4 border-t space-y-4">
+                <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-sm uppercase text-destructive">Datas sem Aula (Exceções)</h3>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm">
+                                <CalendarIcon className="size-3 mr-2" /> Adicionar Data
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                            <Calendar
+                                mode="multiple"
+                                selected={holidayDates.map(d => parseISO(d))}
+                                onSelect={handleHolidaySelect}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    {holidayDates.length === 0 ? (
+                        <p className="text-[10px] text-muted-foreground italic">Nenhuma data de recesso configurada.</p>
+                    ) : (
+                        holidayDates.sort().map(date => (
+                            <Badge key={date} variant="secondary" className="pl-2 pr-1 h-6 gap-1 group">
+                                {format(parseISO(date), 'dd/MM/yy')}
+                                <button 
+                                    onClick={() => removeHoliday(date)}
+                                    className="hover:text-destructive transition-colors"
+                                >
+                                    <X className="size-3" />
+                                </button>
+                            </Badge>
+                        ))
+                    )}
+                </div>
+                <p className="text-[10px] text-muted-foreground">Estas datas serão removidas da grade de aulas e do cálculo de presença.</p>
+           </div>
         </div>
-        <DialogFooter>
+
+        <DialogFooter className="p-6 border-t bg-muted/20">
           <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
           <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Salvar Alterações
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null} Salvar Alterações
           </Button>
         </DialogFooter>
       </DialogContent>

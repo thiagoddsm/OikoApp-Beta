@@ -1,10 +1,11 @@
+
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, ArrowLeft, BookOpen, Star, Users, CheckCircle2, ClipboardCheck, History, Lock, AlertCircle, Calendar as CalendarIcon, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Loader2, ArrowLeft, BookOpen, Star, Users, CheckCircle2, ClipboardCheck, History, Lock, AlertCircle, Calendar as CalendarIcon, ChevronRight, ChevronLeft, MinusCircle, Clock } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -54,19 +55,21 @@ function PedagogicalLogPageContent() {
     const courseData = useMemo(() => classData ? courses.find(c => c.id === classData.courseId) : null, [classData, courses]);
     const teacherData = useMemo(() => classData ? users.find(u => u.id === classData.teacherId) : null, [classData, users]);
     
-    // Cálculo das datas válidas de aula
+    // Cálculo das datas válidas de aula (excluindo feriados)
     const classOccurrences = useMemo(() => {
         if (!classData || !classData.startDate) return [];
         const occurrences: string[] = [];
         const start = parseISO(classData.startDate);
         const end = classData.endDate ? parseISO(classData.endDate) : addMonths(start, 6);
         const targetDay = classData.dayOfWeek ? weekDayMap[classData.dayOfWeek] : -1;
+        const holidays = new Set(classData.holidayDates || []);
 
         let current = start;
         let safe = 0;
 
         if (!classData.frequency || classData.frequency === 'pontual') {
-            return [classData.startDate];
+            const dateStr = classData.startDate;
+            return holidays.has(dateStr) ? [] : [dateStr];
         }
 
         while (isBefore(current, end) || format(current, 'yyyy-MM-dd') === format(end, 'yyyy-MM-dd')) {
@@ -89,7 +92,10 @@ function PedagogicalLogPageContent() {
                 }
             }
 
-            if (matches) occurrences.push(format(current, 'yyyy-MM-dd'));
+            const dateStr = format(current, 'yyyy-MM-dd');
+            if (matches && !holidays.has(dateStr)) {
+                occurrences.push(dateStr);
+            }
             current = addWeeks(current, 1);
         }
         return occurrences;
@@ -215,7 +221,7 @@ function PedagogicalLogPageContent() {
                                 <ClipboardCheck className="text-primary" />
                                 Lista de Chamada: {format(parseISO(selectedDate || '2000-01-01'), 'dd/MM/yyyy')}
                             </CardTitle>
-                            <CardDescription>Clique nos nomes para marcar a presença.</CardDescription>
+                            <CardDescription>Marque os nomes para registrar presença.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
                             <TooltipProvider>
@@ -276,7 +282,7 @@ function PedagogicalLogPageContent() {
 
                             <Button onClick={handleSaveLog} disabled={isSaving} className="w-full h-12 text-base font-bold shadow-lg">
                                 {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" />}
-                                Salvar Chamada de {format(parseISO(selectedDate || '2000-01-01'), 'dd/MM')}
+                                Salvar Registro de {format(parseISO(selectedDate || '2000-01-01'), 'dd/MM')}
                             </Button>
                         </CardContent>
                     </Card>
@@ -286,7 +292,7 @@ function PedagogicalLogPageContent() {
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-sm font-bold uppercase flex items-center gap-2">
-                                <History className="size-4" /> Histórico de Aulas
+                                <History className="size-4" /> Histórico & Estados
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
@@ -295,6 +301,7 @@ function PedagogicalLogPageContent() {
                                     {classOccurrences.map(date => {
                                         const attendance = classData.attendance?.find(a => a.date === date);
                                         const isPast = isBefore(parseISO(date), startOfDay(new Date()));
+                                        const isToday = date === format(new Date(), 'yyyy-MM-dd');
                                         const isSelected = selectedDate === date;
 
                                         return (
@@ -308,7 +315,9 @@ function PedagogicalLogPageContent() {
                                             >
                                                 <div className="min-w-0">
                                                     <p className="text-xs font-bold">{format(parseISO(date), 'dd/MM/yyyy', { locale: ptBR })}</p>
-                                                    <p className="text-[10px] text-muted-foreground uppercase">{isPast ? 'Passada' : 'Futura'}</p>
+                                                    <p className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter">
+                                                        {isToday ? 'Hoje' : isPast ? 'Passada' : 'Pendente'}
+                                                    </p>
                                                 </div>
                                                 {attendance ? (
                                                     <div className="text-right">
@@ -316,9 +325,17 @@ function PedagogicalLogPageContent() {
                                                             {attendance.presentStudentIds.length} presentes
                                                         </Badge>
                                                     </div>
+                                                ) : isPast ? (
+                                                    <div className="text-right">
+                                                        <Badge variant="outline" className="text-[9px] h-5 text-destructive border-destructive/30 bg-destructive/5 flex items-center gap-1">
+                                                            <MinusCircle size={10}/> Não realizada
+                                                        </Badge>
+                                                    </div>
                                                 ) : (
                                                     <div className="text-right opacity-30 group-hover:opacity-100">
-                                                        <Badge variant="outline" className="text-[9px] h-5">Pendente</Badge>
+                                                        <Badge variant="outline" className="text-[9px] h-5 flex items-center gap-1">
+                                                            <Clock size={10}/> Pendente
+                                                        </Badge>
                                                     </div>
                                                 )}
                                             </button>
