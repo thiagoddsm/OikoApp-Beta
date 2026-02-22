@@ -105,7 +105,7 @@ export async function POST(request: Request) {
 
         switch (type) {
             case 'button':
-                // v5.0.0: Requisito obrigatório de 'header' e 'text'
+                // v5.0.0: SchemaButtonMessageReply EXIGE 'header' e 'text'
                 endpoint = 'message/button_reply';
                 payload = {
                     to: formattedPhone,

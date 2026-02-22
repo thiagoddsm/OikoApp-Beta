@@ -31,6 +31,7 @@ export async function GET() {
     }
 
     try {
+        // Cache busting rigoroso para evitar o status UNKNOWN por dados antigos
         const response = await fetch(`https://us.api-wa.me/${waKey}/instance?t=${Date.now()}`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
@@ -47,23 +48,27 @@ export async function GET() {
             });
         }
 
-        // Detecção de autenticação via flags booleanas (mais confiável na v5.0.0)
+        // Mapeamento exaustivo de status para v5.0.0
+        const rawState = (data.instance?.state || data.state || data.status || '').toLowerCase();
         const isAuthenticated = data.authenticated === true || 
                               data.instance?.authenticated === true || 
                               data.is_connected === true ||
-                              data.instance?.state === 'open' ||
-                              data.state === 'open';
+                              rawState === 'open' ||
+                              rawState === 'connected' ||
+                              rawState === 'online';
         
         let displayStatus = 'unknown';
+        
         if (isAuthenticated) {
             displayStatus = 'connected';
-        } else if (data.qr || data.qrcode || data.instance?.qr) {
+        } else if (data.qr || data.qrcode || data.instance?.qr || rawState === 'pairing') {
             displayStatus = 'pairing';
+        } else if (rawState === 'closed' || rawState === 'logout' || rawState === 'disconnected') {
+            displayStatus = 'offline';
         } else {
-            // Se não for booleano, tenta ler o estado textual, ignorando códigos numéricos
-            const raw = data.instance?.state || data.state || data.status || 'unknown';
-            displayStatus = String(raw).toLowerCase();
-            if (displayStatus === '200') displayStatus = 'unknown';
+            // Se não for possível identificar por flags, tenta usar o estado bruto
+            displayStatus = rawState || 'unknown';
+            if (displayStatus === '200' || displayStatus === '') displayStatus = 'unknown';
         }
 
         return NextResponse.json({ 
@@ -117,10 +122,12 @@ export async function PATCH() {
 
         if (!waKey) return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
 
-        // Parâmetros exatos do manual OAS 3.0 para v5.0.0
+        // Parâmetros exatos para habilitar recursos interativos na v5.0.0
         const urlParams = new URLSearchParams({
             markMessageRead: 'true',
-            saveMedia: 'true'
+            saveMedia: 'true',
+            receiveStatusMessage: 'true',
+            receivePresence: 'true'
         });
 
         const url = `https://us.api-wa.me/${waKey}/instance?${urlParams.toString()}`;
