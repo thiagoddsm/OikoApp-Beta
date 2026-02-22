@@ -141,7 +141,6 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                         ) : (
                             students.map(student => {
                                 let attended = 0;
-                                let pastDates = 0;
                                 const today = startOfDay(new Date());
 
                                 return (
@@ -160,7 +159,6 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                         
                                         {allDates.map(date => {
                                             const isPast = isBefore(parseISO(date), today);
-                                            if (isPast) pastDates++;
                                             const isPresent = classes.some(cls => 
                                                 cls.courseId === courseId && 
                                                 cls.attendance?.some(att => att.date === date && att.presentStudentIds.includes(student.id))
@@ -182,8 +180,12 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
 
                                         <TableCell className="bg-primary/5 text-center">
                                             <div className="flex flex-col items-center">
-                                                <span className="font-black text-primary text-sm">{pastDates > 0 ? Math.round((attended/pastDates) * 100) : 0}%</span>
-                                                <span className="text-[9px] uppercase font-bold text-muted-foreground">{attended}/{pastDates} presenciais</span>
+                                                <span className="font-black text-primary text-sm">
+                                                    {allDates.length > 0 ? Math.round((attended / allDates.length) * 100) : 0}%
+                                                </span>
+                                                <span className="text-[9px] uppercase font-bold text-muted-foreground">
+                                                    {attended} / {allDates.length} aulas
+                                                </span>
                                             </div>
                                         </TableCell>
                                     </TableRow>

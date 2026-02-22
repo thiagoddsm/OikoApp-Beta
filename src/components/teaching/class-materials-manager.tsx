@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState } from 'react';
 import { useVolunteering, type Class } from '@/contexts/volunteering-context';
@@ -85,7 +84,7 @@ export function ClassMaterialsManager({ classData }: { classData: Class }) {
                                 <Button 
                                     variant="ghost" 
                                     size="icon" 
-                                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 text-destructive"
+                                    className="absolute top-2 right-2 text-destructive"
                                     onClick={() => handleRemoveMaterial(index)}
                                 >
                                     <Trash2 className="size-4" />

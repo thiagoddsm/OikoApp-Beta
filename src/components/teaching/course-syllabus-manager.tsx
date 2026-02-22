@@ -215,7 +215,7 @@ export function CourseSyllabusManager({ course }: CourseSyllabusManagerProps) {
                   <div className="flex-1 p-5">
                     <div className="flex justify-between items-start mb-2">
                       <h4 className="font-bold text-lg text-slate-900">{mod.title}</h4>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex gap-1 transition-opacity">
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(mod)}>
                           <Edit size={14} />
                         </Button>
