@@ -60,14 +60,24 @@ interface TheoflixManagerProps {
 }
 
 const colorOptions = [
-    { value: 'blue', label: 'Azul' },
-    { value: 'rose', label: 'Rosa' },
-    { value: 'amber', label: 'Âmbar' },
-    { value: 'purple', label: 'Roxo' },
-    { value: 'emerald', label: 'Esmeralda' },
-    { value: 'indigo', label: 'Índigo' },
-    { value: 'slate', label: 'Cinza' }
+    { value: 'blue', label: 'Azul', class: 'bg-blue-500' },
+    { value: 'rose', label: 'Rosa', class: 'bg-rose-500' },
+    { value: 'amber', label: 'Âmbar', class: 'bg-amber-500' },
+    { value: 'purple', label: 'Roxo', class: 'bg-purple-500' },
+    { value: 'emerald', label: 'Esmeralda', class: 'bg-emerald-500' },
+    { value: 'indigo', label: 'Índigo', class: 'bg-indigo-500' },
+    { value: 'slate', label: 'Cinza', class: 'bg-slate-500' }
 ];
+
+const colorDotMap: Record<string, string> = {
+    blue: 'bg-blue-500',
+    rose: 'bg-rose-500',
+    amber: 'bg-amber-500',
+    purple: 'bg-purple-500',
+    emerald: 'bg-emerald-500',
+    indigo: 'bg-indigo-500',
+    slate: 'bg-slate-500'
+};
 
 export function TheoflixManager({ open, onOpenChange, existingCourses, existingLevels }: TheoflixManagerProps) {
     const { firestore } = useFirebase();
@@ -113,7 +123,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
         if (selectedLevel) {
             setFormLevel(selectedLevel);
         } else {
-            setFormLevel({ title: '', level: existingLevels.length + 1, color: 'blue' });
+            setFormLevel({ title: '', level: (existingLevels?.length || 0) + 1, color: 'blue' });
         }
     }, [selectedLevel, open, existingLevels]);
 
@@ -375,7 +385,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                                             selectedLevel?.id === lvl.id ? "bg-white border-primary shadow-sm ring-1 ring-primary/20" : "bg-card hover:bg-white"
                                         )}
                                     >
-                                        <div className={cn("size-3 rounded-full shrink-0", `bg-${lvl.color}-500`)}></div>
+                                        <div className={cn("size-3 rounded-full shrink-0", colorDotMap[lvl.color] || 'bg-slate-500')}></div>
                                         <div className="min-w-0 flex-1">
                                             <p className="text-xs font-black truncate uppercase tracking-tighter text-slate-900">{lvl.title}</p>
                                             <p className="text-[9px] text-muted-foreground uppercase font-black">Nível {lvl.level}</p>
@@ -387,8 +397,8 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                         <div className="flex-1 overflow-y-auto bg-white p-4 sm:p-8">
                             <div className="max-w-md mx-auto space-y-8 pb-12">
                                 <div className="flex justify-between items-center pb-2 border-b">
-                                    <h4 className="text-lg font-black uppercase italic tracking-tighter">
-                                        {selectedLevel ? 'Editar Nível' : 'Novo Nível'}
+                                    <h4 className="text-lg sm:text-xl font-black uppercase italic tracking-tighter">
+                                        {selectedLevel ? `Editar: ${selectedLevel.title}` : 'Novo Nível'}
                                     </h4>
                                     {selectedLevel && (
                                         <Button variant="ghost" size="icon" className="text-destructive h-10 w-10 hover:bg-red-50" onClick={() => {
@@ -417,7 +427,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                                                         onClick={() => setFormLevel(p => ({...p, color: opt.value}))} 
                                                         className={cn(
                                                             "size-7 rounded-full border-2 transition-all shadow-sm", 
-                                                            `bg-${opt.value}-500`, 
+                                                            opt.class, 
                                                             formLevel.color === opt.value ? "border-primary scale-125 z-10" : "border-transparent opacity-60 hover:opacity-100"
                                                         )}
                                                         title={opt.label}
