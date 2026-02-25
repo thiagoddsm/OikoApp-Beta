@@ -4,13 +4,14 @@ import React, { useMemo } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Clock, Award, Loader2, Users, GraduationCap, ChevronRight, XCircle, Minus } from 'lucide-react';
+import { CheckCircle2, Clock, Award, Loader2, Users, GraduationCap, ChevronRight, XCircle, Minus, Video, PlayCircle } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { format, parseISO, isBefore, startOfDay, addWeeks, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const weekDayMap: Record<string, number> = {
     "Domingo": 0, "Segunda-feira": 1, "Terça-feira": 2, "Quarta-feira": 3,
@@ -18,12 +19,17 @@ const weekDayMap: Record<string, number> = {
 };
 
 export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
-    const { classes, users, courses, isLoading } = useVolunteering();
+    const { classes, users, courses, theoflixCourses, isLoading } = useVolunteering();
 
     const course = useMemo(() => courses.find(c => c.id === courseId), [courses, courseId]);
     const isMemberCourse = course?.name?.toLowerCase().includes('membro') || course?.name?.toLowerCase().includes('integração');
 
     const courseClasses = useMemo(() => classes.filter(c => c.courseId === courseId), [classes, courseId]);
+
+    // Busca o curso vinculado do TheoFlix
+    const linkedTheoflix = useMemo(() => 
+        theoflixCourses.find(tf => tf.id === course?.linkedTheoflixId),
+    [theoflixCourses, course]);
 
     // Cálculo unificado de ocorrências do curso (removendo feriados)
     const allDates = useMemo(() => {
@@ -124,14 +130,37 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                     <TableHeader className="bg-muted/50">
                         <TableRow>
                             <TableHead className="min-w-[250px] sticky left-0 bg-muted/50 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.05)] border-r">Aluno</TableHead>
-                            {allDates.map(date => (
-                                <TableHead key={date} className="text-center min-w-[100px]">
-                                    <div className="flex flex-col items-center">
-                                        <span className="text-[10px] font-black uppercase text-muted-foreground">{format(parseISO(date), 'EEE', { locale: ptBR })}</span>
-                                        <span className="font-bold text-slate-900">{format(parseISO(date), 'dd/MM')}</span>
-                                    </div>
-                                </TableHead>
-                            ))}
+                            {allDates.map((date, index) => {
+                                const episode = linkedTheoflix?.episodes?.[index];
+                                return (
+                                    <TableHead key={date} className="text-center min-w-[140px] px-2 py-4">
+                                        <div className="flex flex-col items-center gap-1">
+                                            <div className="flex items-center gap-1.5 mb-1">
+                                                <span className="text-[9px] font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded uppercase tracking-tighter">Aula {index + 1}</span>
+                                                {episode && (
+                                                    <TooltipProvider>
+                                                        <Tooltip>
+                                                            <TooltipTrigger asChild>
+                                                                <Video className="size-3 text-primary animate-pulse" />
+                                                            </TooltipTrigger>
+                                                            <TooltipContent>
+                                                                <p className="text-xs">Disponível no TheoFlix</p>
+                                                            </TooltipContent>
+                                                        </Tooltip>
+                                                    </TooltipProvider>
+                                                )}
+                                            </div>
+                                            <span className="text-[10px] font-black uppercase text-muted-foreground leading-none">{format(parseISO(date), 'EEE', { locale: ptBR })}</span>
+                                            <span className="font-bold text-slate-900 leading-none">{format(parseISO(date), 'dd/MM')}</span>
+                                            {episode && (
+                                                <p className="text-[9px] font-bold text-primary truncate max-w-[120px] mt-1 uppercase italic leading-tight" title={episode.title}>
+                                                    {episode.title}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </TableHead>
+                                );
+                            })}
                             <TableHead className="text-center min-w-[150px] bg-primary/5 font-black text-primary">Aproveitamento</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -208,6 +237,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                 <div className="flex items-center gap-2"><XCircle className="size-3 text-destructive/40"/> Falta (Aula houve)</div>
                 <div className="flex items-center gap-2"><Minus className="size-3 text-slate-300"/> Aula não realizada</div>
                 <div className="flex items-center gap-2"><Clock className="size-3 text-slate-200"/> Pendente (Futura)</div>
+                <div className="flex items-center gap-2 ml-auto"><Video className="size-3 text-primary"/> Possui aula online no TheoFlix</div>
             </div>
         </div>
     );
