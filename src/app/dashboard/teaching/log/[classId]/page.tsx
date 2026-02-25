@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, ArrowLeft, BookOpen, Star, Users, CheckCircle2, ClipboardCheck, History, Lock, AlertCircle, Calendar as CalendarIcon, ChevronRight, ChevronLeft, MinusCircle, Clock } from 'lucide-react';
+import { Loader2, ArrowLeft, BookOpen, Star, Users, CheckCircle2, ClipboardCheck, History, Lock, AlertCircle, Calendar as CalendarIcon, ChevronRight, ChevronLeft, MinusCircle, Clock, Save, PlayCircle } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -49,13 +49,13 @@ function PedagogicalLogPageContent() {
     const [observations, setObservations] = useState('');
     const [performance, setPerformance] = useState(3);
     const [presentStudents, setPresentStudents] = useState<string[]>([]);
+    const [onlineStudents, setOnlineStudents] = useState<string[]>([]);
     const [isSaving, setIsSaving] = useState(false);
 
     const classData = useMemo(() => classes.find(c => c.id === classId), [classes, classId]);
     const courseData = useMemo(() => classData ? courses.find(c => c.id === classData.courseId) : null, [classData, courses]);
-    const teacherData = useMemo(() => classData ? users.find(u => u.id === classData.teacherId) : null, [classData, users]);
     
-    // Cálculo das datas válidas de aula (excluindo feriados)
+    // Cálculo das datas válidas de aula
     const classOccurrences = useMemo(() => {
         if (!classData || !classData.startDate) return [];
         const occurrences: string[] = [];
@@ -101,7 +101,6 @@ function PedagogicalLogPageContent() {
         return occurrences;
     }, [classData]);
 
-    // Inicializar data selecionada
     useEffect(() => {
         if (classOccurrences.length > 0 && !selectedDate) {
             const today = format(new Date(), 'yyyy-MM-dd');
@@ -110,11 +109,11 @@ function PedagogicalLogPageContent() {
         }
     }, [classOccurrences, selectedDate]);
 
-    // Carregar presença da data selecionada
     useEffect(() => {
         if (selectedDate && classData?.attendance) {
             const record = classData.attendance.find(a => a.date === selectedDate);
             setPresentStudents(record?.presentStudentIds || []);
+            setOnlineStudents(record?.onlineStudentIds || []);
             
             const log = pedagogicalLogs.find(l => l.classId === classId && format(l.date.toDate(), 'yyyy-MM-dd') === selectedDate);
             if (log) {
@@ -129,7 +128,7 @@ function PedagogicalLogPageContent() {
         }
     }, [selectedDate, classData, pedagogicalLogs, classId]);
 
-    const isMemberCourse = courseData?.name?.toLowerCase().includes('membro') || courseData?.name?.toLowerCase().includes('integração') || courseData?.name?.toLowerCase().includes('pertencer');
+    const isMemberCourse = courseData?.name?.toLowerCase().includes('membro') || courseData?.name?.toLowerCase().includes('integração');
     const isWaveOrDis = courseData?.ministryName.toLowerCase().includes('wave') || courseData?.ministryName.toLowerCase().includes('dis');
     const showPedagogicalFields = isWaveOrDis;
 
@@ -160,7 +159,11 @@ function PedagogicalLogPageContent() {
             });
 
             const existingAttendance = classData?.attendance || [];
-            const updatedAttendance = [...existingAttendance.filter(a => a.date !== selectedDate), { date: selectedDate, presentStudentIds: presentStudents }];
+            // Mantemos os onlineStudentIds que já existiam para aquela data
+            const updatedAttendance = [
+                ...existingAttendance.filter(a => a.date !== selectedDate), 
+                { date: selectedDate, presentStudentIds: presentStudents, onlineStudentIds: onlineStudents }
+            ];
             const attendancePromise = updateClass(classId, { attendance: updatedAttendance });
 
             const progressPromises: Promise<any>[] = [];
@@ -198,7 +201,8 @@ function PedagogicalLogPageContent() {
                         </SelectTrigger>
                         <SelectContent>
                             {classOccurrences.map(date => {
-                                const hasAttendance = classData.attendance?.some(a => a.date === date);
+                                const attendance = classData.attendance?.find(a => a.date === date);
+                                const hasAttendance = attendance && (attendance.presentStudentIds.length > 0 || attendance.onlineStudentIds?.length > 0);
                                 return (
                                     <SelectItem key={date} value={date}>
                                         <div className="flex items-center justify-between w-full gap-2">
@@ -221,7 +225,7 @@ function PedagogicalLogPageContent() {
                                 <ClipboardCheck className="text-primary" />
                                 Lista de Chamada: {format(parseISO(selectedDate || '2000-01-01'), 'dd/MM/yyyy')}
                             </CardTitle>
-                            <CardDescription>Marque os nomes para registrar presença.</CardDescription>
+                            <CardDescription>Marque os nomes para registrar presença física.</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
                             <TooltipProvider>
@@ -230,24 +234,28 @@ function PedagogicalLogPageContent() {
                                         {studentList.map(student => {
                                             const isCidade = student.integrationStatus === 'nao_alcancado';
                                             const isLockedByStatus = isMemberCourse && isCidade;
-                                            const isPresent = presentStudents.includes(student.id);
+                                            const isPresentPhysical = presentStudents.includes(student.id);
+                                            const isPresentOnline = onlineStudents.includes(student.id);
 
                                             return (
                                                 <div key={student.id} className={cn(
                                                     "flex items-center space-x-3 p-3 rounded-xl transition-all border cursor-pointer",
-                                                    isPresent ? "bg-emerald-50 border-emerald-200" : "hover:bg-muted/50 border-transparent",
+                                                    isPresentPhysical ? "bg-emerald-50 border-emerald-200" : isPresentOnline ? "bg-blue-50 border-blue-200" : "hover:bg-muted/50 border-transparent",
                                                     isLockedByStatus && "opacity-50 grayscale"
-                                                )} onClick={() => !isLockedByStatus && handleStudentCheck(student.id, !isPresent)}>
+                                                )} onClick={() => !isLockedByStatus && handleStudentCheck(student.id, !isPresentPhysical)}>
                                                     <Checkbox
                                                         id={`student-${student.id}`}
-                                                        checked={isPresent}
+                                                        checked={isPresentPhysical}
                                                         onCheckedChange={checked => handleStudentCheck(student.id, !!checked)}
                                                         disabled={isLockedByStatus}
                                                         className="pointer-events-none"
                                                     />
                                                     <div className="flex-1 min-w-0">
                                                         <Label className="font-bold text-sm block truncate">{student.name}</Label>
-                                                        {isLockedByStatus && <span className="text-[9px] text-destructive font-black uppercase">Bloqueado (Cidade)</span>}
+                                                        <div className="flex items-center gap-2 mt-0.5">
+                                                            {isLockedByStatus && <span className="text-[9px] text-destructive font-black uppercase tracking-tighter">Bloqueado (Cidade)</span>}
+                                                            {isPresentOnline && <Badge variant="outline" className="text-[8px] h-4 bg-blue-100 text-blue-700 border-none uppercase font-black"><PlayCircle className="size-2 mr-1"/> Validado Online</Badge>}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             )
@@ -320,10 +328,15 @@ function PedagogicalLogPageContent() {
                                                     </p>
                                                 </div>
                                                 {attendance ? (
-                                                    <div className="text-right">
+                                                    <div className="text-right flex flex-col items-end gap-1">
                                                         <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 text-[9px] h-5">
-                                                            {attendance.presentStudentIds.length} presentes
+                                                            {attendance.presentStudentIds.length} físicos
                                                         </Badge>
+                                                        {attendance.onlineStudentIds && attendance.onlineStudentIds.length > 0 && (
+                                                            <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50 text-[9px] h-5">
+                                                                {attendance.onlineStudentIds.length} online
+                                                            </Badge>
+                                                        )}
                                                     </div>
                                                 ) : isPast ? (
                                                     <div className="text-right">
@@ -349,10 +362,6 @@ function PedagogicalLogPageContent() {
             </div>
         </div>
     );
-}
-
-function Save({ className, size }: { className?: string, size?: number }) {
-    return <svg xmlns="http://www.w3.org/2000/svg" width={size || 16} height={size || 16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>;
 }
 
 export default function PedagogicalLogPage() {

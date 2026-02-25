@@ -109,7 +109,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                             <div className="p-2 bg-emerald-500 text-white rounded-lg shadow-inner"><Award size={20}/></div>
                             <div>
                                 <p className="text-[10px] font-black uppercase text-emerald-700 tracking-wider">Curso Concluído</p>
-                                <p className="text-2xl font-black text-emerald-900 leading-none mt-1">{stats.finishing}</p>
+                                <p className="text-2xl font-black text-amber-900 leading-none mt-1">{stats.finishing}</p>
                             </div>
                         </CardContent>
                     </Card>
@@ -194,15 +194,33 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                             const classHeld = courseClasses.find(cls => 
                                                 cls.attendance?.some(att => att.date === date)
                                             );
-                                            const isPresent = classHeld?.attendance?.find(a => a.date === date)?.presentStudentIds.includes(student.id);
+                                            const attendanceRecord = classHeld?.attendance?.find(a => a.date === date);
+                                            const isPresentPhysical = attendanceRecord?.presentStudentIds.includes(student.id);
+                                            const isPresentOnline = attendanceRecord?.onlineStudentIds?.includes(student.id);
                                             const isPast = isBefore(parseISO(date), today);
                                             
-                                            if (isPresent) attendedCount++;
+                                            if (isPresentPhysical || isPresentOnline) attendedCount++;
 
                                             return (
                                                 <TableCell key={date} className="text-center">
-                                                    {isPresent ? (
-                                                        <CheckCircle2 className="text-emerald-500 size-5 mx-auto" />
+                                                    {isPresentPhysical ? (
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <CheckCircle2 className="text-emerald-500 size-5 mx-auto cursor-help" />
+                                                                </TooltipTrigger>
+                                                                <TooltipContent><p>Presença Física</p></TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    ) : isPresentOnline ? (
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <PlayCircle className="text-blue-500 size-5 mx-auto cursor-help animate-in zoom-in" />
+                                                                </TooltipTrigger>
+                                                                <TooltipContent><p>Validado via TheoFlix</p></TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
                                                     ) : classHeld ? (
                                                         <XCircle className="text-destructive size-5 mx-auto opacity-40" />
                                                     ) : isPast ? (
@@ -233,11 +251,11 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
             </div>
             
             <div className="flex flex-wrap gap-6 p-4 bg-muted/20 rounded-xl border border-dashed text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                <div className="flex items-center gap-2"><CheckCircle2 className="size-3 text-emerald-500"/> Presente</div>
+                <div className="flex items-center gap-2"><CheckCircle2 className="size-3 text-emerald-500"/> Presente (Presencial)</div>
+                <div className="flex items-center gap-2"><PlayCircle className="size-3 text-blue-500"/> Presente (Online/TheoFlix)</div>
                 <div className="flex items-center gap-2"><XCircle className="size-3 text-destructive/40"/> Falta (Aula houve)</div>
                 <div className="flex items-center gap-2"><Minus className="size-3 text-slate-300"/> Aula não realizada</div>
                 <div className="flex items-center gap-2"><Clock className="size-3 text-slate-200"/> Pendente (Futura)</div>
-                <div className="flex items-center gap-2 ml-auto"><Video className="size-3 text-primary"/> Possui aula online no TheoFlix</div>
             </div>
         </div>
     );

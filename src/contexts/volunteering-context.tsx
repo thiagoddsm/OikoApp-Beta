@@ -94,7 +94,7 @@ export type Class = {
   weekOfMonth?: '1' | '2' | '3' | '4' | 'last' | '5';
   locationId?: string;
   holidayDates?: string[];
-  attendance?: { date: string; presentStudentIds: string[] }[];
+  attendance?: { date: string; presentStudentIds: string[]; onlineStudentIds?: string[] }[];
   grades?: { studentId: string, assessmentName: string, grade: number }[];
   materials?: { title: string; url: string; description?: string }[];
 };
@@ -684,15 +684,12 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const markAttendanceByTheoflix = async (userId: string, theoflixCourseId: string, episodeIndex: number) => {
     if (!firestore || !userId || !theoflixCourseId) return;
 
-    // 1. Encontrar cursos físicos que vinculam este Theoflix
-    const linkedPhysicalCourses = courses.filter(c => c.linkedTheoflixId === theoflixCourseId);
-    if (linkedPhysicalCourses.length === 0) return;
+    const course = courses.find(c => c.linkedTheoflixId === theoflixCourseId);
+    if (!course) return;
 
-    const physicalCourseIds = linkedPhysicalCourses.map(c => c.id);
-
-    // 2. Encontrar turmas desses cursos onde o usuário é aluno
+    // Encontrar turmas deste curso onde o usuário é aluno
     const userClasses = classes.filter(cls => 
-        physicalCourseIds.includes(cls.courseId) && 
+        cls.courseId === course.id && 
         cls.students?.includes(userId)
     );
 
@@ -702,6 +699,15 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     let syncCount = 0;
 
     userClasses.forEach(cls => {
+        // REGRA DE SEGURANÇA: Se o curso for de Membresia (Pertencer), 
+        // a turma deve obrigatoriamente representar o módulo do vídeo.
+        const isMembership = course.name.toLowerCase().includes('membro') || course.name.toLowerCase().includes('pertencer') || course.name.toLowerCase().includes('integração');
+        if (isMembership) {
+            const modMap: Record<string, number> = { '1': 0, '2': 1, '3': 2, '4': 3, 'last': 4, '5': 4 };
+            const classModuleIndex = modMap[cls.weekOfMonth || ''];
+            if (classModuleIndex !== episodeIndex) return; // Esta turma não é a deste vídeo
+        }
+
         // 3. Calcular datas da turma
         if (!cls.startDate) return;
         const occurrences: string[] = [];
@@ -731,20 +737,35 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
             current = addWeeks(current, 1);
         }
 
-        // 4. Se o índice do vídeo existe no calendário físico, lançar presença
-        const targetDate = occurrences[episodeIndex];
+        // 4. Identificar data alvo. 
+        // Para membresia, pegamos a primeira ocorrência daquela turma modular.
+        // Para cursos de turma única, pegamos a ocorrência de índice correspondente.
+        const targetDate = isMembership ? occurrences[0] : occurrences[episodeIndex];
+        
         if (targetDate) {
             const existingAttendance = cls.attendance || [];
             const recordIdx = existingAttendance.findIndex(a => a.date === targetDate);
             
             if (recordIdx > -1) {
-                if (!existingAttendance[recordIdx].presentStudentIds.includes(userId)) {
-                    existingAttendance[recordIdx].presentStudentIds.push(userId);
+                const record = existingAttendance[recordIdx];
+                const alreadyOnline = record.onlineStudentIds?.includes(userId);
+                const alreadyPhysical = record.presentStudentIds?.includes(userId);
+
+                if (!alreadyOnline && !alreadyPhysical) {
+                    const updatedRecord = {
+                        ...record,
+                        onlineStudentIds: [...(record.onlineStudentIds || []), userId]
+                    };
+                    existingAttendance[recordIdx] = updatedRecord;
                     batch.update(doc(firestore, 'classes', cls.id), { attendance: existingAttendance });
                     syncCount++;
                 }
             } else {
-                existingAttendance.push({ date: targetDate, presentStudentIds: [userId] });
+                existingAttendance.push({ 
+                    date: targetDate, 
+                    presentStudentIds: [], 
+                    onlineStudentIds: [userId] 
+                });
                 batch.update(doc(firestore, 'classes', cls.id), { attendance: existingAttendance });
                 syncCount++;
             }
@@ -755,7 +776,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
         await batch.commit();
         toast({ 
             title: "Presença Híbrida!", 
-            description: `Sua participação física na aula ${episodeIndex + 1} foi validada via TheoFlix.` 
+            description: `Sua participação na aula ${episodeIndex + 1} foi validada via TheoFlix.` 
         });
     }
   };
