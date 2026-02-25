@@ -31,8 +31,7 @@ import {
     Edit, 
     Video, 
     Layers, 
-    Type, 
-    Image as ImageIcon,
+    ImageIcon,
     Save,
     Loader2,
     DatabaseZap,
@@ -41,7 +40,6 @@ import {
     Settings,
     ChevronUp,
     ChevronDown,
-    Palette,
     X,
     Info
 } from 'lucide-react';
@@ -223,7 +221,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-5xl w-full h-[100dvh] sm:h-[90vh] flex flex-col p-0 overflow-hidden rounded-none sm:rounded-xl border-none">
+            <DialogContent className="max-w-6xl w-full h-[100dvh] sm:h-[90vh] flex flex-col p-0 overflow-hidden rounded-none sm:rounded-xl border-none">
                 <DialogHeader className="p-4 sm:p-6 border-b bg-muted/20 shrink-0">
                     <div className="flex justify-between items-center pr-8 sm:pr-0">
                         <div>
@@ -241,23 +239,23 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                     </div>
                 </DialogHeader>
 
-                <Tabs defaultValue="courses" className="flex-1 flex flex-col overflow-hidden">
+                <Tabs defaultValue="courses" className="flex-1 min-h-0 flex flex-col overflow-hidden">
                     <div className="px-4 sm:px-6 border-b bg-white overflow-x-auto no-scrollbar shrink-0">
                         <TabsList className="bg-transparent border-b-0 h-12 w-full justify-start sm:justify-center flex-nowrap min-w-max">
-                            <TabsTrigger value="courses" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-xs sm:text-sm">Cursos</TabsTrigger>
-                            <TabsTrigger value="levels" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-xs sm:text-sm">Níveis</TabsTrigger>
-                            <TabsTrigger value="config" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-xs sm:text-sm">Configurações</TabsTrigger>
+                            <TabsTrigger value="courses" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-xs sm:text-sm h-full">Cursos</TabsTrigger>
+                            <TabsTrigger value="levels" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-xs sm:text-sm h-full">Níveis</TabsTrigger>
+                            <TabsTrigger value="config" className="data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none px-4 text-xs sm:text-sm h-full">Configurações</TabsTrigger>
                         </TabsList>
                     </div>
 
                     {/* CONTEÚDO: CURSOS */}
-                    <TabsContent value="courses" className="flex-1 flex flex-col md:flex-row overflow-hidden m-0">
-                        <div className="w-full md:w-80 border-r bg-muted/10 p-4 flex flex-col gap-4 overflow-y-auto max-h-[30dvh] md:max-h-full shrink-0">
+                    <TabsContent value="courses" className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden m-0">
+                        <div className="w-full md:w-80 border-r bg-muted/10 p-4 flex flex-col gap-4 overflow-y-auto max-h-[25dvh] md:max-h-full shrink-0">
                             <div className="flex justify-between items-center">
                                 <h3 className="font-black text-[10px] uppercase text-muted-foreground tracking-widest">Biblioteca</h3>
                                 <Button size="icon" variant="ghost" className="h-7 w-7 text-primary" onClick={() => setSelectedCourse(null)}><PlusCircle size={18} /></Button>
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-2">
+                            <div className="flex flex-col gap-2">
                                 {existingCourses.map(course => (
                                     <button 
                                         key={course.id} 
@@ -279,7 +277,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto bg-white p-4 sm:p-8">
+                        <div className="flex-1 min-h-0 overflow-y-auto bg-white p-4 sm:p-8">
                             <div className="max-w-2xl mx-auto space-y-8 pb-12">
                                 <div className="flex justify-between items-center pb-2 border-b">
                                     <h4 className="text-lg sm:text-xl font-black uppercase italic tracking-tighter text-slate-900">
@@ -369,13 +367,13 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                     </TabsContent>
 
                     {/* CONTEÚDO: NÍVEIS */}
-                    <TabsContent value="levels" className="flex-1 flex flex-col md:flex-row overflow-hidden m-0">
-                        <div className="w-full md:w-80 border-r bg-muted/10 p-4 flex flex-col gap-4 overflow-y-auto max-h-[30dvh] md:max-h-full shrink-0">
+                    <TabsContent value="levels" className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden m-0">
+                        <div className="w-full md:w-80 border-r bg-muted/10 p-4 flex flex-col gap-4 overflow-y-auto max-h-[25dvh] md:max-h-full shrink-0">
                             <div className="flex justify-between items-center">
                                 <h3 className="font-black text-[10px] uppercase text-muted-foreground tracking-widest">Etapas</h3>
                                 <Button size="icon" variant="ghost" className="h-7 w-7 text-primary" onClick={() => setSelectedLevel(null)}><PlusCircle size={18} /></Button>
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-2">
+                            <div className="flex flex-col gap-2">
                                 {existingLevels.map(lvl => (
                                     <button 
                                         key={lvl.id} 
@@ -394,7 +392,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                                 ))}
                             </div>
                         </div>
-                        <div className="flex-1 overflow-y-auto bg-white p-4 sm:p-8">
+                        <div className="flex-1 min-h-0 overflow-y-auto bg-white p-4 sm:p-8">
                             <div className="max-w-md mx-auto space-y-8 pb-12">
                                 <div className="flex justify-between items-center pb-2 border-b">
                                     <h4 className="text-lg sm:text-xl font-black uppercase italic tracking-tighter">
@@ -446,7 +444,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                     </TabsContent>
 
                     {/* CONTEÚDO: CONFIGURAÇÕES */}
-                    <TabsContent value="config" className="flex-1 p-4 sm:p-8 m-0 overflow-y-auto bg-white">
+                    <TabsContent value="config" className="flex-1 min-h-0 p-4 sm:p-8 m-0 overflow-y-auto bg-white">
                         <Card className="max-w-2xl mx-auto shadow-sm border-2 border-primary/10 rounded-2xl overflow-hidden">
                             <CardHeader className="bg-primary/5 border-b">
                                 <CardTitle className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">
