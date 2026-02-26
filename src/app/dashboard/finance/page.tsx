@@ -16,7 +16,7 @@ import {
   HelpCircle, ShieldAlert, Terminal, FileText, BookOpen, Bug, Eye, EyeOff
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, useDoc, setDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useDoc, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { useVolunteering, VolunteeringProvider } from '@/contexts/volunteering-context';
 import { doc } from 'firebase/firestore';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -296,10 +296,14 @@ function ContaAzulConnect() {
   
    const handleDisconnect = () => {
     if (!configDocRef) return;
-    if (confirm("Tem certeza que deseja remover a conexão?")) {
-        setDocumentNonBlocking(configDocRef, {
-            clientId: '', clientSecret: '', accessToken: '', refreshToken: '', expiresAt: 0
-        }, { merge: true });
+    if (window.confirm("Tem certeza que deseja remover a conexão?")) {
+        updateDocumentNonBlocking(configDocRef, {
+            accessToken: '', 
+            refreshToken: '', 
+            expiresAt: 0,
+            lastError: 'Desconectado manualmente pelo usuário.',
+            lastErrorAt: new Date().toISOString()
+        });
         toast({ title: 'Desconectado', description: 'A conexão foi removida.' });
     }
   };
@@ -407,7 +411,7 @@ function ContaAzulConnect() {
                                     <h4 className="font-black text-emerald-900">Integração Ativa</h4>
                                     <p className="text-xs text-emerald-700">Tokens obtidos e renovação automática habilitada.</p>
                                 </div>
-                                <Button variant="outline" className="text-destructive border-destructive/20 hover:bg-red-50" onClick={handleDisconnect}>Encerrar Conexão</Button>
+                                <Button variant="outline" className="text-destructive border-destructive/20 hover:bg-red-50" onClick={handleDisconnect}>Não está pegando o botão</Button>
                             </div>
                         )}
                     </CardContent>
