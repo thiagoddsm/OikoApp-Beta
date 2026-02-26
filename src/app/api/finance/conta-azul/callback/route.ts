@@ -6,7 +6,6 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
-  const state = searchParams.get('state');
 
   if (!code) {
     return NextResponse.json({ error: 'Código de autorização não fornecido.' }, { status: 400 });
@@ -47,11 +46,14 @@ export async function GET(request: Request) {
       throw new Error(data.error_description || 'Erro ao trocar tokens.');
     }
 
-    // Salvar tokens no Firestore
+    // Calcular timestamp de expiração (ms)
+    const expiresAt = Date.now() + (data.expires_in * 1000);
+
+    // Salvar tokens e expiração no Firestore
     await updateDoc(configRef, {
       accessToken: data.access_token,
       refreshToken: data.refresh_token,
-      expiresIn: data.expires_in,
+      expiresAt: expiresAt,
       updatedAt: new Date().toISOString()
     });
 

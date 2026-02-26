@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Loader2, Key, Link as LinkIcon, BarChart, ExternalLink, ShieldCheck, 
   AlertCircle, DollarSign, TrendingUp, ArrowUpCircle, ArrowDownCircle,
-  LayoutDashboard, HeartHandshake, History, RefreshCw
+  LayoutDashboard, HeartHandshake, History, RefreshCw, Wallet
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useDoc, setDocumentNonBlocking } from '@/firebase';
@@ -28,6 +28,7 @@ type ContaAzulConfig = {
     clientSecret?: string;
     accessToken?: string;
     refreshToken?: string;
+    expiresAt?: number;
 }
 
 function ContaAzulConnect() {
@@ -42,6 +43,7 @@ function ContaAzulConnect() {
   const [clientSecret, setClientSecret] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncData, setSyncData] = useState<any>(null);
   
   const isConnected = !!config?.accessToken || !!config?.refreshToken;
   const hasCredentials = !!config?.clientId && !!config?.clientSecret;
@@ -96,6 +98,7 @@ function ContaAzulConnect() {
             clientSecret: '',
             accessToken: '',
             refreshToken: '',
+            expiresAt: 0
         }, { merge: true });
         toast({
             title: 'Desconectado',
@@ -106,15 +109,21 @@ function ContaAzulConnect() {
 
   const handleSync = async () => {
       setIsSyncing(true);
-      // Simulação de chamada para o endpoint de sync
       try {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          toast({
-              title: "Sincronização Concluída",
-              description: "Os dados do Conta Azul foram importados para o OikoApp.",
-          });
-      } catch (e) {
-          toast({ variant: 'destructive', title: "Erro na Sincronização" });
+          const response = await fetch('/api/finance/conta-azul/sync', { method: 'POST' });
+          const result = await response.json();
+          
+          if (response.ok) {
+              setSyncData(result.data);
+              toast({
+                  title: "Sincronização Concluída",
+                  description: "Os dados do Conta Azul foram atualizados no sistema.",
+              });
+          } else {
+              throw new Error(result.error);
+          }
+      } catch (e: any) {
+          toast({ variant: 'destructive', title: "Erro na Sincronização", description: e.message });
       } finally {
           setIsSyncing(false);
       }
@@ -124,26 +133,40 @@ function ContaAzulConnect() {
 
   if (isConnected) {
     return (
-      <Card className="border-green-200 bg-green-50/30">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-green-700 text-sm">
-            <ShieldCheck className="size-4" />
-            Conexão Ativa com Conta Azul
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pb-2">
-            <Button onClick={handleSync} disabled={isSyncing} variant="outline" size="sm" className="w-full bg-white border-green-200 text-green-700 hover:bg-green-50">
-                {isSyncing ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <RefreshCw className="mr-2 h-3 w-3" />}
-                Sincronizar Agora
-            </Button>
-        </CardContent>
-        <CardFooter className="flex justify-between py-2 border-t border-green-100">
-           <span className="text-[10px] text-green-600 font-semibold flex items-center gap-1 uppercase tracking-widest">
-            <LinkIcon className="size-3" /> Sincronização OK
-          </span>
-          <Button variant="link" size="sm" className="text-destructive h-auto p-0" onClick={handleDisconnect}>Desconectar</Button>
-        </CardFooter>
-      </Card>
+      <div className="space-y-4">
+        <Card className="border-green-200 bg-green-50/30">
+            <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-green-700 text-sm">
+                <ShieldCheck className="size-4" />
+                Conexão Ativa com Conta Azul
+            </CardTitle>
+            </CardHeader>
+            <CardContent className="pb-2 space-y-4">
+                <Button onClick={handleSync} disabled={isSyncing} variant="outline" size="sm" className="w-full bg-white border-green-200 text-green-700 hover:bg-green-50">
+                    {isSyncing ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <RefreshCw className="mr-2 h-3 w-3" />}
+                    Sincronizar Agora
+                </Button>
+
+                {syncData?.bankAccounts && (
+                    <div className="space-y-2">
+                        <p className="text-[10px] font-black uppercase text-green-600 tracking-widest">Contas Vinculadas:</p>
+                        {syncData.bankAccounts.map((account: any) => (
+                            <div key={account.id} className="flex items-center justify-between text-xs p-2 bg-white rounded border border-green-100">
+                                <span className="flex items-center gap-2"><Wallet className="size-3"/> {account.name}</span>
+                                <span className="font-bold">R$ {account.current_balance.toLocaleString('pt-BR')}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </CardContent>
+            <CardFooter className="flex justify-between py-2 border-t border-green-100">
+            <span className="text-[10px] text-green-600 font-semibold flex items-center gap-1 uppercase tracking-widest">
+                <LinkIcon className="size-3" /> Integração OK
+            </span>
+            <Button variant="link" size="sm" className="text-destructive h-auto p-0" onClick={handleDisconnect}>Desconectar</Button>
+            </CardFooter>
+        </Card>
+      </div>
     );
   }
 
@@ -154,7 +177,7 @@ function ContaAzulConnect() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base"><Key className="size-4" />Integração Conta Azul</CardTitle>
-        <CardDescription className="text-xs">Automatize relatórios e conciliação bancária.</CardDescription>
+        <CardDescription className="text-xs">Configure seu Client ID e Secret do Portal do Desenvolvedor.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -171,13 +194,13 @@ function ContaAzulConnect() {
       <CardFooter className="flex gap-2">
         <Button onClick={handleConnect} disabled={isSaving} size="sm" className="flex-1">
           {isSaving ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <LinkIcon className="mr-2 h-3 w-3" />}
-          Salvar
+          Salvar Credenciais
         </Button>
         {hasCredentials && !isConnected && (
             <Button variant="outline" size="sm" className="flex-1" asChild>
                 <a href={authUrl}>
                     <ExternalLink className="mr-2 h-3 w-3"/>
-                    Autorizar
+                    Autorizar App
                 </a>
             </Button>
         )}
@@ -259,7 +282,9 @@ function FinancePageContent() {
                   </Card>
               </div>
           </div>
-          <ContaAzulConnect />
+          <React.Suspense fallback={<Card className="h-40 animate-pulse bg-muted" />}>
+            <ContaAzulConnect />
+          </React.Suspense>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
