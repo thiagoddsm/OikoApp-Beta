@@ -9,11 +9,11 @@ import { useToast } from '@/hooks/use-toast';
 import { Badge } from '../ui/badge';
 
 const modules = [
-    { id: 'module1', label: 'História e Visão', description: '1º Domingo', week: '1' },
-    { id: 'module2', label: 'DNA e Células', description: '2º Domingo', week: '2' },
-    { id: 'module3', label: 'Mordomia e Finanças', description: '3º Domingo', week: '3' },
-    { id: 'module4', label: 'Governança e Ética', description: '4º Domingo', week: '4' },
-    { id: 'module5', label: 'Comissionamento', description: '5º Domingo', week: 'last' },
+    { id: 'module1', label: 'História e Visão', description: 'Módulo 1', week: '1' },
+    { id: 'module2', label: 'DNA e Células', description: 'Módulo 2', week: '2' },
+    { id: 'module3', label: 'Mordomia e Finanças', description: 'Módulo 3', week: '3' },
+    { id: 'module4', label: 'Governança e Ética', description: 'Módulo 4', week: '4' },
+    { id: 'module5', label: 'Comissionamento', description: 'Eletivo', week: 'last' },
 ];
 
 export function MemberCourseProgress({ user }) {
@@ -36,11 +36,15 @@ export function MemberCourseProgress({ user }) {
         const relevantClasses = classes.filter(c => c.courseId === memberCourse.id);
 
         modules.forEach(mod => {
-            const classForMod = relevantClasses.find(c => c.weekOfMonth === mod.week);
-            if (classForMod && classForMod.attendance) {
-                const isPresent = classForMod.attendance.some(att => att.presentStudentIds.includes(user.id));
-                if (isPresent) progress[mod.id] = true;
-            }
+            // Check if user has presence in ANY class of this course that represents this module (week)
+            const isPresentInAnyCycle = relevantClasses.some(c => 
+                c.weekOfMonth === mod.week && 
+                c.attendance?.some(att => 
+                    att.presentStudentIds.includes(user.id) || 
+                    att.onlineStudentIds?.includes(user.id)
+                )
+            );
+            if (isPresentInAnyCycle) progress[mod.id] = true;
         });
 
         return progress;
@@ -55,9 +59,11 @@ export function MemberCourseProgress({ user }) {
         return merged;
     }, [manualProgress, attendanceProgress]);
     
+    // Member status now requires only modules 1-4
+    const mandatoryCompleted = ['module1', 'module2', 'module3', 'module4'].every(m => mergedProgress[m]);
     const completedCount = modules.filter(m => mergedProgress[m.id]).length;
-    const isReadyForModule5 = modules.slice(0, 4).every(m => mergedProgress[m.id]);
-    const isAllDone = completedCount === 5;
+    const isReadyForModule5 = mandatoryCompleted;
+    const isAllDone = mandatoryCompleted; // Minimum requirement for "Member" status
 
     const baptismCheck = user.integrationStatus === 'novo_convertido' ? user.batizado === 'sim' : true;
 
@@ -67,7 +73,7 @@ export function MemberCourseProgress({ user }) {
             await updateVolunteer(user.id, {
                 'journey.memberCourseProgress': mergedProgress
             });
-            toast({ title: "Progresso Sincronizado", description: "O perfil foi atualizado com base nos diários de classe." });
+            toast({ title: "Progresso Sincronizado", description: "O perfil foi atualizado com base nos diários de classe modulares." });
         } catch (e) {
             toast({ variant: 'destructive', title: "Erro na Sincronização" });
         } finally {
@@ -97,7 +103,7 @@ export function MemberCourseProgress({ user }) {
                         <GraduationCap className="size-5 text-primary" />
                         Status da Integração (Membresia)
                     </CardTitle>
-                    <CardDescription>Acompanhamento dos 5 marcos dominicais para se tornar parte do organismo.</CardDescription>
+                    <CardDescription>Acompanhamento modular para se tornar parte do organismo.</CardDescription>
                 </div>
                 <Button variant="ghost" size="sm" onClick={handleSync} disabled={isSyncing} className="text-primary hover:text-primary hover:bg-primary/10">
                     {isSyncing ? <Loader2 className="size-3 animate-spin mr-1" /> : <RefreshCw className="size-3 mr-1" />}
@@ -109,6 +115,7 @@ export function MemberCourseProgress({ user }) {
                     {modules.map((mod, idx) => {
                         const isCompleted = mergedProgress[mod.id];
                         const isLocked = mod.id === 'module5' && !isReadyForModule5;
+                        const isElective = mod.id === 'module5';
                         
                         return (
                             <div 
@@ -116,13 +123,15 @@ export function MemberCourseProgress({ user }) {
                                 className={cn(
                                     "flex flex-col items-center text-center p-3 rounded-xl border-2 transition-all relative",
                                     isCompleted ? "bg-emerald-50 border-emerald-500 shadow-sm" : 
-                                    isLocked ? "bg-slate-100 border-slate-200 opacity-60" : "bg-white border-slate-200"
+                                    isLocked ? "bg-slate-100 border-slate-200 opacity-60" : "bg-white border-slate-200",
+                                    isElective && !isCompleted && "border-dashed"
                                 )}
                             >
                                 <div className={cn(
                                     "size-10 rounded-full flex items-center justify-center mb-2",
                                     isCompleted ? "bg-emerald-500 text-white" : 
-                                    isLocked ? "bg-slate-300 text-slate-500" : "bg-slate-100 text-slate-400"
+                                    isLocked ? "bg-slate-300 text-slate-500" : 
+                                    isElective ? "bg-amber-50 text-amber-500 border border-amber-200" : "bg-slate-100 text-slate-400"
                                 )}>
                                     {isCompleted ? <CheckCircle2 className="size-6" /> : 
                                      isLocked ? <Lock className="size-5" /> : <Circle className="size-6" />}
@@ -147,12 +156,12 @@ export function MemberCourseProgress({ user }) {
                     )}>
                         <div className="text-left">
                             <p className="font-black text-lg">
-                                {baptismCheck ? "🎉 Curso de Membro Concluído!" : "⚠️ Pendência de Batismo"}
+                                {baptismCheck ? "🎉 Requisitos de Membro Atingidos!" : "⚠️ Pendência de Batismo"}
                             </p>
                             <p className="text-xs opacity-90">
                                 {baptismCheck 
-                                    ? "Este membro completou todos os requisitos e está apto para a oficialização."
-                                    : "As aulas foram concluídas, mas o Batismo é obrigatório para Novos Convertidos antes da oficialização."}
+                                    ? "Os 4 módulos obrigatórios foram concluídos. O aluno está apto para a oficialização."
+                                    : "Os módulos foram concluídos, mas o Batismo é obrigatório para Novos Convertidos antes da oficialização."}
                             </p>
                         </div>
                         {user.integrationStatus !== 'membro' ? (

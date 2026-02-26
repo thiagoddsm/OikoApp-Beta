@@ -51,7 +51,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         { id: '1', authorId: 'admin', type: 'system', content: `Perfil criado na base de dados.`, createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
     ]);
 
-    // Grouping logic for Courses
+    // Modularized course status
     const myCoursesStatus = useMemo(() => {
         const studentClasses = classes.filter(cls => cls.students?.includes(memberId));
         const courseIds = Array.from(new Set(studentClasses.map(c => c.courseId)));
@@ -59,17 +59,40 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         return courseIds.map(courseId => {
             const course = courses.find(c => c.id === courseId);
             const courseClasses = classes.filter(c => c.courseId === courseId);
+            const isMembership = course?.name.toLowerCase().includes('membro') || course?.name.toLowerCase().includes('pertencer');
             
-            // Count total modules (classes) vs attended modules
+            // For modular courses, we count unique modules completed
+            if (isMembership) {
+                const modulesCompleted = new Set();
+                courseClasses.forEach(cls => {
+                    const hasAttended = cls.attendance?.some(att => 
+                        att.presentStudentIds.includes(memberId) || 
+                        att.onlineStudentIds?.includes(memberId)
+                    );
+                    if (hasAttended && cls.weekOfMonth) modulesCompleted.add(cls.weekOfMonth);
+                });
+                
+                const mandatoryModules = ['1', '2', '3', '4'];
+                const isCompleted = mandatoryModules.every(m => modulesCompleted.has(m));
+
+                return {
+                    id: courseId,
+                    name: course?.name || 'Curso Desconhecido',
+                    ministry: course?.ministryName || 'Ensino',
+                    isCompleted,
+                    attendedCount: modulesCompleted.size,
+                    totalCount: 5,
+                    isModular: true
+                };
+            }
+
+            // Normal course logic
             const attendedCount = courseClasses.filter(cls => 
                 cls.attendance?.some(att => att.presentStudentIds.includes(memberId))
             ).length;
             
             const totalClasses = courseClasses.length;
-            const isFinishedAttendance = totalClasses > 0 && attendedCount === totalClasses;
-            const officialStatus = memberData?.journey?.courseStatus?.[courseId];
-            
-            const isCompleted = officialStatus === 'approved' || isFinishedAttendance;
+            const isCompleted = memberData?.journey?.courseStatus?.[courseId] === 'approved' || (totalClasses > 0 && attendedCount === totalClasses);
 
             return {
                 id: courseId,
@@ -77,7 +100,8 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                 ministry: course?.ministryName || 'Ensino',
                 isCompleted,
                 attendedCount,
-                totalCount: totalClasses
+                totalCount: totalClasses,
+                isModular: false
             };
         });
     }, [classes, courses, memberId, memberData]);
@@ -108,20 +132,13 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
             if (!hasDecision) return { valid: false, message: "Este membro precisa registrar uma 'Decisão por Cristo' antes de se tornar Novo Convertido." };
         }
 
-        if (targetStageId === 'reconciliado' && currentStageId === 'nao_alcancado') {
-            const hasDecision = memberData.decisao?.includes('Reconciliação') || memberData.initialStatus === 'reconciliado';
-            if (!hasDecision) return { valid: false, message: "Este membro precisa registrar uma 'Reconciliação' antes de mudar de fase." };
-        }
-
-        if (targetStageId === 'transferido' && currentStageId === 'nao_alcancado') {
-            const isTransfer = memberData.initialStatus === 'membro_outra_igreja';
-            if (!isTransfer) return { valid: false, message: "O status inicial deve ser 'Membro de outra igreja' para esta fase." };
-        }
-
         if (targetStageId === 'membro') {
+            // Updated logic for 4 modules
             const progress = memberData.journey?.memberCourseProgress || {};
-            const completedModules = Object.values(progress).filter(Boolean).length;
-            if (completedModules < 5) return { valid: false, message: "O membro precisa concluir todos os 5 módulos do Curso Pertencer (Membros) primeiro." };
+            const mandatoryModules = ['module1', 'module2', 'module3', 'module4'];
+            const completedMandatory = mandatoryModules.every(m => progress[m]);
+            
+            if (!completedMandatory) return { valid: false, message: "O membro precisa concluir os 4 primeiros módulos do Curso Pertencer (Membros) primeiro." };
 
             if (memberData.integrationStatus === 'novo_convertido' && memberData.batizado !== 'sim') {
                 return { valid: false, message: "Novos convertidos precisam do Batismo nas águas para se tornarem membros IBM." };
@@ -236,7 +253,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                                             {course.isCompleted ? "Concluído" : "Cursando"}
                                         </Badge>
                                         <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-tighter">
-                                            {course.attendedCount}/{course.totalCount} módulos
+                                            {course.attendedCount}/{course.totalCount} {course.isModular ? 'módulos' : 'aulas'}
                                         </span>
                                     </div>
                                 </div>

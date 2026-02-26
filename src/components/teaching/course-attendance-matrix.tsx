@@ -1,10 +1,9 @@
-
 'use client';
 import React, { useMemo } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Clock, Award, Loader2, Users, GraduationCap, ChevronRight, XCircle, Minus, Video, PlayCircle } from 'lucide-react';
+import { CheckCircle2, Clock, Award, Loader2, Users, GraduationCap, ChevronRight, XCircle, Minus, Video, PlayCircle, Star } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Card, CardContent } from '@/components/ui/card';
@@ -22,19 +21,157 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
     const { classes, users, courses, theoflixCourses, isLoading } = useVolunteering();
 
     const course = useMemo(() => courses.find(c => c.id === courseId), [courses, courseId]);
-    const isMemberCourse = course?.name?.toLowerCase().includes('membro') || course?.name?.toLowerCase().includes('integração');
+    const isMembership = course?.name?.toLowerCase().includes('membro') || course?.name?.toLowerCase().includes('pertencer') || course?.name?.toLowerCase().includes('integração');
 
     const courseClasses = useMemo(() => classes.filter(c => c.courseId === courseId), [classes, courseId]);
 
-    // Busca o curso vinculado do TheoFlix
+    // Linked TheoFlix data for online validation hints
     const linkedTheoflix = useMemo(() => 
         theoflixCourses.find(tf => tf.id === course?.linkedTheoflixId),
     [theoflixCourses, course]);
 
-    // Cálculo unificado de ocorrências do curso (removendo feriados)
+    // If it's membership, we group by MODULE (1-5), not dates.
+    // This allows students to make up Class 1 in February or March seamlessly.
+    const modules = useMemo(() => [
+        { id: '1', title: 'História e Visão', type: 'Obrigatório' },
+        { id: '2', title: 'DNA e Células', type: 'Obrigatório' },
+        { id: '3', title: 'Mordomia e Finanças', type: 'Obrigatório' },
+        { id: '4', title: 'Governança e Ética', type: 'Obrigatório' },
+        { id: '5', title: 'Comissionamento', type: 'Eletivo' },
+    ], []);
+
+    const students = useMemo(() => {
+        const studentSet = new Set<string>();
+        courseClasses.forEach(cls => cls.students?.forEach(sId => studentSet.add(sId)));
+        return users.filter(u => studentSet.has(u.id)).sort((a, b) => a.name.localeCompare(b.name));
+    }, [users, courseClasses]);
+
+    const stats = useMemo(() => {
+        if (!isMembership) return null;
+        const counts = { ready: 0, finishing: 0, missing: 0 };
+        students.forEach(s => {
+            const progress = s.journey?.memberCourseProgress || {};
+            const completedMandatory = ['module1', 'module2', 'module3', 'module4'].every(m => progress[m]);
+            const module5 = progress['module5'];
+            
+            if (completedMandatory && module5) counts.finishing++;
+            else if (completedMandatory) counts.ready++;
+            else counts.missing++;
+        });
+        return counts;
+    }, [students, isMembership]);
+
+    if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
+
+    if (isMembership) {
+        return (
+            <div className="space-y-6">
+                {stats && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <Card className="bg-amber-50 border-amber-200 shadow-sm">
+                            <CardContent className="p-4 flex items-center gap-4">
+                                <div className="p-2 bg-amber-500 text-white rounded-lg shadow-inner"><GraduationCap size={20}/></div>
+                                <div>
+                                    <p className="text-[10px] font-black uppercase text-amber-700 tracking-wider">Aptos para Comissionamento</p>
+                                    <p className="text-2xl font-black text-amber-900 leading-none mt-1">{stats.ready}</p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card className="bg-emerald-50 border-emerald-200 shadow-sm">
+                            <CardContent className="p-4 flex items-center gap-4">
+                                <div className="p-2 bg-emerald-500 text-white rounded-lg shadow-inner"><Award size={20}/></div>
+                                <div>
+                                    <p className="text-[10px] font-black uppercase text-emerald-700 tracking-wider">Ciclo Completo (5/5)</p>
+                                    <p className="text-2xl font-black text-emerald-900 leading-none mt-1">{stats.finishing}</p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card className="bg-slate-50 border-slate-200 shadow-sm">
+                            <CardContent className="p-4 flex items-center gap-4">
+                                <div className="p-2 bg-slate-500 text-white rounded-lg shadow-inner"><Users size={20}/></div>
+                                <div>
+                                    <p className="text-[10px] font-black uppercase text-slate-700 tracking-wider">Em Jornada (Módulos 1-4)</p>
+                                    <p className="text-2xl font-black text-slate-900 leading-none mt-1">{stats.missing}</p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
+
+                <div className="rounded-xl border bg-background overflow-x-auto shadow-sm">
+                    <Table>
+                        <TableHeader className="bg-muted/50">
+                            <TableRow>
+                                <TableHead className="min-w-[250px] sticky left-0 bg-muted/50 z-20 border-r">Aluno (Membresia Modular)</TableHead>
+                                {modules.map((mod, index) => (
+                                    <TableHead key={mod.id} className="text-center min-w-[160px] py-4">
+                                        <div className="flex flex-col items-center gap-1">
+                                            <div className="flex items-center gap-1.5 mb-1">
+                                                <span className={cn(
+                                                    "text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter",
+                                                    mod.type === 'Eletivo' ? "bg-amber-100 text-amber-700" : "bg-primary/10 text-primary"
+                                                )}>
+                                                    {mod.type === 'Eletivo' ? 'Eletivo' : `Módulo ${mod.id}`}
+                                                </span>
+                                            </div>
+                                            <span className="font-bold text-slate-900 leading-none text-xs">{mod.title}</span>
+                                            <p className="text-[9px] text-muted-foreground uppercase font-bold mt-1 tracking-widest">{index+1}º Domingo</p>
+                                        </div>
+                                    </TableHead>
+                                ))}
+                                <TableHead className="text-center min-w-[120px] bg-primary/5 font-black text-primary">Status</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {students.map(student => {
+                                const progress = student.journey?.memberCourseProgress || {};
+                                let completedMandatoryCount = 0;
+                                ['module1', 'module2', 'module3', 'module4'].forEach(m => { if(progress[m]) completedMandatoryCount++; });
+
+                                return (
+                                    <TableRow key={student.id} className="hover:bg-muted/30 group">
+                                        <TableCell className="sticky left-0 bg-background z-10 font-medium border-r">
+                                            <div className="flex items-center gap-3">
+                                                <Avatar className="h-8 w-8">
+                                                    <AvatarFallback>{student.name.charAt(0)}</AvatarFallback>
+                                                </Avatar>
+                                                <p className="truncate text-sm font-bold">{student.name}</p>
+                                            </div>
+                                        </TableCell>
+                                        {modules.map(mod => {
+                                            const modKey = `module${mod.id}`;
+                                            const isDone = progress[modKey];
+                                            
+                                            return (
+                                                <TableCell key={mod.id} className="text-center">
+                                                    {isDone ? (
+                                                        <CheckCircle2 className="text-emerald-500 size-5 mx-auto" />
+                                                    ) : mod.type === 'Eletivo' ? (
+                                                        <Star className="text-amber-200 size-5 mx-auto" />
+                                                    ) : (
+                                                        <Clock className="text-slate-200 size-5 mx-auto opacity-50" />
+                                                    )}
+                                                </TableCell>
+                                            );
+                                        })}
+                                        <TableCell className="bg-primary/5 text-center">
+                                            <Badge variant={completedMandatoryCount === 4 ? "default" : "outline"} className="text-[10px] uppercase font-black">
+                                                {completedMandatoryCount === 4 ? "APTO" : `${completedMandatoryCount}/4`}
+                                            </Badge>
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                </div>
+            </div>
+        );
+    }
+
+    // Default Matrix logic for other courses (Date-based)
     const allDates = useMemo(() => {
         const dates = new Set<string>();
-        
         courseClasses.forEach(cls => {
             if (!cls.startDate) return;
             const start = parseISO(cls.startDate);
@@ -42,15 +179,14 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
             const targetDay = cls.dayOfWeek ? weekDayMap[cls.dayOfWeek] : -1;
             const holidays = new Set(cls.holidayDates || []);
 
-            if (!cls.frequency || cls.frequency === 'pontual') {
+            if (cls.frequency === 'pontual') {
                 if (!holidays.has(cls.startDate)) dates.add(cls.startDate);
                 return;
             }
 
             let current = start;
             let safe = 0;
-            while (isBefore(current, end) || format(current, 'yyyy-MM-dd') === format(end, 'yyyy-MM-dd')) {
-                if (safe++ > 100) break;
+            while ((isBefore(current, end) || format(current, 'yyyy-MM-dd') === format(end, 'yyyy-MM-dd')) && safe++ < 100) {
                 let matches = false;
                 if (cls.frequency === 'semanal') matches = targetDay === -1 || current.getDay() === targetDay;
                 else if (cls.frequency === 'quinzenal') matches = (Math.floor((current.getTime() - start.getTime()) / (7*24*60*60*1000)) % 2 === 0) && (targetDay === -1 || current.getDay() === targetDay);
@@ -60,103 +196,30 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                     matches = (cls.weekOfMonth === 'last' && isLast) || (week.toString() === cls.weekOfMonth);
                     matches = matches && current.getDay() === targetDay;
                 }
-                
                 const dateStr = format(current, 'yyyy-MM-dd');
                 if (matches && !holidays.has(dateStr)) dates.add(dateStr);
                 current = addWeeks(current, 1);
             }
         });
-
         return Array.from(dates).sort();
     }, [courseClasses]);
 
-    const students = useMemo(() => {
-        const studentSet = new Set<string>();
-        courseClasses.forEach(cls => cls.students?.forEach(sId => studentSet.add(sId)));
-        return users.filter(u => studentSet.has(u.id)).sort((a, b) => a.name.localeCompare(b.name));
-    }, [users, courseClasses]);
-
-    const stats = useMemo(() => {
-        if (!isMemberCourse) return null;
-        const counts = { ready: 0, finishing: 0, missing: 0 };
-        students.forEach(s => {
-            const progress = s.journey?.memberCourseProgress || {};
-            const completedCount = Object.values(progress).filter(Boolean).length;
-            if (completedCount === 5) counts.finishing++;
-            else if (['module1', 'module2', 'module3', 'module4'].every(m => progress[m])) counts.ready++;
-            else counts.missing++;
-        });
-        return counts;
-    }, [students, isMemberCourse]);
-
-    if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
-
     return (
         <div className="space-y-6">
-            {isMemberCourse && stats && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card className="bg-amber-50 border-amber-200 shadow-sm">
-                        <CardContent className="p-4 flex items-center gap-4">
-                            <div className="p-2 bg-amber-500 text-white rounded-lg shadow-inner"><GraduationCap size={20}/></div>
-                            <div>
-                                <p className="text-[10px] font-black uppercase text-amber-700 tracking-wider">Aptos para Comissionamento</p>
-                                <p className="text-2xl font-black text-amber-900 leading-none mt-1">{stats.ready}</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card className="bg-emerald-50 border-emerald-200 shadow-sm">
-                        <CardContent className="p-4 flex items-center gap-4">
-                            <div className="p-2 bg-emerald-500 text-white rounded-lg shadow-inner"><Award size={20}/></div>
-                            <div>
-                                <p className="text-[10px] font-black uppercase text-emerald-700 tracking-wider">Curso Concluído</p>
-                                <p className="text-2xl font-black text-amber-900 leading-none mt-1">{stats.finishing}</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card className="bg-slate-50 border-slate-200 shadow-sm">
-                        <CardContent className="p-4 flex items-center gap-4">
-                            <div className="p-2 bg-slate-500 text-white rounded-lg shadow-inner"><Users size={20}/></div>
-                            <div>
-                                <p className="text-[10px] font-black uppercase text-slate-700 tracking-wider">Em Jornada (Módulos 1-4)</p>
-                                <p className="text-2xl font-black text-slate-900 leading-none mt-1">{stats.missing}</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-            )}
-
             <div className="rounded-xl border bg-background overflow-x-auto shadow-sm">
                 <Table>
                     <TableHeader className="bg-muted/50">
                         <TableRow>
-                            <TableHead className="min-w-[250px] sticky left-0 bg-muted/50 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.05)] border-r">Aluno</TableHead>
+                            <TableHead className="min-w-[250px] sticky left-0 bg-muted/50 z-20 border-r">Aluno</TableHead>
                             {allDates.map((date, index) => {
                                 const episode = linkedTheoflix?.episodes?.[index];
                                 return (
                                     <TableHead key={date} className="text-center min-w-[140px] px-2 py-4">
                                         <div className="flex flex-col items-center gap-1">
-                                            <div className="flex items-center gap-1.5 mb-1">
-                                                <span className="text-[9px] font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded uppercase tracking-tighter">Aula {index + 1}</span>
-                                                {episode && (
-                                                    <TooltipProvider>
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <Video className="size-3 text-primary animate-pulse" />
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <p className="text-xs">Disponível no TheoFlix</p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </TooltipProvider>
-                                                )}
-                                            </div>
+                                            <span className="text-[9px] font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded uppercase tracking-tighter">Aula {index + 1}</span>
                                             <span className="text-[10px] font-black uppercase text-muted-foreground leading-none">{format(parseISO(date), 'EEE', { locale: ptBR })}</span>
                                             <span className="font-bold text-slate-900 leading-none">{format(parseISO(date), 'dd/MM')}</span>
-                                            {episode && (
-                                                <p className="text-[9px] font-bold text-primary truncate max-w-[120px] mt-1 uppercase italic leading-tight" title={episode.title}>
-                                                    {episode.title}
-                                                </p>
-                                            )}
+                                            {episode && <Video className="size-3 text-primary mt-1" />}
                                         </div>
                                     </TableHead>
                                 );
@@ -165,97 +228,41 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {students.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={allDates.length + 2} className="h-32 text-center text-muted-foreground italic">
-                                    Nenhum aluno matriculado neste curso.
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            students.map(student => {
-                                let attendedCount = 0;
-                                const today = startOfDay(new Date());
-
-                                return (
-                                    <TableRow key={student.id} className="hover:bg-muted/30 group">
-                                        <TableCell className="sticky left-0 bg-background z-10 font-medium border-r shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
-                                            <div className="flex items-center gap-3">
-                                                <Avatar className="h-8 w-8">
-                                                    <AvatarImage src={PlaceHolderImages.find(p => p.id === 'avatar-1')?.imageUrl} />
-                                                    <AvatarFallback>{student.name.charAt(0)}</AvatarFallback>
-                                                </Avatar>
-                                                <div className="min-w-0">
-                                                    <p className="truncate text-sm font-bold">{student.name}</p>
-                                                </div>
-                                            </div>
-                                        </TableCell>
-                                        
-                                        {allDates.map(date => {
-                                            const classHeld = courseClasses.find(cls => 
-                                                cls.attendance?.some(att => att.date === date)
-                                            );
-                                            const attendanceRecord = classHeld?.attendance?.find(a => a.date === date);
-                                            const isPresentPhysical = attendanceRecord?.presentStudentIds.includes(student.id);
-                                            const isPresentOnline = attendanceRecord?.onlineStudentIds?.includes(student.id);
-                                            const isPast = isBefore(parseISO(date), today);
-                                            
-                                            if (isPresentPhysical || isPresentOnline) attendedCount++;
-
-                                            return (
-                                                <TableCell key={date} className="text-center">
-                                                    {isPresentPhysical ? (
-                                                        <TooltipProvider>
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <CheckCircle2 className="text-emerald-500 size-5 mx-auto cursor-help" />
-                                                                </TooltipTrigger>
-                                                                <TooltipContent><p>Presença Física</p></TooltipContent>
-                                                            </Tooltip>
-                                                        </TooltipProvider>
-                                                    ) : isPresentOnline ? (
-                                                        <TooltipProvider>
-                                                            <Tooltip>
-                                                                <TooltipTrigger asChild>
-                                                                    <PlayCircle className="text-blue-500 size-5 mx-auto cursor-help animate-in zoom-in" />
-                                                                </TooltipTrigger>
-                                                                <TooltipContent><p>Validado via TheoFlix</p></TooltipContent>
-                                                            </Tooltip>
-                                                        </TooltipProvider>
-                                                    ) : classHeld ? (
-                                                        <XCircle className="text-destructive size-5 mx-auto opacity-40" />
-                                                    ) : isPast ? (
-                                                        <Minus className="text-slate-200 size-5 mx-auto" />
-                                                    ) : (
-                                                        <Clock className="text-slate-100 size-5 mx-auto" />
-                                                    )}
-                                                </TableCell>
-                                            );
-                                        })}
-
-                                        <TableCell className="bg-primary/5 text-center">
-                                            <div className="flex flex-col items-center">
-                                                <span className="font-black text-primary text-sm">
-                                                    {allDates.length > 0 ? Math.round((attendedCount / allDates.length) * 100) : 0}%
-                                                </span>
-                                                <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-tighter">
-                                                    {attendedCount} / {allDates.length} aulas
-                                                </span>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })
-                        )}
+                        {students.map(student => {
+                            let attendedCount = 0;
+                            const today = startOfDay(new Date());
+                            return (
+                                <TableRow key={student.id} className="hover:bg-muted/30 group">
+                                    <TableCell className="sticky left-0 bg-background z-10 font-medium border-r">
+                                        <div className="flex items-center gap-3">
+                                            <Avatar className="h-8 w-8"><AvatarFallback>{student.name.charAt(0)}</AvatarFallback></Avatar>
+                                            <p className="truncate text-sm font-bold">{student.name}</p>
+                                        </div>
+                                    </TableCell>
+                                    {allDates.map(date => {
+                                        const classHeld = courseClasses.find(cls => cls.attendance?.some(att => att.date === date));
+                                        const attendanceRecord = classHeld?.attendance?.find(a => a.date === date);
+                                        const isPresentPhysical = attendanceRecord?.presentStudentIds.includes(student.id);
+                                        const isPresentOnline = attendanceRecord?.onlineStudentIds?.includes(student.id);
+                                        if (isPresentPhysical || isPresentOnline) attendedCount++;
+                                        return (
+                                            <TableCell key={date} className="text-center">
+                                                {isPresentPhysical ? <CheckCircle2 className="text-emerald-500 size-5 mx-auto" /> : 
+                                                 isPresentOnline ? <PlayCircle className="text-blue-500 size-5 mx-auto" /> :
+                                                 classHeld ? <XCircle className="text-destructive size-5 mx-auto opacity-40" /> :
+                                                 isBefore(parseISO(date), today) ? <Minus className="text-slate-200 size-5 mx-auto" /> : 
+                                                 <Clock className="text-slate-100 size-5 mx-auto" />}
+                                            </TableCell>
+                                        );
+                                    })}
+                                    <TableCell className="bg-primary/5 text-center">
+                                        <span className="font-black text-primary text-sm">{allDates.length > 0 ? Math.round((attendedCount / allDates.length) * 100) : 0}%</span>
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
                     </TableBody>
                 </Table>
-            </div>
-            
-            <div className="flex flex-wrap gap-6 p-4 bg-muted/20 rounded-xl border border-dashed text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                <div className="flex items-center gap-2"><CheckCircle2 className="size-3 text-emerald-500"/> Presente (Presencial)</div>
-                <div className="flex items-center gap-2"><PlayCircle className="size-3 text-blue-500"/> Presente (Online/TheoFlix)</div>
-                <div className="flex items-center gap-2"><XCircle className="size-3 text-destructive/40"/> Falta (Aula houve)</div>
-                <div className="flex items-center gap-2"><Minus className="size-3 text-slate-300"/> Aula não realizada</div>
-                <div className="flex items-center gap-2"><Clock className="size-3 text-slate-200"/> Pendente (Futura)</div>
             </div>
         </div>
     );
