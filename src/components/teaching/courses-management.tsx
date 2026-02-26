@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase, deleteDocumentNonBlocking } from '@/firebase';
@@ -127,6 +128,24 @@ export function CoursesManagement() {
     return `/dashboard/teaching/courses/${course.id}`;
   };
 
+  const getTrackInfo = (course: Course) => {
+    if (course.ebdTrack === 'teologico') {
+        return (
+            <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-[10px] font-black h-5">
+                Fase Buscar | 12/03 a 16/04 às 09h00
+            </Badge>
+        );
+    }
+    if (course.ebdTrack === 'biblico' || course.ebdTrack === 'discipulado') {
+        return (
+            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] font-black h-5">
+                Todo domingo às 09h00
+            </Badge>
+        );
+    }
+    return null;
+  };
+
   const renderCourseCard = (course: Course, ministry: string) => {
     const Icon = getMinistryIcon(ministry);
     const href = getCourseHref(course);
@@ -139,9 +158,12 @@ export function CoursesManagement() {
                         <div className="p-2 bg-primary/5 rounded-lg text-primary group-hover:bg-primary/10 transition-colors">
                             <Icon className="size-5" />
                         </div>
-                        <div className="pr-20 sm:pr-32">
-                            <p className="font-bold text-slate-900 leading-tight">{course.name}</p>
-                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{course.description || 'Sem descrição definida.'}</p>
+                        <div className="pr-20 sm:pr-32 overflow-hidden">
+                            <p className="font-bold text-slate-900 leading-tight truncate">{course.name}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                                {getTrackInfo(course)}
+                                {!getTrackInfo(course) && <p className="text-xs text-muted-foreground line-clamp-1">{course.description || 'Sem descrição definida.'}</p>}
+                            </div>
                         </div>
                     </div>
                     <ChevronRight className="h-5 w-5 text-muted-foreground opacity-50 group-hover:translate-x-1 transition-transform" />
