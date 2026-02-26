@@ -51,7 +51,7 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
     // Monitorar erros que o servidor salvou no banco
     useEffect(() => {
         if (lastError) {
-            addLog(`MENSAGEM DO SERVIDOR: ${lastError}`);
+            addLog(`SERVIDOR: ${lastError}`);
         }
     }, [lastError]);
 
@@ -65,7 +65,7 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
 
         try {
             const res = await fetch('/api/finance/conta-azul/sync', { method: 'POST' });
-            const data = await res.json();
+            const data = await responseJson(res);
             if (res.ok) {
                 addLog(`Sucesso! ${data.data.bankAccounts?.length || 0} contas bancárias encontradas.`);
                 toast({ title: "Teste de Leitura OK", description: "Conexão estabelecida com sucesso." });
@@ -90,7 +90,7 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
 
         try {
             const res = await fetch('/api/finance/conta-azul/test-write', { method: 'POST' });
-            const data = await res.json();
+            const data = await responseJson(res);
             if (res.ok) {
                 addLog("Sucesso! Recebível de teste criado no Conta Azul.");
                 toast({ title: "Teste de Escrita OK", description: "Fatura de teste gerada com sucesso." });
@@ -104,6 +104,14 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
             setIsTestingWrite(false);
         }
     };
+
+    async function responseJson(res: Response) {
+        try {
+            return await res.json();
+        } catch {
+            return { error: `Erro HTTP ${res.status}` };
+        }
+    }
 
     return (
         <Card className="border-primary/20 bg-primary/5 shadow-inner">
@@ -127,7 +135,7 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Button 
                         variant="outline" 
-                        className={cn("h-16 bg-white border-primary/20 group")}
+                        className={cn("h-16 bg-white border-primary/20 group hover:bg-emerald-50")}
                         onClick={handleReadTest}
                         disabled={isTestingRead}
                     >
@@ -140,7 +148,7 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
 
                     <Button 
                         variant="outline" 
-                        className={cn("h-16 bg-white border-primary/20 group")}
+                        className={cn("h-16 bg-white border-primary/20 group hover:bg-blue-50")}
                         onClick={handleWriteTest}
                         disabled={isTestingWrite}
                     >

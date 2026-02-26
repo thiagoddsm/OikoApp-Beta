@@ -6,7 +6,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 /**
  * Rota de Callback para o OAuth 2.0 da Conta Azul.
  * Captura o 'code' enviado após a autorização do usuário e troca pelos tokens de acesso.
- * Otimizada para o ambiente de proxy do Firebase Studio.
+ * Otimizada para o ambiente de proxy do Firebase Studio com LOGS DE DIAGNÓSTICO.
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -23,11 +23,16 @@ export async function GET(request: Request) {
   const { firestore } = initializeFirebase();
   const configRef = doc(firestore, 'config', 'conta_azul');
 
+  // Log inicial para diagnóstico no painel
+  await updateDoc(configRef, { 
+      lastError: `DEBUG CALLBACK: Iniciando troca. URI Detectada: ${redirectUri}`,
+      lastErrorAt: new Date().toISOString()
+  }).catch(() => {});
+
   if (error) {
     const msg = `ERRO CONTA AZUL: ${error} - ${errorDescription || 'Sem descrição'}`;
     console.error(msg);
     
-    // Salva o erro no banco para o usuário ver no Laboratório
     await updateDoc(configRef, { 
         lastError: msg,
         lastErrorAt: new Date().toISOString()
@@ -76,7 +81,7 @@ export async function GET(request: Request) {
     if (!response.ok) {
       const errMsg = data.error_description || data.error || 'Falha na troca do token.';
       
-      // Salva falha técnica para depuração
+      // Salva falha técnica para depuração no painel do usuário
       await updateDoc(configRef, { 
           lastError: `FALHA NO TOKEN: ${errMsg} (URI enviada: ${redirectUri})`,
           lastErrorAt: new Date().toISOString()
@@ -92,7 +97,7 @@ export async function GET(request: Request) {
       refreshToken: data.refresh_token,
       expiresAt: expiresAt,
       updatedAt: new Date().toISOString(),
-      lastError: null // Limpa erros se teve sucesso
+      lastError: 'SUCESSO: Conexão estabelecida e tokens salvos.' 
     });
 
     return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=connected`);
