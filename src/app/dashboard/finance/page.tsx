@@ -159,7 +159,7 @@ function ContaAzulConnect() {
   }, [config]);
 
   const handleConnect = () => {
-    if (!clientId || !clientSecret || !configDocRef) {
+    if (!clientId.trim() || !clientSecret.trim() || !configDocRef) {
       toast({
         variant: 'destructive',
         title: 'Credenciais ausentes',
@@ -170,8 +170,8 @@ function ContaAzulConnect() {
     setIsSaving(true);
     
     setDocumentNonBlocking(configDocRef, { 
-        clientId, 
-        clientSecret 
+        clientId: clientId.trim(), 
+        clientSecret: clientSecret.trim() 
     }, { merge: true });
 
     setTimeout(() => {
@@ -204,7 +204,10 @@ function ContaAzulConnect() {
 
   // URL de redirecionamento oficial do app publicado
   const redirectUri = `https://studio--studio-1424813022-71754.us-central1.hosted.app/api/finance/conta-azul/callback`;
-  const authUrl = `https://app.contaazul.com/auth/authorize?client_id=${clientId}&scope=sales%20shipping%20inventory%20products%20customers%20finance&redirect_uri=${encodeURIComponent(redirectUri)}&state=oiko_auth`;
+  
+  // Usando scopes simplificados para reduzir erros de acesso negado
+  const scopes = encodeURIComponent('finance customers');
+  const authUrl = `https://app.contaazul.com/auth/authorize?client_id=${clientId.trim()}&scope=${scopes}&redirect_uri=${encodeURIComponent(redirectUri)}&state=oiko_auth&response_type=code`;
 
   const copyRedirectUri = () => {
       navigator.clipboard.writeText(redirectUri);
@@ -268,6 +271,13 @@ function ContaAzulConnect() {
                         {!isConnected ? (
                             <>
                                 <p className="text-sm text-muted-foreground">Após salvar as credenciais acima, clique abaixo para vincular sua conta real ou sandbox.</p>
+                                <Alert className="bg-amber-50 border-amber-200 text-left">
+                                    <AlertCircle className="h-4 w-4 text-amber-600" />
+                                    <AlertTitle className="text-xs font-bold text-amber-800">DICA DE SANDBOX</AlertTitle>
+                                    <AlertDescription className="text-[10px] text-amber-700">
+                                        Se o app estiver em desenvolvimento, você deve usar o e-mail <strong>@devportal.com</strong> fornecido no seu portal Conta Azul para evitar o erro de 'Acesso Negado'.
+                                    </AlertDescription>
+                                </Alert>
                                 <Button 
                                     className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-base font-black shadow-xl" 
                                     disabled={!hasCredentials} 
