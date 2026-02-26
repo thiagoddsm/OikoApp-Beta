@@ -197,7 +197,7 @@ function TechnicalDossier() {
                                 <div className="size-1.5 rounded-full bg-indigo-500" />
                                 1. Desafio da Identidade Binária (Redirect URI)
                             </h4>
-                            <p>O protocolo OAuth 2.0 exige que a <code className="bg-indigo-100 px-1 rounded">redirect_uri</code> enviada pela aplicação seja "binariamente idêntica" à cadastrada no portal de desenvolvedores. No ambiente do Firebase Studio, surge uma discrepância de portas: enquanto o portal pode esperar uma requisição na porta 6000, o servidor interno detecta a porta 9002.</p>
+                            <p>O protocolo OAuth 2.0 exige que a <code className="bg-indigo-100 px-1 rounded">redirect_uri</code> enviada pela aplicação seja "binariamente idêntica" à cadastrada no portal de desenvolvedores. No ambiente do Firebase Studio, surge uma discrepância de portas: enquanto o portal pode esperar uma requisição na porta :6000, o servidor interno detecta a porta :9002.</p>
                             <p className="mt-2 text-xs font-bold text-indigo-700 italic">Solução: Detecção dinâmica baseada em cabeçalhos de proxy para garantir que a aplicação se apresente com o endereço exato visualizado no navegador.</p>
                         </section>
 
