@@ -48,9 +48,10 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
         setLog(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 15));
     };
 
+    // Monitorar erros que o servidor salvou no banco
     useEffect(() => {
         if (lastError) {
-            addLog(`ERRO DO SERVIDOR: ${lastError}`);
+            addLog(`MENSAGEM DO SERVIDOR: ${lastError}`);
         }
     }, [lastError]);
 
@@ -155,7 +156,7 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
                     <Label className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2">
                         <Terminal size={12} /> Console de Depuração
                     </Label>
-                    <div className="bg-black/90 p-3 rounded-lg font-mono text-[10px] text-emerald-400 h-40 overflow-y-auto shadow-2xl border border-white/10">
+                    <div className="bg-black/90 p-3 rounded-lg font-mono text-[10px] text-emerald-400 h-48 overflow-y-auto shadow-2xl border border-white/10">
                         {log.length === 0 ? (
                             <div className="h-full flex flex-col items-center justify-center opacity-30 italic gap-2">
                                 <Bug size={24} />
@@ -299,7 +300,7 @@ function ContaAzulConnect() {
 
   // Use HTTPS fixo para redirect_uri no Studio/Cloud
   const redirectUri = `${origin}/api/finance/conta-azul/callback`;
-  const scopes = 'finance customers sales'; // Adicionado sales por segurança em Sandbox
+  const scopes = 'finance customers sales'; 
   const authUrl = `https://app.contaazul.com/auth/authorize?client_id=${clientId.trim()}&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=oiko_auth&response_type=code`;
 
   return (
