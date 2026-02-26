@@ -2,7 +2,7 @@
 'use client';
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { User, Phone, Home, CheckCircle, Calendar, Users, MapPin, BadgeHelp, UserPlus, Smartphone, Clock, Mail, Church, Target, LogIn, GraduationCap, Briefcase, IdentificationCard } from 'lucide-react';
+import { User, Phone, Home, CheckCircle, Calendar, Users, MapPin, BadgeHelp, UserPlus, Smartphone, Clock, Mail, Church, Target, LogIn, GraduationCap, Briefcase, IdCard } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -50,7 +50,7 @@ export function MemberDetails({ user }) {
                 <h4 className="font-semibold text-primary border-b pb-2 mb-4">Dados Pessoais</h4>
                 <div className="grid md:grid-cols-2 gap-x-8 gap-y-4">
                     <DetailItem icon={User} label="Nome" value={user.name} />
-                    <DetailItem icon={IdentificationCard} label="CPF" value={user.cpf || 'Não informado'} />
+                    <DetailItem icon={IdCard} label="CPF" value={user.cpf || 'Não informado'} />
                     <DetailItem icon={Users} label="Sexo" value={user.sexo || 'Não informado'} />
                     <DetailItem icon={Mail} label="Email" value={user.email || 'Não informado'} />
                     <DetailItem icon={Phone} label="Telefone" value={user.phone || 'Não informado'} />
