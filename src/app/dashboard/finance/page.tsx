@@ -150,7 +150,7 @@ function ContaAzulConnect() {
   const [origin, setOrigin] = useState('');
   
   useEffect(() => {
-    // Captura a origem EXATA do navegador (incluindo porta se houver)
+    // Captura a origem EXATA do navegador para garantir o Redirect URI perfeito
     setOrigin(window.location.origin);
   }, []);
 
@@ -185,7 +185,7 @@ function ContaAzulConnect() {
 
     setTimeout(() => {
         setIsSaving(false);
-        toast({ title: 'Credenciais Salvas!', description: 'Suas credenciais foram salvas sem espaços.' });
+        toast({ title: 'Credenciais Salvas!', description: 'Suas credenciais foram sincronizadas com sucesso.' });
     }, 1000);
   };
   
@@ -207,16 +207,16 @@ function ContaAzulConnect() {
 
   return (
     <div className="space-y-6">
-        <Alert className="bg-amber-50 border-amber-200">
-            <HelpCircle className="h-4 w-4 text-amber-600" />
-            <AlertTitle className="text-amber-800 font-bold uppercase text-xs">Configuração Obrigatória</AlertTitle>
-            <AlertDescription className="text-amber-700 text-xs space-y-2">
-                <p>No portal Conta Azul Developers, o campo <strong>URL de Redirecionamento</strong> deve estar exatamente assim:</p>
-                <div className="flex items-center gap-2 bg-white/50 p-2 rounded border border-amber-200 mt-1">
+        <Alert className="bg-blue-50 border-blue-200">
+            <HelpCircle className="h-4 w-4 text-blue-600" />
+            <AlertTitle className="text-blue-800 font-bold uppercase text-xs">Configuração de Segurança</AlertTitle>
+            <AlertDescription className="text-blue-700 text-xs space-y-2">
+                <p>No portal Conta Azul, o campo <strong>URL de Redirecionamento</strong> deve estar EXATAMENTE como este link abaixo:</p>
+                <div className="flex items-center gap-2 bg-white/50 p-2 rounded border border-blue-200 mt-1">
                     <code className="font-mono text-[10px] flex-1 truncate">{redirectUri}</code>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { navigator.clipboard.writeText(redirectUri); toast({title: "Copiado!"}); }}><Copy size={12}/></Button>
                 </div>
-                <p className="font-bold">⚠️ Se o link acima mudou, você precisa atualizar no portal da Conta Azul antes de autorizar.</p>
+                <p className="font-bold text-amber-700">⚠️ Se o link acima contém uma porta (ex: :6000), ela DEVE estar no portal também.</p>
             </AlertDescription>
         </Alert>
 
@@ -228,14 +228,18 @@ function ContaAzulConnect() {
                             <Key className="size-4 text-primary" />
                             1. Credenciais
                         </CardTitle>
-                        {isConnected ? <Badge className="bg-emerald-500 text-white">CONECTADO</Badge> : <Badge variant="outline">AGUARDANDO</Badge>}
+                        {isConnected ? (
+                            <Badge className="bg-emerald-500 text-white font-black">CONECTADO</Badge>
+                        ) : (
+                            <Badge variant="outline" className="text-amber-600 bg-amber-50">AGUARDANDO</Badge>
+                        )}
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-6 pt-6">
                     <div className="grid grid-cols-1 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="client-id" className="text-xs font-bold uppercase text-muted-foreground">Client ID</Label>
-                            <Input id="client-id" value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="Ex: 881cq0o..." />
+                            <Input id="client-id" value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="881cq0o..." />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="client-secret" className="text-xs font-bold uppercase text-muted-foreground">Client Secret</Label>
@@ -260,7 +264,7 @@ function ContaAzulConnect() {
                     <CardContent className="pt-6 text-center space-y-4">
                         {!isConnected ? (
                             <>
-                                <p className="text-sm text-muted-foreground">Após salvar as chaves, autorize o acesso à sua conta.</p>
+                                <p className="text-sm text-muted-foreground">Clique abaixo para autorizar o OikoApp a gerenciar seu financeiro na Conta Azul.</p>
                                 <Button className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-base font-black shadow-xl" disabled={!hasCredentials} asChild>
                                     <a href={authUrl}><ExternalLink className="mr-2 size-5"/>Autorizar App Agora</a>
                                 </Button>

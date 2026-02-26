@@ -13,26 +13,24 @@ export async function GET(request: Request) {
   const error = url.searchParams.get('error');
   const errorDescription = url.searchParams.get('error_description');
 
-  // Detecção do Host Público REAL
+  // Detecção do Host Público REAL (essencial para o Studio)
+  // Prioriza headers de proxy que o Google Cloud Workstations envia
   const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || url.host;
   const protocol = request.headers.get('x-forwarded-proto') || 'https';
   
-  // No Studio, não podemos remover a porta ou alterar o host, 
-  // deve ser idêntico ao que o navegador está exibindo para bater com o Redirect URI
+  // Constrói a URI que deve ser IDENTICA à cadastrada no Portal do Desenvolvedor
   const appOrigin = `${protocol}://${host}`;
   const redirectUri = `${appOrigin}/api/finance/conta-azul/callback`;
 
   console.log('--- DEBUG CONTA AZUL CALLBACK ---');
-  console.log('Host detectado no backend:', host);
+  console.log('Host detectado:', host);
   console.log('Redirect URI usada para troca:', redirectUri);
 
-  // Se o Conta Azul retornou um erro
   if (error) {
     console.error('Erro retornado pelo Conta Azul:', error, errorDescription);
-    let msg = errorDescription || error;
-    if (error === 'access_denied') {
-        msg = 'Acesso Negado: Use o e-mail de Sandbox (@devportal.com) ou verifique se o Redirect URI no portal está idêntico a este: ' + redirectUri;
-    }
+    const msg = error === 'access_denied' 
+        ? 'Acesso Negado: Certifique-se de usar o e-mail de Sandbox (@devportal.com) e que a URL no portal seja exatamente: ' + redirectUri
+        : errorDescription || error;
     return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=error&message=${encodeURIComponent(msg)}`);
   }
 
@@ -52,7 +50,7 @@ export async function GET(request: Request) {
     const { clientId, clientSecret } = configSnap.data();
 
     if (!clientId || !clientSecret) {
-        throw new Error('ClientId ou ClientSecret ausentes.');
+        throw new Error('ClientId ou ClientSecret ausentes. Salve as credenciais primeiro.');
     }
 
     const authHeader = Buffer.from(`${clientId.trim()}:${clientSecret.trim()}`).toString('base64');
