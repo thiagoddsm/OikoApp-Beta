@@ -13,26 +13,25 @@ export async function GET(request: Request) {
   const error = url.searchParams.get('error');
   const errorDescription = url.searchParams.get('error_description');
 
-  // Detecção ultra-robusta do Host público para evitar Mismatch de Redirect URI
+  // Detecção do Host Público REAL
   const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || url.host;
   const protocol = request.headers.get('x-forwarded-proto') || 'https';
   
-  // Remove a porta interna (ex: :9002) se o host contiver o domínio do cloudworkstations
-  const cleanHost = host.includes('cloudworkstations.dev') ? host.split(':')[0] : host;
-  
-  const appOrigin = `${protocol}://${cleanHost}`;
+  // No Studio, não podemos remover a porta ou alterar o host, 
+  // deve ser idêntico ao que o navegador está exibindo para bater com o Redirect URI
+  const appOrigin = `${protocol}://${host}`;
   const redirectUri = `${appOrigin}/api/finance/conta-azul/callback`;
 
   console.log('--- DEBUG CONTA AZUL CALLBACK ---');
-  console.log('App Origin detectado:', appOrigin);
-  console.log('Redirect URI gerada para troca de token:', redirectUri);
+  console.log('Host detectado no backend:', host);
+  console.log('Redirect URI usada para troca:', redirectUri);
 
   // Se o Conta Azul retornou um erro
   if (error) {
     console.error('Erro retornado pelo Conta Azul:', error, errorDescription);
     let msg = errorDescription || error;
     if (error === 'access_denied') {
-        msg = 'Acesso Negado: Verifique se o Client ID e Secret estão corretos e se você usou o e-mail de Sandbox (@devportal.com).';
+        msg = 'Acesso Negado: Use o e-mail de Sandbox (@devportal.com) ou verifique se o Redirect URI no portal está idêntico a este: ' + redirectUri;
     }
     return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=error&message=${encodeURIComponent(msg)}`);
   }
@@ -47,23 +46,18 @@ export async function GET(request: Request) {
     const configSnap = await getDoc(configRef);
 
     if (!configSnap.exists()) {
-      throw new Error('Configuração da Conta Azul não encontrada no banco de dados.');
+      throw new Error('Configuração da Conta Azul não encontrada.');
     }
 
     const { clientId, clientSecret } = configSnap.data();
 
     if (!clientId || !clientSecret) {
-        throw new Error('ClientId ou ClientSecret ausentes no banco de dados.');
+        throw new Error('ClientId ou ClientSecret ausentes.');
     }
 
-    // Limpeza rigorosa das chaves para evitar espaços invisíveis
-    const cleanId = clientId.trim();
-    const cleanSecret = clientSecret.trim();
-
-    // Criar o header de autorização Basic
-    const authHeader = Buffer.from(`${cleanId}:${cleanSecret}`).toString('base64');
+    const authHeader = Buffer.from(`${clientId.trim()}:${clientSecret.trim()}`).toString('base64');
     
-    // Troca do código pelos tokens usando URLSearchParams (obrigatório pela API)
+    // Troca do código pelos tokens
     const params = new URLSearchParams();
     params.append('grant_type', 'authorization_code');
     params.append('redirect_uri', redirectUri);
@@ -81,14 +75,13 @@ export async function GET(request: Request) {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('Erro na troca de token (Resposta da API):', data);
-      throw new Error(data.error_description || data.error || 'Falha na troca do código pelo token de acesso.');
+      console.error('Erro na troca de token:', data);
+      throw new Error(data.error_description || data.error || 'Falha na troca do código.');
     }
 
-    // Calcular expiração
+    // Calcular expiração e salvar
     const expiresAt = Date.now() + (data.expires_in * 1000);
 
-    // Salvar tokens e expiração no Firestore
     await updateDoc(configRef, {
       accessToken: data.access_token,
       refreshToken: data.refresh_token,
@@ -99,7 +92,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=connected`);
 
   } catch (error: any) {
-    console.error('Erro fatal no processamento do callback:', error);
+    console.error('Erro fatal no callback:', error);
     return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=error&message=${encodeURIComponent(error.message)}`);
   }
 }

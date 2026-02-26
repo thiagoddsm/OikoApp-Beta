@@ -150,7 +150,7 @@ function ContaAzulConnect() {
   const [origin, setOrigin] = useState('');
   
   useEffect(() => {
-    // Captura a origem exata do navegador para garantir o Redirect URI correto
+    // Captura a origem EXATA do navegador (incluindo porta se houver)
     setOrigin(window.location.origin);
   }, []);
 
@@ -178,7 +178,6 @@ function ContaAzulConnect() {
     }
     setIsSaving(true);
     
-    // Salva já limpando espaços acidentais
     setDocumentNonBlocking(configDocRef, { 
         clientId: cleanId, 
         clientSecret: cleanSecret 
@@ -186,54 +185,38 @@ function ContaAzulConnect() {
 
     setTimeout(() => {
         setIsSaving(false);
-        toast({
-            title: 'Credenciais Salvas!',
-            description: 'Suas credenciais da Conta Azul foram salvas com segurança.',
-        });
+        toast({ title: 'Credenciais Salvas!', description: 'Suas credenciais foram salvas sem espaços.' });
     }, 1000);
   };
   
    const handleDisconnect = () => {
     if (!configDocRef) return;
-    if (confirm("Tem certeza que deseja remover a conexão com o Conta Azul? Isso interromperá a sincronização financeira.")) {
+    if (confirm("Tem certeza que deseja remover a conexão?")) {
         setDocumentNonBlocking(configDocRef, {
-            clientId: '',
-            clientSecret: '',
-            accessToken: '',
-            refreshToken: '',
-            expiresAt: 0
+            clientId: '', clientSecret: '', accessToken: '', refreshToken: '', expiresAt: 0
         }, { merge: true });
-        toast({
-            title: 'Desconectado',
-            description: 'A conexão com a Conta Azul foi removida.',
-        });
+        toast({ title: 'Desconectado', description: 'A conexão foi removida.' });
     }
   };
 
   if (isLoadingConfig) return null;
 
-  // URL dinâmica para suportar Studio e Produção
   const redirectUri = `${origin}/api/finance/conta-azul/callback`;
   const scopes = 'finance customers';
   const authUrl = `https://app.contaazul.com/auth/authorize?client_id=${clientId.trim()}&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=oiko_auth&response_type=code`;
-
-  const copyRedirectUri = () => {
-      navigator.clipboard.writeText(redirectUri);
-      toast({ title: "Copiado!", description: "Link de redirecionamento copiado." });
-  };
 
   return (
     <div className="space-y-6">
         <Alert className="bg-amber-50 border-amber-200">
             <HelpCircle className="h-4 w-4 text-amber-600" />
-            <AlertTitle className="text-amber-800 font-bold uppercase text-xs">Configuração para este Ambiente</AlertTitle>
+            <AlertTitle className="text-amber-800 font-bold uppercase text-xs">Configuração Obrigatória</AlertTitle>
             <AlertDescription className="text-amber-700 text-xs space-y-2">
-                <p>O <strong>Redirect URI</strong> abaixo deve ser cadastrado exatamente assim no portal da Conta Azul para que o botão de autorização funcione:</p>
+                <p>No portal Conta Azul Developers, o campo <strong>URL de Redirecionamento</strong> deve estar exatamente assim:</p>
                 <div className="flex items-center gap-2 bg-white/50 p-2 rounded border border-amber-200 mt-1">
                     <code className="font-mono text-[10px] flex-1 truncate">{redirectUri}</code>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={copyRedirectUri}><Copy size={12}/></Button>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { navigator.clipboard.writeText(redirectUri); toast({title: "Copiado!"}); }}><Copy size={12}/></Button>
                 </div>
-                <p className="font-bold">⚠️ Importante: Use a conta de Sandbox (@devportal.com) enquanto estiver no ambiente do Studio.</p>
+                <p className="font-bold">⚠️ Se o link acima mudou, você precisa atualizar no portal da Conta Azul antes de autorizar.</p>
             </AlertDescription>
         </Alert>
 
@@ -241,15 +224,11 @@ function ContaAzulConnect() {
             <Card className="shadow-lg border-2">
                 <CardHeader className="bg-muted/30 border-b">
                     <div className="flex items-center justify-between">
-                        <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tighter">
+                        <CardTitle className="flex items-center gap-2 text-sm font-black uppercase tracking-tighter">
                             <Key className="size-4 text-primary" />
-                            1. Credenciais de API
+                            1. Credenciais
                         </CardTitle>
-                        {isConnected ? (
-                            <Badge className="bg-emerald-500 text-white font-black">CONECTADO</Badge>
-                        ) : (
-                            <Badge variant="outline" className="text-amber-600 bg-amber-50">AGUARDANDO</Badge>
-                        )}
+                        {isConnected ? <Badge className="bg-emerald-500 text-white">CONECTADO</Badge> : <Badge variant="outline">AGUARDANDO</Badge>}
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-6 pt-6">
@@ -263,7 +242,6 @@ function ContaAzulConnect() {
                             <Input id="client-secret" type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} placeholder="••••••••" />
                         </div>
                     </div>
-
                     <Button onClick={handleConnect} disabled={isSaving} className="w-full h-11 font-bold mt-4">
                         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LinkIcon className="mr-2 h-4 w-4" />}
                         Salvar Credenciais
@@ -274,43 +252,28 @@ function ContaAzulConnect() {
             <div className="space-y-6">
                 <Card className={cn("shadow-lg border-2 transition-all", isConnected ? "border-emerald-200" : "opacity-50")}>
                     <CardHeader className={cn("border-b", isConnected ? "bg-emerald-50" : "bg-muted/30")}>
-                        <CardTitle className="text-base font-black uppercase tracking-tighter flex items-center gap-2">
-                            <PlayCircle className={cn("size-4", isConnected ? "text-emerald-600" : "text-slate-400")} />
-                            2. Autorização de Acesso
+                        <CardTitle className="text-sm font-black uppercase tracking-tighter flex items-center gap-2">
+                            <PlayCircle className="size-4" />
+                            2. Autorização
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="pt-6 text-center space-y-4">
                         {!isConnected ? (
                             <>
-                                <p className="text-sm text-muted-foreground">Clique abaixo para logar na Conta Azul e autorizar a sincronização.</p>
-                                <Button 
-                                    className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-base font-black shadow-xl" 
-                                    disabled={!hasCredentials} 
-                                    asChild
-                                >
-                                    <a href={authUrl}>
-                                        <ExternalLink className="mr-2 size-5"/>
-                                        Autorizar App Agora
-                                    </a>
+                                <p className="text-sm text-muted-foreground">Após salvar as chaves, autorize o acesso à sua conta.</p>
+                                <Button className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-base font-black shadow-xl" disabled={!hasCredentials} asChild>
+                                    <a href={authUrl}><ExternalLink className="mr-2 size-5"/>Autorizar App Agora</a>
                                 </Button>
                             </>
                         ) : (
                             <div className="py-4 space-y-4">
-                                <div className="size-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
-                                    <CheckCircle2 size={32} />
-                                </div>
-                                <div>
-                                    <h4 className="font-black text-emerald-900">Integração Ativa</h4>
-                                    <p className="text-xs text-emerald-700">O sistema está conectado ao ambiente Conta Azul.</p>
-                                </div>
-                                <Button variant="outline" className="text-destructive border-destructive/20 hover:bg-red-50" onClick={handleDisconnect}>
-                                    Encerrar Conexão
-                                </Button>
+                                <div className="size-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto"><CheckCircle2 size={32} /></div>
+                                <div><h4 className="font-black text-emerald-900">Integração Ativa</h4><p className="text-xs text-emerald-700">Conectado ao ambiente Conta Azul.</p></div>
+                                <Button variant="outline" className="text-destructive border-destructive/20" onClick={handleDisconnect}>Encerrar Conexão</Button>
                             </div>
                         )}
                     </CardContent>
                 </Card>
-
                 {isConnected && <IntegrationLaboratory />}
             </div>
         </div>
@@ -327,122 +290,72 @@ function FinancePageContent() {
     useEffect(() => {
         const status = searchParams.get('status');
         if (status === 'connected') {
-            toast({ title: "Conta Azul Conectada!", description: "A integração foi realizada com sucesso." });
+            toast({ title: "Sucesso!", description: "Conta Azul conectada com sucesso." });
         } else if (status === 'error') {
             const msg = searchParams.get('message');
-            toast({ 
-                variant: 'destructive', 
-                title: "Erro na Conexão", 
-                description: msg ? decodeURIComponent(msg) : "Falha ao autorizar Conta Azul." 
-            });
+            toast({ variant: 'destructive', title: "Erro na Autorização", description: msg ? decodeURIComponent(msg) : "Verifique o Redirect URI." });
         }
     }, [searchParams, toast]);
 
     const summaryData = useMemo(() => {
         if (!financialTransactions) return { income: 0, expense: 0, balance: 0, chartData: [] };
-
         const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
         const now = new Date();
         const last6Months = [];
-        
         for (let i = 5; i >= 0; i--) {
             const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            last6Months.push({
-                name: monthNames[d.getMonth()],
-                month: d.getMonth(),
-                year: d.getFullYear(),
-                income: 0,
-                expense: 0
-            });
+            last6Months.push({ name: monthNames[d.getMonth()], month: d.getMonth(), year: d.getFullYear(), income: 0, expense: 0 });
         }
-
-        let totalIncome = 0;
-        let totalExpense = 0;
-
+        let totalIncome = 0; let totalExpense = 0;
         financialTransactions.forEach(t => {
             const date = t.date.toDate();
             if (t.status === 'paid') {
                 if (t.type === 'income') totalIncome += t.amount;
                 else totalExpense += t.amount;
             }
-
             const monthData = last6Months.find(m => m.month === date.getMonth() && m.year === date.getFullYear());
             if (monthData) {
                 if (t.type === 'income') monthData.income += t.amount;
                 else monthData.expense += t.amount;
             }
         });
-
-        return {
-            income: totalIncome,
-            expense: totalExpense,
-            balance: totalIncome - totalExpense,
-            chartData: last6Months
-        };
+        return { income: totalIncome, expense: totalExpense, balance: totalIncome - totalExpense, chartData: last6Months };
     }, [financialTransactions]);
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 items-start">
-          <div className="lg:col-span-3">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Card className="bg-emerald-50 border-emerald-100">
-                      <CardHeader className="pb-2">
-                          <CardDescription className="text-emerald-700 flex items-center gap-1 font-semibold uppercase text-[10px]">Entradas Totais</CardDescription>
-                          <CardTitle className="text-xl md:text-2xl text-emerald-800">R$ {summaryData.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</CardTitle>
-                      </CardHeader>
-                  </Card>
-                  <Card className="bg-red-50 border-red-100">
-                      <CardHeader className="pb-2">
-                          <CardDescription className="text-red-700 flex items-center gap-1 font-semibold uppercase text-[10px]">Saídas Totais</CardDescription>
-                          <CardTitle className="text-xl md:text-2xl text-red-800">R$ {summaryData.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</CardTitle>
-                      </CardHeader>
-                  </Card>
-                  <Card className="bg-primary/5 border-primary/10 shadow-sm border-2">
-                      <CardHeader className="pb-2">
-                          <CardDescription className="text-primary flex items-center gap-1 font-semibold uppercase text-[10px]">Saldo Consolidado</CardDescription>
-                          <CardTitle className="text-xl md:text-2xl text-primary font-black">R$ {summaryData.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</CardTitle>
-                      </CardHeader>
-                  </Card>
-              </div>
-          </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="bg-emerald-50 border-emerald-100">
+              <CardHeader className="pb-2"><CardDescription className="text-emerald-700 text-[10px] font-bold">Entradas Totais</CardDescription><CardTitle className="text-xl">R$ {summaryData.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</CardTitle></CardHeader>
+          </Card>
+          <Card className="bg-red-50 border-red-100">
+              <CardHeader className="pb-2"><CardDescription className="text-red-700 text-[10px] font-bold">Saídas Totais</CardDescription><CardTitle className="text-xl">R$ {summaryData.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</CardTitle></CardHeader>
+          </Card>
+          <Card className="bg-primary/5 border-primary/10 border-2">
+              <CardHeader className="pb-2"><CardDescription className="text-primary text-[10px] font-bold">Saldo Consolidado</CardDescription><CardTitle className="text-xl font-black">R$ {summaryData.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</CardTitle></CardHeader>
+          </Card>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-4 max-w-2xl bg-muted/50 p-1 rounded-xl">
-          <TabsTrigger value="dashboard" className="rounded-lg font-bold"><LayoutDashboard className="size-4 mr-2" /> Visão Geral</TabsTrigger>
+          <TabsTrigger value="dashboard" className="rounded-lg font-bold"><LayoutDashboard className="size-4 mr-2" /> Dashboard</TabsTrigger>
           <TabsTrigger value="tithes" className="rounded-lg font-bold"><HeartHandshake className="size-4 mr-2" /> Dízimos</TabsTrigger>
-          <TabsTrigger value="cashflow" className="rounded-lg font-bold"><TrendingUp className="size-4 mr-2" /> Fluxo de Caixa</TabsTrigger>
+          <TabsTrigger value="cashflow" className="rounded-lg font-bold"><TrendingUp className="size-4 mr-2" /> Fluxo</TabsTrigger>
           <TabsTrigger value="settings" className="rounded-lg font-bold"><Settings className="size-4 mr-2" /> Integração</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-6 mt-6 animate-in fade-in-50">
             <Card>
-                <CardHeader>
-                    <CardTitle>Performance Financeira (Últimos 6 Meses)</CardTitle>
-                    <CardDescription>Gráfico comparativo de entradas e saídas pagas.</CardDescription>
-                </CardHeader>
+                <CardHeader><CardTitle>Performance Financeira</CardTitle></CardHeader>
                 <CardContent className="h-[350px]">
-                    {isLoadingFinances ? (
-                        <div className="flex h-full items-center justify-center"><Loader2 className="animate-spin" /></div>
-                    ) : (
+                    {isLoadingFinances ? <div className="flex h-full items-center justify-center"><Loader2 className="animate-spin" /></div> : (
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={summaryData.chartData}>
                                 <defs>
-                                    <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="hsl(var(--chart-2))" stopOpacity={0.1}/>
-                                        <stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0}/>
-                                    </linearGradient>
-                                    <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.1}/>
-                                        <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0}/>
-                                    </linearGradient>
+                                    <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(var(--chart-2))" stopOpacity={0.1}/><stop offset="95%" stopColor="hsl(var(--chart-2))" stopOpacity={0}/></linearGradient>
+                                    <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.1}/><stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0}/></linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                                <YAxis axisLine={false} tickLine={false} tickFormatter={(v) => `R$${v/1000}k`} />
-                                <Tooltip />
-                                <Legend />
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" axisLine={false} tickLine={false} /><YAxis axisLine={false} tickLine={false} /><Tooltip /><Legend />
                                 <Area type="monotone" dataKey="income" name="Entradas" stroke="hsl(var(--chart-2))" fillOpacity={1} fill="url(#colorIncome)" />
                                 <Area type="monotone" dataKey="expense" name="Saídas" stroke="hsl(var(--chart-1))" fillOpacity={1} fill="url(#colorExpense)" />
                             </AreaChart>
@@ -451,18 +364,9 @@ function FinancePageContent() {
                 </CardContent>
             </Card>
         </TabsContent>
-
-        <TabsContent value="tithes" className="mt-6 animate-in slide-in-from-left-4">
-            <TithesOfferingsManager />
-        </TabsContent>
-
-        <TabsContent value="cashflow" className="mt-6 animate-in slide-in-from-left-4">
-            <CashFlowManager />
-        </TabsContent>
-
-        <TabsContent value="settings" className="mt-6 animate-in zoom-in-95">
-            <ContaAzulConnect />
-        </TabsContent>
+        <TabsContent value="tithes" className="mt-6"><TithesOfferingsManager /></TabsContent>
+        <TabsContent value="cashflow" className="mt-6"><CashFlowManager /></TabsContent>
+        <TabsContent value="settings" className="mt-6"><ContaAzulConnect /></TabsContent>
       </Tabs>
     </div>
   );
