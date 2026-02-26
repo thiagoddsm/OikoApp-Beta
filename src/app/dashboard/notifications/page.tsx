@@ -93,7 +93,6 @@ function WhatsappChats() {
             });
 
             if (response.ok) {
-                // O log agora é feito na API de send
                 setReplyText('');
             } else {
                 const err = await response.json();
@@ -255,7 +254,6 @@ function WhatsappChats() {
                 )}
             </div>
 
-            {/* DIALOG: NOVA CONVERSA */}
             <Dialog open={isNewChatOpen} onOpenChange={setIsNewChatOpen}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
@@ -319,19 +317,12 @@ function WhatsappSender() {
     const [isLoadingGroups, setIsLoadingGroups] = useState(false);
     const [msgType, setMsgType] = useState<'text' | 'button' | 'survey' | 'media' | 'pix'>('text');
 
-    // Button states
     const [msgTitle, setMsgTitle] = useState('Informativo IBM');
     const [msgFooter, setMsgFooter] = useState('Igreja Batista da Manhã');
     const [msgButtons, setMsgButtons] = useState([{ id: 'btn_1', text: 'Confirmar Presença ✅' }, { id: 'btn_2', text: 'Não poderei ir ❌' }]);
-
-    // Survey states
     const [surveyName, setSurveyName] = useState('');
     const [surveyOptions, setSurveyOptions] = useState(['Sim', 'Não']);
-    
-    // Media states
     const [mediaUrl, setMediaUrl] = useState('');
-
-    // PIX states
     const [pixKey, setPixKey] = useState('');
     const [pixName, setPixName] = useState('Igreja Batista da Manhã');
     const [pixCity, setPixCity] = useState('Sao Goncalo');
@@ -495,42 +486,6 @@ function WhatsappSender() {
         }
     };
 
-    const handleDebugTest = (type: string) => {
-        if (!testPhoneNumber) {
-            toast({ variant: 'destructive', title: "Digite o número de teste acima." });
-            return;
-        }
-
-        let payload: any = { channel: 'whatsapp', targetNumber: testPhoneNumber, type };
-
-        switch(type) {
-            case 'text': payload.message = "Teste de Texto IBM - Sistema OK"; break;
-            case 'button':
-                payload.message = "Teste de Botões Interativos v5.0.0 (PLANO PRO)";
-                payload.buttons = [{ id: 'test_1', text: 'Sim, funciona! ✅' }, { id: 'test_2', text: 'Não funciona ❌' }];
-                payload.title = "DEBUG MODE - IBM";
-                payload.footer = "Ambiente de Desenvolvimento";
-                break;
-            case 'media':
-                payload.mediaUrl = "https://picsum.photos/seed/1/600/400";
-                payload.message = "Teste de Mídia (Imagem Dinâmica)";
-                break;
-            case 'pix':
-                payload.pixKey = "test@ibm.com";
-                payload.pixAmount = 1.00;
-                payload.message = "Teste de Cobrança PIX Automática";
-                payload.pixName = "Igreja Batista";
-                payload.pixCity = "Sao Goncalo";
-                break;
-            case 'survey':
-                payload.surveyName = "O Ambiente de Teste é útil?";
-                payload.options = ["Sim, muito!", "Mais ou menos", "Não"];
-                break;
-        }
-
-        handleSend(undefined, payload);
-    }
-    
     return (
         <div className="space-y-6">
             <form onSubmit={handleSend} className="space-y-6">
@@ -617,9 +572,6 @@ function WhatsappSender() {
                                     </button>
                                 </Badge>
                             ))}
-                            {selectedUserIds.length === 0 && (
-                                <p className="text-xs text-muted-foreground italic">Nenhuma pessoa selecionada ainda.</p>
-                            )}
                         </div>
                     </div>
                 )}
@@ -667,36 +619,21 @@ function WhatsappSender() {
                     <div className="space-y-4 p-4 border border-dashed rounded-lg bg-indigo-50 animate-in slide-in-from-top-2">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label className="text-xs font-bold uppercase text-indigo-700">Título da Mensagem (Cabeçalho)</Label>
-                                <Input 
-                                    value={msgTitle} 
-                                    onChange={e => setMsgTitle(e.target.value)} 
-                                    placeholder="Ex: Convite IBM"
-                                    className="bg-white"
-                                />
+                                <Label className="text-xs font-bold uppercase text-indigo-700">Título da Mensagem</Label>
+                                <Input value={msgTitle} onChange={e => setMsgTitle(e.target.value)} placeholder="Ex: Convite IBM" className="bg-white" />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-xs font-bold uppercase text-indigo-700">Rodapé (Texto secundário)</Label>
-                                <Input 
-                                    value={msgFooter} 
-                                    onChange={e => setMsgFooter(e.target.value)} 
-                                    placeholder="Ex: Igreja Batista da Manhã"
-                                    className="bg-white"
-                                />
+                                <Label className="text-xs font-bold uppercase text-indigo-700">Rodapé</Label>
+                                <Input value={msgFooter} onChange={e => setMsgFooter(e.target.value)} placeholder="Ex: Igreja Batista da Manhã" className="bg-white" />
                             </div>
                         </div>
                         <div className="space-y-3">
                             <Label className="text-xs font-black uppercase text-muted-foreground flex items-center gap-2">
-                                <MousePointer2 size={12} /> Configurar Botões (Máx 3)
+                                <MousePointer2 size={12} /> Botões (Máx 3)
                             </Label>
                             {msgButtons.map((btn, idx) => (
                                 <div key={btn.id} className="flex gap-2">
-                                    <Input 
-                                        value={btn.text} 
-                                        onChange={e => handleUpdateBtn(idx, e.target.value)}
-                                        placeholder={`Botão ${idx + 1}`}
-                                        className="bg-white"
-                                    />
+                                    <Input value={btn.text} onChange={e => handleUpdateBtn(idx, e.target.value)} placeholder={`Botão ${idx + 1}`} className="bg-white" />
                                     {msgButtons.length > 1 && (
                                         <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveBtn(idx)}>
                                             <Trash2 size={14} className="text-destructive" />
@@ -713,72 +650,12 @@ function WhatsappSender() {
                     </div>
                 )}
 
-                {msgType === 'survey' && (
-                    <div className="space-y-4 p-4 border border-dashed rounded-lg bg-primary/5 animate-in slide-in-from-top-2">
-                        <div className="space-y-2">
-                            <Label className="flex items-center gap-2"><BarChart3 size={14} /> Pergunta da Enquete</Label>
-                            <Input 
-                                placeholder="Ex: Qual o melhor horário?" 
-                                value={surveyName}
-                                onChange={e => setSurveyName(e.target.value)}
-                            />
-                        </div>
-                        <div className="space-y-3">
-                            <Label className="text-xs font-bold uppercase text-muted-foreground">Opções</Label>
-                            {surveyOptions.map((opt, idx) => (
-                                <div key={idx} className="flex gap-2">
-                                    <Input 
-                                        value={opt} 
-                                        onChange={e => handleUpdateSurveyOption(idx, e.target.value)}
-                                        placeholder={`Opção ${idx + 1}`}
-                                        className="bg-background"
-                                    />
-                                    {surveyOptions.length > 2 && (
-                                        <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveSurveyOption(idx)}>
-                                            <Trash2 size={14} className="text-destructive" />
-                                        </Button>
-                                    )}
-                                </div>
-                            ))}
-                            {surveyOptions.length < 5 && (
-                                <Button type="button" variant="outline" size="sm" onClick={handleAddSurveyOption}>
-                                    <PlusCircle size={12} className="mr-2" /> Adicionar Opção
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {msgType === 'media' && (
-                    <div className="space-y-4 p-4 border border-dashed rounded-lg bg-blue-50 animate-in slide-in-from-top-2">
-                        <div className="space-y-2">
-                            <Label className="flex items-center gap-2"><ImageIcon size={14} /> Link da Mídia</Label>
-                            <div className="relative">
-                                <LinkIcon className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                                <Input 
-                                    placeholder="https://..." 
-                                    value={mediaUrl}
-                                    onChange={e => setMediaUrl(e.target.value)}
-                                    className="pl-10 bg-background"
-                                />
-                            </div>
-                        </div>
-                    </div>
-                )}
-
                 <div className="space-y-4">
                     <div className="flex justify-between items-end">
-                        <Label htmlFor="message">{msgType === 'media' ? 'Legenda' : 'Texto Principal'}</Label>
+                        <Label htmlFor="message">Texto Principal</Label>
                         <div className="flex gap-2">
                             {QUICK_TEMPLATES.map(t => (
-                                <Button 
-                                    key={t.id} 
-                                    type="button" 
-                                    variant="outline" 
-                                    size="sm" 
-                                    className="h-7 text-[10px] uppercase font-black"
-                                    onClick={() => applyTemplate(t.text)}
-                                >
+                                <Button key={t.id} type="button" variant="outline" size="sm" className="h-7 text-[10px] uppercase font-black" onClick={() => applyTemplate(t.text)}>
                                     <t.icon size={10} className="mr-1" /> {t.label}
                                 </Button>
                             ))}
