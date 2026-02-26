@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -38,6 +39,17 @@ type Cell = {
   nome: string;
 };
 
+const escolaridadeOptions = [
+    "Analfabeto", 
+    "Fundamental Incompleto", 
+    "Fundamental Completo", 
+    "Médio Incompleto", 
+    "Médio Completo", 
+    "Superior Incompleto", 
+    "Superior Completo", 
+    "Pós-Graduação"
+];
+
 export function EditUserDialog({ user, open, onOpenChange }) {
   const { toast } = useToast();
   const { firestore, user: currentUser } = useFirebase();
@@ -49,7 +61,12 @@ export function EditUserDialog({ user, open, onOpenChange }) {
     phone: '',
     dataNascimento: '',
     email: '',
+    cpf: '',
+    sexo: '',
+    escolaridade: '',
+    profissao: '',
     addressStreet: '',
+    addressCep: '',
     batizado: 'nao',
     igrejaBatismo: '',
     membroAntigo: 'nao',
@@ -90,9 +107,14 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         name: user.name || '',
         phone: user.phone || '',
         email: user.email || '',
+        cpf: user.cpf || '',
+        sexo: user.sexo || '',
+        escolaridade: user.escolaridade || '',
+        profissao: user.profissao || '',
         dataNascimento: user.dataNascimento || '',
         estadoCivil: user.estadoCivil || '',
         addressStreet: user.address?.street || '',
+        addressCep: user.address?.cep || '',
         integrationStatus: user.integrationStatus || 'nao_alcancado',
         role: user.hierarchy?.role || '',
         celulaId: user.hierarchy?.celulaId || '',
@@ -118,7 +140,12 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         phone: '',
         dataNascimento: '',
         email: '',
+        cpf: '',
+        sexo: '',
+        escolaridade: '',
+        profissao: '',
         addressStreet: '',
+        addressCep: '',
         batizado: 'nao',
         igrejaBatismo: '',
         membroAntigo: 'nao',
@@ -185,18 +212,14 @@ export function EditUserDialog({ user, open, onOpenChange }) {
     }
     setIsSaving(true);
 
-    // Lógica de Transição Automática solicitada pelo usuário
     let finalIntegrationStatus = formData.integrationStatus;
     if (finalIntegrationStatus === 'nao_alcancado') {
         if (formData.decisao.includes('Decisão por Cristo')) {
             finalIntegrationStatus = 'novo_convertido';
-            toast({ title: "Movido para Novo Convertido", description: "O estágio foi atualizado automaticamente devido à decisão registrada." });
         } else if (formData.decisao.includes('Reconciliação')) {
             finalIntegrationStatus = 'reconciliado';
-            toast({ title: "Movido para Reconciliado", description: "O estágio foi atualizado automaticamente devido à decisão registrada." });
         } else if (formData.initialStatus === 'membro_outra_igreja') {
             finalIntegrationStatus = 'transferido';
-            toast({ title: "Movido para Transferido", description: "O estágio foi atualizado automaticamente por vir de outra igreja." });
         }
     }
     
@@ -204,10 +227,15 @@ export function EditUserDialog({ user, open, onOpenChange }) {
         name: formData.name,
         phone: formData.phone,
         email: formData.email,
+        cpf: formData.cpf,
+        sexo: formData.sexo,
+        escolaridade: formData.escolaridade,
+        profissao: formData.profissao,
         dataNascimento: formData.dataNascimento,
         estadoCivil: formData.estadoCivil,
         address: {
             street: formData.addressStreet,
+            cep: formData.addressCep,
         },
         integrationStatus: finalIntegrationStatus,
         hierarchy: {
@@ -277,7 +305,6 @@ export function EditUserDialog({ user, open, onOpenChange }) {
   return (
     <>
       <div className="grid gap-6 py-4 max-h-[70vh] overflow-y-auto pr-4">
-        {/* Dados Pessoais */}
         <section className="space-y-4 p-4 border rounded-lg">
             <h4 className="font-semibold text-primary border-b pb-2">Dados Pessoais</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -290,6 +317,21 @@ export function EditUserDialog({ user, open, onOpenChange }) {
                     <Input id="phone" name="phone" type="tel" value={formData.phone} onChange={handleInputChange} placeholder="(99) 99999-9999" required />
                 </div>
                 <div className="space-y-1.5">
+                    <Label htmlFor="cpf">CPF</Label>
+                    <Input id="cpf" name="cpf" value={formData.cpf} onChange={handleInputChange} placeholder="000.000.000-00" />
+                </div>
+                <div className="space-y-1.5">
+                    <Label htmlFor="sexo">Sexo</Label>
+                    <Select value={formData.sexo} onValueChange={(v) => handleSelectChange('sexo', v)}>
+                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Masculino">Masculino</SelectItem>
+                            <SelectItem value="Feminino">Feminino</SelectItem>
+                            <SelectItem value="Outro">Outro</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="space-y-1.5">
                     <Label htmlFor="dataNascimento">Data de Nascimento</Label>
                     <Input id="dataNascimento" name="dataNascimento" type="date" value={formData.dataNascimento} onChange={handleInputChange} />
                 </div>
@@ -297,9 +339,26 @@ export function EditUserDialog({ user, open, onOpenChange }) {
                     <Label htmlFor="email">Email</Label>
                     <Input id="email" name="email" type="email" value={formData.email} onChange={handleInputChange} />
                 </div>
-                <div className="md:col-span-2 space-y-1.5">
-                    <Label htmlFor="addressStreet">Endereço</Label>
-                    <Input id="addressStreet" name="addressStreet" value={formData.addressStreet} onChange={handleInputChange} placeholder="Rua, número e CEP" />
+                <div className="space-y-1.5">
+                    <Label htmlFor="escolaridade">Escolaridade</Label>
+                    <Select value={formData.escolaridade} onValueChange={(v) => handleSelectChange('escolaridade', v)}>
+                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                        <SelectContent>
+                            {escolaridadeOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="space-y-1.5">
+                    <Label htmlFor="profissao">Profissão</Label>
+                    <Input id="profissao" name="profissao" value={formData.profissao} onChange={handleInputChange} placeholder="Ex: Advogado, Vendedor..." />
+                </div>
+                <div className="space-y-1.5">
+                    <Label htmlFor="addressCep">CEP</Label>
+                    <Input id="addressCep" name="addressCep" value={formData.addressCep} onChange={handleInputChange} placeholder="00000-000" />
+                </div>
+                <div className="space-y-1.5">
+                    <Label htmlFor="addressStreet">Endereço (Rua e Nº)</Label>
+                    <Input id="addressStreet" name="addressStreet" value={formData.addressStreet} onChange={handleInputChange} placeholder="Rua das Flores, 123" />
                 </div>
                  <div className="space-y-1.5">
                     <Label htmlFor="estadoCivil">Estado Civil</Label>
@@ -322,7 +381,6 @@ export function EditUserDialog({ user, open, onOpenChange }) {
             </div>
         </section>
         
-        {/* Jornada Espiritual */}
         <section className="space-y-4 p-4 border rounded-lg">
             <h4 className="font-semibold text-primary border-b pb-2">Jornada Espiritual</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -365,7 +423,6 @@ export function EditUserDialog({ user, open, onOpenChange }) {
             </div>
         </section>
 
-         {/* Chegada na IBM */}
          <section className="space-y-4 p-4 border rounded-lg">
             <h4 className="font-semibold text-primary border-b pb-2">Chegada na IBM</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -395,7 +452,6 @@ export function EditUserDialog({ user, open, onOpenChange }) {
             </div>
          </section>
 
-         {/* Estrutura */}
          <section className="space-y-4 p-4 border rounded-lg">
             <h4 className="font-semibold text-primary border-b pb-2">Estrutura e Jornada</h4>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -441,7 +497,6 @@ export function EditUserDialog({ user, open, onOpenChange }) {
              </div>
         </section>
 
-        {/* Observações */}
          <section className="space-y-4 p-4 border rounded-lg">
             <h4 className="font-semibold text-primary border-b pb-2">Observações</h4>
             <div className="space-y-1.5">

@@ -9,12 +9,27 @@
         "name": { "type": "string" },
         "email": { "type": "string", "format": "email" },
         "phone": { "type": "string" },
+        "cpf": { "type": "string" },
+        "sexo": { "type": "string", "enum": ["Masculino", "Feminino", "Outro"] },
+        "escolaridade": { "type": "string", "enum": ["Analfabeto", "Fundamental Incompleto", "Fundamental Completo", "Médio Incompleto", "Médio Completo", "Superior Incompleto", "Superior Completo", "Pós-Graduação"] },
+        "profissao": { "type": "string" },
         "roles": {
           "type": "array",
           "items": { "type": "string", "enum": ["admin", "pastor_senior", "pastor", "lider_rede", "lider_area", "lider_gc", "team_leader", "member", "volunteer"] },
           "description": "User roles."
         },
         "familyId": { "type": "string", "description": "ID linking users of the same family." },
+        "familyMembers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "relation": { "type": "string" },
+              "userId": { "type": "string" }
+            }
+          }
+        },
         "journey": {
           "type": "object",
           "description": "Tracks the user's progress in the spiritual journey.",
@@ -61,7 +76,10 @@
         "dataNascimento": { "type": "string", "format": "date" },
         "address": {
           "type": "object",
-          "properties": { "street": { "type": "string" } }
+          "properties": { 
+            "street": { "type": "string" },
+            "cep": { "type": "string" }
+          }
         },
         "batizado": { "type": "string", "enum": ["sim", "nao"] },
         "igrejaBatismo": { "type": "string" },
@@ -101,36 +119,6 @@
         "financialStatus": { "type": "string", "enum": ["active", "blocked", "delinquent"], "description": "Financial status for Wave music school." }
       },
       "required": ["name", "email", "createdAt"]
-    },
-    "FinancialTransaction": {
-      "title": "Financial Transaction",
-      "type": "object",
-      "description": "A general financial entry for the church (income or expense).",
-      "properties": {
-        "type": { "type": "string", "enum": ["income", "expense"] },
-        "category": { "type": "string", "description": "e.g., Dízimo, Oferta, Aluguel, Salário" },
-        "amount": { "type": "number" },
-        "date": { "type": "string", "format": "date-time" },
-        "description": { "type": "string" },
-        "status": { "type": "string", "enum": ["pending", "paid"] },
-        "memberId": { "type": "string", "description": "Optional: User ID for tithes/offerings" },
-        "paymentMethod": { "type": "string", "enum": ["PIX", "Dinheiro", "Cartão", "Transferência"] },
-        "contaAzulSync": { "type": "boolean" }
-      },
-      "required": ["type", "category", "amount", "date", "status"]
-    },
-    "Course": {
-      "title": "Course",
-      "type": "object",
-      "description": "Represents a course in the teaching area.",
-      "properties": {
-        "name": { "type": "string" },
-        "ministryName": { "type": "string" },
-        "description": { "type": "string" },
-        "type": { "type": "string", "enum": ["trilho", "eletivo"] },
-        "ebdTrack": { "type": "string" },
-        "linkedTheoflixId": { "type": "string", "description": "ID of the corresponding TheoFlix course for online extension." }
-      }
     }
   }
 }

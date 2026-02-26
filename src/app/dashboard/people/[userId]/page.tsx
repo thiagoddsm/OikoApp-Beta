@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -22,6 +23,7 @@ import { VolunteerServiceForm } from '@/components/volunteering/volunteer-servic
 import { VolunteeringProvider } from '@/contexts/volunteering-context';
 import { AIProfileAnalysis } from '@/components/users/ai-profile-analysis';
 import { MemberCourseProgress } from '@/components/users/member-course-progress';
+import { FamilyManagement } from '@/components/users/family-management';
 
 
 type UserProfile = {
@@ -31,11 +33,16 @@ type UserProfile = {
   integrationStatus?: string;
   email?: string;
   phone?: string;
+  cpf?: string;
+  sexo?: string;
+  escolaridade?: string;
+  profissao?: string;
   dataNascimento?: string;
   sexo?: string;
   estadoCivil?: string;
   address?: {
     street?: string;
+    cep?: string;
   };
   hierarchy?: {
     celulaId?: string;
@@ -185,7 +192,6 @@ export default function UserProfilePage() {
   return (
     <VolunteeringProvider>
       <div className="space-y-6">
-        {/* Profile Header */}
         <Card className="w-full overflow-hidden">
           <div className="bg-muted/30 p-6 flex flex-col md:flex-row items-center gap-6">
              <div className="relative">
@@ -225,7 +231,6 @@ export default function UserProfilePage() {
           </div>
         </Card>
         
-        {/* KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <KpiCard icon={Church} title="Célula (GC)" value={cell?.nome || "N/A"} footer="Grupo Pequeno do membro." />
             <KpiCard icon={UserCheck} title="Discipulador" value={supervisor?.name || "N/A"} footer="Líder que acompanha este membro." />
@@ -233,12 +238,12 @@ export default function UserProfilePage() {
             <KpiCard icon={Network} title="Rede" value={rede?.nome || "N/A"} footer="Rede de supervisão da Área." />
         </div>
 
-        {/* Tabs */}
         <Tabs defaultValue="trail" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
                 <TabsTrigger value="trail"><Footprints className="mr-2 size-4" />Trilha</TabsTrigger>
                 <TabsTrigger value="discipleship"><HandHelping className="mr-2 size-4" />Discipulado</TabsTrigger>
                 <TabsTrigger value="details"><User className="mr-2 size-4" />Detalhes</TabsTrigger>
+                <TabsTrigger value="family"><Users className="mr-2 size-4" />Família</TabsTrigger>
                 <TabsTrigger value="service"><HandCoins className="mr-2 size-4"/>Serviço</TabsTrigger>
                 <TabsTrigger value="ai"><Bot className="mr-2 size-4"/>Análise IA</TabsTrigger>
             </TabsList>
@@ -267,6 +272,11 @@ export default function UserProfilePage() {
             <TabsContent value="details">
                  <MemberDetails user={userProfile} />
             </TabsContent>
+
+            <TabsContent value="family">
+                <FamilyManagement user={userProfile} />
+            </TabsContent>
+
             <TabsContent value="service">
                 <Card>
                     <CardHeader>
