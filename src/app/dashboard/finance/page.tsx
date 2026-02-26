@@ -11,7 +11,8 @@ import {
   Loader2, Key, Link as LinkIcon, BarChart, ExternalLink, ShieldCheck, 
   AlertCircle, DollarSign, TrendingUp, ArrowUpCircle, ArrowDownCircle,
   LayoutDashboard, HeartHandshake, History, RefreshCw, Wallet, Info, Copy,
-  Settings, FlaskConical, CheckCircle2, PlayCircle, HardDriveDownload, DatabaseZap
+  Settings, FlaskConical, CheckCircle2, PlayCircle, HardDriveDownload, DatabaseZap,
+  HelpCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useDoc, setDocumentNonBlocking } from '@/firebase';
@@ -138,7 +139,6 @@ function IntegrationLaboratory() {
 
 function ContaAzulConnect() {
   const { toast } = useToast();
-  const searchParams = useSearchParams();
   const { firestore } = useFirebase();
   const configDocRef = useMemo(() => firestore ? doc(firestore, 'config', 'conta_azul') : null, [firestore]);
   
@@ -202,20 +202,31 @@ function ContaAzulConnect() {
 
   if (isLoadingConfig) return null;
 
-  // URL de redirecionamento EXATA para evitar erro de Redirect URI mismatch
   const redirectUri = `https://studio--studio-1424813022-71754.us-central1.hosted.app/api/finance/conta-azul/callback`;
-  
-  // Scopes simplificados e encodados corretamente para evitar erro de permissão
   const scopes = 'finance customers';
   const authUrl = `https://app.contaazul.com/auth/authorize?client_id=${clientId.trim()}&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=oiko_auth&response_type=code`;
 
   const copyRedirectUri = () => {
       navigator.clipboard.writeText(redirectUri);
-      toast({ title: "Copiado!", description: "Use este link no campo 'URL de Redirecionamento' do Conta Azul." });
+      toast({ title: "Copiado!", description: "Link de redirecionamento copiado." });
   };
 
   return (
     <div className="space-y-6">
+        <Alert className="bg-amber-50 border-amber-200">
+            <HelpCircle className="h-4 w-4 text-amber-600" />
+            <AlertTitle className="text-amber-800 font-bold uppercase text-xs">Atenção ao Configurar</AlertTitle>
+            <AlertDescription className="text-amber-700 text-xs space-y-2">
+                <p>1. No portal <strong>Conta Azul Developers</strong>, acesse as configurações do seu App.</p>
+                <p>2. No campo <strong>Redirect URI</strong> (ou URL de Redirecionamento), cole o link abaixo exatamente como está:</p>
+                <div className="flex items-center gap-2 bg-white/50 p-2 rounded border border-amber-200 mt-1">
+                    <code className="font-mono text-[10px] flex-1 truncate">{redirectUri}</code>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={copyRedirectUri}><Copy size={12}/></Button>
+                </div>
+                <p>3. Utilize o e-mail de <strong>Sandbox</strong> (@devportal.com) para o login durante a fase de testes.</p>
+            </AlertDescription>
+        </Alert>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="shadow-lg border-2">
                 <CardHeader className="bg-muted/30 border-b">
@@ -235,7 +246,7 @@ function ContaAzulConnect() {
                     <div className="grid grid-cols-1 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="client-id" className="text-xs font-bold uppercase text-muted-foreground">Client ID</Label>
-                            <Input id="client-id" value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="881cq0o..." />
+                            <Input id="client-id" value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="Ex: 881cq0o..." />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="client-secret" className="text-xs font-bold uppercase text-muted-foreground">Client Secret</Label>
@@ -243,19 +254,10 @@ function ContaAzulConnect() {
                         </div>
                     </div>
 
-                    <div className="space-y-4 pt-4 border-t">
-                        <div className="flex justify-between items-center bg-blue-50 p-3 rounded-lg border border-blue-100">
-                            <div className="min-w-0 flex-1">
-                                <p className="text-[10px] font-black uppercase text-blue-700">URL de Redirecionamento (Portal CA)</p>
-                                <code className="text-[10px] text-blue-900 truncate block mt-1">{redirectUri}</code>
-                            </div>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 shrink-0" onClick={copyRedirectUri}><Copy size={14}/></Button>
-                        </div>
-                        <Button onClick={handleConnect} disabled={isSaving} className="w-full h-11 font-bold">
-                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LinkIcon className="mr-2 h-4 w-4" />}
-                            Salvar Credenciais
-                        </Button>
-                    </div>
+                    <Button onClick={handleConnect} disabled={isSaving} className="w-full h-11 font-bold mt-4">
+                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LinkIcon className="mr-2 h-4 w-4" />}
+                        Salvar Credenciais
+                    </Button>
                 </CardContent>
             </Card>
 
@@ -270,14 +272,7 @@ function ContaAzulConnect() {
                     <CardContent className="pt-6 text-center space-y-4">
                         {!isConnected ? (
                             <>
-                                <p className="text-sm text-muted-foreground">Após salvar as credenciais acima, clique abaixo para vincular sua conta real ou sandbox.</p>
-                                <Alert className="bg-amber-50 border-amber-200 text-left">
-                                    <AlertCircle className="h-4 w-4 text-amber-600" />
-                                    <AlertTitle className="text-xs font-bold text-amber-800">DICA DE SANDBOX</AlertTitle>
-                                    <AlertDescription className="text-[10px] text-amber-700">
-                                        Use o e-mail <strong>@devportal.com</strong> mostrado no seu painel de desenvolvedor. Se der erro, verifique se a URL de Redirecionamento no portal está 100% igual ao campo azul ao lado.
-                                    </AlertDescription>
-                                </Alert>
+                                <p className="text-sm text-muted-foreground">Clique abaixo para logar na Conta Azul e autorizar a sincronização.</p>
                                 <Button 
                                     className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-base font-black shadow-xl" 
                                     disabled={!hasCredentials} 
@@ -324,7 +319,12 @@ function FinancePageContent() {
         if (status === 'connected') {
             toast({ title: "Conta Azul Conectada!", description: "A integração foi realizada com sucesso." });
         } else if (status === 'error') {
-            toast({ variant: 'destructive', title: "Erro na Conexão", description: searchParams.get('message') || "Falha ao autorizar Conta Azul." });
+            const msg = searchParams.get('message');
+            toast({ 
+                variant: 'destructive', 
+                title: "Erro na Conexão", 
+                description: msg ? decodeURIComponent(msg) : "Falha ao autorizar Conta Azul." 
+            });
         }
     }, [searchParams, toast]);
 
@@ -373,25 +373,25 @@ function FinancePageContent() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 items-start">
           <div className="lg:col-span-3">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Card className="bg-emerald-50 border-emerald-100">
                       <CardHeader className="pb-2">
                           <CardDescription className="text-emerald-700 flex items-center gap-1 font-semibold uppercase text-[10px]">Entradas Totais</CardDescription>
-                          <CardTitle className="text-2xl text-emerald-800">R$ {summaryData.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</CardTitle>
+                          <CardTitle className="text-xl md:text-2xl text-emerald-800">R$ {summaryData.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</CardTitle>
                       </CardHeader>
                   </Card>
                   <Card className="bg-red-50 border-red-100">
                       <CardHeader className="pb-2">
                           <CardDescription className="text-red-700 flex items-center gap-1 font-semibold uppercase text-[10px]">Saídas Totais</CardDescription>
-                          <CardTitle className="text-2xl text-red-800">R$ {summaryData.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</CardTitle>
+                          <CardTitle className="text-xl md:text-2xl text-red-800">R$ {summaryData.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</CardTitle>
                       </CardHeader>
                   </Card>
                   <Card className="bg-primary/5 border-primary/10 shadow-sm border-2">
                       <CardHeader className="pb-2">
                           <CardDescription className="text-primary flex items-center gap-1 font-semibold uppercase text-[10px]">Saldo Consolidado</CardDescription>
-                          <CardTitle className="text-2xl text-primary font-black">R$ {summaryData.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</CardTitle>
+                          <CardTitle className="text-xl md:text-2xl text-primary font-black">R$ {summaryData.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</CardTitle>
                       </CardHeader>
                   </Card>
               </div>

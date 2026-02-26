@@ -2,24 +2,33 @@ import { NextResponse } from 'next/server';
 import { initializeFirebase } from '@/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
+/**
+ * Rota de Callback para o OAuth 2.0 da Conta Azul.
+ * Captura o 'code' enviado após a autorização do usuário e troca pelos tokens de acesso.
+ */
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const code = searchParams.get('code');
-  const error = searchParams.get('error');
-  const errorDescription = searchParams.get('error_description');
+  const url = new URL(request.url);
+  const code = url.searchParams.get('code');
+  const error = url.searchParams.get('error');
+  const errorDescription = url.searchParams.get('error_description');
 
-  // URL exata do app publicado cadastrada no portal Conta Azul
+  // URL exata do app publicado para consistência no redirect_uri
   const appOrigin = 'https://studio--studio-1424813022-71754.us-central1.hosted.app';
   const redirectUri = `${appOrigin}/api/finance/conta-azul/callback`;
 
   // Se o Conta Azul retornou um erro (ex: access_denied)
   if (error) {
     console.error('Erro retornado pelo Conta Azul:', error, errorDescription);
-    return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=error&message=${encodeURIComponent(errorDescription || error)}`);
+    let msg = errorDescription || error;
+    if (error === 'access_denied') {
+        msg = 'Acesso Negado: Certifique-se de estar usando o e-mail de Sandbox (@devportal.com) no login da Conta Azul.';
+    }
+    return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=error&message=${encodeURIComponent(msg)}`);
   }
 
+  // Se não houver código, o fluxo foi interrompido incorretamente
   if (!code) {
-    return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=error&message=Codigo_nao_fornecido`);
+    return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=error&message=Código_de_autorização_não_enviado_pela_Conta_Azul`);
   }
 
   try {
@@ -28,7 +37,7 @@ export async function GET(request: Request) {
     const configSnap = await getDoc(configRef);
 
     if (!configSnap.exists()) {
-      throw new Error('Configuração da Conta Azul não encontrada no Firestore.');
+      throw new Error('Configuração da Conta Azul não encontrada no banco de dados.');
     }
 
     const { clientId, clientSecret } = configSnap.data();
@@ -40,7 +49,7 @@ export async function GET(request: Request) {
     // Criar o header de autorização Basic
     const authHeader = Buffer.from(`${clientId.trim()}:${clientSecret.trim()}`).toString('base64');
     
-    // A API da Conta Azul exige x-www-form-urlencoded para troca de tokens
+    // Troca do código pelos tokens (Grant Type: authorization_code)
     const params = new URLSearchParams();
     params.append('grant_type', 'authorization_code');
     params.append('redirect_uri', redirectUri);
@@ -62,7 +71,7 @@ export async function GET(request: Request) {
       throw new Error(data.error_description || data.error || 'Erro ao trocar tokens.');
     }
 
-    // Calcular timestamp de expiração (ms)
+    // Calcular expiração
     const expiresAt = Date.now() + (data.expires_in * 1000);
 
     // Salvar tokens e expiração no Firestore
@@ -73,7 +82,6 @@ export async function GET(request: Request) {
       updatedAt: new Date().toISOString()
     });
 
-    // Redirecionar de volta para o dashboard com sucesso
     return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=connected`);
 
   } catch (error: any) {
