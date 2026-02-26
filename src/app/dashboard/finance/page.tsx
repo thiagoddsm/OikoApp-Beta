@@ -308,7 +308,10 @@ function ContaAzulConnect() {
 
   // Use HTTPS fixo para redirect_uri no Studio/Cloud conforme Etapa 1
   const redirectUri = `${origin}/api/finance/conta-azul/callback`;
-  const scopes = 'finance customers sales'; 
+  
+  // ATUALIZAÇÃO: Escopos fixos conforme documentação oficial para evitar erro 'invalid_scope'
+  const scopes = 'openid profile aws.cognito.signin.user.admin'; 
+  
   const authUrl = `https://auth.contaazul.com/login?response_type=code&client_id=${clientId.trim()}&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=oiko_auth`;
 
   return (
