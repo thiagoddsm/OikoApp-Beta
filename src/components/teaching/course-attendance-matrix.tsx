@@ -51,15 +51,27 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
         const counts = { ready: 0, finishing: 0, missing: 0 };
         students.forEach(s => {
             const progress = s.journey?.memberCourseProgress || {};
-            const completedMandatory = ['module1', 'module2', 'module3', 'module4'].every(m => progress[m]);
-            const module5 = progress['module5'];
             
-            if (completedMandatory && module5) counts.finishing++;
-            else if (completedMandatory) counts.ready++;
+            // For stats, we need to consider BOTH manual flags and actual attendance (physical/online)
+            let completedMandatoryCount = 0;
+            modules.slice(0, 4).forEach(mod => {
+                const modKey = `module${mod.id}`;
+                const manualDone = progress[modKey];
+                const relevantClasses = courseClasses.filter(c => c.weekOfMonth === mod.week);
+                const isPresentPhysical = relevantClasses.some(c => c.attendance?.some(a => a.presentStudentIds.includes(s.id)));
+                const isPresentOnline = relevantClasses.some(c => c.attendance?.some(a => a.onlineStudentIds?.includes(s.id)));
+                
+                if (manualDone || isPresentPhysical || isPresentOnline) completedMandatoryCount++;
+            });
+
+            const module5Done = progress['module5'] || courseClasses.filter(c => c.weekOfMonth === 'last').some(c => c.attendance?.some(a => a.presentStudentIds.includes(s.id) || a.onlineStudentIds?.includes(s.id)));
+            
+            if (completedMandatoryCount === 4 && module5Done) counts.finishing++;
+            else if (completedMandatoryCount === 4) counts.ready++;
             else counts.missing++;
         });
         return counts;
-    }, [students, isMembership]);
+    }, [students, isMembership, courseClasses, modules]);
 
     if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
@@ -128,9 +140,19 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                         </TableHeader>
                         <TableBody>
                             {students.map(student => {
-                                const progress = student.journey?.memberCourseProgress || {};
+                                const manualProgress = student.journey?.memberCourseProgress || {};
+                                
+                                // Calculate accurate module completion count considering all sources
                                 let completedMandatoryCount = 0;
-                                ['module1', 'module2', 'module3', 'module4'].forEach(m => { if(progress[m]) completedMandatoryCount++; });
+                                modules.slice(0, 4).forEach(mod => {
+                                    const modKey = `module${mod.id}`;
+                                    const isManualDone = manualProgress[modKey];
+                                    const relevantClasses = courseClasses.filter(c => c.weekOfMonth === mod.week);
+                                    const isPresentPhysical = relevantClasses.some(c => c.attendance?.some(a => a.presentStudentIds.includes(student.id)));
+                                    const isPresentOnline = relevantClasses.some(c => c.attendance?.some(a => a.onlineStudentIds?.includes(student.id)));
+                                    
+                                    if (isManualDone || isPresentPhysical || isPresentOnline) completedMandatoryCount++;
+                                });
 
                                 return (
                                     <TableRow key={student.id} className="hover:bg-muted/30 group">
@@ -144,9 +166,8 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                         </TableCell>
                                         {modules.map(mod => {
                                             const modKey = `module${mod.id}`;
-                                            const isDone = progress[modKey];
+                                            const isManualDone = manualProgress[modKey];
                                             
-                                            // Check the source of the presence in classes for correct icon
                                             const relevantClasses = courseClasses.filter(c => c.weekOfMonth === mod.week);
                                             const isPresentPhysical = relevantClasses.some(c => c.attendance?.some(a => a.presentStudentIds.includes(student.id)));
                                             const isPresentOnline = relevantClasses.some(c => c.attendance?.some(a => a.onlineStudentIds?.includes(student.id)));
@@ -157,7 +178,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                                         <CheckCircle2 className="text-emerald-500 size-5 mx-auto" />
                                                     ) : isPresentOnline ? (
                                                         <PlayCircle className="text-blue-500 size-5 mx-auto" />
-                                                    ) : isDone ? (
+                                                    ) : isManualDone ? (
                                                         <CheckCircle2 className="text-emerald-500 size-5 mx-auto opacity-50" />
                                                     ) : mod.type === 'Eletivo' ? (
                                                         <Star className="text-amber-200 size-5 mx-auto" />
