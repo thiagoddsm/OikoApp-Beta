@@ -13,7 +13,7 @@ import {
   AlertCircle, DollarSign, TrendingUp, ArrowUpCircle, ArrowDownCircle,
   LayoutDashboard, HeartHandshake, History, RefreshCw, Wallet, Info, Copy,
   Settings, FlaskConical, CheckCircle2, PlayCircle, HardDriveDownload, DatabaseZap,
-  HelpCircle, ShieldAlert, Terminal, FileText, BookOpen, Bug, Eye, EyeOff
+  HelpCircle, ShieldAlert, Terminal, FileText, BookOpen, Bug, Eye, EyeOff, LogOut
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useDoc, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
@@ -258,7 +258,7 @@ function ContaAzulConnect() {
   
    const handleDisconnect = () => {
     if (!configDocRef) return;
-    if (window.confirm("Tem certeza que deseja remover a conexão?")) {
+    if (window.confirm("Tem certeza que deseja encerrar a conexão? Isso apagará as chaves de acesso atuais.")) {
         updateDocumentNonBlocking(configDocRef, {
             accessToken: '', 
             refreshToken: '', 
@@ -266,7 +266,7 @@ function ContaAzulConnect() {
             lastError: 'Desconectado manualmente pelo usuário.',
             lastErrorAt: new Date().toISOString()
         });
-        toast({ title: 'Desconectado', description: 'A conexão foi removida.' });
+        toast({ title: 'Conexão Encerrada', description: 'A chaves foram removidas do sistema.' });
     }
   };
 
@@ -274,14 +274,13 @@ function ContaAzulConnect() {
 
   const redirectUri = `${origin}/api/finance/conta-azul/callback`;
   
-  // URL de autorização formatada exatamente conforme documentação fornecida
   const authUrl = `https://auth.contaazul.com/login?response_type=code&client_id=${clientId.trim()}&redirect_uri=${encodeURIComponent(redirectUri)}&state=oiko_auth&scope=openid+profile+aws.cognito.signin.user.admin`;
 
   return (
     <div className="space-y-6">
         <Alert className="bg-blue-50 border-blue-200">
             <HelpCircle className="h-4 w-4 text-blue-600" />
-            <AlertTitle className="text-blue-800 font-bold uppercase text-xs tracking-tighter">Redirect URI Dinâmico (Compliance OAuth 2.0)</AlertTitle>
+            <AlertTitle className="text-blue-800 font-bold uppercase text-xs tracking-tighter">OAuth 2.0 Compliance</AlertTitle>
             <AlertDescription className="text-blue-700 text-xs space-y-2 mt-2">
                 <p>No seu Portal Conta Azul, o campo <strong>URL de Redirecionamento</strong> deve estar EXATAMENTE como o link abaixo:</p>
                 <div className="flex items-center gap-2 bg-white/50 p-2 rounded border border-blue-200 mt-1">
@@ -345,26 +344,31 @@ function ContaAzulConnect() {
                     <CardHeader className={cn("border-b", isConnected ? "bg-emerald-50" : "bg-muted/30")}>
                         <CardTitle className="text-sm font-black uppercase tracking-tighter flex items-center gap-2">
                             <PlayCircle className="size-4" />
-                            2. Fluxo de Autorização (Etapa 1)
+                            2. Fluxo de Autorização
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="pt-6 text-center space-y-4">
                         {!isConnected ? (
                             <>
-                                <p className="text-sm text-muted-foreground">O acesso deve ser autorizado em uma nova aba para evitar bloqueios do navegador.</p>
+                                <p className="text-sm text-muted-foreground text-left">A autorização abre uma janela segura da Conta Azul para você confirmar o acesso da OikoApp aos seus dados financeiros.</p>
                                 <Button className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-base font-black shadow-xl" disabled={!hasCredentials} asChild>
                                     <a href={authUrl} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-2 size-5"/>Autorizar App Agora</a>
                                 </Button>
-                                <p className="text-[10px] text-amber-600 font-bold uppercase">Lembre-se: Use o e-mail @devportal.com para logar.</p>
+                                <p className="text-[10px] text-amber-600 font-bold uppercase">Importante: Use o login de desenvolvedor Conta Azul.</p>
                             </>
                         ) : (
                             <div className="py-4 space-y-4">
                                 <div className="size-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-lg"><CheckCircle2 size={32} /></div>
                                 <div>
-                                    <h4 className="font-black text-emerald-900">Integração Ativa</h4>
-                                    <p className="text-xs text-emerald-700">Tokens obtidos e renovação automática habilitada.</p>
+                                    <h4 className="font-black text-emerald-900 text-lg">Integração Ativa</h4>
+                                    <p className="text-sm text-emerald-700">O sistema está sincronizado e operando em modo dual (API v1 e v2).</p>
                                 </div>
-                                <Button variant="outline" className="text-destructive border-destructive/20 hover:bg-red-50" onClick={handleDisconnect}>Encerrar Conexão</Button>
+                                <div className="pt-4 flex flex-col gap-2">
+                                    <Button variant="outline" className="text-destructive border-destructive/20 hover:bg-red-50" onClick={handleDisconnect}>
+                                        <LogOut className="size-4 mr-2" />
+                                        Encerrar Conexão
+                                    </Button>
+                                </div>
                             </div>
                         )}
                     </CardContent>
