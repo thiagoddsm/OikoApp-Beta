@@ -91,7 +91,7 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
             }
         } catch (e: any) {
             addLog(`FALHA NA ESCRITA: ${e.message}`);
-            toast({ variant: 'destructive', title: "Falha na Esclita", description: e.message });
+            toast({ variant: 'destructive', title: "Falha na Escrita", description: e.message });
         } finally {
             setIsTestingWrite(false);
         }
@@ -385,7 +385,7 @@ function ContaAzulConnect() {
                             <>
                                 <p className="text-sm text-muted-foreground">O acesso deve ser autorizado por um usuário administrador da Conta Azul.</p>
                                 <Button className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-base font-black shadow-xl" disabled={!hasCredentials} asChild>
-                                    <a href={authUrl}><ExternalLink className="mr-2 size-5"/>Autorizar App Agora</a>
+                                    <a href={authUrl} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-2 size-5"/>Autorizar App Agora</a>
                                 </Button>
                                 <p className="text-[10px] text-amber-600 font-bold uppercase">Lembre-se: Use o e-mail @devportal.com para logar.</p>
                             </>
