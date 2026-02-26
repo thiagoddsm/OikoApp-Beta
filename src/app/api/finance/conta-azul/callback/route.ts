@@ -12,8 +12,8 @@ export async function GET(request: Request) {
   const error = url.searchParams.get('error');
   const errorDescription = url.searchParams.get('error_description');
 
-  // URL exata do app publicado para consistência no redirect_uri
-  const appOrigin = 'https://studio--studio-1424813022-71754.us-central1.hosted.app';
+  // Detecta a origem dinamicamente para suportar Studio (Dev) e Produção
+  const appOrigin = `${url.protocol}//${url.host}`;
   const redirectUri = `${appOrigin}/api/finance/conta-azul/callback`;
 
   // Se o Conta Azul retornou um erro (ex: access_denied)
@@ -28,7 +28,7 @@ export async function GET(request: Request) {
 
   // Se não houver código, o fluxo foi interrompido incorretamente
   if (!code) {
-    return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=error&message=Código_de_autorização_não_enviado_pela_Conta_Azul`);
+    return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=error&message=Codigo_de_autorizacao_nao_enviado_pela_Conta_Azul`);
   }
 
   try {
@@ -50,6 +50,7 @@ export async function GET(request: Request) {
     const authHeader = Buffer.from(`${clientId.trim()}:${clientSecret.trim()}`).toString('base64');
     
     // Troca do código pelos tokens (Grant Type: authorization_code)
+    // A API da Conta Azul exige x-www-form-urlencoded
     const params = new URLSearchParams();
     params.append('grant_type', 'authorization_code');
     params.append('redirect_uri', redirectUri);

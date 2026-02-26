@@ -147,7 +147,12 @@ function ContaAzulConnect() {
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [origin, setOrigin] = useState('');
   
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+
   const isConnected = !!config?.accessToken || !!config?.refreshToken;
   const hasCredentials = !!config?.clientId && !!config?.clientSecret;
 
@@ -202,7 +207,8 @@ function ContaAzulConnect() {
 
   if (isLoadingConfig) return null;
 
-  const redirectUri = `https://studio--studio-1424813022-71754.us-central1.hosted.app/api/finance/conta-azul/callback`;
+  // URL dinâmica para suportar Studio e Produção
+  const redirectUri = `${origin}/api/finance/conta-azul/callback`;
   const scopes = 'finance customers';
   const authUrl = `https://app.contaazul.com/auth/authorize?client_id=${clientId.trim()}&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=oiko_auth&response_type=code`;
 
@@ -215,15 +221,14 @@ function ContaAzulConnect() {
     <div className="space-y-6">
         <Alert className="bg-amber-50 border-amber-200">
             <HelpCircle className="h-4 w-4 text-amber-600" />
-            <AlertTitle className="text-amber-800 font-bold uppercase text-xs">Atenção ao Configurar</AlertTitle>
+            <AlertTitle className="text-amber-800 font-bold uppercase text-xs">Configuração para este Ambiente</AlertTitle>
             <AlertDescription className="text-amber-700 text-xs space-y-2">
-                <p>1. No portal <strong>Conta Azul Developers</strong>, acesse as configurações do seu App.</p>
-                <p>2. No campo <strong>Redirect URI</strong> (ou URL de Redirecionamento), cole o link abaixo exatamente como está:</p>
+                <p>Como você está acessando de um ambiente de {origin.includes('cloudworkstations.dev') ? 'DESENVOLVIMENTO (Studio)' : 'PRODUÇÃO'}, certifique-se de cadastrar este Redirect URI específico no portal Conta Azul:</p>
                 <div className="flex items-center gap-2 bg-white/50 p-2 rounded border border-amber-200 mt-1">
                     <code className="font-mono text-[10px] flex-1 truncate">{redirectUri}</code>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={copyRedirectUri}><Copy size={12}/></Button>
                 </div>
-                <p>3. Utilize o e-mail de <strong>Sandbox</strong> (@devportal.com) para o login durante a fase de testes.</p>
+                <p className="font-bold">⚠️ Se você não cadastrar este link exato no portal da Conta Azul, a autorização falhará.</p>
             </AlertDescription>
         </Alert>
 
