@@ -47,11 +47,12 @@ export async function getValidContaAzulToken() {
                 body: params.toString()
             });
 
-            const data = await response.json();
+            const data = await response.json().catch(() => ({}));
 
             if (!response.ok) {
-                const errorMsg = data.error_description || data.error || 'Falha ao renovar token.';
-                // Salvar o erro para diagnóstico no laboratório
+                const errorDetail = data.error_description || data.message || data.error || data;
+                const errorMsg = typeof errorDetail === 'object' ? JSON.stringify(errorDetail) : String(errorDetail);
+                
                 await updateDoc(configRef, { 
                     lastError: `RENOVAÇÃO FALHOU: ${errorMsg}`,
                     lastErrorAt: new Date().toISOString()
@@ -59,8 +60,6 @@ export async function getValidContaAzulToken() {
                 throw new Error(errorMsg);
             }
 
-            // CRUCIAL: A Conta Azul SEMPRE retorna um novo refresh_token. 
-            // O anterior torna-se inválido imediatamente.
             const newExpiresAt = Date.now() + (data.expires_in * 1000);
             
             await updateDoc(configRef, {
@@ -101,7 +100,8 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            const errorMsg = data.message || data.error || `Erro HTTP ${response.status}`;
+            const errorDetail = data.error_description || data.message || data.error || data;
+            const errorMsg = typeof errorDetail === 'object' ? JSON.stringify(errorDetail) : String(errorDetail);
             throw new Error(`Falha na rota ${endpoint}: ${errorMsg}`);
         }
 
@@ -116,7 +116,6 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
  */
 export async function findOrCreateContaAzulCustomer(member: { name: string; email?: string; phone?: string }) {
     try {
-        // 1. Tentar buscar por nome exato
         const customers = await callContaAzulApi(`/v1/customers?name=${encodeURIComponent(member.name)}`);
         
         let customerList = Array.isArray(customers) ? customers : (customers.items || []);
@@ -125,7 +124,6 @@ export async function findOrCreateContaAzulCustomer(member: { name: string; emai
             return customerList[0].id;
         }
 
-        // 2. Se não achou, criar novo
         const newCustomer = await callContaAzulApi('/v1/customers', 'POST', {
             name: member.name,
             email: member.email || '',

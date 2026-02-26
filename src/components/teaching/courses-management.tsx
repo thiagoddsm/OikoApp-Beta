@@ -16,7 +16,8 @@ import {
   HandHelping, 
   Link as LinkIcon, 
   Lightbulb, 
-  School 
+  School,
+  GraduationCap
 } from 'lucide-react';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 import { CourseFormDialog } from './course-form-dialog';
@@ -129,15 +130,15 @@ export function CoursesManagement() {
   const getTrackInfo = (course: Course) => {
     if (course.ebdTrack === 'teologico') {
         return (
-            <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-[10px] font-black h-5">
-                Fase Buscar | 12/03 a 16/04 às 09h00
+            <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-[10px] font-black h-5 uppercase">
+                <GraduationCap className="size-3 mr-1" /> Fase Buscar | 12/03 a 16/04 às 09h00
             </Badge>
         );
     }
     if (course.ebdTrack === 'biblico' || course.ebdTrack === 'discipulado') {
         return (
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] font-black h-5">
-                Todo domingo às 09h00
+            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] font-black h-5 uppercase">
+                <GraduationCap className="size-3 mr-1" /> Todo domingo às 09h00
             </Badge>
         );
     }
@@ -157,7 +158,7 @@ export function CoursesManagement() {
                             <Icon className="size-5" />
                         </div>
                         <div className="pr-20 sm:pr-32 overflow-hidden">
-                            <p className="font-bold text-slate-900 leading-tight truncate">{course.name}</p>
+                            <p className="font-bold text-slate-900 leading-tight truncate uppercase text-sm">{course.name}</p>
                             <div className="flex items-center gap-2 mt-1">
                                 {getTrackInfo(course)}
                                 {!getTrackInfo(course) && <p className="text-xs text-muted-foreground line-clamp-1">{course.description || 'Sem descrição definida.'}</p>}
