@@ -3,60 +3,34 @@
 
 import React, { useState, useMemo, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, getDocs, Timestamp, doc, writeBatch, arrayUnion } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, getDocs, addDoc, Timestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { 
-    Loader2, CheckCircle2, User, Mail, Smartphone, 
-    BookOpen, ChevronRight, ArrowLeft, GraduationCap, 
-    Sparkles, ShieldCheck, Search, UserPlus, AlertTriangle
-} from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { Logo } from '@/components/icons';
 import { Badge } from '@/components/ui/badge';
+import { Loader2, CheckCircle2, User, BookOpen, ArrowRight, ArrowLeft, Mail, Phone, GraduationCap, MapPin, Search } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-
-type Course = {
-    id: string;
-    name: string;
-    ministryName: string;
-    description?: string;
-    type?: 'trilho' | 'eletivo';
-    ebdTrack?: 'teologico' | 'biblico' | 'discipulado';
-};
-
-const getTrackBadge = (course: Course) => {
-    if (course.ebdTrack === 'teologico') {
-        return (
-            <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-[10px] font-black h-5 uppercase">
-                Fase Buscar | 12/03 a 16/04 às 09h00
-            </Badge>
-        );
-    }
-    if (course.ebdTrack === 'biblico' || course.ebdTrack === 'discipulado') {
-        return (
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] font-black h-5 uppercase">
-                Todo domingo às 09h00
-            </Badge>
-        );
-    }
-    return null;
-};
+import { Logo } from '@/components/icons';
 
 function EnrollmentFlow() {
     const searchParams = useSearchParams();
     const { firestore } = useFirebase();
     const { toast } = useToast();
     
-    // State
-    const [step, setStep] = useState<'id' | 'profile' | 'course' | 'success'>('id');
-    const [isSearching, setIsSearching] = useState(false);
+    // Configurações Globais
+    const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
+    const { data: allCourses, isLoading: isLoadingCourses } = useCollection<any>(coursesQuery);
+
+    // Estados do Fluxo
+    const [step, setStep] = useState<'identity' | 'profile' | 'course' | 'success'>('identity');
+    const [isLoadingUser, setIsLoadingUser] = useState(false);
+    const [existingMember, setExistingMember] = useState<any>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [existingUser, setExistingUser] = useState<any>(null);
-    
+
+    // Dados do Formulário
     const [formData, setFormData] = useState({
         email: '',
         name: '',
@@ -65,120 +39,133 @@ function EnrollmentFlow() {
         courseId: searchParams.get('courseId') || '',
     });
 
-    const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
-    const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery);
-
     const handleCheckEmail = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.email.trim() || !firestore) return;
+        if (!formData.email.includes('@')) {
+            toast({ variant: 'destructive', title: "E-mail inválido" });
+            return;
+        }
 
-        setIsSearching(true);
+        setIsLoadingUser(true);
         try {
-            const q = query(collection(firestore, 'users'), where('email', '==', formData.email.trim().toLowerCase()));
+            const q = query(collection(firestore!, 'users'), where('email', '==', formData.email.toLowerCase().trim()));
             const snap = await getDocs(q);
             
             if (!snap.empty) {
-                const userDoc = snap.docs[0];
-                const userData = userDoc.data();
-                setExistingUser({ id: userDoc.id, ...userData });
-                setFormData(prev => ({ ...prev, name: userData.name, phone: userData.phone || '' }));
-                setStep('course');
-                toast({ title: "Bem-vindo de volta!", description: `Identificamos seu cadastro como ${userData.name}.` });
+                const userData = snap.docs[0].data();
+                setExistingMember({ id: snap.docs[0].id, ...userData });
+                setFormData(p => ({ ...p, name: userData.name, phone: userData.phone || '', cpf: userData.cpf || '' }));
+                setStep('course'); // Pula perfil se já existe
+                toast({ title: `Olá, ${userData.name}!`, description: "Reconhecemos seu cadastro. Escolha seu curso abaixo." });
             } else {
-                setExistingUser(null);
-                setStep('profile');
+                setExistingMember(null);
+                setStep('profile'); // Vai para cadastro se não existe
             }
         } catch (e) {
-            toast({ variant: 'destructive', title: "Erro na busca", description: "Não foi possível verificar seu e-mail." });
+            console.error(e);
         } finally {
-            setIsSearching(false);
+            setIsLoadingUser(false);
         }
     };
 
-    const handleFinalSubmit = async (e: React.FormEvent) => {
+    const handleProfileSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.courseId || !firestore) return;
+        if (!formData.name || !formData.phone) {
+            toast({ variant: 'destructive', title: "Preencha os campos obrigatórios." });
+            return;
+        }
+        setStep('course');
+    };
 
+    const handleFinalSubmit = async (selectedCourseId: string) => {
         setIsSubmitting(true);
         try {
-            const batch = writeBatch(firestore);
-            let finalUserId = existingUser?.id;
+            let finalUserId = existingMember?.id;
 
-            // 1. Create user if new
-            if (!existingUser) {
-                const userRef = doc(collection(firestore, 'users'));
-                finalUserId = userRef.id;
-                batch.set(userRef, {
+            // 1. Criar usuário se for novo
+            if (!finalUserId) {
+                const userRef = await addDoc(collection(firestore!, 'users'), {
                     name: formData.name,
-                    email: formData.email.toLowerCase(),
+                    email: formData.email.toLowerCase().trim(),
                     phone: formData.phone,
                     cpf: formData.cpf,
                     integrationStatus: 'nao_alcancado',
                     createdAt: Timestamp.now()
                 });
+                finalUserId = userRef.id;
             }
 
-            // 2. Create Enrollment Request
-            const requestRef = doc(collection(firestore, 'enrollment_requests'));
-            batch.set(requestRef, {
+            // 2. Registrar solicitação de inscrição
+            await addDoc(collection(firestore!, 'enrollment_requests'), {
                 userId: finalUserId,
                 name: formData.name,
-                email: formData.email.toLowerCase(),
+                email: formData.email,
                 phone: formData.phone,
-                courseId: formData.courseId,
+                courseId: selectedCourseId,
                 status: 'pending',
                 createdAt: Timestamp.now()
             });
 
-            await batch.commit();
             setStep('success');
-        } catch (error) {
-            toast({ variant: 'destructive', title: "Erro ao processar", description: "Tente novamente em alguns instantes." });
+        } catch (e) {
+            toast({ variant: 'destructive', title: "Erro ao processar inscrição." });
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    if (isLoadingCourses) return <div className="flex justify-center p-20"><Loader2 className="animate-spin text-primary" /></div>;
+    const getCourseLabel = (course: any) => {
+        if (course.ebdTrack === 'teologico') return "Fase Buscar | 12/03 a 16/04 às 09h00";
+        if (course.ebdTrack === 'biblico' || course.ebdTrack === 'discipulado') return "Todo domingo às 09h00";
+        return null;
+    };
 
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col items-center py-12 px-4">
             <div className="w-full max-w-xl space-y-8">
-                <div className="flex flex-col items-center text-center gap-2">
+                <div className="flex flex-col items-center gap-4 text-center">
                     <Logo className="size-12 text-primary" />
-                    <h1 className="text-3xl font-black tracking-tighter text-slate-900">OikoApp</h1>
-                    <p className="text-sm text-muted-foreground uppercase font-black tracking-widest">Portal de Inscrições IBM</p>
+                    <h1 className="text-3xl font-black tracking-tight text-slate-900 uppercase italic">
+                        Inscrição em Cursos IBM
+                    </h1>
+                    <div className="flex items-center gap-2">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className={cn(
+                                "h-1.5 w-12 rounded-full transition-all duration-500",
+                                (i === 1 && step === 'identity') || (i === 2 && step === 'profile') || (i === 3 && step === 'course') ? "bg-primary w-20" : "bg-slate-200"
+                            )} />
+                        ))}
+                    </div>
                 </div>
 
-                {step === 'id' && (
-                    <Card className="shadow-2xl border-none">
+                {step === 'identity' && (
+                    <Card className="shadow-2xl border-none animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <CardHeader>
-                            <CardTitle>Para começar, qual seu e-mail?</CardTitle>
-                            <CardDescription>Usamos o e-mail para identificar se você já possui cadastro conosco.</CardDescription>
+                            <CardTitle>Identificação</CardTitle>
+                            <CardDescription>Insira seu e-mail para começarmos. Se você já tem cadastro, nós te reconheceremos.</CardDescription>
                         </CardHeader>
                         <form onSubmit={handleCheckEmail}>
-                            <CardContent>
-                                <div className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="email" className="font-bold">E-mail Principal</Label>
-                                        <div className="relative">
-                                            <Mail className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                                            <Input 
-                                                id="email" 
-                                                type="email" 
-                                                required 
-                                                placeholder="seu@email.com" 
-                                                className="pl-10 h-12 text-lg"
-                                                value={formData.email}
-                                                onChange={e => setFormData(p => ({...p, email: e.target.value}))}
-                                            />
-                                        </div>
+                            <CardContent className="space-y-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="email">E-mail Principal *</Label>
+                                    <div className="relative">
+                                        <Mail className="absolute left-3 top-3 size-4 text-muted-foreground" />
+                                        <Input 
+                                            id="email" 
+                                            type="email" 
+                                            required 
+                                            value={formData.email} 
+                                            onChange={e => setFormData(p => ({...p, email: e.target.value}))}
+                                            className="pl-10 h-11"
+                                            placeholder="seu@email.com"
+                                        />
                                     </div>
                                 </div>
                             </CardContent>
                             <CardFooter>
-                                <Button type="submit" className="w-full h-12 text-base font-bold" disabled={isSearching}>
-                                    {isSearching ? <Loader2 className="mr-2 animate-spin" /> : "Continuar"}
+                                <Button type="submit" className="w-full h-12 font-bold text-base" disabled={isLoadingUser}>
+                                    {isLoadingUser ? <Loader2 className="animate-spin mr-2" /> : "Continuar"}
+                                    <ArrowRight className="ml-2 size-4" />
                                 </Button>
                             </CardFooter>
                         </form>
@@ -186,107 +173,79 @@ function EnrollmentFlow() {
                 )}
 
                 {step === 'profile' && (
-                    <Card className="shadow-2xl border-none animate-in slide-in-from-right-4 duration-300">
+                    <Card className="shadow-2xl border-none animate-in slide-in-from-right-4 duration-500">
                         <CardHeader>
-                            <CardTitle>Prazer em te conhecer!</CardTitle>
-                            <CardDescription>Complete seu cadastro básico para prosseguir com a inscrição.</CardDescription>
+                            <CardTitle>Seus Dados</CardTitle>
+                            <CardDescription>Parece que é sua primeira vez por aqui! Complete seu perfil.</CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="name">Nome Completo</Label>
-                                <div className="relative">
-                                    <User className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                                    <Input id="name" required value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))} className="pl-10" />
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <form onSubmit={handleProfileSubmit}>
+                            <CardContent className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="phone">Telefone/WhatsApp</Label>
-                                    <div className="relative">
-                                        <Smartphone className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                                        <Input id="phone" required placeholder="(21) 9..." value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} className="pl-10" />
+                                    <Label htmlFor="name">Nome Completo *</Label>
+                                    <Input id="name" required value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))} className="h-11" />
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="phone">WhatsApp *</Label>
+                                        <Input id="phone" required value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} className="h-11" placeholder="(21) 99999-9999" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="cpf">CPF</Label>
+                                        <Input id="cpf" value={formData.cpf} onChange={e => setFormData(p => ({...p, cpf: e.target.value}))} className="h-11" />
                                     </div>
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="cpf">CPF (Opcional)</Label>
-                                    <Input id="cpf" value={formData.cpf} onChange={e => setFormData(p => ({...p, cpf: e.target.value}))} />
-                                </div>
-                            </div>
-                        </CardContent>
-                        <CardFooter className="flex gap-3">
-                            <Button variant="outline" onClick={() => setStep('id')} className="h-12"><ArrowLeft className="mr-2 size-4" /> Voltar</Button>
-                            <Button className="flex-1 h-12 font-bold" onClick={() => setStep('course')}>Avançar para Cursos</Button>
-                        </CardFooter>
+                            </CardContent>
+                            <CardFooter className="flex gap-3">
+                                <Button type="button" variant="outline" onClick={() => setStep('identity')}>Voltar</Button>
+                                <Button type="submit" className="flex-1 h-12 font-bold text-base">Continuar para Cursos</Button>
+                            </CardFooter>
+                        </form>
                     </Card>
                 )}
 
                 {step === 'course' && (
-                    <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                        {existingUser && (
-                            <div className="bg-primary/10 p-4 rounded-xl border border-primary/20 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="size-10 rounded-full bg-primary flex items-center justify-center text-white font-black">
-                                        {existingUser.name.charAt(0)}
-                                    </div>
-                                    <div>
-                                        <p className="text-sm font-black text-primary leading-tight">Olá, {existingUser.name}!</p>
-                                        <p className="text-[10px] text-muted-foreground uppercase font-bold">Cadastro Identificado</p>
-                                    </div>
-                                </div>
-                                <Button variant="ghost" size="sm" className="text-[10px] uppercase font-black" onClick={() => { setExistingUser(null); setStep('id'); }}>Não é você?</Button>
-                            </div>
-                        )}
-
-                        <div className="space-y-4">
-                            <h3 className="text-lg font-black uppercase tracking-tighter text-slate-700">Selecione o Curso Desejado</h3>
-                            <div className="grid gap-3">
-                                {courses?.map(course => (
-                                    <button
-                                        key={course.id}
-                                        onClick={() => setFormData(p => ({...p, courseId: course.id}))}
-                                        className={cn(
-                                            "w-full text-left p-4 rounded-xl border-2 transition-all group flex items-center justify-between",
-                                            formData.courseId === course.id 
-                                                ? "bg-primary/5 border-primary shadow-md ring-2 ring-primary/10" 
-                                                : "bg-white border-transparent hover:border-slate-200"
-                                        )}
-                                    >
-                                        <div className="flex items-center gap-4">
-                                            <div className={cn(
-                                                "p-2.5 rounded-lg transition-colors",
-                                                formData.courseId === course.id ? "bg-primary text-white" : "bg-slate-100 text-slate-500 group-hover:bg-slate-200"
-                                            )}>
-                                                <BookOpen size={20} />
-                                            </div>
-                                            <div>
-                                                <div className="flex items-center gap-2">
-                                                    <p className="font-black text-slate-900 uppercase text-sm">{course.name}</p>
-                                                    {getTrackBadge(course)}
-                                                </div>
-                                                <p className="text-xs text-muted-foreground font-medium">{course.ministryName}</p>
-                                            </div>
-                                        </div>
-                                        <div className={cn(
-                                            "size-5 rounded-full border-2 flex items-center justify-center transition-all",
-                                            formData.courseId === course.id ? "border-primary bg-primary" : "border-slate-200"
-                                        )}>
-                                            {formData.courseId === course.id && <CheckCircle2 size={12} className="text-white" />}
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
+                    <div className="space-y-6 animate-in slide-in-from-right-4 duration-500">
+                        <div className="flex justify-between items-center px-2">
+                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                <GraduationCap className="text-primary" />
+                                Escolha seu Curso
+                            </h2>
+                            <Button variant="ghost" size="sm" onClick={() => setStep(existingMember ? 'identity' : 'profile')}>
+                                <ArrowLeft className="mr-2 size-3" /> Alterar Dados
+                            </Button>
                         </div>
 
-                        <div className="flex gap-3 pt-4">
-                            <Button variant="outline" onClick={() => existingUser ? setStep('id') : setStep('profile')} className="h-12"><ArrowLeft className="mr-2 size-4" /> Voltar</Button>
-                            <Button 
-                                className="flex-1 h-12 font-black text-lg shadow-xl shadow-primary/20" 
-                                disabled={!formData.courseId || isSubmitting}
-                                onClick={handleFinalSubmit}
-                            >
-                                {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <ShieldCheck className="mr-2" />}
-                                Solicitar Inscrição
-                            </Button>
+                        <div className="grid grid-cols-1 gap-4">
+                            {isLoadingCourses ? (
+                                <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>
+                            ) : (
+                                allCourses?.map(course => (
+                                    <Card key={course.id} className="group hover:border-primary/50 transition-all cursor-pointer overflow-hidden shadow-sm" onClick={() => handleFinalSubmit(course.id)}>
+                                        <CardContent className="p-0">
+                                            <div className="flex flex-col sm:flex-row">
+                                                <div className="w-full sm:w-32 h-24 bg-muted relative shrink-0">
+                                                    <BookOpen className="absolute inset-0 m-auto text-muted-foreground/30 size-8" />
+                                                </div>
+                                                <div className="p-4 flex-1 flex flex-col justify-center">
+                                                    <div className="flex justify-between items-start mb-1">
+                                                        <Badge variant="outline" className="text-[9px] uppercase font-black">{course.ministryName}</Badge>
+                                                        {getCourseLabel(course) && (
+                                                            <Badge className="bg-primary/10 text-primary border-none text-[9px] font-black uppercase">
+                                                                {getCourseLabel(course)}
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                    <h3 className="font-bold text-slate-900 group-hover:text-primary transition-colors">{course.name}</h3>
+                                                    <p className="text-xs text-muted-foreground line-clamp-1 mt-1">{course.description}</p>
+                                                </div>
+                                                <div className="p-4 flex items-center justify-center bg-slate-50 group-hover:bg-primary/5 transition-colors border-l shrink-0">
+                                                    {isSubmitting ? <Loader2 className="animate-spin size-5" /> : <ArrowRight className="size-5 text-slate-300 group-hover:text-primary group-hover:translate-x-1 transition-all" />}
+                                                </div>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                ))
+                            )}
                         </div>
                     </div>
                 )}
@@ -294,18 +253,18 @@ function EnrollmentFlow() {
                 {step === 'success' && (
                     <Card className="shadow-2xl border-none text-center p-8 animate-in zoom-in-95 duration-500">
                         <CardContent className="space-y-6 pt-6">
-                            <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
-                                <CheckCircle2 size={40} />
+                            <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-lg">
+                                <CheckCircle2 size={48} />
                             </div>
-                            <div className="space-y-2">
-                                <h2 className="text-3xl font-black text-slate-900 tracking-tighter uppercase italic">Inscrição Protocolada!</h2>
-                                <p className="text-muted-foreground font-medium">Obrigado, {formData.name.split(' ')[0]}. Nossa equipe pedagógica analisará sua solicitação e entrará em contato em breve.</p>
+                            <div>
+                                <h2 className="text-2xl font-black text-slate-900 uppercase italic">Inscrição Recebida!</h2>
+                                <p className="text-muted-foreground mt-2">
+                                    Obrigado por seu interesse, <strong>{formData.name}</strong>. Sua solicitação foi protocolada e a coordenação do curso entrará em contato em breve via WhatsApp.
+                                </p>
                             </div>
-                            <div className="pt-6">
-                                <Button asChild className="rounded-full px-10 font-black" size="lg">
-                                    <a href="/">Voltar ao Site</a>
-                                </Button>
-                            </div>
+                            <Button asChild className="w-full h-12 font-bold" variant="outline">
+                                <a href="/">Voltar ao Site</a>
+                            </Button>
                         </CardContent>
                     </Card>
                 )}
@@ -314,9 +273,9 @@ function EnrollmentFlow() {
     );
 }
 
-export default function PublicEnrollmentPage() {
+export default function EnrollmentPage() {
     return (
-        <Suspense fallback={<div className="flex justify-center p-20"><Loader2 className="animate-spin" /></div>}>
+        <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>}>
             <EnrollmentFlow />
         </Suspense>
     );

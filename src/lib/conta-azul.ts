@@ -5,11 +5,10 @@ import { initializeFirebase } from '@/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 const CONTA_AZUL_AUTH_BASE = 'https://auth.contaazul.com';
-const CONTA_AZUL_API_BASE = 'https://api-v2.contaazul.com';
+const CONTA_AZUL_API_BASE = 'https://api.contaazul.com'; // Voltando para o endpoint v1/v2 estável
 
 /**
  * Recupera o token de acesso válido, renovando-o se necessário.
- * Implementa persistência robusta do refresh_token para evitar o erro 'invalid_token'.
  */
 export async function getValidContaAzulToken() {
     const { firestore } = initializeFirebase();
@@ -23,13 +22,11 @@ export async function getValidContaAzulToken() {
     const config = configSnap.data();
     const { clientId, clientSecret, accessToken, refreshToken, expiresAt } = config;
 
-    // Verificar se o token ainda é válido (com margem de segurança de 5 minutos)
     const now = Date.now();
     if (accessToken && expiresAt && now < (expiresAt - 300000)) {
         return accessToken;
     }
 
-    // Se expirou ou não existe, mas temos o refresh token, vamos renovar
     if (refreshToken && clientId && clientSecret) {
         const authHeader = Buffer.from(`${clientId.trim()}:${clientSecret.trim()}`).toString('base64');
         
@@ -50,9 +47,7 @@ export async function getValidContaAzulToken() {
             const data = await response.json().catch(() => ({}));
 
             if (!response.ok) {
-                const errorDetail = data.error_description || data.message || data.error || data;
-                const errorMsg = typeof errorDetail === 'object' ? JSON.stringify(errorDetail) : String(errorDetail);
-                
+                const errorMsg = data.error_description || data.message || JSON.stringify(data);
                 await updateDoc(configRef, { 
                     lastError: `RENOVAÇÃO FALHOU: ${errorMsg}`,
                     lastErrorAt: new Date().toISOString()
@@ -100,9 +95,8 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            const errorDetail = data.error_description || data.message || data.error || data;
-            const errorMsg = typeof errorDetail === 'object' ? JSON.stringify(errorDetail) : String(errorDetail);
-            throw new Error(`Falha na rota ${endpoint}: ${errorMsg}`);
+            const errorMsg = data.message || data.error_description || JSON.stringify(data);
+            throw new Error(errorMsg);
         }
 
         return data;
@@ -112,17 +106,14 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
 }
 
 /**
- * Busca ou cria um cliente (membro) no Conta Azul
+ * Busca ou cria um cliente no Conta Azul
  */
 export async function findOrCreateContaAzulCustomer(member: { name: string; email?: string; phone?: string }) {
     try {
         const customers = await callContaAzulApi(`/v1/customers?name=${encodeURIComponent(member.name)}`);
-        
         let customerList = Array.isArray(customers) ? customers : (customers.items || []);
         
-        if (customerList.length > 0) {
-            return customerList[0].id;
-        }
+        if (customerList.length > 0) return customerList[0].id;
 
         const newCustomer = await callContaAzulApi('/v1/customers', 'POST', {
             name: member.name,
@@ -133,13 +124,12 @@ export async function findOrCreateContaAzulCustomer(member: { name: string; emai
 
         return newCustomer.id;
     } catch (e: any) {
-        console.error("Erro ao gerenciar cliente no Conta Azul:", e);
         throw new Error(`Erro ao gerenciar cliente: ${e.message}`);
     }
 }
 
 /**
- * Lança um recebimento (Dízimo/Oferta) no financeiro do Conta Azul
+ * Lança um recebimento
  */
 export async function createContaAzulReceivable(data: {
     description: string;
