@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Loader2, Key, Link as LinkIcon, BarChart, ExternalLink, ShieldCheck, 
   AlertCircle, DollarSign, TrendingUp, ArrowUpCircle, ArrowDownCircle,
-  LayoutDashboard, HeartHandshake, History, RefreshCw, Wallet
+  LayoutDashboard, HeartHandshake, History, RefreshCw, Wallet, Info, Copy
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useDoc, setDocumentNonBlocking } from '@/firebase';
@@ -170,42 +170,64 @@ function ContaAzulConnect() {
     );
   }
 
-  const redirectUri = typeof window !== 'undefined' ? `${window.location.origin}/api/finance/conta-azul/callback` : '';
-  const authUrl = `https://api.contaazul.com/auth/authorize?client_id=${clientId}&scope=sales%20shipping%20inventory%20products%20customers%20finance&redirect_uri=${encodeURIComponent(redirectUri)}&state=oiko_auth`;
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const redirectUri = `${origin}/api/finance/conta-azul/callback`;
+  const authUrl = `https://app.contaazul.com/auth/authorize?client_id=${clientId}&scope=sales%20shipping%20inventory%20products%20customers%20finance&redirect_uri=${encodeURIComponent(redirectUri)}&state=oiko_auth`;
+
+  const copyRedirectUri = () => {
+      navigator.clipboard.writeText(redirectUri);
+      toast({ title: "Copiado!", description: "Use este link no campo 'URL de Redirecionamento' do Conta Azul." });
+  };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base"><Key className="size-4" />Integração Conta Azul</CardTitle>
-        <CardDescription className="text-xs">Configure seu Client ID e Secret do Portal do Desenvolvedor.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1">
-                <Label htmlFor="client-id" className="text-xs">Client ID</Label>
-                <Input id="client-id" size={32} className="h-8 text-xs" value={clientId} onChange={(e) => setClientId(e.target.value)} />
+    <div className="space-y-4">
+        <Card>
+        <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base"><Key className="size-4" />Integração Conta Azul</CardTitle>
+            <CardDescription className="text-xs">Configure seu Client ID e Secret do Portal do Desenvolvedor.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                    <Label htmlFor="client-id" className="text-xs">Client ID</Label>
+                    <Input id="client-id" size={32} className="h-8 text-xs" value={clientId} onChange={(e) => setClientId(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                    <Label htmlFor="client-secret" className="text-xs">Client Secret</Label>
+                    <Input id="client-secret" type="password" size={32} className="h-8 text-xs" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} />
+                </div>
             </div>
-            <div className="space-y-1">
-                <Label htmlFor="client-secret" className="text-xs">Client Secret</Label>
-                <Input id="client-secret" type="password" size={32} className="h-8 text-xs" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} />
-            </div>
-        </div>
-      </CardContent>
-      <CardFooter className="flex gap-2">
-        <Button onClick={handleConnect} disabled={isSaving} size="sm" className="flex-1">
-          {isSaving ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <LinkIcon className="mr-2 h-3 w-3" />}
-          Salvar Credenciais
-        </Button>
-        {hasCredentials && !isConnected && (
-            <Button variant="outline" size="sm" className="flex-1" asChild>
-                <a href={authUrl}>
-                    <ExternalLink className="mr-2 h-3 w-3"/>
-                    Autorizar App
-                </a>
+        </CardContent>
+        <CardFooter className="flex flex-col gap-3">
+            <Button onClick={handleConnect} disabled={isSaving} size="sm" className="w-full">
+            {isSaving ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <LinkIcon className="mr-2 h-3 w-3" />}
+            1. Salvar Credenciais
             </Button>
+            {hasCredentials && !isConnected && (
+                <Button variant="default" size="sm" className="w-full bg-blue-600 hover:bg-blue-700" asChild>
+                    <a href={authUrl}>
+                        <ExternalLink className="mr-2 h-3 w-3"/>
+                        2. Autorizar App
+                    </a>
+                </Button>
+            )}
+        </CardFooter>
+        </Card>
+
+        {hasCredentials && !isConnected && (
+            <Alert className="bg-blue-50 border-blue-200">
+                <Info className="size-4 text-blue-600" />
+                <AlertTitle className="text-blue-800 text-xs font-black uppercase">Configuração Obrigatória</AlertTitle>
+                <AlertDescription className="text-blue-700 text-[10px] space-y-2 mt-1">
+                    <p>No portal do desenvolvedor da Conta Azul, você <strong>precisa</strong> adicionar o link abaixo em "URL de Redirecionamento":</p>
+                    <div className="flex items-center gap-2 bg-white p-1 rounded border border-blue-100">
+                        <code className="flex-1 truncate">{redirectUri}</code>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={copyRedirectUri}><Copy className="size-3"/></Button>
+                    </div>
+                </AlertDescription>
+            </Alert>
         )}
-      </CardFooter>
-    </Card>
+    </div>
   );
 }
 

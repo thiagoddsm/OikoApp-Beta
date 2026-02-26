@@ -23,10 +23,10 @@ export async function GET(request: Request) {
     const { clientId, clientSecret } = configSnap.data();
     const redirectUri = `${new URL(request.url).origin}/api/finance/conta-azul/callback`;
 
-    // Trocar o code pelo access_token
+    // Trocar o code pelo access_token usando o endpoint auth.contaazul.com
     const authHeader = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
     
-    const response = await fetch('https://api.contaazul.com/oauth2/token', {
+    const response = await fetch('https://auth.contaazul.com/oauth2/token', {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${authHeader}`,

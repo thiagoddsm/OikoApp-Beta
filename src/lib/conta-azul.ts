@@ -4,7 +4,7 @@
 import { initializeFirebase } from '@/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
-const CONTA_AZUL_AUTH_BASE = 'https://api.contaazul.com';
+const CONTA_AZUL_AUTH_BASE = 'https://auth.contaazul.com';
 const CONTA_AZUL_API_BASE = 'https://api-v2.contaazul.com';
 
 /**
