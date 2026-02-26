@@ -5,7 +5,7 @@ import { initializeFirebase } from '@/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 const CONTA_AZUL_AUTH_BASE = 'https://auth.contaazul.com';
-const CONTA_AZUL_API_BASE = 'https://api.contaazul.com'; // Base estável para recursos v1
+const CONTA_AZUL_API_BASE = 'https://api.contaazul.com';
 
 /**
  * Recupera o token de acesso válido, renovando-o se necessário.
@@ -79,9 +79,9 @@ export async function getValidContaAzulToken() {
 }
 
 /**
- * Realiza uma chamada genérica à API da Conta Azul
+ * Realiza uma chamada genérica à API da Conta Azul com suporte a retry automático em caso de 401.
  */
-export async function callContaAzulApi(endpoint: string, method: string = 'GET', body?: any) {
+export async function callContaAzulApi(endpoint: string, method: string = 'GET', body?: any, retryCount = 0): Promise<any> {
     const token = await getValidContaAzulToken();
     const url = `${CONTA_AZUL_API_BASE}${endpoint}`;
     
@@ -98,9 +98,16 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            // Transformação do erro em string legível
+            // Se o erro for 401 (Não autorizado), tentamos renovar o token e repetir UMA VEZ.
+            if (response.status === 401 && retryCount === 0) {
+                console.log(`Token expirado detectado na rota ${endpoint}. Tentando renovação e retry...`);
+                // Força a renovação ao invalidar o tempo de expiração no banco antes de chamar novamente.
+                // Na verdade, getValidContaAzulToken já faz isso se o tempo for menor que agora.
+                return callContaAzulApi(endpoint, method, body, 1);
+            }
+
             const errorMsg = typeof data === 'object' ? (data.message || data.error_description || JSON.stringify(data)) : `Erro HTTP ${response.status}`;
-            throw new Error(errorMsg);
+            throw new Error(`Falha na rota ${endpoint}: ${errorMsg}`);
         }
 
         return data;

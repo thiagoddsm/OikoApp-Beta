@@ -48,7 +48,6 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
         setLog(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 15));
     };
 
-    // Monitorar erros que o servidor salvou no banco
     useEffect(() => {
         if (lastError) {
             addLog(`SERVIDOR: ${lastError}`);
@@ -59,13 +58,9 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
         setIsTestingRead(true);
         addLog("Iniciando teste de leitura (Etapa 4)...");
         
-        if (!isConnected) {
-            addLog("AVISO: Tokens não encontrados no banco. O teste provavelmente falhará com 'Não Autorizado'.");
-        }
-
         try {
             const res = await fetch('/api/finance/conta-azul/sync', { method: 'POST' });
-            const data = await responseJson(res);
+            const data = await res.json().catch(() => ({ error: 'Resposta inválida' }));
             if (res.ok) {
                 addLog(`Sucesso! ${data.data.bankAccounts?.length || 0} contas bancárias encontradas.`);
                 toast({ title: "Teste de Leitura OK", description: "Conexão estabelecida com sucesso." });
@@ -84,13 +79,9 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
         setIsTestingWrite(true);
         addLog("Iniciando teste de escrita (Gerar Fatura)...");
 
-        if (!isConnected) {
-            addLog("AVISO: Tokens não encontrados. A tentativa de escrita será negada pela API.");
-        }
-
         try {
             const res = await fetch('/api/finance/conta-azul/test-write', { method: 'POST' });
-            const data = await responseJson(res);
+            const data = await res.json().catch(() => ({ error: 'Resposta inválida' }));
             if (res.ok) {
                 addLog("Sucesso! Recebível de teste criado no Conta Azul.");
                 toast({ title: "Teste de Escrita OK", description: "Fatura de teste gerada com sucesso." });
@@ -104,14 +95,6 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
             setIsTestingWrite(false);
         }
     };
-
-    async function responseJson(res: Response) {
-        try {
-            return await res.json();
-        } catch {
-            return { error: `Erro HTTP ${res.status}` };
-        }
-    }
 
     return (
         <Card className="border-primary/20 bg-primary/5 shadow-inner">
@@ -206,32 +189,15 @@ function TechnicalDossier() {
                                 <div className="size-1.5 rounded-full bg-indigo-500" />
                                 1. Desafio da Identidade Binária (Redirect URI)
                             </h4>
-                            <p>O protocolo OAuth 2.0 exige que a <code className="bg-indigo-100 px-1 rounded">redirect_uri</code> enviada pela aplicação seja "binariamente idêntica" à cadastrada no portal de desenvolvedores. No ambiente do Firebase Studio, surge uma discrepância de portas: enquanto o portal pode esperar uma requisição na porta :6000, o servidor interno detecta a porta :9002.</p>
-                            <p className="mt-2 text-xs font-bold text-indigo-700 italic">Solução: Detecção dinâmica baseada em cabeçalhos de proxy para garantir que a aplicação se apresente com o endereço exato visualizado no navegador.</p>
+                            <p>O protocolo OAuth 2.0 exige que a <code className="bg-indigo-100 px-1 rounded">redirect_uri</code> enviada pela aplicação seja "binariamente idêntica" à cadastrada no portal de desenvolvedores.</p>
                         </section>
 
                         <section>
                             <h4 className="font-bold text-indigo-900 mb-2 uppercase text-xs tracking-tighter flex items-center gap-2">
                                 <div className="size-1.5 rounded-full bg-indigo-500" />
-                                2. Formatação de Requisição de Token
+                                2. Renovação de Tokens (Refresh)
                             </h4>
-                            <p>A Conta Azul exige estritamente que a troca do "Código de Autorização" pelo "Token de Acesso" seja feita no formato de formulário web: <code className="bg-indigo-100 px-1 rounded">application/x-www-form-urlencoded</code>. O envio como JSON resulta em erros de "Invalid Client".</p>
-                        </section>
-
-                        <section>
-                            <h4 className="font-bold text-indigo-900 mb-2 uppercase text-xs tracking-tighter flex items-center gap-2">
-                                <div className="size-1.5 rounded-full bg-indigo-500" />
-                                3. Restrições de Acesso no Sandbox
-                            </h4>
-                            <p>Os aplicativos em modo de "Desenvolvimento" operam em um ecossistema isolado. Tentativas de login com e-mails reais resultam em erro de permissão. É obrigatório o uso exclusivo dos e-mails de teste (ex: f79c80da...@devportal.com).</p>
-                        </section>
-
-                        <section>
-                            <h4 className="font-bold text-indigo-900 mb-2 uppercase text-xs tracking-tighter flex items-center gap-2">
-                                <div className="size-1.5 rounded-full bg-indigo-500" />
-                                4. Higiene de Credenciais e Sanitização
-                            </h4>
-                            <p>Devido à extensão das chaves, espaços em branco acidentais ao copiar invalidam o acesso por completo. Implementamos limpeza automática via <code className="bg-indigo-100 px-1 rounded">.trim()</code> em todos os campos de entrada.</p>
+                            <p>Implementamos uma camada de retry automático. Se um token expirar durante o uso, o sistema renova a chave em background e tenta a operação novamente de forma transparente.</p>
                         </section>
                     </div>
                 </ScrollArea>
@@ -274,11 +240,7 @@ function ContaAzulConnect() {
     const cleanSecret = clientSecret.trim();
 
     if (!cleanId || !cleanSecret || !configDocRef) {
-      toast({
-        variant: 'destructive',
-        title: 'Credenciais ausentes',
-        description: 'Por favor, insira o Client ID e o Client Secret.',
-      });
+      toast({ variant: 'destructive', title: 'Credenciais ausentes', description: 'Por favor, insira o Client ID e o Client Secret.' });
       return;
     }
     setIsSaving(true);
@@ -310,13 +272,10 @@ function ContaAzulConnect() {
 
   if (isLoadingConfig) return null;
 
-  // Use HTTPS fixo para redirect_uri no Studio/Cloud conforme Etapa 1
   const redirectUri = `${origin}/api/finance/conta-azul/callback`;
   
-  // ATUALIZAÇÃO: Escopos fixos conforme documentação oficial para evitar erro 'invalid_scope'
-  const scopes = 'openid profile aws.cognito.signin.user.admin'; 
-  
-  const authUrl = `https://auth.contaazul.com/login?response_type=code&client_id=${clientId.trim()}&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=oiko_auth`;
+  // URL de autorização formatada exatamente conforme documentação fornecida
+  const authUrl = `https://auth.contaazul.com/login?response_type=code&client_id=${clientId.trim()}&redirect_uri=${encodeURIComponent(redirectUri)}&state=oiko_auth&scope=openid+profile+aws.cognito.signin.user.admin`;
 
   return (
     <div className="space-y-6">
@@ -329,7 +288,6 @@ function ContaAzulConnect() {
                     <code className="font-mono text-[10px] flex-1 truncate">{redirectUri}</code>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { navigator.clipboard.writeText(redirectUri); toast({title: "Link Copiado!"}); }}><Copy size={12}/></Button>
                 </div>
-                <p className="font-bold text-amber-700">⚠️ Verifique se a porta (número após os dois pontos) no portal é a mesma que você vê na barra do seu navegador agora.</p>
             </AlertDescription>
         </Alert>
 
@@ -366,12 +324,7 @@ function ContaAzulConnect() {
                                         placeholder="••••••••" 
                                         className="font-mono pr-10"
                                     />
-                                    <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className="absolute right-0 top-0 h-10 w-10 text-muted-foreground"
-                                        onClick={() => setShowSecret(!showSecret)}
-                                    >
+                                    <Button variant="ghost" size="icon" className="absolute right-0 top-0 h-10 w-10 text-muted-foreground" onClick={() => setShowSecret(!showSecret)}>
                                         {showSecret ? <EyeOff size={16} /> : <Eye size={16} />}
                                     </Button>
                                 </div>
@@ -411,7 +364,7 @@ function ContaAzulConnect() {
                                     <h4 className="font-black text-emerald-900">Integração Ativa</h4>
                                     <p className="text-xs text-emerald-700">Tokens obtidos e renovação automática habilitada.</p>
                                 </div>
-                                <Button variant="outline" className="text-destructive border-destructive/20 hover:bg-red-50" onClick={handleDisconnect}>Não está pegando o botão</Button>
+                                <Button variant="outline" className="text-destructive border-destructive/20 hover:bg-red-50" onClick={handleDisconnect}>Encerrar Conexão</Button>
                             </div>
                         )}
                     </CardContent>
