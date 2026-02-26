@@ -202,12 +202,12 @@ function ContaAzulConnect() {
 
   if (isLoadingConfig) return null;
 
-  // URL de redirecionamento oficial do app publicado
+  // URL de redirecionamento EXATA para evitar erro de Redirect URI mismatch
   const redirectUri = `https://studio--studio-1424813022-71754.us-central1.hosted.app/api/finance/conta-azul/callback`;
   
-  // Usando scopes simplificados para reduzir erros de acesso negado
-  const scopes = encodeURIComponent('finance customers');
-  const authUrl = `https://app.contaazul.com/auth/authorize?client_id=${clientId.trim()}&scope=${scopes}&redirect_uri=${encodeURIComponent(redirectUri)}&state=oiko_auth&response_type=code`;
+  // Scopes simplificados e encodados corretamente para evitar erro de permissão
+  const scopes = 'finance customers';
+  const authUrl = `https://app.contaazul.com/auth/authorize?client_id=${clientId.trim()}&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=oiko_auth&response_type=code`;
 
   const copyRedirectUri = () => {
       navigator.clipboard.writeText(redirectUri);
@@ -245,15 +245,15 @@ function ContaAzulConnect() {
 
                     <div className="space-y-4 pt-4 border-t">
                         <div className="flex justify-between items-center bg-blue-50 p-3 rounded-lg border border-blue-100">
-                            <div>
-                                <p className="text-[10px] font-black uppercase text-blue-700">URL de Redirecionamento</p>
+                            <div className="min-w-0 flex-1">
+                                <p className="text-[10px] font-black uppercase text-blue-700">URL de Redirecionamento (Portal CA)</p>
                                 <code className="text-[10px] text-blue-900 truncate block mt-1">{redirectUri}</code>
                             </div>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600" onClick={copyRedirectUri}><Copy size={14}/></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 shrink-0" onClick={copyRedirectUri}><Copy size={14}/></Button>
                         </div>
                         <Button onClick={handleConnect} disabled={isSaving} className="w-full h-11 font-bold">
                             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LinkIcon className="mr-2 h-4 w-4" />}
-                            Salvar e Validar Credenciais
+                            Salvar Credenciais
                         </Button>
                     </div>
                 </CardContent>
@@ -275,7 +275,7 @@ function ContaAzulConnect() {
                                     <AlertCircle className="h-4 w-4 text-amber-600" />
                                     <AlertTitle className="text-xs font-bold text-amber-800">DICA DE SANDBOX</AlertTitle>
                                     <AlertDescription className="text-[10px] text-amber-700">
-                                        Se o app estiver em desenvolvimento, você deve usar o e-mail <strong>@devportal.com</strong> fornecido no seu portal Conta Azul para evitar o erro de 'Acesso Negado'.
+                                        Use o e-mail <strong>@devportal.com</strong> mostrado no seu painel de desenvolvedor. Se der erro, verifique se a URL de Redirecionamento no portal está 100% igual ao campo azul ao lado.
                                     </AlertDescription>
                                 </Alert>
                                 <Button 
@@ -296,7 +296,7 @@ function ContaAzulConnect() {
                                 </div>
                                 <div>
                                     <h4 className="font-black text-emerald-900">Integração Ativa</h4>
-                                    <p className="text-xs text-emerald-700">Seu sistema está sincronizado com a Conta Azul.</p>
+                                    <p className="text-xs text-emerald-700">O sistema está conectado ao ambiente Conta Azul.</p>
                                 </div>
                                 <Button variant="outline" className="text-destructive border-destructive/20 hover:bg-red-50" onClick={handleDisconnect}>
                                     Encerrar Conexão
