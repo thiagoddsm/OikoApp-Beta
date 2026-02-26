@@ -5,7 +5,7 @@ import { initializeFirebase } from '@/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 const CONTA_AZUL_AUTH_BASE = 'https://auth.contaazul.com';
-const CONTA_AZUL_API_BASE = 'https://api.contaazul.com'; // Base estável para v1/v2 de recursos comuns
+const CONTA_AZUL_API_BASE = 'https://api.contaazul.com'; // Base estável para recursos v1
 
 /**
  * Recupera o token de acesso válido, renovando-o se necessário.
@@ -57,10 +57,9 @@ export async function getValidContaAzulToken() {
                 throw new Error(errorMsg);
             }
 
-            // Calculamos a expiração exata
             const newExpiresAt = Date.now() + (data.expires_in * 1000);
             
-            // Salvamos no banco mas já retornamos o novo access_token para a chamada atual
+            // Salvamento imediato do novo ciclo de tokens
             await updateDoc(configRef, {
                 accessToken: data.access_token,
                 refreshToken: data.refresh_token,
@@ -99,14 +98,14 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            // Transformamos o erro em string clara para o frontend
+            // Transformação do erro em string legível
             const errorMsg = typeof data === 'object' ? (data.message || data.error_description || JSON.stringify(data)) : `Erro HTTP ${response.status}`;
-            throw new Error(`Falha na rota ${endpoint}: ${errorMsg}`);
+            throw new Error(errorMsg);
         }
 
         return data;
     } catch (e: any) {
-        throw new Error(e.message || 'Erro de conexão com a API Conta Azul.');
+        throw new Error(e.message || 'Erro de conexão com a API.');
     }
 }
 
@@ -115,13 +114,11 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
  */
 export async function findOrCreateContaAzulCustomer(member: { name: string; email?: string; phone?: string }) {
     try {
-        // Busca por nome para evitar duplicidade
         const customers = await callContaAzulApi(`/v1/customers?name=${encodeURIComponent(member.name)}`);
         const customerList = Array.isArray(customers) ? customers : (customers.items || []);
         
         if (customerList.length > 0) return customerList[0].id;
 
-        // Cria se não existir
         const newCustomer = await callContaAzulApi('/v1/customers', 'POST', {
             name: member.name,
             email: member.email || '',
