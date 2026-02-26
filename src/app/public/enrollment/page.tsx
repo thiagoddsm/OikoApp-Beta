@@ -1,19 +1,32 @@
 
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
 import { collection, query, Timestamp } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, CheckCircle2, BookOpen, User, Phone, Mail, ArrowRight, GraduationCap, Lightbulb, School } from 'lucide-react';
+import { 
+    Loader2, 
+    BookOpen, 
+    User, 
+    Phone, 
+    Mail, 
+    CheckCircle2, 
+    ArrowRight, 
+    ArrowLeft,
+    Lightbulb,
+    Waves,
+    GraduationCap,
+    Clock,
+    School
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Logo } from '@/components/icons';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useSearchParams } from 'next/navigation';
 
 type Course = {
     id: string;
@@ -23,19 +36,21 @@ type Course = {
     ebdTrack?: 'teologico' | 'biblico' | 'discipulado';
 };
 
-export default function PublicEnrollmentPage() {
+export default function EnrollmentPublicPage() {
     const { firestore } = useFirebase();
     const { toast } = useToast();
-    
+    const searchParams = useSearchParams();
+    const initialCourseId = searchParams.get('courseId');
+
     const [step, setStep] = useState(1);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    
-    // Form State
+    const [isLoading, setIsLoading] = useState(false);
+    const [success, setSuccess] = useState(false);
+
     const [formData, setFormData] = useState({
         name: '',
         email: '',
         phone: '',
-        courseId: '',
+        courseId: initialCourseId || '',
     });
 
     const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
@@ -43,13 +58,7 @@ export default function PublicEnrollmentPage() {
 
     const filteredCourses = useMemo(() => {
         if (!courses) return [];
-        // Filtramos para mostrar apenas cursos relevantes para inscrição pública (EBD, Trilhos, etc)
-        return courses.filter(c => 
-            c.ministryName.toLowerCase().includes('lumine') || 
-            c.ministryName.toLowerCase().includes('ebd') ||
-            c.ministryName.toLowerCase().includes('college') ||
-            c.name.toLowerCase().includes('pertencer')
-        ).sort((a, b) => a.name.localeCompare(b.name));
+        return courses.sort((a, b) => a.ministryName.localeCompare(b.ministryName));
     }, [courses]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -57,193 +66,188 @@ export default function PublicEnrollmentPage() {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleCourseSelect = (courseId: string) => {
-        setFormData(prev => ({ ...prev, courseId }));
+    const handleNext = () => {
+        if (step === 1 && (!formData.name || !formData.phone)) {
+            toast({ variant: 'destructive', title: 'Campos obrigatórios', description: 'Preencha seu nome e telefone para continuar.' });
+            return;
+        }
+        setStep(prev => prev + 1);
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!formData.name || !formData.phone || !formData.courseId) {
-            toast({ variant: 'destructive', title: 'Campos obrigatórios', description: 'Por favor, preencha nome, telefone e escolha um curso.' });
+    const handleSubmit = async () => {
+        if (!formData.courseId) {
+            toast({ variant: 'destructive', title: 'Selecione um curso', description: 'Você precisa escolher uma das opções para se inscrever.' });
             return;
         }
 
-        setIsSubmitting(true);
+        setIsLoading(true);
         try {
-            // 1. Criar ou identificar usuário (simplificado para o formulário público)
-            // No mundo real, poderíamos checar se o email/fone já existe
-            const requestRef = collection(firestore!, 'enrollment_requests');
-            await addDocumentNonBlocking(requestRef, {
+            await addDocumentNonBlocking(collection(firestore!, 'enrollment_requests'), {
                 ...formData,
                 status: 'pending',
                 createdAt: Timestamp.now(),
-                userId: 'public_visitor' // Identificador temporário
             });
-
-            setStep(3); // Sucesso
-            toast({ title: "Solicitação Enviada!", description: "Em breve um líder entrará em contato." });
+            setSuccess(true);
         } catch (error) {
-            toast({ variant: 'destructive', title: "Erro no envio", description: "Tente novamente em alguns instantes." });
+            toast({ variant: 'destructive', title: 'Erro ao enviar', description: 'Não foi possível processar sua inscrição. Tente novamente.' });
         } finally {
-            setIsSubmitting(false);
+            setIsLoading(false);
         }
     };
 
-    const getCourseBadge = (course: Course) => {
+    const getTrackInfo = (course: Course) => {
         if (course.ebdTrack === 'teologico') {
-            return (
-                <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-[10px] font-black uppercase">
-                    Fase Buscar | 12/03 a 16/04 às 09h00
-                </Badge>
-            );
+            return "Durante a Fase Buscar | 1ª Edição: 12/03 a 16/04 às 09h00";
         }
         if (course.ebdTrack === 'biblico' || course.ebdTrack === 'discipulado') {
-            return (
-                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] font-black uppercase">
-                    Todo domingo às 09h00
-                </Badge>
-            );
+            return "Todo domingo às 09h00";
         }
         return null;
     };
 
+    if (success) {
+        return (
+            <div className="min-h-screen flex items-center justify-center p-4 bg-muted/30">
+                <Card className="max-w-md w-full text-center p-8 animate-in zoom-in-95 duration-300">
+                    <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <CheckCircle2 size={48} />
+                    </div>
+                    <CardTitle className="text-2xl font-black mb-2">Solicitação Enviada!</CardTitle>
+                    <CardDescription className="text-base">
+                        Olá {formData.name.split(' ')[0]}, recebemos seu interesse no curso. 
+                        O responsável entrará em contato em breve para confirmar sua vaga na turma.
+                    </CardDescription>
+                    <Button className="mt-8 w-full" onClick={() => window.location.reload()}>Fazer outra inscrição</Button>
+                </Card>
+            </div>
+        );
+    }
+
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 sm:p-6">
-            <div className="w-full max-w-xl space-y-8">
-                <div className="flex flex-col items-center gap-4 text-center">
-                    <div className="bg-white p-4 rounded-2xl shadow-xl">
-                        <Logo className="size-12 text-primary" />
-                    </div>
-                    <div>
-                        <h1 className="text-3xl font-black tracking-tight text-slate-900 italic">OikoApp Inscrições</h1>
-                        <p className="text-muted-foreground font-medium">Faça parte da nossa trilha de crescimento.</p>
-                    </div>
+        <div className="min-h-screen bg-slate-50 py-12 px-4">
+            <div className="max-w-3xl mx-auto space-y-8">
+                <div className="text-center space-y-2">
+                    <h1 className="text-3xl font-black tracking-tight text-slate-900">Inscrição em Cursos IBM</h1>
+                    <p className="text-muted-foreground">Faça parte do organismo. Cresça através do ensino.</p>
                 </div>
 
-                <Card className="border-none shadow-2xl overflow-hidden rounded-[2rem]">
-                    {step === 1 && (
-                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <CardHeader className="bg-primary text-primary-foreground p-8">
-                                <CardTitle className="text-2xl font-black uppercase tracking-tighter italic">1. Identificação</CardTitle>
-                                <CardDescription className="text-primary-foreground/80 font-medium">Comece preenchendo seus dados de contato.</CardDescription>
+                <div className="flex justify-between items-center max-w-xs mx-auto mb-8">
+                    {[1, 2].map(i => (
+                        <div key={i} className="flex items-center">
+                            <div className={cn(
+                                "size-8 rounded-full flex items-center justify-center font-bold text-sm transition-all",
+                                step === i ? "bg-primary text-white scale-110 ring-4 ring-primary/20" : 
+                                step > i ? "bg-emerald-500 text-white" : "bg-white text-slate-400 border"
+                            )}>
+                                {step > i ? <CheckCircle2 size={16} /> : i}
+                            </div>
+                            {i === 1 && <div className={cn("w-24 h-1 mx-2 rounded", step > 1 ? "bg-emerald-500" : "bg-slate-200")} />}
+                        </div>
+                    ))}
+                </div>
+
+                <Card className="shadow-xl border-none">
+                    {step === 1 ? (
+                        <>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <User className="text-primary size-5" />
+                                    Dados Pessoais
+                                </CardTitle>
+                                <CardDescription>Identifique-se para que possamos entrar em contato.</CardDescription>
                             </CardHeader>
-                            <CardContent className="p-8 space-y-6">
+                            <CardContent className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="name" className="text-xs font-black uppercase text-muted-foreground tracking-widest">Nome Completo</Label>
-                                    <div className="relative">
-                                        <User className="absolute left-3 top-3 size-4 text-primary/40" />
-                                        <Input id="name" name="name" value={formData.name} onChange={handleInputChange} placeholder="Como quer ser chamado?" className="pl-10 h-12" />
-                                    </div>
+                                    <Label htmlFor="name">Nome Completo</Label>
+                                    <Input id="name" name="name" value={formData.name} onChange={handleInputChange} placeholder="Ex: João da Silva" className="h-12" />
                                 </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div className="space-y-2">
-                                        <Label htmlFor="phone" className="text-xs font-black uppercase text-muted-foreground tracking-widest">WhatsApp</Label>
-                                        <div className="relative">
-                                            <Phone className="absolute left-3 top-3 size-4 text-primary/40" />
-                                            <Input id="phone" name="phone" value={formData.phone} onChange={handleInputChange} placeholder="(21) 9..." className="pl-10 h-12" />
-                                        </div>
+                                        <Label htmlFor="phone">WhatsApp / Celular</Label>
+                                        <Input id="phone" name="phone" value={formData.phone} onChange={handleInputChange} placeholder="(21) 99999-9999" className="h-12" />
                                     </div>
                                     <div className="space-y-2">
-                                        <Label htmlFor="email" className="text-xs font-black uppercase text-muted-foreground tracking-widest">E-mail (Opcional)</Label>
-                                        <div className="relative">
-                                            <Mail className="absolute left-3 top-3 size-4 text-primary/40" />
-                                            <Input id="email" name="email" value={formData.email} onChange={handleInputChange} type="email" placeholder="seu@email.com" className="pl-10 h-12" />
-                                        </div>
+                                        <Label htmlFor="email">E-mail (Opcional)</Label>
+                                        <Input id="email" name="email" value={formData.email} onChange={handleInputChange} type="email" placeholder="seu@email.com" className="h-12" />
                                     </div>
                                 </div>
                             </CardContent>
-                            <CardFooter className="p-8 bg-muted/30">
-                                <Button onClick={() => setStep(2)} disabled={!formData.name || !formData.phone} className="w-full h-14 text-lg font-black shadow-lg">
-                                    Próximo Passo <ArrowRight className="ml-2" />
+                            <CardFooter>
+                                <Button className="w-full h-12 text-base font-bold" onClick={handleNext}>
+                                    Continuar <ArrowRight className="ml-2 size-4" />
                                 </Button>
                             </CardFooter>
-                        </div>
-                    )}
-
-                    {step === 2 && (
-                        <div className="animate-in fade-in slide-in-from-right-4 duration-500">
-                            <CardHeader className="bg-primary text-primary-foreground p-8">
-                                <div className="flex justify-between items-center">
-                                    <CardTitle className="text-2xl font-black uppercase tracking-tighter italic">2. Escolha seu Curso</CardTitle>
-                                    <Button variant="ghost" onClick={() => setStep(1)} className="text-white hover:bg-white/10 h-8 px-2 text-xs">Voltar</Button>
-                                </div>
-                                <CardDescription className="text-primary-foreground/80 font-medium">Selecione qual trilha você deseja iniciar.</CardDescription>
+                        </>
+                    ) : (
+                        <>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <BookOpen className="text-primary size-5" />
+                                    Escolha seu Curso
+                                </CardTitle>
+                                <CardDescription>Selecione a trilha que você deseja percorrer agora.</CardDescription>
                             </CardHeader>
-                            <CardContent className="p-0">
-                                <ScrollArea className="h-[400px]">
-                                    <div className="p-6 space-y-3">
-                                        {isLoadingCourses ? (
-                                            <div className="flex justify-center p-12"><Loader2 className="animate-spin text-primary" /></div>
-                                        ) : filteredCourses.map(course => (
-                                            <button 
-                                                key={course.id}
-                                                onClick={() => handleCourseSelect(course.id)}
-                                                className={cn(
-                                                    "w-full p-5 rounded-2xl border-2 text-left transition-all group relative",
-                                                    formData.courseId === course.id 
-                                                        ? "bg-primary/5 border-primary shadow-md ring-1 ring-primary/20" 
-                                                        : "bg-white border-slate-100 hover:border-primary/30"
-                                                )}
-                                            >
-                                                <div className="flex justify-between items-start gap-4">
-                                                    <div className="min-w-0">
-                                                        <p className={cn("font-black uppercase tracking-tighter text-base transition-colors", formData.courseId === course.id ? "text-primary" : "text-slate-900")}>
-                                                            {course.name}
-                                                        </p>
-                                                        <p className="text-xs text-muted-foreground line-clamp-2 mt-1 leading-relaxed">{course.description}</p>
-                                                        <div className="mt-3 flex flex-wrap gap-2">
-                                                            {getCourseBadge(course)}
-                                                            <Badge variant="secondary" className="text-[9px] uppercase font-black px-2 h-5 bg-slate-100">{course.ministryName}</Badge>
+                            <CardContent>
+                                {isLoadingCourses ? (
+                                    <div className="py-12 flex justify-center"><Loader2 className="animate-spin text-primary" /></div>
+                                ) : (
+                                    <div className="grid grid-cols-1 gap-3">
+                                        {filteredCourses.map(course => {
+                                            const isSelected = formData.courseId === course.id;
+                                            const trackInfo = getTrackInfo(course);
+                                            return (
+                                                <button
+                                                    key={course.id}
+                                                    onClick={() => setFormData(p => ({...p, courseId: course.id}))}
+                                                    className={cn(
+                                                        "p-4 rounded-xl border-2 text-left transition-all group flex flex-col gap-2",
+                                                        isSelected ? "border-primary bg-primary/5 ring-4 ring-primary/10 shadow-md" : "hover:border-primary/30 hover:bg-slate-50"
+                                                    )}
+                                                >
+                                                    <div className="flex justify-between items-start">
+                                                        <div className="space-y-1">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-xs font-black uppercase text-primary/60 tracking-widest">{course.ministryName}</span>
+                                                                {isSelected && <Badge className="h-4 text-[8px] font-black uppercase">Selecionado</Badge>}
+                                                            </div>
+                                                            <h4 className="font-bold text-lg text-slate-900 group-hover:text-primary transition-colors">{course.name}</h4>
+                                                        </div>
+                                                        <div className={cn("size-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all", isSelected ? "bg-primary border-primary" : "border-slate-300")}>
+                                                            {isSelected && <div className="size-2 bg-white rounded-full" />}
                                                         </div>
                                                     </div>
-                                                    <div className={cn(
-                                                        "size-6 rounded-full border-2 shrink-0 transition-all flex items-center justify-center",
-                                                        formData.courseId === course.id ? "bg-primary border-primary" : "border-slate-200"
-                                                    )}>
-                                                        {formData.courseId === course.id && <div className="size-2 bg-white rounded-full" />}
-                                                    </div>
-                                                </div>
-                                            </button>
-                                        ))}
+                                                    
+                                                    {trackInfo && (
+                                                        <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 w-fit px-2 py-1 rounded border border-emerald-100">
+                                                            <Clock size={12} className="shrink-0" />
+                                                            <span className="text-[10px] font-black uppercase tracking-tighter">{trackInfo}</span>
+                                                        </div>
+                                                    )}
+                                                    
+                                                    <p className="text-sm text-muted-foreground line-clamp-2 mt-1 italic leading-relaxed">
+                                                        {course.description || "Inscrições abertas para novas turmas."}
+                                                    </p>
+                                                </button>
+                                            );
+                                        })}
                                     </div>
-                                </ScrollArea>
+                                )}
                             </CardContent>
-                            <CardFooter className="p-8 bg-muted/30">
-                                <Button onClick={handleSubmit} disabled={isSubmitting || !formData.courseId} className="w-full h-14 text-lg font-black shadow-xl">
-                                    {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" />}
+                            <CardFooter className="flex gap-3">
+                                <Button variant="ghost" onClick={() => setStep(1)} className="h-12"><ArrowLeft className="mr-2 size-4" /> Voltar</Button>
+                                <Button className="flex-1 h-12 text-base font-bold shadow-lg" disabled={isLoading || !formData.courseId} onClick={handleSubmit}>
+                                    {isLoading ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" />}
                                     Finalizar Inscrição
                                 </Button>
                             </CardFooter>
-                        </div>
-                    )}
-
-                    {step === 3 && (
-                        <div className="p-12 text-center animate-in zoom-in-95 duration-500">
-                            <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-500/20">
-                                <CheckCircle2 size={40} />
-                            </div>
-                            <h2 className="text-3xl font-black text-slate-900 uppercase italic tracking-tighter">Inscrição Protocolada!</h2>
-                            <p className="text-slate-600 mt-4 leading-relaxed max-w-sm mx-auto">
-                                Olá <strong>{formData.name.split(' ')[0]}</strong>, sua solicitação foi enviada com sucesso para a coordenação do curso.
-                            </p>
-                            <div className="mt-10 p-6 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 text-left space-y-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white rounded-lg shadow-sm"><Lightbulb className="size-5 text-amber-500" /></div>
-                                    <div>
-                                        <p className="text-[10px] font-black uppercase text-slate-400">O que acontece agora?</p>
-                                        <p className="text-sm font-bold text-slate-700 leading-tight">Um líder do ministério entrará em contato pelo seu WhatsApp.</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <Button asChild variant="outline" className="mt-8 rounded-full font-bold h-12 px-8">
-                                <a href="/">Voltar ao Início</a>
-                            </Button>
-                        </div>
+                        </>
                     )}
                 </Card>
 
                 <div className="text-center">
-                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.3em]">Igreja Batista da Manhã • 2026</p>
+                    <p className="text-xs text-muted-foreground">
+                        Ao se inscrever, você concorda com os termos de convivência da Igreja Batista da Manhã.
+                    </p>
                 </div>
             </div>
         </div>

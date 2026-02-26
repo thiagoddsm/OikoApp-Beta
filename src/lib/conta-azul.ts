@@ -5,7 +5,7 @@ import { initializeFirebase } from '@/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 const CONTA_AZUL_AUTH_BASE = 'https://auth.contaazul.com';
-const CONTA_AZUL_API_BASE = 'https://api.contaazul.com'; // Ajustado de api-v2 para api (mais estável para v1)
+const CONTA_AZUL_API_BASE = 'https://api-v2.contaazul.com'; // Atualizado para api-v2 conforme documentação
 
 /**
  * Recupera o token de acesso válido, renovando-o se necessário.
@@ -109,10 +109,11 @@ export async function findOrCreateContaAzulCustomer(member: { name: string; emai
         // 1. Tentar buscar por nome exato
         const customers = await callContaAzulApi(`/v1/customers?name=${encodeURIComponent(member.name)}`);
         
-        if (Array.isArray(customers) && customers.length > 0) {
-            return customers[0].id;
-        } else if (customers.items && Array.isArray(customers.items) && customers.items.length > 0) {
-            return customers.items[0].id;
+        // Normalização do retorno para v1/v2
+        let customerList = Array.isArray(customers) ? customers : (customers.items || []);
+        
+        if (customerList.length > 0) {
+            return customerList[0].id;
         }
 
         // 2. Se não achou, criar novo
