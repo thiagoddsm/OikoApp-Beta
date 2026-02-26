@@ -5,7 +5,7 @@ import { initializeFirebase } from '@/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 const CONTA_AZUL_AUTH_BASE = 'https://auth.contaazul.com';
-const CONTA_AZUL_API_BASE = 'https://api.contaazul.com'; // Voltando para o endpoint v1/v2 estável
+const CONTA_AZUL_API_BASE = 'https://api.contaazul.com'; // Voltando para o endpoint estável padrão
 
 /**
  * Recupera o token de acesso válido, renovando-o se necessário.
@@ -23,6 +23,7 @@ export async function getValidContaAzulToken() {
     const { clientId, clientSecret, accessToken, refreshToken, expiresAt } = config;
 
     const now = Date.now();
+    // Se o token expira em menos de 5 minutos, renovamos.
     if (accessToken && expiresAt && now < (expiresAt - 300000)) {
         return accessToken;
     }
@@ -57,6 +58,7 @@ export async function getValidContaAzulToken() {
 
             const newExpiresAt = Date.now() + (data.expires_in * 1000);
             
+            // Salva o novo par de tokens imediatamente (refresh_token é rotativo na Conta Azul)
             await updateDoc(configRef, {
                 accessToken: data.access_token,
                 refreshToken: data.refresh_token,
@@ -95,8 +97,9 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
+            // Transformamos o erro em string legível para o console
             const errorMsg = data.message || data.error_description || JSON.stringify(data);
-            throw new Error(errorMsg);
+            throw new Error(`Falha na rota ${endpoint}: ${errorMsg}`);
         }
 
         return data;
@@ -110,11 +113,13 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
  */
 export async function findOrCreateContaAzulCustomer(member: { name: string; email?: string; phone?: string }) {
     try {
+        // Busca por nome exato (Conta Azul costuma retornar array ou objeto items)
         const customers = await callContaAzulApi(`/v1/customers?name=${encodeURIComponent(member.name)}`);
         let customerList = Array.isArray(customers) ? customers : (customers.items || []);
         
         if (customerList.length > 0) return customerList[0].id;
 
+        // Se não achou, cria
         const newCustomer = await callContaAzulApi('/v1/customers', 'POST', {
             name: member.name,
             email: member.email || '',
