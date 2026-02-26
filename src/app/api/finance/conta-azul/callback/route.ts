@@ -5,8 +5,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 /**
  * Rota de Callback para o OAuth 2.0 da Conta Azul.
- * Captura o 'code' enviado após a autorização do usuário e troca pelos tokens de acesso.
- * Otimizada para o ambiente de proxy do Firebase Studio com LOGS DE DIAGNÓSTICO.
+ * Otimizada para diagnosticar Redirect URI Mismatch no Firebase Studio.
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -23,21 +22,15 @@ export async function GET(request: Request) {
   const { firestore } = initializeFirebase();
   const configRef = doc(firestore, 'config', 'conta_azul');
 
-  // Log inicial para diagnóstico no painel
+  // Log técnico para o console de depuração do usuário
   await updateDoc(configRef, { 
-      lastError: `DEBUG CALLBACK: Iniciando troca. URI Detectada: ${redirectUri}`,
+      lastError: `DIAGNÓSTICO: Tentando troca. URI Enviada: ${redirectUri}`,
       lastErrorAt: new Date().toISOString()
   }).catch(() => {});
 
   if (error) {
     const msg = `ERRO CONTA AZUL: ${error} - ${errorDescription || 'Sem descrição'}`;
-    console.error(msg);
-    
-    await updateDoc(configRef, { 
-        lastError: msg,
-        lastErrorAt: new Date().toISOString()
-    }).catch(() => {});
-
+    await updateDoc(configRef, { lastError: msg, lastErrorAt: new Date().toISOString() }).catch(() => {});
     return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=error&message=${encodeURIComponent(msg)}`);
   }
 
@@ -47,20 +40,12 @@ export async function GET(request: Request) {
 
   try {
     const configSnap = await getDoc(configRef);
-
-    if (!configSnap.exists()) {
-      throw new Error('Configuração da Conta Azul não encontrada no banco de dados.');
-    }
+    if (!configSnap.exists()) throw new Error('Configuração não encontrada.');
 
     const { clientId, clientSecret } = configSnap.data();
-    const cleanClientId = clientId?.trim();
-    const cleanClientSecret = clientSecret?.trim();
+    if (!clientId || !clientSecret) throw new Error('ClientId ou ClientSecret ausentes.');
 
-    if (!cleanClientId || !cleanClientSecret) {
-        throw new Error('ClientId ou ClientSecret ausentes no banco. Salve primeiro.');
-    }
-
-    const authHeader = Buffer.from(`${cleanClientId}:${cleanClientSecret}`).toString('base64');
+    const authHeader = Buffer.from(`${clientId.trim()}:${clientSecret.trim()}`).toString('base64');
     
     const params = new URLSearchParams();
     params.append('grant_type', 'authorization_code');
@@ -80,13 +65,10 @@ export async function GET(request: Request) {
 
     if (!response.ok) {
       const errMsg = data.error_description || data.error || 'Falha na troca do token.';
-      
-      // Salva falha técnica para depuração no painel do usuário
       await updateDoc(configRef, { 
-          lastError: `FALHA NO TOKEN: ${errMsg} (URI enviada: ${redirectUri})`,
+          lastError: `FALHA NO TOKEN: ${errMsg} (Verifique se a URI no portal é: ${redirectUri})`,
           lastErrorAt: new Date().toISOString()
       }).catch(() => {});
-
       throw new Error(errMsg);
     }
 
@@ -97,13 +79,12 @@ export async function GET(request: Request) {
       refreshToken: data.refresh_token,
       expiresAt: expiresAt,
       updatedAt: new Date().toISOString(),
-      lastError: 'SUCESSO: Conexão estabelecida e tokens salvos.' 
+      lastError: 'SUCESSO: Chaves obtidas com sucesso.' 
     });
 
     return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=connected`);
 
   } catch (error: any) {
-    console.error('Erro fatal no callback:', error);
     return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=error&message=${encodeURIComponent(error.message)}`);
   }
 }

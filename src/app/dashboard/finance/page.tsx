@@ -59,10 +59,6 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
         setIsTestingRead(true);
         addLog("Iniciando teste de leitura...");
         
-        if (!isConnected) {
-            addLog("AVISO: Tokens não encontrados no banco. O teste provavelmente falhará com 'Não Autorizado'.");
-        }
-
         try {
             const res = await fetch('/api/finance/conta-azul/sync', { method: 'POST' });
             const data = await responseJson(res);
@@ -84,10 +80,6 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
         setIsTestingWrite(true);
         addLog("Iniciando teste de escrita (Gerar Fatura)...");
 
-        if (!isConnected) {
-            addLog("AVISO: Tokens não encontrados. A tentativa de escrita será negada pela API.");
-        }
-
         try {
             const res = await fetch('/api/finance/conta-azul/test-write', { method: 'POST' });
             const data = await responseJson(res);
@@ -99,7 +91,7 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
             }
         } catch (e: any) {
             addLog(`FALHA NA ESCRITA: ${e.message}`);
-            toast({ variant: 'destructive', title: "Falha na Escrita", description: e.message });
+            toast({ variant: 'destructive', title: "Falha na Esclita", description: e.message });
         } finally {
             setIsTestingWrite(false);
         }
@@ -309,7 +301,7 @@ function ContaAzulConnect() {
   // Use HTTPS fixo para redirect_uri no Studio/Cloud
   const redirectUri = `${origin}/api/finance/conta-azul/callback`;
   const scopes = 'finance customers sales'; 
-  const authUrl = `https://app.contaazul.com/auth/authorize?client_id=${clientId.trim()}&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=oiko_auth&response_type=code`;
+  const authUrl = `https://auth.contaazul.com/login?response_type=code&client_id=${clientId.trim()}&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=oiko_auth`;
 
   return (
     <div className="space-y-6">
