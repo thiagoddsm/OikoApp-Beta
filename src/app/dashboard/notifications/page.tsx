@@ -21,7 +21,7 @@ import {
     Zap, AlertCircle, Group, LayoutTemplate, Sparkles, MessageCircle, MousePointer2,
     UserCheck, Trash2, BarChart3, FileText, Image as ImageIcon, Link as LinkIcon,
     QrCode, Smartphone, LogOut, PlusCircle, CheckCircle, User as UserIcon,
-    Banknote, Wallet, Bug, ShieldAlert, Award
+    Banknote, Wallet, Bug, ShieldAlert, Award, Phone, ChevronRight, Edit
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useCollection, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
