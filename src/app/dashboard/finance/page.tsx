@@ -57,8 +57,12 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
 
     const handleReadTest = async () => {
         setIsTestingRead(true);
-        addLog("Iniciando teste de leitura...");
+        addLog("Iniciando teste de leitura (Etapa 4)...");
         
+        if (!isConnected) {
+            addLog("AVISO: Tokens não encontrados no banco. O teste provavelmente falhará com 'Não Autorizado'.");
+        }
+
         try {
             const res = await fetch('/api/finance/conta-azul/sync', { method: 'POST' });
             const data = await responseJson(res);
@@ -79,6 +83,10 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
     const handleWriteTest = async () => {
         setIsTestingWrite(true);
         addLog("Iniciando teste de escrita (Gerar Fatura)...");
+
+        if (!isConnected) {
+            addLog("AVISO: Tokens não encontrados. A tentativa de escrita será negada pela API.");
+        }
 
         try {
             const res = await fetch('/api/finance/conta-azul/test-write', { method: 'POST' });
@@ -298,7 +306,7 @@ function ContaAzulConnect() {
 
   if (isLoadingConfig) return null;
 
-  // Use HTTPS fixo para redirect_uri no Studio/Cloud
+  // Use HTTPS fixo para redirect_uri no Studio/Cloud conforme Etapa 1
   const redirectUri = `${origin}/api/finance/conta-azul/callback`;
   const scopes = 'finance customers sales'; 
   const authUrl = `https://auth.contaazul.com/login?response_type=code&client_id=${clientId.trim()}&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=oiko_auth`;
@@ -377,13 +385,13 @@ function ContaAzulConnect() {
                     <CardHeader className={cn("border-b", isConnected ? "bg-emerald-50" : "bg-muted/30")}>
                         <CardTitle className="text-sm font-black uppercase tracking-tighter flex items-center gap-2">
                             <PlayCircle className="size-4" />
-                            2. Fluxo de Autorização
+                            2. Fluxo de Autorização (Etapa 1)
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="pt-6 text-center space-y-4">
                         {!isConnected ? (
                             <>
-                                <p className="text-sm text-muted-foreground">O acesso deve ser autorizado por um usuário administrador da Conta Azul.</p>
+                                <p className="text-sm text-muted-foreground">O acesso deve ser autorizado em uma nova aba para evitar bloqueios do navegador.</p>
                                 <Button className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-base font-black shadow-xl" disabled={!hasCredentials} asChild>
                                     <a href={authUrl} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-2 size-5"/>Autorizar App Agora</a>
                                 </Button>
