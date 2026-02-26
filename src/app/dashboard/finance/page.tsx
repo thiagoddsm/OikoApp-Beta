@@ -13,7 +13,7 @@ import {
   AlertCircle, DollarSign, TrendingUp, ArrowUpCircle, ArrowDownCircle,
   LayoutDashboard, HeartHandshake, History, RefreshCw, Wallet, Info, Copy,
   Settings, FlaskConical, CheckCircle2, PlayCircle, HardDriveDownload, DatabaseZap,
-  HelpCircle, ShieldAlert, Terminal, FileText, BookOpen
+  HelpCircle, ShieldAlert, Terminal, FileText, BookOpen, Bug, Eye, EyeOff
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useDoc, setDocumentNonBlocking } from '@/firebase';
@@ -36,17 +36,21 @@ type ContaAzulConfig = {
     expiresAt?: number;
 }
 
-function IntegrationLaboratory() {
+function IntegrationLaboratory({ isConnected }: { isConnected: boolean }) {
     const { toast } = useToast();
     const [isTestingRead, setIsTestingRead] = useState(false);
     const [isTestingWrite, setIsTestingWrite] = useState(false);
     const [log, setLog] = useState<string[]>([]);
 
     const addLog = (msg: string) => {
-        setLog(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 10));
+        setLog(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 15));
     };
 
     const handleReadTest = async () => {
+        if (!isConnected) {
+            addLog("ERRO: O aplicativo precisa estar autorizado antes de testar a leitura.");
+            return;
+        }
         setIsTestingRead(true);
         addLog("Iniciando teste de leitura...");
         try {
@@ -59,7 +63,7 @@ function IntegrationLaboratory() {
                 throw new Error(data.error || "Erro desconhecido na API");
             }
         } catch (e: any) {
-            addLog(`ERRO: ${e.message}`);
+            addLog(`ERRO TÉCNICO: ${e.message}`);
             toast({ variant: 'destructive', title: "Falha na Leitura", description: e.message });
         } finally {
             setIsTestingRead(false);
@@ -67,6 +71,10 @@ function IntegrationLaboratory() {
     };
 
     const handleWriteTest = async () => {
+        if (!isConnected) {
+            addLog("ERRO: O aplicativo precisa estar autorizado antes de testar a escrita.");
+            return;
+        }
         setIsTestingWrite(true);
         addLog("Iniciando teste de escrita (Gerar Fatura)...");
         try {
@@ -79,7 +87,7 @@ function IntegrationLaboratory() {
                 throw new Error(data.error || "Erro desconhecido na API");
             }
         } catch (e: any) {
-            addLog(`ERRO: ${e.message}`);
+            addLog(`ERRO TÉCNICO: ${e.message}`);
             toast({ variant: 'destructive', title: "Falha na Escrita", description: e.message });
         } finally {
             setIsTestingWrite(false);
@@ -87,50 +95,64 @@ function IntegrationLaboratory() {
     };
 
     return (
-        <Card className="border-primary/20 bg-primary/5">
+        <Card className="border-primary/20 bg-primary/5 shadow-inner">
             <CardHeader>
-                <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                    <FlaskConical className="size-4 text-primary" />
-                    Laboratório de Integração
-                </CardTitle>
-                <CardDescription>Valide as permissões de leitura e escrita da sua API Key.</CardDescription>
+                <div className="flex justify-between items-start">
+                    <div>
+                        <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-primary">
+                            <FlaskConical className="size-4" />
+                            Laboratório de Integração
+                        </CardTitle>
+                        <CardDescription>Valide as permissões de leitura e escrita em tempo real.</CardDescription>
+                    </div>
+                    {isConnected ? (
+                        <Badge className="bg-emerald-500">PRONTO PARA TESTE</Badge>
+                    ) : (
+                        <Badge variant="outline" className="text-amber-600 bg-amber-50">AGUARDANDO CONEXÃO</Badge>
+                    )}
+                </div>
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Button 
                         variant="outline" 
-                        className="h-16 bg-white border-primary/20 hover:bg-primary/5 group"
+                        className={cn("h-16 bg-white border-primary/20 group", !isConnected && "opacity-50 grayscale")}
                         onClick={handleReadTest}
-                        disabled={isTestingRead}
+                        disabled={isTestingRead || !isConnected}
                     >
                         {isTestingRead ? <Loader2 className="animate-spin mr-2" /> : <HardDriveDownload className="mr-2 size-5 text-primary group-hover:scale-110 transition-transform" />}
                         <div className="text-left">
-                            <p className="font-bold text-xs">Testar Leitura</p>
-                            <p className="text-[10px] text-muted-foreground font-normal">Puxar contas bancárias</p>
+                            <p className="font-bold text-xs uppercase">1. Testar Leitura</p>
+                            <p className="text-[9px] text-muted-foreground font-normal">Puxar contas bancárias</p>
                         </div>
                     </Button>
 
                     <Button 
                         variant="outline" 
-                        className="h-16 bg-white border-primary/20 hover:bg-primary/5 group"
+                        className={cn("h-16 bg-white border-primary/20 group", !isConnected && "opacity-50 grayscale")}
                         onClick={handleWriteTest}
-                        disabled={isTestingWrite}
+                        disabled={isTestingWrite || !isConnected}
                     >
                         {isTestingWrite ? <Loader2 className="animate-spin mr-2" /> : <DatabaseZap className="mr-2 size-5 text-primary group-hover:scale-110 transition-transform" />}
                         <div className="text-left">
-                            <p className="font-bold text-xs">Testar Escrita</p>
-                            <p className="text-[10px] text-muted-foreground font-normal">Gerar fatura teste (R$ 1,00)</p>
+                            <p className="font-bold text-xs uppercase">2. Testar Escrita</p>
+                            <p className="text-[9px] text-muted-foreground font-normal">Gerar fatura teste (R$ 1,00)</p>
                         </div>
                     </Button>
                 </div>
 
                 <div className="space-y-2">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground">Logs de Atividade</Label>
-                    <div className="bg-black/90 p-3 rounded-lg font-mono text-[10px] text-emerald-400 h-32 overflow-y-auto shadow-inner">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2">
+                        <Terminal size={12} /> Console de Depuração
+                    </Label>
+                    <div className="bg-black/90 p-3 rounded-lg font-mono text-[10px] text-emerald-400 h-40 overflow-y-auto shadow-2xl border border-white/10">
                         {log.length === 0 ? (
-                            <p className="opacity-40 italic">Aguardando comando...</p>
+                            <div className="h-full flex flex-col items-center justify-center opacity-30 italic gap-2">
+                                <Bug size={24} />
+                                <p>Aguardando comando do laboratório...</p>
+                            </div>
                         ) : (
-                            log.map((m, i) => <p key={i} className="mb-1">{m}</p>)
+                            log.map((m, i) => <p key={i} className="mb-1 leading-tight border-b border-white/5 pb-1">{m}</p>)
                         )}
                     </div>
                 </div>
@@ -150,27 +172,46 @@ function TechnicalDossier() {
                 <CardDescription className="text-indigo-700/80">Arquitetura de Software e Desafios de Ambiente</CardDescription>
             </CardHeader>
             <CardContent className="pt-6">
-                <ScrollArea className="h-[400px] pr-4">
+                <ScrollArea className="h-[450px] pr-4">
                     <div className="space-y-6 text-sm text-slate-700 leading-relaxed">
+                        <Alert className="bg-amber-50 border-amber-200 mb-4">
+                            <AlertCircle className="h-4 w-4 text-amber-600" />
+                            <AlertTitle className="text-amber-800 font-bold uppercase text-xs">Atenção ao Ambiente Studio</AlertTitle>
+                            <AlertDescription className="text-amber-700 text-xs">
+                                O Firebase Studio usa um sistema de traços no endereço. Se você reiniciar seu workspace, o link muda e você **precisa** atualizar o portal da Conta Azul.
+                            </AlertDescription>
+                        </Alert>
+
                         <section>
-                            <h4 className="font-bold text-indigo-900 mb-2 uppercase text-xs tracking-tighter">1. Desafio da Identidade Binária (Redirect URI e Proxies)</h4>
-                            <p>O protocolo OAuth 2.0 exige que a <code className="bg-indigo-100 px-1 rounded">redirect_uri</code> enviada pela aplicação seja "binariamente idêntica" à cadastrada no portal de desenvolvedores. No ambiente do Firebase Studio, que utiliza proxies do Google Cloud (terminados em <code className="text-xs">.cloudworkstations.dev</code>), surge uma discrepância de portas: enquanto o portal pode esperar uma requisição na porta 6000, o servidor interno detecta a porta 9002.</p>
-                            <p className="mt-2 text-xs font-bold text-indigo-700 italic">Solução Implementada: Detecção dinâmica baseada em cabeçalhos de proxy (x-forwarded-host) para garantir que a aplicação se apresente com o endereço exato visualizado no navegador.</p>
+                            <h4 className="font-bold text-indigo-900 mb-2 uppercase text-xs tracking-tighter flex items-center gap-2">
+                                <div className="size-1.5 rounded-full bg-indigo-500" />
+                                1. Desafio da Identidade Binária (Redirect URI)
+                            </h4>
+                            <p>O protocolo OAuth 2.0 exige que a <code className="bg-indigo-100 px-1 rounded">redirect_uri</code> enviada pela aplicação seja "binariamente idêntica" à cadastrada no portal de desenvolvedores. No ambiente do Firebase Studio, que utiliza proxies do Google Cloud, surge uma discrepância de portas: enquanto o portal pode esperar uma requisição na porta 6000, o servidor interno detecta a porta 9002.</p>
+                            <p className="mt-2 text-xs font-bold text-indigo-700 italic">Solução: Detecção dinâmica baseada em cabeçalhos de proxy para garantir que a aplicação se apresente com o endereço exato visualizado no navegador.</p>
                         </section>
 
                         <section>
-                            <h4 className="font-bold text-indigo-900 mb-2 uppercase text-xs tracking-tighter">2. Formatação de Requisição de Token (JSON vs. Form-Urlencoded)</h4>
+                            <h4 className="font-bold text-indigo-900 mb-2 uppercase text-xs tracking-tighter flex items-center gap-2">
+                                <div className="size-1.5 rounded-full bg-indigo-500" />
+                                2. Formatação de Requisição de Token
+                            </h4>
                             <p>A Conta Azul exige estritamente que a troca do "Código de Autorização" pelo "Token de Acesso" seja feita no formato de formulário web: <code className="bg-indigo-100 px-1 rounded">application/x-www-form-urlencoded</code>. O envio como JSON resulta em erros de "Invalid Client".</p>
-                            <p className="mt-2 text-xs font-bold text-indigo-700 italic">Solução Implementada: Utilização da interface URLSearchParams no callback e na renovação para conformidade estrita com a API v2.</p>
                         </section>
 
                         <section>
-                            <h4 className="font-bold text-indigo-900 mb-2 uppercase text-xs tracking-tighter">3. Restrições de Acesso no Ambiente de Sandbox</h4>
+                            <h4 className="font-bold text-indigo-900 mb-2 uppercase text-xs tracking-tighter flex items-center gap-2">
+                                <div className="size-1.5 rounded-full bg-indigo-500" />
+                                3. Restrições de Acesso no Sandbox
+                            </h4>
                             <p>Os aplicativos em modo de "Desenvolvimento" operam em um ecossistema isolado. Tentativas de login com e-mails reais resultam em erro de permissão. É obrigatório o uso exclusivo dos e-mails de teste (ex: f79c80da...@devportal.com).</p>
                         </section>
 
                         <section>
-                            <h4 className="font-bold text-indigo-900 mb-2 uppercase text-xs tracking-tighter">4. Higiene de Credenciais e Sanitização</h4>
+                            <h4 className="font-bold text-indigo-900 mb-2 uppercase text-xs tracking-tighter flex items-center gap-2">
+                                <div className="size-1.5 rounded-full bg-indigo-500" />
+                                4. Higiene de Credenciais e Sanitização
+                            </h4>
                             <p>Devido à extensão das chaves, espaços em branco acidentais ao copiar invalidam o acesso por completo. Implementamos limpeza automática via <code className="bg-indigo-100 px-1 rounded">.trim()</code> em todos os campos de entrada.</p>
                         </section>
                     </div>
@@ -189,11 +230,11 @@ function ContaAzulConnect() {
 
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
+  const [showSecret, setShowSecret] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [origin, setOrigin] = useState('');
   
   useEffect(() => {
-    // Captura a origem EXATA do navegador para garantir o Redirect URI perfeito no Firebase Studio
     if (typeof window !== 'undefined') {
         setOrigin(window.location.origin);
     }
@@ -256,12 +297,12 @@ function ContaAzulConnect() {
             <HelpCircle className="h-4 w-4 text-blue-600" />
             <AlertTitle className="text-blue-800 font-bold uppercase text-xs tracking-tighter">Redirect URI Dinâmico (Compliance OAuth 2.0)</AlertTitle>
             <AlertDescription className="text-blue-700 text-xs space-y-2 mt-2">
-                <p>Para o ambiente atual, o campo <strong>URL de Redirecionamento</strong> no portal da Conta Azul deve estar EXATAMENTE como o link abaixo:</p>
+                <p>No seu Portal Conta Azul, o campo <strong>URL de Redirecionamento</strong> deve estar EXATAMENTE como o link abaixo:</p>
                 <div className="flex items-center gap-2 bg-white/50 p-2 rounded border border-blue-200 mt-1">
                     <code className="font-mono text-[10px] flex-1 truncate">{redirectUri}</code>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { navigator.clipboard.writeText(redirectUri); toast({title: "Link Copiado!"}); }}><Copy size={12}/></Button>
                 </div>
-                <p className="font-bold text-amber-700">⚠️ Se o link do seu navegador mudar, você deve atualizar o portal da Conta Azul.</p>
+                <p className="font-bold text-amber-700">⚠️ Verifique se a porta (número após os dois pontos) no portal é a mesma que você vê na barra do seu navegador agora.</p>
             </AlertDescription>
         </Alert>
 
@@ -285,11 +326,28 @@ function ContaAzulConnect() {
                         <div className="grid grid-cols-1 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="client-id" className="text-xs font-bold uppercase text-muted-foreground">Client ID</Label>
-                                <Input id="client-id" value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="881cq0o..." />
+                                <Input id="client-id" value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="881cq0o..." className="font-mono" />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="client-secret" className="text-xs font-bold uppercase text-muted-foreground">Client Secret</Label>
-                                <Input id="client-secret" type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} placeholder="••••••••" />
+                                <div className="relative">
+                                    <Input 
+                                        id="client-secret" 
+                                        type={showSecret ? "text" : "password"} 
+                                        value={clientSecret} 
+                                        onChange={(e) => setClientSecret(e.target.value)} 
+                                        placeholder="••••••••" 
+                                        className="font-mono pr-10"
+                                    />
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="absolute right-0 top-0 h-10 w-10 text-muted-foreground"
+                                        onClick={() => setShowSecret(!showSecret)}
+                                    >
+                                        {showSecret ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </Button>
+                                </div>
                             </div>
                         </div>
                         <Button onClick={handleConnect} disabled={isSaving} className="w-full h-11 font-bold mt-4">
@@ -299,11 +357,11 @@ function ContaAzulConnect() {
                     </CardContent>
                 </Card>
 
-                <TechnicalDossier />
+                <IntegrationLaboratory isConnected={isConnected} />
             </div>
 
             <div className="space-y-6">
-                <Card className={cn("shadow-lg border-2 transition-all", isConnected ? "border-emerald-200" : "opacity-50")}>
+                <Card className={cn("shadow-lg border-2 transition-all", isConnected ? "border-emerald-200" : "border-primary/20")}>
                     <CardHeader className={cn("border-b", isConnected ? "bg-emerald-50" : "bg-muted/30")}>
                         <CardTitle className="text-sm font-black uppercase tracking-tighter flex items-center gap-2">
                             <PlayCircle className="size-4" />
@@ -317,17 +375,22 @@ function ContaAzulConnect() {
                                 <Button className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-base font-black shadow-xl" disabled={!hasCredentials} asChild>
                                     <a href={authUrl}><ExternalLink className="mr-2 size-5"/>Autorizar App Agora</a>
                                 </Button>
+                                <p className="text-[10px] text-amber-600 font-bold uppercase">Lembre-se: Use o e-mail @devportal.com para logar.</p>
                             </>
                         ) : (
                             <div className="py-4 space-y-4">
-                                <div className="size-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto"><CheckCircle2 size={32} /></div>
-                                <div><h4 className="font-black text-emerald-900">Integração Ativa</h4><p className="text-xs text-emerald-700">Conectado ao ambiente Conta Azul.</p></div>
-                                <Button variant="outline" className="text-destructive border-destructive/20" onClick={handleDisconnect}>Encerrar Conexão</Button>
+                                <div className="size-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-lg"><CheckCircle2 size={32} /></div>
+                                <div>
+                                    <h4 className="font-black text-emerald-900">Integração Ativa</h4>
+                                    <p className="text-xs text-emerald-700">Tokens obtidos e renovação automática habilitada.</p>
+                                </div>
+                                <Button variant="outline" className="text-destructive border-destructive/20 hover:bg-red-50" onClick={handleDisconnect}>Encerrar Conexão</Button>
                             </div>
                         )}
                     </CardContent>
                 </Card>
-                {isConnected && <IntegrationLaboratory />}
+
+                <TechnicalDossier />
             </div>
         </div>
     </div>
