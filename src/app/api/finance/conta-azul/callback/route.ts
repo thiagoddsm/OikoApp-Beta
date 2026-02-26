@@ -6,8 +6,9 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
 
-  // URL do app publicado para consistência no redirecionamento
+  // URL exata do app publicado cadastrada no portal Conta Azul
   const appOrigin = 'https://studio--studio-1424813022-71754.us-central1.hosted.app';
+  const redirectUri = `${appOrigin}/api/finance/conta-azul/callback`;
 
   if (!code) {
     return NextResponse.json({ error: 'Código de autorização não fornecido.' }, { status: 400 });
@@ -23,29 +24,29 @@ export async function GET(request: Request) {
     }
 
     const { clientId, clientSecret } = configSnap.data();
-    // A redirectUri deve ser idêntica à cadastrada e enviada no início do fluxo
-    const redirectUri = `${appOrigin}/api/finance/conta-azul/callback`;
 
-    // Trocar o code pelo access_token usando o endpoint auth.contaazul.com
+    // Criar o header de autorização Basic
     const authHeader = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
     
+    // A API da Conta Azul exige x-www-form-urlencoded para troca de tokens
+    const params = new URLSearchParams();
+    params.append('grant_type', 'authorization_code');
+    params.append('redirect_uri', redirectUri);
+    params.append('code', code);
+
     const response = await fetch('https://auth.contaazul.com/oauth2/token', {
       method: 'POST',
       headers: {
         'Authorization': `Basic ${authHeader}`,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/x-www-form-urlencoded'
       },
-      body: JSON.stringify({
-        grant_type: 'authorization_code',
-        redirect_uri: redirectUri,
-        code: code
-      })
+      body: params.toString()
     });
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('Erro Conta Azul:', data);
+      console.error('Erro detalhado Conta Azul:', data);
       throw new Error(data.error_description || 'Erro ao trocar tokens.');
     }
 

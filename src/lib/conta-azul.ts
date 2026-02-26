@@ -1,4 +1,3 @@
-
 'use server';
 
 import { initializeFirebase } from '@/firebase';
@@ -33,16 +32,17 @@ export async function getValidContaAzulToken() {
         const authHeader = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
         
         try {
+            const params = new URLSearchParams();
+            params.append('grant_type', 'refresh_token');
+            params.append('refresh_token', refreshToken);
+
             const response = await fetch(`${CONTA_AZUL_AUTH_BASE}/oauth2/token`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Basic ${authHeader}`,
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/x-www-form-urlencoded'
                 },
-                body: JSON.stringify({
-                    grant_type: 'refresh_token',
-                    refresh_token: refreshToken
-                })
+                body: params.toString()
             });
 
             const data = await response.json();
@@ -138,7 +138,7 @@ export async function createContaAzulReceivable(data: {
         customer_id: data.customer_id,
         category_id: data.category_id,
         bank_account_id: data.bank_account_id,
-        status: 'PAID', // Já entra como pago
+        status: 'PAID',
         received_at: data.due_date
     });
 }
