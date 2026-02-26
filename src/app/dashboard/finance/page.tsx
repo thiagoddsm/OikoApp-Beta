@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -12,7 +13,7 @@ import {
   AlertCircle, DollarSign, TrendingUp, ArrowUpCircle, ArrowDownCircle,
   LayoutDashboard, HeartHandshake, History, RefreshCw, Wallet, Info, Copy,
   Settings, FlaskConical, CheckCircle2, PlayCircle, HardDriveDownload, DatabaseZap,
-  HelpCircle
+  HelpCircle, ShieldAlert, Terminal
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useDoc, setDocumentNonBlocking } from '@/firebase';
@@ -150,7 +151,7 @@ function ContaAzulConnect() {
   const [origin, setOrigin] = useState('');
   
   useEffect(() => {
-    // Captura a origem EXATA do navegador para garantir o Redirect URI perfeito
+    // Captura a origem EXATA do navegador para garantir o Redirect URI perfeito no Firebase Studio
     setOrigin(window.location.origin);
   }, []);
 
@@ -209,49 +210,74 @@ function ContaAzulConnect() {
     <div className="space-y-6">
         <Alert className="bg-blue-50 border-blue-200">
             <HelpCircle className="h-4 w-4 text-blue-600" />
-            <AlertTitle className="text-blue-800 font-bold uppercase text-xs">Configuração de Segurança</AlertTitle>
+            <AlertTitle className="text-blue-800 font-bold uppercase text-xs">Sincronização de Redirecionamento</AlertTitle>
             <AlertDescription className="text-blue-700 text-xs space-y-2">
-                <p>No portal Conta Azul, o campo <strong>URL de Redirecionamento</strong> deve estar EXATAMENTE como este link abaixo:</p>
+                <p>No portal Conta Azul, o campo <strong>URL de Redirecionamento</strong> deve estar EXATAMENTE como este link abaixo para o ambiente atual:</p>
                 <div className="flex items-center gap-2 bg-white/50 p-2 rounded border border-blue-200 mt-1">
                     <code className="font-mono text-[10px] flex-1 truncate">{redirectUri}</code>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { navigator.clipboard.writeText(redirectUri); toast({title: "Copiado!"}); }}><Copy size={12}/></Button>
                 </div>
-                <p className="font-bold text-amber-700">⚠️ Se o link acima contém uma porta (ex: :6000), ela DEVE estar no portal também.</p>
+                <p className="font-bold text-amber-700">⚠️ Importante: Se você mudar do Studio para o App Publicado, este link mudará. Mantenha o portal atualizado.</p>
             </AlertDescription>
         </Alert>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="shadow-lg border-2">
-                <CardHeader className="bg-muted/30 border-b">
-                    <div className="flex items-center justify-between">
-                        <CardTitle className="flex items-center gap-2 text-sm font-black uppercase tracking-tighter">
-                            <Key className="size-4 text-primary" />
-                            1. Credenciais
+            <div className="space-y-6">
+                <Card className="shadow-lg border-2">
+                    <CardHeader className="bg-muted/30 border-b">
+                        <div className="flex items-center justify-between">
+                            <CardTitle className="flex items-center gap-2 text-sm font-black uppercase tracking-tighter">
+                                <Key className="size-4 text-primary" />
+                                1. Credenciais
+                            </CardTitle>
+                            {isConnected ? (
+                                <Badge className="bg-emerald-500 text-white font-black">CONECTADO</Badge>
+                            ) : (
+                                <Badge variant="outline" className="text-amber-600 bg-amber-50">AGUARDANDO</Badge>
+                            )}
+                        </div>
+                    </CardHeader>
+                    <CardContent className="space-y-6 pt-6">
+                        <div className="grid grid-cols-1 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="client-id" className="text-xs font-bold uppercase text-muted-foreground">Client ID</Label>
+                                <Input id="client-id" value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="881cq0o..." />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="client-secret" className="text-xs font-bold uppercase text-muted-foreground">Client Secret</Label>
+                                <Input id="client-secret" type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} placeholder="••••••••" />
+                            </div>
+                        </div>
+                        <Button onClick={handleConnect} disabled={isSaving} className="w-full h-11 font-bold mt-4">
+                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LinkIcon className="mr-2 h-4 w-4" />}
+                            Salvar Credenciais
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-amber-200 bg-amber-50/30">
+                    <CardHeader>
+                        <CardTitle className="text-sm font-black uppercase flex items-center gap-2">
+                            <ShieldAlert className="size-4 text-amber-600" />
+                            Solução de Problemas (FAQ)
                         </CardTitle>
-                        {isConnected ? (
-                            <Badge className="bg-emerald-500 text-white font-black">CONECTADO</Badge>
-                        ) : (
-                            <Badge variant="outline" className="text-amber-600 bg-amber-50">AGUARDANDO</Badge>
-                        )}
-                    </div>
-                </CardHeader>
-                <CardContent className="space-y-6 pt-6">
-                    <div className="grid grid-cols-1 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="client-id" className="text-xs font-bold uppercase text-muted-foreground">Client ID</Label>
-                            <Input id="client-id" value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="881cq0o..." />
+                    </CardHeader>
+                    <CardContent className="text-xs space-y-4 text-slate-700">
+                        <div className="space-y-1">
+                            <p className="font-bold">Erro: Access Denied após login</p>
+                            <p>Certifique-se de estar usando o e-mail de Sandbox (@devportal.com). Contas reais não funcionam em Apps de Desenvolvimento.</p>
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="client-secret" className="text-xs font-bold uppercase text-muted-foreground">Client Secret</Label>
-                            <Input id="client-secret" type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} placeholder="••••••••" />
+                        <div className="space-y-1">
+                            <p className="font-bold">Erro: Redirect URI Mismatch</p>
+                            <p>A URL no Portal Conta Azul deve ser idêntica à mostrada no alerta azul acima, incluindo a porta (ex: :6000 ou :9002) se houver.</p>
                         </div>
-                    </div>
-                    <Button onClick={handleConnect} disabled={isSaving} className="w-full h-11 font-bold mt-4">
-                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LinkIcon className="mr-2 h-4 w-4" />}
-                        Salvar Credenciais
-                    </Button>
-                </CardContent>
-            </Card>
+                        <div className="space-y-1">
+                            <p className="font-bold">As chaves não batem</p>
+                            <p>Sempre clique em "Salvar Credenciais" antes de tentar "Autorizar App" para garantir que espaços invisíveis sejam removidos.</p>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
 
             <div className="space-y-6">
                 <Card className={cn("shadow-lg border-2 transition-all", isConnected ? "border-emerald-200" : "opacity-50")}>
