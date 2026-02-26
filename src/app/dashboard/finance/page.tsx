@@ -164,7 +164,10 @@ function ContaAzulConnect() {
   }, [config]);
 
   const handleConnect = () => {
-    if (!clientId.trim() || !clientSecret.trim() || !configDocRef) {
+    const cleanId = clientId.trim();
+    const cleanSecret = clientSecret.trim();
+
+    if (!cleanId || !cleanSecret || !configDocRef) {
       toast({
         variant: 'destructive',
         title: 'Credenciais ausentes',
@@ -175,8 +178,8 @@ function ContaAzulConnect() {
     setIsSaving(true);
     
     setDocumentNonBlocking(configDocRef, { 
-        clientId: clientId.trim(), 
-        clientSecret: clientSecret.trim() 
+        clientId: cleanId, 
+        clientSecret: cleanSecret 
     }, { merge: true });
 
     setTimeout(() => {

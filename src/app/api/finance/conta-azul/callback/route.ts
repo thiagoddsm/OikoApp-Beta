@@ -12,8 +12,11 @@ export async function GET(request: Request) {
   const error = url.searchParams.get('error');
   const errorDescription = url.searchParams.get('error_description');
 
-  // Detecta a origem dinamicamente para suportar Studio (Dev) e Produção
-  const appOrigin = `${url.protocol}//${url.host}`;
+  // No ambiente de Studio/Proxy, o url.host pode ser interno (ex: localhost:9002)
+  // Precisamos pegar o host real dos headers para garantir que o redirecionamento funcione
+  const host = request.headers.get('host') || url.host;
+  const protocol = request.headers.get('x-forwarded-proto') || (url.protocol.replace(':', '')) || 'https';
+  const appOrigin = `${protocol}://${host}`;
   const redirectUri = `${appOrigin}/api/finance/conta-azul/callback`;
 
   // Se o Conta Azul retornou um erro (ex: access_denied)
@@ -21,14 +24,14 @@ export async function GET(request: Request) {
     console.error('Erro retornado pelo Conta Azul:', error, errorDescription);
     let msg = errorDescription || error;
     if (error === 'access_denied') {
-        msg = 'Acesso Negado: Certifique-se de estar usando o e-mail de Sandbox (@devportal.com) no login da Conta Azul.';
+        msg = 'Acesso Negado: No ambiente de desenvolvimento, você DEVE usar o e-mail de Sandbox (@devportal.com). Contas reais não funcionam em Apps de Desenvolvimento.';
     }
     return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=error&message=${encodeURIComponent(msg)}`);
   }
 
   // Se não houver código, o fluxo foi interrompido incorretamente
   if (!code) {
-    return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=error&message=Codigo_de_autorizacao_nao_enviado_pela_Conta_Azul`);
+    return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=error&message=Codigo_de_autorizacao_nao_enviado`);
   }
 
   try {
@@ -49,8 +52,7 @@ export async function GET(request: Request) {
     // Criar o header de autorização Basic
     const authHeader = Buffer.from(`${clientId.trim()}:${clientSecret.trim()}`).toString('base64');
     
-    // Troca do código pelos tokens (Grant Type: authorization_code)
-    // A API da Conta Azul exige x-www-form-urlencoded
+    // Troca do código pelos tokens
     const params = new URLSearchParams();
     params.append('grant_type', 'authorization_code');
     params.append('redirect_uri', redirectUri);
@@ -68,7 +70,7 @@ export async function GET(request: Request) {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('Erro detalhado na troca de token Conta Azul:', data);
+      console.error('Erro na troca de token:', data);
       throw new Error(data.error_description || data.error || 'Erro ao trocar tokens.');
     }
 
@@ -86,7 +88,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=connected`);
 
   } catch (error: any) {
-    console.error('Erro fatal no callback da Conta Azul:', error);
+    console.error('Erro fatal no callback:', error);
     return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=error&message=${encodeURIComponent(error.message)}`);
   }
 }
