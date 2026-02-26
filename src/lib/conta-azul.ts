@@ -30,7 +30,6 @@ export async function getValidContaAzulToken() {
 
     // Se expirou ou não existe, mas temos o refresh token, vamos renovar
     if (refreshToken && clientId && clientSecret) {
-        console.log('Renovando token da Conta Azul...');
         const authHeader = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
         
         try {
@@ -92,4 +91,54 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
     }
 
     return response.json();
+}
+
+/**
+ * Busca ou cria um cliente (membro) no Conta Azul
+ */
+export async function findOrCreateContaAzulCustomer(member: { name: string; email?: string; phone?: string }) {
+    try {
+        // 1. Tentar buscar por nome exato (simplificado)
+        const customers = await callContaAzulApi(`/v1/customers?name=${encodeURIComponent(member.name)}`);
+        
+        if (customers && customers.length > 0) {
+            return customers[0].id;
+        }
+
+        // 2. Se não achou, criar novo
+        const newCustomer = await callContaAzulApi('/v1/customers', 'POST', {
+            name: member.name,
+            email: member.email || '',
+            mobile_phone: member.phone || '',
+            person_type: 'NATURAL'
+        });
+
+        return newCustomer.id;
+    } catch (e) {
+        console.error("Erro ao gerenciar cliente no Conta Azul:", e);
+        return null;
+    }
+}
+
+/**
+ * Lança um recebimento (Dízimo/Oferta) no financeiro do Conta Azul
+ */
+export async function createContaAzulReceivable(data: {
+    description: string;
+    value: number;
+    due_date: string;
+    customer_id: string;
+    category_id?: string;
+    bank_account_id?: string;
+}) {
+    return callContaAzulApi('/v1/receivables', 'POST', {
+        description: data.description,
+        value: data.value,
+        due_date: data.due_date,
+        customer_id: data.customer_id,
+        category_id: data.category_id,
+        bank_account_id: data.bank_account_id,
+        status: 'PAID', // Já entra como pago
+        received_at: data.due_date
+    });
 }
