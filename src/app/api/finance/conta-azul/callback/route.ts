@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server';
 import { initializeFirebase } from '@/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -6,6 +5,9 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
+
+  // URL do app publicado para consistência no redirecionamento
+  const appOrigin = 'https://studio--studio-1424813022-71754.us-central1.hosted.app';
 
   if (!code) {
     return NextResponse.json({ error: 'Código de autorização não fornecido.' }, { status: 400 });
@@ -21,7 +23,8 @@ export async function GET(request: Request) {
     }
 
     const { clientId, clientSecret } = configSnap.data();
-    const redirectUri = `${new URL(request.url).origin}/api/finance/conta-azul/callback`;
+    // A redirectUri deve ser idêntica à cadastrada e enviada no início do fluxo
+    const redirectUri = `${appOrigin}/api/finance/conta-azul/callback`;
 
     // Trocar o code pelo access_token usando o endpoint auth.contaazul.com
     const authHeader = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
@@ -58,10 +61,10 @@ export async function GET(request: Request) {
     });
 
     // Redirecionar de volta para o dashboard com sucesso
-    return NextResponse.redirect(`${new URL(request.url).origin}/dashboard/finance?status=connected`);
+    return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=connected`);
 
   } catch (error: any) {
     console.error('Erro no callback da Conta Azul:', error);
-    return NextResponse.redirect(`${new URL(request.url).origin}/dashboard/finance?status=error&message=${encodeURIComponent(error.message)}`);
+    return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=error&message=${encodeURIComponent(error.message)}`);
   }
 }

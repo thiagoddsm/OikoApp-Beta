@@ -202,8 +202,8 @@ function ContaAzulConnect() {
 
   if (isLoadingConfig) return null;
 
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const redirectUri = `${origin}/api/finance/conta-azul/callback`;
+  // URL de redirecionamento oficial do app publicado
+  const redirectUri = `https://studio--studio-1424813022-71754.us-central1.hosted.app/api/finance/conta-azul/callback`;
   const authUrl = `https://app.contaazul.com/auth/authorize?client_id=${clientId}&scope=sales%20shipping%20inventory%20products%20customers%20finance&redirect_uri=${encodeURIComponent(redirectUri)}&state=oiko_auth`;
 
   const copyRedirectUri = () => {
