@@ -1,103 +1,75 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, Timestamp } from 'firebase/firestore';
+import React, { useState, useMemo, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useVolunteering, VolunteeringProvider } from '@/contexts/volunteering-context';
+import { useFirebase } from '@/firebase';
+import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { 
-    Loader2, 
-    BookOpen, 
-    User, 
-    Phone, 
-    Mail, 
-    CheckCircle2, 
-    ArrowRight, 
-    ArrowLeft,
-    Lightbulb,
-    Waves,
-    GraduationCap,
-    Clock,
-    School
-} from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
-import { useSearchParams } from 'next/navigation';
+import { Loader2, CheckCircle2, User, BookOpen, ArrowRight, ArrowLeft, Phone, Mail, MapPin, Lightbulb, School, GraduationCap } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Logo } from '@/components/icons';
 
-type Course = {
-    id: string;
-    name: string;
-    description: string;
-    ministryName: string;
-    ebdTrack?: 'teologico' | 'biblico' | 'discipulado';
-};
-
-export default function EnrollmentPublicPage() {
+function EnrollmentContent() {
+    const searchParams = useSearchParams();
+    const router = useRouter();
+    const { courses, classes, isLoading } = useVolunteering();
     const { firestore } = useFirebase();
     const { toast } = useToast();
-    const searchParams = useSearchParams();
-    const initialCourseId = searchParams.get('courseId');
 
+    const initialCourseId = searchParams.get('courseId') || '';
+    
     const [step, setStep] = useState(1);
-    const [isLoading, setIsLoading] = useState(false);
-    const [success, setSuccess] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitted, setSubmitted] = useState(false);
 
     const [formData, setFormData] = useState({
         name: '',
         email: '',
         phone: '',
-        courseId: initialCourseId || '',
+        courseId: initialCourseId,
     });
 
-    const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
-    const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery);
-
-    const filteredCourses = useMemo(() => {
-        if (!courses) return [];
-        return courses.sort((a, b) => a.ministryName.localeCompare(b.ministryName));
-    }, [courses]);
-
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
+    const selectedCourse = useMemo(() => courses.find(c => c.id === formData.courseId), [courses, formData.courseId]);
 
     const handleNext = () => {
         if (step === 1 && (!formData.name || !formData.phone)) {
-            toast({ variant: 'destructive', title: 'Campos obrigatórios', description: 'Preencha seu nome e telefone para continuar.' });
+            toast({ variant: 'destructive', title: 'Campos obrigatórios', description: 'Por favor, preencha seu nome e telefone.' });
             return;
         }
-        setStep(prev => prev + 1);
+        setStep(step + 1);
     };
 
-    const handleSubmit = async () => {
-        if (!formData.courseId) {
-            toast({ variant: 'destructive', title: 'Selecione um curso', description: 'Você precisa escolher uma das opções para se inscrever.' });
-            return;
-        }
+    const handleBack = () => setStep(step - 1);
 
-        setIsLoading(true);
+    const handleSubmit = async () => {
+        if (!formData.courseId || !firestore) return;
+        setIsSubmitting(true);
+
         try {
-            await addDocumentNonBlocking(collection(firestore!, 'enrollment_requests'), {
+            await addDoc(collection(firestore, 'enrollment_requests'), {
                 ...formData,
                 status: 'pending',
                 createdAt: Timestamp.now(),
             });
-            setSuccess(true);
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Erro ao enviar', description: 'Não foi possível processar sua inscrição. Tente novamente.' });
+            setSubmitted(true);
+            toast({ title: 'Solicitação Enviada!', description: 'Recebemos seu interesse e entraremos em contato em breve.' });
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Erro no envio', description: 'Não foi possível processar sua inscrição agora.' });
         } finally {
-            setIsLoading(false);
+            setIsSubmitting(false);
         }
     };
 
-    const getTrackInfo = (course: Course) => {
+    const getTrackInfo = (course: any) => {
         if (course.ebdTrack === 'teologico') {
-            return "Durante a Fase Buscar | 1ª Edição: 12/03 a 16/04 às 09h00";
+            return "Fase Buscar | 12/03 a 16/04 às 09h00";
         }
         if (course.ebdTrack === 'biblico' || course.ebdTrack === 'discipulado') {
             return "Todo domingo às 09h00";
@@ -105,150 +77,183 @@ export default function EnrollmentPublicPage() {
         return null;
     };
 
-    if (success) {
+    if (submitted) {
         return (
-            <div className="min-h-screen flex items-center justify-center p-4 bg-muted/30">
-                <Card className="max-w-md w-full text-center p-8 animate-in zoom-in-95 duration-300">
-                    <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Card className="border-none shadow-2xl animate-in zoom-in-95 duration-500">
+                <CardContent className="pt-12 pb-12 text-center space-y-6">
+                    <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
                         <CheckCircle2 size={48} />
                     </div>
-                    <CardTitle className="text-2xl font-black mb-2">Solicitação Enviada!</CardTitle>
-                    <CardDescription className="text-base">
-                        Olá {formData.name.split(' ')[0]}, recebemos seu interesse no curso. 
-                        O responsável entrará em contato em breve para confirmar sua vaga na turma.
-                    </CardDescription>
-                    <Button className="mt-8 w-full" onClick={() => window.location.reload()}>Fazer outra inscrição</Button>
-                </Card>
-            </div>
+                    <div>
+                        <h2 className="text-3xl font-black text-slate-900 tracking-tight">Inscrição Recebida!</h2>
+                        <p className="text-slate-500 mt-2 max-w-xs mx-auto">
+                            Obrigado, <strong>{formData.name.split(' ')[0]}</strong>! Sua vaga para o curso <strong>{selectedCourse?.name}</strong> está sendo processada pela secretaria.
+                        </p>
+                    </div>
+                    <Button className="w-full h-12 rounded-xl font-bold" onClick={() => router.push('/')}>
+                        Voltar ao Início
+                    </Button>
+                </CardContent>
+            </Card>
         );
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 py-12 px-4">
-            <div className="max-w-3xl mx-auto space-y-8">
-                <div className="text-center space-y-2">
-                    <h1 className="text-3xl font-black tracking-tight text-slate-900">Inscrição em Cursos IBM</h1>
-                    <p className="text-muted-foreground">Faça parte do organismo. Cresça através do ensino.</p>
-                </div>
-
-                <div className="flex justify-between items-center max-w-xs mx-auto mb-8">
-                    {[1, 2].map(i => (
-                        <div key={i} className="flex items-center">
-                            <div className={cn(
-                                "size-8 rounded-full flex items-center justify-center font-bold text-sm transition-all",
-                                step === i ? "bg-primary text-white scale-110 ring-4 ring-primary/20" : 
-                                step > i ? "bg-emerald-500 text-white" : "bg-white text-slate-400 border"
-                            )}>
-                                {step > i ? <CheckCircle2 size={16} /> : i}
+        <Card className="border-none shadow-2xl overflow-hidden">
+            <div className="h-2 bg-muted">
+                <div 
+                    className="h-full bg-primary transition-all duration-500" 
+                    style={{ width: `${(step / 2) * 100}%` }}
+                />
+            </div>
+            <CardHeader className="space-y-1 pb-8">
+                <CardTitle className="text-2xl font-black text-slate-900">
+                    {step === 1 ? 'Conte-nos quem é você' : 'Escolha seu Curso'}
+                </CardTitle>
+                <CardDescription>
+                    {step === 1 ? 'Precisamos de alguns dados básicos para o seu registro.' : 'Selecione a disciplina ou trilho que deseja cursar.'}
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                {step === 1 ? (
+                    <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
+                        <div className="space-y-2">
+                            <Label htmlFor="name" className="text-xs font-black uppercase text-slate-500">Nome Completo</Label>
+                            <div className="relative">
+                                <User className="absolute left-3 top-3 size-4 text-muted-foreground" />
+                                <Input 
+                                    id="name" 
+                                    placeholder="Como prefere ser chamado?" 
+                                    className="pl-10 h-12 rounded-xl"
+                                    value={formData.name}
+                                    onChange={e => setFormData(p => ({...p, name: e.target.value}))}
+                                />
                             </div>
-                            {i === 1 && <div className={cn("w-24 h-1 mx-2 rounded", step > 1 ? "bg-emerald-500" : "bg-slate-200")} />}
                         </div>
-                    ))}
-                </div>
-
-                <Card className="shadow-xl border-none">
-                    {step === 1 ? (
-                        <>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <User className="text-primary size-5" />
-                                    Dados Pessoais
-                                </CardTitle>
-                                <CardDescription>Identifique-se para que possamos entrar em contato.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="name">Nome Completo</Label>
-                                    <Input id="name" name="name" value={formData.name} onChange={handleInputChange} placeholder="Ex: João da Silva" className="h-12" />
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="phone">WhatsApp / Celular</Label>
-                                        <Input id="phone" name="phone" value={formData.phone} onChange={handleInputChange} placeholder="(21) 99999-9999" className="h-12" />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="email">E-mail (Opcional)</Label>
-                                        <Input id="email" name="email" value={formData.email} onChange={handleInputChange} type="email" placeholder="seu@email.com" className="h-12" />
-                                    </div>
-                                </div>
-                            </CardContent>
-                            <CardFooter>
-                                <Button className="w-full h-12 text-base font-bold" onClick={handleNext}>
-                                    Continuar <ArrowRight className="ml-2 size-4" />
-                                </Button>
-                            </CardFooter>
-                        </>
-                    ) : (
-                        <>
-                            <CardHeader>
-                                <CardTitle className="flex items-center gap-2">
-                                    <BookOpen className="text-primary size-5" />
-                                    Escolha seu Curso
-                                </CardTitle>
-                                <CardDescription>Selecione a trilha que você deseja percorrer agora.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                {isLoadingCourses ? (
-                                    <div className="py-12 flex justify-center"><Loader2 className="animate-spin text-primary" /></div>
+                        <div className="space-y-2">
+                            <Label htmlFor="phone" className="text-xs font-black uppercase text-slate-500">WhatsApp</Label>
+                            <div className="relative">
+                                <Phone className="absolute left-3 top-3 size-4 text-muted-foreground" />
+                                <Input 
+                                    id="phone" 
+                                    placeholder="(21) 99999-9999" 
+                                    className="pl-10 h-12 rounded-xl"
+                                    value={formData.phone}
+                                    onChange={e => setFormData(p => ({...p, phone: e.target.value}))}
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="email" className="text-xs font-black uppercase text-slate-500">E-mail (Opcional)</Label>
+                            <div className="relative">
+                                <Mail className="absolute left-3 top-3 size-4 text-muted-foreground" />
+                                <Input 
+                                    id="email" 
+                                    type="email"
+                                    placeholder="seu@email.com" 
+                                    className="pl-10 h-12 rounded-xl"
+                                    value={formData.email}
+                                    onChange={e => setFormData(p => ({...p, email: e.target.value}))}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
+                        <div className="space-y-2">
+                            <Label className="text-xs font-black uppercase text-slate-500">Disciplinas Disponíveis</Label>
+                            <div className="grid gap-3">
+                                {isLoading ? (
+                                    <div className="py-10 text-center"><Loader2 className="animate-spin mx-auto text-primary" /></div>
                                 ) : (
-                                    <div className="grid grid-cols-1 gap-3">
-                                        {filteredCourses.map(course => {
-                                            const isSelected = formData.courseId === course.id;
-                                            const trackInfo = getTrackInfo(course);
-                                            return (
-                                                <button
-                                                    key={course.id}
-                                                    onClick={() => setFormData(p => ({...p, courseId: course.id}))}
-                                                    className={cn(
-                                                        "p-4 rounded-xl border-2 text-left transition-all group flex flex-col gap-2",
-                                                        isSelected ? "border-primary bg-primary/5 ring-4 ring-primary/10 shadow-md" : "hover:border-primary/30 hover:bg-slate-50"
-                                                    )}
-                                                >
-                                                    <div className="flex justify-between items-start">
-                                                        <div className="space-y-1">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-xs font-black uppercase text-primary/60 tracking-widest">{course.ministryName}</span>
-                                                                {isSelected && <Badge className="h-4 text-[8px] font-black uppercase">Selecionado</Badge>}
-                                                            </div>
-                                                            <h4 className="font-bold text-lg text-slate-900 group-hover:text-primary transition-colors">{course.name}</h4>
-                                                        </div>
-                                                        <div className={cn("size-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all", isSelected ? "bg-primary border-primary" : "border-slate-300")}>
-                                                            {isSelected && <div className="size-2 bg-white rounded-full" />}
-                                                        </div>
+                                    courses.map(course => {
+                                        const isSelected = formData.courseId === course.id;
+                                        const trackInfo = getTrackInfo(course);
+                                        return (
+                                            <button
+                                                key={course.id}
+                                                type="button"
+                                                onClick={() => setFormData(p => ({...p, courseId: course.id}))}
+                                                className={cn(
+                                                    "w-full p-4 rounded-2xl border-2 text-left transition-all flex items-center gap-4 group",
+                                                    isSelected ? "border-primary bg-primary/5 ring-4 ring-primary/10" : "bg-card hover:border-slate-300"
+                                                )}
+                                            >
+                                                <div className={cn(
+                                                    "p-3 rounded-xl transition-colors",
+                                                    isSelected ? "bg-primary text-white" : "bg-muted text-slate-400 group-hover:bg-slate-200"
+                                                )}>
+                                                    <BookOpen size={20} />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="font-bold text-slate-900 truncate leading-tight">{course.name}</p>
+                                                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                                                        <Badge variant="secondary" className="text-[8px] uppercase font-black h-4">{course.ministryName}</Badge>
+                                                        {trackInfo && (
+                                                            <span className="text-[10px] text-primary font-black uppercase tracking-tighter">
+                                                                {trackInfo}
+                                                            </span>
+                                                        )}
                                                     </div>
-                                                    
-                                                    {trackInfo && (
-                                                        <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 w-fit px-2 py-1 rounded border border-emerald-100">
-                                                            <Clock size={12} className="shrink-0" />
-                                                            <span className="text-[10px] font-black uppercase tracking-tighter">{trackInfo}</span>
-                                                        </div>
-                                                    )}
-                                                    
-                                                    <p className="text-sm text-muted-foreground line-clamp-2 mt-1 italic leading-relaxed">
-                                                        {course.description || "Inscrições abertas para novas turmas."}
-                                                    </p>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
+                                                </div>
+                                                {isSelected && <CheckCircle2 className="text-primary size-5 shrink-0" />}
+                                            </button>
+                                        );
+                                    })
                                 )}
-                            </CardContent>
-                            <CardFooter className="flex gap-3">
-                                <Button variant="ghost" onClick={() => setStep(1)} className="h-12"><ArrowLeft className="mr-2 size-4" /> Voltar</Button>
-                                <Button className="flex-1 h-12 text-base font-bold shadow-lg" disabled={isLoading || !formData.courseId} onClick={handleSubmit}>
-                                    {isLoading ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" />}
-                                    Finalizar Inscrição
-                                </Button>
-                            </CardFooter>
-                        </>
-                    )}
-                </Card>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </CardContent>
+            <CardFooter className="flex gap-3 bg-muted/20 p-6">
+                {step > 1 && (
+                    <Button variant="outline" className="h-12 rounded-xl px-6" onClick={handleBack}>
+                        <ArrowLeft className="size-4" />
+                    </Button>
+                )}
+                {step === 1 ? (
+                    <Button className="flex-1 h-12 rounded-xl font-bold shadow-lg shadow-primary/20" onClick={handleNext}>
+                        Próximo Passo <ArrowRight className="ml-2 size-4" />
+                    </Button>
+                ) : (
+                    <Button 
+                        className="flex-1 h-12 rounded-xl font-bold shadow-lg shadow-primary/20" 
+                        onClick={handleSubmit}
+                        disabled={isSubmitting || !formData.courseId}
+                    >
+                        {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2 size-4" />}
+                        Concluir Inscrição
+                    </Button>
+                )}
+            </CardFooter>
+        </Card>
+    );
+}
 
-                <div className="text-center">
-                    <p className="text-xs text-muted-foreground">
-                        Ao se inscrever, você concorda com os termos de convivência da Igreja Batista da Manhã.
-                    </p>
+export default function PublicEnrollmentPage() {
+    return (
+        <div className="min-h-screen bg-slate-50 flex flex-col items-center py-12 px-4">
+            <div className="w-full max-w-lg space-y-8">
+                <div className="flex flex-col items-center text-center space-y-4 mb-4">
+                    <div className="p-3 bg-white rounded-2xl shadow-xl border border-slate-100">
+                        <Logo className="size-10 text-primary" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Matrícula IBM</h1>
+                        <p className="text-sm text-slate-500 font-medium">Inscreva-se nos cursos e trilhos da nossa igreja.</p>
+                    </div>
                 </div>
+
+                <VolunteeringProvider>
+                    <Suspense fallback={<Card className="h-96 flex items-center justify-center"><Loader2 className="animate-spin text-primary"/></Card>}>
+                        <EnrollmentContent />
+                    </Suspense>
+                </VolunteeringProvider>
+
+                <p className="text-center text-[10px] text-slate-400 uppercase font-black tracking-[0.2em] pt-4">
+                    Organização servindo ao organismo • IBM 2026
+                </p>
             </div>
         </div>
     );

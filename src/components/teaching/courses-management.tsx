@@ -56,7 +56,6 @@ export function CoursesManagement() {
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [deletingCourse, setDeletingCourse] = useState<Course | null>(null);
 
-  // Grouping and sorting logic
   const groupedCourses = useMemo(() => {
     if (!courses) return {};
     const groups: Record<string, Course[]> = {};
@@ -67,7 +66,6 @@ export function CoursesManagement() {
       groups[ministry].push(c);
     });
 
-    // Sort Discipleship Track specifically
     Object.keys(groups).forEach(ministry => {
         groups[ministry].sort((a, b) => {
             if (a.ebdTrack === 'discipulado' && b.ebdTrack === 'discipulado') {

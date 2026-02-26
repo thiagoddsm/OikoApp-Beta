@@ -5,10 +5,11 @@ import { initializeFirebase } from '@/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 const CONTA_AZUL_AUTH_BASE = 'https://auth.contaazul.com';
-const CONTA_AZUL_API_BASE = 'https://api-v2.contaazul.com'; // Atualizado para api-v2 conforme documentação
+const CONTA_AZUL_API_BASE = 'https://api-v2.contaazul.com';
 
 /**
  * Recupera o token de acesso válido, renovando-o se necessário.
+ * Implementa persistência robusta do refresh_token para evitar o erro 'invalid_token'.
  */
 export async function getValidContaAzulToken() {
     const { firestore } = initializeFirebase();
@@ -49,16 +50,25 @@ export async function getValidContaAzulToken() {
             const data = await response.json();
 
             if (!response.ok) {
-                throw new Error(data.error_description || data.error || 'Falha ao renovar token.');
+                const errorMsg = data.error_description || data.error || 'Falha ao renovar token.';
+                // Salvar o erro para diagnóstico no laboratório
+                await updateDoc(configRef, { 
+                    lastError: `RENOVAÇÃO FALHOU: ${errorMsg}`,
+                    lastErrorAt: new Date().toISOString()
+                }).catch(() => {});
+                throw new Error(errorMsg);
             }
 
+            // CRUCIAL: A Conta Azul SEMPRE retorna um novo refresh_token. 
+            // O anterior torna-se inválido imediatamente.
             const newExpiresAt = Date.now() + (data.expires_in * 1000);
             
             await updateDoc(configRef, {
                 accessToken: data.access_token,
                 refreshToken: data.refresh_token,
                 expiresAt: newExpiresAt,
-                updatedAt: new Date().toISOString()
+                updatedAt: new Date().toISOString(),
+                lastError: 'SUCESSO: Token renovado automaticamente.'
             });
 
             return data.access_token;
@@ -68,7 +78,7 @@ export async function getValidContaAzulToken() {
         }
     }
 
-    throw new Error('Aplicação não autorizada ou tokens não encontrados no banco.');
+    throw new Error('Aplicação não autorizada ou credenciais inválidas.');
 }
 
 /**
@@ -109,7 +119,6 @@ export async function findOrCreateContaAzulCustomer(member: { name: string; emai
         // 1. Tentar buscar por nome exato
         const customers = await callContaAzulApi(`/v1/customers?name=${encodeURIComponent(member.name)}`);
         
-        // Normalização do retorno para v1/v2
         let customerList = Array.isArray(customers) ? customers : (customers.items || []);
         
         if (customerList.length > 0) {
