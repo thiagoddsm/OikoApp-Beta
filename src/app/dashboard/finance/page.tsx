@@ -55,12 +55,13 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
     }, [lastError]);
 
     const handleReadTest = async () => {
-        if (!isConnected) {
-            addLog("ERRO: O aplicativo precisa estar autorizado antes de testar a leitura.");
-            return;
-        }
         setIsTestingRead(true);
         addLog("Iniciando teste de leitura...");
+        
+        if (!isConnected) {
+            addLog("AVISO: Tokens não encontrados no banco. O teste provavelmente falhará com 'Não Autorizado'.");
+        }
+
         try {
             const res = await fetch('/api/finance/conta-azul/sync', { method: 'POST' });
             const data = await res.json();
@@ -71,7 +72,7 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
                 throw new Error(data.error || "Erro desconhecido na API");
             }
         } catch (e: any) {
-            addLog(`ERRO TÉCNICO: ${e.message}`);
+            addLog(`FALHA NA LEITURA: ${e.message}`);
             toast({ variant: 'destructive', title: "Falha na Leitura", description: e.message });
         } finally {
             setIsTestingRead(false);
@@ -79,12 +80,13 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
     };
 
     const handleWriteTest = async () => {
-        if (!isConnected) {
-            addLog("ERRO: O aplicativo precisa estar autorizado antes de testar a escrita.");
-            return;
-        }
         setIsTestingWrite(true);
         addLog("Iniciando teste de escrita (Gerar Fatura)...");
+
+        if (!isConnected) {
+            addLog("AVISO: Tokens não encontrados. A tentativa de escrita será negada pela API.");
+        }
+
         try {
             const res = await fetch('/api/finance/conta-azul/test-write', { method: 'POST' });
             const data = await res.json();
@@ -95,7 +97,7 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
                 throw new Error(data.error || "Erro desconhecido na API");
             }
         } catch (e: any) {
-            addLog(`ERRO TÉCNICO: ${e.message}`);
+            addLog(`FALHA NA ESCRITA: ${e.message}`);
             toast({ variant: 'destructive', title: "Falha na Escrita", description: e.message });
         } finally {
             setIsTestingWrite(false);
@@ -114,9 +116,9 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
                         <CardDescription>Valide as permissões de leitura e escrita em tempo real.</CardDescription>
                     </div>
                     {isConnected ? (
-                        <Badge className="bg-emerald-500">PRONTO PARA TESTE</Badge>
+                        <Badge className="bg-emerald-500">CONECTADO</Badge>
                     ) : (
-                        <Badge variant="outline" className="text-amber-600 bg-amber-50">AGUARDANDO CONEXÃO</Badge>
+                        <Badge variant="outline" className="text-amber-600 bg-amber-50">DESCONECTADO</Badge>
                     )}
                 </div>
             </CardHeader>
@@ -124,9 +126,9 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Button 
                         variant="outline" 
-                        className={cn("h-16 bg-white border-primary/20 group", !isConnected && "opacity-50 grayscale")}
+                        className={cn("h-16 bg-white border-primary/20 group")}
                         onClick={handleReadTest}
-                        disabled={isTestingRead || !isConnected}
+                        disabled={isTestingRead}
                     >
                         {isTestingRead ? <Loader2 className="animate-spin mr-2" /> : <HardDriveDownload className="mr-2 size-5 text-primary group-hover:scale-110 transition-transform" />}
                         <div className="text-left">
@@ -137,9 +139,9 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
 
                     <Button 
                         variant="outline" 
-                        className={cn("h-16 bg-white border-primary/20 group", !isConnected && "opacity-50 grayscale")}
+                        className={cn("h-16 bg-white border-primary/20 group")}
                         onClick={handleWriteTest}
-                        disabled={isTestingWrite || !isConnected}
+                        disabled={isTestingWrite}
                     >
                         {isTestingWrite ? <Loader2 className="animate-spin mr-2" /> : <DatabaseZap className="mr-2 size-5 text-primary group-hover:scale-110 transition-transform" />}
                         <div className="text-left">
@@ -157,7 +159,7 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
                         {log.length === 0 ? (
                             <div className="h-full flex flex-col items-center justify-center opacity-30 italic gap-2">
                                 <Bug size={24} />
-                                <p>Aguardando comando do laboratório...</p>
+                                <p>Clique em um dos testes para iniciar o diagnóstico...</p>
                             </div>
                         ) : (
                             log.map((m, i) => <p key={i} className="mb-1 leading-tight border-b border-white/5 pb-1">{m}</p>)
