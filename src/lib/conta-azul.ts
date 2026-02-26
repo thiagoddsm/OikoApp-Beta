@@ -5,7 +5,7 @@ import { initializeFirebase } from '@/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 const CONTA_AZUL_AUTH_BASE = 'https://auth.contaazul.com';
-const CONTA_AZUL_API_BASE = 'https://api.contaazul.com'; // URL padrão estável para recursos v1
+const CONTA_AZUL_API_BASE = 'https://api.contaazul.com'; // Base estável para v1/v2 de recursos comuns
 
 /**
  * Recupera o token de acesso válido, renovando-o se necessário.
@@ -23,11 +23,12 @@ export async function getValidContaAzulToken() {
     const { clientId, clientSecret, accessToken, refreshToken, expiresAt } = config;
 
     const now = Date.now();
-    // Se o token expira em menos de 5 minutos, renovamos.
-    if (accessToken && expiresAt && now < (expiresAt - 300000)) {
+    // Se o token existe e ainda é válido por pelo menos 1 minuto, usamos ele.
+    if (accessToken && expiresAt && now < (expiresAt - 60000)) {
         return accessToken;
     }
 
+    // Se não há token ou está expirado, tentamos renovar com o Refresh Token
     if (refreshToken && clientId && clientSecret) {
         const authHeader = Buffer.from(`${clientId.trim()}:${clientSecret.trim()}`).toString('base64');
         
@@ -48,7 +49,7 @@ export async function getValidContaAzulToken() {
             const data = await response.json().catch(() => ({}));
 
             if (!response.ok) {
-                const errorMsg = data.error_description || data.message || JSON.stringify(data);
+                const errorMsg = data.error_description || data.message || 'Falha na renovação do token.';
                 await updateDoc(configRef, { 
                     lastError: `RENOVAÇÃO FALHOU: ${errorMsg}`,
                     lastErrorAt: new Date().toISOString()
@@ -56,8 +57,10 @@ export async function getValidContaAzulToken() {
                 throw new Error(errorMsg);
             }
 
+            // Calculamos a expiração exata
             const newExpiresAt = Date.now() + (data.expires_in * 1000);
             
+            // Salvamos no banco mas já retornamos o novo access_token para a chamada atual
             await updateDoc(configRef, {
                 accessToken: data.access_token,
                 refreshToken: data.refresh_token,
@@ -73,7 +76,7 @@ export async function getValidContaAzulToken() {
         }
     }
 
-    throw new Error('Aplicação não autorizada ou credenciais inválidas.');
+    throw new Error('Aplicação não autorizada ou sem refresh token disponível.');
 }
 
 /**
@@ -96,13 +99,14 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            const errorMsg = data.message || data.error_description || JSON.stringify(data);
+            // Transformamos o erro em string clara para o frontend
+            const errorMsg = typeof data === 'object' ? (data.message || data.error_description || JSON.stringify(data)) : `Erro HTTP ${response.status}`;
             throw new Error(`Falha na rota ${endpoint}: ${errorMsg}`);
         }
 
         return data;
     } catch (e: any) {
-        throw new Error(e.message || 'Erro de conexão com a API.');
+        throw new Error(e.message || 'Erro de conexão com a API Conta Azul.');
     }
 }
 
@@ -111,11 +115,13 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
  */
 export async function findOrCreateContaAzulCustomer(member: { name: string; email?: string; phone?: string }) {
     try {
+        // Busca por nome para evitar duplicidade
         const customers = await callContaAzulApi(`/v1/customers?name=${encodeURIComponent(member.name)}`);
-        let customerList = Array.isArray(customers) ? customers : (customers.items || []);
+        const customerList = Array.isArray(customers) ? customers : (customers.items || []);
         
         if (customerList.length > 0) return customerList[0].id;
 
+        // Cria se não existir
         const newCustomer = await callContaAzulApi('/v1/customers', 'POST', {
             name: member.name,
             email: member.email || '',
@@ -125,12 +131,12 @@ export async function findOrCreateContaAzulCustomer(member: { name: string; emai
 
         return newCustomer.id;
     } catch (e: any) {
-        throw new Error(`Erro ao gerenciar cliente: ${e.message}`);
+        throw new Error(`Erro ao gerenciar cliente no Conta Azul: ${e.message}`);
     }
 }
 
 /**
- * Lança um recebimento
+ * Lança um recebimento (Etapa 4 do fluxo)
  */
 export async function createContaAzulReceivable(data: {
     description: string;
