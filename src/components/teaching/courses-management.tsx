@@ -160,7 +160,7 @@ export function CoursesManagement() {
                         </div>
                         <div className="pr-20 sm:pr-32 overflow-hidden">
                             <p className="font-bold text-slate-900 leading-tight truncate uppercase text-sm">{course.name}</p>
-                            <div className="flex items-center gap-2 mt-1">
+                            <div className="flex flex-col gap-1 mt-1">
                                 {getTrackInfo(course)}
                                 {!getTrackInfo(course) && <p className="text-xs text-muted-foreground line-clamp-1">{course.description || 'Sem descrição definida.'}</p>}
                             </div>
