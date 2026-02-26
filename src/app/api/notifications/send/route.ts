@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { initializeFirebase } from '@/firebase';
-import { collection, query, where, getDocs, addDoc, Timestamp, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, Timestamp, doc, getDoc, setDoc } from 'firebase/firestore';
 
 /**
  * API Route to send WhatsApp messages using direct fetch to api-wa.me
@@ -71,15 +71,31 @@ export async function POST(request: Request) {
     const targetUsers: any[] = [];
 
     if (targetNumber) {
-        targetUsers.push({ id: 'custom', name: 'Destinatário', phone: targetNumber });
+        // Tenta achar o nome se for um número avulso
+        const phoneDigits = targetNumber.replace(/\D/g, '');
+        const searchPhone = phoneDigits.length <= 11 ? phoneDigits : phoneDigits.slice(-11);
+        
+        let userName = 'Destinatário';
+        const usersSnap = await getDocs(query(collection(firestore, 'users'), where('phone', '>=', searchPhone.slice(-8))));
+        usersSnap.forEach(d => userName = d.data().name);
+
+        targetUsers.push({ id: 'custom', name: userName, phone: targetNumber });
     } else if (audience === 'specific_members' && userIds) {
         const usersRef = collection(firestore, 'users');
-        const q = query(usersRef, where('__name__', 'in', userIds.slice(0, 30)));
-        const snap = await getDocs(q);
-        snap.forEach(d => {
-            const data = d.data();
-            if (data.phone) targetUsers.push({ id: d.id, name: data.name, phone: data.phone });
-        });
+        // Dividir em chunks de 30 para o 'in' do Firestore
+        const chunks = [];
+        for (let i = 0; i < userIds.length; i += 30) {
+            chunks.push(userIds.slice(i, i + 30));
+        }
+        
+        for (const chunk of chunks) {
+            const q = query(usersRef, where('__name__', 'in', chunk));
+            const snap = await getDocs(q);
+            snap.forEach(d => {
+                const data = d.data();
+                if (data.phone) targetUsers.push({ id: d.id, name: data.name, phone: data.phone });
+            });
+        }
     } else {
         const usersRef = collection(firestore, 'users');
         const snap = await getDocs(query(usersRef));
@@ -105,7 +121,6 @@ export async function POST(request: Request) {
 
         switch (type) {
             case 'button':
-                // v5.0.0 SchemaButtonMessageReply: Exige 'header' como OBJETO, 'text' e 'buttons'
                 endpoint = 'message/button_reply';
                 payload = {
                     to: formattedPhone,
@@ -177,6 +192,33 @@ export async function POST(request: Request) {
 
             if (response.ok) {
                 sentCount++;
+                
+                // --- SYNC COM HISTÓRICO DE CONVERSA ---
+                const cleanPhone = formattedPhone.replace('@s.whatsapp.net', '');
+                const displayContent = type === 'survey' ? `[ENQUETE] ${surveyName}` : (personalizedBody || title || 'Mídia');
+
+                // 1. Salvar mensagem individual
+                await addDoc(collection(firestore, 'notifications_messages'), {
+                    from: cleanPhone,
+                    fromMe: true,
+                    userId: user.id,
+                    userName: user.name,
+                    content: displayContent,
+                    type: type || 'text',
+                    receivedAt: Timestamp.now()
+                });
+
+                // 2. Atualizar chat
+                await setDoc(doc(firestore, 'notifications_chats', cleanPhone), {
+                    lastMessage: displayContent,
+                    lastMessageAt: Timestamp.now(),
+                    unreadCount: 0,
+                    userName: user.name,
+                    userId: user.id,
+                    phoneNumber: cleanPhone,
+                    isGroup: formattedPhone.includes('@g.us')
+                }, { merge: true });
+
             } else {
                 rawError = responseData;
                 lastError = responseData.message || responseData.error || `Erro HTTP ${response.status}`;

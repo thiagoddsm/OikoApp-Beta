@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { 
     Loader2, Send, Settings, Key, Bot, History, MessageSquare, Mail, 
     Users, CheckCircle2, Search, UserPlus, X, Info, Layers, RefreshCw, 
@@ -36,11 +37,13 @@ const QUICK_TEMPLATES = [
 ];
 
 function WhatsappChats() {
-    const { firestore } = useFirebase();
+    const { firestore, user: currentUser } = useFirebase();
     const { toast } = useToast();
     const [selectedChat, setSelectedChat] = useState<any>(null);
     const [replyText, setReplyText] = useState('');
     const [isSending, setIsSending] = useState(false);
+    const [isNewChatOpen, setIsNewChatOpen] = useState(false);
+    const [userSearch, setUserSearch] = useState('');
     const scrollRef = useRef<HTMLDivElement>(null);
 
     const chatsQuery = useMemoFirebase(() => 
@@ -56,13 +59,21 @@ function WhatsappChats() {
             limit(50)
         ) : null,
     [firestore, selectedChat]);
-    const { data: messages, isLoading: isLoadingMessages } = useCollection<any>(messagesQuery);
+    const { data: messages } = useCollection<any>(messagesQuery);
+
+    const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users'), limit(50)) : null, [firestore]);
+    const { data: allUsers } = useCollection<any>(usersQuery);
 
     useEffect(() => {
         if (scrollRef.current) {
             scrollRef.current.scrollIntoView({ behavior: 'smooth' });
         }
     }, [messages]);
+
+    const filteredUsers = useMemo(() => {
+        if (!userSearch || !allUsers) return [];
+        return allUsers.filter(u => u.name.toLowerCase().includes(userSearch.toLowerCase())).slice(0, 5);
+    }, [allUsers, userSearch]);
 
     const handleSendReply = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -82,20 +93,7 @@ function WhatsappChats() {
             });
 
             if (response.ok) {
-                await addDoc(collection(firestore!, 'notifications_messages'), {
-                    from: selectedChat.phoneNumber,
-                    fromMe: true,
-                    content: replyText,
-                    type: 'text',
-                    receivedAt: Timestamp.now()
-                });
-
-                await setDocumentNonBlocking(doc(firestore!, 'notifications_chats', selectedChat.phoneNumber), {
-                    lastMessage: replyText,
-                    lastMessageAt: Timestamp.now(),
-                    unreadCount: 0
-                }, { merge: true });
-
+                // O log agora é feito na API de send
                 setReplyText('');
             } else {
                 const err = await response.json();
@@ -108,13 +106,44 @@ function WhatsappChats() {
         }
     };
 
+    const handleStartChat = async (user: any) => {
+        if (!user.phone) {
+            toast({ variant: 'destructive', title: "Usuário sem telefone cadastrado." });
+            return;
+        }
+        
+        const phone = user.phone.replace(/\D/g, '');
+        const formattedPhone = phone.length <= 11 ? `55${phone}` : phone;
+
+        const chatData = {
+            id: formattedPhone,
+            phoneNumber: formattedPhone,
+            userName: user.name,
+            userId: user.id,
+            lastMessage: 'Nova conversa iniciada',
+            lastMessageAt: Timestamp.now(),
+            unreadCount: 0,
+            isGroup: false
+        };
+
+        if (firestore) {
+            await setDocumentNonBlocking(doc(firestore, 'notifications_chats', formattedPhone), chatData, { merge: true });
+            setSelectedChat(chatData);
+            setIsNewChatOpen(false);
+            setUserSearch('');
+        }
+    };
+
     if (isLoadingChats) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
-        <div className="flex h-[600px] border rounded-xl overflow-hidden bg-background shadow-sm">
+        <div className="flex h-[650px] border rounded-xl overflow-hidden bg-background shadow-lg">
             <div className="w-1/3 border-r bg-muted/10 flex flex-col">
-                <div className="p-4 border-b bg-muted/5">
-                    <h3 className="font-bold text-sm uppercase tracking-widest text-muted-foreground">Conversas Recentes</h3>
+                <div className="p-4 border-b bg-muted/5 flex justify-between items-center">
+                    <h3 className="font-bold text-sm uppercase tracking-widest text-muted-foreground">Conversas</h3>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:bg-primary/10" onClick={() => setIsNewChatOpen(true)}>
+                        <PlusCircle size={18} />
+                    </Button>
                 </div>
                 <ScrollArea className="flex-1">
                     {chats?.length === 0 ? (
@@ -125,93 +154,152 @@ function WhatsappChats() {
                                 key={chat.id}
                                 onClick={() => setSelectedChat(chat)}
                                 className={cn(
-                                    "w-full p-4 text-left border-b transition-colors hover:bg-muted/50 flex gap-3 items-center",
-                                    selectedChat?.id === chat.id ? "bg-white border-l-4 border-l-primary" : ""
+                                    "w-full p-4 text-left border-b transition-all hover:bg-muted/50 flex gap-3 items-center relative",
+                                    selectedChat?.id === chat.id ? "bg-white border-l-4 border-l-primary shadow-inner" : ""
                                 )}
                             >
-                                <Avatar className="h-10 w-10 shrink-0">
-                                    <AvatarFallback><UserIcon size={18} /></AvatarFallback>
+                                <Avatar className="h-10 w-10 shrink-0 border-2 border-white shadow-sm">
+                                    <AvatarFallback className="bg-primary/5 text-primary"><UserIcon size={18} /></AvatarFallback>
                                 </Avatar>
                                 <div className="min-w-0 flex-1">
                                     <div className="flex justify-between items-baseline">
-                                        <span className="font-bold text-sm truncate">{chat.userName || chat.phoneNumber}</span>
-                                        <span className="text-[9px] text-muted-foreground uppercase">{chat.lastMessageAt ? format(chat.lastMessageAt.toDate(), 'HH:mm') : ''}</span>
+                                        <span className="font-bold text-sm truncate text-slate-900">{chat.userName || chat.phoneNumber}</span>
+                                        <span className="text-[9px] text-muted-foreground uppercase font-bold">
+                                            {chat.lastMessageAt ? format(chat.lastMessageAt.toDate(), 'HH:mm') : ''}
+                                        </span>
                                     </div>
                                     <p className="text-xs text-muted-foreground truncate mt-0.5">{chat.lastMessage}</p>
                                 </div>
-                                {chat.unreadCount > 0 && <div className="size-2 bg-primary rounded-full animate-pulse" />}
+                                {chat.unreadCount > 0 && <div className="size-2 bg-primary rounded-full absolute right-2 top-1/2 -translate-y-1/2" />}
                             </button>
                         ))
                     )}
                 </ScrollArea>
             </div>
 
-            <div className="flex-1 flex flex-col bg-slate-50/30">
+            <div className="flex-1 flex flex-col bg-slate-50/20 relative">
                 {selectedChat ? (
                     <>
-                        <div className="p-4 border-b bg-white flex items-center justify-between">
+                        <div className="p-4 border-b bg-white/80 backdrop-blur-md flex items-center justify-between sticky top-0 z-10">
                             <div className="flex items-center gap-3">
-                                <Avatar className="h-8 w-8">
-                                    <AvatarFallback><UserIcon size={14} /></AvatarFallback>
+                                <Avatar className="h-9 w-9 border-2 border-primary/10">
+                                    <AvatarFallback className="bg-primary text-white font-black"><UserIcon size={16} /></AvatarFallback>
                                 </Avatar>
                                 <div>
-                                    <h4 className="font-bold text-sm leading-none">{selectedChat.userName || selectedChat.phoneNumber}</h4>
-                                    <p className="text-[10px] text-muted-foreground mt-1">+{selectedChat.phoneNumber}</p>
+                                    <h4 className="font-bold text-sm leading-none text-slate-900">{selectedChat.userName || selectedChat.phoneNumber}</h4>
+                                    <p className="text-[10px] text-muted-foreground mt-1 font-mono tracking-tighter">+{selectedChat.phoneNumber}</p>
                                 </div>
                             </div>
-                            <Button variant="ghost" size="icon" className="h-8 w-8"><Info size={16} /></Button>
+                            <div className="flex gap-1">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"><Phone size={16} /></Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"><Info size={16} /></Button>
+                            </div>
                         </div>
 
-                        <ScrollArea className="flex-1 p-4">
-                            <div className="space-y-4">
+                        <ScrollArea className="flex-1 p-6">
+                            <div className="space-y-6">
                                 {messages?.map((msg: any) => (
-                                    <div key={msg.id} className={cn("flex", msg.fromMe ? "justify-end" : "justify-start")}>
+                                    <div key={msg.id} className={cn("flex flex-col", msg.fromMe ? "items-end" : "items-start")}>
                                         <div className={cn(
-                                            "max-w-[80%] p-3 rounded-2xl shadow-sm text-sm",
+                                            "max-w-[85%] p-3 px-4 rounded-2xl shadow-sm text-sm transition-all",
                                             msg.fromMe 
-                                                ? "bg-primary text-primary-foreground text-right rounded-tr-none" 
-                                                : "bg-white border border-slate-100 rounded-tl-none"
+                                                ? "bg-primary text-primary-foreground rounded-tr-none" 
+                                                : "bg-white border border-slate-200 text-slate-800 rounded-tl-none"
                                         )}>
-                                            <p className="leading-relaxed">{msg.content}</p>
-                                            <p className={cn(
-                                                "text-[9px] mt-1 text-right",
-                                                msg.fromMe ? "text-primary-foreground/70" : "text-muted-foreground"
+                                            <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                                            <div className={cn(
+                                                "text-[9px] mt-1.5 flex items-center gap-1",
+                                                msg.fromMe ? "justify-end text-primary-foreground/60" : "text-muted-foreground"
                                             )}>
                                                 {msg.receivedAt ? format(msg.receivedAt.toDate(), 'HH:mm') : ''}
-                                            </p>
+                                                {msg.fromMe && <CheckCircle2 size={10} className="text-primary-foreground/40" />}
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
-                                <div ref={scrollRef} />
+                                <div ref={scrollRef} className="h-4" />
                             </div>
                         </ScrollArea>
 
                         <div className="p-4 bg-white border-t">
-                            <form onSubmit={handleSendReply} className="flex gap-2">
-                                <Input 
+                            <form onSubmit={handleSendReply} className="flex gap-3 items-end">
+                                <Textarea 
                                     placeholder="Digite sua resposta..." 
                                     value={replyText}
                                     onChange={e => setReplyText(e.target.value)}
-                                    className="bg-muted/30 border-none focus-visible:ring-primary h-11"
+                                    className="min-h-[44px] max-h-[120px] bg-muted/30 border-none focus-visible:ring-primary py-3 resize-none rounded-xl"
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault();
+                                            handleSendReply(e as any);
+                                        }
+                                    }}
                                 />
-                                <Button type="submit" size="icon" className="h-11 w-11 shrink-0" disabled={isSending || !replyText?.trim()}>
+                                <Button type="submit" size="icon" className="h-11 w-11 shrink-0 rounded-xl shadow-lg shadow-primary/20" disabled={isSending || !replyText?.trim()}>
                                     {isSending ? <Loader2 className="animate-spin" /> : <Send size={18} />}
                                 </Button>
                             </form>
                         </div>
                     </>
                 ) : (
-                    <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8 text-center space-y-4">
-                        <div className="p-6 bg-muted/20 rounded-full">
-                            <MessageSquare size={48} className="opacity-20" />
+                    <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8 text-center">
+                        <div className="p-8 bg-primary/5 rounded-full mb-6">
+                            <MessageSquare size={64} className="text-primary/20" />
                         </div>
-                        <div>
-                            <h3 className="font-bold text-slate-900">Selecione uma conversa</h3>
-                            <p className="text-sm">Veja as mensagens recebidas e responda seus membros aqui.</p>
-                        </div>
+                        <h3 className="font-black text-xl text-slate-900 tracking-tight">Suas Conversas</h3>
+                        <p className="text-sm max-w-xs mt-2 text-slate-500">Selecione um membro na lateral ou inicie uma nova conversa pelo botão <PlusCircle className="inline size-3 mr-0.5" /> no topo.</p>
+                        <Button variant="outline" className="mt-6 rounded-full font-bold px-6" onClick={() => setIsNewChatOpen(true)}>
+                            <UserPlus className="mr-2 size-4" /> Buscar Pessoa
+                        </Button>
                     </div>
                 )}
             </div>
+
+            {/* DIALOG: NOVA CONVERSA */}
+            <Dialog open={isNewChatOpen} onOpenChange={setIsNewChatOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Iniciar Nova Conversa</DialogTitle>
+                        <DialogDescription>Busque um membro da igreja para abrir o chat.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
+                            <Input 
+                                placeholder="Digite o nome..." 
+                                value={userSearch}
+                                onChange={e => setUserSearch(e.target.value)}
+                                className="pl-10 h-11"
+                                autoFocus
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            {filteredUsers.map(u => (
+                                <button
+                                    key={u.id}
+                                    onClick={() => handleStartChat(u)}
+                                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-transparent hover:border-primary/20 hover:bg-primary/5 transition-all text-left group"
+                                >
+                                    <Avatar className="h-9 w-9">
+                                        <AvatarFallback className="bg-primary/5 text-primary font-black">{u.name.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">{u.name}</p>
+                                        <p className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter">{u.phone || 'Sem telefone'}</p>
+                                    </div>
+                                    <ChevronRight size={16} className="text-slate-300 group-hover:text-primary" />
+                                </button>
+                            ))}
+                            {userSearch && filteredUsers.length === 0 && (
+                                <p className="text-center py-8 text-xs text-muted-foreground italic">Nenhum membro encontrado.</p>
+                            )}
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
@@ -484,11 +572,12 @@ function WhatsappSender() {
                             <Search size={14} /> Selecionar Pessoas
                         </Label>
                         <div className="relative">
+                            <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
                             <Input 
                                 placeholder="Digite o nome para buscar..." 
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="bg-background"
+                                className="pl-10 bg-background h-11"
                             />
                             {filteredUsers.length > 0 && (
                                 <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg overflow-hidden">
@@ -497,9 +586,17 @@ function WhatsappSender() {
                                             key={u.id}
                                             type="button"
                                             onClick={() => handleAddUser(u.id)}
-                                            className="w-full px-4 py-2 text-left text-sm hover:bg-primary/10 flex items-center justify-between group"
+                                            className="w-full px-4 py-3 text-left text-sm hover:bg-primary/10 flex items-center justify-between group border-b last:border-0"
                                         >
-                                            <span>{u.name}</span>
+                                            <div className="flex items-center gap-3">
+                                                <Avatar className="h-8 w-8">
+                                                    <AvatarFallback className="bg-primary/5 text-primary text-[10px] font-black">{u.name.charAt(0)}</AvatarFallback>
+                                                </Avatar>
+                                                <div className="flex flex-col">
+                                                    <span className="font-bold">{u.name}</span>
+                                                    <span className="text-[9px] text-muted-foreground uppercase">{u.phone}</span>
+                                                </div>
+                                            </div>
                                             <UserPlus size={14} className="text-muted-foreground group-hover:text-primary" />
                                         </button>
                                     ))}
@@ -507,14 +604,14 @@ function WhatsappSender() {
                             )}
                         </div>
 
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2 pt-2">
                             {selectedUsersList.map(u => (
-                                <Badge key={u.id} variant="secondary" className="pl-3 pr-1 py-1 gap-1">
+                                <Badge key={u.id} variant="secondary" className="pl-3 pr-1 py-1 gap-1 bg-white border shadow-sm">
                                     {u.name}
                                     <button 
                                         type="button" 
                                         onClick={() => handleRemoveUser(u.id)}
-                                        className="hover:text-destructive p-0.5"
+                                        className="hover:text-destructive p-0.5 rounded-full hover:bg-destructive/10 transition-colors"
                                     >
                                         <X size={12} />
                                     </button>
@@ -541,7 +638,7 @@ function WhatsappSender() {
                             </button>
                         </div>
                         <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
-                            <SelectTrigger id="group-select" className="bg-background">
+                            <SelectTrigger id="group-select" className="bg-background h-11">
                                 <SelectValue placeholder={isLoadingGroups ? "Buscando grupos..." : "Selecione um grupo"} />
                             </SelectTrigger>
                             <SelectContent>
@@ -669,35 +766,6 @@ function WhatsappSender() {
                     </div>
                 )}
 
-                {msgType === 'pix' && (
-                    <div className="space-y-4 p-4 border border-dashed rounded-lg bg-emerald-50 animate-in slide-in-from-top-2 relative">
-                        <Badge className="absolute -top-3 -right-3 bg-amber-500 hover:bg-amber-600 font-black flex items-center gap-1.5 shadow-lg border-2 border-white">
-                            <Award size={12} /> ENTERPRISE
-                        </Badge>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label className="flex items-center gap-2 text-emerald-700 font-bold"><Banknote size={14} /> Chave PIX</Label>
-                                <Input 
-                                    placeholder="E-mail ou CPF" 
-                                    value={pixKey}
-                                    onChange={e => setPixKey(e.target.value)}
-                                    className="bg-white"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="flex items-center gap-2 text-emerald-700 font-bold"><Wallet size={14} /> Valor</Label>
-                                <Input 
-                                    type="number"
-                                    placeholder="0.00" 
-                                    value={pixAmount}
-                                    onChange={e => setPixAmount(e.target.value)}
-                                    className="bg-white"
-                                />
-                            </div>
-                        </div>
-                    </div>
-                )}
-
                 <div className="space-y-4">
                     <div className="flex justify-between items-end">
                         <Label htmlFor="message">{msgType === 'media' ? 'Legenda' : 'Texto Principal'}</Label>
@@ -733,7 +801,7 @@ function WhatsappSender() {
             </form>
 
             {debugError && (
-                <Alert variant="destructive" className="animate-in shake-1 border-2">
+                <Alert variant="destructive" className="animate-in shake-1 border-2 mt-6">
                     <ShieldAlert className="h-4 w-4" />
                     <AlertTitle className="font-black uppercase tracking-tighter">Erro do Gateway</AlertTitle>
                     <AlertDescription className="mt-2 space-y-2">
@@ -744,30 +812,6 @@ function WhatsappSender() {
                     </AlertDescription>
                 </Alert>
             )}
-
-            <div className="pt-8 border-t">
-                <div className="flex items-center gap-2 mb-4">
-                    <Bug className="size-4 text-muted-foreground" />
-                    <h3 className="text-xs font-black uppercase text-muted-foreground tracking-widest">Debug Mode</h3>
-                </div>
-                <div className="flex flex-wrap gap-4 mb-6">
-                    <div className="flex-1 min-w-[200px] space-y-2">
-                        <Label htmlFor="test-phone" className="text-[10px] font-black uppercase">Número de Teste</Label>
-                        <Input 
-                            id="test-phone"
-                            placeholder="21999999999" 
-                            value={testPhoneNumber}
-                            onChange={e => setTestPhoneNumber(e.target.value)}
-                            className="bg-background border-dashed border-primary/50"
-                        />
-                    </div>
-                    <div className="flex flex-wrap gap-2 items-end">
-                        <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('text')} disabled={isLoading} className="h-10 text-[10px] font-bold">TEXTO</Button>
-                        <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('button')} disabled={isLoading} className="h-10 text-[10px] font-bold border-indigo-200 text-indigo-700">BOTÕES (PRO)</Button>
-                        <Button type="button" variant="outline" size="sm" onClick={() => handleDebugTest('survey')} disabled={isLoading} className="h-10 text-[10px] font-bold border-amber-200 text-amber-700">ENQUETE (PRO)</Button>
-                    </div>
-                </div>
-            </div>
         </div>
     );
 }
@@ -783,7 +827,7 @@ function WhatsappResponses() {
     if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
-        <div className="rounded-lg border bg-card">
+        <div className="rounded-lg border bg-card overflow-hidden">
             <Table>
                 <TableHeader className="bg-muted/50">
                     <TableRow>
@@ -827,7 +871,6 @@ function NotificationsConfig() {
     const [isSaving, setIsSaving] = useState(false);
     const [isGeneratingQR, setIsGeneratingQR] = useState(false);
     const [isDisconnecting, setIsDisconnecting] = useState(false);
-    const [isSyncingWebhook, setIsSyncingWebhook] = useState(false);
     const [isConfiguringInstance, setIsConfiguringInstance] = useState(false);
     const [qrCode, setQrCode] = useState<string | null>(null);
     const [instanceStatus, setInstanceStatus] = useState<{status: string, message?: string, qr?: string, details?: any} | null>(null);
@@ -939,7 +982,7 @@ function NotificationsConfig() {
 
     if (isLoadingConfig) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
-    const webhookUrl = `${window.location.origin}/api/notifications/webhook`;
+    const webhookUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/notifications/webhook` : '';
 
     return (
         <div className="space-y-6">
@@ -1126,7 +1169,7 @@ function WhatsappGroups() {
                     [...Array(3)].map((_, i) => <Card key={i} className="animate-pulse h-24 bg-muted" />)
                 ) : (
                     groups.map(group => (
-                        <Card key={group.id}>
+                        <Card key={group.id} className="hover:border-primary/30 transition-all shadow-sm">
                             <CardHeader className="p-4">
                                 <CardTitle className="text-sm font-bold flex items-center justify-between">
                                     <span className="truncate">{group.name}</span>
@@ -1134,12 +1177,17 @@ function WhatsappGroups() {
                                 </CardTitle>
                             </CardHeader>
                             <CardFooter className="p-4 pt-0">
-                                <Button variant="outline" size="sm" className="w-full text-[10px]" onClick={() => handleUpdateMural(group.id, group.name)}>
-                                    Mural / Descrição
+                                <Button variant="outline" size="sm" className="w-full text-[10px] font-bold h-8" onClick={() => handleUpdateMural(group.id, group.name)}>
+                                    <Edit className="size-3 mr-1" /> Mural / Descrição
                                 </Button>
                             </CardFooter>
                         </Card>
                     ))
+                )}
+                {!isLoading && groups.length === 0 && (
+                    <div className="col-span-full py-12 text-center text-muted-foreground italic border-2 border-dashed rounded-lg bg-muted/10">
+                        Nenhum grupo identificado nesta instância.
+                    </div>
                 )}
             </div>
         </div>
@@ -1160,18 +1208,18 @@ export default function NotificationsPage() {
         </Card>
 
         <Tabs defaultValue="sender" className="w-full">
-            <TabsList className="grid w-full grid-cols-6 max-w-4xl bg-muted/50 p-1">
-                <TabsTrigger value="sender" className="font-bold"><Send className="mr-2 size-4" /> Disparador</TabsTrigger>
-                <TabsTrigger value="chats" className="font-bold"><MessageSquare className="mr-2 size-4" /> Conversas</TabsTrigger>
-                <TabsTrigger value="groups" className="font-bold"><Group className="mr-2 size-4" /> Grupos</TabsTrigger>
-                <TabsTrigger value="responses" className="font-bold"><CheckCircle className="mr-2 size-4" /> Respostas</TabsTrigger>
-                <TabsTrigger value="history" className="font-bold"><History className="mr-2 size-4" /> Histórico</TabsTrigger>
-                <TabsTrigger value="config" className="font-bold"><Settings className="mr-2 size-4" /> Configs</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-6 max-w-4xl bg-muted/50 p-1 rounded-xl">
+                <TabsTrigger value="sender" className="font-bold rounded-lg"><Send className="mr-2 size-4" /> Disparador</TabsTrigger>
+                <TabsTrigger value="chats" className="font-bold rounded-lg"><MessageSquare className="mr-2 size-4" /> Conversas</TabsTrigger>
+                <TabsTrigger value="groups" className="font-bold rounded-lg"><Group className="mr-2 size-4" /> Grupos</TabsTrigger>
+                <TabsTrigger value="responses" className="font-bold rounded-lg"><CheckCircle className="mr-2 size-4" /> Respostas</TabsTrigger>
+                <TabsTrigger value="history" className="font-bold rounded-lg"><History className="mr-2 size-4" /> Histórico</TabsTrigger>
+                <TabsTrigger value="config" className="font-bold rounded-lg"><Settings className="mr-2 size-4" /> Configs</TabsTrigger>
             </TabsList>
             
             <TabsContent value="sender" className="mt-6">
-                <Card>
-                    <CardHeader><CardTitle>Novo Disparo</CardTitle></CardHeader>
+                <Card className="shadow-lg border-none">
+                    <CardHeader><CardTitle className="text-lg">Novo Disparo em Massa</CardTitle></CardHeader>
                     <CardContent><WhatsappSender /></CardContent>
                 </Card>
             </TabsContent>
@@ -1211,7 +1259,7 @@ function NotificationsHistory() {
     if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
-        <div className="rounded-lg border bg-card overflow-hidden">
+        <div className="rounded-lg border bg-card overflow-hidden shadow-sm">
             <Table>
                 <TableHeader className="bg-muted/50">
                     <TableRow>
@@ -1222,20 +1270,24 @@ function NotificationsHistory() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {history?.map((item: any) => (
-                        <TableRow key={item.id}>
-                            <TableCell className="text-xs">
-                                {item.sentAt ? format(item.sentAt.toDate(), 'dd/MM/yy HH:mm', { locale: ptBR }) : '-'}
-                            </TableCell>
-                            <TableCell className="text-xs max-w-xs truncate">{item.message}</TableCell>
-                            <TableCell><Badge variant="secondary">{item.recipientCount} pessoas</Badge></TableCell>
-                            <TableCell>
-                                <div className={cn("flex items-center gap-1.5 font-bold text-[10px]", item.status === 'success' ? "text-emerald-600" : "text-amber-600")}>
-                                    <CheckCircle2 size={12} /> {item.status === 'success' ? 'SUCESSO' : 'PARCIAL'}
-                                </div>
-                            </TableCell>
-                        </TableRow>
-                    ))}
+                    {history?.length === 0 ? (
+                        <TableRow><TableCell colSpan={4} className="h-32 text-center text-muted-foreground">Nenhum histórico de disparos.</TableCell></TableRow>
+                    ) : (
+                        history?.map((item: any) => (
+                            <TableRow key={item.id}>
+                                <TableCell className="text-xs font-medium">
+                                    {item.sentAt ? format(item.sentAt.toDate(), 'dd/MM/yy HH:mm', { locale: ptBR }) : '-'}
+                                </TableCell>
+                                <TableCell className="text-xs max-w-xs truncate font-medium text-slate-700">{item.message}</TableCell>
+                                <TableCell><Badge variant="secondary" className="bg-slate-100 text-slate-700">{item.recipientCount} pessoas</Badge></TableCell>
+                                <TableCell>
+                                    <div className={cn("flex items-center gap-1.5 font-black text-[10px]", item.status === 'success' ? "text-emerald-600" : "text-amber-600")}>
+                                        <CheckCircle2 size={12} /> {item.status === 'success' ? 'SUCESSO TOTAL' : 'ENTREGA PARCIAL'}
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ))
+                    )}
                 </TableBody>
             </Table>
         </div>
