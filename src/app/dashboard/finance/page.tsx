@@ -34,9 +34,11 @@ type ContaAzulConfig = {
     accessToken?: string;
     refreshToken?: string;
     expiresAt?: number;
+    lastError?: string;
+    lastErrorAt?: string;
 }
 
-function IntegrationLaboratory({ isConnected }: { isConnected: boolean }) {
+function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolean, lastError?: string }) {
     const { toast } = useToast();
     const [isTestingRead, setIsTestingRead] = useState(false);
     const [isTestingWrite, setIsTestingWrite] = useState(false);
@@ -45,6 +47,12 @@ function IntegrationLaboratory({ isConnected }: { isConnected: boolean }) {
     const addLog = (msg: string) => {
         setLog(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 15));
     };
+
+    useEffect(() => {
+        if (lastError) {
+            addLog(`ERRO DO SERVIDOR: ${lastError}`);
+        }
+    }, [lastError]);
 
     const handleReadTest = async () => {
         if (!isConnected) {
@@ -187,7 +195,7 @@ function TechnicalDossier() {
                                 <div className="size-1.5 rounded-full bg-indigo-500" />
                                 1. Desafio da Identidade Binária (Redirect URI)
                             </h4>
-                            <p>O protocolo OAuth 2.0 exige que a <code className="bg-indigo-100 px-1 rounded">redirect_uri</code> enviada pela aplicação seja "binariamente idêntica" à cadastrada no portal de desenvolvedores. No ambiente do Firebase Studio, que utiliza proxies do Google Cloud, surge uma discrepância de portas: enquanto o portal pode esperar uma requisição na porta 6000, o servidor interno detecta a porta 9002.</p>
+                            <p>O protocolo OAuth 2.0 exige que a <code className="bg-indigo-100 px-1 rounded">redirect_uri</code> enviada pela aplicação seja "binariamente idêntica" à cadastrada no portal de desenvolvedores. No ambiente do Firebase Studio, surge uma discrepância de portas: enquanto o portal pode esperar uma requisição na porta 6000, o servidor interno detecta a porta 9002.</p>
                             <p className="mt-2 text-xs font-bold text-indigo-700 italic">Solução: Detecção dinâmica baseada em cabeçalhos de proxy para garantir que a aplicação se apresente com o endereço exato visualizado no navegador.</p>
                         </section>
 
@@ -287,8 +295,9 @@ function ContaAzulConnect() {
 
   if (isLoadingConfig) return null;
 
+  // Use HTTPS fixo para redirect_uri no Studio/Cloud
   const redirectUri = `${origin}/api/finance/conta-azul/callback`;
-  const scopes = 'finance customers';
+  const scopes = 'finance customers sales'; // Adicionado sales por segurança em Sandbox
   const authUrl = `https://app.contaazul.com/auth/authorize?client_id=${clientId.trim()}&scope=${encodeURIComponent(scopes)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=oiko_auth&response_type=code`;
 
   return (
@@ -357,7 +366,7 @@ function ContaAzulConnect() {
                     </CardContent>
                 </Card>
 
-                <IntegrationLaboratory isConnected={isConnected} />
+                <IntegrationLaboratory isConnected={isConnected} lastError={config?.lastError} />
             </div>
 
             <div className="space-y-6">

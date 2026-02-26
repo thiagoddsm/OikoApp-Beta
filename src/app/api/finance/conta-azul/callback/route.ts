@@ -15,22 +15,30 @@ export async function GET(request: Request) {
   const errorDescription = url.searchParams.get('error_description');
 
   // Detecção do Host Público REAL (essencial para o compliance no Studio)
+  // No Studio, o host vem com a porta (ex: 6000-...). Precisamos manter exatamente como o portal espera.
   const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || url.host;
-  const protocol = request.headers.get('x-forwarded-proto') || 'https';
   
-  // Reconstrução da URI idêntica à cadastrada no portal (Identidade Binária)
+  // SEMPRE usar https para o redirect_uri em ambientes externos/studio
+  const protocol = 'https';
+  
   const appOrigin = `${protocol}://${host}`;
   const redirectUri = `${appOrigin}/api/finance/conta-azul/callback`;
 
-  console.log('--- CALLBACK CONTA AZUL: DETECÇÃO DE AMBIENTE ---');
-  console.log('Ambiente (Host):', host);
-  console.log('Redirect URI (Compliance):', redirectUri);
+  const { firestore } = initializeFirebase();
+  const configRef = doc(firestore, 'config', 'conta_azul');
 
   if (error) {
     console.error('Erro retornado pelo Conta Azul:', error, errorDescription);
     const msg = error === 'access_denied' 
-        ? 'Acesso Negado: Verifique se está usando o e-mail de Sandbox (@devportal.com) e se o Redirect URI no portal é exatamente: ' + redirectUri
+        ? 'Acesso Negado: Verifique se está usando o e-mail de Sandbox (@devportal.com). Se o erro persiste, confirme se os Scopes no portal batem com o solicitado.'
         : errorDescription || error;
+    
+    // Salva o erro para depuração no painel
+    await updateDoc(configRef, { 
+        lastError: msg,
+        lastErrorAt: new Date().toISOString()
+    }).catch(() => {});
+
     return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=error&message=${encodeURIComponent(msg)}`);
   }
 
@@ -39,15 +47,12 @@ export async function GET(request: Request) {
   }
 
   try {
-    const { firestore } = initializeFirebase();
-    const configRef = doc(firestore, 'config', 'conta_azul');
     const configSnap = await getDoc(configRef);
 
     if (!configSnap.exists()) {
       throw new Error('Configuração da Conta Azul não encontrada no banco de dados.');
     }
 
-    // Higienização de credenciais (prevenção contra espaços em branco)
     const { clientId, clientSecret } = configSnap.data();
     const cleanClientId = clientId?.trim();
     const cleanClientSecret = clientSecret?.trim();
@@ -77,7 +82,14 @@ export async function GET(request: Request) {
 
     if (!response.ok) {
       console.error('Erro na troca de token (OAuth 2.0):', data);
-      throw new Error(data.error_description || data.error || 'Falha técnica na troca do código pelo token.');
+      const errMsg = data.error_description || data.error || 'Falha técnica na troca do código pelo token.';
+      
+      await updateDoc(configRef, { 
+          lastError: `Token Exchange Error: ${errMsg}`,
+          lastErrorAt: new Date().toISOString()
+      });
+
+      throw new Error(errMsg);
     }
 
     // Persistência de acesso e ciclo de vida do token
@@ -87,7 +99,8 @@ export async function GET(request: Request) {
       accessToken: data.access_token,
       refreshToken: data.refresh_token,
       expiresAt: expiresAt,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
+      lastError: null // Limpa erros anteriores
     });
 
     return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=connected`);
