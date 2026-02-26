@@ -33,11 +33,11 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
 
     // If it's membership, we group by MODULE (1-5), not dates.
     const modules = useMemo(() => [
-        { id: '1', title: 'História e Visão', type: 'Obrigatório' },
-        { id: '2', title: 'DNA e Células', type: 'Obrigatório' },
-        { id: '3', title: 'Mordomia e Finanças', type: 'Obrigatório' },
-        { id: '4', title: 'Governança e Ética', type: 'Obrigatório' },
-        { id: '5', title: 'Comissionamento', type: 'Eletivo' },
+        { id: '1', title: 'História e Visão', type: 'Obrigatório', week: '1' },
+        { id: '2', title: 'DNA e Células', type: 'Obrigatório', week: '2' },
+        { id: '3', title: 'Mordomia e Finanças', type: 'Obrigatório', week: '3' },
+        { id: '4', title: 'Governança e Ética', type: 'Obrigatório', week: '4' },
+        { id: '5', title: 'Comissionamento', type: 'Eletivo', week: 'last' },
     ], []);
 
     const students = useMemo(() => {
@@ -103,22 +103,26 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                         <TableHeader className="bg-muted/50">
                             <TableRow>
                                 <TableHead className="min-w-[250px] sticky left-0 bg-white z-[2] border-r shadow-[2px_0_5px_rgba(0,0,0,0.05)]">Aluno (Membresia Modular)</TableHead>
-                                {modules.map((mod, index) => (
-                                    <TableHead key={mod.id} className="text-center min-w-[160px] py-4">
-                                        <div className="flex flex-col items-center gap-1">
-                                            <div className="flex items-center gap-1.5 mb-1">
-                                                <span className={cn(
-                                                    "text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter",
-                                                    mod.type === 'Eletivo' ? "bg-amber-100 text-amber-700" : "bg-primary/10 text-primary"
-                                                )}>
-                                                    {mod.type === 'Eletivo' ? 'Eletivo' : `Módulo ${mod.id}`}
-                                                </span>
+                                {modules.map((mod, index) => {
+                                    const episode = linkedTheoflix?.episodes?.[index];
+                                    return (
+                                        <TableHead key={mod.id} className="text-center min-w-[160px] py-4">
+                                            <div className="flex flex-col items-center gap-1">
+                                                <div className="flex items-center gap-1.5 mb-1">
+                                                    <span className={cn(
+                                                        "text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter",
+                                                        mod.type === 'Eletivo' ? "bg-amber-100 text-amber-700" : "bg-primary/10 text-primary"
+                                                    )}>
+                                                        {mod.type === 'Eletivo' ? 'Eletivo' : `Módulo ${mod.id}`}
+                                                    </span>
+                                                    {episode && <Video className="size-3 text-primary" />}
+                                                </div>
+                                                <span className="font-bold text-slate-900 leading-none text-xs">{mod.title}</span>
+                                                <p className="text-[9px] text-muted-foreground uppercase font-bold mt-1 tracking-widest">{index+1}º Domingo</p>
                                             </div>
-                                            <span className="font-bold text-slate-900 leading-none text-xs">{mod.title}</span>
-                                            <p className="text-[9px] text-muted-foreground uppercase font-bold mt-1 tracking-widest">{index+1}º Domingo</p>
-                                        </div>
-                                    </TableHead>
-                                ))}
+                                        </TableHead>
+                                    )
+                                })}
                                 <TableHead className="text-center min-w-[120px] bg-primary/5 font-black text-primary">Status</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -142,10 +146,19 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                             const modKey = `module${mod.id}`;
                                             const isDone = progress[modKey];
                                             
+                                            // Check the source of the presence in classes for correct icon
+                                            const relevantClasses = courseClasses.filter(c => c.weekOfMonth === mod.week);
+                                            const isPresentPhysical = relevantClasses.some(c => c.attendance?.some(a => a.presentStudentIds.includes(student.id)));
+                                            const isPresentOnline = relevantClasses.some(c => c.attendance?.some(a => a.onlineStudentIds?.includes(student.id)));
+
                                             return (
                                                 <TableCell key={mod.id} className="text-center">
-                                                    {isDone ? (
+                                                    {isPresentPhysical ? (
                                                         <CheckCircle2 className="text-emerald-500 size-5 mx-auto" />
+                                                    ) : isPresentOnline ? (
+                                                        <PlayCircle className="text-blue-500 size-5 mx-auto" />
+                                                    ) : isDone ? (
+                                                        <CheckCircle2 className="text-emerald-500 size-5 mx-auto opacity-50" />
                                                     ) : mod.type === 'Eletivo' ? (
                                                         <Star className="text-amber-200 size-5 mx-auto" />
                                                     ) : (
@@ -164,6 +177,12 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                             })}
                         </TableBody>
                     </Table>
+                </div>
+                <div className="flex items-center gap-6 text-[10px] font-bold uppercase text-muted-foreground bg-muted/20 p-3 rounded-lg border border-dashed">
+                    <div className="flex items-center gap-1.5"><CheckCircle2 className="size-3 text-emerald-500"/> Presença Física</div>
+                    <div className="flex items-center gap-1.5"><PlayCircle className="size-3 text-blue-500"/> Validado via TheoFlix</div>
+                    <div className="flex items-center gap-1.5"><Star className="size-3 text-amber-400"/> Módulo Eletivo</div>
+                    <div className="flex items-center gap-1.5"><Clock className="size-3 text-slate-300"/> Aula Pendente</div>
                 </div>
             </div>
         );
@@ -213,7 +232,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                 <Table>
                     <TableHeader className="bg-muted/50">
                         <TableRow>
-                            <TableHead className="min-w-[250px] sticky left-0 bg-white z-[2] border-r shadow-[2px_0_5px_rgba(0,0,0,0.05)]">Aluno</TableHead>
+                            <TableHead className="min-w-[250px] sticky left-0 bg-white z-[2] border-r shadow-[2px_0_5_rgba(0,0,0,0.05)]">Aluno</TableHead>
                             {allDates.map((date, index) => {
                                 const episode = linkedTheoflix?.episodes?.[index];
                                 return (
@@ -266,6 +285,13 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                         })}
                     </TableBody>
                 </Table>
+            </div>
+            <div className="flex items-center gap-6 text-[10px] font-bold uppercase text-muted-foreground bg-muted/20 p-3 rounded-lg border border-dashed">
+                <div className="flex items-center gap-1.5"><CheckCircle2 className="size-3 text-emerald-500"/> Presença Física</div>
+                <div className="flex items-center gap-1.5"><PlayCircle className="size-3 text-blue-500"/> Validado via TheoFlix</div>
+                <div className="flex items-center gap-1.5"><XCircle className="size-3 text-destructive opacity-40"/> Falta (Aula Realizada)</div>
+                <div className="flex items-center gap-1.5"><Minus className="size-3 text-slate-200"/> Aula Não Realizada</div>
+                <div className="flex items-center gap-1.5"><Clock className="size-3 text-slate-100"/> Aula Pendente</div>
             </div>
         </div>
     );
