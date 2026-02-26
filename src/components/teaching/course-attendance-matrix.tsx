@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useMemo } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
@@ -31,7 +32,6 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
     [theoflixCourses, course]);
 
     // If it's membership, we group by MODULE (1-5), not dates.
-    // This allows students to make up Class 1 in February or March seamlessly.
     const modules = useMemo(() => [
         { id: '1', title: 'História e Visão', type: 'Obrigatório' },
         { id: '2', title: 'DNA e Células', type: 'Obrigatório' },
@@ -82,7 +82,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                 <div className="p-2 bg-emerald-500 text-white rounded-lg shadow-inner"><Award size={20}/></div>
                                 <div>
                                     <p className="text-[10px] font-black uppercase text-emerald-700 tracking-wider">Ciclo Completo (5/5)</p>
-                                    <p className="text-2xl font-black text-emerald-900 leading-none mt-1">{stats.finishing}</p>
+                                    <p className="text-2xl font-black text-amber-900 leading-none mt-1">{stats.finishing}</p>
                                 </div>
                             </CardContent>
                         </Card>
@@ -102,7 +102,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                     <Table>
                         <TableHeader className="bg-muted/50">
                             <TableRow>
-                                <TableHead className="min-w-[250px] sticky left-0 bg-muted/50 z-20 border-r">Aluno (Membresia Modular)</TableHead>
+                                <TableHead className="min-w-[250px] sticky left-0 bg-white z-[2] border-r shadow-[2px_0_5px_rgba(0,0,0,0.05)]">Aluno (Membresia Modular)</TableHead>
                                 {modules.map((mod, index) => (
                                     <TableHead key={mod.id} className="text-center min-w-[160px] py-4">
                                         <div className="flex flex-col items-center gap-1">
@@ -130,7 +130,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
 
                                 return (
                                     <TableRow key={student.id} className="hover:bg-muted/30 group">
-                                        <TableCell className="sticky left-0 bg-background z-10 font-medium border-r">
+                                        <TableCell className="sticky left-0 bg-white z-[1] font-medium border-r shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
                                             <div className="flex items-center gap-3">
                                                 <Avatar className="h-8 w-8">
                                                     <AvatarFallback>{student.name.charAt(0)}</AvatarFallback>
@@ -195,7 +195,10 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                     const isLast = current.getDate() > (new Date(current.getFullYear(), current.getMonth()+1, 0).getDate() - 7);
                     matches = (cls.weekOfMonth === 'last' && isLast) || (week.toString() === cls.weekOfMonth);
                     matches = matches && current.getDay() === targetDay;
+                } else if (cls.frequency === 'pontual') {
+                    matches = true;
                 }
+
                 const dateStr = format(current, 'yyyy-MM-dd');
                 if (matches && !holidays.has(dateStr)) dates.add(dateStr);
                 current = addWeeks(current, 1);
@@ -210,7 +213,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                 <Table>
                     <TableHeader className="bg-muted/50">
                         <TableRow>
-                            <TableHead className="min-w-[250px] sticky left-0 bg-muted/50 z-20 border-r">Aluno</TableHead>
+                            <TableHead className="min-w-[250px] sticky left-0 bg-white z-[2] border-r shadow-[2px_0_5px_rgba(0,0,0,0.05)]">Aluno</TableHead>
                             {allDates.map((date, index) => {
                                 const episode = linkedTheoflix?.episodes?.[index];
                                 return (
@@ -233,7 +236,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                             const today = startOfDay(new Date());
                             return (
                                 <TableRow key={student.id} className="hover:bg-muted/30 group">
-                                    <TableCell className="sticky left-0 bg-background z-10 font-medium border-r">
+                                    <TableCell className="sticky left-0 bg-white z-[1] font-medium border-r shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
                                         <div className="flex items-center gap-3">
                                             <Avatar className="h-8 w-8"><AvatarFallback>{student.name.charAt(0)}</AvatarFallback></Avatar>
                                             <p className="truncate text-sm font-bold">{student.name}</p>
