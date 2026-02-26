@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -7,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { 
   Loader2, Key, Link as LinkIcon, BarChart, ExternalLink, ShieldCheck, 
   AlertCircle, DollarSign, TrendingUp, ArrowUpCircle, ArrowDownCircle,
