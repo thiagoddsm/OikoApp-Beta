@@ -56,7 +56,7 @@ function IntegrationLaboratory() {
                 addLog(`Sucesso! ${data.data.bankAccounts?.length || 0} contas bancárias encontradas.`);
                 toast({ title: "Teste de Leitura OK", description: "Conexão estabelecida com sucesso." });
             } else {
-                throw new Error(data.error);
+                throw new Error(data.error || "Erro desconhecido na API");
             }
         } catch (e: any) {
             addLog(`ERRO: ${e.message}`);
@@ -76,7 +76,7 @@ function IntegrationLaboratory() {
                 addLog("Sucesso! Recebível de teste criado no Conta Azul.");
                 toast({ title: "Teste de Escrita OK", description: "Fatura de teste gerada com sucesso." });
             } else {
-                throw new Error(data.error);
+                throw new Error(data.error || "Erro desconhecido na API");
             }
         } catch (e: any) {
             addLog(`ERRO: ${e.message}`);
@@ -194,7 +194,9 @@ function ContaAzulConnect() {
   
   useEffect(() => {
     // Captura a origem EXATA do navegador para garantir o Redirect URI perfeito no Firebase Studio
-    setOrigin(window.location.origin);
+    if (typeof window !== 'undefined') {
+        setOrigin(window.location.origin);
+    }
   }, []);
 
   const isConnected = !!config?.accessToken || !!config?.refreshToken;
