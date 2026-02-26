@@ -5,6 +5,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 /**
  * Rota de Callback para o OAuth 2.0 da Conta Azul.
  * Captura o 'code' enviado após a autorização do usuário e troca pelos tokens de acesso.
+ * Otimizada para ambientes de Proxy/Studio.
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -12,26 +13,32 @@ export async function GET(request: Request) {
   const error = url.searchParams.get('error');
   const errorDescription = url.searchParams.get('error_description');
 
-  // No ambiente de Studio/Proxy, o url.host pode ser interno (ex: localhost:9002)
-  // Precisamos pegar o host real dos headers para garantir que o redirecionamento funcione
-  const host = request.headers.get('host') || url.host;
-  const protocol = request.headers.get('x-forwarded-proto') || (url.protocol.replace(':', '')) || 'https';
-  const appOrigin = `${protocol}://${host}`;
+  // Detecção ultra-robusta do Host público para evitar Mismatch de Redirect URI
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || url.host;
+  const protocol = request.headers.get('x-forwarded-proto') || 'https';
+  
+  // Remove a porta interna (ex: :9002) se o host contiver o domínio do cloudworkstations
+  const cleanHost = host.includes('cloudworkstations.dev') ? host.split(':')[0] : host;
+  
+  const appOrigin = `${protocol}://${cleanHost}`;
   const redirectUri = `${appOrigin}/api/finance/conta-azul/callback`;
 
-  // Se o Conta Azul retornou um erro (ex: access_denied)
+  console.log('--- DEBUG CONTA AZUL CALLBACK ---');
+  console.log('App Origin detectado:', appOrigin);
+  console.log('Redirect URI gerada para troca de token:', redirectUri);
+
+  // Se o Conta Azul retornou um erro
   if (error) {
     console.error('Erro retornado pelo Conta Azul:', error, errorDescription);
     let msg = errorDescription || error;
     if (error === 'access_denied') {
-        msg = 'Acesso Negado: No ambiente de desenvolvimento, você DEVE usar o e-mail de Sandbox (@devportal.com). Contas reais não funcionam em Apps de Desenvolvimento.';
+        msg = 'Acesso Negado: Verifique se o Client ID e Secret estão corretos e se você usou o e-mail de Sandbox (@devportal.com).';
     }
     return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=error&message=${encodeURIComponent(msg)}`);
   }
 
-  // Se não houver código, o fluxo foi interrompido incorretamente
   if (!code) {
-    return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=error&message=Codigo_de_autorizacao_nao_enviado`);
+    return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=error&message=Codigo_de_autorizacao_nao_recebido`);
   }
 
   try {
@@ -49,10 +56,14 @@ export async function GET(request: Request) {
         throw new Error('ClientId ou ClientSecret ausentes no banco de dados.');
     }
 
+    // Limpeza rigorosa das chaves para evitar espaços invisíveis
+    const cleanId = clientId.trim();
+    const cleanSecret = clientSecret.trim();
+
     // Criar o header de autorização Basic
-    const authHeader = Buffer.from(`${clientId.trim()}:${clientSecret.trim()}`).toString('base64');
+    const authHeader = Buffer.from(`${cleanId}:${cleanSecret}`).toString('base64');
     
-    // Troca do código pelos tokens
+    // Troca do código pelos tokens usando URLSearchParams (obrigatório pela API)
     const params = new URLSearchParams();
     params.append('grant_type', 'authorization_code');
     params.append('redirect_uri', redirectUri);
@@ -70,8 +81,8 @@ export async function GET(request: Request) {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('Erro na troca de token:', data);
-      throw new Error(data.error_description || data.error || 'Erro ao trocar tokens.');
+      console.error('Erro na troca de token (Resposta da API):', data);
+      throw new Error(data.error_description || data.error || 'Falha na troca do código pelo token de acesso.');
     }
 
     // Calcular expiração
@@ -88,7 +99,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=connected`);
 
   } catch (error: any) {
-    console.error('Erro fatal no callback:', error);
+    console.error('Erro fatal no processamento do callback:', error);
     return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=error&message=${encodeURIComponent(error.message)}`);
   }
 }

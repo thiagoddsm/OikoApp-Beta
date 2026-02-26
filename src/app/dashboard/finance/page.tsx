@@ -150,6 +150,7 @@ function ContaAzulConnect() {
   const [origin, setOrigin] = useState('');
   
   useEffect(() => {
+    // Captura a origem exata do navegador para garantir o Redirect URI correto
     setOrigin(window.location.origin);
   }, []);
 
@@ -177,6 +178,7 @@ function ContaAzulConnect() {
     }
     setIsSaving(true);
     
+    // Salva já limpando espaços acidentais
     setDocumentNonBlocking(configDocRef, { 
         clientId: cleanId, 
         clientSecret: cleanSecret 
@@ -226,12 +228,12 @@ function ContaAzulConnect() {
             <HelpCircle className="h-4 w-4 text-amber-600" />
             <AlertTitle className="text-amber-800 font-bold uppercase text-xs">Configuração para este Ambiente</AlertTitle>
             <AlertDescription className="text-amber-700 text-xs space-y-2">
-                <p>Como você está acessando de um ambiente de {origin.includes('cloudworkstations.dev') ? 'DESENVOLVIMENTO (Studio)' : 'PRODUÇÃO'}, certifique-se de cadastrar este Redirect URI específico no portal Conta Azul:</p>
+                <p>O <strong>Redirect URI</strong> abaixo deve ser cadastrado exatamente assim no portal da Conta Azul para que o botão de autorização funcione:</p>
                 <div className="flex items-center gap-2 bg-white/50 p-2 rounded border border-amber-200 mt-1">
                     <code className="font-mono text-[10px] flex-1 truncate">{redirectUri}</code>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={copyRedirectUri}><Copy size={12}/></Button>
                 </div>
-                <p className="font-bold">⚠️ Se você não cadastrar este link exato no portal da Conta Azul, a autorização falhará.</p>
+                <p className="font-bold">⚠️ Importante: Use a conta de Sandbox (@devportal.com) enquanto estiver no ambiente do Studio.</p>
             </AlertDescription>
         </Alert>
 
