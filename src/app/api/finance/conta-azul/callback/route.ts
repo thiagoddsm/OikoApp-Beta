@@ -6,7 +6,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 /**
  * Rota de Callback para o OAuth 2.0 da Conta Azul.
  * Captura o 'code' enviado após a autorização do usuário e troca pelos tokens de acesso.
- * Otimizada para ambientes de Proxy/Studio.
+ * Otimizada para conformidade estrita com o Redirect URI e detecção de proxy do Studio.
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -14,23 +14,22 @@ export async function GET(request: Request) {
   const error = url.searchParams.get('error');
   const errorDescription = url.searchParams.get('error_description');
 
-  // Detecção do Host Público REAL (essencial para o Studio)
-  // Prioriza headers de proxy que o Google Cloud Workstations envia
+  // Detecção do Host Público REAL (essencial para o compliance no Studio)
   const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || url.host;
   const protocol = request.headers.get('x-forwarded-proto') || 'https';
   
-  // Constrói a URI que deve ser IDENTICA à cadastrada no Portal do Desenvolvedor
+  // Reconstrução da URI idêntica à cadastrada no portal (Identidade Binária)
   const appOrigin = `${protocol}://${host}`;
   const redirectUri = `${appOrigin}/api/finance/conta-azul/callback`;
 
-  console.log('--- DEBUG CONTA AZUL CALLBACK ---');
-  console.log('Host detectado:', host);
-  console.log('Redirect URI usada para troca:', redirectUri);
+  console.log('--- CALLBACK CONTA AZUL: DETECÇÃO DE AMBIENTE ---');
+  console.log('Ambiente (Host):', host);
+  console.log('Redirect URI (Compliance):', redirectUri);
 
   if (error) {
     console.error('Erro retornado pelo Conta Azul:', error, errorDescription);
     const msg = error === 'access_denied' 
-        ? 'Acesso Negado: Certifique-se de usar o e-mail de Sandbox (@devportal.com) e que a URL no portal seja exatamente: ' + redirectUri
+        ? 'Acesso Negado: Verifique se está usando o e-mail de Sandbox (@devportal.com) e se o Redirect URI no portal é exatamente: ' + redirectUri
         : errorDescription || error;
     return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=error&message=${encodeURIComponent(msg)}`);
   }
@@ -45,18 +44,21 @@ export async function GET(request: Request) {
     const configSnap = await getDoc(configRef);
 
     if (!configSnap.exists()) {
-      throw new Error('Configuração da Conta Azul não encontrada.');
+      throw new Error('Configuração da Conta Azul não encontrada no banco de dados.');
     }
 
+    // Higienização de credenciais (prevenção contra espaços em branco)
     const { clientId, clientSecret } = configSnap.data();
+    const cleanClientId = clientId?.trim();
+    const cleanClientSecret = clientSecret?.trim();
 
-    if (!clientId || !clientSecret) {
+    if (!cleanClientId || !cleanClientSecret) {
         throw new Error('ClientId ou ClientSecret ausentes. Salve as credenciais primeiro.');
     }
 
-    const authHeader = Buffer.from(`${clientId.trim()}:${clientSecret.trim()}`).toString('base64');
+    const authHeader = Buffer.from(`${cleanClientId}:${cleanClientSecret}`).toString('base64');
     
-    // Troca do código pelos tokens
+    // Troca do código pelos tokens usando application/x-www-form-urlencoded (Padrão API v2)
     const params = new URLSearchParams();
     params.append('grant_type', 'authorization_code');
     params.append('redirect_uri', redirectUri);
@@ -74,11 +76,11 @@ export async function GET(request: Request) {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('Erro na troca de token:', data);
-      throw new Error(data.error_description || data.error || 'Falha na troca do código.');
+      console.error('Erro na troca de token (OAuth 2.0):', data);
+      throw new Error(data.error_description || data.error || 'Falha técnica na troca do código pelo token.');
     }
 
-    // Calcular expiração e salvar
+    // Persistência de acesso e ciclo de vida do token
     const expiresAt = Date.now() + (data.expires_in * 1000);
 
     await updateDoc(configRef, {
@@ -91,7 +93,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=connected`);
 
   } catch (error: any) {
-    console.error('Erro fatal no callback:', error);
+    console.error('Erro fatal no fluxo de callback:', error);
     return NextResponse.redirect(`${appOrigin}/dashboard/finance?status=error&message=${encodeURIComponent(error.message)}`);
   }
 }

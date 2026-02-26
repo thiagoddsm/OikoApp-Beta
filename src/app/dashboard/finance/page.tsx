@@ -13,7 +13,7 @@ import {
   AlertCircle, DollarSign, TrendingUp, ArrowUpCircle, ArrowDownCircle,
   LayoutDashboard, HeartHandshake, History, RefreshCw, Wallet, Info, Copy,
   Settings, FlaskConical, CheckCircle2, PlayCircle, HardDriveDownload, DatabaseZap,
-  HelpCircle, ShieldAlert, Terminal
+  HelpCircle, ShieldAlert, Terminal, FileText, BookOpen
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useDoc, setDocumentNonBlocking } from '@/firebase';
@@ -25,6 +25,7 @@ import { CashFlowManager } from '@/components/finance/cash-flow-manager';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 type ContaAzulConfig = {
     id: string;
@@ -138,6 +139,47 @@ function IntegrationLaboratory() {
     );
 }
 
+function TechnicalDossier() {
+    return (
+        <Card className="border-indigo-200 bg-indigo-50/20">
+            <CardHeader className="bg-indigo-100/50">
+                <CardTitle className="text-sm font-black uppercase flex items-center gap-2 text-indigo-900">
+                    <FileText className="size-4" />
+                    Dossiê Técnico: Integração Conta Azul
+                </CardTitle>
+                <CardDescription className="text-indigo-700/80">Arquitetura de Software e Desafios de Ambiente</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6">
+                <ScrollArea className="h-[400px] pr-4">
+                    <div className="space-y-6 text-sm text-slate-700 leading-relaxed">
+                        <section>
+                            <h4 className="font-bold text-indigo-900 mb-2 uppercase text-xs tracking-tighter">1. Desafio da Identidade Binária (Redirect URI e Proxies)</h4>
+                            <p>O protocolo OAuth 2.0 exige que a <code className="bg-indigo-100 px-1 rounded">redirect_uri</code> enviada pela aplicação seja "binariamente idêntica" à cadastrada no portal de desenvolvedores. No ambiente do Firebase Studio, que utiliza proxies do Google Cloud (terminados em <code className="text-xs">.cloudworkstations.dev</code>), surge uma discrepância de portas: enquanto o portal pode esperar uma requisição na porta 6000, o servidor interno detecta a porta 9002.</p>
+                            <p className="mt-2 text-xs font-bold text-indigo-700 italic">Solução Implementada: Detecção dinâmica baseada em cabeçalhos de proxy (x-forwarded-host) para garantir que a aplicação se apresente com o endereço exato visualizado no navegador.</p>
+                        </section>
+
+                        <section>
+                            <h4 className="font-bold text-indigo-900 mb-2 uppercase text-xs tracking-tighter">2. Formatação de Requisição de Token (JSON vs. Form-Urlencoded)</h4>
+                            <p>A Conta Azul exige estritamente que a troca do "Código de Autorização" pelo "Token de Acesso" seja feita no formato de formulário web: <code className="bg-indigo-100 px-1 rounded">application/x-www-form-urlencoded</code>. O envio como JSON resulta em erros de "Invalid Client".</p>
+                            <p className="mt-2 text-xs font-bold text-indigo-700 italic">Solução Implementada: Utilização da interface URLSearchParams no callback e na renovação para conformidade estrita com a API v2.</p>
+                        </section>
+
+                        <section>
+                            <h4 className="font-bold text-indigo-900 mb-2 uppercase text-xs tracking-tighter">3. Restrições de Acesso no Ambiente de Sandbox</h4>
+                            <p>Os aplicativos em modo de "Desenvolvimento" operam em um ecossistema isolado. Tentativas de login com e-mails reais resultam em erro de permissão. É obrigatório o uso exclusivo dos e-mails de teste (ex: f79c80da...@devportal.com).</p>
+                        </section>
+
+                        <section>
+                            <h4 className="font-bold text-indigo-900 mb-2 uppercase text-xs tracking-tighter">4. Higiene de Credenciais e Sanitização</h4>
+                            <p>Devido à extensão das chaves, espaços em branco acidentais ao copiar invalidam o acesso por completo. Implementamos limpeza automática via <code className="bg-indigo-100 px-1 rounded">.trim()</code> em todos os campos de entrada.</p>
+                        </section>
+                    </div>
+                </ScrollArea>
+            </CardContent>
+        </Card>
+    );
+}
+
 function ContaAzulConnect() {
   const { toast } = useToast();
   const { firestore } = useFirebase();
@@ -210,14 +252,14 @@ function ContaAzulConnect() {
     <div className="space-y-6">
         <Alert className="bg-blue-50 border-blue-200">
             <HelpCircle className="h-4 w-4 text-blue-600" />
-            <AlertTitle className="text-blue-800 font-bold uppercase text-xs">Sincronização de Redirecionamento</AlertTitle>
-            <AlertDescription className="text-blue-700 text-xs space-y-2">
-                <p>No portal Conta Azul, o campo <strong>URL de Redirecionamento</strong> deve estar EXATAMENTE como este link abaixo para o ambiente atual:</p>
+            <AlertTitle className="text-blue-800 font-bold uppercase text-xs tracking-tighter">Redirect URI Dinâmico (Compliance OAuth 2.0)</AlertTitle>
+            <AlertDescription className="text-blue-700 text-xs space-y-2 mt-2">
+                <p>Para o ambiente atual, o campo <strong>URL de Redirecionamento</strong> no portal da Conta Azul deve estar EXATAMENTE como o link abaixo:</p>
                 <div className="flex items-center gap-2 bg-white/50 p-2 rounded border border-blue-200 mt-1">
                     <code className="font-mono text-[10px] flex-1 truncate">{redirectUri}</code>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { navigator.clipboard.writeText(redirectUri); toast({title: "Copiado!"}); }}><Copy size={12}/></Button>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { navigator.clipboard.writeText(redirectUri); toast({title: "Link Copiado!"}); }}><Copy size={12}/></Button>
                 </div>
-                <p className="font-bold text-amber-700">⚠️ Importante: Se você mudar do Studio para o App Publicado, este link mudará. Mantenha o portal atualizado.</p>
+                <p className="font-bold text-amber-700">⚠️ Se o link do seu navegador mudar, você deve atualizar o portal da Conta Azul.</p>
             </AlertDescription>
         </Alert>
 
@@ -228,7 +270,7 @@ function ContaAzulConnect() {
                         <div className="flex items-center justify-between">
                             <CardTitle className="flex items-center gap-2 text-sm font-black uppercase tracking-tighter">
                                 <Key className="size-4 text-primary" />
-                                1. Credenciais
+                                1. Credenciais da API
                             </CardTitle>
                             {isConnected ? (
                                 <Badge className="bg-emerald-500 text-white font-black">CONECTADO</Badge>
@@ -250,33 +292,12 @@ function ContaAzulConnect() {
                         </div>
                         <Button onClick={handleConnect} disabled={isSaving} className="w-full h-11 font-bold mt-4">
                             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LinkIcon className="mr-2 h-4 w-4" />}
-                            Salvar Credenciais
+                            Salvar e Higienizar Chaves
                         </Button>
                     </CardContent>
                 </Card>
 
-                <Card className="border-amber-200 bg-amber-50/30">
-                    <CardHeader>
-                        <CardTitle className="text-sm font-black uppercase flex items-center gap-2">
-                            <ShieldAlert className="size-4 text-amber-600" />
-                            Solução de Problemas (FAQ)
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="text-xs space-y-4 text-slate-700">
-                        <div className="space-y-1">
-                            <p className="font-bold">Erro: Access Denied após login</p>
-                            <p>Certifique-se de estar usando o e-mail de Sandbox (@devportal.com). Contas reais não funcionam em Apps de Desenvolvimento.</p>
-                        </div>
-                        <div className="space-y-1">
-                            <p className="font-bold">Erro: Redirect URI Mismatch</p>
-                            <p>A URL no Portal Conta Azul deve ser idêntica à mostrada no alerta azul acima, incluindo a porta (ex: :6000 ou :9002) se houver.</p>
-                        </div>
-                        <div className="space-y-1">
-                            <p className="font-bold">As chaves não batem</p>
-                            <p>Sempre clique em "Salvar Credenciais" antes de tentar "Autorizar App" para garantir que espaços invisíveis sejam removidos.</p>
-                        </div>
-                    </CardContent>
-                </Card>
+                <TechnicalDossier />
             </div>
 
             <div className="space-y-6">
@@ -284,13 +305,13 @@ function ContaAzulConnect() {
                     <CardHeader className={cn("border-b", isConnected ? "bg-emerald-50" : "bg-muted/30")}>
                         <CardTitle className="text-sm font-black uppercase tracking-tighter flex items-center gap-2">
                             <PlayCircle className="size-4" />
-                            2. Autorização
+                            2. Fluxo de Autorização
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="pt-6 text-center space-y-4">
                         {!isConnected ? (
                             <>
-                                <p className="text-sm text-muted-foreground">Clique abaixo para autorizar o OikoApp a gerenciar seu financeiro na Conta Azul.</p>
+                                <p className="text-sm text-muted-foreground">O acesso deve ser autorizado por um usuário administrador da Conta Azul.</p>
                                 <Button className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-base font-black shadow-xl" disabled={!hasCredentials} asChild>
                                     <a href={authUrl}><ExternalLink className="mr-2 size-5"/>Autorizar App Agora</a>
                                 </Button>
