@@ -10,7 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Loader2, Key, Link as LinkIcon, BarChart, ExternalLink, ShieldCheck, 
   AlertCircle, DollarSign, TrendingUp, ArrowUpCircle, ArrowDownCircle,
-  LayoutDashboard, HeartHandshake, History, RefreshCw, Wallet, Info, Copy
+  LayoutDashboard, HeartHandshake, History, RefreshCw, Wallet, Info, Copy,
+  Settings, FlaskConical, CheckCircle2, PlayCircle, HardDriveDownload, DatabaseZap
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useDoc, setDocumentNonBlocking } from '@/firebase';
@@ -21,6 +22,7 @@ import { TithesOfferingsManager } from '@/components/finance/tithes-offerings-ma
 import { CashFlowManager } from '@/components/finance/cash-flow-manager';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { useSearchParams } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
 type ContaAzulConfig = {
     id: string;
@@ -29,6 +31,109 @@ type ContaAzulConfig = {
     accessToken?: string;
     refreshToken?: string;
     expiresAt?: number;
+}
+
+function IntegrationLaboratory() {
+    const { toast } = useToast();
+    const [isTestingRead, setIsTestingRead] = useState(false);
+    const [isTestingWrite, setIsTestingWrite] = useState(false);
+    const [log, setLog] = useState<string[]>([]);
+
+    const addLog = (msg: string) => {
+        setLog(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 10));
+    };
+
+    const handleReadTest = async () => {
+        setIsTestingRead(true);
+        addLog("Iniciando teste de leitura...");
+        try {
+            const res = await fetch('/api/finance/conta-azul/sync', { method: 'POST' });
+            const data = await res.json();
+            if (res.ok) {
+                addLog(`Sucesso! ${data.data.bankAccounts?.length || 0} contas bancárias encontradas.`);
+                toast({ title: "Teste de Leitura OK", description: "Conexão estabelecida com sucesso." });
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (e: any) {
+            addLog(`ERRO: ${e.message}`);
+            toast({ variant: 'destructive', title: "Falha na Leitura", description: e.message });
+        } finally {
+            setIsTestingRead(false);
+        }
+    };
+
+    const handleWriteTest = async () => {
+        setIsTestingWrite(true);
+        addLog("Iniciando teste de escrita (Gerar Fatura)...");
+        try {
+            const res = await fetch('/api/finance/conta-azul/test-write', { method: 'POST' });
+            const data = await res.json();
+            if (res.ok) {
+                addLog("Sucesso! Recebível de teste criado no Conta Azul.");
+                toast({ title: "Teste de Escrita OK", description: "Fatura de teste gerada com sucesso." });
+            } else {
+                throw new Error(data.error);
+            }
+        } catch (e: any) {
+            addLog(`ERRO: ${e.message}`);
+            toast({ variant: 'destructive', title: "Falha na Escrita", description: e.message });
+        } finally {
+            setIsTestingWrite(false);
+        }
+    };
+
+    return (
+        <Card className="border-primary/20 bg-primary/5">
+            <CardHeader>
+                <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                    <FlaskConical className="size-4 text-primary" />
+                    Laboratório de Integração
+                </CardTitle>
+                <CardDescription>Valide as permissões de leitura e escrita da sua API Key.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Button 
+                        variant="outline" 
+                        className="h-16 bg-white border-primary/20 hover:bg-primary/5 group"
+                        onClick={handleReadTest}
+                        disabled={isTestingRead}
+                    >
+                        {isTestingRead ? <Loader2 className="animate-spin mr-2" /> : <HardDriveDownload className="mr-2 size-5 text-primary group-hover:scale-110 transition-transform" />}
+                        <div className="text-left">
+                            <p className="font-bold text-xs">Testar Leitura</p>
+                            <p className="text-[10px] text-muted-foreground font-normal">Puxar contas bancárias</p>
+                        </div>
+                    </Button>
+
+                    <Button 
+                        variant="outline" 
+                        className="h-16 bg-white border-primary/20 hover:bg-primary/5 group"
+                        onClick={handleWriteTest}
+                        disabled={isTestingWrite}
+                    >
+                        {isTestingWrite ? <Loader2 className="animate-spin mr-2" /> : <DatabaseZap className="mr-2 size-5 text-primary group-hover:scale-110 transition-transform" />}
+                        <div className="text-left">
+                            <p className="font-bold text-xs">Testar Escrita</p>
+                            <p className="text-[10px] text-muted-foreground font-normal">Gerar fatura teste (R$ 1,00)</p>
+                        </div>
+                    </Button>
+                </div>
+
+                <div className="space-y-2">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground">Logs de Atividade</Label>
+                    <div className="bg-black/90 p-3 rounded-lg font-mono text-[10px] text-emerald-400 h-32 overflow-y-auto shadow-inner">
+                        {log.length === 0 ? (
+                            <p className="opacity-40 italic">Aguardando comando...</p>
+                        ) : (
+                            log.map((m, i) => <p key={i} className="mb-1">{m}</p>)
+                        )}
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
 }
 
 function ContaAzulConnect() {
@@ -42,8 +147,6 @@ function ContaAzulConnect() {
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncData, setSyncData] = useState<any>(null);
   
   const isConnected = !!config?.accessToken || !!config?.refreshToken;
   const hasCredentials = !!config?.clientId && !!config?.clientSecret;
@@ -54,16 +157,6 @@ function ContaAzulConnect() {
         setClientSecret(config.clientSecret || '');
     }
   }, [config]);
-
-  useEffect(() => {
-    const status = searchParams.get('status');
-    if (status === 'connected') {
-        toast({ title: "Conta Azul Conectada!", description: "A integração foi realizada com sucesso." });
-    } else if (status === 'error') {
-        toast({ variant: 'destructive', title: "Erro na Conexão", description: searchParams.get('message') || "Falha ao autorizar Conta Azul." });
-    }
-  }, [searchParams, toast]);
-
 
   const handleConnect = () => {
     if (!clientId || !clientSecret || !configDocRef) {
@@ -107,68 +200,7 @@ function ContaAzulConnect() {
     }
   };
 
-  const handleSync = async () => {
-      setIsSyncing(true);
-      try {
-          const response = await fetch('/api/finance/conta-azul/sync', { method: 'POST' });
-          const result = await response.json();
-          
-          if (response.ok) {
-              setSyncData(result.data);
-              toast({
-                  title: "Sincronização Concluída",
-                  description: "Os dados do Conta Azul foram atualizados no sistema.",
-              });
-          } else {
-              throw new Error(result.error);
-          }
-      } catch (e: any) {
-          toast({ variant: 'destructive', title: "Erro na Sincronização", description: e.message });
-      } finally {
-          setIsSyncing(false);
-      }
-  };
-
   if (isLoadingConfig) return null;
-
-  if (isConnected) {
-    return (
-      <div className="space-y-4">
-        <Card className="border-green-200 bg-green-50/30">
-            <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-green-700 text-sm">
-                <ShieldCheck className="size-4" />
-                Conexão Ativa com Conta Azul
-            </CardTitle>
-            </CardHeader>
-            <CardContent className="pb-2 space-y-4">
-                <Button onClick={handleSync} disabled={isSyncing} variant="outline" size="sm" className="w-full bg-white border-green-200 text-green-700 hover:bg-green-50">
-                    {isSyncing ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <RefreshCw className="mr-2 h-3 w-3" />}
-                    Sincronizar Agora
-                </Button>
-
-                {syncData?.bankAccounts && (
-                    <div className="space-y-2">
-                        <p className="text-[10px] font-black uppercase text-green-600 tracking-widest">Contas Vinculadas:</p>
-                        {syncData.bankAccounts.map((account: any) => (
-                            <div key={account.id} className="flex items-center justify-between text-xs p-2 bg-white rounded border border-green-100">
-                                <span className="flex items-center gap-2"><Wallet className="size-3"/> {account.name}</span>
-                                <span className="font-bold">R$ {account.current_balance.toLocaleString('pt-BR')}</span>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </CardContent>
-            <CardFooter className="flex justify-between py-2 border-t border-green-100">
-            <span className="text-[10px] text-green-600 font-semibold flex items-center gap-1 uppercase tracking-widest">
-                <LinkIcon className="size-3" /> Integração OK
-            </span>
-            <Button variant="link" size="sm" className="text-destructive h-auto p-0" onClick={handleDisconnect}>Desconectar</Button>
-            </CardFooter>
-        </Card>
-      </div>
-    );
-  }
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const redirectUri = `${origin}/api/finance/conta-azul/callback`;
@@ -180,60 +212,111 @@ function ContaAzulConnect() {
   };
 
   return (
-    <div className="space-y-4">
-        <Card>
-        <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base"><Key className="size-4" />Integração Conta Azul</CardTitle>
-            <CardDescription className="text-xs">Configure seu Client ID e Secret do Portal do Desenvolvedor.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                    <Label htmlFor="client-id" className="text-xs">Client ID</Label>
-                    <Input id="client-id" size={32} className="h-8 text-xs" value={clientId} onChange={(e) => setClientId(e.target.value)} />
-                </div>
-                <div className="space-y-1">
-                    <Label htmlFor="client-secret" className="text-xs">Client Secret</Label>
-                    <Input id="client-secret" type="password" size={32} className="h-8 text-xs" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} />
-                </div>
-            </div>
-        </CardContent>
-        <CardFooter className="flex flex-col gap-3">
-            <Button onClick={handleConnect} disabled={isSaving} size="sm" className="w-full">
-            {isSaving ? <Loader2 className="mr-2 h-3 w-3 animate-spin" /> : <LinkIcon className="mr-2 h-3 w-3" />}
-            1. Salvar Credenciais
-            </Button>
-            {hasCredentials && !isConnected && (
-                <Button variant="default" size="sm" className="w-full bg-blue-600 hover:bg-blue-700" asChild>
-                    <a href={authUrl}>
-                        <ExternalLink className="mr-2 h-3 w-3"/>
-                        2. Autorizar App
-                    </a>
-                </Button>
-            )}
-        </CardFooter>
-        </Card>
-
-        {hasCredentials && !isConnected && (
-            <Alert className="bg-blue-50 border-blue-200">
-                <Info className="size-4 text-blue-600" />
-                <AlertTitle className="text-blue-800 text-xs font-black uppercase">Configuração Obrigatória</AlertTitle>
-                <AlertDescription className="text-blue-700 text-[10px] space-y-2 mt-1">
-                    <p>No portal do desenvolvedor da Conta Azul, você <strong>precisa</strong> adicionar o link abaixo em "URL de Redirecionamento":</p>
-                    <div className="flex items-center gap-2 bg-white p-1 rounded border border-blue-100">
-                        <code className="flex-1 truncate">{redirectUri}</code>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={copyRedirectUri}><Copy className="size-3"/></Button>
+    <div className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="shadow-lg border-2">
+                <CardHeader className="bg-muted/30 border-b">
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="flex items-center gap-2 text-base font-black uppercase tracking-tighter">
+                            <Key className="size-4 text-primary" />
+                            1. Credenciais de API
+                        </CardTitle>
+                        {isConnected ? (
+                            <Badge className="bg-emerald-500 text-white font-black">CONECTADO</Badge>
+                        ) : (
+                            <Badge variant="outline" className="text-amber-600 bg-amber-50">AGUARDANDO</Badge>
+                        )}
                     </div>
-                </AlertDescription>
-            </Alert>
-        )}
+                </CardHeader>
+                <CardContent className="space-y-6 pt-6">
+                    <div className="grid grid-cols-1 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="client-id" className="text-xs font-bold uppercase text-muted-foreground">Client ID</Label>
+                            <Input id="client-id" value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="881cq0o..." />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="client-secret" className="text-xs font-bold uppercase text-muted-foreground">Client Secret</Label>
+                            <Input id="client-secret" type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} placeholder="••••••••" />
+                        </div>
+                    </div>
+
+                    <div className="space-y-4 pt-4 border-t">
+                        <div className="flex justify-between items-center bg-blue-50 p-3 rounded-lg border border-blue-100">
+                            <div>
+                                <p className="text-[10px] font-black uppercase text-blue-700">URL de Redirecionamento</p>
+                                <code className="text-[10px] text-blue-900 truncate block mt-1">{redirectUri}</code>
+                            </div>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600" onClick={copyRedirectUri}><Copy size={14}/></Button>
+                        </div>
+                        <Button onClick={handleConnect} disabled={isSaving} className="w-full h-11 font-bold">
+                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LinkIcon className="mr-2 h-4 w-4" />}
+                            Salvar e Validar Credenciais
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <div className="space-y-6">
+                <Card className={cn("shadow-lg border-2 transition-all", isConnected ? "border-emerald-200" : "opacity-50")}>
+                    <CardHeader className={cn("border-b", isConnected ? "bg-emerald-50" : "bg-muted/30")}>
+                        <CardTitle className="text-base font-black uppercase tracking-tighter flex items-center gap-2">
+                            <PlayCircle className={cn("size-4", isConnected ? "text-emerald-600" : "text-slate-400")} />
+                            2. Autorização de Acesso
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-6 text-center space-y-4">
+                        {!isConnected ? (
+                            <>
+                                <p className="text-sm text-muted-foreground">Após salvar as credenciais acima, clique abaixo para vincular sua conta real ou sandbox.</p>
+                                <Button 
+                                    className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-base font-black shadow-xl" 
+                                    disabled={!hasCredentials} 
+                                    asChild
+                                >
+                                    <a href={authUrl}>
+                                        <ExternalLink className="mr-2 size-5"/>
+                                        Autorizar App Agora
+                                    </a>
+                                </Button>
+                            </>
+                        ) : (
+                            <div className="py-4 space-y-4">
+                                <div className="size-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+                                    <CheckCircle2 size={32} />
+                                </div>
+                                <div>
+                                    <h4 className="font-black text-emerald-900">Integração Ativa</h4>
+                                    <p className="text-xs text-emerald-700">Seu sistema está sincronizado com a Conta Azul.</p>
+                                </div>
+                                <Button variant="outline" className="text-destructive border-destructive/20 hover:bg-red-50" onClick={handleDisconnect}>
+                                    Encerrar Conexão
+                                </Button>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {isConnected && <IntegrationLaboratory />}
+            </div>
+        </div>
     </div>
   );
 }
 
 function FinancePageContent() {
     const { financialTransactions, isLoading: isLoadingFinances } = useVolunteering();
+    const searchParams = useSearchParams();
+    const { toast } = useToast();
     const [activeTab, setActiveTab] = useState('dashboard');
+
+    useEffect(() => {
+        const status = searchParams.get('status');
+        if (status === 'connected') {
+            toast({ title: "Conta Azul Conectada!", description: "A integração foi realizada com sucesso." });
+        } else if (status === 'error') {
+            toast({ variant: 'destructive', title: "Erro na Conexão", description: searchParams.get('message') || "Falha ao autorizar Conta Azul." });
+        }
+    }, [searchParams, toast]);
 
     const summaryData = useMemo(() => {
         if (!financialTransactions) return { income: 0, expense: 0, balance: 0, chartData: [] };
@@ -263,7 +346,6 @@ function FinancePageContent() {
                 else totalExpense += t.amount;
             }
 
-            // Chart data
             const monthData = last6Months.find(m => m.month === date.getMonth() && m.year === date.getFullYear());
             if (monthData) {
                 if (t.type === 'income') monthData.income += t.amount;
@@ -282,7 +364,7 @@ function FinancePageContent() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-3">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Card className="bg-emerald-50 border-emerald-100">
                       <CardHeader className="pb-2">
@@ -296,27 +378,25 @@ function FinancePageContent() {
                           <CardTitle className="text-2xl text-red-800">R$ {summaryData.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</CardTitle>
                       </CardHeader>
                   </Card>
-                  <Card className="bg-primary/5 border-primary/10">
+                  <Card className="bg-primary/5 border-primary/10 shadow-sm border-2">
                       <CardHeader className="pb-2">
                           <CardDescription className="text-primary flex items-center gap-1 font-semibold uppercase text-[10px]">Saldo Consolidado</CardDescription>
-                          <CardTitle className="text-2xl text-primary">R$ {summaryData.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</CardTitle>
+                          <CardTitle className="text-2xl text-primary font-black">R$ {summaryData.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</CardTitle>
                       </CardHeader>
                   </Card>
               </div>
           </div>
-          <React.Suspense fallback={<Card className="h-40 animate-pulse bg-muted" />}>
-            <ContaAzulConnect />
-          </React.Suspense>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 max-w-lg">
-          <TabsTrigger value="dashboard"><LayoutDashboard className="size-4 mr-2" /> Visão Geral</TabsTrigger>
-          <TabsTrigger value="tithes"><HeartHandshake className="size-4 mr-2" /> Dízimos e Ofertas</TabsTrigger>
-          <TabsTrigger value="cashflow"><TrendingUp className="size-4 mr-2" /> Fluxo de Caixa</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4 max-w-2xl bg-muted/50 p-1 rounded-xl">
+          <TabsTrigger value="dashboard" className="rounded-lg font-bold"><LayoutDashboard className="size-4 mr-2" /> Visão Geral</TabsTrigger>
+          <TabsTrigger value="tithes" className="rounded-lg font-bold"><HeartHandshake className="size-4 mr-2" /> Dízimos</TabsTrigger>
+          <TabsTrigger value="cashflow" className="rounded-lg font-bold"><TrendingUp className="size-4 mr-2" /> Fluxo de Caixa</TabsTrigger>
+          <TabsTrigger value="settings" className="rounded-lg font-bold"><Settings className="size-4 mr-2" /> Integração</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="dashboard" className="space-y-6 mt-6">
+        <TabsContent value="dashboard" className="space-y-6 mt-6 animate-in fade-in-50">
             <Card>
                 <CardHeader>
                     <CardTitle>Performance Financeira (Últimos 6 Meses)</CardTitle>
@@ -352,12 +432,16 @@ function FinancePageContent() {
             </Card>
         </TabsContent>
 
-        <TabsContent value="tithes" className="mt-6">
+        <TabsContent value="tithes" className="mt-6 animate-in slide-in-from-left-4">
             <TithesOfferingsManager />
         </TabsContent>
 
-        <TabsContent value="cashflow" className="mt-6">
+        <TabsContent value="cashflow" className="mt-6 animate-in slide-in-from-left-4">
             <CashFlowManager />
+        </TabsContent>
+
+        <TabsContent value="settings" className="mt-6 animate-in zoom-in-95">
+            <ContaAzulConnect />
         </TabsContent>
       </Tabs>
     </div>
