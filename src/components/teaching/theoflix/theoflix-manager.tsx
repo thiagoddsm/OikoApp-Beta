@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -248,10 +249,9 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                         </TabsList>
                     </div>
 
-                    {/* CONTEÚDO: CURSOS */}
-                    <TabsContent value="courses" className="flex-1 min-h-0 data-[state=inactive]:hidden m-0">
-                        <div className="h-full flex flex-col md:flex-row overflow-hidden">
-                            <div className="w-full md:w-80 border-r bg-muted/10 p-4 flex flex-col gap-4 overflow-y-auto max-h-[25dvh] md:max-h-full shrink-0">
+                    <TabsContent value="courses" className="flex-1 min-h-0 m-0 data-[state=inactive]:hidden data-[state=active]:flex data-[state=active]:flex-col">
+                        <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
+                            <div className="w-full md:w-80 border-r bg-muted/10 p-4 flex flex-col gap-4 overflow-y-auto max-h-[25vh] md:max-h-full shrink-0">
                                 <div className="flex justify-between items-center">
                                     <h3 className="font-black text-[10px] uppercase text-muted-foreground tracking-widest">Biblioteca</h3>
                                     <Button size="icon" variant="ghost" className="h-7 w-7 text-primary" onClick={() => setSelectedCourse(null)}><PlusCircle size={18} /></Button>
@@ -368,10 +368,9 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                         </div>
                     </TabsContent>
 
-                    {/* CONTEÚDO: NÍVEIS */}
-                    <TabsContent value="levels" className="flex-1 min-h-0 data-[state=inactive]:hidden m-0">
-                        <div className="h-full flex flex-col md:flex-row overflow-hidden">
-                            <div className="w-full md:w-80 border-r bg-muted/10 p-4 flex flex-col gap-4 overflow-y-auto max-h-[25dvh] md:max-h-full shrink-0">
+                    <TabsContent value="levels" className="flex-1 min-h-0 m-0 data-[state=inactive]:hidden data-[state=active]:flex data-[state=active]:flex-col">
+                        <div className="flex-1 min-h-0 flex flex-col md:flex-row overflow-hidden">
+                            <div className="w-full md:w-80 border-r bg-muted/10 p-4 flex flex-col gap-4 overflow-y-auto max-h-[25vh] md:max-h-full shrink-0">
                                 <div className="flex justify-between items-center">
                                     <h3 className="font-black text-[10px] uppercase text-muted-foreground tracking-widest">Etapas</h3>
                                     <Button size="icon" variant="ghost" className="h-7 w-7 text-primary" onClick={() => setSelectedLevel(null)}><PlusCircle size={18} /></Button>
@@ -447,8 +446,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                         </div>
                     </TabsContent>
 
-                    {/* CONTEÚDO: CONFIGURAÇÕES */}
-                    <TabsContent value="config" className="flex-1 min-h-0 data-[state=inactive]:hidden m-0 overflow-y-auto bg-white p-4 sm:p-8">
+                    <TabsContent value="config" className="flex-1 min-h-0 m-0 data-[state=inactive]:hidden data-[state=active]:block overflow-y-auto bg-white p-4 sm:p-8">
                         <Card className="max-w-2xl mx-auto shadow-sm border-2 border-primary/10 rounded-2xl overflow-hidden">
                             <CardHeader className="bg-primary/5 border-b">
                                 <CardTitle className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] flex items-center gap-2">

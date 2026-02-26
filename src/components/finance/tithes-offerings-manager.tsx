@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, PlusCircle, Trash2, HeartHandshake, User, Calendar as CalendarIcon, DollarSign, CloudSync, CheckCircle2 } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, HeartHandshake, User, Calendar as CalendarIcon, DollarSign, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
@@ -217,7 +217,7 @@ export function TithesOfferingsManager() {
                                 onClick={() => handleSyncToContaAzul(t)}
                                 disabled={isSyncingId === t.id}
                             >
-                                {isSyncingId === t.id ? <Loader2 className="size-3 animate-spin mr-1" /> : <CloudSync className="size-3 mr-1" />}
+                                {isSyncingId === t.id ? <Loader2 className="size-3 animate-spin mr-1" /> : <RefreshCw className="size-3 mr-1" />}
                                 Sincronizar
                             </Button>
                         )}
