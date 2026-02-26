@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase, deleteDocumentNonBlocking } from '@/firebase';
@@ -34,6 +33,17 @@ type Course = {
   ebdTrack?: 'teologico' | 'biblico' | 'discipulado';
 };
 
+const getDiscipleshipWeight = (name: string) => {
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes('pertencer')) return 1;
+    if (lowerName.includes('crescer')) return 2;
+    if (lowerName.includes('liderar')) return 3;
+    if (lowerName.includes('cuidar')) return 4;
+    if (lowerName.includes('apoiar')) return 5;
+    if (lowerName.includes('enviar')) return 6;
+    return 99;
+};
+
 export function CoursesManagement() {
   const { firestore } = useFirebase();
   const { toast } = useToast();
@@ -45,15 +55,27 @@ export function CoursesManagement() {
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [deletingCourse, setDeletingCourse] = useState<Course | null>(null);
 
-  // Grouping logic by "School" (ministryName)
+  // Grouping and sorting logic
   const groupedCourses = useMemo(() => {
     if (!courses) return {};
     const groups: Record<string, Course[]> = {};
+    
     courses.forEach(c => {
       const ministry = c.ministryName || 'Geral';
       if (!groups[ministry]) groups[ministry] = [];
       groups[ministry].push(c);
     });
+
+    // Sort Discipleship Track specifically
+    Object.keys(groups).forEach(ministry => {
+        groups[ministry].sort((a, b) => {
+            if (a.ebdTrack === 'discipulado' && b.ebdTrack === 'discipulado') {
+                return getDiscipleshipWeight(a.name) - getDiscipleshipWeight(b.name);
+            }
+            return a.name.localeCompare(b.name);
+        });
+    });
+
     return groups;
   }, [courses]);
 
@@ -206,9 +228,9 @@ export function CoursesManagement() {
                                 
                                 <div className="pl-4 space-y-8 border-l-2 border-primary/10 ml-6">
                                     {[
+                                        { id: 'discipulado', label: 'Trilho de Discipulado', list: tracks.discipulado },
                                         { id: 'teologico', label: 'Trilho Teológico', list: tracks.teologico },
                                         { id: 'biblico', label: 'Trilho Bíblico', list: tracks.biblico },
-                                        { id: 'discipulado', label: 'Trilho de Discipulado', list: tracks.discipulado },
                                         { id: 'other', label: 'Eletivos / Outras Disciplinas', list: tracks.other }
                                     ].map(track => track.list.length > 0 && (
                                         <div key={track.id} className="space-y-3">

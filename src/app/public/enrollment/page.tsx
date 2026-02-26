@@ -1,242 +1,340 @@
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { useFirebase, useCollection, addDocumentNonBlocking, useMemoFirebase } from '@/firebase';
-import { collection, query, Timestamp } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, addDoc, Timestamp } from 'firebase/firestore';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
-    Loader2, 
-    ChevronRight, 
-    ArrowLeft, 
-    CheckCircle2, 
     BookOpen, 
+    CheckCircle2, 
+    Loader2, 
     Waves, 
-    Lightbulb, 
     School, 
-    HandHelping,
-    UserPlus,
-    Smartphone,
-    Mail,
-    ChevronLeft
+    Lightbulb, 
+    HandHelping, 
+    ArrowRight, 
+    GraduationCap,
+    Check
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { PublicNavbar } from '@/components/public/navbar';
+import { PublicFooter } from '@/components/public/footer';
 import { cn } from '@/lib/utils';
-import { Logo } from '@/components/icons';
-import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
 
 type Course = {
     id: string;
     name: string;
     description: string;
     ministryName: string;
+    ebdTrack?: 'teologico' | 'biblico' | 'discipulado';
 };
 
-const schoolIcons: Record<string, React.ElementType> = {
-    'wave': Waves,
-    'lumine': Lightbulb,
-    'ebd': Lightbulb,
-    'college': School,
-    'dis': HandHelping,
-    'default': BookOpen
+const getDiscipleshipWeight = (name: string) => {
+    const lowerName = name.toLowerCase();
+    if (lowerName.includes('pertencer')) return 1;
+    if (lowerName.includes('crescer')) return 2;
+    if (lowerName.includes('liderar')) return 3;
+    if (lowerName.includes('cuidar')) return 4;
+    if (lowerName.includes('apoiar')) return 5;
+    if (lowerName.includes('enviar')) return 6;
+    return 99;
 };
 
 export default function PublicEnrollmentPage() {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     
-    // Step State
-    const [step, setStep] = useState<'school' | 'course' | 'form' | 'success'>('school');
-    const [selectedSchool, setSelectedSchool] = useState<string | null>(null);
-    const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
-    
-    // Form State
+    const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [success, setSuccess] = useState(false);
+
     const [formData, setFormData] = useState({
         name: '',
         email: '',
         phone: '',
+        cpf: '',
+        sexo: '',
         dataNascimento: '',
     });
-    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Fetch Courses
     const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
     const { data: courses, isLoading } = useCollection<Course>(coursesQuery);
 
-    // Filter Schools
-    const schools = useMemo(() => {
-        if (!courses) return [];
-        const uniqueSchools = Array.from(new Set(courses.map(c => c.ministryName)));
-        return uniqueSchools.sort();
+    const groupedCourses = useMemo(() => {
+        if (!courses) return {};
+        const groups: Record<string, Course[]> = {};
+        courses.forEach(c => {
+            const m = c.ministryName || 'Geral';
+            if (!groups[m]) groups[m] = [];
+            groups[m].push(c);
+        });
+
+        // Sort discipleship track
+        Object.keys(groups).forEach(m => {
+            groups[m].sort((a, b) => {
+                if (a.ebdTrack === 'discipulado' && b.ebdTrack === 'discipulado') {
+                    return getDiscipleshipWeight(a.name) - getDiscipleshipWeight(b.name);
+                }
+                return a.name.localeCompare(b.name);
+            });
+        });
+
+        return groups;
     }, [courses]);
 
-    // Filter Courses by School
-    const filteredCourses = useMemo(() => {
-        if (!courses || !selectedSchool) return [];
-        return courses.filter(c => c.ministryName === selectedSchool);
-    }, [courses, selectedSchool]);
-
-    const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedCourseId || !firestore) return;
+        if (!selectedCourse || !firestore) return;
 
         setIsSubmitting(true);
         try {
-            await addDocumentNonBlocking(collection(firestore, 'enrollment_requests'), {
+            await addDoc(collection(firestore, 'enrollment_requests'), {
                 ...formData,
-                courseId: selectedCourseId,
+                courseId: selectedCourse.id,
                 status: 'pending',
-                createdAt: Timestamp.now()
+                createdAt: Timestamp.now(),
             });
-            setStep('success');
+            setSuccess(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (error) {
-            toast({ variant: 'destructive', title: "Erro ao enviar", description: "Tente novamente mais tarde." });
+            toast({ variant: 'destructive', title: 'Erro ao enviar', description: 'Tente novamente em instantes.' });
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    if (isLoading) {
-        return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
+    const getMinistryIcon = (name: string) => {
+        const n = name.toLowerCase();
+        if (n.includes('wave')) return Waves;
+        if (n === 'dis') return HandHelping;
+        if (n.includes('lumine') || n.includes('ebd')) return Lightbulb;
+        if (n.includes('college') || n.includes('escola')) return School;
+        return BookOpen;
+    };
+
+    if (success) {
+        return (
+            <div className="min-h-screen bg-slate-50 flex flex-col">
+                <PublicNavbar />
+                <main className="flex-1 container mx-auto px-4 py-20 flex items-center justify-center">
+                    <Card className="max-w-md w-full text-center p-8 border-t-8 border-emerald-500 shadow-2xl animate-in zoom-in-95">
+                        <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <CheckCircle2 size={48} />
+                        </div>
+                        <h2 className="text-3xl font-black text-slate-900 mb-4 italic tracking-tighter">SOLICITAÇÃO ENVIADA!</h2>
+                        <p className="text-slate-600 leading-relaxed mb-8">
+                            Sua pré-inscrição para o curso <strong>{selectedCourse?.name}</strong> foi recebida. 
+                            Nossa equipe entrará em contato em breve para confirmar sua matrícula.
+                        </p>
+                        <Button size="lg" className="w-full font-bold" onClick={() => window.location.href = '/'}>
+                            Voltar ao Início
+                        </Button>
+                    </Card>
+                </main>
+                <PublicFooter />
+            </div>
+        );
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col items-center py-12 px-4">
-            <Link href="/" className="flex items-center gap-2 mb-12 hover:opacity-80 transition-opacity">
-                <Logo className="size-8 text-primary" />
-                <h1 className="text-2xl font-black tracking-tighter">OikoApp</h1>
-            </Link>
-
-            <div className="w-full max-w-xl">
-                {step === 'school' && (
-                    <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
-                        <div className="text-center mb-10">
-                            <h2 className="text-3xl font-black text-slate-900">Escolha sua Escola</h2>
-                            <p className="text-muted-foreground mt-2">Selecione o departamento de ensino para ver os cursos.</p>
-                        </div>
-                        <div className="grid gap-4">
-                            {schools.map(school => {
-                                const Icon = schoolIcons[school.toLowerCase()] || schoolIcons.default;
-                                return (
-                                    <button 
-                                        key={school}
-                                        onClick={() => { setSelectedSchool(school); setStep('course'); }}
-                                        className="flex items-center justify-between p-6 bg-white rounded-2xl border-2 border-transparent hover:border-primary hover:shadow-xl transition-all group text-left"
-                                    >
-                                        <div className="flex items-center gap-4">
-                                            <div className="p-3 bg-primary/10 rounded-xl text-primary group-hover:bg-primary group-hover:text-white transition-colors">
-                                                <Icon size={28} />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-lg font-bold text-slate-900">{school}</h3>
-                                                <p className="text-xs text-muted-foreground uppercase tracking-widest font-black">Portal IBM</p>
-                                            </div>
-                                        </div>
-                                        <ChevronRight className="text-slate-300 group-hover:text-primary transition-transform group-hover:translate-x-1" />
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-
-                {step === 'course' && (
-                    <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                        <button onClick={() => setStep('school')} className="flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-primary transition-colors mb-4">
-                            <ChevronLeft size={16} /> Voltar para Escolas
-                        </button>
-                        <div className="text-center mb-8">
-                            <h2 className="text-2xl font-black text-slate-900">{selectedSchool}</h2>
-                            <p className="text-muted-foreground">Qual curso você deseja realizar?</p>
-                        </div>
-                        <div className="grid gap-3">
-                            {filteredCourses.map(course => (
-                                <button 
-                                    key={course.id}
-                                    onClick={() => { setSelectedCourseId(course.id); setStep('form'); }}
-                                    className="flex flex-col p-5 bg-white rounded-xl border border-slate-200 hover:border-primary hover:shadow-md transition-all text-left group"
-                                >
-                                    <h3 className="font-bold text-slate-900 group-hover:text-primary transition-colors">{course.name}</h3>
-                                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{course.description}</p>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {step === 'form' && (
-                    <Card className="animate-in slide-in-from-right-4 duration-300 shadow-2xl border-none rounded-3xl">
-                        <CardHeader>
-                            <button onClick={() => setStep('course')} className="flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-primary transition-colors mb-4">
-                                <ChevronLeft size={14} /> Voltar para Cursos
-                            </button>
-                            <CardTitle>Dados de Inscrição</CardTitle>
-                            <CardDescription>
-                                Preencha os campos abaixo para solicitar sua matrícula em <strong>{courses?.find(c => c.id === selectedCourseId)?.name}</strong>.
-                            </CardDescription>
-                        </CardHeader>
-                        <form onSubmit={handleSubmit}>
-                            <CardContent className="space-y-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="name">Nome Completo</Label>
-                                    <div className="relative">
-                                        <UserPlus className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                                        <Input id="name" name="name" className="pl-10" required value={formData.name} onChange={handleFormChange} />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="phone">WhatsApp (com DDD)</Label>
-                                        <div className="relative">
-                                            <Smartphone className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                                            <Input id="phone" name="phone" className="pl-10" required value={formData.phone} onChange={handleFormChange} placeholder="(21) 9..." />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label htmlFor="dataNascimento">Data de Nascimento</Label>
-                                        <Input id="dataNascimento" name="dataNascimento" type="date" required value={formData.dataNascimento} onChange={handleFormChange} />
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="email">E-mail (Opcional)</Label>
-                                    <div className="relative">
-                                        <Mail className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                                        <Input id="email" name="email" type="email" className="pl-10" value={formData.email} onChange={handleFormChange} />
-                                    </div>
-                                </div>
-                            </CardContent>
-                            <CardFooter>
-                                <Button type="submit" className="w-full h-12 font-bold text-base" disabled={isSubmitting}>
-                                    {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : "Solicitar Matrícula"}
-                                </Button>
-                            </CardFooter>
-                        </form>
-                    </Card>
-                )}
-
-                {step === 'success' && (
-                    <div className="text-center space-y-6 animate-in zoom-in-95 duration-500 bg-white p-12 rounded-3xl shadow-2xl border-t-8 border-primary">
-                        <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
-                            <CheckCircle2 size={48} />
-                        </div>
-                        <h2 className="text-3xl font-black text-slate-900">Solicitação Enviada!</h2>
-                        <p className="text-muted-foreground leading-relaxed">
-                            Obrigado pelo seu interesse! A equipe do <strong>{selectedSchool}</strong> recebeu sua solicitação e entrará em contato via WhatsApp para confirmar sua turma e horários.
+        <div className="min-h-screen bg-slate-50 flex flex-col">
+            <PublicNavbar />
+            
+            <main className="flex-1 container mx-auto px-4 py-12 md:py-20">
+                <div className="max-w-6xl mx-auto space-y-16">
+                    
+                    <header className="text-center space-y-4">
+                        <Badge variant="outline" className="text-primary font-black px-4 py-1 uppercase tracking-widest border-primary/30">Crescimento & Ensino</Badge>
+                        <h1 className="text-4xl md:text-6xl font-black italic tracking-tighter text-slate-900 leading-none">
+                            FAÇA PARTE DA <span className="text-primary">JORNADA.</span>
+                        </h1>
+                        <p className="text-slate-500 max-w-2xl mx-auto text-lg">
+                            Escolha abaixo a escola ou trilho de discipulado que você deseja ingressar.
                         </p>
-                        <Button asChild className="w-full h-12 font-bold" variant="outline">
-                            <Link href="/">Voltar ao Início</Link>
-                        </Button>
+                    </header>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+                        {/* Listagem de Cursos */}
+                        <div className="lg:col-span-7 space-y-12">
+                            {isLoading ? (
+                                <div className="flex justify-center p-20"><Loader2 className="animate-spin size-10 text-primary" /></div>
+                            ) : (
+                                Object.entries(groupedCourses).sort(([a], [b]) => a.localeCompare(b)).map(([ministry, ministryCourses]) => {
+                                    const Icon = getMinistryIcon(ministry);
+                                    const isLumine = ministry.toLowerCase().includes('lumine') || ministry.toLowerCase().includes('ebd');
+
+                                    return (
+                                        <section key={ministry} className="space-y-6">
+                                            <div className="flex items-center gap-4">
+                                                <div className="p-3 bg-slate-900 text-white rounded-2xl shadow-xl shadow-slate-900/20">
+                                                    <Icon size={28} />
+                                                </div>
+                                                <div>
+                                                    <h3 className="text-2xl font-black uppercase italic tracking-tighter text-slate-900">{ministry}</h3>
+                                                    {isLumine && <p className="text-[10px] font-black text-primary uppercase tracking-widest">Escola Bíblica Discipuladora</p>}
+                                                </div>
+                                            </div>
+
+                                            {isLumine ? (
+                                                <div className="pl-4 border-l-2 border-primary/10 ml-7 space-y-10">
+                                                    {[
+                                                        { id: 'discipulado', label: 'Trilho de Discipulado', list: ministryCourses.filter(c => c.ebdTrack === 'discipulado') },
+                                                        { id: 'teologico', label: 'Trilho Teológico', list: ministryCourses.filter(c => c.ebdTrack === 'teologico') },
+                                                        { id: 'biblico', label: 'Trilho Bíblico', list: ministryCourses.filter(c => c.ebdTrack === 'biblico') },
+                                                        { id: 'other', label: 'Eletivos & Outros', list: ministryCourses.filter(c => !c.ebdTrack) }
+                                                    ].map(track => track.list.length > 0 && (
+                                                        <div key={track.id} className="space-y-4">
+                                                            <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                                                <ArrowRight size={12} className="text-primary" />
+                                                                {track.label}
+                                                            </h4>
+                                                            <div className="grid grid-cols-1 gap-3">
+                                                                {track.list.map(course => (
+                                                                    <button 
+                                                                        key={course.id}
+                                                                        onClick={() => setSelectedCourse(course)}
+                                                                        className={cn(
+                                                                            "text-left p-5 rounded-2xl border transition-all hover:shadow-lg group flex items-center justify-between",
+                                                                            selectedCourse?.id === course.id ? "bg-primary border-primary text-white shadow-primary/20" : "bg-white border-slate-200 text-slate-900 hover:border-primary/50"
+                                                                        )}
+                                                                    >
+                                                                        <div className="flex-1 pr-4">
+                                                                            <p className="font-black text-lg italic uppercase tracking-tighter leading-tight">{course.name}</p>
+                                                                            <p className={cn("text-xs mt-1 line-clamp-1", selectedCourse?.id === course.id ? "text-white/80" : "text-slate-500")}>
+                                                                                {course.description || "Inicie sua jornada hoje."}
+                                                                            </p>
+                                                                        </div>
+                                                                        <div className={cn(
+                                                                            "size-10 rounded-full flex items-center justify-center transition-all",
+                                                                            selectedCourse?.id === course.id ? "bg-white text-primary" : "bg-slate-100 text-slate-400 group-hover:bg-primary/10 group-hover:text-primary"
+                                                                        )}>
+                                                                            {selectedCourse?.id === course.id ? <Check size={20} /> : <ArrowRight size={20} />}
+                                                                        </div>
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="grid grid-cols-1 gap-3">
+                                                    {ministryCourses.map(course => (
+                                                        <button 
+                                                            key={course.id}
+                                                            onClick={() => setSelectedCourse(course)}
+                                                            className={cn(
+                                                                "text-left p-5 rounded-2xl border transition-all hover:shadow-lg group flex items-center justify-between",
+                                                                selectedCourse?.id === course.id ? "bg-primary border-primary text-white shadow-primary/20" : "bg-white border-slate-200 text-slate-900 hover:border-primary/50"
+                                                            )}
+                                                        >
+                                                            <div className="flex-1 pr-4">
+                                                                <p className="font-black text-lg italic uppercase tracking-tighter leading-tight">{course.name}</p>
+                                                                <p className={cn("text-xs mt-1 line-clamp-1", selectedCourse?.id === course.id ? "text-white/80" : "text-slate-500")}>
+                                                                    {course.description || "Clique para selecionar este curso."}
+                                                                </p>
+                                                            </div>
+                                                            <div className={cn(
+                                                                "size-10 rounded-full flex items-center justify-center",
+                                                                selectedCourse?.id === course.id ? "bg-white text-primary" : "bg-slate-100 text-slate-400 group-hover:bg-primary/10 group-hover:text-primary"
+                                                            )}>
+                                                                {selectedCourse?.id === course.id ? <Check size={20} /> : <ArrowRight size={20} />}
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </section>
+                                    )
+                                })
+                            )}
+                        </div>
+
+                        {/* Formulário de Inscrição */}
+                        <div className="lg:col-span-5">
+                            <div className="sticky top-24">
+                                <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem]">
+                                    <CardHeader className="bg-slate-900 text-white p-8">
+                                        <div className="flex items-center gap-3 mb-2">
+                                            <GraduationCap className="text-primary" size={32} />
+                                            <CardTitle className="text-2xl font-black italic tracking-tighter">FICHA DE INSCRIÇÃO</CardTitle>
+                                        </div>
+                                        <CardDescription className="text-slate-400 font-medium">
+                                            {selectedCourse 
+                                                ? `Você está se inscrevendo no curso: ${selectedCourse.name}` 
+                                                : "Selecione um curso ao lado para preencher seus dados."}
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="p-8">
+                                        <form onSubmit={handleSubmit} className="space-y-6">
+                                            <div className="space-y-4">
+                                                <div>
+                                                    <Label htmlFor="name" className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Nome Completo</Label>
+                                                    <Input name="name" required value={formData.name} onChange={handleInputChange} className="h-12 border-slate-200" disabled={!selectedCourse} />
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <Label htmlFor="phone" className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Celular (WhatsApp)</Label>
+                                                        <Input name="phone" required value={formData.phone} onChange={handleInputChange} placeholder="(99) 99999-9999" className="h-12 border-slate-200" disabled={!selectedCourse} />
+                                                    </div>
+                                                    <div>
+                                                        <Label htmlFor="dataNascimento" className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Data Nascimento</Label>
+                                                        <Input name="dataNascimento" type="date" value={formData.dataNascimento} onChange={handleInputChange} className="h-12 border-slate-200" disabled={!selectedCourse} />
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <Label htmlFor="email" className="text-[10px] font-black uppercase text-slate-400 tracking-widest">E-mail</Label>
+                                                    <Input name="email" type="email" value={formData.email} onChange={handleInputChange} className="h-12 border-slate-200" disabled={!selectedCourse} />
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <Label htmlFor="cpf" className="text-[10px] font-black uppercase text-slate-400 tracking-widest">CPF</Label>
+                                                        <Input name="cpf" value={formData.cpf} onChange={handleInputChange} placeholder="000.000.000-00" className="h-12 border-slate-200" disabled={!selectedCourse} />
+                                                    </div>
+                                                    <div>
+                                                        <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Sexo</Label>
+                                                        <Select onValueChange={(v) => setFormData({...formData, sexo: v})} disabled={!selectedCourse}>
+                                                            <SelectTrigger className="h-12 border-slate-200"><SelectValue placeholder="Selecione..."/></SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="Masculino">Masculino</SelectItem>
+                                                                <SelectItem value="Feminino">Feminino</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <Button 
+                                                type="submit" 
+                                                className="w-full h-14 text-lg font-black italic tracking-tighter shadow-xl shadow-primary/20" 
+                                                disabled={!selectedCourse || isSubmitting}
+                                            >
+                                                {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : "QUERO ME INSCREVER AGORA"}
+                                            </Button>
+                                            
+                                            {!selectedCourse && (
+                                                <p className="text-[10px] text-center text-slate-400 font-bold uppercase tracking-widest italic animate-pulse">
+                                                    Selecione um curso para habilitar o formulário
+                                                </p>
+                                            )}
+                                        </form>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </div>
                     </div>
-                )}
-            </div>
+                </div>
+            </main>
+
+            <PublicFooter />
         </div>
     );
 }
