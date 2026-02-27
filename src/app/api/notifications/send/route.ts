@@ -5,7 +5,7 @@ import { collection, query, where, getDocs, addDoc, Timestamp, doc, getDoc, setD
 
 /**
  * API Route to send WhatsApp messages using direct fetch to api-wa.me
- * Optimized for v5.0.0 Pro Plan Features (SchemaButtonMessageReply)
+ * Optimized for v5.0.0 Pro Plan Features
  */
 
 const getMimetype = (url: string) => {
@@ -44,11 +44,7 @@ export async function POST(request: Request) {
         surveyName,
         options,
         mediaUrl,
-        fileName,
-        pixKey,
-        pixName,
-        pixCity,
-        pixAmount
+        fileName
     } = body;
 
     const { firestore } = initializeFirebase();
@@ -119,13 +115,10 @@ export async function POST(request: Request) {
 
         switch (type) {
             case 'button':
-                endpoint = 'message/button_reply';
+                endpoint = 'message/button';
                 payload = {
                     to: formattedPhone,
-                    header: {
-                        title: (title || 'Informativo IBM').replace('{{nome}}', user.name)
-                    },
-                    text: personalizedBody || 'Escolha uma opção:',
+                    title: personalizedBody || (title || 'Informativo IBM').replace('{{nome}}', user.name),
                     footer: footer || 'Igreja Batista da Manhã',
                     buttons: (buttons || []).map((b: any) => ({
                         id: b.id,
@@ -155,17 +148,6 @@ export async function POST(request: Request) {
                     mimetype: mime,
                     caption: personalizedBody,
                     fileName: fileName || 'arquivo'
-                };
-                break;
-            case 'pix':
-                endpoint = 'message/pix';
-                payload = {
-                    to: formattedPhone,
-                    key: pixKey,
-                    name: pixName || 'Igreja Batista da Manhã',
-                    city: pixCity || 'Sao Goncalo',
-                    amount: Number(pixAmount) || 0,
-                    body: personalizedBody
                 };
                 break;
             default:

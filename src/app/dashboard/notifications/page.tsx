@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -19,7 +20,7 @@ import {
     Users, CheckCircle2, Search, UserPlus, X, Info, Layers, RefreshCw, 
     Zap, AlertCircle, MessageCircle, MousePointer2, Trash2,
     Smartphone, LogOut, PlusCircle, CheckCircle, User as UserIcon,
-    Sparkles, QrCode, ShieldAlert, Phone, ChevronRight
+    Sparkles, QrCode, ShieldAlert, Phone, ChevronRight, Image as ImageIcon
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useCollection, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
@@ -133,17 +134,17 @@ function WhatsappChats() {
     if (isLoadingChats) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
-        <div className="flex h-[650px] border rounded-xl overflow-hidden bg-background shadow-lg">
+        <div className="flex h-[650px] border rounded-xl overflow-hidden bg-background shadow-lg text-slate-900">
             <div className="w-1/3 border-r bg-muted/10 flex flex-col">
                 <div className="p-4 border-b bg-muted/5 flex justify-between items-center">
-                    <h3 className="font-bold text-sm uppercase tracking-widest opacity-50 text-slate-900">Conversas</h3>
+                    <h3 className="font-bold text-sm uppercase tracking-widest opacity-50">Conversas</h3>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:bg-primary/10" onClick={() => setIsNewChatOpen(true)}>
                         <PlusCircle size={18} />
                     </Button>
                 </div>
                 <ScrollArea className="flex-1">
                     {chats?.length === 0 ? (
-                        <div className="p-8 text-center text-xs text-muted-foreground italic text-slate-900">Nenhuma conversa iniciada.</div>
+                        <div className="p-8 text-center text-xs text-muted-foreground italic">Nenhuma conversa iniciada.</div>
                     ) : (
                         chats?.map(chat => (
                             <button
@@ -154,17 +155,17 @@ function WhatsappChats() {
                                     selectedChat?.id === chat.id ? "bg-white border-l-4 border-l-primary shadow-inner" : ""
                                 )}
                             >
-                                <Avatar className="h-10 w-10 shrink-0 border-2 border-white shadow-sm text-slate-900">
+                                <Avatar className="h-10 w-10 shrink-0 border-2 border-white shadow-sm">
                                     <AvatarFallback className="bg-primary/5 text-primary"><UserIcon size={18} /></AvatarFallback>
                                 </Avatar>
                                 <div className="min-w-0 flex-1">
-                                    <div className="flex justify-between items-baseline text-slate-900">
+                                    <div className="flex justify-between items-baseline">
                                         <span className="font-bold text-sm truncate">{chat.userName || chat.phoneNumber}</span>
                                         <span className="text-[9px] text-muted-foreground uppercase font-bold">
                                             {chat.lastMessageAt ? format(chat.lastMessageAt.toDate(), 'HH:mm') : ''}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-muted-foreground truncate mt-0.5 text-slate-900">{chat.lastMessage}</p>
+                                    <p className="text-xs text-muted-foreground truncate mt-0.5">{chat.lastMessage}</p>
                                 </div>
                                 {chat.unreadCount > 0 && <div className="size-2 bg-primary rounded-full absolute right-2 top-1/2 -translate-y-1/2" />}
                             </button>
@@ -173,7 +174,7 @@ function WhatsappChats() {
                 </ScrollArea>
             </div>
 
-            <div className="flex-1 flex flex-col bg-slate-50/20 relative text-slate-900">
+            <div className="flex-1 flex flex-col bg-slate-50/20 relative">
                 {selectedChat ? (
                     <>
                         <div className="p-4 border-b bg-white/80 backdrop-blur-md flex items-center justify-between sticky top-0 z-10">
@@ -312,17 +313,15 @@ function WhatsappSender() {
     const [selectedGroupId, setSelectedGroupId] = useState<string>('');
     const [groups, setGroups] = useState<any[]>([]);
     const [isLoadingGroups, setIsLoadingGroups] = useState(false);
-    const [msgType, setMsgType] = useState<'text' | 'button' | 'survey' | 'media' | 'pix'>('text');
+    const [msgType, setMsgType] = useState<'text' | 'button' | 'survey' | 'media'>('text');
 
-    // Estados detalhados para enquetes e botões
+    // Estados para enquetes e botões
     const [msgTitle, setMsgTitle] = useState('Informativo IBM');
     const [msgFooter, setMsgFooter] = useState('Igreja Batista da Manhã');
     const [msgButtons, setMsgButtons] = useState([{ id: 'btn_1', text: 'Confirmar Presença ✅' }, { id: 'btn_2', text: 'Não poderei ir ❌' }]);
     const [surveyName, setSurveyName] = useState('');
     const [surveyOptions, setSurveyOptions] = useState(['Sim', 'Não']);
     const [mediaUrl, setMediaUrl] = useState('');
-    const [pixKey, setPixKey] = useState('');
-    const [pixAmount, setPixAmount] = useState('');
 
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
     const { data: users } = useCollection<any>(usersQuery);
@@ -411,9 +410,6 @@ function WhatsappSender() {
             payload.options = surveyOptions;
         } else if (msgType === 'media') {
             payload.mediaUrl = mediaUrl;
-        } else if (msgType === 'pix') {
-            payload.pixKey = pixKey;
-            payload.pixAmount = pixAmount;
         }
 
         try {
@@ -441,11 +437,11 @@ function WhatsappSender() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 text-slate-900">
             <form onSubmit={handleSend} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                        <Label className="text-slate-900">Formato da Mensagem</Label>
+                        <Label>Formato da Mensagem</Label>
                         <Select value={msgType} onValueChange={(v:any) => setMsgType(v)}>
                             <SelectTrigger className="bg-background h-11 border-slate-200">
                                 <SelectValue />
@@ -455,13 +451,12 @@ function WhatsappSender() {
                                 <SelectItem value="button">Mensagem com Botões</SelectItem>
                                 <SelectItem value="survey">Enquete / Votação</SelectItem>
                                 <SelectItem value="media">Imagem ou Documento</SelectItem>
-                                <SelectItem value="pix">QR Code PIX</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
 
                     <div className="space-y-2">
-                        <Label className="text-slate-900">Público-alvo</Label>
+                        <Label>Público-alvo</Label>
                         <Select value={targetAudience} onValueChange={setTargetAudience}>
                             <SelectTrigger className="bg-background h-11 border-slate-200">
                                 <SelectValue placeholder="Selecione o público" />
@@ -477,7 +472,7 @@ function WhatsappSender() {
 
                 {targetAudience === 'specific_members' && (
                     <div className="space-y-4 p-4 border rounded-lg bg-muted/20 animate-in slide-in-from-top-2">
-                        <Label className="text-slate-900">Pessoas Selecionadas</Label>
+                        <Label>Pessoas Selecionadas</Label>
                         <div className="relative">
                             <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
                             <Input placeholder="Buscar por nome..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 h-11 border-slate-200" />
@@ -485,7 +480,7 @@ function WhatsappSender() {
                                 <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg overflow-hidden">
                                     {filteredUsers.map(u => (
                                         <button key={u.id} type="button" onClick={() => handleAddUser(u.id)} className="w-full px-4 py-3 text-left hover:bg-primary/10 flex justify-between border-b transition-colors">
-                                            <span className="font-medium text-slate-900">{u.name}</span>
+                                            <span className="font-medium">{u.name}</span>
                                             <UserPlus size={14} className="text-primary" />
                                         </button>
                                     ))}
@@ -505,7 +500,7 @@ function WhatsappSender() {
 
                 {targetAudience === 'whatsapp_group' && (
                     <div className="space-y-2 p-4 border rounded-lg bg-muted/20 animate-in slide-in-from-top-2">
-                        <Label className="text-slate-900">Escolha o Grupo</Label>
+                        <Label>Escolha o Grupo</Label>
                         <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
                             <SelectTrigger className="bg-background h-11 border-slate-200">
                                 <SelectValue placeholder={isLoadingGroups ? "Carregando grupos..." : "Selecione o grupo de destino"} />
@@ -514,6 +509,25 @@ function WhatsappSender() {
                                 {groups.map(g => <SelectItem key={g.id} value={g.id}>{g.name} ({g.participantCount} membros)</SelectItem>)}
                             </SelectContent>
                         </Select>
+                    </div>
+                )}
+
+                {msgType === 'media' && (
+                    <div className="space-y-4 p-6 border-2 border-dashed rounded-xl bg-slate-50 animate-in zoom-in-95">
+                        <div className="flex items-center gap-3 mb-2">
+                            <ImageIcon className="text-primary size-5" />
+                            <h4 className="font-bold text-sm uppercase tracking-tight">Anexar Mídia</h4>
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-xs font-black text-muted-foreground uppercase tracking-widest">Link da Imagem ou Arquivo (URL direta)</Label>
+                            <Input 
+                                value={mediaUrl} 
+                                onChange={e => setMediaUrl(e.target.value)} 
+                                placeholder="https://exemplo.com/imagem.jpg" 
+                                className="bg-white h-11 font-mono text-xs border-slate-200" 
+                            />
+                            <p className="text-[10px] text-muted-foreground italic">Certifique-se de que o link termina com .jpg, .png ou .pdf.</p>
+                        </div>
                     </div>
                 )}
 
@@ -587,7 +601,7 @@ function WhatsappSender() {
 
                 <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                        <Label className="text-slate-900">Corpo da Mensagem</Label>
+                        <Label>{msgType === 'media' ? 'Legenda da Mídia' : 'Corpo da Mensagem'}</Label>
                         <div className="flex gap-2">
                             {QUICK_TEMPLATES.map(t => (
                                 <Button key={t.id} type="button" variant="ghost" size="sm" className="h-7 text-[10px] uppercase font-black tracking-tighter text-primary" onClick={() => setMessage(t.text)}>
@@ -598,10 +612,10 @@ function WhatsappSender() {
                     </div>
                     <Textarea 
                         placeholder="Olá {{nome}}, temos um recado..." 
-                        className="min-h-[150px] text-base leading-relaxed bg-white shadow-inner border-slate-200 text-slate-900" 
+                        className="min-h-[150px] text-base leading-relaxed bg-white shadow-inner border-slate-200" 
                         value={message} 
                         onChange={(e) => setMessage(e.target.value)} 
-                        required={msgType !== 'survey'} 
+                        required={msgType === 'text'} 
                     />
                     <p className="text-[10px] text-muted-foreground mt-1 italic">Use <code className="font-bold text-primary">{"{{nome}}"}</code> para personalizar.</p>
                 </div>
@@ -638,7 +652,7 @@ function WhatsappResponses() {
     if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
-        <div className="rounded-lg border bg-card overflow-hidden shadow-sm">
+        <div className="rounded-lg border bg-card overflow-hidden shadow-sm text-slate-900">
             <Table>
                 <TableHeader className="bg-muted/50">
                     <TableRow>
@@ -649,12 +663,12 @@ function WhatsappResponses() {
                 </TableHeader>
                 <TableBody>
                     {responses?.length === 0 ? (
-                        <TableRow><TableCell colSpan={3} className="h-32 text-center text-muted-foreground italic text-slate-900">Nenhuma resposta captada ainda.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={3} className="h-32 text-center text-muted-foreground italic">Nenhuma resposta captada ainda.</TableCell></TableRow>
                     ) : (
                         responses?.map((res: any) => (
                             <TableRow key={res.id} className="hover:bg-muted/30">
                                 <TableCell>
-                                    <div className="font-bold text-slate-900">{res.userName || res.from}</div>
+                                    <div className="font-bold">{res.userName || res.from}</div>
                                     <div className="text-[10px] text-muted-foreground font-mono">+{res.from}</div>
                                 </TableCell>
                                 <TableCell>
@@ -662,7 +676,7 @@ function WhatsappResponses() {
                                         {res.buttonText || res.buttonId}
                                     </Badge>
                                 </TableCell>
-                                <TableCell className="text-right text-xs text-muted-foreground font-medium text-slate-900">
+                                <TableCell className="text-right text-xs text-muted-foreground font-medium">
                                     {res.receivedAt ? format(res.receivedAt.toDate(), 'dd/MM/yy HH:mm') : '-'}
                                 </TableCell>
                             </TableRow>
@@ -751,15 +765,15 @@ function NotificationsConfig() {
     const isConnected = instanceStatus?.status === 'connected';
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 text-slate-900">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <Card className="lg:col-span-2 shadow-lg border-2 border-slate-200">
                     <CardHeader className="bg-muted/30 border-b">
-                        <CardTitle className="text-sm font-black uppercase flex items-center gap-2 text-slate-900">
+                        <CardTitle className="text-sm font-black uppercase flex items-center gap-2">
                             <Key className="size-4 text-primary" /> Credenciais do Gateway
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-6 pt-6 text-slate-900">
+                    <CardContent className="space-y-6 pt-6">
                         <div className="space-y-2">
                             <Label className="text-xs font-bold uppercase text-muted-foreground">API Key (api-wa.me)</Label>
                             <div className="flex gap-2">
@@ -776,15 +790,15 @@ function NotificationsConfig() {
                                 <Settings className="size-3" /> Gestão da Instância
                             </Label>
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                <Button variant="outline" className="h-16 flex flex-col gap-1 items-center justify-center border-amber-200 hover:bg-amber-50 text-slate-900" onClick={() => handleAction('/restart', 'POST', 'Reinício')} disabled={isRefreshing}>
+                                <Button variant="outline" className="h-16 flex flex-col gap-1 items-center justify-center border-amber-200 hover:bg-amber-50" onClick={() => handleAction('/restart', 'POST', 'Reinício')} disabled={isRefreshing}>
                                     <RefreshCw size={18} className={cn("text-amber-600", isRefreshing && "animate-spin")} />
                                     <span className="text-[10px] font-black uppercase">Reiniciar</span>
                                 </Button>
-                                <Button variant="outline" className="h-16 flex flex-col gap-1 items-center justify-center border-blue-200 hover:bg-blue-50 text-slate-900" onClick={() => handleAction('', 'PATCH', 'Ativação de Recursos')} disabled={isRefreshing}>
+                                <Button variant="outline" className="h-16 flex flex-col gap-1 items-center justify-center border-blue-200 hover:bg-blue-50" onClick={() => handleAction('', 'PATCH', 'Ativação de Recursos')} disabled={isRefreshing}>
                                     <Sparkles size={18} className="text-blue-600" />
                                     <span className="text-[10px] font-black uppercase">Ativar Pro</span>
                                 </Button>
-                                <Button variant="outline" className="h-16 flex flex-col gap-1 items-center justify-center border-indigo-200 hover:bg-indigo-50 text-slate-900" onClick={() => handleAction('', 'POST', 'Conexão')} disabled={isRefreshing}>
+                                <Button variant="outline" className="h-16 flex flex-col gap-1 items-center justify-center border-indigo-200 hover:bg-indigo-50" onClick={() => handleAction('', 'POST', 'Conexão')} disabled={isRefreshing}>
                                     <QrCode size={18} className="text-indigo-600" />
                                     <span className="text-[10px] font-black uppercase">Novo QR</span>
                                 </Button>
@@ -799,11 +813,11 @@ function NotificationsConfig() {
 
                 <Card className={cn("shadow-lg border-2 transition-all", isConnected ? "border-emerald-200 bg-emerald-50/10" : "border-amber-200 bg-amber-50/10")}>
                     <CardHeader className="border-b bg-white/50">
-                        <CardTitle className="text-sm font-black uppercase flex items-center gap-2 text-slate-900">
+                        <CardTitle className="text-sm font-black uppercase flex items-center gap-2">
                             <Smartphone className="size-4" /> Status do Dispositivo
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="pt-8 flex flex-col items-center justify-center text-center min-h-[250px] text-slate-900 relative">
+                    <CardContent className="pt-8 flex flex-col items-center justify-center text-center min-h-[250px] relative">
                         {isRefreshing ? (
                             <div className="flex flex-col items-center gap-4">
                                 <Loader2 className="animate-spin size-12 text-primary opacity-40" />
@@ -836,7 +850,7 @@ function NotificationsConfig() {
                                     <h4 className="font-black text-amber-900 uppercase">Aguardando Pareamento</h4>
                                     <p className="text-[10px] text-amber-700 font-bold uppercase mt-1">Escaneie pelo WhatsApp</p>
                                 </div>
-                                <Button size="sm" variant="ghost" onClick={checkStatus} className="text-[10px] font-black uppercase text-slate-900"><RefreshCw size={14} className="mr-2"/> Atualizar</Button>
+                                <Button size="sm" variant="ghost" onClick={checkStatus} className="text-[10px] font-black uppercase"><RefreshCw size={14} className="mr-2"/> Atualizar</Button>
                             </div>
                         ) : (
                             <div className="space-y-4 opacity-50">
@@ -844,7 +858,7 @@ function NotificationsConfig() {
                                 <p className="text-xs font-bold text-muted-foreground uppercase max-w-[200px] mx-auto">
                                     {instanceStatus?.message || 'Status não identificado. Verifique a API Key.'}
                                 </p>
-                                <Button size="sm" variant="ghost" onClick={checkStatus} className="text-[10px] font-black uppercase text-slate-900"><RefreshCw size={14} className="mr-2"/> Atualizar</Button>
+                                <Button size="sm" variant="ghost" onClick={checkStatus} className="text-[10px] font-black uppercase"><RefreshCw size={14} className="mr-2"/> Atualizar</Button>
                             </div>
                         )}
                     </CardContent>
@@ -865,7 +879,7 @@ function NotificationsHistory() {
     if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
-        <div className="rounded-xl border bg-card overflow-hidden shadow-sm">
+        <div className="rounded-xl border bg-card overflow-hidden shadow-sm text-slate-900">
             <Table>
                 <TableHeader className="bg-muted/50">
                     <TableRow>
@@ -877,21 +891,21 @@ function NotificationsHistory() {
                 </TableHeader>
                 <TableBody>
                     {history?.length === 0 ? (
-                        <TableRow><TableCell colSpan={4} className="h-32 text-center text-muted-foreground italic text-slate-900">Nenhum histórico encontrado.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={4} className="h-32 text-center text-muted-foreground italic">Nenhum histórico encontrado.</TableCell></TableRow>
                     ) : (
                         history?.map((item: any) => (
                             <TableRow key={item.id} className="hover:bg-muted/30">
-                                <TableCell className="text-xs font-bold text-slate-900">
+                                <TableCell className="text-xs font-bold">
                                     {item.sentAt ? format(item.sentAt.toDate(), 'dd/MM/yy HH:mm') : '-'}
                                 </TableCell>
                                 <TableCell className="max-w-md">
-                                    <div className="flex flex-col text-slate-900">
+                                    <div className="flex flex-col">
                                         <span className="text-xs line-clamp-2">{item.message}</span>
                                         <Badge variant="ghost" className="w-fit text-[8px] h-4 mt-1 bg-slate-100 text-slate-600 uppercase">{item.type || 'text'}</Badge>
                                     </div>
                                 </TableCell>
                                 <TableCell>
-                                    <div className="flex items-center gap-2 text-slate-900">
+                                    <div className="flex items-center gap-2">
                                         <Users className="size-3 text-muted-foreground" />
                                         <span className="text-xs font-bold">{item.successCount || 0} de {item.recipientCount || 0}</span>
                                     </div>
