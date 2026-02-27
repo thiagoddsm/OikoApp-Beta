@@ -1,11 +1,10 @@
 
 import { NextResponse } from 'next/server';
 import { initializeFirebase } from '@/firebase';
-import { collection, query, where, getDocs, addDoc, Timestamp, doc, getDoc, setDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, Timestamp, doc, setDoc } from 'firebase/firestore';
 
 /**
  * API Route to send WhatsApp messages using direct fetch to api-wa.me
- * Optimized for Baileys/v5.0.0 Pro Plan Features
  */
 
 const getMimetype = (url: string) => {
@@ -67,13 +66,7 @@ export async function POST(request: Request) {
 
     if (targetNumber) {
         const phoneDigits = targetNumber.replace(/\D/g, '');
-        const searchPhone = phoneDigits.length <= 11 ? phoneDigits : phoneDigits.slice(-11);
-        
-        let userName = 'Destinatário';
-        const usersSnap = await getDocs(query(collection(firestore, 'users'), where('phone', '>=', searchPhone.slice(-8))));
-        usersSnap.forEach(d => userName = d.data().name);
-
-        targetUsers.push({ id: 'custom', name: userName, phone: targetNumber });
+        targetUsers.push({ id: 'custom', name: 'Destinatário', phone: phoneDigits });
     } else if (audience === 'specific_members' && userIds) {
         const usersRef = collection(firestore, 'users');
         const chunks = [];
@@ -101,11 +94,10 @@ export async function POST(request: Request) {
     let sentCount = 0;
     let errorCount = 0;
     let lastError = '';
-    let rawError = null;
 
     for (const user of targetUsers) {
-        const phone = user.phone.replace(/\D/g, '');
-        const formattedPhone = phone.includes('@') ? phone : (phone.length <= 11 ? `55${phone}` : phone);
+        const phoneDigits = user.phone.replace(/\D/g, '');
+        const formattedPhone = phoneDigits.length <= 11 ? `55${phoneDigits}` : phoneDigits;
         
         let endpoint = 'message/text';
         let payload: any = { to: formattedPhone };
@@ -158,25 +150,23 @@ export async function POST(request: Request) {
         }
 
         currentEndpoint = endpoint;
-        const url = waKey.startsWith('http') ? waKey : `https://us.api-wa.me/${waKey}/${endpoint}`;
+        const url = `https://us.api-wa.me/${waKey}/${endpoint}`;
 
         try {
             const response = await fetch(url, {
                 method: 'POST',
-                headers: waKey.startsWith('http') ? { 'Content-Type': 'application/json', 'apikey': waKey.split('/').pop() || '' } : { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
             
-            const responseData = await response.json().catch(() => ({}));
-
             if (response.ok) {
                 sentCount++;
                 
-                const cleanPhone = formattedPhone.replace('@s.whatsapp.net', '');
                 const displayContent = type === 'survey' ? `[ENQUETE] ${surveyName}` : (type === 'button' ? (payload.title || 'Botão') : (personalizedBody || 'Mídia'));
 
+                // Salva mensagem no histórico do chat
                 await addDoc(collection(firestore, 'notifications_messages'), {
-                    from: cleanPhone,
+                    from: phoneDigits,
                     fromMe: true,
                     userId: user.id,
                     userName: user.name,
@@ -185,18 +175,19 @@ export async function POST(request: Request) {
                     receivedAt: Timestamp.now()
                 });
 
-                await setDoc(doc(firestore, 'notifications_chats', cleanPhone), {
+                // Atualiza o resumo do chat
+                await setDoc(doc(firestore, 'notifications_chats', phoneDigits), {
                     lastMessage: displayContent,
                     lastMessageAt: Timestamp.now(),
                     unreadCount: 0,
                     userName: user.name,
                     userId: user.id,
-                    phoneNumber: cleanPhone,
-                    isGroup: formattedPhone.includes('@g.us')
+                    phoneNumber: phoneDigits,
+                    isGroup: false
                 }, { merge: true });
 
             } else {
-                rawError = responseData;
+                const responseData = await response.json().catch(() => ({}));
                 lastError = responseData.message || responseData.error || `Erro HTTP ${response.status}`;
                 errorCount++;
             }
@@ -217,14 +208,6 @@ export async function POST(request: Request) {
             lastError: lastError,
             sentAt: Timestamp.now()
         });
-    }
-
-    if (sentCount === 0 && targetUsers.length > 0) {
-        return NextResponse.json({ 
-            error: lastError || 'Falha ao enviar mensagens.',
-            details: rawError,
-            endpoint: currentEndpoint 
-        }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, sentCount });
