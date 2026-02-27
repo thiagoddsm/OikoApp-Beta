@@ -6,7 +6,6 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 /**
  * Host V2 Unificado conforme Documentação Técnica.
- * A Conta Azul recomenda o uso do api-v2 para novos recursos e tokens.
  */
 const CONTA_AZUL_API_BASE = 'https://api-v2.contaazul.com';
 const CONTA_AZUL_AUTH_BASE = 'https://auth.contaazul.com';
@@ -25,7 +24,7 @@ export async function getValidContaAzulToken(forceRefresh = false) {
     const configSnap = await getDoc(configRef);
 
     if (!configSnap.exists()) {
-        throw new Error('Configuração não encontrada no banco.');
+        throw new Error('Configuração não encontrada no banco (config/conta_azul).');
     }
 
     const config = configSnap.data();
@@ -65,19 +64,18 @@ export async function getValidContaAzulToken(forceRefresh = false) {
             if (response.ok) {
                 const newExpiresAt = Date.now() + (data.expires_in * 1000);
                 
-                // Gravação atômica no banco de dados
                 await updateDoc(configRef, {
                     accessToken: data.access_token,
                     refreshToken: data.refresh_token,
                     expiresAt: newExpiresAt,
                     updatedAt: new Date().toISOString(),
-                    lastError: 'SUCESSO: Token renovado automaticamente.'
+                    lastError: 'SUCESSO: Token renovado e pronto para uso.'
                 });
 
                 memoryToken = data.access_token;
                 return data.access_token;
             } else {
-                const msg = data.error_description || data.message || 'Falha crítica no refresh token.';
+                const msg = data.error_description || data.message || JSON.stringify(data);
                 await updateDoc(configRef, { 
                     lastError: `FALHA NO REFRESH: ${msg}`, 
                     lastErrorAt: new Date().toISOString() 
@@ -85,12 +83,12 @@ export async function getValidContaAzulToken(forceRefresh = false) {
                 throw new Error(msg);
             }
         } catch (e: any) {
-            throw new Error(`Autenticação: ${e.message}`);
+            throw new Error(`Erro na Autenticação: ${e.message}`);
         }
     }
 
     if (config.accessToken) return config.accessToken;
-    throw new Error('Nenhum token disponível. Realize a autorização no painel.');
+    throw new Error('Nenhum token disponível. Realize a autorização no painel ou insira um token manual.');
 }
 
 /**
@@ -98,7 +96,6 @@ export async function getValidContaAzulToken(forceRefresh = false) {
  */
 export async function callContaAzulApi(endpoint: string, method: string = 'GET', body?: any, retryCount = 0): Promise<any> {
     try {
-        // Obtém token (renovando se o tempo expirou)
         const token = await getValidContaAzulToken(retryCount > 0);
         const url = `${CONTA_AZUL_API_BASE}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
         
@@ -112,7 +109,6 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
             cache: 'no-store'
         });
 
-        // Casos de sucesso sem corpo
         if (response.status === 204 || response.status === 202) {
             return { success: true, status: response.status };
         }
@@ -120,14 +116,14 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            // Se o token for considerado inválido pelo servidor (401), tentamos o refresh UMA VEZ
             if (response.status === 401 && retryCount === 0) {
-                memoryToken = null; // Limpa cache de memória
+                memoryToken = null;
                 return callContaAzulApi(endpoint, method, body, 1);
             }
             
-            const errorMsg = data.message || data.error_description || data.error || `Erro HTTP ${response.status}`;
-            throw new Error(errorMsg);
+            // Tratamento robusto para evitar [object Object]
+            const errorDetail = data.message || data.error_description || data.error || (Object.keys(data).length > 0 ? JSON.stringify(data) : `Erro HTTP ${response.status}`);
+            throw new Error(errorDetail);
         }
 
         return data;
@@ -141,13 +137,11 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
  */
 export async function findOrCreateContaAzulCustomer(member: { name: string; email?: string; phone?: string }) {
     try {
-        // Busca textual por nome
         const response = await callContaAzulApi(`/v1/customers?name=${encodeURIComponent(member.name)}`);
         const list = Array.isArray(response) ? response : (response.itens || response.items || []);
         
         if (list.length > 0) return list[0].id;
 
-        // Se não existir, cria
         const newCustomer = await callContaAzulApi('/v1/customers', 'POST', {
             name: member.name,
             email: member.email || '',
@@ -157,6 +151,7 @@ export async function findOrCreateContaAzulCustomer(member: { name: string; emai
 
         return newCustomer.id;
     } catch (e: any) {
+        // Preserva a mensagem de erro detalhada vinda da callContaAzulApi
         throw new Error(`Erro ao gerenciar cliente: ${e.message}`);
     }
 }

@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { 
   Loader2, Key, Link as LinkIcon, ExternalLink, PlayCircle, 
   CheckCircle2, HardDriveDownload, DatabaseZap, Settings, FlaskConical,
-  LogOut, Eye, EyeOff, Fingerprint, LayoutDashboard, HeartHandshake, TrendingUp
+  LogOut, Eye, EyeOff, Fingerprint, LayoutDashboard, HeartHandshake, TrendingUp, AlertCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useDoc } from '@/firebase';
@@ -135,6 +135,8 @@ function ContaAzulConnect() {
   const [accessToken, setAccessToken] = useState('');
   const [showSecret, setShowSecret] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false);
   const [origin, setOrigin] = useState('');
   
   useEffect(() => {
@@ -169,20 +171,30 @@ function ContaAzulConnect() {
   
   const handleDisconnect = async () => {
     if (!configDocRef) return;
-    if (!confirm("Deseja realmente encerrar a conexão e limpar todos os tokens?")) return;
     
-    try {
-        await updateDoc(configDocRef, { 
-            accessToken: '', 
-            refreshToken: '', 
-            expiresAt: 0, 
-            lastError: 'Desconectado pelo usuário.',
-            updatedAt: new Date().toISOString()
-        });
-        setAccessToken('');
-        toast({ title: 'Conexão Encerrada', description: 'Todos os tokens foram removidos.' });
-    } catch (e) {
-        toast({ variant: 'destructive', title: 'Erro ao desconectar' });
+    // Segunda etapa: Executa a desconexão real
+    if (confirmDisconnect) {
+        setIsDisconnecting(true);
+        try {
+            await updateDoc(configDocRef, { 
+                accessToken: '', 
+                refreshToken: '', 
+                expiresAt: 0, 
+                lastError: 'Desconectado pelo usuário.',
+                updatedAt: new Date().toISOString()
+            });
+            setAccessToken('');
+            setConfirmDisconnect(false);
+            toast({ title: 'Conexão Encerrada', description: 'Todos os tokens foram removidos.' });
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Erro ao desconectar' });
+        } finally {
+            setIsDisconnecting(false);
+        }
+    } else {
+        // Primeira etapa: Pede confirmação visual (mais seguro que window.confirm)
+        setConfirmDisconnect(true);
+        setTimeout(() => setConfirmDisconnect(false), 5000); // Reseta após 5 segundos
     }
   };
 
@@ -258,9 +270,27 @@ function ContaAzulConnect() {
                             <h4 className="font-black text-emerald-900">IBM Conectada</h4>
                             <p className="text-xs text-muted-foreground mt-1">O motor de sincronização está ativo.</p>
                         </div>
-                        <Button variant="outline" className="text-destructive border-destructive/20 hover:bg-red-50 font-bold" onClick={handleDisconnect}>
-                            <LogOut className="size-4 mr-2" /> Encerrar Conexão
+                        <Button 
+                            variant="outline" 
+                            className={cn(
+                                "transition-all font-bold", 
+                                confirmDisconnect ? "bg-red-600 text-white border-red-600 hover:bg-red-700" : "text-destructive border-destructive/20 hover:bg-red-50"
+                            )} 
+                            onClick={handleDisconnect}
+                            disabled={isDisconnecting}
+                        >
+                            {isDisconnecting ? (
+                                <Loader2 className="animate-spin size-4 mr-2" />
+                            ) : confirmDisconnect ? (
+                                <AlertCircle className="size-4 mr-2" />
+                            ) : (
+                                <LogOut className="size-4 mr-2" />
+                            )}
+                            {confirmDisconnect ? "Confirmar Desconexão?" : "Encerrar Conexão"}
                         </Button>
+                        {confirmDisconnect && (
+                            <p className="text-[10px] text-destructive animate-pulse font-bold">Clique novamente para confirmar a limpeza dos dados.</p>
+                        )}
                     </div>
                 )}
             </CardContent>
