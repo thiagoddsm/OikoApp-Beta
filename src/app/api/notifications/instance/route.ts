@@ -1,10 +1,10 @@
+
 import { NextResponse } from 'next/server';
 import { initializeFirebase } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
 /**
  * API Route to manage WhatsApp Instance with robust status detection for v5.0.0 Pro Plan
- * Handles multiple response structures and ensures QR detection.
  */
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +14,6 @@ const formatQr = (qr: string | null) => {
     if (!qr) return null;
     if (qr.startsWith('data:image')) return qr;
     if (qr.startsWith('http')) return qr;
-    // Garante o prefixo base64 se for apenas a string bruta
     return `data:image/png;base64,${qr}`;
 };
 
@@ -27,23 +26,19 @@ async function getWaStatus(waKey: string) {
 
     const data = await response.json().catch(() => ({}));
     
-    // Detecção profunda em múltiplos níveis de objeto (v5 Pro varia o wrapping)
     const instanceData = data.instance || data.data || data;
     const stateStr = (instanceData.state || instanceData.status || data.state || data.status || '').toString().toLowerCase();
     
-    // Critérios de conexão (authenticated pode vir no root ou dentro da instance)
     const isAuthenticated = data.authenticated === true || instanceData.authenticated === true || data.is_authenticated === true;
     const isOnline = isAuthenticated || ['open', 'connected', 'online', 'authenticated', 'ready'].includes(stateStr);
     
     let displayStatus = 'unknown';
     let displayMessage = data.message || stateStr || '';
 
-    // Limpeza de avisos de depreciação para focar no estado real
     if (displayMessage.toUpperCase().includes('IMPORTANT:')) {
         displayMessage = isOnline ? 'Conectado e Pronto' : 'Aguardando Conexão';
     }
 
-    // Busca exaustiva pelo QR Code
     const rawQr = data.qr || data.qrcode || instanceData.qr || instanceData.qrcode || data.instance?.qr || null;
 
     if (isOnline) {
@@ -98,20 +93,46 @@ export async function POST() {
 
         if (!waKey) return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
 
-        // Documentação: POST inicia a conexão
-        const response = await fetch(`https://us.api-wa.me/${waKey}/instance`, {
+        await fetch(`https://us.api-wa.me/${waKey}/instance`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({})
         });
 
-        // Como o POST pode não retornar corpo (segundo a doc), fazemos um GET imediato para pegar o estado/QR
         const result = await getWaStatus(waKey);
+        return NextResponse.json({ success: true, ...result });
+    } catch (error: any) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
 
-        return NextResponse.json({
-            success: response.ok,
-            ...result
+/**
+ * PUT Method to update Instance Configuration (Webhooks, etc.)
+ */
+export async function PUT(request: Request) {
+    try {
+        const { firestore } = initializeFirebase();
+        const configRef = doc(firestore, 'config', 'notifications');
+        const configSnap = await getDoc(configRef);
+        const waKey = configSnap.exists() ? configSnap.data()?.whatsappApiKey : null;
+
+        if (!waKey) return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
+
+        const body = await request.json();
+
+        const response = await fetch(`https://us.api-wa.me/${waKey}/instance`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
         });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            return NextResponse.json({ error: data.message || 'Erro ao atualizar instância' }, { status: response.status });
+        }
+
+        return NextResponse.json({ success: true, details: data });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -126,7 +147,6 @@ export async function PATCH() {
 
         if (!waKey) return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
 
-        // Ativação de recursos Pro via Query Params conforme v5
         const urlParams = new URLSearchParams({
             markMessageRead: 'true',
             saveMedia: 'true',
