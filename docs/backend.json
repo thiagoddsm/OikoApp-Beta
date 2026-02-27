@@ -9,164 +9,37 @@
         "name": { "type": "string" },
         "email": { "type": "string", "format": "email" },
         "phone": { "type": "string" },
-        "cpf": { "type": "string" },
-        "sexo": { "type": "string", "enum": ["Masculino", "Feminino", "Outro"] },
-        "escolaridade": { "type": "string", "enum": ["Analfabeto", "Fundamental Incompleto", "Fundamental Completo", "Médio Incompleto", "Médio Completo", "Superior Incompleto", "Superior Completo", "Pós-Graduação"] },
-        "profissao": { "type": "string" },
         "roles": {
           "type": "array",
-          "items": { "type": "string", "enum": ["admin", "pastor_senior", "pastor", "lider_rede", "lider_area", "lider_gc", "team_leader", "member", "volunteer"] },
-          "description": "User roles."
+          "items": { "type": "string", "enum": ["admin", "pastor_senior", "pastor", "lider_rede", "lider_area", "lider_gc", "team_leader", "member", "volunteer"] }
         },
-        "familyId": { "type": "string", "description": "ID linking users of the same family." },
-        "familyMembers": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": { "type": "string" },
-              "relation": { "type": "string" },
-              "userId": { "type": "string" }
-            }
-          }
-        },
-        "journey": {
-          "type": "object",
-          "description": "Tracks the user's progress in the spiritual journey.",
-          "properties": {
-            "td": { "type": "boolean", "description": "Trilho do Crescimento" },
-            "baptism": { "type": "boolean" },
-            "membership_course": { "type": "boolean" },
-            "memberCourseProgress": {
-              "type": "object",
-              "properties": {
-                "module1": { "type": "boolean", "description": "História e Visão" },
-                "module2": { "type": "boolean", "description": "DNA e Células" },
-                "module3": { "type": "boolean", "description": "Mordomia e Finanças" },
-                "module4": { "type": "boolean", "description": "Governança e Ética" },
-                "module5": { "type": "boolean", "description": "Comissionamento" }
-              }
-            }
-          }
-        },
-        "skills": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "Spiritual gifts and skills."
-        },
-        "stats": {
-          "type": "object",
-          "properties": {
-            "attendance_streak": { "type": "number" },
-            "last_checkin": { "type": "string", "format": "date-time" },
-            "volunteer_hours": { "type": "number" }
-          }
-        },
-        "blockedDates": {
-            "type": "array",
-            "items": { "type": "string", "format": "date" },
-            "description": "Dates the volunteer is unavailable to serve."
-        },
-        "eligibleEventIds": {
-            "type": "array",
-            "items": { "type": "string" },
-            "description": "IDs of the VolunteeringEvent the user is available for."
-        },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "dataNascimento": { "type": "string", "format": "date" },
-        "address": {
-          "type": "object",
-          "properties": { 
-            "street": { "type": "string" },
-            "cep": { "type": "string" }
-          }
-        },
-        "batizado": { "type": "string", "enum": ["sim", "nao"] },
-        "igrejaBatismo": { "type": "string" },
-        "membroAntigo": { "type": "string", "enum": ["sim", "nao"] },
-        "igrejaAntiga": { "type": "string" },
-        "decisao": { "type": "array", "items": { "type": "string", "enum": ["Decisão por Cristo", "Reconciliação", "Ingressar em um GC", "Apenas Visitando", "Procurando uma igreja para congregar"] } },
-        "initialStatus": { "type": "string", "enum": ["nao_convertido", "novo_convertido", "reconciliado", "membro_outra_igreja"], "description": "The initial status of the person when they joined."},
-        "dataDecisao": { "type": "string", "format": "date" },
-        "estadoCivil": { "type": "string" },
-        "temFilhos": { "type": "string", "enum": ["sim", "nao"] },
-        "idadeFilhos": { "type": "string" },
-        "comoConheceu": { "type": "string" },
-        "nomeConvidou": { "type": "string" },
-        "contatoPreferencia": { "type": "array", "items": { "type": "string" } },
-        "contatoTurno": { "type": "array", "items": { "type": "string" } },
-        "observacoes": { "type": "string", "description": "General observations about the user." },
         "integrationStatus": { "type": "string" },
-        "isTeacher": { "type": "boolean", "description": "Indicates if the user is a teacher."},
-        "taughtCourseIds": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "IDs of the Courses the user teaches."
-        },
-        "serviceStatus": { "type": "string", "enum": ["serving", "not_serving"], "description": "Indicates if the user is currently serving." },
-        "serviceAreaId": { "type": "string", "description": "ID of the AreaOfService the user serves in." },
-        "serviceTeamId": { "type": "string", "description": "ID of the Team the user is part of." },
-        "lastServedDate": { "type": "string", "format": "date-time", "description": "The last date the volunteer served." },
-        "hierarchy": {
-          "type": "object",
-          "properties": {
-            "celulaId": { "type": "string" },
-            "supervisorId": { "type": "string" },
-            "role": { "type": "string" }
-          }
-        },
-        "dizimista": { "type": "string", "enum": ["sim", "nao"] },
-        "financialStatus": { "type": "string", "enum": ["active", "blocked", "delinquent"], "description": "Financial status for Wave music school." }
-      },
-      "required": ["name", "email", "createdAt"]
-    },
-    "FinanceRequest": {
-      "title": "Finance Request",
-      "type": "object",
-      "description": "A request for payment, reimbursement or accountability.",
-      "properties": {
-        "requesterName": { "type": "string" },
-        "phone": { "type": "string" },
-        "email": { "type": "string", "format": "email" },
-        "category": { "type": "string", "description": "Ministério ou Evento" },
-        "description": { "type": "string" },
-        "amount": { "type": "number" },
-        "attachmentUrl": { "type": "string" },
-        "objective": { "type": "string", "enum": ["reembolso", "pagamento", "prestacao_contas"] },
-        "pixKey": { "type": "string" },
-        "dueDate": { "type": "string", "format": "date" },
-        "purchaseLink": { "type": "string" },
-        "status": { "type": "string", "enum": ["pending", "approved", "paid", "rejected"] },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["requesterName", "email", "amount", "objective", "status", "createdAt"]
-    },
-    "NotificationMessage": {
-      "title": "Notification Message",
-      "type": "object",
-      "description": "A message sent or received via notification channels.",
-      "properties": {
-        "from": { "type": "string" },
-        "fromMe": { "type": "boolean" },
-        "userId": { "type": "string" },
-        "userName": { "type": "string" },
-        "content": { "type": "string" },
-        "type": { "type": "string" },
-        "receivedAt": { "type": "string", "format": "date-time" }
-      }
+      "required": ["name", "email", "createdAt"]
     },
     "NotificationChat": {
       "title": "Notification Chat",
       "type": "object",
-      "description": "A summary of a conversation between the system and a user.",
+      "description": "Summary of a conversation.",
       "properties": {
         "lastMessage": { "type": "string" },
         "lastMessageAt": { "type": "string", "format": "date-time" },
-        "unreadCount": { "type": "number" },
         "userName": { "type": "string" },
-        "userId": { "type": "string" },
         "phoneNumber": { "type": "string" },
-        "isGroup": { "type": "boolean" }
+        "unreadCount": { "type": "number" }
+      }
+    },
+    "NotificationMessage": {
+      "title": "Notification Message",
+      "type": "object",
+      "description": "Individual message entry.",
+      "properties": {
+        "content": { "type": "string" },
+        "from": { "type": "string" },
+        "fromMe": { "type": "boolean" },
+        "receivedAt": { "type": "string", "format": "date-time" },
+        "type": { "type": "string" }
       }
     }
   },
@@ -176,19 +49,15 @@
   "firestore": {
     "/users/{userId}": {
       "schema": { "$ref": "#/backend/entities/User" },
-      "description": "User profiles and permissions."
-    },
-    "/finance_requests/{requestId}": {
-      "schema": { "$ref": "#/backend/entities/FinanceRequest" },
-      "description": "Requests for reimbursement or payments."
-    },
-    "/notifications_messages/{messageId}": {
-      "schema": { "$ref": "#/backend/entities/NotificationMessage" },
-      "description": "Individual chat messages."
+      "description": "User profiles."
     },
     "/notifications_chats/{chatId}": {
       "schema": { "$ref": "#/backend/entities/NotificationChat" },
-      "description": "Conversation summaries."
+      "description": "Chat summaries."
+    },
+    "/notifications_messages/{messageId}": {
+      "schema": { "$ref": "#/backend/entities/NotificationMessage" },
+      "description": "Message history."
     }
   }
 }

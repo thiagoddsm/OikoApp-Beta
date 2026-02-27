@@ -4,25 +4,25 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Regra Global: Permite leitura e escrita para qualquer usuário autenticado em qualquer documento
-    // Essencial para o funcionamento do MVP e integração de notificações
+    // Regra Global: Permite leitura e escrita para qualquer usuário autenticado
     match /{document=**} {
       allow read, write: if request.auth != null;
     }
 
-    // Regras explícitas para as coleções de notificações
-    // Garante que operações de 'list' (consultas) funcionem corretamente
+    // Regras Específicas para Notificações (Permitem gravação via API Route e leitura via Dashboard)
+    // Nota: 'allow read, write: if true' é usado aqui para permitir que a API Route (servidor) 
+    // grave o histórico, já que o SDK cliente no servidor não carrega o token do usuário do browser.
     match /notifications_chats/{docId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     match /notifications_messages/{docId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     match /notifications_history/{docId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     match /notifications_responses/{docId} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     
     // Regras para finanças e transações

@@ -46,10 +46,11 @@ function WhatsappChats() {
     const [userSearch, setUserSearch] = useState('');
     const scrollRef = useRef<HTMLDivElement>(null);
 
+    // Consulta de Chats com tratamento de erro de permissão
     const chatsQuery = useMemoFirebase(() => 
         firestore ? query(collection(firestore, 'notifications_chats'), orderBy('lastMessageAt', 'desc')) : null,
     [firestore]);
-    const { data: chats, isLoading: isLoadingChats } = useCollection<any>(chatsQuery);
+    const { data: chats, isLoading: isLoadingChats, error: chatsError } = useCollection<any>(chatsQuery);
 
     const messagesQuery = useMemoFirebase(() => 
         (firestore && selectedChat) ? query(
@@ -134,6 +135,16 @@ function WhatsappChats() {
     };
 
     if (isLoadingChats) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
+
+    if (chatsError) {
+        return (
+            <div className="p-8 text-center bg-red-50 border border-red-100 rounded-xl">
+                <AlertCircle className="mx-auto size-8 text-red-500 mb-2" />
+                <h3 className="font-bold text-red-800">Erro de Permissão</h3>
+                <p className="text-xs text-red-600 mt-1">Verifique se os índices do Firestore foram criados no console do Firebase.</p>
+            </div>
+        );
+    }
 
     return (
         <div className="flex h-[650px] border rounded-xl overflow-hidden bg-background shadow-lg">
@@ -307,7 +318,6 @@ function WhatsappSender() {
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [debugError, setDebugError] = useState<any>(null);
-    const [testPhoneNumber, setTestPhoneNumber] = useState('');
     const [message, setMessage] = useState('');
     const [targetAudience, setTargetAudience] = useState('all_members');
     const [searchTerm, setSearchTerm] = useState('');
@@ -317,6 +327,7 @@ function WhatsappSender() {
     const [isLoadingGroups, setIsLoadingGroups] = useState(false);
     const [msgType, setMsgType] = useState<'text' | 'button' | 'survey' | 'media' | 'pix'>('text');
 
+    // Configurações específicas para cada tipo
     const [msgTitle, setMsgTitle] = useState('Informativo IBM');
     const [msgFooter, setMsgFooter] = useState('Igreja Batista da Manhã');
     const [msgButtons, setMsgButtons] = useState([{ id: 'btn_1', text: 'Confirmar Presença ✅' }, { id: 'btn_2', text: 'Não poderei ir ❌' }]);
@@ -373,6 +384,7 @@ function WhatsappSender() {
         setSelectedUserIds(prev => prev.filter(id => id !== userId));
     };
 
+    // Gerenciamento de Botões
     const handleAddBtn = () => {
         if (msgButtons.length < 3) {
             setMsgButtons([...msgButtons, { id: `btn_${Date.now()}`, text: `Botão ${msgButtons.length + 1}` }]);
@@ -387,16 +399,15 @@ function WhatsappSender() {
         setMsgButtons(newBtns);
     };
 
+    // Gerenciamento de Opções de Enquete
     const handleAddSurveyOption = () => {
         if (surveyOptions.length < 5) {
             setSurveyOptions([...surveyOptions, `Opção ${surveyOptions.length + 1}`]);
         }
     };
-
     const handleRemoveSurveyOption = (index: number) => {
         setSurveyOptions(surveyOptions.filter((_, i) => i !== index));
     };
-
     const handleUpdateSurveyOption = (index: number, value: string) => {
         const newOptions = [...surveyOptions];
         newOptions[index] = value;
