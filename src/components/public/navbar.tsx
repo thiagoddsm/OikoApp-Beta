@@ -1,58 +1,59 @@
-
 'use client';
 
 import React from 'react';
 import Link from 'next/link';
-import { Logo } from '@/components/icons';
-import { Button } from '@/components/ui/button';
-import { LogIn, Menu } from 'lucide-react';
 import { usePathname } from 'next/navigation';
-import { cn } from '@/lib/utils';
+import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/icons";
+import { cn } from "@/lib/utils";
+import { Map, GraduationCap, LogIn, Users } from 'lucide-react';
 
 export function PublicNavbar() {
   const pathname = usePathname();
 
-  const navLinks = [
-    { href: '/', label: 'Início' },
-    { href: '/public/enrollment', label: 'Cursos (Lumine)' },
-    { href: '/public/event-planning', label: 'Protocolar Evento' },
+  const navItems = [
+    { href: "/public/enrollment", label: "Inscrições", icon: GraduationCap },
+    { href: "/dashboard/gc/map", label: "Mapa de GCs", icon: Map },
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto px-4 flex h-16 items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <Logo className="size-8 text-primary" />
-          <span className="text-xl font-bold tracking-tighter">OikoApp</span>
-        </Link>
-
-        <nav className="hidden md:flex items-center gap-8">
-          {navLinks.map(link => (
-            <Link 
-              key={link.href} 
-              href={link.href}
-              className={cn(
-                "text-sm font-bold uppercase tracking-widest transition-colors hover:text-primary",
-                pathname === link.href ? "text-primary" : "text-muted-foreground"
-              )}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
+    <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container mx-auto flex h-16 items-center justify-between px-4">
+        <div className="flex items-center gap-8">
+          <Link href="/" className="flex items-center gap-2">
+            <Logo className="h-8 w-8 text-primary" />
+            <span className="text-xl font-bold tracking-tighter text-slate-900">OikoApp</span>
+          </Link>
+          
+          <div className="hidden md:flex items-center gap-6">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-2 text-sm font-bold uppercase tracking-widest transition-colors hover:text-primary",
+                  pathname === item.href ? "text-primary" : "text-muted-foreground"
+                )}
+              >
+                <item.icon className="size-4" />
+                {item.label}
+              </Link>
+            ))}
+          </div>
+        </div>
 
         <div className="flex items-center gap-4">
-          <Button asChild variant="outline" className="hidden sm:flex rounded-full border-primary text-primary font-bold hover:bg-primary hover:text-white">
+          <Button variant="ghost" asChild className="hidden sm:flex font-bold">
             <Link href="/login">
               <LogIn className="mr-2 size-4" />
               Portal do Membro
             </Link>
           </Button>
-          <Button variant="ghost" size="icon" className="md:hidden">
-            <Menu className="size-6" />
+          <Button asChild className="font-bold">
+            <Link href="/public/enrollment">Fazer parte de um GC</Link>
           </Button>
         </div>
       </div>
-    </header>
+    </nav>
   );
 }
