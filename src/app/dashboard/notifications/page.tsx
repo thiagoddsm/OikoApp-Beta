@@ -16,8 +16,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { 
-    Loader2, Send, Settings, Key, Bot, History, MessageSquare, 
-    Users, CheckCircle2, Search, UserPlus, X, Info, Layers, RefreshCw, 
+    Loader2, Send, Settings, Key, History, MessageSquare, 
+    Users, CheckCircle2, Search, UserPlus, X, Info, RefreshCw, 
     Zap, AlertCircle, MessageCircle, MousePointer2, Trash2,
     Smartphone, LogOut, PlusCircle, CheckCircle, User as UserIcon,
     Sparkles, QrCode, ShieldAlert, Phone, ChevronRight, Image as ImageIcon
@@ -316,7 +316,6 @@ function WhatsappSender() {
     const [msgType, setMsgType] = useState<'text' | 'button' | 'survey' | 'media'>('text');
 
     // Estados para enquetes e botões
-    const [msgTitle, setMsgTitle] = useState('Informativo IBM');
     const [msgFooter, setMsgFooter] = useState('Igreja Batista da Manhã');
     const [msgButtons, setMsgButtons] = useState([{ id: 'btn_1', text: 'Confirmar Presença ✅' }, { id: 'btn_2', text: 'Não poderei ir ❌' }]);
     const [surveyName, setSurveyName] = useState('');
@@ -367,7 +366,7 @@ function WhatsappSender() {
 
     const handleAddBtn = () => {
         if (msgButtons.length < 3) {
-            setMsgButtons([...msgButtons, { id: `btn_${Date.now()}`, text: `Botão ${msgButtons.length + 1}` }]);
+            setMsgButtons([...msgButtons, { id: `btn_${msgButtons.length + 1}`, text: `Botão ${msgButtons.length + 1}` }]);
         }
     };
 
@@ -402,7 +401,6 @@ function WhatsappSender() {
         };
 
         if (msgType === 'button') {
-            payload.title = msgTitle;
             payload.footer = msgFooter;
             payload.buttons = msgButtons;
         } else if (msgType === 'survey') {
@@ -562,15 +560,9 @@ function WhatsappSender() {
 
                 {msgType === 'button' && (
                     <div className="space-y-4 p-6 border-2 border-dashed rounded-xl bg-indigo-50/50 animate-in zoom-in-95">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label className="text-xs font-black text-indigo-700 uppercase tracking-widest">Título do Card</Label>
-                                <Input value={msgTitle} onChange={e => setMsgTitle(e.target.value)} className="bg-white border-indigo-200" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-xs font-black text-indigo-700 uppercase tracking-widest">Rodapé (Opcional)</Label>
-                                <Input value={msgFooter} onChange={e => setMsgFooter(e.target.value)} className="bg-white border-indigo-200" />
-                            </div>
+                        <div className="space-y-2">
+                            <Label className="text-xs font-black text-indigo-700 uppercase tracking-widest">Rodapé (Opcional)</Label>
+                            <Input value={msgFooter} onChange={e => setMsgFooter(e.target.value)} className="bg-white border-indigo-200 h-11" />
                         </div>
                         <div className="space-y-3">
                             <Label className="text-[10px] uppercase font-black text-muted-foreground">Botões Interativos</Label>
@@ -615,7 +607,7 @@ function WhatsappSender() {
                         className="min-h-[150px] text-base leading-relaxed bg-white shadow-inner border-slate-200" 
                         value={message} 
                         onChange={(e) => setMessage(e.target.value)} 
-                        required={msgType === 'text'} 
+                        required 
                     />
                     <p className="text-[10px] text-muted-foreground mt-1 italic">Use <code className="font-bold text-primary">{"{{nome}}"}</code> para personalizar.</p>
                 </div>

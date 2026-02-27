@@ -116,10 +116,11 @@ export async function POST(request: Request) {
         switch (type) {
             case 'button':
                 endpoint = 'message/button';
+                // Conforme documentação: title é o corpo, footer é o rodapé
                 payload = {
                     to: formattedPhone,
                     title: personalizedBody || (title || 'Informativo IBM').replace('{{nome}}', user.name),
-                    footer: footer || 'Igreja Batista da Manhã',
+                    footer: (footer || 'Igreja Batista da Manhã').replace('{{nome}}', user.name),
                     buttons: (buttons || []).map((b: any) => ({
                         id: b.id,
                         text: b.text
