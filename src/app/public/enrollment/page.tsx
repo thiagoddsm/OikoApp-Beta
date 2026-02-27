@@ -1,322 +1,284 @@
 
 'use client';
 
-import React, { useState, useMemo, Suspense } from 'react';
-import { useVolunteering, VolunteeringProvider } from '@/contexts/volunteering-context';
-import { useFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, Timestamp } from 'firebase/firestore';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, Timestamp } from 'firebase/firestore';
+import { PublicNavbar } from '@/components/public/navbar';
+import { PublicFooter } from '@/components/public/footer';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from '@/components/ui/badge';
+import { 
+    BookOpen, 
+    Waves, 
+    HandHelping, 
+    School, 
+    Lightbulb, 
+    ChevronRight, 
+    CheckCircle2, 
+    Loader2, 
+    Clock, 
+    Info, 
+    Calendar,
+    Users,
+    ArrowRight
+} from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-    Loader2, BookOpen, Waves, Lightbulb, School, 
-    ArrowLeft, CheckCircle2, Phone, Mail, User, 
-    ChevronRight, AlertCircle, Info, GraduationCap
-} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { addEnrollmentRequest } from './actions';
 import { cn } from '@/lib/utils';
 
-/**
- * Ordem litúrgica da Trilha Lumine
- */
-const getDiscipleshipWeight = (name: string) => {
-    const lowerName = name.toLowerCase();
-    if (lowerName.includes('pertencer')) return 1;
-    if (lowerName.includes('crescer')) return 2;
-    if (lowerName.includes('liderar')) return 3;
-    if (lowerName.includes('cuidar')) return 4;
-    if (lowerName.includes('apoiar')) return 5;
-    if (lowerName.includes('enviar')) return 6;
-    return 99;
+type Course = {
+  id: string;
+  name: string;
+  description: string;
+  ministryName: string;
 };
 
-function EnrollmentForm({ course, classes, on处Success }) {
+type Class = {
+  id: string;
+  courseId: string;
+  name: string;
+  dayOfWeek?: string;
+  startTime?: string;
+};
+
+const lumineOrder = ["pertencer", "crescer", "liderar", "cuidar", "apoiar", "enviar"];
+
+const getLumineWeight = (name: string) => {
+    const lower = name.toLowerCase();
+    const index = lumineOrder.findIndex(item => lower.includes(item));
+    return index === -1 ? 99 : index;
+};
+
+export default function PublicEnrollmentPage() {
     const { firestore } = useFirebase();
     const { toast } = useToast();
-    const [isSaving, setIsSaving] = useState(false);
-    const [formData, setFormData] = useState({
-        name: '',
-        email: '',
-        phone: '',
-        classId: '',
-        cpf: '',
-        sexo: '',
-        dataNascimento: ''
-    });
+    const searchParams = useSearchParams();
+    const initialCourseId = searchParams.get('courseId');
 
-    const isMemberCourse = course.name.toLowerCase().includes('membro') || course.name.toLowerCase().includes('pertencer') || course.name.toLowerCase().includes('integração');
+    const [activeCategory, setActiveCategory] = useState('lumine');
+    const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const handleSave = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!formData.name || !formData.phone || (!isMemberCourse && !formData.classId)) {
-            toast({ variant: 'destructive', title: 'Campos obrigatórios', description: 'Preencha seu nome, telefone e escolha uma turma.' });
-            return;
-        }
+    // Data fetching
+    const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
+    const { data: allCourses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery);
 
-        setIsSaving(true);
-        try {
-            const requestsCol = collection(firestore!, 'enrollment_requests');
-            await addDocumentNonBlocking(requestsCol, {
-                ...formData,
-                courseId: course.id,
-                status: 'pending',
-                createdAt: Timestamp.now()
-            });
-            toast({ title: 'Solicitação Enviada!', description: 'Em breve nossa equipe entrará em contato.' });
-            on处Success();
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Erro ao enviar', description: 'Tente novamente em instantes.' });
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    return (
-        <form onSubmit={handleSave} className="space-y-4 py-4">
-            <div className="space-y-2">
-                <Label htmlFor="name">Nome Completo *</Label>
-                <Input id="name" value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))} required />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <Label htmlFor="phone">Telefone / WhatsApp *</Label>
-                    <Input id="phone" type="tel" value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} placeholder="(21) 9..." required />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="email">E-mail</Label>
-                    <Input id="email" type="email" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} />
-                </div>
-            </div>
-            {!isMemberCourse && (
-                <div className="space-y-2">
-                    <Label htmlFor="class-select">Selecione a Turma *</Label>
-                    <Select value={formData.classId} onValueChange={v => setFormData(p => ({...p, classId: v}))}>
-                        <SelectTrigger id="class-select">
-                            <SelectValue placeholder="Escolha um horário disponível..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {classes.map(cls => (
-                                <SelectItem key={cls.id} value={cls.id}>
-                                    {cls.name} ({cls.dayOfWeek} às {cls.startTime})
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-            )}
-            {isMemberCourse && (
-                <div className="p-3 bg-primary/5 border rounded-lg flex items-start gap-2">
-                    <Info className="size-4 text-primary shrink-0 mt-0.5" />
-                    <p className="text-[11px] text-muted-foreground">Este curso acontece em ciclos. Ao se inscrever, você será alocado na próxima turma disponível.</p>
-                </div>
-            )}
-            <Button type="submit" className="w-full h-12 font-bold" disabled={isSaving}>
-                {isSaving ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" />}
-                Confirmar Inscrição
-            </Button>
-        </form>
-    );
-}
-
-function CourseCard({ course, classes, onSelect }) {
-    const hasClasses = classes.length > 0;
-    const isLumine = course.ministryName.toLowerCase().includes('lumine') || course.ministryName.toLowerCase().includes('ebd');
-    
-    return (
-        <Card className={cn(
-            "flex flex-col h-full transition-all duration-300 border-2",
-            hasClasses ? "hover:shadow-xl hover:border-primary/50" : "opacity-60 grayscale bg-slate-50"
-        )}>
-            <CardHeader className="pb-2">
-                <div className="flex justify-between items-start mb-2">
-                    <div className={cn("p-2 rounded-lg", hasClasses ? "bg-primary/10 text-primary" : "bg-slate-200 text-slate-400")}>
-                        <BookOpen size={20} />
-                    </div>
-                    <Badge variant="outline" className="text-[9px] uppercase font-black tracking-widest">{course.ministryName}</Badge>
-                </div>
-                <CardTitle className="text-xl font-black italic uppercase tracking-tighter">{course.name}</CardTitle>
-                <CardDescription className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-muted-foreground">
-                    <Clock className="size-3" />
-                    {isLumine ? "Todo domingo às 09h00" : (classes[0]?.dayOfWeek ? `${classes[0].dayOfWeek} às ${classes[0].startTime}` : "Horário sob consulta")}
-                </CardDescription>
-            </CardHeader>
-            <CardContent className="flex-1 pb-6">
-                <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
-                    {course.description || "Inicie sua jornada de aprendizado na IBM."}
-                </p>
-                {!hasClasses && (
-                    <div className="mt-4 flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase">
-                        <AlertCircle size={14} /> Sem turmas abertas
-                    </div>
-                )}
-            </CardContent>
-            <CardFooter>
-                <Button 
-                    className="w-full font-black uppercase text-xs h-11 tracking-wider" 
-                    disabled={!hasClasses}
-                    onClick={() => onSelect(course)}
-                >
-                    {hasClasses ? "Quero me Inscrever" : "Inscrições Indisponíveis"}
-                </Button>
-            </CardFooter>
-        </Card>
-    );
-}
-
-function Badge({ children, className, variant = 'default' }: { children: React.ReactNode, className?: string, variant?: 'default' | 'secondary' | 'outline' }) {
-    const variants = {
-        default: 'bg-primary text-primary-foreground',
-        secondary: 'bg-secondary text-secondary-foreground',
-        outline: 'border border-current'
-    };
-    return (
-        <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold transition-colors", variants[variant], className)}>
-            {children}
-        </span>
-    );
-}
-
-function EnrollmentPageContent() {
-    const { courses, classes, isLoading } = useVolunteering();
-    const [selectedCourse, setSelectedCourse] = useState<any>(null);
-    const [isSuccess, setIsSuccess] = useState(false);
+    const classesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'classes')) : null, [firestore]);
+    const { data: allClasses, isLoading: isLoadingClasses } = useCollection<Class>(classesQuery);
 
     const groupedCourses = useMemo(() => {
-        const groups: Record<string, any[]> = {
-            'Lumine (Discipulado)': [],
-            'Wave (Música)': [],
-            'DIS (Inclusão)': [],
-            'Outros': []
-        };
-
-        courses.forEach(c => {
-            const m = c.ministryName.toLowerCase();
-            if (m.includes('lumine') || m.includes('ebd')) groups['Lumine (Discipulado)'].push(c);
-            else if (m.includes('wave')) groups['Wave (Música)'].push(c);
-            else if (m === 'dis') groups['DIS (Inclusão)'].push(c);
-            else groups['Outros'].push(c);
+        if (!allCourses) return { lumine: [], wave: [], dis: [], other: [] };
+        
+        const groups: any = { lumine: [], wave: [], dis: [], other: [] };
+        
+        allCourses.forEach(c => {
+            const min = c.ministryName?.toLowerCase() || '';
+            if (min.includes('lumine') || min.includes('ebd')) groups.lumine.push(c);
+            else if (min.includes('wave')) groups.wave.push(c);
+            else if (min === 'dis') groups.dis.push(c);
+            else groups.other.push(c);
         });
 
-        // Ordenação Lumine
-        groups['Lumine (Discipulado)'].sort((a, b) => getDiscipleshipWeight(a.name) - getDiscipleshipWeight(b.name));
-
+        // Sort Lumine
+        groups.lumine.sort((a: Course, b: Course) => getLumineWeight(a.name) - getLumineWeight(b.name));
+        
         return groups;
-    }, [courses]);
+    }, [allCourses]);
 
-    if (isLoading) {
+    useEffect(() => {
+        if (initialCourseId && allCourses) {
+            const course = allCourses.find(c => c.id === initialCourseId);
+            if (course) {
+                const min = course.ministryName?.toLowerCase() || '';
+                if (min.includes('lumine')) setActiveCategory('lumine');
+                else if (min.includes('wave')) setActiveCategory('wave');
+                else if (min === 'dis') setActiveCategory('dis');
+                else setActiveCategory('other');
+                
+                setSelectedCourse(course);
+            }
+        }
+    }, [initialCourseId, allCourses]);
+
+    const handleEnroll = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        if (!selectedCourse) return;
+        
+        setIsSubmitting(true);
+        const formData = new FormData(e.currentTarget);
+        
+        try {
+            const result = await addEnrollmentRequest({
+                name: formData.get('name') as string,
+                email: formData.get('email') as string,
+                phone: formData.get('phone') as string,
+                courseId: selectedCourse.id,
+            });
+
+            if (result.success) {
+                toast({ title: "Solicitação Enviada!", description: "Em breve um líder entrará em contato para confirmar sua vaga." });
+                setSelectedCourse(null);
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: "Erro ao enviar", description: error.message });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    if (isLoadingCourses) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
+
+    const renderCourseCard = (course: Course) => {
+        const hasClasses = allClasses?.some(cls => cls.courseId === course.id);
+        const courseClasses = allClasses?.filter(cls => cls.courseId === course.id) || [];
+
         return (
-            <div className="min-h-screen flex flex-col items-center justify-center gap-4">
-                <Loader2 className="size-10 animate-spin text-primary" />
-                <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground animate-pulse">Carregando catálogo...</p>
-            </div>
+            <Card key={course.id} className={cn("group transition-all hover:shadow-md", !hasClasses && "opacity-60")}>
+                <CardHeader>
+                    <div className="flex justify-between items-start mb-2">
+                        <Badge variant="secondary" className="text-[10px] uppercase font-black">{course.ministryName}</Badge>
+                        {hasClasses ? (
+                            <Badge className="bg-emerald-100 text-emerald-700 border-none text-[10px] font-black uppercase h-5">Vagas Abertas</Badge>
+                        ) : (
+                            <Badge variant="outline" className="text-[10px] font-black uppercase h-5">Em Breve</Badge>
+                        )}
+                    </div>
+                    <CardTitle className="text-xl font-black italic tracking-tighter uppercase text-slate-900">{course.name}</CardTitle>
+                    <CardDescription className="line-clamp-2 text-xs min-h-[2.5rem]">{course.description || 'Uma jornada de crescimento e aprendizado na IBM.'}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    {hasClasses ? (
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase">
+                                <Clock className="size-3" /> Horários Disponíveis:
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                                {courseClasses.map(cls => (
+                                    <Badge key={cls.id} variant="outline" className="bg-slate-50 text-[9px] font-medium h-5">
+                                        {cls.dayOfWeek} às {cls.startTime}
+                                    </Badge>
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg text-xs text-muted-foreground italic border border-dashed">
+                            <Info className="size-3" /> Nenhuma turma com inscrições abertas agora.
+                        </div>
+                    )}
+                </CardContent>
+                <CardFooter>
+                    <Button 
+                        className="w-full font-black uppercase text-xs h-11" 
+                        disabled={!hasClasses}
+                        onClick={() => setSelectedCourse(course)}
+                    >
+                        {hasClasses ? 'Quero me inscrever' : 'Aguardar Próxima Turma'}
+                        <ArrowRight className="ml-2 size-4" />
+                    </Button>
+                </CardFooter>
+            </Card>
         );
-    }
+    };
 
     return (
-        <div className="min-h-screen bg-slate-50 font-sans">
-            <header className="bg-white border-b py-6 px-4">
-                <div className="container mx-auto flex flex-col items-center text-center">
-                    <Button variant="ghost" asChild className="mb-4 text-muted-foreground hover:text-primary">
-                        <Link href="/"><ArrowLeft className="mr-2 size-4" /> Voltar ao Site</Link>
-                    </Button>
-                    <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter text-slate-900 mb-4">INSCRIÇÕES IBM</h1>
-                    <p className="text-slate-500 max-w-lg">Escolha seu próximo passo na trilha de crescimento.</p>
-                    <div className="mt-4 flex flex-wrap justify-center gap-2">
-                        {['Pertencer', 'Crescer', 'Liderar', 'Cuidar', 'Apoiar', 'Enviar'].map(step => (
-                            <span key={step} className="text-[10px] font-black uppercase text-primary/60">{step}</span>
-                        ))}
-                    </div>
+        <div className="min-h-screen bg-slate-50 flex flex-col">
+            <PublicNavbar />
+            
+            <main className="flex-1 container mx-auto px-4 py-12">
+                <div className="max-w-4xl mx-auto text-center mb-12 space-y-4">
+                    <h1 className="text-4xl md:text-6xl font-black italic tracking-tighter text-slate-900 uppercase">
+                        Trilha de <span className="text-primary">Crescimento</span>
+                    </h1>
+                    <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+                        Escolha um dos nossos cursos e comece hoje mesmo sua jornada ministerial na Igreja Batista da Manhã.
+                    </p>
                 </div>
-            </header>
 
-            <main className="container mx-auto px-4 py-12">
-                <Tabs defaultValue="Lumine (Discipulado)" className="w-full">
-                    <div className="flex justify-center mb-12">
-                        <TabsList className="bg-white border p-1 h-14 rounded-2xl shadow-sm overflow-x-auto no-scrollbar max-w-full justify-start md:justify-center">
-                            {Object.keys(groupedCourses).map(group => groupedCourses[group].length > 0 && (
-                                <TabsTrigger 
-                                    key={group} 
-                                    value={group}
-                                    className="px-8 rounded-xl font-black uppercase italic tracking-tighter text-xs data-[state=active]:bg-primary data-[state=active]:text-white transition-all"
-                                >
-                                    {group.split(' ')[0]}
-                                </TabsTrigger>
-                            ))}
+                <Tabs value={activeCategory} onValueChange={setActiveCategory} className="w-full">
+                    <div className="flex justify-center mb-10">
+                        <TabsList className="bg-white border shadow-sm p-1 h-auto rounded-full">
+                            <TabsTrigger value="lumine" className="rounded-full px-6 py-2 text-xs font-black uppercase data-[state=active]:bg-primary data-[state=active]:text-white">
+                                <Lightbulb className="mr-2 size-4" /> Lumine (Discipulado)
+                            </TabsTrigger>
+                            <TabsTrigger value="wave" className="rounded-full px-6 py-2 text-xs font-black uppercase data-[state=active]:bg-primary data-[state=active]:text-white">
+                                <Waves className="mr-2 size-4" /> Wave (Música)
+                            </TabsTrigger>
+                            <TabsTrigger value="dis" className="rounded-full px-6 py-2 text-xs font-black uppercase data-[state=active]:bg-primary data-[state=active]:text-white">
+                                <HandHelping className="mr-2 size-4" /> DIS (Inclusão)
+                            </TabsTrigger>
+                            <TabsTrigger value="other" className="rounded-full px-6 py-2 text-xs font-black uppercase data-[state=active]:bg-primary data-[state=active]:text-white">
+                                <BookOpen className="mr-2 size-4" /> Outros
+                            </TabsTrigger>
                         </TabsList>
                     </div>
 
-                    {Object.entries(groupedCourses).map(([group, list]) => (
-                        <TabsContent key={group} value={group} className="mt-0 animate-in fade-in-50 duration-500">
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                                {list.map(course => (
-                                    <CourseCard 
-                                        key={course.id} 
-                                        course={course} 
-                                        classes={classes.filter(cls => cls.courseId === course.id)}
-                                        onSelect={setSelectedCourse}
-                                    />
-                                ))}
-                            </div>
-                        </TabsContent>
-                    ))}
+                    <TabsContent value="lumine" className="animate-in fade-in-50 duration-500">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {groupedCourses.lumine.map(renderCourseCard)}
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="wave" className="animate-in fade-in-50 duration-500">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {groupedCourses.wave.map(renderCourseCard)}
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="dis" className="animate-in fade-in-50 duration-500">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {groupedCourses.dis.map(renderCourseCard)}
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="other" className="animate-in fade-in-50 duration-500">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {groupedCourses.other.map(renderCourseCard)}
+                        </div>
+                    </TabsContent>
                 </Tabs>
             </main>
 
-            {/* Modal de Inscrição */}
-            <Dialog open={!!selectedCourse} onOpenChange={(open) => !open && setSelectedCourse(null)}>
-                <DialogContent className="max-w-xl sm:rounded-3xl border-none shadow-2xl">
-                    <DialogHeader className="p-4 bg-primary/5 rounded-t-2xl">
-                        <DialogTitle className="text-2xl font-black italic tracking-tighter uppercase text-primary">
-                            Inscrição: {selectedCourse?.name}
-                        </DialogTitle>
-                        <DialogDescription className="font-bold uppercase text-[10px]">Preencha os dados para garantir sua vaga</DialogDescription>
+            <Dialog open={!!selectedCourse} onOpenChange={(o) => !o && setSelectedCourse(null)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-black italic uppercase tracking-tighter">Inscrição: {selectedCourse?.name}</DialogTitle>
+                        <DialogDescription>Preencha seus dados para solicitar sua vaga neste curso.</DialogDescription>
                     </DialogHeader>
-                    
-                    {isSuccess ? (
-                        <div className="py-12 flex flex-col items-center text-center gap-4 animate-in zoom-in-95">
-                            <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center shadow-inner">
-                                <CheckCircle2 size={48} />
-                            </div>
-                            <div>
-                                <h3 className="text-xl font-black text-slate-900">SOLICITAÇÃO RECEBIDA!</h3>
-                                <p className="text-muted-foreground text-sm mt-2">Nossa secretaria entrará em contato em breve para confirmar sua participação.</p>
-                            </div>
-                            <Button className="mt-4 rounded-xl px-8 font-bold" onClick={() => { setSelectedCourse(null); setIsSuccess(false); }}>Fechar</Button>
+                    <form onSubmit={handleEnroll} className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="name">Nome Completo</Label>
+                            <Input id="name" name="name" placeholder="Como devemos te chamar?" required />
                         </div>
-                    ) : (
-                        selectedCourse && (
-                            <EnrollmentForm 
-                                course={selectedCourse} 
-                                classes={classes.filter(cls => cls.courseId === selectedCourse.id)}
-                                on处Success={() => setIsSuccess(true)}
-                            />
-                        )
-                    )}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="phone">WhatsApp</Label>
+                                <Input id="phone" name="phone" placeholder="(21) 9..." required />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="email">E-mail</Label>
+                                <Input id="email" name="email" type="email" placeholder="seu@email.com" />
+                            </div>
+                        </div>
+                        <div className="pt-4">
+                            <Button type="submit" className="w-full h-12 font-black uppercase shadow-lg shadow-primary/20" disabled={isSubmitting}>
+                                {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" />}
+                                Finalizar Solicitação
+                            </Button>
+                        </div>
+                    </form>
                 </DialogContent>
             </Dialog>
 
-            <footer className="py-12 bg-white border-t mt-20">
-                <div className="container mx-auto px-4 text-center text-muted-foreground text-xs font-bold uppercase tracking-widest">
-                    © {new Date().getFullYear()} Igreja Batista da Manhã • OikoApp
-                </div>
-            </footer>
+            <PublicFooter />
         </div>
-    );
-}
-
-export default function PublicEnrollmentPage() {
-    return (
-        <VolunteeringProvider>
-            <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>}>
-                <EnrollmentPageContent />
-            </Suspense>
-        </VolunteeringProvider>
     );
 }
