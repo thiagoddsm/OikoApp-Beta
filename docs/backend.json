@@ -140,6 +140,55 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["requesterName", "email", "amount", "objective", "status", "createdAt"]
+    },
+    "NotificationMessage": {
+      "title": "Notification Message",
+      "type": "object",
+      "description": "A message sent or received via notification channels.",
+      "properties": {
+        "from": { "type": "string" },
+        "fromMe": { "type": "boolean" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "content": { "type": "string" },
+        "type": { "type": "string" },
+        "receivedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "NotificationChat": {
+      "title": "Notification Chat",
+      "type": "object",
+      "description": "A summary of a conversation between the system and a user.",
+      "properties": {
+        "lastMessage": { "type": "string" },
+        "lastMessageAt": { "type": "string", "format": "date-time" },
+        "unreadCount": { "type": "number" },
+        "userName": { "type": "string" },
+        "userId": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "isGroup": { "type": "boolean" }
+      }
+    }
+  },
+  "auth": {
+    "providers": ["google.com"]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/backend/entities/User" },
+      "description": "User profiles and permissions."
+    },
+    "/finance_requests/{requestId}": {
+      "schema": { "$ref": "#/backend/entities/FinanceRequest" },
+      "description": "Requests for reimbursement or payments."
+    },
+    "/notifications_messages/{messageId}": {
+      "schema": { "$ref": "#/backend/entities/NotificationMessage" },
+      "description": "Individual chat messages."
+    },
+    "/notifications_chats/{chatId}": {
+      "schema": { "$ref": "#/backend/entities/NotificationChat" },
+      "description": "Conversation summaries."
     }
   }
 }
