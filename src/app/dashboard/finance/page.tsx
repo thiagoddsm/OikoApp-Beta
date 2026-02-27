@@ -70,7 +70,7 @@ function IntegrationLaboratory({ lastError }: { lastError?: string }) {
 
     const handleWriteTest = async () => {
         setIsTestingWrite(true);
-        addLog("Iniciando teste de escrita (Contas a Receber)...");
+        addLog("Iniciando teste de escrita (Cobrança v2)...");
         try {
             const res = await fetch('/api/finance/conta-azul/test-write', { method: 'POST' });
             const data = await res.json();
@@ -173,26 +173,28 @@ function ContaAzulConnect() {
   const handleDisconnect = async () => {
     if (!configDocRef) return;
     
-    if (confirmDisconnect) {
-        setIsDisconnecting(true);
-        try {
-            await updateDoc(configDocRef, { 
-                accessToken: '', 
-                refreshToken: '', 
-                expiresAt: 0, 
-                lastError: 'Desconectado pelo usuário.',
-                updatedAt: new Date().toISOString()
-            });
-            setConfirmDisconnect(false);
-            toast({ title: 'Conexão Encerrada', description: 'Tokens removidos com sucesso.' });
-        } catch (e: any) {
-            toast({ variant: 'destructive', title: 'Erro ao desconectar', description: e.message });
-        } finally {
-            setIsDisconnecting(false);
-        }
-    } else {
+    // Sistema de confirmação interna no botão para evitar bloqueio de pop-up
+    if (!confirmDisconnect) {
         setConfirmDisconnect(true);
         setTimeout(() => setConfirmDisconnect(false), 5000);
+        return;
+    }
+
+    setIsDisconnecting(true);
+    try {
+        await updateDoc(configDocRef, { 
+            accessToken: '', 
+            refreshToken: '', 
+            expiresAt: 0, 
+            lastError: 'Desconectado pelo usuário.',
+            updatedAt: new Date().toISOString()
+        });
+        setConfirmDisconnect(false);
+        toast({ title: 'Conexão Encerrada', description: 'Tokens removidos com sucesso.' });
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: 'Erro ao desconectar', description: e.message });
+    } finally {
+        setIsDisconnecting(false);
     }
   };
 

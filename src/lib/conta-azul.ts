@@ -6,6 +6,8 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 /**
  * Hosts da Conta Azul conforme Documentação Técnica.
+ * V1: Clientes, Produtos, Vendas.
+ * V2: Financeiro, Cobranças, Contratos.
  */
 const CONTA_AZUL_V1_HOST = 'https://api.contaazul.com';
 const CONTA_AZUL_V2_HOST = 'https://api-v2.contaazul.com';
@@ -63,11 +65,13 @@ export async function getValidContaAzulToken(forceRefresh = false): Promise<stri
 
                 if (response.ok) {
                     const newExpiresAt = Date.now() + (data.expires_in * 1000);
+                    // IMPORTANTE: Aguardar a atualização do banco
                     await updateDoc(configRef, {
                         accessToken: data.access_token,
                         refreshToken: data.refresh_token,
                         expiresAt: newExpiresAt,
-                        updatedAt: new Date().toISOString()
+                        updatedAt: new Date().toISOString(),
+                        lastError: 'SUCESSO: Token renovado e pronto para uso.'
                     });
                     return data.access_token;
                 } else {
@@ -89,15 +93,16 @@ export async function getValidContaAzulToken(forceRefresh = false): Promise<stri
 
 /**
  * Chamada genérica com roteamento inteligente de host.
- * V1: Clientes, Produtos, Vendas.
- * V2: Financeiro, Cobranças, Contratos.
+ * V1: Clientes (/v1/customers), Produtos (/v1/products).
+ * V2: Financeiro (/v1/financeiro), Contas (/v1/conta-financeira).
  */
 export async function callContaAzulApi(endpoint: string, method: string = 'GET', body?: any, retryCount = 0): Promise<any> {
     try {
         const token = await getValidContaAzulToken(retryCount > 0);
         
         const normalizedEndpoint = endpoint.toLowerCase();
-        // Roteamento conforme documentação: Clientes e Produtos no Host V1
+        
+        // Roteamento conforme documentação: Pessoas e Clientes no Host V1
         const isV1Resource = 
             normalizedEndpoint.includes('/customers') || 
             normalizedEndpoint.includes('/clientes') || 
@@ -117,7 +122,7 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
             cache: 'no-store'
         });
 
-        // 204 No Content ou 202 Accepted
+        // 204 No Content ou 202 Accepted (sucesso sem corpo)
         if (response.status === 204 || response.status === 202) {
             return { success: true, status: response.status };
         }
@@ -125,12 +130,13 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            // Se 401, tenta renovar uma única vez
+            // Se 401 (Unauthorized), tenta renovar uma única vez
             if (response.status === 401 && retryCount === 0) {
                 return callContaAzulApi(endpoint, method, body, 1);
             }
             
-            // Tratamento rigoroso para evitar [object Object]
+            // Tratamento rigoroso para evitar o erro [object Object]
+            // Vasculha as chaves comuns de erro da Conta Azul
             const rawError = data.message || data.error_description || data.error || data.msg || data;
             const errorDetail = typeof rawError === 'object' ? JSON.stringify(rawError) : (rawError || `Erro HTTP ${response.status}`);
             throw new Error(errorDetail);
@@ -138,7 +144,7 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
 
         return data;
     } catch (e: any) {
-        throw new Error(e.message || 'Falha na comunicação com a API.');
+        throw new Error(e.message || 'Falha desconhecida na comunicação com a API.');
     }
 }
 
@@ -147,7 +153,7 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
  */
 export async function findOrCreateContaAzulCustomer(member: { name: string; email?: string; phone?: string }) {
     try {
-        // Busca cliente no V1
+        // Busca cliente no V1 usando o endpoint /v1/customers
         const response = await callContaAzulApi(`/v1/customers?name=${encodeURIComponent(member.name)}`);
         const list = Array.isArray(response) ? response : (response.itens || response.items || []);
         
@@ -171,5 +177,6 @@ export async function findOrCreateContaAzulCustomer(member: { name: string; emai
  * Cria um recebível no Host V2.
  */
 export async function createContaAzulReceivable(data: any) {
+    // Rota financeira moderna no Host V2
     return callContaAzulApi('/v1/financeiro/eventos-financeiros/contas-a-receber', 'POST', data);
 }
