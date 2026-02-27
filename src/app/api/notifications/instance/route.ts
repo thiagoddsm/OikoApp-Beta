@@ -32,7 +32,7 @@ export async function GET() {
     }
 
     try {
-        // Cache busting rigoroso para evitar o status UNKNOWN por dados antigos
+        // Cache bursting rigoroso para evitar o status UNKNOWN por dados antigos
         const response = await fetch(`https://us.api-wa.me/${waKey}/instance?t=${Date.now()}`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
@@ -50,7 +50,6 @@ export async function GET() {
         }
 
         // Mapeamento ultra-resiliente para v5.0.0 Pro
-        // Verifica na raiz e dentro de objetos aninhados
         const stateStr = (
             data.instance?.state || 
             data.state || 
@@ -59,7 +58,7 @@ export async function GET() {
             ''
         ).toString().toLowerCase();
         
-        // Se authenticated for true ou state for open/connected, consideramos online
+        // Detecção de conexão baseada em múltiplos campos da API
         const isOnline = 
             data.authenticated === true || 
             data.instance?.authenticated === true || 
@@ -76,7 +75,6 @@ export async function GET() {
         } else if (['closed', 'logout', 'disconnected', 'offline'].includes(stateStr)) {
             displayStatus = 'offline';
         } else {
-            // Se o estado for numérico (ex: 200), mantemos unknown para não confundir
             displayStatus = (stateStr === '200' || stateStr === '') ? 'unknown' : stateStr;
         }
 
@@ -131,7 +129,6 @@ export async function PATCH() {
 
         if (!waKey) return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
 
-        // Parâmetros exatos para habilitar recursos interativos na v5.0.0
         const urlParams = new URLSearchParams({
             markMessageRead: 'true',
             saveMedia: 'true',
@@ -147,15 +144,7 @@ export async function PATCH() {
             body: JSON.stringify({})
         });
 
-        if (!response.ok) {
-            const data = await response.json().catch(() => ({}));
-            return NextResponse.json({ 
-                error: data.message || "Falha ao ativar recursos.",
-                details: data 
-            }, { status: response.status });
-        }
-
-        return NextResponse.json({ success: true });
+        return NextResponse.json({ success: response.ok });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }

@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useCollection, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, Timestamp, doc, where, limit, addDoc } from 'firebase/firestore';
+import { collection, query, orderBy, Timestamp, doc, where, limit } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -46,11 +46,10 @@ function WhatsappChats() {
     const [userSearch, setUserSearch] = useState('');
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    // Consulta de Chats
     const chatsQuery = useMemoFirebase(() => 
         firestore ? query(collection(firestore, 'notifications_chats'), orderBy('lastMessageAt', 'desc')) : null,
     [firestore]);
-    const { data: chats, isLoading: isLoadingChats, error: chatsError } = useCollection<any>(chatsQuery);
+    const { data: chats, isLoading: isLoadingChats } = useCollection<any>(chatsQuery);
 
     const messagesQuery = useMemoFirebase(() => 
         (firestore && selectedChat) ? query(
@@ -135,16 +134,6 @@ function WhatsappChats() {
     };
 
     if (isLoadingChats) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
-
-    if (chatsError) {
-        return (
-            <div className="p-8 text-center bg-red-50 border border-red-100 rounded-xl">
-                <AlertCircle className="mx-auto size-8 text-red-500 mb-2" />
-                <h3 className="font-bold text-red-800">Erro ao carregar conversas</h3>
-                <p className="text-xs text-red-600 mt-1">Verifique se os índices do Firestore foram criados.</p>
-            </div>
-        );
-    }
 
     return (
         <div className="flex h-[650px] border rounded-xl overflow-hidden bg-background shadow-lg">
@@ -324,7 +313,6 @@ function WhatsappSender() {
     const [isLoadingGroups, setIsLoadingGroups] = useState(false);
     const [msgType, setMsgType] = useState<'text' | 'button' | 'survey' | 'media' | 'pix'>('text');
 
-    // Configurações específicas
     const [msgTitle, setMsgTitle] = useState('Informativo IBM');
     const [msgFooter, setMsgFooter] = useState('Igreja Batista da Manhã');
     const [msgButtons, setMsgButtons] = useState([{ id: 'btn_1', text: 'Confirmar Presença ✅' }, { id: 'btn_2', text: 'Não poderei ir ❌' }]);
@@ -465,9 +453,9 @@ function WhatsappSender() {
             <form onSubmit={handleSend} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                        <Label>Formato</Label>
+                        <Label>Formato da Mensagem</Label>
                         <Select value={msgType} onValueChange={(v:any) => setMsgType(v)}>
-                            <SelectTrigger className="bg-background">
+                            <SelectTrigger className="bg-background h-11">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -483,7 +471,7 @@ function WhatsappSender() {
                     <div className="space-y-2">
                         <Label>Público-alvo</Label>
                         <Select value={targetAudience} onValueChange={setTargetAudience}>
-                            <SelectTrigger className="bg-background">
+                            <SelectTrigger className="bg-background h-11">
                                 <SelectValue placeholder="Selecione o público" />
                             </SelectTrigger>
                             <SelectContent>
@@ -496,17 +484,17 @@ function WhatsappSender() {
                 </div>
 
                 {targetAudience === 'specific_members' && (
-                    <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+                    <div className="space-y-4 p-4 border rounded-lg bg-muted/20 animate-in slide-in-from-top-2">
                         <Label>Pessoas Selecionadas</Label>
                         <div className="relative">
                             <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                            <Input placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 h-11" />
+                            <Input placeholder="Buscar por nome..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 h-11" />
                             {filteredUsers.length > 0 && (
                                 <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg overflow-hidden">
                                     {filteredUsers.map(u => (
-                                        <button key={u.id} type="button" onClick={() => handleAddUser(u.id)} className="w-full px-4 py-3 text-left hover:bg-primary/10 flex justify-between border-b">
-                                            <span>{u.name}</span>
-                                            <UserPlus size={14} className="text-muted-foreground" />
+                                        <button key={u.id} type="button" onClick={() => handleAddUser(u.id)} className="w-full px-4 py-3 text-left hover:bg-primary/10 flex justify-between border-b transition-colors">
+                                            <span className="font-medium">{u.name}</span>
+                                            <UserPlus size={14} className="text-primary" />
                                         </button>
                                     ))}
                                 </div>
@@ -514,79 +502,144 @@ function WhatsappSender() {
                         </div>
                         <div className="flex flex-wrap gap-2 pt-2">
                             {selectedUsersList.map(u => (
-                                <Badge key={u.id} variant="secondary" className="gap-1 bg-white border">
+                                <Badge key={u.id} variant="secondary" className="gap-1 bg-white border pr-1 h-7">
                                     {u.name}
-                                    <button type="button" onClick={() => handleRemoveUser(u.id)}><X size={12} /></button>
+                                    <button type="button" onClick={() => handleRemoveUser(u.id)} className="hover:text-destructive transition-colors"><X size={14} /></button>
                                 </Badge>
                             ))}
                         </div>
                     </div>
                 )}
 
+                {targetAudience === 'whatsapp_group' && (
+                    <div className="space-y-2 p-4 border rounded-lg bg-muted/20 animate-in slide-in-from-top-2">
+                        <Label>Escolha o Grupo</Label>
+                        <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+                            <SelectTrigger className="bg-background h-11">
+                                <SelectValue placeholder={isLoadingGroups ? "Carregando grupos..." : "Selecione o grupo de destino"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {groups.map(g => <SelectItem key={g.id} value={g.id}>{g.name} ({g.participantCount} membros)</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                )}
+
                 {msgType === 'survey' && (
-                    <div className="space-y-4 p-4 border border-dashed rounded-lg bg-blue-50">
+                    <div className="space-y-4 p-6 border-2 border-dashed rounded-xl bg-blue-50/50 animate-in zoom-in-95">
                         <div className="space-y-2">
-                            <Label className="text-xs font-bold text-blue-700">Pergunta da Enquete</Label>
-                            <Input value={surveyName} onChange={e => setSurveyName(e.target.value)} placeholder="Ex: Qual o melhor dia para o nosso GC?" className="bg-white" />
+                            <Label className="text-xs font-black text-blue-700 uppercase tracking-widest">Pergunta da Enquete</Label>
+                            <Input value={surveyName} onChange={e => setSurveyName(e.target.value)} placeholder="Ex: Qual o melhor dia para o nosso GC?" className="bg-white h-11 font-bold" />
                         </div>
                         <div className="space-y-3">
-                            <Label className="text-[10px] uppercase font-black text-muted-foreground">Opções (Mín 2, Máx 5)</Label>
-                            {surveyOptions.map((opt, idx) => (
-                                <div key={idx} className="flex gap-2">
-                                    <Input value={opt} onChange={e => handleUpdateSurveyOption(idx, e.target.value)} className="bg-white" />
-                                    {surveyOptions.length > 2 && <Button variant="ghost" size="icon" onClick={() => setSurveyOptions(surveyOptions.filter((_, i) => i !== idx))}><Trash2 size={14}/></Button>}
-                                </div>
-                            ))}
-                            {surveyOptions.length < 5 && <Button variant="outline" size="sm" onClick={handleAddSurveyOption} className="bg-white"><PlusCircle size={12} className="mr-2" /> Adicionar Opção</Button>}
+                            <Label className="text-[10px] uppercase font-black text-muted-foreground">Opções de Voto (Mín 2, Máx 5)</Label>
+                            <div className="grid gap-2">
+                                {surveyOptions.map((opt, idx) => (
+                                    <div key={idx} className="flex gap-2 group">
+                                        <Input value={opt} onChange={e => handleUpdateSurveyOption(idx, e.target.value)} className="bg-white h-10" />
+                                        {surveyOptions.length > 2 && (
+                                            <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-destructive" onClick={() => setSurveyOptions(surveyOptions.filter((_, i) => i !== idx))}>
+                                                <Trash2 size={16}/>
+                                            </Button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                            {surveyOptions.length < 5 && (
+                                <Button type="button" variant="outline" size="sm" onClick={handleAddSurveyOption} className="mt-2 bg-white text-xs font-bold border-blue-200">
+                                    <PlusCircle size={14} className="mr-2" /> Adicionar Opção
+                                </Button>
+                            )}
                         </div>
                     </div>
                 )}
 
                 {msgType === 'button' && (
-                    <div className="space-y-4 p-4 border border-dashed rounded-lg bg-indigo-50">
-                        <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-4 p-6 border-2 border-dashed rounded-xl bg-indigo-50/50 animate-in zoom-in-95">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label className="text-xs font-bold text-indigo-700">Título</Label>
+                                <Label className="text-xs font-black text-indigo-700 uppercase tracking-widest">Título do Card</Label>
                                 <Input value={msgTitle} onChange={e => setMsgTitle(e.target.value)} className="bg-white" />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-xs font-bold text-indigo-700">Rodapé</Label>
+                                <Label className="text-xs font-black text-indigo-700 uppercase tracking-widest">Rodapé (Opcional)</Label>
                                 <Input value={msgFooter} onChange={e => setMsgFooter(e.target.value)} className="bg-white" />
                             </div>
                         </div>
                         <div className="space-y-3">
                             <Label className="text-[10px] uppercase font-black text-muted-foreground">Botões Interativos</Label>
-                            {msgButtons.map((btn, idx) => (
-                                <div key={btn.id} className="flex gap-2">
-                                    <Input value={btn.text} onChange={e => handleUpdateBtn(idx, e.target.value)} className="bg-white" />
-                                </div>
-                            ))}
+                            <div className="grid gap-2">
+                                {msgButtons.map((btn, idx) => (
+                                    <div key={btn.id} className="flex gap-2">
+                                        <Input value={btn.text} onChange={e => handleUpdateBtn(idx, e.target.value)} className="bg-white h-10" />
+                                        {msgButtons.length > 1 && (
+                                            <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => setMsgButtons(msgButtons.filter((_, i) => i !== idx))}>
+                                                <Trash2 size={16}/>
+                                            </Button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                            {msgButtons.length < 3 && (
+                                <Button type="button" variant="outline" size="sm" onClick={handleAddBtn} className="mt-2 bg-white font-bold text-xs">
+                                    <PlusCircle size={14} className="mr-2" /> Novo Botão
+                                </Button>
+                            )}
                         </div>
                     </div>
                 )}
 
-                <div className="space-y-4">
-                    <Label>Texto da Mensagem</Label>
+                {msgType === 'pix' && (
+                    <div className="space-y-4 p-6 border-2 border-dashed rounded-xl bg-emerald-50/50 animate-in zoom-in-95">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="text-xs font-black text-emerald-700">Chave PIX</Label>
+                                <Input value={pixKey} onChange={e => setPixKey(e.target.value)} placeholder="Email, CPF ou Celular" className="bg-white" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs font-black text-emerald-700">Valor (R$)</Label>
+                                <Input type="number" step="0.01" value={pixAmount} onChange={e => setPixAmount(e.target.value)} placeholder="0,00" className="bg-white" />
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                        <Label>Corpo da Mensagem</Label>
+                        <div className="flex gap-2">
+                            {QUICK_TEMPLATES.map(t => (
+                                <Button key={t.id} type="button" variant="ghost" size="sm" className="h-7 text-[10px] uppercase font-black tracking-tighter text-primary" onClick={() => setMessage(t.text)}>
+                                    <t.icon size={12} className="mr-1" /> {t.label}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
                     <Textarea 
-                        placeholder="Olá {{nome}}..." 
-                        className="min-h-[120px]" 
+                        placeholder="Olá {{nome}}, temos um recado..." 
+                        className="min-h-[150px] text-base leading-relaxed bg-white shadow-inner" 
                         value={message} 
                         onChange={(e) => setMessage(e.target.value)} 
                         required={msgType !== 'survey'} 
                     />
+                    <p className="text-[10px] text-muted-foreground mt-1 italic">Use <code className="font-bold text-primary">{"{{nome}}"}</code> para personalizar com o nome do membro.</p>
                 </div>
 
-                <Button type="submit" disabled={isLoading} className="w-full h-12 text-base font-bold">
-                    {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
-                    Enviar Notificação
+                <Button type="submit" disabled={isLoading} className="w-full h-14 text-lg font-black shadow-xl shadow-primary/20 hover:scale-[1.01] active:scale-95 transition-all">
+                    {isLoading ? <Loader2 className="mr-2 h-6 w-6 animate-spin" /> : <Send className="mr-2 h-6 w-6" />}
+                    Disparar Notificações
                 </Button>
             </form>
 
             {debugError && (
-                <Alert variant="destructive" className="mt-6">
-                    <AlertTitle>Erro do Gateway</AlertTitle>
-                    <AlertDescription className="text-xs font-mono whitespace-pre-wrap mt-2 p-2 bg-black/5 rounded">
-                        {JSON.stringify(debugError, null, 2)}
+                <Alert variant="destructive" className="mt-6 border-2">
+                    <AlertCircle className="h-5 w-5" />
+                    <AlertTitle className="font-black uppercase tracking-widest text-xs">Erro Crítico do Gateway</AlertTitle>
+                    <AlertDescription className="mt-2">
+                        <p className="text-xs mb-3">Ocorreu uma falha na comunicação com a API api-wa.me:</p>
+                        <pre className="text-[10px] font-mono whitespace-pre-wrap p-3 bg-black/10 rounded-lg overflow-x-auto border border-black/5">
+                            {JSON.stringify(debugError, null, 2)}
+                        </pre>
                     </AlertDescription>
                 </Alert>
             )}
@@ -605,28 +658,31 @@ function WhatsappResponses() {
     if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
-        <div className="rounded-lg border bg-card overflow-hidden">
+        <div className="rounded-lg border bg-card overflow-hidden shadow-sm">
             <Table>
                 <TableHeader className="bg-muted/50">
                     <TableRow>
                         <TableHead>Membro</TableHead>
-                        <TableHead>Resposta</TableHead>
-                        <TableHead>Data/Hora</TableHead>
+                        <TableHead>Escolha / Resposta</TableHead>
+                        <TableHead className="text-right">Data/Hora</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {responses?.length === 0 ? (
-                        <TableRow><TableCell colSpan={3} className="h-32 text-center text-muted-foreground">Nenhuma resposta recebida.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={3} className="h-32 text-center text-muted-foreground italic">Nenhuma resposta captada pelo Webhook ainda.</TableCell></TableRow>
                     ) : (
                         responses?.map((res: any) => (
-                            <TableRow key={res.id}>
-                                <TableCell className="font-bold">{res.userName || res.from}</TableCell>
+                            <TableRow key={res.id} className="hover:bg-muted/30">
                                 <TableCell>
-                                    <Badge variant="secondary" className="bg-emerald-100 text-emerald-800">
+                                    <div className="font-bold text-slate-900">{res.userName || res.from}</div>
+                                    <div className="text-[10px] text-muted-foreground font-mono">+{res.from || '---'}</div>
+                                </TableCell>
+                                <TableCell>
+                                    <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-200 font-black text-[10px] py-1">
                                         {res.buttonText || res.buttonId}
                                     </Badge>
                                 </TableCell>
-                                <TableCell className="text-xs text-muted-foreground">
+                                <TableCell className="text-right text-xs text-muted-foreground font-medium">
                                     {res.receivedAt ? format(res.receivedAt.toDate(), 'dd/MM/yy HH:mm') : '-'}
                                 </TableCell>
                             </TableRow>
@@ -645,24 +701,44 @@ function NotificationsConfig() {
     
     const [waKey, setWaKey] = useState('');
     const [isSaving, setIsSaving] = useState(false);
-    const [isGeneratingQR, setIsGeneratingQR] = useState(false);
     const [instanceStatus, setInstanceStatus] = useState<any>(null);
+    const [isRefreshing, setIsRefreshing] = useState(false);
 
     useEffect(() => {
         if (config) setWaKey(config.whatsappApiKey || '');
     }, [config]);
 
     const checkStatus = async () => {
+        setIsRefreshing(true);
         try {
             const res = await fetch('/api/notifications/instance');
             const data = await res.json();
             setInstanceStatus(data);
         } catch (e) {}
+        finally { setIsRefreshing(false); }
     };
 
     useEffect(() => {
         if (waKey) checkStatus();
     }, [waKey]);
+
+    const handleAction = async (endpoint: string, method: string = 'POST', title: string) => {
+        setIsRefreshing(true);
+        try {
+            const res = await fetch(`/api/notifications/instance${endpoint}`, { method });
+            if (res.ok) {
+                toast({ title: "Sucesso!", description: `${title} concluído.` });
+                setTimeout(checkStatus, 3000);
+            } else {
+                const data = await res.json();
+                toast({ variant: 'destructive', title: "Erro na operação", description: data.error });
+            }
+        } catch (e) {
+            toast({ variant: 'destructive', title: "Falha na conexão" });
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
 
     const handleSaveKey = async () => {
         if (!firestore) return;
@@ -670,7 +746,7 @@ function NotificationsConfig() {
         const configRef = doc(firestore, 'config', 'notifications');
         try {
             await setDocumentNonBlocking(configRef, { whatsappApiKey: waKey, updatedAt: Timestamp.now() }, { merge: true });
-            toast({ title: "Chave Salva!" });
+            toast({ title: "Chave Salva!", description: "A integração será reiniciada com as novas credenciais." });
             checkStatus();
         } catch (e) {
             toast({ variant: 'destructive', title: "Erro ao salvar" });
@@ -681,23 +757,100 @@ function NotificationsConfig() {
 
     if (isLoadingConfig) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
+    const isConnected = instanceStatus?.status === 'connected';
+
     return (
         <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <Card>
-                    <CardHeader><CardTitle>API Key</CardTitle></CardHeader>
-                    <CardContent className="space-y-4">
-                        <Input type="password" value={waKey} onChange={e => setWaKey(e.target.value)} placeholder="Chave do api-wa.me" />
-                        <Button onClick={handleSaveKey} disabled={isSaving} className="w-full">Salvar Chave</Button>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <Card className="lg:col-span-2 shadow-lg border-2">
+                    <CardHeader className="bg-muted/30 border-b">
+                        <CardTitle className="text-sm font-black uppercase flex items-center gap-2">
+                            <Key className="size-4 text-primary" /> Credenciais do Gateway
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6 pt-6">
+                        <div className="space-y-2">
+                            <Label className="text-xs font-bold uppercase text-muted-foreground">API Key (api-wa.me)</Label>
+                            <div className="flex gap-2">
+                                <Input type="password" value={waKey} onChange={e => setWaKey(e.target.value)} placeholder="Cole sua chave aqui..." className="font-mono text-xs h-11" />
+                                <Button onClick={handleSaveKey} disabled={isSaving} className="h-11 px-6 font-bold shadow-lg">
+                                    {isSaving ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <ShieldAlert size={18} className="mr-2" />}
+                                    Salvar Chave
+                                </Button>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground italic mt-1">Essa chave é fornecida no painel do administrador do api-wa.me após contratar o Plano Pro.</p>
+                        </div>
+
+                        <div className="pt-6 border-t space-y-4">
+                            <Label className="text-xs font-bold uppercase text-muted-foreground flex items-center gap-2">
+                                <Settings className="size-3" /> Gestão da Instância
+                            </Label>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                <Button variant="outline" className="h-16 flex flex-col gap-1 items-center justify-center border-amber-200 hover:bg-amber-50" onClick={() => handleAction('/restart', 'POST', 'Reinício')} disabled={isRefreshing}>
+                                    <RefreshCw size={18} className={cn("text-amber-600", isRefreshing && "animate-spin")} />
+                                    <span className="text-[10px] font-black uppercase">Reiniciar</span>
+                                </Button>
+                                <Button variant="outline" className="h-16 flex flex-col gap-1 items-center justify-center border-blue-200 hover:bg-blue-50" onClick={() => handleAction('', 'PATCH', 'Ativação de Recursos')} disabled={isRefreshing}>
+                                    <Sparkles size={18} className="text-blue-600" />
+                                    <span className="text-[10px] font-black uppercase">Ativar Pro</span>
+                                </Button>
+                                <Button variant="outline" className="h-16 flex flex-col gap-1 items-center justify-center border-indigo-200 hover:bg-indigo-50" onClick={() => handleAction('', 'POST', 'Geração de QR')} disabled={isRefreshing}>
+                                    <QrCode size={18} className="text-indigo-600" />
+                                    <span className="text-[10px] font-black uppercase">Novo QR</span>
+                                </Button>
+                                <Button variant="outline" className="h-16 flex flex-col gap-1 items-center justify-center border-red-200 hover:bg-red-50 text-destructive" onClick={() => handleAction('', 'DELETE', 'Logout')} disabled={isRefreshing}>
+                                    <LogOut size={18} />
+                                    <span className="text-[10px] font-black uppercase">Desconectar</span>
+                                </Button>
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
 
-                <Card>
-                    <CardHeader><CardTitle>Status</CardTitle></CardHeader>
-                    <CardContent className="text-center">
-                        <div className={cn("size-4 rounded-full mx-auto mb-2", instanceStatus?.status === 'connected' ? "bg-emerald-500" : "bg-amber-500")} />
-                        <span className="font-bold text-xs uppercase">{instanceStatus?.status || 'Aguardando'}</span>
+                <Card className={cn("shadow-lg border-2 transition-all", isConnected ? "border-emerald-200 bg-emerald-50/10" : "border-amber-200 bg-amber-50/10")}>
+                    <CardHeader className="border-b bg-white/50">
+                        <CardTitle className="text-sm font-black uppercase flex items-center gap-2">
+                            <Smartphone className="size-4" /> Status do Dispositivo
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-8 flex flex-col items-center justify-center text-center">
+                        {isRefreshing ? (
+                            <Loader2 className="animate-spin size-12 text-primary opacity-20" />
+                        ) : isConnected ? (
+                            <div className="space-y-4 animate-in fade-in zoom-in-95">
+                                <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner ring-4 ring-emerald-50">
+                                    <CheckCircle size={40} />
+                                </div>
+                                <div>
+                                    <h4 className="font-black text-emerald-900 uppercase tracking-tight">Sistema Online</h4>
+                                    <p className="text-[10px] text-emerald-700 font-bold uppercase mt-1">Sincronização Ativa</p>
+                                </div>
+                                <Badge className="bg-emerald-600 text-white border-none font-black text-[10px] px-4">DISPONÍVEL</Badge>
+                            </div>
+                        ) : instanceStatus?.qr ? (
+                            <div className="space-y-4 animate-in fade-in zoom-in-95">
+                                <div className="p-4 bg-white border-2 border-dashed rounded-2xl shadow-xl">
+                                    <img src={instanceStatus.qr} alt="WhatsApp QR Code" className="size-48" />
+                                </div>
+                                <div>
+                                    <h4 className="font-black text-amber-900 uppercase">Aguardando Pareamento</h4>
+                                    <p className="text-[10px] text-amber-700 font-bold uppercase mt-1">Escaneie pelo WhatsApp</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-4 opacity-50">
+                                <Smartphone size={64} className="text-muted-foreground" />
+                                <p className="text-xs font-bold text-muted-foreground uppercase">Verificando dispositivo...</p>
+                                <Button size="sm" variant="ghost" onClick={checkStatus}><RefreshCw size={14} className="mr-2"/> Atualizar agora</Button>
+                            </div>
+                        )}
                     </CardContent>
+                    <CardFooter className="bg-white/50 border-t p-4 mt-auto">
+                        <div className="w-full flex justify-between items-center text-[10px] font-black text-muted-foreground uppercase">
+                            <span>Última Checagem:</span>
+                            <span>{new Date().toLocaleTimeString()}</span>
+                        </div>
+                    </CardFooter>
                 </Card>
             </div>
         </div>
@@ -707,29 +860,46 @@ function NotificationsConfig() {
 export default function NotificationsPage() {
   return (
     <div className="space-y-6">
-        <Card className="border-primary/20 bg-primary/5">
-            <CardHeader>
-                <CardTitle className="text-2xl font-black flex items-center gap-3">
-                    <Send className="text-primary" /> Central de Notificações
-                </CardTitle>
-                <CardDescription>Comunicação estratégica para a igreja.</CardDescription>
+        <Card className="border-primary/20 bg-primary/5 shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle className="text-2xl font-black flex items-center gap-3 text-primary">
+                        <Send className="size-7" /> Central de Notificações
+                    </CardTitle>
+                    <CardDescription className="text-primary/70 font-medium">Motor de comunicação estratégica e cuidado IBM.</CardDescription>
+                </div>
+                <div className="flex gap-2">
+                    <Badge variant="outline" className="bg-white font-black text-[10px] border-primary/20 text-primary">PLAN PRO ACTIVE</Badge>
+                </div>
             </CardHeader>
         </Card>
 
         <Tabs defaultValue="sender" className="w-full">
-            <TabsList className="grid w-full grid-cols-5 max-w-3xl bg-muted/50 p-1 rounded-xl">
-                <TabsTrigger value="sender" className="font-bold">Disparador</TabsTrigger>
-                <TabsTrigger value="chats" className="font-bold">Conversas</TabsTrigger>
-                <TabsTrigger value="responses" className="font-bold">Respostas</TabsTrigger>
-                <TabsTrigger value="history" className="font-bold">Histórico</TabsTrigger>
-                <TabsTrigger value="config" className="font-bold">Configuração</TabsTrigger>
-            </TabsList>
+            <div className="overflow-x-auto pb-2">
+                <TabsList className="flex h-auto justify-start bg-muted/50 p-1 rounded-xl w-fit min-w-max">
+                    <TabsTrigger value="sender" className="rounded-lg font-bold py-2 px-6 data-[state=active]:shadow-md">
+                        <Send className="size-4 mr-2" /> Disparador
+                    </TabsTrigger>
+                    <TabsTrigger value="chats" className="rounded-lg font-bold py-2 px-6 data-[state=active]:shadow-md">
+                        <MessageCircle className="size-4 mr-2" /> Conversas
+                    </TabsTrigger>
+                    <TabsTrigger value="responses" className="rounded-lg font-bold py-2 px-6 data-[state=active]:shadow-md">
+                        <MousePointer2 className="size-4 mr-2" /> Respostas
+                    </TabsTrigger>
+                    <TabsTrigger value="history" className="rounded-lg font-bold py-2 px-6 data-[state=active]:shadow-md">
+                        <History className="size-4 mr-2" /> Histórico
+                    </TabsTrigger>
+                    <TabsTrigger value="config" className="rounded-lg font-bold py-2 px-6 data-[state=active]:shadow-md">
+                        <Settings className="size-4 mr-2" /> Configuração
+                    </TabsTrigger>
+                </TabsList>
+            </div>
             
-            <TabsContent value="sender" className="mt-6"><WhatsappSender /></TabsContent>
-            <TabsContent value="chats" className="mt-6"><WhatsappChats /></TabsContent>
-            <TabsContent value="responses" className="mt-6"><WhatsappResponses /></TabsContent>
-            <TabsContent value="history" className="mt-6"><NotificationsHistory /></TabsContent>
-            <TabsContent value="config" className="mt-6"><NotificationsConfig /></TabsContent>
+            <TabsContent value="sender" className="mt-6 animate-in fade-in-50 duration-300"><WhatsappSender /></TabsContent>
+            <TabsContent value="chats" className="mt-6 animate-in fade-in-50 duration-300"><WhatsappChats /></TabsContent>
+            <TabsContent value="responses" className="mt-6 animate-in fade-in-50 duration-300"><WhatsappResponses /></TabsContent>
+            <TabsContent value="history" className="mt-6 animate-in fade-in-50 duration-300"><NotificationsHistory /></TabsContent>
+            <TabsContent value="config" className="mt-6 animate-in fade-in-50 duration-300"><NotificationsConfig /></TabsContent>
         </Tabs>
     </div>
   );
@@ -738,7 +908,7 @@ export default function NotificationsPage() {
 function NotificationsHistory() {
     const { firestore } = useFirebase();
     const historyQuery = useMemoFirebase(() => 
-        firestore ? query(collection(firestore, 'notifications_history'), orderBy('sentAt', 'desc')) : null,
+        firestore ? query(collection(firestore, 'notifications_history'), orderBy('sentAt', 'desc'), limit(50)) : null,
     [firestore]);
     
     const { data: history, isLoading } = useCollection<any>(historyQuery);
@@ -746,26 +916,45 @@ function NotificationsHistory() {
     if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
-        <div className="rounded-lg border bg-card overflow-hidden">
+        <div className="rounded-xl border bg-card overflow-hidden shadow-sm">
             <Table>
                 <TableHeader className="bg-muted/50">
                     <TableRow>
-                        <TableHead>Data</TableHead>
-                        <TableHead>Mensagem</TableHead>
-                        <TableHead>Impacto</TableHead>
-                        <TableHead>Status</TableHead>
+                        <TableHead>Data de Envio</TableHead>
+                        <TableHead>Mensagem / Conteúdo</TableHead>
+                        <TableHead>Público</TableHead>
+                        <TableHead className="text-right">Status</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {history?.length === 0 ? (
-                        <TableRow><TableCell colSpan={4} className="h-32 text-center text-muted-foreground">Nenhum histórico.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={4} className="h-32 text-center text-muted-foreground italic">Nenhum histórico de disparos em massa encontrado.</TableCell></TableRow>
                     ) : (
                         history?.map((item: any) => (
-                            <TableRow key={item.id}>
-                                <TableCell className="text-xs">{item.sentAt ? format(item.sentAt.toDate(), 'dd/MM/yy HH:mm') : '-'}</TableCell>
-                                <TableCell className="text-xs max-w-xs truncate">{item.message}</TableCell>
-                                <TableCell>{item.recipientCount} pessoas</TableCell>
-                                <TableCell><Badge variant="outline">{item.status === 'success' ? 'Sucesso' : 'Erro'}</Badge></TableCell>
+                            <TableRow key={item.id} className="hover:bg-muted/30">
+                                <TableCell className="text-xs font-bold text-slate-900">
+                                    {item.sentAt ? format(item.sentAt.toDate(), 'dd/MM/yy HH:mm') : '-'}
+                                </TableCell>
+                                <TableCell className="max-w-md">
+                                    <div className="flex flex-col">
+                                        <span className="text-xs line-clamp-2">{item.message}</span>
+                                        <Badge variant="ghost" className="w-fit text-[8px] h-4 mt-1 bg-slate-100 text-slate-600 uppercase">{item.type || 'text'}</Badge>
+                                    </div>
+                                </TableCell>
+                                <TableCell>
+                                    <div className="flex items-center gap-2">
+                                        <Users className="size-3 text-muted-foreground" />
+                                        <span className="text-xs font-bold">{item.successCount || 0} de {item.recipientCount || 0}</span>
+                                    </div>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                    <Badge className={cn(
+                                        "text-[10px] font-black uppercase border-none",
+                                        item.status === 'success' ? "bg-emerald-100 text-emerald-800" : item.status === 'partial' ? "bg-amber-100 text-amber-800" : "bg-red-100 text-red-800"
+                                    )}>
+                                        {item.status === 'success' ? 'Sucesso' : item.status === 'partial' ? 'Parcial' : 'Falhou'}
+                                    </Badge>
+                                </TableCell>
                             </TableRow>
                         ))
                     )}

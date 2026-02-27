@@ -71,7 +71,6 @@ export async function POST(request: Request) {
     const targetUsers: any[] = [];
 
     if (targetNumber) {
-        // Tenta achar o nome se for um número avulso
         const phoneDigits = targetNumber.replace(/\D/g, '');
         const searchPhone = phoneDigits.length <= 11 ? phoneDigits : phoneDigits.slice(-11);
         
@@ -82,7 +81,6 @@ export async function POST(request: Request) {
         targetUsers.push({ id: 'custom', name: userName, phone: targetNumber });
     } else if (audience === 'specific_members' && userIds) {
         const usersRef = collection(firestore, 'users');
-        // Dividir em chunks de 30 para o 'in' do Firestore
         const chunks = [];
         for (let i = 0; i < userIds.length; i += 30) {
             chunks.push(userIds.slice(i, i + 30));
@@ -193,11 +191,9 @@ export async function POST(request: Request) {
             if (response.ok) {
                 sentCount++;
                 
-                // --- SYNC COM HISTÓRICO DE CONVERSA ---
                 const cleanPhone = formattedPhone.replace('@s.whatsapp.net', '');
                 const displayContent = type === 'survey' ? `[ENQUETE] ${surveyName}` : (personalizedBody || title || 'Mídia');
 
-                // 1. Salvar mensagem individual
                 await addDoc(collection(firestore, 'notifications_messages'), {
                     from: cleanPhone,
                     fromMe: true,
@@ -208,7 +204,6 @@ export async function POST(request: Request) {
                     receivedAt: Timestamp.now()
                 });
 
-                // 2. Atualizar chat
                 await setDoc(doc(firestore, 'notifications_chats', cleanPhone), {
                     lastMessage: displayContent,
                     lastMessageAt: Timestamp.now(),
