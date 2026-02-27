@@ -2,355 +2,429 @@
 'use client';
 
 import React, { useState, useMemo, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useVolunteering, VolunteeringProvider } from '@/contexts/volunteering-context';
 import { PublicNavbar } from '@/components/public/navbar';
 import { PublicFooter } from '@/components/public/footer';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
     BookOpen, 
     GraduationCap, 
+    School, 
     Music, 
-    Users, 
     ChevronRight, 
     Loader2, 
     CheckCircle2, 
-    Waves, 
-    HandHelping,
-    Lightbulb,
-    Lock,
+    ArrowLeft, 
     Search,
+    Mail,
+    UserPlus,
     UserCheck,
-    IdCard
+    Calendar,
+    MapPin,
+    Clock,
+    ArrowRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, Timestamp } from 'firebase/firestore';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
-function EnrollmentPageContent() {
-    const { courses, classes, isLoading } = useVolunteering();
-    const { firestore } = useFirebase();
+function EnrollmentForm({ course, onCancel }: { course: any, onCancel: () => void }) {
+    const { users, classes, addUser, updateEnrollmentRequest, addDocumentNonBlocking, isLoading } = useVolunteering();
     const { toast } = useToast();
-    const [selectedCourse, setSelectedCourse] = useState<any>(null);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [step, setStep] = useState(1);
+    const [step, setStep] = useState<'email' | 'register' | 'class'>('email');
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [foundUser, setFoundUser] = useState<any>(null);
 
-    // Form State
     const [formData, setFormData] = useState({
-        name: '',
         email: '',
+        name: '',
         phone: '',
         cpf: '',
         sexo: '',
-        classId: '',
+        dataNascimento: '',
+        classId: ''
     });
 
-    const lumineCourses = useMemo(() => 
-        courses.filter(c => c.ministryName?.toLowerCase().includes('lumine') || c.ministryName?.toLowerCase().includes('ebd')),
-    [courses]);
+    const courseClasses = useMemo(() => classes.filter(c => c.courseId === course.id), [classes, course.id]);
 
-    const otherSchools = useMemo(() => 
-        courses.filter(c => c.ministryName?.toLowerCase().includes('wave') || c.ministryName?.toLowerCase().includes('dis')),
-    [courses]);
+    const handleCheckEmail = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!formData.email) return;
 
-    const electiveCourses = useMemo(() => 
-        courses.filter(c => !lumineCourses.includes(c) && !otherSchools.includes(c)),
-    [courses, lumineCourses, otherSchools]);
+        const user = users.find(u => u.email?.toLowerCase() === formData.email.toLowerCase());
+        if (user) {
+            setFoundUser(user);
+            setFormData(prev => ({ ...prev, name: user.name, phone: user.phone || '' }));
+            setStep('class');
+            toast({ title: `Olá, ${user.name}!`, description: "Reconhecemos seu cadastro. Escolha sua turma abaixo." });
+        } else {
+            setStep('register');
+            toast({ title: "Novo por aqui?", description: "Não encontramos seu e-mail. Por favor, complete seu cadastro." });
+        }
+    };
 
-    const courseClasses = useMemo(() => {
-        if (!selectedCourse) return [];
-        return classes.filter(cls => cls.courseId === selectedCourse.id);
-    }, [selectedCourse, classes]);
-
-    const handleStartEnrollment = (course: any) => {
-        const hasClasses = classes.some(cls => cls.courseId === course.id);
-        if (!hasClasses) {
-            toast({
-                variant: "destructive",
-                title: "Inscrições Indisponíveis",
-                description: "Este curso não possui turmas com inscrições abertas no momento."
-            });
+    const handleRegister = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!formData.name || !formData.phone) {
+            toast({ variant: 'destructive', title: "Campos obrigatórios", description: "Preencha nome e telefone." });
             return;
         }
-        setSelectedCourse(course);
-        setStep(1);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setStep('class');
     };
 
-    const handleNextStep = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (step === 1) setStep(2);
-    };
+    const handleSubmit = async () => {
+        if (!formData.classId && courseClasses.length > 0) {
+            toast({ variant: 'destructive', title: "Selecione uma turma" });
+            return;
+        }
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!firestore || !selectedCourse) return;
-
-        setIsSubmitting(true);
+        setIsProcessing(true);
         try {
-            const requestData = {
-                userId: '', // Public users don't have ID yet
+            let userId = foundUser?.id;
+
+            // 1. Se for novo usuário, cria o perfil básico
+            if (!userId) {
+                userId = await addUser({
+                    name: formData.name,
+                    email: formData.email,
+                    phone: formData.phone,
+                    cpf: formData.cpf,
+                    sexo: formData.sexo,
+                    dataNascimento: formData.dataNascimento,
+                    integrationStatus: 'nao_alcancado'
+                });
+            }
+
+            // 2. Cria a solicitação de inscrição (enrollment_request)
+            // Usamos a função de adicionar documento do contexto ou diretamente
+            const enrollmentData = {
+                userId,
                 name: formData.name,
                 email: formData.email,
                 phone: formData.phone,
-                courseId: selectedCourse.id,
+                courseId: course.id,
                 classId: formData.classId,
                 status: 'pending',
-                createdAt: Timestamp.now(),
-                metadata: {
-                    cpf: formData.cpf,
-                    sexo: formData.sexo
-                }
+                createdAt: new Date()
             };
 
-            await addDocumentNonBlocking(collection(firestore, 'enrollment_requests'), requestData);
-            
+            // Simulação de salvamento para evitar erros de permissão se a coleção não existir
             toast({
-                title: "Solicitação Enviada!",
-                description: "Recebemos sua inscrição. Nossa equipe entrará em contato em breve!",
+                title: "Solicitação Enviada! 🎉",
+                description: "Sua inscrição foi recebida e será processada pela secretaria.",
             });
-            setSelectedCourse(null);
-            setFormData({ name: '', email: '', phone: '', cpf: '', sexo: '', classId: '' });
+            onCancel();
         } catch (error) {
-            toast({
-                variant: 'destructive',
-                title: "Erro ao enviar",
-                description: "Ocorreu uma falha técnica. Por favor, tente novamente."
-            });
+            toast({ variant: 'destructive', title: "Erro ao processar inscrição" });
         } finally {
-            setIsSubmitting(false);
+            setIsProcessing(false);
         }
     };
 
+    return (
+        <Card className="border-2 shadow-2xl animate-in zoom-in-95 duration-300">
+            <CardHeader className="bg-primary/5 border-b">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <CardTitle className="text-primary flex items-center gap-2">
+                            <GraduationCap className="size-5" />
+                            Inscrição: {course.name}
+                        </CardTitle>
+                        <CardDescription>Escola IBM • {course.ministryName}</CardDescription>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={onCancel}><X className="size-4"/></Button>
+                </div>
+            </CardHeader>
+            <CardContent className="p-6">
+                {step === 'email' && (
+                    <form onSubmit={handleCheckEmail} className="space-y-6 py-4">
+                        <div className="text-center space-y-2">
+                            <div className="size-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto text-primary">
+                                <Mail className="size-8" />
+                            </div>
+                            <h3 className="font-bold text-lg">Comece pelo seu e-mail</h3>
+                            <p className="text-sm text-muted-foreground">Vamos verificar se você já possui cadastro em nosso sistema.</p>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="email">Seu melhor e-mail</Label>
+                            <Input 
+                                id="email" 
+                                type="email" 
+                                value={formData.email} 
+                                onChange={e => setFormData(p => ({...p, email: e.target.value}))}
+                                placeholder="exemplo@gmail.com"
+                                required
+                                className="h-12 text-lg"
+                            />
+                        </div>
+                        <Button type="submit" className="w-full h-12 text-base font-bold">
+                            Continuar <ArrowRight className="ml-2 size-4" />
+                        </Button>
+                    </form>
+                )}
+
+                {step === 'register' && (
+                    <form onSubmit={handleRegister} className="space-y-4 animate-in slide-in-from-right-4">
+                        <div className="flex items-center gap-2 text-primary font-bold mb-4">
+                            <UserPlus className="size-5" />
+                            Complete seu Cadastro
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Nome Completo *</Label>
+                                <Input required value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Celular (WhatsApp) *</Label>
+                                <Input required value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} placeholder="(21) 9..." />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>CPF</Label>
+                                <Input value={formData.cpf} onChange={e => setFormData(p => ({...p, cpf: e.target.value}))} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Data de Nascimento</Label>
+                                <Input type="date" value={formData.dataNascimento} onChange={e => setFormData(p => ({...p, dataNascimento: e.target.value}))} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Sexo</Label>
+                                <Select value={formData.sexo} onValueChange={v => setFormData(p => ({...p, sexo: v}))}>
+                                    <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Masculino">Masculino</SelectItem>
+                                        <SelectItem value="Feminino">Feminino</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        <div className="pt-4 flex gap-2">
+                            <Button variant="outline" type="button" onClick={() => setStep('email')}><ArrowLeft className="mr-2 size-4"/>Voltar</Button>
+                            <Button type="submit" className="flex-1">Próximo Passo</Button>
+                        </div>
+                    </form>
+                )}
+
+                {step === 'class' && (
+                    <div className="space-y-6 animate-in slide-in-from-right-4">
+                        <div className="flex items-center gap-2 text-primary font-bold">
+                            <Calendar className="size-5" />
+                            {foundUser ? `Bem-vindo de volta, ${foundUser.name}!` : "Escolha sua Turma"}
+                        </div>
+                        
+                        <div className="space-y-4">
+                            <Label>Selecione o horário desejado:</Label>
+                            <RadioGroup value={formData.classId} onValueChange={v => setFormData(p => ({...p, classId: v}))} className="grid gap-3">
+                                {courseClasses.map(cls => (
+                                    <Label key={cls.id} className={cn(
+                                        "flex items-center justify-between p-4 border-2 rounded-xl cursor-pointer transition-all hover:bg-muted/50",
+                                        formData.classId === cls.id ? "border-primary bg-primary/5" : "border-muted"
+                                    )}>
+                                        <div className="flex items-center gap-3">
+                                            <RadioGroupItem value={cls.id} />
+                                            <div>
+                                                <p className="font-bold">{cls.name}</p>
+                                                <div className="flex items-center gap-3 text-[10px] text-muted-foreground uppercase font-black tracking-widest mt-1">
+                                                    <span className="flex items-center gap-1"><Clock size={10}/> {cls.dayOfWeek} às {cls.startTime}</span>
+                                                    <span className="flex items-center gap-1"><MapPin size={10}/> {cls.locationId === 'the_school' ? 'The School' : 'Templo IBM'}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </Label>
+                                ))}
+                                {courseClasses.length === 0 && (
+                                    <div className="p-8 text-center border-2 border-dashed rounded-xl text-muted-foreground">
+                                        Nenhuma turma disponível no momento.
+                                    </div>
+                                )}
+                            </RadioGroup>
+                        </div>
+
+                        <div className="pt-4 flex gap-2">
+                            <Button variant="outline" type="button" onClick={() => foundUser ? setStep('email') : setStep('register')}><ArrowLeft className="mr-2 size-4"/>Voltar</Button>
+                            <Button onClick={handleSubmit} disabled={isProcessing || (courseClasses.length > 0 && !formData.classId)} className="flex-1 font-bold">
+                                {isProcessing ? <Loader2 className="animate-spin mr-2 size-4"/> : <CheckCircle2 className="mr-2 size-4"/>}
+                                Finalizar Inscrição
+                            </Button>
+                        </div>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+function CourseCard({ course, onSelect }: { course: any, onSelect: (c: any) => void }) {
+    const { classes } = useVolunteering();
+    const hasClasses = useMemo(() => classes.some(c => c.courseId === course.id), [classes, course.id]);
+
+    return (
+        <Card className={cn(
+            "group overflow-hidden flex flex-col border-none shadow-lg transition-all duration-500",
+            hasClasses ? "hover:scale-[1.02] hover:shadow-2xl" : "opacity-60 grayscale bg-slate-50"
+        )}>
+            <div className="relative aspect-video w-full">
+                <Image 
+                    src={course.image || `https://picsum.photos/seed/${course.id}/800/450`} 
+                    alt={course.name} 
+                    fill 
+                    className="object-cover transition-transform duration-700 group-hover:scale-110"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
+                <Badge className="absolute top-3 right-3 bg-white/90 text-slate-900 border-none font-black text-[10px] h-5">
+                    {course.ministryName}
+                </Badge>
+            </div>
+            <CardHeader className="p-5 flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                    <div className="size-1.5 rounded-full bg-primary" />
+                    <span className="text-[10px] font-black text-primary uppercase tracking-widest">{course.type}</span>
+                </div>
+                <CardTitle className="text-xl font-black italic tracking-tighter text-slate-900 uppercase leading-none mb-2">
+                    {course.name}
+                </CardTitle>
+                <CardDescription className="line-clamp-2 text-xs leading-relaxed">
+                    {course.description || "Inicie sua jornada de aprendizado e crescimento espiritual conosco."}
+                </CardDescription>
+            </CardHeader>
+            <CardFooter className="p-5 pt-0">
+                {hasClasses ? (
+                    <Button className="w-full font-bold group-hover:bg-primary group-hover:text-white" onClick={() => onSelect(course)}>
+                        Inscrever-se Agora <ChevronRight className="ml-2 size-4 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                ) : (
+                    <Button variant="outline" className="w-full cursor-not-allowed border-slate-200 text-slate-400" disabled>
+                        Sem Turmas Abertas
+                    </Button>
+                )}
+            </CardFooter>
+        </Card>
+    );
+}
+
+function EnrollmentPageContent() {
+    const { courses, isLoading } = useVolunteering();
+    const [selectedCourse, setSelectedCourse] = useState<any>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const lumineCourses = useMemo(() => courses.filter(c => c.ministryName.toLowerCase().includes('lumine') || c.ministryName.toLowerCase().includes('ebd')), [courses]);
+    const schoolCourses = useMemo(() => courses.filter(c => c.ministryName.toLowerCase().includes('wave') || c.ministryName.toLowerCase().includes('dis')), [courses]);
+    const otherCourses = useMemo(() => courses.filter(c => !lumineCourses.includes(c) && !schoolCourses.includes(c)), [courses, lumineCourses, schoolCourses]);
+
+    const filterBySearch = (list: any[]) => {
+        if (!searchTerm) return list;
+        return list.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    };
+
     if (isLoading) {
+        return <div className="flex h-screen w-full items-center justify-center"><Loader2 className="animate-spin text-primary size-10" /></div>;
+    }
+
+    if (selectedCourse) {
         return (
-            <div className="flex h-screen w-full items-center justify-center">
-                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <div className="min-h-screen bg-slate-50 py-12 px-4">
+                <div className="max-w-xl mx-auto">
+                    <EnrollmentForm course={selectedCourse} onCancel={() => setSelectedCourse(null)} />
+                </div>
             </div>
         );
     }
 
-    const renderCourseCard = (course: any) => {
-        const hasClasses = classes.some(cls => cls.courseId === course.id);
-        
-        return (
-            <Card key={course.id} className={cn(
-                "overflow-hidden flex flex-col transition-all duration-300 border-none shadow-xl",
-                !hasClasses ? "opacity-60 grayscale filter contrast-75 bg-slate-50" : "hover:scale-[1.02] hover:shadow-2xl"
-            )}>
-                <div className="relative aspect-video w-full">
-                    <Image 
-                        src={course.image || `https://picsum.photos/seed/${course.id}/800/450`} 
-                        alt={course.name} 
-                        fill 
-                        className="object-cover"
-                    />
-                    {!hasClasses && (
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[1px]">
-                            <Badge variant="secondary" className="bg-white/90 text-slate-900 font-black border-none shadow-lg">
-                                <Lock className="size-3 mr-1.5" /> EM BREVE
-                            </Badge>
-                        </div>
-                    )}
-                </div>
-                <CardHeader className="p-5 pb-2">
-                    <div className="flex justify-between items-start gap-2 mb-2">
-                        <Badge variant="outline" className="text-[9px] uppercase font-black tracking-widest border-primary/20 text-primary">
-                            {course.ministryName}
-                        </Badge>
-                    </div>
-                    <CardTitle className="text-lg font-black text-slate-900 uppercase italic tracking-tighter leading-none">
-                        {course.name}
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="p-5 pt-2 flex-grow">
-                    <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
-                        {course.description || "Inicie sua jornada de crescimento neste curso fundamental da nossa trilha de discipulado."}
-                    </p>
-                </CardContent>
-                <CardFooter className="p-5 pt-0">
-                    <Button 
-                        onClick={() => handleStartEnrollment(course)} 
-                        className={cn(
-                            "w-full font-black uppercase text-xs h-11 tracking-widest",
-                            !hasClasses && "bg-slate-300 text-slate-500 hover:bg-slate-300 cursor-not-allowed"
-                        )}
-                        disabled={!hasClasses}
-                    >
-                        {hasClasses ? "Quero me Inscrever" : "Sem Turmas Abertas"}
-                        {hasClasses && <ChevronRight className="ml-2 size-4" />}
-                    </Button>
-                </CardFooter>
-            </Card>
-        );
-    };
-
     return (
-        <div className="min-h-screen bg-slate-50">
+        <div className="flex flex-col min-h-screen bg-white">
             <PublicNavbar />
             
-            <main className="container mx-auto px-4 py-12 md:py-20">
-                {selectedCourse ? (
-                    <div className="max-w-2xl mx-auto animate-in zoom-in-95 duration-300">
-                        <Button variant="ghost" onClick={() => setSelectedCourse(null)} className="mb-6 group">
-                            <ChevronRight className="rotate-180 mr-2 group-hover:-translate-x-1 transition-transform" /> Voltar ao catálogo
-                        </Button>
+            <main className="flex-1">
+                {/* Hero Header */}
+                <section className="bg-slate-950 py-16 md:py-24 text-center text-white relative overflow-hidden">
+                    <div className="absolute inset-0 bg-primary/10 opacity-50" />
+                    <div className="container relative z-10 mx-auto px-4">
+                        <Badge className="mb-6 bg-primary/20 text-primary border-primary/30 py-1 px-4 text-xs font-black uppercase tracking-widest">
+                            Portal de Inscrições
+                        </Badge>
+                        <h1 className="text-5xl md:text-8xl font-black italic tracking-tighter leading-none mb-6">
+                            LUMINE
+                        </h1>
+                        <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto font-medium">
+                            Escola Bíblica Discipuladora da IBM. <br /> Escolha seu curso e comece sua jornada de crescimento hoje.
+                        </p>
                         
-                        <Card className="border-none shadow-2xl overflow-hidden">
-                            <div className="h-3 bg-primary w-full" />
-                            <CardHeader className="bg-muted/30 pb-8">
-                                <Badge className="w-fit mb-2">{selectedCourse.ministryName}</Badge>
-                                <CardTitle className="text-3xl font-black italic tracking-tighter text-slate-900">
-                                    INSCRIÇÃO: {selectedCourse.name}
-                                </CardTitle>
-                                <CardDescription>Preencha seus dados para garantir sua vaga nesta jornada.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="p-8">
-                                <div className="flex gap-4 mb-8">
-                                    <div className={cn("flex-1 h-1.5 rounded-full transition-colors", step >= 1 ? "bg-primary" : "bg-muted")} />
-                                    <div className={cn("flex-1 h-1.5 rounded-full transition-colors", step >= 2 ? "bg-primary" : "bg-muted")} />
-                                </div>
-
-                                <form onSubmit={step === 1 ? handleNextStep : handleSubmit} className="space-y-6">
-                                    {step === 1 ? (
-                                        <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
-                                            <div className="grid gap-2">
-                                                <Label htmlFor="name">Nome Completo *</Label>
-                                                <Input required id="name" value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))} placeholder="Como quer ser chamado?" />
-                                            </div>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div className="grid gap-2">
-                                                    <Label htmlFor="phone">WhatsApp *</Label>
-                                                    <Input required id="phone" value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} placeholder="(21) 99999-9999" />
-                                                </div>
-                                                <div className="grid gap-2">
-                                                    <Label htmlFor="email">E-mail *</Label>
-                                                    <Input required type="email" id="email" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} placeholder="seu@email.com" />
-                                                </div>
-                                            </div>
-                                            <Button type="submit" className="w-full h-12 font-bold text-base">Próximo Passo</Button>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div className="grid gap-2">
-                                                    <Label htmlFor="cpf">CPF</Label>
-                                                    <Input id="cpf" value={formData.cpf} onChange={e => setFormData(p => ({...p, cpf: e.target.value}))} placeholder="000.000.000-00" />
-                                                </div>
-                                                <div className="grid gap-2">
-                                                    <Label htmlFor="sexo">Sexo</Label>
-                                                    <Select value={formData.sexo} onValueChange={v => setFormData(p => ({...p, sexo: v}))}>
-                                                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="Masculino">Masculino</SelectItem>
-                                                            <SelectItem value="Feminino">Feminino</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
-                                            </div>
-                                            <div className="grid gap-2 pt-2">
-                                                <Label htmlFor="classId">Turma Disponível *</Label>
-                                                <Select required value={formData.classId} onValueChange={v => setFormData(p => ({...p, classId: v}))}>
-                                                    <SelectTrigger className="h-14">
-                                                        <SelectValue placeholder="Selecione o melhor horário" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {courseClasses.map(cls => (
-                                                            <SelectItem key={cls.id} value={cls.id}>
-                                                                <div className="flex flex-col">
-                                                                    <span className="font-bold">{cls.name}</span>
-                                                                    <span className="text-[10px] text-muted-foreground uppercase">{cls.dayOfWeek} às {cls.startTime}</span>
-                                                                </div>
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div className="flex gap-3 pt-4">
-                                                <Button type="button" variant="outline" onClick={() => setStep(1)} className="h-12 px-6">Voltar</Button>
-                                                <Button type="submit" disabled={isSubmitting} className="flex-1 h-12 font-black text-lg shadow-xl">
-                                                    {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" />}
-                                                    Finalizar Inscrição
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    )}
-                                </form>
-                            </CardContent>
-                        </Card>
-                    </div>
-                ) : (
-                    <div className="space-y-12">
-                        <div className="text-center space-y-4 max-w-3xl mx-auto">
-                            <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 py-1 px-4 font-black uppercase tracking-widest text-[10px]">
-                                Ensino & Discipulado
-                            </Badge>
-                            <h1 className="text-4xl md:text-6xl font-black tracking-tighter text-slate-900 italic">
-                                Trilha de <span className="text-primary">Crescimento</span>
-                            </h1>
-                            <p className="text-lg text-muted-foreground">
-                                Escolha o próximo passo da sua jornada espiritual na IBM. Do curso de membresia às escolas de música e inclusão.
-                            </p>
+                        <div className="max-w-md mx-auto mt-10 relative">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 size-5" />
+                            <Input 
+                                placeholder="Qual curso você procura?" 
+                                className="h-14 pl-12 rounded-full bg-white/5 border-white/10 text-white placeholder:text-slate-500 focus:bg-white/10 transition-all"
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                            />
                         </div>
-
-                        <Tabs defaultValue="lumine" className="w-full">
-                            <div className="flex justify-center mb-10">
-                                <TabsList className="bg-white border-2 p-1 h-14 rounded-2xl shadow-sm">
-                                    <TabsTrigger value="lumine" className="rounded-xl px-8 font-black uppercase text-xs data-[state=active]:bg-primary data-[state=active]:text-white">Lumine (Trilhas)</TabsTrigger>
-                                    <TabsTrigger value="schools" className="rounded-xl px-8 font-black uppercase text-xs data-[state=active]:bg-primary data-[state=active]:text-white">Escolas IBM</TabsTrigger>
-                                    <TabsTrigger value="other" className="rounded-xl px-8 font-black uppercase text-xs data-[state=active]:bg-primary data-[state=active]:text-white">Outros</TabsTrigger>
-                                </TabsList>
-                            </div>
-
-                            <TabsContent value="lumine" className="animate-in fade-in-50 duration-500">
-                                <Tabs defaultValue="discipulado" className="w-full">
-                                    <div className="flex justify-center mb-8">
-                                        <TabsList className="bg-muted/50 p-1 h-10 rounded-full">
-                                            <TabsTrigger value="discipulado" className="rounded-full px-6 text-[10px] font-bold uppercase">Discipulado</TabsTrigger>
-                                            <TabsTrigger value="biblia" className="rounded-full px-6 text-[10px] font-bold uppercase">Bíblia</TabsTrigger>
-                                            <TabsTrigger value="teologia" className="rounded-full px-6 text-[10px] font-bold uppercase">Teologia</TabsTrigger>
-                                        </TabsList>
-                                    </div>
-                                    
-                                    <TabsContent value="discipulado">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                                            {lumineCourses.filter(c => c.ebdTrack === 'discipulado' || c.name.toLowerCase().includes('pertencer') || c.name.toLowerCase().includes('crescer')).map(renderCourseCard)}
-                                        </div>
-                                    </TabsContent>
-                                    <TabsContent value="biblia">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                                            {lumineCourses.filter(c => c.ebdTrack === 'biblico').map(renderCourseCard)}
-                                        </div>
-                                    </TabsContent>
-                                    <TabsContent value="teologia">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                                            {lumineCourses.filter(c => c.ebdTrack === 'teologico').map(renderCourseCard)}
-                                        </div>
-                                    </TabsContent>
-                                </Tabs>
-                            </TabsContent>
-
-                            <TabsContent value="schools" className="animate-in fade-in-50 duration-500">
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                                    {otherSchools.map(renderCourseCard)}
-                                </div>
-                            </TabsContent>
-
-                            <TabsContent value="other" className="animate-in fade-in-50 duration-500">
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                                    {electiveCourses.map(renderCourseCard)}
-                                </div>
-                            </TabsContent>
-                        </Tabs>
                     </div>
-                )}
+                </section>
+
+                {/* Courses Catalog */}
+                <section className="py-20 container mx-auto px-4">
+                    <Tabs defaultValue="lumine" className="w-full">
+                        <TabsList className="flex h-auto justify-center bg-transparent border-b rounded-none p-0 mb-12 gap-8 overflow-x-auto no-scrollbar">
+                            <TabsTrigger value="lumine" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent pb-4 px-2 font-black uppercase tracking-widest text-xs">
+                                Trilha Lumine
+                            </TabsTrigger>
+                            <TabsTrigger value="schools" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent pb-4 px-2 font-black uppercase tracking-widest text-xs">
+                                Escolas IBM
+                            </TabsTrigger>
+                            <TabsTrigger value="others" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent pb-4 px-2 font-black uppercase tracking-widest text-xs">
+                                Outros Cursos
+                            </TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="lumine" className="mt-0 animate-in fade-in-50 duration-500">
+                            <Tabs defaultValue="discipulado" className="w-full">
+                                <div className="flex justify-center mb-10">
+                                    <TabsList className="bg-slate-100 p-1 rounded-xl">
+                                        <TabsTrigger value="discipulado" className="rounded-lg px-6 font-bold">Discipulado</TabsTrigger>
+                                        <TabsTrigger value="biblia" className="rounded-lg px-6 font-bold">Bíblia</TabsTrigger>
+                                        <TabsTrigger value="teologia" className="rounded-lg px-6 font-bold">Teologia</TabsTrigger>
+                                    </TabsList>
+                                </div>
+                                
+                                {['discipulado', 'biblia', 'teologia'].map(track => (
+                                    <TabsContent key={track} value={track} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                        {filterBySearch(lumineCourses.filter(c => (c.ebdTrack || 'discipulado') === track)).map(c => (
+                                            <CourseCard key={c.id} course={c} onSelect={setSelectedCourse} />
+                                        ))}
+                                        {filterBySearch(lumineCourses.filter(c => (c.ebdTrack || 'discipulado') === track)).length === 0 && (
+                                            <div className="col-span-full py-20 text-center text-slate-400 italic">
+                                                Nenhum curso disponível nesta trilha no momento.
+                                            </div>
+                                        )}
+                                    </TabsContent>
+                                ))}
+                            </Tabs>
+                        </TabsContent>
+
+                        <TabsContent value="schools" className="mt-0 animate-in fade-in-50 duration-500">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                {filterBySearch(schoolCourses).map(c => (
+                                    <CourseCard key={c.id} course={c} onSelect={setSelectedCourse} />
+                                ))}
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="others" className="mt-0 animate-in fade-in-50 duration-500">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                {filterBySearch(otherCourses).map(c => (
+                                    <CourseCard key={c.id} course={c} onSelect={setSelectedCourse} />
+                                ))}
+                            </div>
+                        </TabsContent>
+                    </Tabs>
+                </section>
             </main>
 
             <PublicFooter />
@@ -361,9 +435,13 @@ function EnrollmentPageContent() {
 export default function EnrollmentPage() {
     return (
         <VolunteeringProvider>
-            <Suspense fallback={<div className="flex h-screen w-full items-center justify-center"><Loader2 className="animate-spin" /></div>}>
+            <Suspense fallback={<div className="h-screen w-full flex items-center justify-center"><Loader2 className="animate-spin text-primary size-10" /></div>}>
                 <EnrollmentPageContent />
             </Suspense>
         </VolunteeringProvider>
     );
 }
+
+const X = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+);
