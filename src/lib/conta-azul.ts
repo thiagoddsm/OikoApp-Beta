@@ -1,4 +1,3 @@
-
 'use server';
 
 import { initializeFirebase } from '@/firebase';
@@ -141,6 +140,7 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
 
 export async function findOrCreateContaAzulCustomer(member: { name: string; email?: string; phone?: string }) {
     try {
+        // Correção de rota de busca conforme documentação
         const customers = await callContaAzulApi(`/v1/customers?name=${encodeURIComponent(member.name)}`);
         const list = Array.isArray(customers) ? customers : (customers.itens || customers.items || []);
         

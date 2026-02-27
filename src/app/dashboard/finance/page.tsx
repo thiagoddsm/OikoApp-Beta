@@ -67,7 +67,7 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
                 throw new Error(data.error || "Erro desconhecido");
             }
         } catch (e: any) {
-            addLog(`FALHA: ${e.message}`);
+            addLog(`FALHA NA LEITURA: ${e.message}`);
             toast({ variant: 'destructive', title: "Falha na Leitura", description: e.message });
         } finally {
             setIsTestingRead(false);
@@ -154,17 +154,26 @@ function ContaAzulConnect() {
     setTimeout(() => { setIsSaving(false); toast({ title: 'Configurações Salvas!' }); }, 1000);
   };
   
-  const handleDisconnect = () => {
-    if (!configDocRef) return;
+  const handleDisconnect = async () => {
+    if (!configDocRef) {
+        console.warn("Config doc ref not found");
+        return;
+    }
+    
     if (window.confirm("Deseja encerrar a conexão e limpar todos os tokens?")) {
-        updateDocumentNonBlocking(configDocRef, { 
-            accessToken: '', 
-            refreshToken: '', 
-            expiresAt: 0, 
-            lastError: 'Desconectado pelo usuário.',
-            updatedAt: new Date().toISOString()
-        });
-        toast({ title: 'Conexão Encerrada' });
+        try {
+            await updateDocumentNonBlocking(configDocRef, { 
+                accessToken: '', 
+                refreshToken: '', 
+                expiresAt: 0, 
+                lastError: 'Desconectado pelo usuário.',
+                updatedAt: new Date().toISOString()
+            });
+            toast({ title: 'Conexão Encerrada' });
+        } catch (e) {
+            console.error("Erro ao desconectar:", e);
+            toast({ variant: 'destructive', title: 'Erro ao desconectar', description: 'Tente novamente.' });
+        }
     }
   };
 
@@ -231,7 +240,7 @@ function ContaAzulConnect() {
                         <div className="size-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto"><CheckCircle2 size={32} /></div>
                         <h4 className="font-black text-emerald-900">Integração Conectada</h4>
                         <Button variant="outline" className="text-destructive border-destructive/20 hover:bg-red-50" onClick={handleDisconnect}>
-                            <LogOut className="size-4 mr-2" /> Não está pegando esse botão
+                            <LogOut className="size-4 mr-2" /> Você mudou o nome, mas eu só estava falando que o botão não funciona, clico e nada acontece
                         </Button>
                     </div>
                 )}
