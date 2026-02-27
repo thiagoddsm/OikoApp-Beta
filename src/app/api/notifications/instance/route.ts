@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server';
 import { initializeFirebase } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -49,7 +48,6 @@ export async function GET() {
         }
         
         // Robust state detection for v5.0.0 Pro Plan
-        // It checks multiple fields because api-wa.me is migrating properties to a 'config' sub-object
         const instanceData = data.instance || data;
         const stateStr = (instanceData.state || instanceData.status || data.state || data.status || '').toString().toLowerCase();
         const isAuthenticated = data.authenticated === true || instanceData.authenticated === true || data.is_authenticated === true;
@@ -60,7 +58,7 @@ export async function GET() {
         let displayStatus = 'unknown';
         let displayMessage = data.message || stateStr || '';
 
-        // If the message is just the deprecation warning, we clear it to avoid UI clutter
+        // Se a mensagem for apenas o aviso de depreciação, limpamos para não poluir a UI
         if (displayMessage.toUpperCase().includes('IMPORTANT: RECEIVE_STATUS_MESSAGE')) {
             displayMessage = isOnline ? 'Conectado e Pronto' : 'Aguardando Conexão';
         }
@@ -126,7 +124,7 @@ export async function PATCH() {
 
         if (!waKey) return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
 
-        // Activation of Pro Features via PATCH
+        // Ativação de Pro Features via PATCH
         const urlParams = new URLSearchParams({
             markMessageRead: 'true',
             saveMedia: 'true',

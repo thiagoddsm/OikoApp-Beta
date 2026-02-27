@@ -1,10 +1,9 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Regra Liberal para Fase de Testes: Permite tudo para todos
+    // Regras 100% Liberais para Fase de Testes
     match /{document=**} {
       allow read, write: if true;
     }
