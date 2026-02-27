@@ -119,6 +119,27 @@
         "financialStatus": { "type": "string", "enum": ["active", "blocked", "delinquent"], "description": "Financial status for Wave music school." }
       },
       "required": ["name", "email", "createdAt"]
+    },
+    "FinanceRequest": {
+      "title": "Finance Request",
+      "type": "object",
+      "description": "A request for payment, reimbursement or accountability.",
+      "properties": {
+        "requesterName": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "category": { "type": "string", "description": "Ministério ou Evento" },
+        "description": { "type": "string" },
+        "amount": { "type": "number" },
+        "attachmentUrl": { "type": "string" },
+        "objective": { "type": "string", "enum": ["reembolso", "pagamento", "prestacao_contas"] },
+        "pixKey": { "type": "string" },
+        "dueDate": { "type": "string", "format": "date" },
+        "purchaseLink": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "approved", "paid", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["requesterName", "email", "amount", "objective", "status", "createdAt"]
     }
   }
 }

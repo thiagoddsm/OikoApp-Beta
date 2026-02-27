@@ -204,6 +204,23 @@ export type FinancialTransaction = {
   contaAzulSync?: boolean;
 }
 
+export type FinanceRequest = {
+  id: string;
+  requesterName: string;
+  phone: string;
+  email: string;
+  category: string;
+  description: string;
+  amount: number;
+  attachmentUrl?: string;
+  objective: 'reembolso' | 'pagamento' | 'prestacao_contas';
+  pixKey?: string;
+  dueDate: string;
+  purchaseLink?: string;
+  status: 'pending' | 'approved' | 'paid' | 'rejected';
+  createdAt: Timestamp;
+}
+
 type AreaData = Omit<AreaOfService, 'id'>;
 type TeamData = Omit<Team, 'id'>;
 type RoomData = Omit<Room, 'id'>;
@@ -219,6 +236,7 @@ type PedagogicalLogData = Omit<PedagogicalLog, 'id'>;
 type ClassData = Omit<Class, 'id'>;
 type EnrollmentRequestData = Omit<EnrollmentRequest, 'id'>;
 type FinancialTransactionData = Omit<FinancialTransaction, 'id'>;
+type FinanceRequestData = Omit<FinanceRequest, 'id'>;
 
 interface VolunteeringContextType {
   areas: AreaOfService[];
@@ -239,6 +257,7 @@ interface VolunteeringContextType {
   disPayments: DisPayment[];
   enrollmentRequests: EnrollmentRequest[];
   financialTransactions: FinancialTransaction[];
+  financeRequests: FinanceRequest[];
   isLoading: boolean;
   
   addArea: (data: AreaData) => Promise<void>;
@@ -289,12 +308,10 @@ interface VolunteeringContextType {
   updateFinancialTransaction: (id: string, data: Partial<FinancialTransactionData>) => Promise<void>;
   deleteFinancialTransaction: (id: string) => Promise<void>;
   markAttendanceByTheoflix: (userId: string, theoflixCourseId: string, episodeIndex: number) => Promise<void>;
+  addFinanceRequest: (data: FinanceRequestData) => Promise<void>;
+  updateFinanceRequest: (id: string, data: Partial<FinanceRequestData>) => Promise<void>;
+  deleteFinanceRequest: (id: string) => Promise<void>;
 }
-
-const weekDayMap: Record<string, number> = {
-    "Domingo": 0, "Segunda-feira": 1, "Terça-feira": 2, "Quarta-feira": 3,
-    "Quinta-feira": 4, "Sexta-feira": 5, "Sábado": 6
-};
 
 const VolunteeringContext = createContext<VolunteeringContextType | undefined>(undefined);
 
@@ -319,6 +336,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const disPlansQuery = useMemoFirebase(() => firestore ? collection(firestore, 'dis_plans') : null, [firestore]);
   const disPaymentsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'dis_payments') : null, [firestore]);
   const enrollmentRequestsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'enrollment_requests') : null, [firestore]);
+  const financeRequestsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'finance_requests'), orderBy('createdAt', 'desc')) : null, [firestore]);
   
   const financialTransactionsQuery = useMemoFirebase(() => 
     firestore ? query(collection(firestore, 'financial_transactions'), orderBy('date', 'desc')) : null, 
@@ -343,8 +361,9 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { data: disPayments, isLoading: loadingDisPayments } = useCollection<DisPayment>(disPaymentsQuery);
   const { data: enrollmentRequests, isLoading: loadingEnrollments } = useCollection<EnrollmentRequest>(enrollmentRequestsQuery);
   const { data: financialTransactions, isLoading: loadingFinances } = useCollection<FinancialTransaction>(financialTransactionsQuery);
+  const { data: financeRequests, isLoading: loadingRequests } = useCollection<FinanceRequest>(financeRequestsQuery);
 
-  const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents || loadingRooms || loadingCourses || loadingTheoflix || loadingClasses || loadingPedagogicalLogs || loadingReservations || loadingSavedSchedules || loadingWavePlans || loadingWavePayments || loadingWaveExpenses || loadingDisPlans || loadingDisPayments || loadingEnrollments || loadingFinances;
+  const isLoading = loadingAreas || loadingTeams || loadingUsers || loadingEvents || loadingRooms || loadingCourses || loadingTheoflix || loadingClasses || loadingPedagogicalLogs || loadingReservations || loadingSavedSchedules || loadingWavePlans || loadingWavePayments || loadingWaveExpenses || loadingDisPlans || loadingDisPayments || loadingEnrollments || loadingFinances || loadingRequests;
 
   const createCrudFunctions = <T extends {id: string}>(collectionName: string, itemType: string) => {
       const addItem = async (data: Omit<T, 'id'>) => {
@@ -383,6 +402,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
   const { addItem: addDisPayment, updateItem: updateDisPayment, deleteItem: deleteDisPayment } = createCrudFunctions<DisPayment>('dis_payments', 'Pagamento DIS');
   const { updateItem: updateEnrollmentRequest, deleteItem: deleteEnrollmentRequest } = createCrudFunctions<EnrollmentRequest>('enrollment_requests', 'Solicitação');
   const { addItem: addFinancialTransaction, updateItem: updateFinancialTransaction, deleteItem: deleteFinancialTransaction } = createCrudFunctions<FinancialTransaction>('financial_transactions', 'Transação Financeira');
+  const { addItem: addFinanceRequest, updateItem: updateFinanceRequest, deleteItem: deleteFinanceRequest } = createCrudFunctions<FinanceRequest>('finance_requests', 'Solicitação Financeira');
   
   const { deleteItem: deleteWavePayment } = createCrudFunctions<WavePayment>('wave_payments', 'Pagamento Wave');
 
@@ -800,6 +820,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     disPayments: disPayments || [],
     enrollmentRequests: enrollmentRequests || [],
     financialTransactions: financialTransactions || [],
+    financeRequests: financeRequests || [],
     isLoading,
     addArea,
     updateArea,
@@ -849,10 +870,13 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
     updateFinancialTransaction,
     deleteFinancialTransaction,
     markAttendanceByTheoflix,
+    addFinanceRequest,
+    updateFinanceRequest,
+    deleteFinanceRequest,
   }), [
     areas, teams, users, events, rooms, courses, theoflixCourses, classes, pedagogicalLogs, reservations, 
     savedSchedules, wavePlans, wavePayments, waveExpenses, disPlans, disPayments, 
-    enrollmentRequests, financialTransactions, isLoading, firestore, user
+    enrollmentRequests, financialTransactions, financeRequests, isLoading, firestore, user
   ]);
 
   return (

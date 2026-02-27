@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { 
   Loader2, Key, Link as LinkIcon, ExternalLink, PlayCircle, 
   CheckCircle2, HardDriveDownload, DatabaseZap, Settings, FlaskConical,
-  LogOut, Eye, EyeOff, Fingerprint, LayoutDashboard, HeartHandshake, TrendingUp, AlertCircle
+  LogOut, Eye, EyeOff, Fingerprint, LayoutDashboard, HeartHandshake, TrendingUp, AlertCircle, FileText
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useDoc } from '@/firebase';
@@ -19,6 +19,7 @@ import { useVolunteering, VolunteeringProvider } from '@/contexts/volunteering-c
 import { doc, updateDoc } from 'firebase/firestore';
 import { TithesOfferingsManager } from '@/components/finance/tithes-offerings-manager';
 import { CashFlowManager } from '@/components/finance/cash-flow-manager';
+import { FinanceRequestsManager } from '@/components/finance/finance-requests-manager';
 import { useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
@@ -83,7 +84,7 @@ function IntegrationLaboratory({ lastError }: { lastError?: string }) {
             }
         } catch (e: any) {
             addLog(`FALHA NA ESCRITA: ${e.message}`);
-            toast({ variant: 'destructive', title: "Falha na Escrita", description: e.message });
+            toast({ variant: 'destructive', title: "Falha na Escreta", description: e.message });
         } finally {
             setIsTestingWrite(false);
         }
@@ -325,18 +326,22 @@ function FinancePageContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 max-w-2xl bg-muted/50 p-1 rounded-xl">
-          <TabsTrigger value="dashboard" className="rounded-lg font-bold"><LayoutDashboard className="size-4 mr-2" /> Geral</TabsTrigger>
-          <TabsTrigger value="tithes" className="rounded-lg font-bold"><HeartHandshake className="size-4 mr-2" /> Dízimos</TabsTrigger>
-          <TabsTrigger value="cashflow" className="rounded-lg font-bold"><TrendingUp className="size-4 mr-2" /> Fluxo</TabsTrigger>
-          <TabsTrigger value="settings" className="rounded-lg font-bold"><Settings className="size-4 mr-2" /> Integração</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto pb-2">
+          <TabsList className="flex h-auto justify-start bg-muted/50 p-1 rounded-xl w-fit">
+            <TabsTrigger value="dashboard" className="rounded-lg font-bold"><LayoutDashboard className="size-4 mr-2" /> Geral</TabsTrigger>
+            <TabsTrigger value="tithes" className="rounded-lg font-bold"><HeartHandshake className="size-4 mr-2" /> Dízimos</TabsTrigger>
+            <TabsTrigger value="cashflow" className="rounded-lg font-bold"><TrendingUp className="size-4 mr-2" /> Fluxo</TabsTrigger>
+            <TabsTrigger value="requests" className="rounded-lg font-bold"><FileText className="size-4 mr-2" /> Solicitações</TabsTrigger>
+            <TabsTrigger value="settings" className="rounded-lg font-bold"><Settings className="size-4 mr-2" /> Integração</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="dashboard" className="mt-6">
             <Card><CardHeader><CardTitle>Indicadores de Performance</CardTitle></CardHeader><CardContent className="h-[300px] flex items-center justify-center italic text-muted-foreground">Gráficos de performance financeira em desenvolvimento.</CardContent></Card>
         </TabsContent>
         <TabsContent value="tithes" className="mt-6"><TithesOfferingsManager /></TabsContent>
         <TabsContent value="cashflow" className="mt-6"><CashFlowManager /></TabsContent>
+        <TabsContent value="requests" className="mt-6"><FinanceRequestsManager /></TabsContent>
         <TabsContent value="settings" className="mt-6"><ContaAzulConnect /></TabsContent>
       </Tabs>
     </div>
