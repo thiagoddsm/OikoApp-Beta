@@ -685,7 +685,10 @@ function NotificationsConfig() {
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     useEffect(() => {
-        if (config) setWaKey(config.whatsappApiKey || '');
+        if (config) {
+            const key = config.whatsappApiKey || '';
+            setWaKey(key);
+        }
     }, [config]);
 
     const checkStatus = async () => {
@@ -700,9 +703,10 @@ function NotificationsConfig() {
         finally { setIsRefreshing(false); }
     };
 
+    // Atualiza status ao carregar config ou mudar chave
     useEffect(() => {
-        if (waKey) checkStatus();
-    }, [waKey]);
+        checkStatus();
+    }, [waKey, config]);
 
     const handleAction = async (endpoint: string, method: string = 'POST', title: string) => {
         setIsRefreshing(true);
@@ -713,7 +717,7 @@ function NotificationsConfig() {
                 setTimeout(checkStatus, 3000);
             } else {
                 const data = await res.json();
-                toast({ variant: 'destructive', title: "Erro na operação", description: data.error });
+                toast({ variant: 'destructive', title: "Erro na operação", description: data.error || data.message });
             }
         } catch (e) {
             toast({ variant: 'destructive', title: "Falha na conexão" });

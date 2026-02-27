@@ -20,7 +20,7 @@ export async function GET() {
         const configSnap = await getDoc(configRef);
         waKey = configSnap.exists() ? configSnap.data()?.whatsappApiKey : null;
     } catch (e: any) {
-        return NextResponse.json({ error: 'Erro ao ler configuração do banco de dados.' }, { status: 500 });
+        return NextResponse.json({ status: 'error', message: 'Erro ao ler configuração do banco de dados.' });
     }
 
     if (!waKey) {
@@ -156,7 +156,8 @@ export async function DELETE() {
 
         const response = await fetch(`https://us.api-wa.me/${waKey}/instance`, {
             method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' }
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
         });
 
         return NextResponse.json({ success: response.ok });
