@@ -115,8 +115,8 @@ export async function POST(request: Request) {
 
         switch (type) {
             case 'button':
-                endpoint = 'message/button';
-                // Conforme documentação: title é o corpo, footer é o rodapé
+                // Corrigido para plural 'buttons' conforme padrão Pro v5
+                endpoint = 'message/buttons';
                 payload = {
                     to: formattedPhone,
                     title: personalizedBody || (title || 'Informativo IBM').replace('{{nome}}', user.name),
@@ -175,7 +175,7 @@ export async function POST(request: Request) {
                 sentCount++;
                 
                 const cleanPhone = formattedPhone.replace('@s.whatsapp.net', '');
-                const displayContent = type === 'survey' ? `[ENQUETE] ${surveyName}` : (personalizedBody || title || 'Mídia');
+                const displayContent = type === 'survey' ? `[ENQUETE] ${surveyName}` : (type === 'button' ? (payload.title || 'Botão') : (personalizedBody || title || 'Mídia'));
 
                 await addDoc(collection(firestore, 'notifications_messages'), {
                     from: cleanPhone,
