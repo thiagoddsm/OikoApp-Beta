@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server';
 import { findOrCreateContaAzulCustomer, callContaAzulApi, createContaAzulReceivable } from '@/lib/conta-azul';
 
@@ -6,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST() {
     try {
-        // 1. Criar ou buscar um cliente de teste
+        // 1. Criar ou buscar um cliente de teste (API v1)
         const testMember = {
             name: `Membro Teste OikoApp ${Math.floor(Math.random() * 1000)}`,
             email: 'suporte@oikoapp.com.br',
@@ -15,7 +14,7 @@ export async function POST() {
 
         const customerId = await findOrCreateContaAzulCustomer(testMember);
         
-        // 2. Buscar contas financeiras para obter um ID válido
+        // 2. Buscar contas financeiras para obter um ID válido (API v2)
         const bankData = await callContaAzulApi('/v1/conta-financeira');
         const bankAccounts = Array.isArray(bankData) ? bankData : (bankData.itens || bankData.items || []);
         
@@ -23,7 +22,7 @@ export async function POST() {
         const bankAccount = bankAccounts.find((b: any) => b.ativo) || bankAccounts[0];
 
         if (!bankAccount) {
-            throw new Error('Nenhuma conta financeira encontrada no Conta Azul para realizar o teste.');
+            throw new Error('Nenhuma conta financeira ativa encontrada para o teste.');
         }
 
         // 3. Criar um Recebível (v1 no host api-v2) para validar escrita
@@ -50,24 +49,24 @@ export async function POST() {
             }
         };
 
-        const receivableResult = await createContaAzulReceivable(receivableData);
+        const result = await createContaAzulReceivable(receivableData);
         
         return NextResponse.json({ 
             success: true, 
-            message: 'Teste de escrita concluído com sucesso!',
+            message: 'Teste de escrita concluído!',
             data: {
                 customerId,
                 selectedBank: bankAccount.name,
-                receivableProtocol: receivableResult.protocolId,
-                note: "O recebível foi protocolado no Conta Azul. Isso confirma que a aplicação tem permissão de escrita."
+                protocolId: result.protocolId || 'OK',
+                note: "O recebível foi protocolado com sucesso."
             }
         });
 
     } catch (error: any) {
-        console.error('Erro no teste de escrita Conta Azul:', error);
+        console.error('Erro no teste de escrita:', error);
         return NextResponse.json({ 
             success: false, 
-            error: error.message || 'Erro desconhecido ao tentar gravar dados.'
+            error: error.message || 'Erro desconhecido ao gravar.'
         }, { status: 500 });
     }
 }

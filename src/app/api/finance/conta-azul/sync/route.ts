@@ -1,4 +1,3 @@
-
 import { NextResponse } from 'next/server';
 import { callContaAzulApi } from '@/lib/conta-azul';
 
@@ -6,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST() {
     try {
-        // Conforme documentação: /v1/conta-financeira retorna { itens: [], itens_totais: N }
+        // Conforme documentação: /v1/conta-financeira é V2
         const data = await callContaAzulApi('/v1/conta-financeira');
         
         // Suporte para ambas nomenclaturas 'itens' (v2) e 'items' (v1)

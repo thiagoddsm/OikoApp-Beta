@@ -49,7 +49,7 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
 
     useEffect(() => {
         if (lastError) {
-            addLog(`SERVIDOR: ${lastError}`);
+            addLog(lastError);
         }
     }, [lastError]);
 
@@ -62,9 +62,9 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
             const data = await res.json();
             if (res.ok) {
                 addLog(`Sucesso! ${data.data.bankAccounts?.length || 0} contas encontradas.`);
-                toast({ title: "Leitura OK", description: "Conexão estabelecida." });
+                toast({ title: "Leitura OK", description: "Conexão estabelecida com sucesso." });
             } else {
-                throw new Error(data.error || "Erro desconhecido");
+                throw new Error(data.error || "Erro na API");
             }
         } catch (e: any) {
             addLog(`FALHA NA LEITURA: ${e.message}`);
@@ -82,8 +82,8 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
             const res = await fetch('/api/finance/conta-azul/test-write', { method: 'POST' });
             const data = await res.json();
             if (res.ok) {
-                addLog("Sucesso! Registro de teste criado.");
-                toast({ title: "Escrita OK", description: "Cobrança gerada." });
+                addLog("Sucesso! Registro de teste criado no Conta Azul.");
+                toast({ title: "Escrita OK", description: "Cobrança de teste gerada." });
             } else {
                 throw new Error(data.error || "Erro na API");
             }
@@ -99,22 +99,32 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
         <Card className="border-primary/20 bg-primary/5 shadow-inner">
             <CardHeader>
                 <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2 text-primary">
-                    <FlaskConical className="size-4" /> Laboratório
+                    <FlaskConical className="size-4" /> Laboratório de Integração
                 </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Button variant="outline" className="h-16 bg-white border-primary/20" onClick={handleReadTest} disabled={isTestingRead}>
+                    <Button variant="outline" className="h-16 bg-white border-primary/20 hover:bg-primary/5 transition-all shadow-sm" onClick={handleReadTest} disabled={isTestingRead}>
                         {isTestingRead ? <Loader2 className="animate-spin mr-2" /> : <HardDriveDownload className="mr-2 size-5 text-primary" />}
-                        <div className="text-left"><p className="font-bold text-xs">1. Testar Leitura</p><p className="text-[9px]">Puxar contas (v1)</p></div>
+                        <div className="text-left">
+                            <p className="font-bold text-xs">1. Testar Leitura</p>
+                            <p className="text-[9px] text-muted-foreground uppercase font-black">Puxar contas (v1)</p>
+                        </div>
                     </Button>
-                    <Button variant="outline" className="h-16 bg-white border-primary/20" onClick={handleWriteTest} disabled={isTestingWrite}>
+                    <Button variant="outline" className="h-16 bg-white border-primary/20 hover:bg-primary/5 transition-all shadow-sm" onClick={handleWriteTest} disabled={isTestingWrite}>
                         {isTestingWrite ? <Loader2 className="animate-spin mr-2" /> : <DatabaseZap className="mr-2 size-5 text-primary" />}
-                        <div className="text-left"><p className="font-bold text-xs">2. Testar Escrita</p><p className="text-[9px]">Gerar cobrança (v2)</p></div>
+                        <div className="text-left">
+                            <p className="font-bold text-xs">2. Testar Escrita</p>
+                            <p className="text-[9px] text-muted-foreground uppercase font-black">Gerar cobrança (v2)</p>
+                        </div>
                     </Button>
                 </div>
                 <div className="bg-black/90 p-3 rounded-lg font-mono text-[10px] text-emerald-400 h-48 overflow-y-auto border border-white/10 shadow-2xl">
-                    {log.length === 0 ? <p className="opacity-30 italic">Aguardando testes...</p> : log.map((m, i) => <p key={i} className="mb-1 leading-tight border-b border-white/5 pb-1">{m}</p>)}
+                    {log.length === 0 ? (
+                        <p className="opacity-30 italic text-center py-10">Aguardando testes de conexão...</p>
+                    ) : (
+                        log.map((m, i) => <p key={i} className="mb-1 leading-tight border-b border-white/5 pb-1">{m}</p>)
+                    )}
                 </div>
             </CardContent>
         </Card>
@@ -134,7 +144,10 @@ function ContaAzulConnect() {
   const [isSaving, setIsSaving] = useState(false);
   const [origin, setOrigin] = useState('');
   
-  useEffect(() => { if (typeof window !== 'undefined') setOrigin(window.location.origin); }, []);
+  useEffect(() => {
+    if (typeof window !== 'undefined') setOrigin(window.location.origin);
+  }, []);
+
   useEffect(() => {
     if (config) {
         setClientId(config.clientId || '');
@@ -143,37 +156,32 @@ function ContaAzulConnect() {
     }
   }, [config]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!configDocRef) return;
     setIsSaving(true);
-    setDocumentNonBlocking(configDocRef, { 
-        clientId: clientId.trim(), 
-        clientSecret: clientSecret.trim(),
-        accessToken: accessToken.trim() 
-    }, { merge: true });
-    setTimeout(() => { setIsSaving(false); toast({ title: 'Configurações Salvas!' }); }, 1000);
+    try {
+        await setDocumentNonBlocking(configDocRef, { 
+            clientId: clientId.trim(), 
+            clientSecret: clientSecret.trim(),
+            accessToken: accessToken.trim() 
+        }, { merge: true });
+        toast({ title: 'Configurações Salvas!', description: 'As credenciais foram atualizadas no banco.' });
+    } finally {
+        setIsSaving(false);
+    }
   };
   
   const handleDisconnect = async () => {
-    if (!configDocRef) {
-        console.warn("Config doc ref not found");
-        return;
-    }
-    
+    if (!configDocRef) return;
     if (window.confirm("Deseja encerrar a conexão e limpar todos os tokens?")) {
-        try {
-            await updateDocumentNonBlocking(configDocRef, { 
-                accessToken: '', 
-                refreshToken: '', 
-                expiresAt: 0, 
-                lastError: 'Desconectado pelo usuário.',
-                updatedAt: new Date().toISOString()
-            });
-            toast({ title: 'Conexão Encerrada' });
-        } catch (e) {
-            console.error("Erro ao desconectar:", e);
-            toast({ variant: 'destructive', title: 'Erro ao desconectar', description: 'Tente novamente.' });
-        }
+        await updateDocumentNonBlocking(configDocRef, { 
+            accessToken: '', 
+            refreshToken: '', 
+            expiresAt: 0, 
+            lastError: 'Desconectado pelo usuário.',
+            updatedAt: new Date().toISOString()
+        });
+        toast({ title: 'Conexão Encerrada', description: 'Todos os tokens foram removidos.' });
     }
   };
 
@@ -195,7 +203,7 @@ function ContaAzulConnect() {
                 <CardContent className="space-y-4 pt-6">
                     <div className="space-y-2">
                         <Label className="text-xs font-bold uppercase text-muted-foreground">Client ID</Label>
-                        <Input value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="ID da App" />
+                        <Input value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="ID da aplicação no portal dev" />
                     </div>
                     <div className="space-y-2">
                         <Label className="text-xs font-bold uppercase text-muted-foreground">Client Secret</Label>
@@ -230,17 +238,27 @@ function ContaAzulConnect() {
             <CardContent className="pt-6 space-y-4 text-center">
                 {!isConnected ? (
                     <>
-                        <p className="text-sm text-muted-foreground text-left">Realize a autorização para habilitar a renovação automática de tokens.</p>
+                        <div className="p-6 bg-muted/20 rounded-xl border border-dashed text-left space-y-3">
+                            <p className="text-sm font-medium">Siga estes passos:</p>
+                            <ol className="text-xs space-y-2 text-muted-foreground list-decimal pl-4">
+                                <li>Configure o <strong>Redirect URI</strong> no portal do desenvolvedor da Conta Azul.</li>
+                                <li>Insira o <strong>Client ID</strong> e <strong>Secret</strong> acima e salve.</li>
+                                <li>Clique no botão abaixo para autorizar.</li>
+                            </ol>
+                        </div>
                         <Button className="w-full h-12 bg-blue-600 hover:bg-blue-700 font-black shadow-xl" asChild disabled={!clientId || !clientSecret}>
                             <a href={authUrl} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-2 size-5"/>Autorizar Agora</a>
                         </Button>
                     </>
                 ) : (
                     <div className="py-8 space-y-4">
-                        <div className="size-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto"><CheckCircle2 size={32} /></div>
-                        <h4 className="font-black text-emerald-900">Integração Conectada</h4>
-                        <Button variant="outline" className="text-destructive border-destructive/20 hover:bg-red-50" onClick={handleDisconnect}>
-                            <LogOut className="size-4 mr-2" /> Você mudou o nome, mas eu só estava falando que o botão não funciona, clico e nada acontece
+                        <div className="size-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner"><CheckCircle2 size={32} /></div>
+                        <div>
+                            <h4 className="font-black text-emerald-900">Integração Conectada</h4>
+                            <p className="text-xs text-muted-foreground mt-1">O sistema está pronto para sincronizar dados.</p>
+                        </div>
+                        <Button variant="outline" className="text-destructive border-destructive/20 hover:bg-red-50 font-bold" onClick={handleDisconnect}>
+                            <LogOut className="size-4 mr-2" /> Encerrar Conexão
                         </Button>
                     </div>
                 )}
@@ -258,12 +276,12 @@ function FinancePageContent() {
 
     useEffect(() => {
         const status = searchParams.get('status');
-        if (status === 'connected') toast({ title: "Sucesso!", description: "Conta Azul conectada." });
-        else if (status === 'error') toast({ variant: 'destructive', title: "Erro na Autorização", description: searchParams.get('message') || "Verifique o Redirect URI." });
+        if (status === 'connected') toast({ title: "Sucesso!", description: "Conta Azul conectada com sucesso." });
+        else if (status === 'error') toast({ variant: 'destructive', title: "Erro na Autorização", description: searchParams.get('message') || "Verifique as credenciais." });
     }, [searchParams, toast]);
 
     const summaryData = useMemo(() => {
-        if (!financialTransactions) return { income: 0, expense: 0, balance: 0, chartData: [] };
+        if (!financialTransactions) return { income: 0, expense: 0, balance: 0 };
         let totalIncome = 0; let totalExpense = 0;
         financialTransactions.forEach(t => {
             if (t.status === 'paid') {
@@ -277,9 +295,9 @@ function FinancePageContent() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="bg-emerald-50 border-emerald-100"><CardHeader className="pb-2"><CardDescription className="text-emerald-700 text-[10px] font-bold uppercase">Entradas</CardDescription><CardTitle className="text-xl">R$ {summaryData.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</CardTitle></CardHeader></Card>
-          <Card className="bg-red-50 border-red-100"><CardHeader className="pb-2"><CardDescription className="text-red-700 text-[10px] font-bold uppercase">Saídas</CardDescription><CardTitle className="text-xl">R$ {summaryData.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</CardTitle></CardHeader></Card>
-          <Card className="bg-primary/5 border-primary/10 border-2"><CardHeader className="pb-2"><CardDescription className="text-primary text-[10px] font-bold uppercase">Saldo</CardDescription><CardTitle className="text-xl font-black">R$ {summaryData.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</CardTitle></CardHeader></Card>
+          <Card className="bg-emerald-50 border-emerald-100"><CardHeader className="pb-2"><CardDescription className="text-emerald-700 text-[10px] font-bold uppercase">Entradas (Pagos)</CardDescription><CardTitle className="text-xl">R$ {summaryData.income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</CardTitle></CardHeader></Card>
+          <Card className="bg-red-50 border-red-100"><CardHeader className="pb-2"><CardDescription className="text-red-700 text-[10px] font-bold uppercase">Saídas (Pagos)</CardDescription><CardTitle className="text-xl">R$ {summaryData.expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</CardTitle></CardHeader></Card>
+          <Card className="bg-primary/5 border-primary/10 border-2"><CardHeader className="pb-2"><CardDescription className="text-primary text-[10px] font-bold uppercase">Saldo Atual</CardDescription><CardTitle className="text-xl font-black">R$ {summaryData.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</CardTitle></CardHeader></Card>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -291,7 +309,7 @@ function FinancePageContent() {
         </TabsList>
 
         <TabsContent value="dashboard" className="mt-6">
-            <Card><CardHeader><CardTitle>Performance</CardTitle></CardHeader><CardContent className="h-[300px] flex items-center justify-center italic text-muted-foreground">O gráfico será renderizado aqui.</CardContent></Card>
+            <Card><CardHeader><CardTitle>Indicadores de Performance</CardTitle></CardHeader><CardContent className="h-[300px] flex items-center justify-center italic text-muted-foreground">O gráfico de performance será renderizado em breve.</CardContent></Card>
         </TabsContent>
         <TabsContent value="tithes" className="mt-6"><TithesOfferingsManager /></TabsContent>
         <TabsContent value="cashflow" className="mt-6"><CashFlowManager /></TabsContent>
