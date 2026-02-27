@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -30,279 +29,163 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
-// ... (QUICK_TEMPLATES e sub-componentes WhatsappChats, WhatsappSender, WhatsappResponses permanecem conforme o original do usuário) ...
+const QUICK_TEMPLATES = [
+    { id: 'welcome', label: 'Boas-vindas', text: 'Olá {{nome}}, seja muito bem-vindo à Igreja Batista da Manhã! É um prazer ter você conosco.', icon: UserPlus },
+    { id: 'gc_invite', label: 'Convite GC', text: 'Olá {{nome}}! Gostaria de te convidar para o nosso GC que acontece esta semana. Vamos adorar te receber!', icon: HeartHandshake },
+    { id: 'event', label: 'Evento', text: 'Olá {{nome}}, passando para lembrar do nosso evento que acontecerá em breve. Não perca!', icon: CalendarDays },
+];
 
-function WhatsappResponses() {
+function WhatsappChats() {
     const { firestore } = useFirebase();
-    const responsesQuery = useMemoFirebase(() => 
-        firestore ? query(collection(firestore, 'notifications_responses'), orderBy('receivedAt', 'desc')) : null,
+    const [selectedChat, setSelectedChat] = useState<string | null>(null);
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    const chatsQuery = useMemoFirebase(() => 
+        firestore ? query(collection(firestore, 'notifications_chats'), orderBy('lastMessageAt', 'desc')) : null,
     [firestore]);
-    
-    const { data: responses, isLoading } = useCollection<any>(responsesQuery);
+    const { data: chats, isLoading: isLoadingChats } = useCollection<any>(chatsQuery);
 
-    if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
-
-    return (
-        <div className="rounded-lg border bg-card overflow-hidden shadow-sm text-slate-900">
-            <Table>
-                <TableHeader className="bg-muted/50">
-                    <TableRow>
-                        <TableHead>Membro</TableHead>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead>Escolha / Resposta</TableHead>
-                        <TableHead className="text-right">Data/Hora</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {responses?.length === 0 ? (
-                        <TableRow><TableCell colSpan={4} className="h-32 text-center text-muted-foreground italic">Nenhuma resposta captada ainda.</TableCell></TableRow>
-                    ) : (
-                        responses?.map((res: any) => (
-                            <TableRow key={res.id} className="hover:bg-muted/30">
-                                <TableCell>
-                                    <div className="font-bold">{res.userName || res.from}</div>
-                                    <div className="text-[10px] text-muted-foreground font-mono">+{res.from}</div>
-                                </TableCell>
-                                <TableCell>
-                                    <Badge variant="ghost" className="text-[10px] uppercase font-black">{res.type === 'poll' ? 'Enquete' : 'Botão'}</Badge>
-                                </TableCell>
-                                <TableCell>
-                                    <Badge variant="outline" className={cn(
-                                        "font-black text-[10px] py-1 border-emerald-200",
-                                        res.type === 'poll' ? "bg-blue-50 text-blue-800" : "bg-emerald-50 text-emerald-800"
-                                    )}>
-                                        {res.type === 'poll' ? (res.selectedOptions?.join(', ') || 'Votou') : (res.buttonText || res.buttonId)}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell className="text-right text-xs text-muted-foreground font-medium">
-                                    {res.receivedAt ? format(res.receivedAt.toDate(), 'dd/MM/yy HH:mm') : '-'}
-                                </TableCell>
-                            </TableRow>
-                        ))
-                    )}
-                </TableBody>
-            </Table>
-        </div>
-    );
-}
-
-function NotificationsConfig() {
-    const { firestore } = useFirebase();
-    const { toast } = useToast();
-    const { data: config, isLoading: isLoadingConfig } = useDoc<any>('config/notifications');
-    
-    const [waKey, setWaKey] = useState('');
-    const [webhookUrl, setWebhookUrl] = useState('');
-    const [isSaving, setIsSaving] = useState(false);
-    const [instanceStatus, setInstanceStatus] = useState<any>(null);
-    const [isRefreshing, setIsRefreshing] = useState(false);
+    const messagesQuery = useMemoFirebase(() => {
+        if (!firestore || !selectedChat) return null;
+        return query(
+            collection(firestore, 'notifications_messages'),
+            where('from', '==', selectedChat),
+            orderBy('receivedAt', 'asc'),
+            limit(50)
+        );
+    }, [firestore, selectedChat]);
+    const { data: messages, isLoading: isLoadingMessages } = useCollection<any>(messagesQuery);
 
     useEffect(() => {
-        if (config) {
-            setWaKey(config.whatsappApiKey || '');
-            setWebhookUrl(config.webhookUrl || '');
+        if (scrollRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
-    }, [config]);
+    }, [messages]);
 
-    const checkStatus = async () => {
-        setIsRefreshing(true);
-        try {
-            const res = await fetch('/api/notifications/instance', { cache: 'no-store' });
-            const data = await res.json();
-            setInstanceStatus(data);
-        } catch (e) {
-            console.error("Erro ao verificar status:", e);
-        }
-        finally { setIsRefreshing(false); }
-    };
-
-    useEffect(() => {
-        checkStatus();
-    }, [waKey, config]);
-
-    const handleAction = async (endpoint: string, method: string = 'POST', title: string) => {
-        setIsRefreshing(true);
-        try {
-            const res = await fetch(`/api/notifications/instance${endpoint}`, { method });
-            const data = await res.json();
-            if (res.ok) {
-                toast({ title: "Sucesso!", description: `${title} concluído.` });
-                if (data.qr || data.status) setInstanceStatus(data);
-                else setTimeout(checkStatus, 2000);
-            } else {
-                toast({ variant: 'destructive', title: "Erro na operação", description: data.error || data.message });
-            }
-        } catch (e) {
-            toast({ variant: 'destructive', title: "Falha na conexão" });
-        } finally {
-            setIsRefreshing(false);
-        }
-    };
-
-    const handleSaveKey = async () => {
-        if (!firestore) return;
-        setIsSaving(true);
-        const configRef = doc(firestore, 'config', 'notifications');
-        try {
-            await setDocumentNonBlocking(configRef, { whatsappApiKey: waKey, webhookUrl, updatedAt: Timestamp.now() }, { merge: true });
-            toast({ title: "Configurações Salvas!" });
-            checkStatus();
-        } catch (e) {
-            toast({ variant: 'destructive', title: "Erro ao salvar" });
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handleUpdateWebhook = async () => {
-        if (!webhookUrl) return;
-        setIsRefreshing(true);
-        try {
-            const res = await fetch('/api/notifications/instance', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    allowWebhook: true,
-                    webhookMessage: webhookUrl
-                })
-            });
-            if (res.ok) {
-                toast({ title: "Webhook Configurado!", description: "A API agora enviará eventos para seu sistema." });
-            } else {
-                const err = await res.json();
-                toast({ variant: 'destructive', title: "Erro na API", description: err.error });
-            }
-        } catch (e) {
-            toast({ variant: 'destructive', title: "Falha na conexão" });
-        } finally {
-            setIsRefreshing(false);
-        }
-    };
-
-    if (isLoadingConfig) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
-
-    const isConnected = instanceStatus?.status === 'connected';
+    if (isLoadingChats) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
-        <div className="space-y-6 text-slate-900">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card className="lg:col-span-2 shadow-lg border-2 border-slate-200">
-                    <CardHeader className="bg-muted/30 border-b">
-                        <CardTitle className="text-sm font-black uppercase flex items-center gap-2">
-                            <Key className="size-4 text-primary" /> Credenciais e Webhook
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-6 pt-6">
-                        <div className="space-y-2">
-                            <Label className="text-xs font-bold uppercase text-muted-foreground">API Key (api-wa.me)</Label>
-                            <Input type="password" value={waKey} onChange={e => setWaKey(e.target.value)} placeholder="Cole sua chave aqui..." className="font-mono text-xs h-11 border-slate-200" />
-                        </div>
-
-                        <div className="space-y-2 pt-4 border-t">
-                            <Label className="text-xs font-bold uppercase text-muted-foreground">URL do Webhook (IBM Portal)</Label>
-                            <div className="flex gap-2">
-                                <div className="relative flex-1">
-                                    <Globe className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                                    <Input value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)} placeholder="https://seu-dominio.com/api/notifications/webhook" className="pl-10 h-11 border-slate-200 text-xs" />
-                                </div>
-                                <Button onClick={handleUpdateWebhook} variant="outline" className="h-11 font-bold border-primary text-primary" disabled={isRefreshing || !webhookUrl}>
-                                    Ativar Webhook
-                                </Button>
-                            </div>
-                            <p className="text-[10px] text-muted-foreground italic">Necessário para receber respostas de enquetes e botões.</p>
-                        </div>
-
-                        <div className="pt-6 border-t">
-                            <Button onClick={handleSaveKey} disabled={isSaving} className="w-full h-11 font-bold shadow-lg">
-                                {isSaving ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <ShieldAlert size={18} className="mr-2" />}
-                                Salvar Configurações
-                            </Button>
-                        </div>
-
-                        <div className="pt-6 border-t space-y-4">
-                            <Label className="text-xs font-bold uppercase text-muted-foreground flex items-center gap-2">
-                                <Settings className="size-3" /> Gestão da Instância
-                            </Label>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                <Button variant="outline" className="h-16 flex flex-col gap-1 items-center justify-center border-amber-200 hover:bg-amber-50" onClick={() => handleAction('/restart', 'POST', 'Reinício')} disabled={isRefreshing}>
-                                    <RefreshCw size={18} className={cn("text-amber-600", isRefreshing && "animate-spin")} />
-                                    <span className="text-[10px] font-black uppercase">Reiniciar</span>
-                                </Button>
-                                <Button variant="outline" className="h-16 flex flex-col gap-1 items-center justify-center border-blue-200 hover:bg-blue-50" onClick={() => handleAction('', 'PATCH', 'Ativação de Recursos')} disabled={isRefreshing}>
-                                    <Sparkles size={18} className="text-blue-600" />
-                                    <span className="text-[10px] font-black uppercase">Ativar Pro</span>
-                                </Button>
-                                <Button variant="outline" className="h-16 flex flex-col gap-1 items-center justify-center border-indigo-200 hover:bg-indigo-50" onClick={() => handleAction('', 'POST', 'Conexão')} disabled={isRefreshing}>
-                                    <QrCode size={18} className="text-indigo-600" />
-                                    <span className="text-[10px] font-black uppercase">Novo QR</span>
-                                </Button>
-                                <Button variant="outline" className="h-16 flex flex-col gap-1 items-center justify-center border-red-200 hover:bg-red-50 text-destructive" onClick={() => handleAction('', 'DELETE', 'Logout')} disabled={isRefreshing}>
-                                    <LogOut size={18} />
-                                    <span className="text-[10px] font-black uppercase">Desconectar</span>
-                                </Button>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className={cn("shadow-lg border-2 transition-all", isConnected ? "border-emerald-200 bg-emerald-50/10" : "border-amber-200 bg-amber-50/10")}>
-                    <CardHeader className="border-b bg-white/50">
-                        <CardTitle className="text-sm font-black uppercase flex items-center gap-2">
-                            <Smartphone className="size-4" /> Status do Dispositivo
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-8 flex flex-col items-center justify-center text-center min-h-[250px] relative">
-                        {isRefreshing ? (
-                            <div className="flex flex-col items-center gap-4">
-                                <Loader2 className="animate-spin size-12 text-primary opacity-40" />
-                                <p className="text-[10px] font-bold uppercase text-muted-foreground animate-pulse">Sincronizando...</p>
-                            </div>
-                        ) : isConnected ? (
-                            <div className="space-y-4 animate-in fade-in zoom-in-95">
-                                <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner ring-4 ring-emerald-50">
-                                    <CheckCircle size={40} />
-                                </div>
-                                <div>
-                                    <h4 className="font-black text-emerald-900 uppercase tracking-tight">Sistema Online</h4>
-                                    <p className="text-[10px] text-emerald-700 font-bold uppercase mt-1">Conectado com Sucesso</p>
-                                </div>
-                                <Badge className="bg-emerald-600 text-white border-none font-black text-[10px] px-4">ATIVO</Badge>
-                            </div>
-                        ) : (instanceStatus?.qr || instanceStatus?.status === 'pairing') ? (
-                            <div className="space-y-4 animate-in fade-in zoom-in-95">
-                                {instanceStatus.qr ? (
-                                    <div className="p-4 bg-white border-2 border-dashed rounded-2xl shadow-xl">
-                                        <img src={instanceStatus.qr} alt="WhatsApp QR Code" className="size-48" />
-                                    </div>
-                                ) : (
-                                    <div className="p-12 bg-white border-2 border-dashed rounded-2xl shadow-inner flex flex-col items-center justify-center">
-                                        <Loader2 className="animate-spin size-8 text-primary mb-2" />
-                                        <p className="text-[10px] font-bold uppercase text-muted-foreground">Gerando código...</p>
-                                    </div>
-                                )}
-                                <div>
-                                    <h4 className="font-black text-amber-900 uppercase">Aguardando Pareamento</h4>
-                                    <p className="text-[10px] text-amber-700 font-bold uppercase mt-1">Escaneie pelo WhatsApp</p>
-                                </div>
-                                <Button size="sm" variant="ghost" onClick={checkStatus} className="text-[10px] font-black uppercase"><RefreshCw size={14} className="mr-2"/> Atualizar</Button>
-                            </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-[600px] text-slate-900">
+            <Card className="md:col-span-1 flex flex-col overflow-hidden border-2 shadow-sm">
+                <CardHeader className="bg-muted/30 border-b py-4">
+                    <CardTitle className="text-sm font-black uppercase flex items-center gap-2">
+                        <MessageCircle className="size-4 text-primary" /> Conversas Ativas
+                    </CardTitle>
+                </CardHeader>
+                <ScrollArea className="flex-1">
+                    <div className="divide-y">
+                        {chats?.length === 0 ? (
+                            <div className="p-8 text-center text-muted-foreground text-xs italic">Nenhuma conversa iniciada.</div>
                         ) : (
-                            <div className="space-y-4 opacity-50">
-                                <Smartphone size={64} className="text-muted-foreground mx-auto" />
-                                <p className="text-xs font-bold text-muted-foreground uppercase max-w-[200px] mx-auto">
-                                    {instanceStatus?.message || 'Status não identificado. Verifique a API Key.'}
-                                </p>
-                                <Button size="sm" variant="ghost" onClick={checkStatus} className="text-[10px] font-black uppercase"><RefreshCw size={14} className="mr-2"/> Atualizar</Button>
-                            </div>
+                            chats?.map((chat: any) => (
+                                <button
+                                    key={chat.id}
+                                    onClick={() => setSelectedChat(chat.id)}
+                                    className={cn(
+                                        "w-full p-4 text-left hover:bg-muted/50 transition-colors flex gap-3 items-center relative",
+                                        selectedChat === chat.id && "bg-primary/5 border-r-4 border-primary"
+                                    )}
+                                >
+                                    <Avatar className="h-10 w-10 border shadow-sm">
+                                        <AvatarFallback className="bg-slate-100 text-slate-600 font-bold">{chat.userName?.charAt(0) || '?'}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex justify-between items-baseline mb-0.5">
+                                            <p className="font-bold text-sm truncate">{chat.userName || chat.id}</p>
+                                            <span className="text-[9px] text-muted-foreground font-medium">
+                                                {chat.lastMessageAt ? format(chat.lastMessageAt.toDate(), 'HH:mm') : ''}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-muted-foreground truncate line-clamp-1 italic">
+                                            {chat.lastMessage}
+                                        </p>
+                                    </div>
+                                    {chat.unreadCount > 0 && (
+                                        <Badge className="absolute right-4 bottom-4 h-5 min-w-5 flex items-center justify-center p-0 rounded-full bg-emerald-500 text-white border-none shadow-sm">
+                                            {chat.unreadCount}
+                                        </Badge>
+                                    )}
+                                </button>
+                            ))
                         )}
-                    </CardContent>
-                </Card>
-            </div>
+                    </div>
+                </ScrollArea>
+            </Card>
+
+            <Card className="md:col-span-2 flex flex-col overflow-hidden border-2 shadow-sm relative">
+                {!selectedChat ? (
+                    <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-slate-50/50">
+                        <div className="size-16 bg-white rounded-full flex items-center justify-center shadow-inner mb-4 border border-slate-100">
+                            <MessageSquare className="size-8 text-muted-foreground opacity-20" />
+                        </div>
+                        <h4 className="font-black text-slate-400 uppercase text-xs tracking-[0.2em]">Selecione uma conversa</h4>
+                        <p className="text-[10px] text-muted-foreground mt-2 uppercase font-bold">Histórico sincronizado via Webhook</p>
+                    </div>
+                ) : (
+                    <>
+                        <CardHeader className="bg-white border-b py-3 px-6 flex flex-row items-center justify-between shrink-0">
+                            <div className="flex items-center gap-3">
+                                <Avatar className="h-8 w-8 border">
+                                    <AvatarFallback className="bg-primary/10 text-primary text-xs font-black">
+                                        {chats?.find(c => c.id === selectedChat)?.userName?.charAt(0) || '?'}
+                                    </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <p className="font-black text-sm uppercase tracking-tight">
+                                        {chats?.find(c => c.id === selectedChat)?.userName || selectedChat}
+                                    </p>
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Chat Online</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <Button variant="ghost" size="icon" onClick={() => setSelectedChat(null)}><X className="size-4"/></Button>
+                        </CardHeader>
+                        
+                        <ScrollArea className="flex-1 p-6 bg-[#f0f2f5] dark:bg-slate-900/50" ref={scrollRef}>
+                            <div className="space-y-4">
+                                {messages?.map((msg: any) => (
+                                    <div
+                                        key={msg.id}
+                                        className={cn(
+                                            "flex flex-col max-w-[85%] animate-in fade-in slide-in-from-bottom-1",
+                                            msg.fromMe ? "ml-auto items-end" : "mr-auto items-start"
+                                        )}
+                                    >
+                                        <div className={cn(
+                                            "p-3 rounded-2xl shadow-sm text-sm font-medium leading-relaxed",
+                                            msg.fromMe 
+                                                ? "bg-emerald-500 text-white rounded-tr-none" 
+                                                : "bg-white text-slate-800 rounded-tl-none border border-slate-200"
+                                        )}>
+                                            {msg.content}
+                                            <div className={cn(
+                                                "text-[9px] mt-1 text-right font-black uppercase opacity-60",
+                                                msg.fromMe ? "text-white" : "text-slate-400"
+                                            )}>
+                                                {msg.receivedAt ? format(msg.receivedAt.toDate(), 'HH:mm') : ''}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                                {isLoadingMessages && <div className="text-center py-4"><Loader2 className="animate-spin mx-auto text-primary opacity-20" /></div>}
+                            </div>
+                        </ScrollArea>
+                        
+                        <div className="p-4 border-t bg-white shrink-0">
+                            <div className="flex gap-2">
+                                <Input placeholder="Responda por aqui..." className="flex-1 h-11 bg-muted/20 border-none shadow-inner" disabled />
+                                <Button size="icon" className="h-11 w-11 rounded-full shadow-lg" disabled><Send className="size-4" /></Button>
+                            </div>
+                            <p className="text-[9px] text-center mt-2 text-muted-foreground font-bold uppercase tracking-widest italic opacity-50">Respostas diretas via painel em desenvolvimento</p>
+                        </div>
+                    </>
+                )}
+            </Card>
         </div>
     );
 }
-
-// ... (WhatsappSender, NotificationsHistory e componente principal permanecem iguais) ...
 
 function WhatsappSender() {
     const { firestore } = useFirebase();
@@ -635,6 +518,276 @@ function WhatsappSender() {
     );
 }
 
+function WhatsappResponses() {
+    const { firestore } = useFirebase();
+    const responsesQuery = useMemoFirebase(() => 
+        firestore ? query(collection(firestore, 'notifications_responses'), orderBy('receivedAt', 'desc')) : null,
+    [firestore]);
+    
+    const { data: responses, isLoading } = useCollection<any>(responsesQuery);
+
+    if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
+
+    return (
+        <div className="rounded-lg border bg-card overflow-hidden shadow-sm text-slate-900">
+            <Table>
+                <TableHeader className="bg-muted/50">
+                    <TableRow>
+                        <TableHead>Membro</TableHead>
+                        <TableHead>Tipo</TableHead>
+                        <TableHead>Escolha / Resposta</TableHead>
+                        <TableHead className="text-right">Data/Hora</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {responses?.length === 0 ? (
+                        <TableRow><TableCell colSpan={4} className="h-32 text-center text-muted-foreground italic">Nenhuma resposta captada ainda.</TableCell></TableRow>
+                    ) : (
+                        responses?.map((res: any) => (
+                            <TableRow key={res.id} className="hover:bg-muted/30">
+                                <TableCell>
+                                    <div className="font-bold">{res.userName || res.from}</div>
+                                    <div className="text-[10px] text-muted-foreground font-mono">+{res.from}</div>
+                                </TableCell>
+                                <TableCell>
+                                    <Badge variant="ghost" className="text-[10px] uppercase font-black">{res.type === 'poll' ? 'Enquete' : 'Botão'}</Badge>
+                                </TableCell>
+                                <TableCell>
+                                    <Badge variant="outline" className={cn(
+                                        "font-black text-[10px] py-1 border-emerald-200",
+                                        res.type === 'poll' ? "bg-blue-50 text-blue-800" : "bg-emerald-50 text-emerald-800"
+                                    )}>
+                                        {res.type === 'poll' ? (res.selectedOptions?.join(', ') || 'Votou') : (res.buttonText || res.buttonId)}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell className="text-right text-xs text-muted-foreground font-medium">
+                                    {res.receivedAt ? format(res.receivedAt.toDate(), 'dd/MM/yy HH:mm') : '-'}
+                                </TableCell>
+                            </TableRow>
+                        ))
+                    )}
+                </TableBody>
+            </Table>
+        </div>
+    );
+}
+
+function NotificationsConfig() {
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+    const { data: config, isLoading: isLoadingConfig } = useDoc<any>('config/notifications');
+    
+    const [waKey, setWaKey] = useState('');
+    const [webhookUrl, setWebhookUrl] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+    const [instanceStatus, setInstanceStatus] = useState<any>(null);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    useEffect(() => {
+        if (config) {
+            setWaKey(config.whatsappApiKey || '');
+            setWebhookUrl(config.webhookUrl || '');
+        }
+    }, [config]);
+
+    const checkStatus = async () => {
+        setIsRefreshing(true);
+        try {
+            const res = await fetch('/api/notifications/instance', { cache: 'no-store' });
+            const data = await res.json();
+            setInstanceStatus(data);
+        } catch (e) {
+            console.error("Erro ao verificar status:", e);
+        }
+        finally { setIsRefreshing(false); }
+    };
+
+    useEffect(() => {
+        if (waKey) checkStatus();
+    }, [waKey, config]);
+
+    const handleAction = async (endpoint: string, method: string = 'POST', title: string) => {
+        setIsRefreshing(true);
+        try {
+            const res = await fetch(`/api/notifications/instance${endpoint}`, { method });
+            const data = await res.json();
+            if (res.ok) {
+                toast({ title: "Sucesso!", description: `${title} concluído.` });
+                if (data.qr || data.status) setInstanceStatus(data);
+                else setTimeout(checkStatus, 2000);
+            } else {
+                toast({ variant: 'destructive', title: "Erro na operação", description: data.error || data.message });
+            }
+        } catch (e) {
+            toast({ variant: 'destructive', title: "Falha na conexão" });
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
+
+    const handleSaveKey = async () => {
+        if (!firestore) return;
+        setIsSaving(true);
+        const configRef = doc(firestore, 'config', 'notifications');
+        try {
+            await setDocumentNonBlocking(configRef, { whatsappApiKey: waKey, webhookUrl, updatedAt: Timestamp.now() }, { merge: true });
+            toast({ title: "Configurações Salvas!" });
+            checkStatus();
+        } catch (e) {
+            toast({ variant: 'destructive', title: "Erro ao salvar" });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleUpdateWebhook = async () => {
+        if (!webhookUrl) return;
+        setIsRefreshing(true);
+        try {
+            const res = await fetch('/api/notifications/instance', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    allowWebhook: true,
+                    webhookMessage: webhookUrl
+                })
+            });
+            if (res.ok) {
+                toast({ title: "Webhook Configurado!", description: "A API agora enviará eventos para seu sistema." });
+            } else {
+                const err = await res.json();
+                toast({ variant: 'destructive', title: "Erro na API", description: err.error });
+            }
+        } catch (e) {
+            toast({ variant: 'destructive', title: "Falha na conexão" });
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
+
+    if (isLoadingConfig) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
+
+    const isConnected = instanceStatus?.status === 'connected';
+
+    return (
+        <div className="space-y-6 text-slate-900">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <Card className="lg:col-span-2 shadow-lg border-2 border-slate-200">
+                    <CardHeader className="bg-muted/30 border-b">
+                        <CardTitle className="text-sm font-black uppercase flex items-center gap-2">
+                            <Key className="size-4 text-primary" /> Credenciais e Webhook
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6 pt-6">
+                        <div className="space-y-2">
+                            <Label className="text-xs font-bold uppercase text-muted-foreground">API Key (api-wa.me)</Label>
+                            <Input type="password" value={waKey} onChange={e => setWaKey(e.target.value)} placeholder="Cole sua chave aqui..." className="font-mono text-xs h-11 border-slate-200" />
+                        </div>
+
+                        <div className="space-y-2 pt-4 border-t">
+                            <Label className="text-xs font-bold uppercase text-muted-foreground">URL do Webhook (IBM Portal)</Label>
+                            <div className="flex gap-2">
+                                <div className="relative flex-1">
+                                    <Globe className="absolute left-3 top-3 size-4 text-muted-foreground" />
+                                    <Input value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)} placeholder="https://seu-dominio.com/api/notifications/webhook" className="pl-10 h-11 border-slate-200 text-xs" />
+                                </div>
+                                <Button onClick={handleUpdateWebhook} variant="outline" className="h-11 font-bold border-primary text-primary" disabled={isRefreshing || !webhookUrl}>
+                                    Ativar Webhook
+                                </Button>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground italic">Necessário para receber respostas de enquetes e botões.</p>
+                        </div>
+
+                        <div className="pt-6 border-t">
+                            <Button onClick={handleSaveKey} disabled={isSaving} className="w-full h-11 font-bold shadow-lg">
+                                {isSaving ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <ShieldAlert size={18} className="mr-2" />}
+                                Salvar Configurações
+                            </Button>
+                        </div>
+
+                        <div className="pt-6 border-t space-y-4">
+                            <Label className="text-xs font-bold uppercase text-muted-foreground flex items-center gap-2">
+                                <Settings className="size-3" /> Gestão da Instância
+                            </Label>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                <Button variant="outline" className="h-16 flex flex-col gap-1 items-center justify-center border-amber-200 hover:bg-amber-50" onClick={() => handleAction('/restart', 'POST', 'Reinício')} disabled={isRefreshing}>
+                                    <RefreshCw size={18} className={cn("text-amber-600", isRefreshing && "animate-spin")} />
+                                    <span className="text-[10px] font-black uppercase">Reiniciar</span>
+                                </Button>
+                                <Button variant="outline" className="h-16 flex flex-col gap-1 items-center justify-center border-blue-200 hover:bg-blue-50" onClick={() => handleAction('', 'PATCH', 'Ativação de Recursos')} disabled={isRefreshing}>
+                                    <Sparkles size={18} className="text-blue-600" />
+                                    <span className="text-[10px] font-black uppercase">Ativar Pro</span>
+                                </Button>
+                                <Button variant="outline" className="h-16 flex flex-col gap-1 items-center justify-center border-indigo-200 hover:bg-indigo-50" onClick={() => handleAction('', 'POST', 'Conexão')} disabled={isRefreshing}>
+                                    <QrCode size={18} className="text-indigo-600" />
+                                    <span className="text-[10px] font-black uppercase">Novo QR</span>
+                                </Button>
+                                <Button variant="outline" className="h-16 flex flex-col gap-1 items-center justify-center border-red-200 hover:bg-red-50 text-destructive" onClick={() => handleAction('', 'DELETE', 'Logout')} disabled={isRefreshing}>
+                                    <LogOut size={18} />
+                                    <span className="text-[10px] font-black uppercase">Desconectar</span>
+                                </Button>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className={cn("shadow-lg border-2 transition-all", isConnected ? "border-emerald-200 bg-emerald-50/10" : "border-amber-200 bg-amber-50/10")}>
+                    <CardHeader className="border-b bg-white/50">
+                        <CardTitle className="text-sm font-black uppercase flex items-center gap-2">
+                            <Smartphone className="size-4" /> Status do Dispositivo
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-8 flex flex-col items-center justify-center text-center min-h-[250px] relative">
+                        {isRefreshing ? (
+                            <div className="flex flex-col items-center gap-4">
+                                <Loader2 className="animate-spin size-12 text-primary opacity-40" />
+                                <p className="text-[10px] font-bold uppercase text-muted-foreground animate-pulse">Sincronizando...</p>
+                            </div>
+                        ) : isConnected ? (
+                            <div className="space-y-4 animate-in fade-in zoom-in-95">
+                                <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner ring-4 ring-emerald-50">
+                                    <CheckCircle size={40} />
+                                </div>
+                                <div>
+                                    <h4 className="font-black text-emerald-900 uppercase tracking-tight">Sistema Online</h4>
+                                    <p className="text-[10px] text-emerald-700 font-bold uppercase mt-1">Conectado com Sucesso</p>
+                                </div>
+                                <Badge className="bg-emerald-600 text-white border-none font-black text-[10px] px-4">ATIVO</Badge>
+                            </div>
+                        ) : (instanceStatus?.qr || instanceStatus?.status === 'pairing') ? (
+                            <div className="space-y-4 animate-in fade-in zoom-in-95">
+                                {instanceStatus.qr ? (
+                                    <div className="p-4 bg-white border-2 border-dashed rounded-2xl shadow-xl">
+                                        <img src={instanceStatus.qr} alt="WhatsApp QR Code" className="size-48" />
+                                    </div>
+                                ) : (
+                                    <div className="p-12 bg-white border-2 border-dashed rounded-2xl shadow-inner flex flex-col items-center justify-center">
+                                        <Loader2 className="animate-spin size-8 text-primary mb-2" />
+                                        <p className="text-[10px] font-bold uppercase text-muted-foreground">Gerando código...</p>
+                                    </div>
+                                )}
+                                <div>
+                                    <h4 className="font-black text-amber-900 uppercase">Aguardando Pareamento</h4>
+                                    <p className="text-[10px] text-amber-700 font-bold uppercase mt-1">Escaneie pelo WhatsApp</p>
+                                </div>
+                                <Button size="sm" variant="ghost" onClick={checkStatus} className="text-[10px] font-black uppercase"><RefreshCw size={14} className="mr-2"/> Atualizar</Button>
+                            </div>
+                        ) : (
+                            <div className="space-y-4 opacity-50">
+                                <Smartphone size={64} className="text-muted-foreground mx-auto" />
+                                <p className="text-xs font-bold text-muted-foreground uppercase max-w-[200px] mx-auto">
+                                    {instanceStatus?.message || 'Status não identificado. Verifique a API Key.'}
+                                </p>
+                                <Button size="sm" variant="ghost" onClick={checkStatus} className="text-[10px] font-black uppercase"><RefreshCw size={14} className="mr-2"/> Atualizar</Button>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    );
+}
+
 function NotificationsHistory() {
     const { firestore } = useFirebase();
     const historyQuery = useMemoFirebase(() => 
@@ -697,7 +850,7 @@ function NotificationsHistory() {
 export default function NotificationsPage() {
   return (
     <div className="space-y-6">
-        <Card className="border-primary/20 bg-primary/5 shadow-sm">
+        <Card className="border-primary/20 bg-primary/5 shadow-sm text-slate-900">
             <CardHeader className="flex flex-row items-center justify-between">
                 <div>
                     <CardTitle className="text-2xl font-black flex items-center gap-3 text-primary">
