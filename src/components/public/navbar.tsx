@@ -5,59 +5,50 @@ import React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/icons';
-import { LogIn, Menu } from 'lucide-react';
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { usePathname } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
 export function PublicNavbar() {
+  const pathname = usePathname();
+
+  const navLinks = [
+    { href: '/', label: 'Início' },
+    { href: '/public/enrollment', label: 'Cursos & Trilhas' },
+    { href: '/dashboard/gc/map', label: 'Mapa de GCs' },
+  ];
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto px-4 flex h-16 items-center justify-between">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
+      <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2">
-          <Logo className="size-8 text-primary" />
-          <span className="text-xl font-bold tracking-tighter">OikoApp</span>
+          <Logo className="h-8 w-8 text-primary" />
+          <span className="text-xl font-black tracking-tighter text-slate-900 uppercase italic">OikoApp</span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-6">
-          <Link href="/public/enrollment" className="text-sm font-bold hover:text-primary transition-colors uppercase tracking-widest">Lumine</Link>
-          <Link href="/dashboard/gc/map" className="text-sm font-bold hover:text-primary transition-colors uppercase tracking-widest">Células</Link>
-          <Link href="/dashboard/social" className="text-sm font-bold hover:text-primary transition-colors uppercase tracking-widest">Social</Link>
-          <Button asChild variant="default" size="sm" className="font-bold rounded-full px-6">
-            <Link href="/login">
-              <LogIn className="mr-2 size-4" />
-              Portal do Membro
+        <nav className="hidden md:flex items-center gap-8">
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={cn(
+                "text-sm font-bold uppercase tracking-widest transition-colors hover:text-primary",
+                pathname === link.href ? "text-primary" : "text-muted-foreground"
+              )}
+            >
+              {link.label}
             </Link>
-          </Button>
+          ))}
         </nav>
 
-        <div className="md:hidden">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Menu className="size-6" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right">
-              <SheetTitle>Menu</SheetTitle>
-              <div className="flex flex-col gap-4 mt-8">
-                <Link href="/public/enrollment" className="text-lg font-bold">Lumine</Link>
-                <Link href="/dashboard/gc/map" className="text-lg font-bold">Células</Link>
-                <Link href="/dashboard/social" className="text-lg font-bold">Social</Link>
-                <Separator />
-                <Link href="/login" className="text-lg font-bold text-primary">Portal do Membro</Link>
-              </div>
-            </SheetContent>
-          </Sheet>
+        <div className="flex items-center gap-4">
+          <Button asChild variant="outline" className="hidden sm:flex font-bold">
+            <Link href="/login">Portal do Membro</Link>
+          </Button>
+          <Button asChild className="font-bold">
+            <Link href="/public/enrollment">Fazer Parte</Link>
+          </Button>
         </div>
       </div>
     </header>
   );
-}
-
-function Separator() {
-    return <div className="h-px w-full bg-border" />;
 }
