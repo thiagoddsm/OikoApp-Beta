@@ -75,11 +75,12 @@ function IntegrationLaboratory({ lastError }: { lastError?: string }) {
             const res = await fetch('/api/finance/conta-azul/test-write', { method: 'POST' });
             const data = await res.json();
             if (res.ok) {
-                addLog("Sucesso! Registro de teste criado no Conta Azul.");
+                addLog(`Sucesso! Protocolo: ${data.data.protocolId}`);
                 toast({ title: "Escrita OK", description: "Lançamento de teste gerado." });
             } else {
-                addLog(`ERRO: ${data.error}`);
-                throw new Error(data.error || "Erro na API");
+                const errorMsg = typeof data.error === 'object' ? JSON.stringify(data.error) : data.error;
+                addLog(`ERRO: ${errorMsg}`);
+                throw new Error(errorMsg || "Erro na API");
             }
         } catch (e: any) {
             addLog(`FALHA NA ESCRITA: ${e.message}`);
@@ -171,10 +172,14 @@ function ContaAzulConnect() {
   };
   
   const handleDisconnect = async () => {
-    if (!configDocRef) return;
+    if (!configDocRef) {
+        console.error("Referência do documento não encontrada.");
+        return;
+    }
     
     if (confirmDisconnect) {
         setIsDisconnecting(true);
+        console.log("Iniciando limpeza de tokens no Firestore...");
         try {
             await updateDoc(configDocRef, { 
                 accessToken: '', 
@@ -184,13 +189,15 @@ function ContaAzulConnect() {
                 updatedAt: new Date().toISOString()
             });
             setConfirmDisconnect(false);
-            toast({ title: 'Conexão Encerrada' });
-        } catch (e) {
-            toast({ variant: 'destructive', title: 'Erro ao desconectar' });
+            toast({ title: 'Conexão Encerrada', description: 'Todos os tokens foram removidos.' });
+        } catch (e: any) {
+            console.error("Erro ao limpar tokens:", e);
+            toast({ variant: 'destructive', title: 'Erro ao desconectar', description: e.message });
         } finally {
             setIsDisconnecting(false);
         }
     } else {
+        console.log("Clique de confirmação ativado.");
         setConfirmDisconnect(true);
         setTimeout(() => setConfirmDisconnect(false), 5000);
     }
@@ -200,7 +207,10 @@ function ContaAzulConnect() {
 
   const isConnected = !!config?.accessToken || !!config?.refreshToken;
   const redirectUri = `${origin}/api/finance/conta-azul/callback`;
-  const authUrl = `https://auth.contaazul.com/login?response_type=code&client_id=${clientId.trim()}&redirect_uri=${encodeURIComponent(redirectUri)}&state=oiko_auth&scope=openid+profile+aws.cognito.signin.user.admin`;
+  
+  // Escopo corrigido conforme documentação oficial para dar permissão a todos os recursos
+  const fullScope = 'read:vendas+write:vendas+read:clientes+write:clientes+read:produtos+write:produtos+read:financeiro+write:financeiro+read:notas_fiscais+read:contratos+write:contratos';
+  const authUrl = `https://auth.contaazul.com/login?response_type=code&client_id=${clientId.trim()}&redirect_uri=${encodeURIComponent(redirectUri)}&state=oiko_auth&scope=${fullScope}`;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -271,14 +281,14 @@ function ContaAzulConnect() {
                         <Button 
                             variant="outline" 
                             className={cn(
-                                "transition-all font-bold", 
-                                confirmDisconnect ? "bg-red-600 text-white border-red-600" : "text-destructive border-destructive/20"
+                                "transition-all font-bold w-full max-w-xs", 
+                                confirmDisconnect ? "bg-red-600 text-white border-red-600" : "text-destructive border-destructive/20 hover:bg-red-50"
                             )} 
                             onClick={handleDisconnect}
                             disabled={isDisconnecting}
                         >
                             {isDisconnecting ? <Loader2 className="animate-spin size-4 mr-2" /> : confirmDisconnect ? <AlertCircle className="size-4 mr-2" /> : <LogOut className="size-4 mr-2" />}
-                            {confirmDisconnect ? "Confirmar?" : "Encerrar Conexão"}
+                            {confirmDisconnect ? "Clique para Confirmar" : "Encerrar Conexão"}
                         </Button>
                     </div>
                 )}
@@ -296,8 +306,8 @@ function FinancePageContent() {
 
     useEffect(() => {
         const status = searchParams.get('status');
-        if (status === 'connected') toast({ title: "Sucesso!", description: "Conta Azul conectada." });
-        else if (status === 'error') toast({ variant: 'destructive', title: "Erro na Autorização", description: searchParams.get('message') || "Verifique as credenciais." });
+        if (status === 'connected') toast({ title: "Sucesso!", description: "Conta Azul conectada com permissões totais." });
+        else if (status === 'error') toast({ variant: 'destructive', title: "Erro na Autorização", description: searchParams.get('message') || "Verifique as credenciais e escopos." });
     }, [searchParams, toast]);
 
     const summaryData = useMemo(() => {
