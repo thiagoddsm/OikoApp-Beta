@@ -4,41 +4,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Regra Global: Permite leitura e escrita para qualquer usuário autenticado
+    // Regra Liberal para Fase de Testes: Permite tudo para todos
     match /{document=**} {
-      allow read, write: if request.auth != null;
-    }
-
-    // Permite leitura de usuários para a API Route
-    match /users/{userId} {
-      allow read: if true;
-    }
-
-    // Regras Específicas para Notificações (Permitem gravação via API Route e leitura via Dashboard)
-    // Nota: Necessário 'allow read, write: if true' para o SDK cliente no servidor (API Routes)
-    match /notifications_chats/{docId} {
       allow read, write: if true;
-    }
-    match /notifications_messages/{docId} {
-      allow read, write: if true;
-    }
-    match /notifications_history/{docId} {
-      allow read, write: if true;
-    }
-    match /notifications_responses/{docId} {
-      allow read, write: if true;
-    }
-    
-    match /finance_requests/{docId} {
-      allow read, write: if request.auth != null || true; // Permite via link público
-    }
-    
-    match /financial_transactions/{docId} {
-      allow read, write: if request.auth != null;
-    }
-    
-    match /config/{docId} {
-      allow read, write: if request.auth != null;
     }
   }
 }

@@ -27,7 +27,8 @@
         "lastMessageAt": { "type": "string", "format": "date-time" },
         "userName": { "type": "string" },
         "phoneNumber": { "type": "string" },
-        "unreadCount": { "type": "number" }
+        "unreadCount": { "type": "number" },
+        "isGroup": { "type": "boolean" }
       }
     },
     "NotificationMessage": {
@@ -39,7 +40,23 @@
         "from": { "type": "string" },
         "fromMe": { "type": "boolean" },
         "receivedAt": { "type": "string", "format": "date-time" },
-        "type": { "type": "string" }
+        "type": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" }
+      }
+    },
+    "NotificationHistory": {
+      "title": "Notification History",
+      "type": "object",
+      "description": "Log of broadcast messages.",
+      "properties": {
+        "channel": { "type": "string" },
+        "type": { "type": "string" },
+        "message": { "type": "string" },
+        "recipientCount": { "type": "number" },
+        "successCount": { "type": "number" },
+        "status": { "type": "string" },
+        "sentAt": { "type": "string", "format": "date-time" }
       }
     }
   },
@@ -58,6 +75,10 @@
     "/notifications_messages/{messageId}": {
       "schema": { "$ref": "#/backend/entities/NotificationMessage" },
       "description": "Message history."
+    },
+    "/notifications_history/{docId}": {
+      "schema": { "$ref": "#/backend/entities/NotificationHistory" },
+      "description": "Broadcast history."
     }
   }
 }
