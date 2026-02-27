@@ -4,47 +4,42 @@
 import { initializeFirebase } from '@/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
-/**
- * Hosts da Conta Azul conforme Documentação Técnica.
- * V1: Clientes, Produtos, Vendas.
- * V2: Financeiro, Cobranças, Contratos.
- */
-const CONTA_AZUL_V1_HOST = 'https://api.contaazul.com';
-const CONTA_AZUL_V2_HOST = 'https://api-v2.contaazul.com';
+const CONTA_AZUL_BASE = 'https://api.contaazul.com';
 const CONTA_AZUL_AUTH_BASE = 'https://auth.contaazul.com';
 
-// Mutex para evitar múltiplas renovações simultâneas
 let refreshPromise: Promise<string> | null = null;
 
 /**
  * Recupera o token de acesso válido, renovando-o se necessário.
+ * Garante que o token retornado é sempre o mais recente.
  */
-export async function getValidContaAzulToken(forceRefresh = false): Promise<string> {
+export async function getValidContaAzulToken(): Promise<string> {
     const { firestore } = initializeFirebase();
     const configRef = doc(firestore, 'config', 'conta_azul');
     const configSnap = await getDoc(configRef);
 
     if (!configSnap.exists()) {
-        throw new Error('Configuração não encontrada no banco (config/conta_azul).');
+        throw new Error('Configuração Conta Azul não encontrada.');
     }
 
     const config = configSnap.data();
-    
-    // Prioridade para o Token Manual (útil para debug rápido)
-    if (config.accessToken && !config.refreshToken && !forceRefresh) {
-        return config.accessToken;
-    }
-
     const now = Date.now();
-    // Se não for forçado e o token estiver válido (com margem de 5 min)
-    if (!forceRefresh && config.accessToken && config.expiresAt && now < (config.expiresAt - 300000)) {
+
+    // Se o token manual estiver preenchido e não houver meio de refresh, use-o
+    if (config.accessToken && !config.refreshToken) {
         return config.accessToken;
     }
 
-    // Lógica de Renovação (Refresh Token)
-    if (config.refreshToken && config.clientId && config.clientSecret) {
-        if (refreshPromise && !forceRefresh) return refreshPromise;
+    // Verifica validade (folga de 60 segundos)
+    if (config.accessToken && config.expiresAt && now < (config.expiresAt - 60000)) {
+        return config.accessToken;
+    }
 
+    // Se já houver um processo de renovação em curso, aguarda ele.
+    if (refreshPromise) return refreshPromise;
+
+    // Inicia renovação do token
+    if (config.refreshToken && config.clientId && config.clientSecret) {
         refreshPromise = (async () => {
             try {
                 const authHeader = Buffer.from(`${config.clientId.trim()}:${config.clientSecret.trim()}`).toString('base64');
@@ -65,19 +60,16 @@ export async function getValidContaAzulToken(forceRefresh = false): Promise<stri
 
                 if (response.ok) {
                     const newExpiresAt = Date.now() + (data.expires_in * 1000);
-                    // IMPORTANTE: Aguardar a atualização do banco
                     await updateDoc(configRef, {
                         accessToken: data.access_token,
                         refreshToken: data.refresh_token,
                         expiresAt: newExpiresAt,
-                        updatedAt: new Date().toISOString(),
-                        lastError: 'SUCESSO: Token renovado e pronto para uso.'
+                        updatedAt: new Date().toISOString()
                     });
                     return data.access_token;
                 } else {
-                    const msg = data.error_description || data.message || JSON.stringify(data);
-                    await updateDoc(configRef, { lastError: `FALHA NO REFRESH: ${msg}`, lastErrorAt: new Date().toISOString() });
-                    throw new Error(msg);
+                    const errMsg = data.error_description || data.message || 'Falha no refresh token';
+                    throw new Error(errMsg);
                 }
             } finally {
                 refreshPromise = null;
@@ -87,96 +79,57 @@ export async function getValidContaAzulToken(forceRefresh = false): Promise<stri
         return refreshPromise;
     }
 
-    if (config.accessToken) return config.accessToken;
-    throw new Error('Nenhum token disponível. Realize a autorização no painel.');
+    throw new Error('Nenhum token válido ou meio de renovação disponível.');
 }
 
 /**
- * Chamada genérica com roteamento inteligente de host.
- * V1: Clientes (/v1/customers), Produtos (/v1/products).
- * V2: Financeiro (/v1/financeiro), Contas (/v1/conta-financeira).
+ * Chamada genérica à API da Conta Azul.
+ * Centraliza o uso do token válido.
  */
-export async function callContaAzulApi(endpoint: string, method: string = 'GET', body?: any, retryCount = 0): Promise<any> {
-    try {
-        const token = await getValidContaAzulToken(retryCount > 0);
-        
-        const normalizedEndpoint = endpoint.toLowerCase();
-        
-        // Roteamento conforme documentação: Pessoas e Clientes no Host V1
-        const isV1Resource = 
-            normalizedEndpoint.includes('/customers') || 
-            normalizedEndpoint.includes('/clientes') || 
-            normalizedEndpoint.includes('/products') ||
-            normalizedEndpoint.includes('/produtos');
+export async function callContaAzulApi(endpoint: string, method: string = 'GET', body?: any): Promise<any> {
+    const token = await getValidContaAzulToken();
+    const url = `${CONTA_AZUL_BASE}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+    
+    const response = await fetch(url, {
+        method,
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        },
+        body: body ? JSON.stringify(body) : undefined,
+        cache: 'no-store'
+    });
 
-        const host = isV1Resource ? CONTA_AZUL_V1_HOST : CONTA_AZUL_V2_HOST;
-        const url = `${host}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-        
-        const response = await fetch(url, {
-            method,
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: body ? JSON.stringify(body) : undefined,
-            cache: 'no-store'
-        });
-
-        // 204 No Content ou 202 Accepted (sucesso sem corpo)
-        if (response.status === 204 || response.status === 202) {
-            return { success: true, status: response.status };
-        }
-
-        const data = await response.json().catch(() => ({}));
-
-        if (!response.ok) {
-            // Se 401 (Unauthorized), tenta renovar uma única vez
-            if (response.status === 401 && retryCount === 0) {
-                return callContaAzulApi(endpoint, method, body, 1);
-            }
-            
-            // Tratamento rigoroso para evitar o erro [object Object]
-            // Vasculha as chaves comuns de erro da Conta Azul
-            const rawError = data.message || data.error_description || data.error || data.msg || data;
-            const errorDetail = typeof rawError === 'object' ? JSON.stringify(rawError) : (rawError || `Erro HTTP ${response.status}`);
-            throw new Error(errorDetail);
-        }
-
-        return data;
-    } catch (e: any) {
-        throw new Error(e.message || 'Falha desconhecida na comunicação com a API.');
+    if (response.status === 204 || response.status === 202) {
+        return { success: true };
     }
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+        const errorMsg = data.message || data.error_description || data.error || `Erro HTTP ${response.status}`;
+        throw new Error(typeof errorMsg === 'object' ? JSON.stringify(errorMsg) : errorMsg);
+    }
+
+    return data;
 }
 
-/**
- * Localiza ou cria um cliente no Host V1.
- */
 export async function findOrCreateContaAzulCustomer(member: { name: string; email?: string; phone?: string }) {
-    try {
-        // Busca cliente no V1 usando o endpoint /v1/customers
-        const response = await callContaAzulApi(`/v1/customers?name=${encodeURIComponent(member.name)}`);
-        const list = Array.isArray(response) ? response : (response.itens || response.items || []);
-        
-        if (list.length > 0) return list[0].id;
+    const response = await callContaAzulApi(`/v1/customers?name=${encodeURIComponent(member.name)}`);
+    const list = Array.isArray(response) ? response : (response.itens || response.items || []);
+    
+    if (list.length > 0) return list[0].id;
 
-        // Criação no V1
-        const newCustomer = await callContaAzulApi('/v1/customers', 'POST', {
-            name: member.name,
-            email: member.email || '',
-            mobile_phone: member.phone || '',
-            person_type: 'NATURAL'
-        });
+    const newCustomer = await callContaAzulApi('/v1/customers', 'POST', {
+        name: member.name,
+        email: member.email || '',
+        mobile_phone: member.phone || '',
+        person_type: 'NATURAL'
+    });
 
-        return newCustomer.id;
-    } catch (e: any) {
-        throw new Error(`Erro ao gerenciar cliente: ${e.message}`);
-    }
+    return newCustomer.id;
 }
 
-/**
- * Cria um recebível no Host V2.
- */
 export async function createContaAzulReceivable(data: any) {
-    // Rota financeira moderna no Host V2
-    return callContaAzulApi('/v1/financeiro/eventos-financeiros/contas-a-receber', 'POST', data);
+    return callContaAzulApi('/v1/financeiro/contas-a-receber', 'POST', data);
 }
