@@ -121,8 +121,18 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
                 return callContaAzulApi(endpoint, method, body, 1);
             }
             
-            // Tratamento robusto para evitar [object Object]
-            const errorDetail = data.message || data.error_description || data.error || (Object.keys(data).length > 0 ? JSON.stringify(data) : `Erro HTTP ${response.status}`);
+            // Tratamento ultra-robusto para evitar [object Object]
+            let errorDetail = '';
+            if (typeof data === 'string') {
+                errorDetail = data;
+            } else if (data && typeof data === 'object') {
+                const rawMsg = data.message || data.error_description || data.error || data.msg;
+                // Se a mensagem ainda for um objeto (como erros de validação da Conta Azul), stringifica
+                errorDetail = typeof rawMsg === 'object' ? JSON.stringify(rawMsg) : (rawMsg || JSON.stringify(data));
+            } else {
+                errorDetail = `Erro HTTP ${response.status}`;
+            }
+            
             throw new Error(errorDetail);
         }
 
@@ -151,8 +161,8 @@ export async function findOrCreateContaAzulCustomer(member: { name: string; emai
 
         return newCustomer.id;
     } catch (e: any) {
-        // Preserva a mensagem de erro detalhada vinda da callContaAzulApi
-        throw new Error(`Erro ao gerenciar cliente: ${e.message}`);
+        const errorMsg = e instanceof Error ? e.message : (typeof e === 'object' ? JSON.stringify(e) : String(e));
+        throw new Error(`Erro ao gerenciar cliente: ${errorMsg}`);
     }
 }
 

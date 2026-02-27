@@ -70,7 +70,7 @@ function IntegrationLaboratory({ lastError }: { lastError?: string }) {
 
     const handleWriteTest = async () => {
         setIsTestingWrite(true);
-        addLog("Iniciando teste de escrita (Cobrança v2)...");
+        addLog("Iniciando teste de escrita (Contas a Receber)...");
         try {
             const res = await fetch('/api/finance/conta-azul/test-write', { method: 'POST' });
             const data = await res.json();
@@ -78,7 +78,9 @@ function IntegrationLaboratory({ lastError }: { lastError?: string }) {
                 addLog("Sucesso! Registro de teste criado no Conta Azul.");
                 toast({ title: "Escrita OK", description: "Lançamento de teste gerado." });
             } else {
-                throw new Error(data.error || "Erro na API");
+                // Se data.error for um objeto, stringifica para o log
+                const errorMsg = typeof data.error === 'object' ? JSON.stringify(data.error) : (data.error || "Erro na API");
+                throw new Error(errorMsg);
             }
         } catch (e: any) {
             addLog(`FALHA NA ESCRITA: ${e.message}`);
@@ -172,7 +174,6 @@ function ContaAzulConnect() {
   const handleDisconnect = async () => {
     if (!configDocRef) return;
     
-    // Segunda etapa: Executa a desconexão real
     if (confirmDisconnect) {
         setIsDisconnecting(true);
         try {
@@ -192,9 +193,8 @@ function ContaAzulConnect() {
             setIsDisconnecting(false);
         }
     } else {
-        // Primeira etapa: Pede confirmação visual (mais seguro que window.confirm)
         setConfirmDisconnect(true);
-        setTimeout(() => setConfirmDisconnect(false), 5000); // Reseta após 5 segundos
+        setTimeout(() => setConfirmDisconnect(false), 10000); // 10 segundos para confirmar
     }
   };
 
