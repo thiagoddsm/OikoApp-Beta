@@ -2,10 +2,10 @@
 import { NextResponse } from 'next/server';
 import { initializeFirebase } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { WhatsApp } from '@raphaelvserafim/client-api-whatsapp';
 
 /**
- * API Route to manage WhatsApp Instance (Status and Connection) from api-wa.me
- * Ultra-resilient detection for v5.0.0 Pro Plan
+ * API Route to manage WhatsApp Instance using official library
  */
 
 export const dynamic = 'force-dynamic';
@@ -32,42 +32,18 @@ export async function GET() {
     }
 
     try {
-        // Cache bursting rigoroso para evitar o status UNKNOWN por dados antigos
-        const response = await fetch(`https://us.api-wa.me/${waKey}/instance?t=${Date.now()}`, {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-          cache: 'no-store'
+        const whatsapp = new WhatsApp({
+            server: "https://us.api-wa.me",
+            key: waKey
         });
 
-        const data = await response.json().catch(() => ({}));
+        const data = await whatsapp.info();
         
-        if (!response.ok) {
-            return NextResponse.json({ 
-                status: 'invalid_key',
-                message: data.message || `Chave inválida ou instância não encontrada (${response.status})`,
-                details: data 
-            });
-        }
-
-        // Mapeamento ultra-resiliente para v5.0.0 Pro
-        const stateStr = (
-            data.instance?.state || 
-            data.state || 
-            data.status || 
-            data.instance?.status || 
-            ''
-        ).toString().toLowerCase();
-        
-        // Detecção de conexão baseada em múltiplos campos da API
-        const isOnline = 
-            data.authenticated === true || 
-            data.instance?.authenticated === true || 
-            data.is_connected === true ||
-            data.instance?.is_connected === true ||
-            ['open', 'connected', 'online', 'authenticated'].includes(stateStr);
+        // Mapeamento resiliente para o status visual
+        const stateStr = (data.instance?.state || data.state || data.status || '').toString().toLowerCase();
+        const isOnline = data.authenticated === true || data.instance?.authenticated === true || ['open', 'connected', 'online', 'authenticated'].includes(stateStr);
         
         let displayStatus = 'unknown';
-        
         if (isOnline) {
             displayStatus = 'connected';
         } else if (data.qr || data.qrcode || data.instance?.qr || stateStr.includes('pairing') || stateStr.includes('qr')) {
@@ -75,7 +51,7 @@ export async function GET() {
         } else if (['closed', 'logout', 'disconnected', 'offline'].includes(stateStr)) {
             displayStatus = 'offline';
         } else {
-            displayStatus = (stateStr === '200' || stateStr === '') ? 'unknown' : stateStr;
+            displayStatus = stateStr || 'unknown';
         }
 
         return NextResponse.json({ 

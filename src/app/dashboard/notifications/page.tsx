@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -28,7 +29,6 @@ import { collection, query, orderBy, Timestamp, doc, where, limit } from 'fireba
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
-import Image from 'next/image';
 
 const QUICK_TEMPLATES = [
     { id: 'welcome', label: 'Boas-vindas', icon: MessageSquare, text: 'Olá {{nome}}, que alegria ter você conosco na IBM! Desejamos que se sinta em casa. Como podemos orar por você hoje?' },
@@ -36,7 +36,7 @@ const QUICK_TEMPLATES = [
 ];
 
 function WhatsappChats() {
-    const { firestore, user: currentUser } = useFirebase();
+    const { firestore } = useFirebase();
     const { toast } = useToast();
     const [selectedChat, setSelectedChat] = useState<any>(null);
     const [replyText, setReplyText] = useState('');
