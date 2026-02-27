@@ -59,13 +59,12 @@ export async function getValidContaAzulToken(forceRefresh = false) {
             if (response.ok) {
                 const newExpiresAt = Date.now() + (data.expires_in * 1000);
                 
-                // Salva o novo token
                 await updateDoc(configRef, {
                     accessToken: data.access_token,
                     refreshToken: data.refresh_token,
                     expiresAt: newExpiresAt,
                     updatedAt: new Date().toISOString(),
-                    lastError: 'Token renovado automaticamente.'
+                    lastError: 'Token renovado e pronto para uso.'
                 });
 
                 memoryToken = data.access_token;
@@ -73,15 +72,15 @@ export async function getValidContaAzulToken(forceRefresh = false) {
             } else {
                 const msg = data.error_description || data.message || 'Falha no Refresh Token.';
                 await updateDoc(configRef, { lastError: `ERRO REFRESH: ${msg}`, lastErrorAt: new Date().toISOString() });
-                throw new Error(`Conta Azul Auth: ${msg}`);
+                throw new Error(msg);
             }
         } catch (e: any) {
-            throw new Error(`Erro de autenticação: ${e.message}`);
+            throw new Error(`Autenticação: ${e.message}`);
         }
     }
 
     if (config.accessToken) return config.accessToken;
-    throw new Error('Nenhum token disponível. Autorize o acesso no painel.');
+    throw new Error('Nenhum token disponível. Autorize o acesso.');
 }
 
 /**
@@ -91,9 +90,14 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
     try {
         const token = await getValidContaAzulToken(retryCount > 0);
         
-        // Host selection logic (V2 por padrão para finanças)
+        // Host selection logic baseado na documentação
+        // Recursos financeiros e contratos usam api-v2
         let host = 'https://api-v2.contaazul.com';
-        if (endpoint.startsWith('/v1/customers')) {
+        
+        // Recursos de pessoas (clientes) ainda usam api v1 no host antigo em alguns casos
+        // Mas a doc nova aponta api-v2 para quase tudo. Vamos testar api-v2 como padrão.
+        if (endpoint.startsWith('/v1/customers') || endpoint.startsWith('/v1/products')) {
+            // Se falhar no v2, tentamos no v1
             host = 'https://api.contaazul.com';
         }
 
@@ -114,8 +118,9 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            // Auto-Retry em caso de 401
+            // Auto-Retry em caso de 401 (Unauthorized)
             if (response.status === 401 && retryCount === 0) {
+                memoryToken = null; // Limpa cache
                 return callContaAzulApi(endpoint, method, body, 1);
             }
             
@@ -131,11 +136,13 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
 
 export async function findOrCreateContaAzulCustomer(member: { name: string; email?: string; phone?: string }) {
     try {
+        // Tenta buscar cliente (v1)
         const customers = await callContaAzulApi(`/v1/customers?name=${encodeURIComponent(member.name)}`);
         const list = Array.isArray(customers) ? customers : (customers.itens || customers.items || []);
         
         if (list.length > 0) return list[0].id;
 
+        // Cria se não existir (v1)
         const newCustomer = await callContaAzulApi('/v1/customers', 'POST', {
             name: member.name,
             email: member.email || '',
@@ -145,10 +152,11 @@ export async function findOrCreateContaAzulCustomer(member: { name: string; emai
 
         return newCustomer.id;
     } catch (e: any) {
-        throw new Error(`Gerenciamento de Cliente: ${e.message}`);
+        throw new Error(`Erro ao gerenciar cliente no Conta Azul: ${e.message}`);
     }
 }
 
 export async function createContaAzulReceivable(data: any) {
+    // Documentação aponta api-v2 para criar contas a receber
     return callContaAzulApi('/v1/financeiro/eventos-financeiros/contas-a-receber', 'POST', data);
 }
