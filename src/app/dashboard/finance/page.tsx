@@ -78,7 +78,6 @@ function IntegrationLaboratory({ lastError }: { lastError?: string }) {
                 addLog("Sucesso! Registro de teste criado no Conta Azul.");
                 toast({ title: "Escrita OK", description: "Lançamento de teste gerado." });
             } else {
-                // Se data.error for um objeto, stringifica para o log
                 const errorMsg = typeof data.error === 'object' ? JSON.stringify(data.error) : (data.error || "Erro na API");
                 throw new Error(errorMsg);
             }
@@ -176,6 +175,7 @@ function ContaAzulConnect() {
     
     if (confirmDisconnect) {
         setIsDisconnecting(true);
+        console.log("Iniciando desconexão definitiva...");
         try {
             await updateDoc(configDocRef, { 
                 accessToken: '', 
@@ -188,13 +188,14 @@ function ContaAzulConnect() {
             setConfirmDisconnect(false);
             toast({ title: 'Conexão Encerrada', description: 'Todos os tokens foram removidos.' });
         } catch (e) {
+            console.error("Erro ao desconectar:", e);
             toast({ variant: 'destructive', title: 'Erro ao desconectar' });
         } finally {
             setIsDisconnecting(false);
         }
     } else {
         setConfirmDisconnect(true);
-        setTimeout(() => setConfirmDisconnect(false), 10000); // 10 segundos para confirmar
+        setTimeout(() => setConfirmDisconnect(false), 10000);
     }
   };
 

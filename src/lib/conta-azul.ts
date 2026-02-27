@@ -5,9 +5,12 @@ import { initializeFirebase } from '@/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 /**
- * Host V2 Unificado conforme Documentação Técnica.
+ * Hosts da Conta Azul conforme Documentação Técnica.
+ * V1: Clientes, Produtos, Vendas Legadas.
+ * V2: Financeiro, Contratos, Cobranças.
  */
-const CONTA_AZUL_API_BASE = 'https://api-v2.contaazul.com';
+const CONTA_AZUL_V1_HOST = 'https://api.contaazul.com';
+const CONTA_AZUL_V2_HOST = 'https://api-v2.contaazul.com';
 const CONTA_AZUL_AUTH_BASE = 'https://auth.contaazul.com';
 
 // Cache em memória para evitar loops de refresh na mesma requisição
@@ -92,12 +95,18 @@ export async function getValidContaAzulToken(forceRefresh = false) {
 }
 
 /**
- * Chamada genérica à API com Auto-Retry em caso de 401 (Unauthorized).
+ * Chamada genérica à API com seleção inteligente de host e Auto-Retry.
  */
 export async function callContaAzulApi(endpoint: string, method: string = 'GET', body?: any, retryCount = 0): Promise<any> {
     try {
         const token = await getValidContaAzulToken(retryCount > 0);
-        const url = `${CONTA_AZUL_API_BASE}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+        
+        // Seleção de Host baseada no recurso
+        // Clientes (customers) estão no host V1. Financeiro no V2.
+        const isV1Resource = endpoint.includes('/customers') || endpoint.includes('/products') || endpoint.includes('/sales');
+        const host = isV1Resource ? CONTA_AZUL_V1_HOST : CONTA_AZUL_V2_HOST;
+        
+        const url = `${host}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
         
         const response = await fetch(url, {
             method,
@@ -116,18 +125,17 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
+            // Se 401 (Unauthorized), tenta renovar o token UMA vez
             if (response.status === 401 && retryCount === 0) {
                 memoryToken = null;
                 return callContaAzulApi(endpoint, method, body, 1);
             }
             
-            // Tratamento ultra-robusto para evitar [object Object]
             let errorDetail = '';
             if (typeof data === 'string') {
                 errorDetail = data;
             } else if (data && typeof data === 'object') {
                 const rawMsg = data.message || data.error_description || data.error || data.msg;
-                // Se a mensagem ainda for um objeto (como erros de validação da Conta Azul), stringifica
                 errorDetail = typeof rawMsg === 'object' ? JSON.stringify(rawMsg) : (rawMsg || JSON.stringify(data));
             } else {
                 errorDetail = `Erro HTTP ${response.status}`;
@@ -143,15 +151,17 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
 }
 
 /**
- * Busca ou cria um cliente no Conta Azul.
+ * Busca ou cria um cliente no Conta Azul (Host V1).
  */
 export async function findOrCreateContaAzulCustomer(member: { name: string; email?: string; phone?: string }) {
     try {
+        // Busca usando Host V1
         const response = await callContaAzulApi(`/v1/customers?name=${encodeURIComponent(member.name)}`);
         const list = Array.isArray(response) ? response : (response.itens || response.items || []);
         
         if (list.length > 0) return list[0].id;
 
+        // Criação usando Host V1
         const newCustomer = await callContaAzulApi('/v1/customers', 'POST', {
             name: member.name,
             email: member.email || '',
@@ -161,13 +171,12 @@ export async function findOrCreateContaAzulCustomer(member: { name: string; emai
 
         return newCustomer.id;
     } catch (e: any) {
-        const errorMsg = e instanceof Error ? e.message : (typeof e === 'object' ? JSON.stringify(e) : String(e));
-        throw new Error(`Erro ao gerenciar cliente: ${errorMsg}`);
+        throw new Error(`Erro ao gerenciar cliente: ${e.message}`);
     }
 }
 
 /**
- * Cria um recebível (Contas a Receber) para permitir geração de cobrança posterior.
+ * Cria um recebível (Contas a Receber) para permitir geração de cobrança posterior (Host V2).
  */
 export async function createContaAzulReceivable(data: any) {
     return callContaAzulApi('/v1/financeiro/eventos-financeiros/contas-a-receber', 'POST', data);
