@@ -736,7 +736,7 @@ function NotificationsConfig() {
 
                         <div className="pt-6 border-t">
                             <Button onClick={handleSaveKey} disabled={isSaving} className="w-full h-11 font-bold shadow-lg">
-                                {isSaving ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : <ShieldAlert size={18} className="mr-2" />}
+                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldAlert size={18} className="mr-2" />}
                                 Salvar Configurações
                             </Button>
                         </div>
