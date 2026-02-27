@@ -4,8 +4,8 @@ import { initializeFirebase } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
 /**
- * API Route to manage WhatsApp Instance with robust status detection
- * Direct fetch to us.api-wa.me to ensure compatibility with v5 Pro Plan
+ * API Route to manage WhatsApp Instance with robust status detection for v5.0.0
+ * Handles the new API response structure and ignores deprecation warnings.
  */
 
 export const dynamic = 'force-dynamic';
@@ -32,7 +32,6 @@ export async function GET() {
     }
 
     try {
-        // Direct fetch to get the most reliable data
         const response = await fetch(`https://us.api-wa.me/${waKey}/instance`, {
           method: 'GET',
           headers: { 'Content-Type': 'application/json' },
@@ -49,15 +48,23 @@ export async function GET() {
             });
         }
         
-        // Robust state detection for v5.0.0
-        // It checks instance.state, state, status and authenticated flags
+        // Robust state detection for v5.0.0 Pro Plan
+        // It checks multiple fields because api-wa.me is migrating properties to a 'config' sub-object
         const instanceData = data.instance || data;
-        const stateStr = (instanceData.state || instanceData.status || data.state || '').toString().toLowerCase();
-        const isAuthenticated = data.authenticated === true || instanceData.authenticated === true;
+        const stateStr = (instanceData.state || instanceData.status || data.state || data.status || '').toString().toLowerCase();
+        const isAuthenticated = data.authenticated === true || instanceData.authenticated === true || data.is_authenticated === true;
         
-        const isOnline = isAuthenticated || ['open', 'connected', 'online', 'authenticated'].includes(stateStr);
+        // Logical "Connected" state check
+        const isOnline = isAuthenticated || ['open', 'connected', 'online', 'authenticated', 'ready'].includes(stateStr);
         
         let displayStatus = 'unknown';
+        let displayMessage = data.message || stateStr || '';
+
+        // If the message is just the deprecation warning, we clear it to avoid UI clutter
+        if (displayMessage.toUpperCase().includes('IMPORTANT: RECEIVE_STATUS_MESSAGE')) {
+            displayMessage = isOnline ? 'Conectado e Pronto' : 'Aguardando Conexão';
+        }
+
         if (isOnline) {
             displayStatus = 'connected';
         } else if (data.qr || data.qrcode || instanceData.qr || stateStr.includes('pairing') || stateStr.includes('qr')) {
@@ -70,7 +77,7 @@ export async function GET() {
 
         return NextResponse.json({ 
             status: displayStatus,
-            message: data.message || stateStr || '',
+            message: displayMessage,
             qr: data.qr || data.qrcode || instanceData.qr || null,
             details: data 
         });
@@ -119,6 +126,7 @@ export async function PATCH() {
 
         if (!waKey) return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
 
+        // Activation of Pro Features via PATCH
         const urlParams = new URLSearchParams({
             markMessageRead: 'true',
             saveMedia: 'true',

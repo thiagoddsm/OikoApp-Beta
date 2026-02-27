@@ -537,9 +537,9 @@ function WhatsappSender() {
                                     <div key={idx} className="flex gap-2 group">
                                         <Input value={opt} onChange={e => handleUpdateSurveyOption(idx, e.target.value)} className="bg-white h-10" />
                                         {surveyOptions.length > 2 && (
-                                            <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-destructive" onClick={() => setSurveyOptions(surveyOptions.filter((_, i) => i !== idx))}>
+                                            <button type="button" className="h-10 w-10 flex items-center justify-center text-muted-foreground hover:text-destructive" onClick={() => setSurveyOptions(surveyOptions.filter((_, i) => i !== idx))}>
                                                 <Trash2 size={16}/>
-                                            </Button>
+                                            </button>
                                         )}
                                     </div>
                                 ))}
@@ -572,9 +572,9 @@ function WhatsappSender() {
                                     <div key={btn.id} className="flex gap-2">
                                         <Input value={btn.text} onChange={e => handleUpdateBtn(idx, e.target.value)} className="bg-white h-10" />
                                         {msgButtons.length > 1 && (
-                                            <Button variant="ghost" size="icon" className="h-10 w-10" onClick={() => setMsgButtons(msgButtons.filter((_, i) => i !== idx))}>
+                                            <button type="button" className="h-10 w-10 flex items-center justify-center" onClick={() => setMsgButtons(msgButtons.filter((_, i) => i !== idx))}>
                                                 <Trash2 size={16}/>
-                                            </Button>
+                                            </button>
                                         )}
                                     </div>
                                 ))}
@@ -814,9 +814,12 @@ function NotificationsConfig() {
                             <Smartphone className="size-4" /> Status do Dispositivo
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="pt-8 flex flex-col items-center justify-center text-center">
+                    <CardContent className="pt-8 flex flex-col items-center justify-center text-center min-h-[250px]">
                         {isRefreshing ? (
-                            <Loader2 className="animate-spin size-12 text-primary opacity-20" />
+                            <div className="flex flex-col items-center gap-4">
+                                <Loader2 className="animate-spin size-12 text-primary opacity-40" />
+                                <p className="text-[10px] font-bold uppercase text-muted-foreground animate-pulse">Sincronizando com Gateway...</p>
+                            </div>
                         ) : isConnected ? (
                             <div className="space-y-4 animate-in fade-in zoom-in-95">
                                 <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner ring-4 ring-emerald-50">
@@ -840,9 +843,11 @@ function NotificationsConfig() {
                             </div>
                         ) : (
                             <div className="space-y-4 opacity-50">
-                                <Smartphone size={64} className="text-muted-foreground" />
-                                <p className="text-xs font-bold text-muted-foreground uppercase">{instanceStatus?.message || 'Verificando dispositivo...'}</p>
-                                <Button size="sm" variant="ghost" onClick={checkStatus}><RefreshCw size={14} className="mr-2"/> Atualizar agora</Button>
+                                <Smartphone size={64} className="text-muted-foreground mx-auto" />
+                                <p className="text-xs font-bold text-muted-foreground uppercase max-w-[200px] mx-auto">
+                                    {instanceStatus?.message || 'Status não identificado. Verifique a API Key.'}
+                                </p>
+                                <Button size="sm" variant="ghost" onClick={checkStatus} className="text-[10px] font-black uppercase"><RefreshCw size={14} className="mr-2"/> Atualizar agora</Button>
                             </div>
                         )}
                     </CardContent>
