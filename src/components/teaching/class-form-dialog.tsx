@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -6,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Calendar as CalendarIcon, X } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, X, PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { Calendar } from '@/components/ui/calendar';
@@ -35,6 +34,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
   const [dayOfWeek, setDayOfWeek] = useState('');
   const [weekOfMonth, setWeekOfMonth] = useState('');
   const [holidayDates, setHolidayDates] = useState<string[]>([]);
+  const [extraDates, setExtraDates] = useState<string[]>([]);
   
   const [locationType, setLocationType] = useState<'ibm' | 'the_school' | ''>('');
   const [ibmRoomId, setIbmRoomId] = useState('');
@@ -56,6 +56,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
         setDayOfWeek(existingClass.dayOfWeek || '');
         setWeekOfMonth(existingClass.weekOfMonth || '');
         setHolidayDates(existingClass.holidayDates || []);
+        setExtraDates(existingClass.extraDates || []);
         
         if (existingClass.locationId === 'the_school') {
             setLocationType('the_school');
@@ -79,6 +80,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
         setDayOfWeek('');
         setWeekOfMonth('');
         setHolidayDates([]);
+        setExtraDates([]);
         setLocationType('');
         setIbmRoomId('');
       }
@@ -113,6 +115,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
         weekOfMonth: frequency === 'mensal' ? (weekOfMonth as any) : '',
         locationId: finalLocationId,
         holidayDates,
+        extraDates,
     };
 
     try {
@@ -135,8 +138,17 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
     setHolidayDates(formatted);
   };
 
+  const handleExtraDateSelect = (dates: Date[] | undefined) => {
+    const formatted = dates ? dates.map(d => format(d, 'yyyy-MM-dd')) : [];
+    setExtraDates(formatted);
+  };
+
   const removeHoliday = (dateStr: string) => {
     setHolidayDates(prev => prev.filter(d => d !== dateStr));
+  };
+
+  const removeExtraDate = (dateStr: string) => {
+    setExtraDates(prev => prev.filter(d => d !== dateStr));
   };
 
   return (
@@ -251,43 +263,74 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
               </div>
            </div>
 
-           <div className="pt-4 border-t space-y-4">
-                <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-sm uppercase text-destructive">Datas sem Aula (Exceções)</h3>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" size="sm">
-                                <CalendarIcon className="size-3 mr-2" /> Adicionar Data
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="end">
-                            <Calendar
-                                mode="multiple"
-                                selected={holidayDates.map(d => parseISO(d))}
-                                onSelect={handleHolidaySelect}
-                                initialFocus
-                            />
-                        </PopoverContent>
-                    </Popover>
+           <div className="pt-4 border-t grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Seção de Feriados */}
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h3 className="font-bold text-xs uppercase text-destructive">Datas sem Aula (Feriados)</h3>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-7 text-[10px]">
+                                    <CalendarIcon className="size-3 mr-1" /> Marcar Recesso
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="end">
+                                <Calendar
+                                    mode="multiple"
+                                    selected={holidayDates.map(d => parseISO(d))}
+                                    onSelect={handleHolidaySelect}
+                                    initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 min-h-[40px]">
+                        {holidayDates.length === 0 ? (
+                            <p className="text-[9px] text-muted-foreground italic">Nenhum recesso configurado.</p>
+                        ) : (
+                            holidayDates.sort().map(date => (
+                                <Badge key={date} variant="secondary" className="pl-2 pr-1 h-5 gap-1 text-[10px] bg-red-50 text-red-700 border-red-100">
+                                    {format(parseISO(date), 'dd/MM')}
+                                    <button onClick={() => removeHoliday(date)} className="hover:text-destructive"><X className="size-2.5" /></button>
+                                </Badge>
+                            ))
+                        )}
+                    </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                    {holidayDates.length === 0 ? (
-                        <p className="text-[10px] text-muted-foreground italic">Nenhuma data de recesso configurada.</p>
-                    ) : (
-                        holidayDates.sort().map(date => (
-                            <Badge key={date} variant="secondary" className="pl-2 pr-1 h-6 gap-1 group">
-                                {format(parseISO(date), 'dd/MM/yy')}
-                                <button 
-                                    onClick={() => removeHoliday(date)}
-                                    className="hover:text-destructive transition-colors"
-                                >
-                                    <X className="size-3" />
-                                </button>
-                            </Badge>
-                        ))
-                    )}
+
+                {/* Seção de Datas Extras */}
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h3 className="font-bold text-xs uppercase text-emerald-600">Datas Extras (Aulas Avulsas)</h3>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" size="sm" className="h-7 text-[10px]">
+                                    <PlusCircle className="size-3 mr-1" /> Adicionar Aula
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="end">
+                                <Calendar
+                                    mode="multiple"
+                                    selected={extraDates.map(d => parseISO(d))}
+                                    onSelect={handleExtraDateSelect}
+                                    initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 min-h-[40px]">
+                        {extraDates.length === 0 ? (
+                            <p className="text-[9px] text-muted-foreground italic">Nenhuma aula extra agendada.</p>
+                        ) : (
+                            extraDates.sort().map(date => (
+                                <Badge key={date} variant="secondary" className="pl-2 pr-1 h-5 gap-1 text-[10px] bg-emerald-50 text-emerald-700 border-emerald-100">
+                                    {format(parseISO(date), 'dd/MM')}
+                                    <button onClick={() => removeExtraDate(date)} className="hover:text-emerald-600"><X className="size-2.5" /></button>
+                                </Badge>
+                            ))
+                        )}
+                    </div>
                 </div>
-                <p className="text-[10px] text-muted-foreground">Estas datas serão removidas da grade de aulas e do cálculo de presença.</p>
            </div>
         </div>
 

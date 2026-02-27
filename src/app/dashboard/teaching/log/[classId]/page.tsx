@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -55,7 +54,7 @@ function PedagogicalLogPageContent() {
     const classData = useMemo(() => classes.find(c => c.id === classId), [classes, classId]);
     const courseData = useMemo(() => classData ? courses.find(c => c.id === classData.courseId) : null, [classData, courses]);
     
-    // Cálculo das datas válidas de aula
+    // Cálculo das datas válidas de aula (Recorrência + Extras - Feriados)
     const classOccurrences = useMemo(() => {
         if (!classData || !classData.startDate) return [];
         const occurrences: string[] = [];
@@ -63,42 +62,47 @@ function PedagogicalLogPageContent() {
         const end = classData.endDate ? parseISO(classData.endDate) : addMonths(start, 6);
         const targetDay = classData.dayOfWeek ? weekDayMap[classData.dayOfWeek] : -1;
         const holidays = new Set(classData.holidayDates || []);
+        const extras = classData.extraDates || [];
 
         let current = start;
         let safe = 0;
 
-        if (!classData.frequency || classData.frequency === 'pontual') {
-            const dateStr = classData.startDate;
-            return holidays.has(dateStr) ? [] : [dateStr];
-        }
+        if (classData.frequency && classData.frequency !== 'pontual') {
+            while (isBefore(current, end) || format(current, 'yyyy-MM-dd') === format(end, 'yyyy-MM-dd')) {
+                if (safe++ > 150) break;
 
-        while (isBefore(current, end) || format(current, 'yyyy-MM-dd') === format(end, 'yyyy-MM-dd')) {
-            if (safe++ > 100) break;
-
-            let matches = false;
-            if (classData.frequency === 'semanal') {
-                matches = targetDay === -1 || current.getDay() === targetDay;
-            } else if (classData.frequency === 'quinzenal') {
-                const diffWeeks = Math.floor((current.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
-                matches = diffWeeks % 2 === 0 && (targetDay === -1 || current.getDay() === targetDay);
-            } else if (classData.frequency === 'mensal') {
-                if (classData.weekOfMonth) {
-                    const week = Math.ceil(current.getDate() / 7);
-                    const isLastWeek = current.getDate() > (new Date(current.getFullYear(), current.getMonth() + 1, 0).getDate() - 7);
-                    matches = (classData.weekOfMonth === 'last' && isLastWeek) || (week.toString() === classData.weekOfMonth);
-                    matches = matches && current.getDay() === targetDay;
-                } else {
-                    matches = current.getDate() === start.getDate();
+                let matches = false;
+                if (classData.frequency === 'semanal') {
+                    matches = targetDay === -1 || current.getDay() === targetDay;
+                } else if (classData.frequency === 'quinzenal') {
+                    const diffWeeks = Math.floor((current.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
+                    matches = diffWeeks % 2 === 0 && (targetDay === -1 || current.getDay() === targetDay);
+                } else if (classData.frequency === 'mensal') {
+                    if (classData.weekOfMonth) {
+                        const week = Math.ceil(current.getDate() / 7);
+                        const isLastWeek = current.getDate() > (new Date(current.getFullYear(), current.getMonth() + 1, 0).getDate() - 7);
+                        matches = (classData.weekOfMonth === 'last' && isLastWeek) || (week.toString() === classData.weekOfMonth);
+                        matches = matches && current.getDay() === targetDay;
+                    } else {
+                        matches = current.getDate() === start.getDate();
+                    }
                 }
-            }
 
-            const dateStr = format(current, 'yyyy-MM-dd');
-            if (matches && !holidays.has(dateStr)) {
-                occurrences.push(dateStr);
+                const dateStr = format(current, 'yyyy-MM-dd');
+                if (matches && !holidays.has(dateStr)) {
+                    occurrences.push(dateStr);
+                }
+                current = addWeeks(current, 1);
             }
-            current = addWeeks(current, 1);
+        } else if (classData.frequency === 'pontual') {
+            if (!holidays.has(classData.startDate)) {
+                occurrences.push(classData.startDate);
+            }
         }
-        return occurrences;
+
+        // Merge extra dates and sort
+        const finalDates = Array.from(new Set([...occurrences, ...extras])).sort();
+        return finalDates;
     }, [classData]);
 
     useEffect(() => {
@@ -203,10 +207,13 @@ function PedagogicalLogPageContent() {
                             {classOccurrences.map(date => {
                                 const attendance = classData.attendance?.find(a => a.date === date);
                                 const hasAttendance = attendance && (attendance.presentStudentIds.length > 0 || attendance.onlineStudentIds?.length > 0);
+                                const isExtra = classData.extraDates?.includes(date);
                                 return (
                                     <SelectItem key={date} value={date}>
                                         <div className="flex items-center justify-between w-full gap-2">
-                                            <span>{format(parseISO(date), 'dd/MM/yyyy')}</span>
+                                            <span className={cn(isExtra && "text-emerald-600 font-black")}>
+                                                {format(parseISO(date), 'dd/MM/yyyy')} {isExtra && "(EXTRA)"}
+                                            </span>
                                             {hasAttendance && <CheckCircle2 className="size-3 text-emerald-500" />}
                                         </div>
                                     </SelectItem>
@@ -311,6 +318,7 @@ function PedagogicalLogPageContent() {
                                         const isPast = isBefore(parseISO(date), startOfDay(new Date()));
                                         const isToday = date === format(new Date(), 'yyyy-MM-dd');
                                         const isSelected = selectedDate === date;
+                                        const isExtra = classData.extraDates?.includes(date);
 
                                         return (
                                             <button
@@ -318,11 +326,15 @@ function PedagogicalLogPageContent() {
                                                 onClick={() => setSelectedDate(date)}
                                                 className={cn(
                                                     "w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between group",
-                                                    isSelected ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "bg-card hover:bg-muted/50"
+                                                    isSelected ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "bg-card hover:bg-muted/50",
+                                                    isExtra && !isSelected && "border-emerald-200 bg-emerald-50/30"
                                                 )}
                                             >
                                                 <div className="min-w-0">
-                                                    <p className="text-xs font-bold">{format(parseISO(date), 'dd/MM/yyyy', { locale: ptBR })}</p>
+                                                    <p className="text-xs font-bold">
+                                                        {format(parseISO(date), 'dd/MM/yyyy', { locale: ptBR })}
+                                                        {isExtra && <span className="ml-2 text-[8px] bg-emerald-500 text-white px-1 rounded">EXTRA</span>}
+                                                    </p>
                                                     <p className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter">
                                                         {isToday ? 'Hoje' : isPast ? 'Passada' : 'Pendente'}
                                                     </p>

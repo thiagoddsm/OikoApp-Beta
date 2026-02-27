@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useMemo } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
@@ -114,7 +113,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                     <Table>
                         <TableHeader className="bg-muted/50">
                             <TableRow>
-                                <TableHead className="min-w-[250px] sticky left-0 bg-white z-[2] border-r shadow-[2px_0_5px_rgba(0,0,0,0.05)]">Aluno (Membresia Modular)</TableHead>
+                                <TableHead className="min-w-[250px] sticky left-0 bg-white z-[2] border-r shadow-[2px_0_5_rgba(0,0,0,0.05)]">Aluno (Membresia Modular)</TableHead>
                                 {modules.map((mod, index) => {
                                     const episode = linkedTheoflix?.episodes?.[index];
                                     return (
@@ -218,31 +217,32 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
             const end = cls.endDate ? parseISO(cls.endDate) : addMonths(start, 6);
             const targetDay = cls.dayOfWeek ? weekDayMap[cls.dayOfWeek] : -1;
             const holidays = new Set(cls.holidayDates || []);
+            const extras = cls.extraDates || [];
 
-            if (cls.frequency === 'pontual') {
-                if (!holidays.has(cls.startDate)) dates.add(cls.startDate);
-                return;
-            }
+            if (cls.frequency && cls.frequency !== 'pontual') {
+                let current = start;
+                let safe = 0;
+                while ((isBefore(current, end) || format(current, 'yyyy-MM-dd') === format(end, 'yyyy-MM-dd')) && safe++ < 150) {
+                    let matches = false;
+                    if (cls.frequency === 'semanal') matches = targetDay === -1 || current.getDay() === targetDay;
+                    else if (cls.frequency === 'quinzenal') matches = (Math.floor((current.getTime() - start.getTime()) / (7*24*60*60*1000)) % 2 === 0) && (targetDay === -1 || current.getDay() === targetDay);
+                    else if (cls.frequency === 'mensal') {
+                        const week = Math.ceil(current.getDate() / 7);
+                        const isLast = current.getDate() > (new Date(current.getFullYear(), current.getMonth()+1, 0).getDate() - 7);
+                        matches = (cls.weekOfMonth === 'last' && isLast) || (week.toString() === cls.weekOfMonth);
+                        matches = matches && current.getDay() === targetDay;
+                    }
 
-            let current = start;
-            let safe = 0;
-            while ((isBefore(current, end) || format(current, 'yyyy-MM-dd') === format(end, 'yyyy-MM-dd')) && safe++ < 100) {
-                let matches = false;
-                if (cls.frequency === 'semanal') matches = targetDay === -1 || current.getDay() === targetDay;
-                else if (cls.frequency === 'quinzenal') matches = (Math.floor((current.getTime() - start.getTime()) / (7*24*60*60*1000)) % 2 === 0) && (targetDay === -1 || current.getDay() === targetDay);
-                else if (cls.frequency === 'mensal') {
-                    const week = Math.ceil(current.getDate() / 7);
-                    const isLast = current.getDate() > (new Date(current.getFullYear(), current.getMonth()+1, 0).getDate() - 7);
-                    matches = (cls.weekOfMonth === 'last' && isLast) || (week.toString() === cls.weekOfMonth);
-                    matches = matches && current.getDay() === targetDay;
-                } else if (cls.frequency === 'pontual') {
-                    matches = true;
+                    const dateStr = format(current, 'yyyy-MM-dd');
+                    if (matches && !holidays.has(dateStr)) dates.add(dateStr);
+                    current = addWeeks(current, 1);
                 }
-
-                const dateStr = format(current, 'yyyy-MM-dd');
-                if (matches && !holidays.has(dateStr)) dates.add(dateStr);
-                current = addWeeks(current, 1);
+            } else if (cls.frequency === 'pontual') {
+                if (!holidays.has(cls.startDate)) dates.add(cls.startDate);
             }
+            
+            // Add extra dates
+            extras.forEach(d => dates.add(d));
         });
         return Array.from(dates).sort();
     }, [courseClasses]);

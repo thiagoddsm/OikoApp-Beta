@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useMemo } from 'react';
@@ -94,6 +93,7 @@ export type Class = {
   weekOfMonth?: '1' | '2' | '3' | '4' | 'last' | '5';
   locationId?: string;
   holidayDates?: string[];
+  extraDates?: string[];
   attendance?: { date: string; presentStudentIds: string[]; onlineStudentIds?: string[] }[];
   grades?: { studentId: string, assessmentName: string, grade: number }[];
   materials?: { title: string; url: string; description?: string }[];

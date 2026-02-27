@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useMemo, useState } from 'react';
 import { Calendar, momentLocalizer, View, Views } from 'react-big-calendar';
@@ -6,7 +5,7 @@ import moment from 'moment';
 import 'moment/locale/pt-br';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useVolunteering, type Class } from '@/contexts/volunteering-context';
-import { Loader2, GraduationCap } from 'lucide-react';
+import { Loader2, GraduationCap, Star } from 'lucide-react';
 import { Card } from '../ui/card';
 
 moment.locale('pt-br');
@@ -62,6 +61,7 @@ export function TeachingCalendar({ onEventClick, searchTerm = '' }: TeachingCale
         if (isNaN(baseStart.getTime())) return;
 
         const duration = baseEnd.getTime() - baseStart.getTime();
+        const holidaySet = new Set(cls.holidayDates || []);
         
         // Limite de visualização futura (2 anos para permitir planejamento de longo prazo)
         const limitDate = moment().add(24, 'months');
@@ -73,57 +73,78 @@ export function TeachingCalendar({ onEventClick, searchTerm = '' }: TeachingCale
             recurrenceStop = limitDate.toDate();
         }
 
-        // Se for pontual, adiciona apenas uma vez
-        if (!cls.frequency || cls.frequency === 'pontual') {
-          allOccurrences.push({
-            id: cls.id,
-            title: `Turma: ${cls.name} (${courseMap.get(cls.courseId) || 'Ensino'})`,
-            start: baseStart,
-            end: baseEnd,
-            resource: cls,
-          });
-          return;
-        }
-
         // --- EXPANSÃO DE RECORRÊNCIA ---
-        let current = moment(baseStart);
-        const targetDay = cls.dayOfWeek ? weekDayMap[cls.dayOfWeek] : -1;
-        let safeCounter = 0;
+        if (cls.frequency && cls.frequency !== 'pontual') {
+            let current = moment(baseStart);
+            const targetDay = cls.dayOfWeek ? weekDayMap[cls.dayOfWeek] : -1;
+            let safeCounter = 0;
 
-        while (current.isSameOrBefore(moment(recurrenceStop), 'day') && safeCounter < 500) {
-            safeCounter++;
-            let shouldAdd = false;
+            while (current.isSameOrBefore(moment(recurrenceStop), 'day') && safeCounter < 500) {
+                safeCounter++;
+                let shouldAdd = false;
 
-            if (cls.frequency === 'semanal') {
-                if (targetDay === -1 || current.day() === targetDay) shouldAdd = true;
-            } else if (cls.frequency === 'quinzenal') {
-                const diffWeeks = current.diff(moment(baseStart), 'weeks');
-                if (diffWeeks % 2 === 0 && (targetDay === -1 || current.day() === targetDay)) shouldAdd = true;
-            } else if (cls.frequency === 'mensal') {
-                if (cls.weekOfMonth) {
-                    const week = Math.ceil(current.date() / 7);
-                    const isLastWeek = current.date() > (moment(current).endOf('month').date() - 7);
-                    const matchesWeek = (cls.weekOfMonth === 'last' && isLastWeek) || (week.toString() === cls.weekOfMonth);
-                    if (matchesWeek && current.day() === targetDay) shouldAdd = true;
-                } else {
-                    if (current.date() === moment(baseStart).date()) shouldAdd = true;
+                if (cls.frequency === 'semanal') {
+                    if (targetDay === -1 || current.day() === targetDay) shouldAdd = true;
+                } else if (cls.frequency === 'quinzenal') {
+                    const diffWeeks = current.diff(moment(baseStart), 'weeks');
+                    if (diffWeeks % 2 === 0 && (targetDay === -1 || current.day() === targetDay)) shouldAdd = true;
+                } else if (cls.frequency === 'mensal') {
+                    if (cls.weekOfMonth) {
+                        const week = Math.ceil(current.date() / 7);
+                        const isLastWeek = current.date() > (moment(current).endOf('month').date() - 7);
+                        const matchesWeek = (cls.weekOfMonth === 'last' && isLastWeek) || (week.toString() === cls.weekOfMonth);
+                        if (matchesWeek && current.day() === targetDay) shouldAdd = true;
+                    } else {
+                        if (current.date() === moment(baseStart).date()) shouldAdd = true;
+                    }
                 }
-            }
 
-            if (shouldAdd) {
-                const occStart = current.toDate();
-                const occEnd = new Date(occStart.getTime() + duration);
-                
+                const dateStr = current.format('yyyy-MM-dd');
+                if (shouldAdd && !holidaySet.has(dateStr)) {
+                    const occStart = current.toDate();
+                    const occEnd = new Date(occStart.getTime() + duration);
+                    
+                    allOccurrences.push({
+                        id: `${cls.id}_${occStart.getTime()}`,
+                        title: `Turma: ${cls.name} (${courseMap.get(cls.courseId) || 'Ensino'})`,
+                        start: occStart,
+                        end: occEnd,
+                        resource: cls,
+                    });
+                }
+                current.add(1, 'day'); 
+            }
+        } else if (cls.frequency === 'pontual') {
+            if (!holidaySet.has(cls.startDate)) {
                 allOccurrences.push({
-                    id: `${cls.id}_${occStart.getTime()}`,
+                    id: cls.id,
                     title: `Turma: ${cls.name} (${courseMap.get(cls.courseId) || 'Ensino'})`,
-                    start: occStart,
-                    end: occEnd,
+                    start: baseStart,
+                    end: baseEnd,
                     resource: cls,
                 });
             }
-            current.add(1, 'day'); 
         }
+
+        // --- ADIÇÃO DE DATAS EXTRAS ---
+        if (cls.extraDates && cls.extraDates.length > 0) {
+            cls.extraDates.forEach(dateStr => {
+                const extraStart = new Date(`${dateStr}T${cls.startTime}`);
+                const extraEnd = new Date(extraStart.getTime() + duration);
+                
+                if (!isNaN(extraStart.getTime())) {
+                    allOccurrences.push({
+                        id: `${cls.id}_extra_${extraStart.getTime()}`,
+                        title: `[EXTRA] ${cls.name} (${courseMap.get(cls.courseId) || 'Ensino'})`,
+                        start: extraStart,
+                        end: extraEnd,
+                        resource: cls,
+                        isExtra: true
+                    });
+                }
+            });
+        }
+
       } catch (e) {
         console.error("Erro ao expandir recorrência da turma:", e, cls);
       }
@@ -132,10 +153,10 @@ export function TeachingCalendar({ onEventClick, searchTerm = '' }: TeachingCale
     return allOccurrences;
   }, [classes, courseMap, searchTerm]);
   
-  const eventStyleGetter = () => {
+  const eventStyleGetter = (event: any) => {
     return {
         style: {
-            backgroundColor: '#6366f1', // indigo-500
+            backgroundColor: event.isExtra ? '#10b981' : '#6366f1', // emerald-500 para extras, indigo-500 para normal
             borderRadius: '6px',
             opacity: 0.9,
             color: 'white',
@@ -153,8 +174,8 @@ export function TeachingCalendar({ onEventClick, searchTerm = '' }: TeachingCale
     event: ({ event }: any) => (
       <div className="overflow-hidden h-full flex flex-col justify-center">
         <div className="font-bold flex items-center gap-1 truncate text-[11px]">
-          <GraduationCap className="size-3 shrink-0" />
-          {event.title.replace('Turma: ', '')}
+          {event.isExtra ? <Star className="size-2.5 shrink-0 fill-current" /> : <GraduationCap className="size-3 shrink-0" />}
+          {event.title.replace('Turma: ', '').replace('[EXTRA] ', '')}
         </div>
         <div className="text-[9px] opacity-80 truncate">
           {event.resource?.locationId === 'the_school' ? 'The School' : (roomMap.get(event.resource?.locationId) || 'IBM')}
