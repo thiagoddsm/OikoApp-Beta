@@ -1,8 +1,11 @@
+
 'use server';
 
 import { initializeFirebase } from '@/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
+// Host único recomendado pela documentação v2 (Financeiro, Contratos, Clientes)
+const CONTA_AZUL_API_BASE = 'https://api-v2.contaazul.com';
 const CONTA_AZUL_AUTH_BASE = 'https://auth.contaazul.com';
 
 // Cache em memória para evitar loops de refresh na mesma requisição
@@ -25,6 +28,11 @@ export async function getValidContaAzulToken(forceRefresh = false) {
     const config = configSnap.data();
     
     // 1. Prioridade para o Token Manual (se preenchido no painel)
+    // Se for um refresh forçado e não tivermos refresh_token, avisamos o usuário.
+    if (forceRefresh && !config.refreshToken) {
+        throw new Error('O Access Token manual expirou. Por favor, cole um novo token ou faça o login via OAuth.');
+    }
+
     if (!forceRefresh && config.accessToken && !config.refreshToken) {
         memoryToken = config.accessToken;
         return config.accessToken;
@@ -64,7 +72,7 @@ export async function getValidContaAzulToken(forceRefresh = false) {
                     refreshToken: data.refresh_token,
                     expiresAt: newExpiresAt,
                     updatedAt: new Date().toISOString(),
-                    lastError: 'Token renovado e pronto para uso.'
+                    lastError: 'Token renovado automaticamente.'
                 });
 
                 memoryToken = data.access_token;
@@ -89,19 +97,7 @@ export async function getValidContaAzulToken(forceRefresh = false) {
 export async function callContaAzulApi(endpoint: string, method: string = 'GET', body?: any, retryCount = 0): Promise<any> {
     try {
         const token = await getValidContaAzulToken(retryCount > 0);
-        
-        // Host selection logic baseado na documentação
-        // Recursos financeiros e contratos usam api-v2
-        let host = 'https://api-v2.contaazul.com';
-        
-        // Recursos de pessoas (clientes) ainda usam api v1 no host antigo em alguns casos
-        // Mas a doc nova aponta api-v2 para quase tudo. Vamos testar api-v2 como padrão.
-        if (endpoint.startsWith('/v1/customers') || endpoint.startsWith('/v1/products')) {
-            // Se falhar no v2, tentamos no v1
-            host = 'https://api.contaazul.com';
-        }
-
-        const url = `${host}${endpoint}`;
+        const url = `${CONTA_AZUL_API_BASE}${endpoint}`;
         
         const response = await fetch(url, {
             method,
@@ -120,11 +116,11 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
         if (!response.ok) {
             // Auto-Retry em caso de 401 (Unauthorized)
             if (response.status === 401 && retryCount === 0) {
-                memoryToken = null; // Limpa cache
+                memoryToken = null; // Limpa cache local
                 return callContaAzulApi(endpoint, method, body, 1);
             }
             
-            const errorMsg = data.message || data.error_description || `Erro HTTP ${response.status}`;
+            const errorMsg = data.message || data.error_description || data.error || `Erro HTTP ${response.status}`;
             throw new Error(errorMsg);
         }
 
@@ -136,13 +132,13 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
 
 export async function findOrCreateContaAzulCustomer(member: { name: string; email?: string; phone?: string }) {
     try {
-        // Tenta buscar cliente (v1)
+        // Busca via api-v2 (v1 endpoint no host v2)
         const customers = await callContaAzulApi(`/v1/customers?name=${encodeURIComponent(member.name)}`);
         const list = Array.isArray(customers) ? customers : (customers.itens || customers.items || []);
         
         if (list.length > 0) return list[0].id;
 
-        // Cria se não existir (v1)
+        // Cria se não existir
         const newCustomer = await callContaAzulApi('/v1/customers', 'POST', {
             name: member.name,
             email: member.email || '',
@@ -152,11 +148,10 @@ export async function findOrCreateContaAzulCustomer(member: { name: string; emai
 
         return newCustomer.id;
     } catch (e: any) {
-        throw new Error(`Erro ao gerenciar cliente no Conta Azul: ${e.message}`);
+        throw new Error(`Erro no Gerenciamento de Cliente: ${e.message}`);
     }
 }
 
 export async function createContaAzulReceivable(data: any) {
-    // Documentação aponta api-v2 para criar contas a receber
     return callContaAzulApi('/v1/financeiro/eventos-financeiros/contas-a-receber', 'POST', data);
 }

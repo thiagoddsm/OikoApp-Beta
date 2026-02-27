@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, Suspense } from 'react';
@@ -61,7 +62,8 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
             const res = await fetch('/api/finance/conta-azul/sync', { method: 'POST' });
             const data = await res.json();
             if (res.ok) {
-                addLog(`Sucesso! ${data.data.bankAccounts?.length || 0} contas encontradas.`);
+                const count = data.data.bankAccounts?.length || 0;
+                addLog(`Sucesso! ${count} contas encontradas.`);
                 toast({ title: "Leitura OK", description: "Conexão estabelecida com sucesso." });
             } else {
                 throw new Error(data.error || "Erro na API");
@@ -108,14 +110,14 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
                         {isTestingRead ? <Loader2 className="animate-spin mr-2" /> : <HardDriveDownload className="mr-2 size-5 text-primary" />}
                         <div className="text-left">
                             <p className="font-bold text-xs">1. Testar Leitura</p>
-                            <p className="text-[9px] text-muted-foreground uppercase font-black">Puxar contas (v1)</p>
+                            <p className="text-[9px] text-muted-foreground uppercase font-black">PUXAR CONTAS (V1)</p>
                         </div>
                     </Button>
                     <Button variant="outline" className="h-16 bg-white border-primary/20 hover:bg-primary/5 transition-all shadow-sm" onClick={handleWriteTest} disabled={isTestingWrite}>
                         {isTestingWrite ? <Loader2 className="animate-spin mr-2" /> : <DatabaseZap className="mr-2 size-5 text-primary" />}
                         <div className="text-left">
                             <p className="font-bold text-xs">2. Testar Escrita</p>
-                            <p className="text-[9px] text-muted-foreground uppercase font-black">Gerar cobrança (v2)</p>
+                            <p className="text-[9px] text-muted-foreground uppercase font-black">GERAR COBRANÇA (V2)</p>
                         </div>
                     </Button>
                 </div>
@@ -181,6 +183,7 @@ function ContaAzulConnect() {
             lastError: 'Desconectado pelo usuário.',
             updatedAt: new Date().toISOString()
         });
+        setAccessToken('');
         toast({ title: 'Conexão Encerrada', description: 'Todos os tokens foram removidos.' });
     }
   };
