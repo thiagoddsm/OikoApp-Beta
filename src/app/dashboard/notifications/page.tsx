@@ -21,7 +21,7 @@ import {
     Zap, AlertCircle, Group, LayoutTemplate, Sparkles, MessageCircle, MousePointer2,
     UserCheck, Trash2, BarChart3, FileText, Image as ImageIcon, Link as LinkIcon,
     QrCode, Smartphone, LogOut, PlusCircle, CheckCircle, User as UserIcon,
-    Banknote, Wallet, Bug, ShieldAlert, Award, Phone, ChevronRight, Edit
+    Banknote, Wallet, Bug, ShieldAlert, Award, Phone, ChevronRight, Edit, ListTodo
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useCollection, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
@@ -650,6 +650,45 @@ function WhatsappSender() {
                     </div>
                 )}
 
+                {msgType === 'survey' && (
+                    <div className="space-y-4 p-4 border border-dashed rounded-lg bg-blue-50 animate-in slide-in-from-top-2">
+                        <div className="space-y-2">
+                            <Label className="text-xs font-bold uppercase text-blue-700 flex items-center gap-2">
+                                <ListTodo size={14} /> Pergunta / Nome da Enquete
+                            </Label>
+                            <Input 
+                                value={surveyName} 
+                                onChange={e => setSurveyName(e.target.value)} 
+                                placeholder="Ex: Qual o melhor dia para o nosso GC?" 
+                                className="bg-white h-11"
+                            />
+                        </div>
+                        <div className="space-y-3">
+                            <Label className="text-xs font-black uppercase text-muted-foreground">Opções de Voto (Mín 2, Máx 5)</Label>
+                            {surveyOptions.map((opt, idx) => (
+                                <div key={idx} className="flex gap-2">
+                                    <Input 
+                                        value={opt} 
+                                        onChange={e => handleUpdateSurveyOption(idx, e.target.value)} 
+                                        placeholder={`Opção ${idx + 1}`} 
+                                        className="bg-white" 
+                                    />
+                                    {surveyOptions.length > 2 && (
+                                        <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveSurveyOption(idx)}>
+                                            <Trash2 size={14} className="text-destructive" />
+                                        </Button>
+                                    )}
+                                </div>
+                            ))}
+                            {surveyOptions.length < 5 && (
+                                <Button type="button" variant="outline" size="sm" onClick={handleAddSurveyOption} className="bg-white">
+                                    <PlusCircle size={12} className="mr-2" /> Adicionar Opção
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 <div className="space-y-4">
                     <div className="flex justify-between items-end">
                         <Label htmlFor="message">Texto Principal</Label>
@@ -663,7 +702,7 @@ function WhatsappSender() {
                     </div>
                     <Textarea 
                         id="message" 
-                        placeholder="Olá {{nome}}..."
+                        placeholder={msgType === 'survey' ? "A mensagem principal é opcional para enquetes." : "Olá {{nome}}..."}
                         className="min-h-[120px] bg-background"
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
@@ -671,7 +710,7 @@ function WhatsappSender() {
                     />
                 </div>
 
-                <Button type="submit" disabled={isLoading || (msgType !== 'survey' && !message?.trim())} className="w-full h-12 text-base font-bold shadow-lg">
+                <Button type="submit" disabled={isLoading || (msgType !== 'survey' && !message?.trim()) || (msgType === 'survey' && !surveyName?.trim())} className="w-full h-12 text-base font-bold shadow-lg">
                     {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
                     Enviar Notificação
                 </Button>
