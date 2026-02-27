@@ -1,0 +1,71 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "login-background",
+      "description": "A diverse group of people from a church community smiling and interacting.",
+      "imageUrl": "https://images.unsplash.com/photo-1581961562828-cd1663ac274e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8Y2h1cmNoJTIwY29tbXVuaXR5fGVufDB8fHx8MTc2MzE5OTY0NXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "church community"
+    },
+    {
+      "id": "course-discipulado",
+      "description": "Group of people in a circle discussing and sharing experiences.",
+      "imageUrl": "https://picsum.photos/seed/discipulado/800/450",
+      "imageHint": "discipleship group"
+    },
+    {
+      "id": "course-biblia",
+      "description": "Open bible with a warm light and a notebook.",
+      "imageUrl": "https://picsum.photos/seed/biblia/800/450",
+      "imageHint": "bible study"
+    },
+    {
+      "id": "course-teologia",
+      "description": "Old books in a library, classic theology vibe.",
+      "imageUrl": "https://picsum.photos/seed/teologia/800/450",
+      "imageHint": "theology books"
+    },
+    {
+      "id": "course-escolas",
+      "description": "People playing instruments or sign language classroom.",
+      "imageUrl": "https://picsum.photos/seed/escolas/800/450",
+      "imageHint": "music school"
+    },
+    {
+      "id": "avatar-1",
+      "imageUrl": "https://images.unsplash.com/photo-1484863137850-59afcfe05386?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxwZXJzb24lMjBzbWlsaW5nfGVufDB8fHx8MTc2MzIxOTY1OXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person smiling",
+      "description": "Avatar for Ana Silva"
+    },
+    {
+      "id": "avatar-2",
+      "imageUrl": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjMxNDEzMjJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person portrait",
+      "description": "Avatar for Carlos Souza"
+    },
+    {
+      "id": "avatar-3",
+      "imageUrl": "https://images.unsplash.com/photo-1580489944761-15a19d654956?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHx3b21hbiUyMHNtaWxpbmd8ZW58MHx8fHwxNzYzMTc1NDAwfDA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "woman smiling",
+      "description": "Avatar for Mariana Costa"
+    },
+    {
+      "id": "avatar-4",
+      "imageUrl": "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw2fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjMxNDEzMjJ8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "man portrait",
+      "description": "Avatar for João Pereira"
+    },
+    {
+      "id": "avatar-5",
+      "imageUrl": "https://images.unsplash.com/photo-1616436051317-c4373ce142e1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxwZXJzb24lMjBsb29raW5nfGVufDB8fHx8MTc2MzIwNDA2NXww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "person looking",
+      "description": "Avatar for Beatriz Lima"
+    },
+    {
+      "id": "avatar-6",
+      "imageUrl": "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHx3b21hbiUyMHBvcnRyYWl0fGVufDB8fHx8MTc2MzIxODk3Mnww&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageHint": "woman portrait",
+      "description": "Avatar for Ricardo Alves"
+    }
+  ]
+}

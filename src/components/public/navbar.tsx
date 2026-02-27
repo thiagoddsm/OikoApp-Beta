@@ -3,38 +3,31 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Button } from "@/components/ui/button";
-import { Logo } from "@/components/icons";
+import { Button } from '@/components/ui/button';
+import { Logo } from '@/components/icons';
 import { LogIn, Menu } from 'lucide-react';
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
-
-const navLinks = [
-  { href: "/", label: "Início" },
-  { href: "/public/enrollment", label: "Cursos & GCs" },
-  { href: "/public/event-planning", label: "Protocolar Evento" },
-];
+import {
+  Sheet,
+  SheetContent,
+  SheetTrigger,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 export function PublicNavbar() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+      <div className="container mx-auto px-4 flex h-16 items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <Logo className="size-8 text-primary" />
-          <span className="text-xl font-bold tracking-tighter text-primary">IBM</span>
+          <span className="text-xl font-black tracking-tighter">IBM</span>
         </Link>
 
-        {/* Desktop Nav */}
+        {/* Desktop Menu */}
         <nav className="hidden md:flex items-center gap-8">
-          {navLinks.map((link) => (
-            <Link 
-              key={link.href} 
-              href={link.href} 
-              className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors uppercase tracking-widest"
-            >
-              {link.label}
-            </Link>
-          ))}
-          <Button asChild size="sm" className="font-bold rounded-full px-6 shadow-lg shadow-primary/20">
+          <Link href="/" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">INÍCIO</Link>
+          <Link href="/public/enrollment" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">CURSOS & GCs</Link>
+          <Link href="/leader/new-member" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">SOU LÍDER</Link>
+          <Button asChild className="font-bold rounded-full px-6">
             <Link href="/login">
               <LogIn className="mr-2 size-4" />
               Portal do Membro
@@ -42,7 +35,7 @@ export function PublicNavbar() {
           </Button>
         </nav>
 
-        {/* Mobile Nav */}
+        {/* Mobile Menu */}
         <div className="md:hidden">
           <Sheet>
             <SheetTrigger asChild>
@@ -52,20 +45,14 @@ export function PublicNavbar() {
             </SheetTrigger>
             <SheetContent side="right">
               <SheetTitle>Menu</SheetTitle>
-              <div className="flex flex-col gap-6 mt-8">
-                {navLinks.map((link) => (
-                  <Link 
-                    key={link.href} 
-                    href={link.href} 
-                    className="text-lg font-bold text-muted-foreground hover:text-primary transition-colors"
-                  >
-                    {link.label}
-                  </Link>
-                ))}
+              <nav className="flex flex-col gap-6 mt-8">
+                <Link href="/" className="text-lg font-bold">INÍCIO</Link>
+                <Link href="/public/enrollment" className="text-lg font-bold">CURSOS & GCs</Link>
+                <Link href="/leader/new-member" className="text-lg font-bold">SOU LÍDER</Link>
                 <Button asChild className="font-bold w-full">
-                  <Link href="/login">Portal do Membro</Link>
+                  <Link href="/login">Entrar no Portal</Link>
                 </Button>
-              </div>
+              </nav>
             </SheetContent>
           </Sheet>
         </div>
