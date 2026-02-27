@@ -1,8 +1,8 @@
 
 'use client';
 import React, { useState, useMemo } from 'react';
-import { useFirebase, useCollection, useMemoFirebase, deleteDocumentNonBlocking } from '@/firebase';
-import { collection, query, doc } from 'firebase/firestore';
+import { useFirebase, deleteDocumentNonBlocking } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { 
@@ -25,6 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { useVolunteering } from '@/contexts/volunteering-context';
 
 type Course = { 
   id: string; 
@@ -49,9 +50,7 @@ const getDiscipleshipWeight = (name: string) => {
 export function CoursesManagement() {
   const { firestore } = useFirebase();
   const { toast } = useToast();
-
-  const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
-  const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery);
+  const { courses, classes, isLoading: isLoadingContext } = useVolunteering();
 
   const [isCourseFormOpen, setCourseFormOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
@@ -64,7 +63,7 @@ export function CoursesManagement() {
     courses.forEach(c => {
       const ministry = c.ministryName || 'Geral';
       if (!groups[ministry]) groups[ministry] = [];
-      groups[ministry].push(c);
+      groups[ministry].push(c as Course);
     });
 
     Object.keys(groups).forEach(ministry => {
@@ -149,6 +148,7 @@ export function CoursesManagement() {
   const renderCourseCard = (course: Course, ministry: string) => {
     const Icon = getMinistryIcon(ministry);
     const href = getCourseHref(course);
+    const hasClasses = classes.some(cls => cls.courseId === course.id);
 
     return (
         <div key={course.id} className="border rounded-xl relative group hover:bg-muted/50 transition-all hover:border-primary/30 shadow-sm bg-card">
@@ -174,9 +174,26 @@ export function CoursesManagement() {
                 <Button 
                     variant="ghost" 
                     size="icon" 
-                    className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50" 
-                    onClick={(e) => {e.preventDefault(); e.stopPropagation(); handleCopyEnrollmentLink(course.id);}} 
-                    title="Copiar link de inscrição"
+                    className={cn(
+                        "h-8 w-8 transition-colors",
+                        hasClasses 
+                            ? "text-blue-600 hover:text-blue-700 hover:bg-blue-50" 
+                            : "text-slate-300 cursor-not-allowed hover:bg-transparent"
+                    )} 
+                    onClick={(e) => {
+                        e.preventDefault(); 
+                        e.stopPropagation(); 
+                        if (hasClasses) {
+                            handleCopyEnrollmentLink(course.id);
+                        } else {
+                            toast({
+                                variant: "destructive",
+                                title: "Inscrições Indisponíveis",
+                                description: "Este curso não possui turmas abertas no momento.",
+                            });
+                        }
+                    }}
+                    title={hasClasses ? "Copiar link de inscrição" : "Sem turmas disponíveis"}
                 >
                     <LinkIcon className="size-4"/>
                 </Button>
@@ -214,7 +231,7 @@ export function CoursesManagement() {
           <Button onClick={handleAddCourse}><PlusCircle className="mr-2 size-4"/>Novo Curso</Button>
         </CardHeader>
         <CardContent>
-          {isLoadingCourses ? (
+          {isLoadingContext ? (
             <div className="flex justify-center items-center h-48"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>
           ) : Object.keys(groupedCourses).length === 0 ? (
             <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
