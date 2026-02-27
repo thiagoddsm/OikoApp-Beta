@@ -1,7 +1,6 @@
-
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useVolunteering, type FinanceRequest } from '@/contexts/volunteering-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,8 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { 
   Loader2, PlusCircle, Trash2, Clock, CheckCircle, XCircle, 
-  FileText, ExternalLink, Link as LinkIcon, DollarSign, 
-  Wallet, User, Phone, Mail, Receipt, History, Send
+  DollarSign, Wallet, Share2, Receipt, History, Send
 } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
@@ -46,6 +44,15 @@ export function FinanceRequestsManager() {
   const filteredRequests = useMemo(() => {
     return financeRequests.filter(r => filterStatus === 'all' || r.status === filterStatus);
   }, [financeRequests, filterStatus]);
+
+  const handleCopyPublicLink = () => {
+    const url = `${window.location.origin}/public/finance-request`;
+    navigator.clipboard.writeText(url);
+    toast({
+        title: "Link Copiado!",
+        description: "Compartilhe este link com quem precisa fazer uma solicitação financeira.",
+    });
+  };
 
   const handleSaveRequest = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,6 +123,9 @@ export function FinanceRequestsManager() {
               <p className="text-sm text-muted-foreground">Gerencie pagamentos, reembolsos e prestação de contas dos ministérios.</p>
           </div>
           <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={handleCopyPublicLink} className="h-10">
+                  <Share2 className="mr-2 size-4" /> Copiar Link Público
+              </Button>
               <Select value={filterStatus} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-[180px] bg-white"><SelectValue placeholder="Filtrar status" /></SelectTrigger>
                   <SelectContent>
@@ -126,7 +136,7 @@ export function FinanceRequestsManager() {
                       <SelectItem value="rejected">Rejeitados</SelectItem>
                   </SelectContent>
               </Select>
-              <Button onClick={() => setIsFormOpen(true)} className="shadow-lg">
+              <Button onClick={() => setIsFormOpen(true)} className="shadow-lg h-10">
                   <PlusCircle className="mr-2 size-4" /> Nova Solicitação
               </Button>
           </div>
@@ -153,6 +163,7 @@ export function FinanceRequestsManager() {
                   ) : (
                       filteredRequests.map(req => {
                           const config = statusConfig[req.status] || statusConfig.pending;
+                          const StatusIcon = config.icon;
                           return (
                               <TableRow key={req.id} className="group hover:bg-muted/30">
                                   <TableCell className="text-xs text-muted-foreground">
@@ -175,7 +186,7 @@ export function FinanceRequestsManager() {
                                   </TableCell>
                                   <TableCell>
                                       <Badge className={cn("text-[10px] font-black uppercase border-none", config.color)}>
-                                          <config.icon className="size-3 mr-1" /> {config.label}
+                                          <StatusIcon className="size-3 mr-1" /> {config.label}
                                       </Badge>
                                   </TableCell>
                                   <TableCell className="text-right">
