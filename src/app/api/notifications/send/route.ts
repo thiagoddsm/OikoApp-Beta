@@ -1,10 +1,10 @@
 
 import { NextResponse } from 'next/server';
 import { initializeFirebase } from '@/firebase';
-import { collection, query, where, getDocs, addDoc, Timestamp, doc, setDoc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, doc, setDoc, getDoc, query, where, getDocs } from 'firebase/firestore';
 
 /**
- * API Route to send WhatsApp messages using direct fetch to api-wa.me
+ * API Route to send WhatsApp messages aligned with api-wa.me standard
  */
 
 const getMimetype = (url: string) => {
@@ -17,17 +17,11 @@ const getMimetype = (url: string) => {
         case 'mp4': return 'video/mp4';
         case 'mp3': return 'audio/mpeg';
         case 'wav': return 'audio/wav';
-        case 'doc': return 'application/msword';
-        case 'docx': return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-        case 'xls': return 'application/vnd.ms-excel';
-        case 'xlsx': return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
         default: return 'application/octet-stream';
     }
 };
 
 export async function POST(request: Request) {
-  let currentEndpoint = 'message/text';
-  
   try {
     const body = await request.json();
     const { 
@@ -42,18 +36,13 @@ export async function POST(request: Request) {
         surveyName,
         options,
         mediaUrl,
-        fileName
+        headerTitle
     } = body;
 
     const { firestore } = initializeFirebase();
-    
-    let waKey = null;
-    // Tenta ler a configuração. Se falhar, reporta o erro técnico real para debug.
     const configRef = doc(firestore, 'config', 'notifications');
     const configSnap = await getDoc(configRef);
-    if (configSnap.exists()) {
-        waKey = configSnap.data()?.whatsappApiKey;
-    }
+    const waKey = configSnap.exists() ? configSnap.data()?.whatsappApiKey : null;
 
     if (!waKey && channel === 'whatsapp') {
         return NextResponse.json({ error: "Gateway não configurado. Vá em Configurações e insira sua API Key." }, { status: 400 });
@@ -70,7 +59,6 @@ export async function POST(request: Request) {
         for (let i = 0; i < userIds.length; i += 30) {
             chunks.push(userIds.slice(i, i + 30));
         }
-        
         for (const chunk of chunks) {
             const q = query(usersRef, where('__name__', 'in', chunk));
             const snap = await getDocs(q);
@@ -103,12 +91,17 @@ export async function POST(request: Request) {
 
         switch (type) {
             case 'button':
-                endpoint = 'message/button'; 
+                endpoint = 'message/button_reply';
                 payload = {
                     to: formattedPhone,
-                    title: personalizedBody, 
+                    header: {
+                        title: headerTitle || 'Informativo IBM',
+                        hasMediaAttachment: false
+                    },
+                    text: personalizedBody,
                     footer: footer || 'Igreja Batista da Manhã',
                     buttons: (buttons || []).map((b: any) => ({
+                        type: 'quick_reply',
                         id: b.id,
                         text: b.text
                     }))
@@ -127,15 +120,13 @@ export async function POST(request: Request) {
                 const mime = getMimetype(mediaUrl);
                 const isImage = mime.startsWith('image/');
                 const isVideo = mime.startsWith('video/');
-                const isAudio = mime.startsWith('audio/');
-                
-                endpoint = isImage ? 'message/image' : isVideo ? 'message/video' : isAudio ? 'message/audio' : 'message/document';
+                endpoint = isImage ? 'message/image' : isVideo ? 'message/video' : 'message/document';
                 payload = {
                     to: formattedPhone,
                     url: mediaUrl,
-                    mimetype: mime,
                     caption: personalizedBody,
-                    fileName: fileName || 'arquivo'
+                    mimetype: mime,
+                    fileName: 'arquivo'
                 };
                 break;
             default:
@@ -146,11 +137,8 @@ export async function POST(request: Request) {
                 };
         }
 
-        currentEndpoint = endpoint;
-        const url = `https://us.api-wa.me/${waKey}/${endpoint}`;
-
         try {
-            const response = await fetch(url, {
+            const response = await fetch(`https://us.api-wa.me/${waKey}/${endpoint}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -158,10 +146,8 @@ export async function POST(request: Request) {
             
             if (response.ok) {
                 sentCount++;
-                
-                const displayContent = type === 'survey' ? `[ENQUETE] ${surveyName}` : (type === 'button' ? (payload.title || 'Botão') : (personalizedBody || 'Mídia'));
+                const displayContent = type === 'survey' ? `[ENQUETE] ${surveyName}` : (type === 'button' ? payload.text : (personalizedBody || 'Mídia'));
 
-                // Salva mensagem no histórico do chat
                 await addDoc(collection(firestore, 'notifications_messages'), {
                     from: phoneDigits,
                     fromMe: true,
@@ -172,7 +158,6 @@ export async function POST(request: Request) {
                     receivedAt: Timestamp.now()
                 });
 
-                // Atualiza o resumo do chat
                 await setDoc(doc(firestore, 'notifications_chats', phoneDigits), {
                     lastMessage: displayContent,
                     lastMessageAt: Timestamp.now(),
@@ -182,10 +167,9 @@ export async function POST(request: Request) {
                     phoneNumber: phoneDigits,
                     isGroup: false
                 }, { merge: true });
-
             } else {
                 const responseData = await response.json().catch(() => ({}));
-                lastError = responseData.message || responseData.error || `Erro HTTP ${response.status}`;
+                lastError = responseData.message || `Erro HTTP ${response.status}`;
                 errorCount++;
             }
         } catch (e: any) {
@@ -202,16 +186,12 @@ export async function POST(request: Request) {
             recipientCount: targetUsers.length,
             successCount: sentCount,
             status: errorCount === 0 ? 'success' : (sentCount > 0 ? 'partial' : 'failed'),
-            lastError: lastError,
             sentAt: Timestamp.now()
         });
     }
 
     return NextResponse.json({ success: true, sentCount });
   } catch (error: any) {
-    return NextResponse.json({ 
-        error: `Falha técnica: ${error.message}`, 
-        endpoint: currentEndpoint 
-    }, { status: 500 });
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

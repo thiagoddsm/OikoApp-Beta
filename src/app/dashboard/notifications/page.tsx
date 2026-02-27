@@ -166,10 +166,6 @@ function WhatsappChats() {
                                 {isLoadingMessages && <div className="text-center py-4"><Loader2 className="animate-spin mx-auto text-primary opacity-20" /></div>}
                             </div>
                         </ScrollArea>
-                        
-                        <div className="p-4 border-t bg-white shrink-0">
-                            <p className="text-[9px] text-center text-muted-foreground font-bold uppercase tracking-widest italic">Visualização de histórico em tempo real</p>
-                        </div>
                     </>
                 )}
             </Card>
@@ -187,7 +183,8 @@ function WhatsappSender() {
     const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
     const [msgType, setMsgType] = useState<'text' | 'button' | 'survey' | 'media'>('text');
 
-    const [msgFooter, setMsgFooter] = useState('Igreja Batista da Manhã');
+    const [headerTitle, setHeaderTitle] = useState('Igreja Batista da Manhã');
+    const [msgFooter, setMsgFooter] = useState('Escolha uma opção abaixo');
     const [msgButtons, setMsgButtons] = useState([{ id: 'btn_1', text: 'Sim, vou participar!' }, { id: 'btn_2', text: 'Desta vez não posso' }]);
     const [surveyName, setSurveyName] = useState('');
     const [surveyOptions, setSurveyOptions] = useState(['Excelente', 'Bom', 'Pode melhorar']);
@@ -237,6 +234,7 @@ function WhatsappSender() {
         };
 
         if (msgType === 'button') {
+            payload.headerTitle = headerTitle;
             payload.footer = msgFooter;
             payload.buttons = msgButtons;
         } else if (msgType === 'survey') {
@@ -281,9 +279,9 @@ function WhatsappSender() {
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="text">Texto Simples</SelectItem>
-                                <SelectItem value="button">Com Botões (Engajamento)</SelectItem>
+                                <SelectItem value="button">Botões de Ação (Quick Reply)</SelectItem>
                                 <SelectItem value="survey">Enquete Nativa</SelectItem>
-                                <SelectItem value="media">Mídia (Imagem/PDF)</SelectItem>
+                                <SelectItem value="media">Mídia (Imagem/Vídeo)</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -330,37 +328,20 @@ function WhatsappSender() {
                     </div>
                 )}
 
-                {msgType === 'media' && (
-                    <div className="p-4 border-2 border-dashed rounded-xl bg-slate-50 space-y-4 animate-in slide-in-from-top-2">
-                        <Label className="text-xs font-black uppercase text-primary">Link Direto da Mídia</Label>
-                        <Input value={mediaUrl} onChange={e => setMediaUrl(e.target.value)} placeholder="https://..." className="bg-white" />
-                    </div>
-                )}
-
-                {msgType === 'survey' && (
-                    <div className="p-4 border-2 border-dashed rounded-xl bg-blue-50/50 space-y-4 animate-in slide-in-from-top-2">
-                        <Label className="text-xs font-black uppercase text-blue-800">Título da Enquete</Label>
-                        <Input value={surveyName} onChange={e => setSurveyName(e.target.value)} placeholder="Qual o melhor dia..." className="bg-white" />
-                        <div className="space-y-2">
-                            {surveyOptions.map((opt, idx) => (
-                                <div key={idx} className="flex gap-2">
-                                    <Input value={opt} onChange={e => {
-                                        const n = [...surveyOptions];
-                                        n[idx] = e.target.value;
-                                        setSurveyOptions(n);
-                                    }} className="bg-white h-9" />
-                                    <Button type="button" variant="ghost" size="icon" onClick={() => setSurveyOptions(surveyOptions.filter((_, i) => i !== idx))}><Trash2 size={14}/></Button>
-                                </div>
-                            ))}
-                            <Button type="button" variant="outline" size="sm" onClick={() => setSurveyOptions([...surveyOptions, 'Nova Opção'])} className="w-full">+ Opção</Button>
-                        </div>
-                    </div>
-                )}
-
                 {msgType === 'button' && (
                     <div className="p-4 border-2 border-dashed rounded-xl bg-indigo-50/50 space-y-4 animate-in slide-in-from-top-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase text-indigo-800">Título do Cabeçalho</Label>
+                                <Input value={headerTitle} onChange={e => setHeaderTitle(e.target.value)} className="bg-white h-9" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase text-indigo-800">Rodapé</Label>
+                                <Input value={msgFooter} onChange={e => setMsgFooter(e.target.value)} className="bg-white h-9" />
+                            </div>
+                        </div>
                         <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-indigo-800">Botões de Resposta</Label>
+                            <Label className="text-[10px] font-black uppercase text-indigo-800">Botões de Resposta (Máx 3)</Label>
                             {msgButtons.map((btn, idx) => (
                                 <div key={idx} className="flex gap-2">
                                     <Input value={btn.text} onChange={e => {
@@ -371,13 +352,13 @@ function WhatsappSender() {
                                     <Button type="button" variant="ghost" size="icon" onClick={() => setMsgButtons(msgButtons.filter((_, i) => i !== idx))}><Trash2 size={14}/></Button>
                                 </div>
                             ))}
-                            {msgButtons.length < 3 && <Button type="button" variant="outline" size="sm" onClick={() => setMsgButtons([...msgButtons, { id: `btn_${msgButtons.length + 1}`, text: `Opção ${msgButtons.length + 1}` }])} className="w-full">+ Botão</Button>}
+                            {msgButtons.length < 3 && <Button type="button" variant="outline" size="sm" onClick={() => setMsgButtons([...msgButtons, { id: `btn_${Date.now()}_${msgButtons.length + 1}`, text: `Opção ${msgButtons.length + 1}` }])} className="w-full">+ Botão</Button>}
                         </div>
                     </div>
                 )}
 
                 <div className="space-y-2">
-                    <Label>{msgType === 'button' ? 'Título dos Botões' : 'Mensagem Principal'}</Label>
+                    <Label>Mensagem Principal</Label>
                     <Textarea 
                         placeholder="Olá {{nome}}, temos um convite..." 
                         className="min-h-[120px]" 
@@ -448,10 +429,10 @@ function WhatsappResponses() {
                 <Table>
                     <TableHeader className="bg-muted/50">
                         <TableRow>
-                            <TableHead>Membro</TableHead>
-                            <TableHead>Tipo</TableHead>
-                            <TableHead>Seleção / Voto</TableHead>
-                            <TableHead className="text-right">Horário</TableHead>
+                            <TableHead>Remetente</TableHead>
+                            <TableHead>Interação</TableHead>
+                            <TableHead>Resposta</TableHead>
+                            <TableHead className="text-right">Data/Hora</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -461,8 +442,7 @@ function WhatsappResponses() {
                             responses?.map((res: any) => (
                                 <TableRow key={res.id} className="hover:bg-muted/30">
                                     <TableCell>
-                                        <div className="font-bold text-sm">{res.userName || 'Desconhecido'}</div>
-                                        <div className="text-[10px] text-muted-foreground">+{res.from}</div>
+                                        <div className="font-bold text-sm">+{res.from}</div>
                                     </TableCell>
                                     <TableCell>
                                         <Badge variant="ghost" className="text-[10px] uppercase font-black">
@@ -534,7 +514,7 @@ function NotificationsConfig() {
 
     const handleCopyWebhook = () => {
         navigator.clipboard.writeText(webhookUrl);
-        toast({ title: "Copiado!", description: "Cole esta URL nos campos de Webhook do portal api-wa.me" });
+        toast({ title: "Copiado!", description: "Cole esta URL no portal api-wa.me" });
     };
 
     if (isLoadingConfig) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
@@ -558,7 +538,7 @@ function NotificationsConfig() {
                                 <Button onClick={handleCopyWebhook} variant="outline" size="icon" className="h-11 w-11"><Copy size={16}/></Button>
                             </div>
                             <p className="text-[10px] text-muted-foreground italic flex items-center gap-1">
-                                <Info size={10} /> Copie esta URL e cole no campo "Webhook" do painel api-wa.me para receber enquetes e botões.
+                                <Info size={10} /> Copie esta URL e cole nos campos de Webhook do portal api-wa.me para capturar respostas.
                             </p>
                         </div>
                         <Button onClick={handleSaveKey} disabled={isSaving} className="w-full font-bold h-11">Salvar Credenciais</Button>
