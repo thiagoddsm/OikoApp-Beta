@@ -526,48 +526,84 @@ function WhatsappResponses() {
     
     const { data: responses, isLoading } = useCollection<any>(responsesQuery);
 
+    const pollStats = useMemo(() => {
+        if (!responses) return {};
+        const stats: Record<string, Record<string, number>> = {};
+        responses.filter(r => r.type === 'poll').forEach(r => {
+            const pollName = r.pollName || 'Enquete';
+            if (!stats[pollName]) stats[pollName] = {};
+            r.selectedOptions?.forEach((opt: string) => {
+                stats[pollName][opt] = (stats[pollName][opt] || 0) + 1;
+            });
+        });
+        return stats;
+    }, [responses]);
+
     if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
-        <div className="rounded-lg border bg-card overflow-hidden shadow-sm text-slate-900">
-            <Table>
-                <TableHeader className="bg-muted/50">
-                    <TableRow>
-                        <TableHead>Membro</TableHead>
-                        <TableHead>Tipo</TableHead>
-                        <TableHead>Escolha / Resposta</TableHead>
-                        <TableHead className="text-right">Data/Hora</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {responses?.length === 0 ? (
-                        <TableRow><TableCell colSpan={4} className="h-32 text-center text-muted-foreground italic">Nenhuma resposta captada ainda.</TableCell></TableRow>
-                    ) : (
-                        responses?.map((res: any) => (
-                            <TableRow key={res.id} className="hover:bg-muted/30">
-                                <TableCell>
-                                    <div className="font-bold">{res.userName || res.from}</div>
-                                    <div className="text-[10px] text-muted-foreground font-mono">+{res.from}</div>
-                                </TableCell>
-                                <TableCell>
-                                    <Badge variant="ghost" className="text-[10px] uppercase font-black">{res.type === 'poll' ? 'Enquete' : 'Botão'}</Badge>
-                                </TableCell>
-                                <TableCell>
-                                    <Badge variant="outline" className={cn(
-                                        "font-black text-[10px] py-1 border-emerald-200",
-                                        res.type === 'poll' ? "bg-blue-50 text-blue-800" : "bg-emerald-50 text-emerald-800"
-                                    )}>
-                                        {res.type === 'poll' ? (res.selectedOptions?.join(', ') || 'Votou') : (res.buttonText || res.buttonId)}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell className="text-right text-xs text-muted-foreground font-medium">
-                                    {res.receivedAt ? format(res.receivedAt.toDate(), 'dd/MM/yy HH:mm') : '-'}
-                                </TableCell>
-                            </TableRow>
-                        ))
-                    )}
-                </TableBody>
-            </Table>
+        <div className="space-y-6 text-slate-900">
+            {Object.keys(pollStats).length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {Object.entries(pollStats).map(([name, votes]) => (
+                        <Card key={name} className="border-blue-100 bg-blue-50/30">
+                            <CardHeader className="py-3">
+                                <CardTitle className="text-sm font-black uppercase text-blue-800">{name}</CardTitle>
+                                <CardDescription className="text-[10px] font-bold uppercase tracking-widest">Resumo de Votos</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                                {Object.entries(votes).map(([opt, count]) => (
+                                    <div key={opt} className="flex justify-between items-center text-xs">
+                                        <span className="font-medium text-slate-700">{opt}</span>
+                                        <Badge className="bg-blue-600 text-white font-black">{count}</Badge>
+                                    </div>
+                                ))}
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            )}
+
+            <div className="rounded-xl border bg-card overflow-hidden shadow-sm">
+                <Table>
+                    <TableHeader className="bg-muted/50">
+                        <TableRow>
+                            <TableHead>Membro</TableHead>
+                            <TableHead>Tipo</TableHead>
+                            <TableHead>Escolha / Resposta</TableHead>
+                            <TableHead className="text-right">Data/Hora</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {responses?.length === 0 ? (
+                            <TableRow><TableCell colSpan={4} className="h-32 text-center text-muted-foreground italic">Nenhuma resposta captada ainda.</TableCell></TableRow>
+                        ) : (
+                            responses?.map((res: any) => (
+                                <TableRow key={res.id} className="hover:bg-muted/30">
+                                    <TableCell>
+                                        <div className="font-bold">{res.userName || res.from}</div>
+                                        <div className="text-[10px] text-muted-foreground font-mono">+{res.from}</div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge variant="ghost" className="text-[10px] uppercase font-black">{res.type === 'poll' ? 'Enquete' : 'Botão'}</Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge variant="outline" className={cn(
+                                            "font-black text-[10px] py-1 border-emerald-200",
+                                            res.type === 'poll' ? "bg-blue-50 text-blue-800" : "bg-emerald-50 text-emerald-800"
+                                        )}>
+                                            {res.type === 'poll' ? (res.selectedOptions?.join(', ') || 'Votou') : (res.buttonText || res.buttonId)}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right text-xs text-muted-foreground font-medium">
+                                        {res.receivedAt ? format(res.receivedAt.toDate(), 'dd/MM/yy HH:mm') : '-'}
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
         </div>
     );
 }

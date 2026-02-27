@@ -114,11 +114,10 @@ export async function POST(request: Request) {
 
         switch (type) {
             case 'button':
-                // Estrutura Pro Plano v5 (Singular /message/button)
                 endpoint = 'message/button'; 
                 payload = {
                     to: formattedPhone,
-                    title: personalizedBody, // No endpoint /button, o title é o corpo da msg
+                    title: personalizedBody, 
                     footer: footer || 'Igreja Batista da Manhã',
                     buttons: (buttons || []).map((b: any) => ({
                         id: b.id,
@@ -159,12 +158,12 @@ export async function POST(request: Request) {
         }
 
         currentEndpoint = endpoint;
-        const url = `https://us.api-wa.me/${waKey}/${endpoint}`;
+        const url = waKey.startsWith('http') ? waKey : `https://us.api-wa.me/${waKey}/${endpoint}`;
 
         try {
             const response = await fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: waKey.startsWith('http') ? { 'Content-Type': 'application/json', 'apikey': waKey.split('/').pop() || '' } : { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
             
