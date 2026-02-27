@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useVolunteering, type FinanceRequest } from '@/contexts/volunteering-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { 
   Loader2, PlusCircle, Trash2, Clock, CheckCircle, XCircle, 
   FileText, ExternalLink, Link as LinkIcon, DollarSign, 
-  Wallet, User, Phone, Mail, Receipt, History
+  Wallet, User, Phone, Mail, Receipt, History, Send
 } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
@@ -102,11 +102,9 @@ export function FinanceRequestsManager() {
   const statusConfig = {
       pending: { label: 'Pendente', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
       approved: { label: 'Aprovado', color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
-      paid: { label: 'Pago', color: 'bg-emerald-100 text-emerald-800', icon: CheckCircle2 },
+      paid: { label: 'Pago', color: 'bg-emerald-100 text-emerald-800', icon: CheckCircle },
       rejected: { label: 'Rejeitado', color: 'bg-red-100 text-red-800', icon: XCircle },
   };
-
-  const CheckCircle2 = CheckCircle; // Reusing the icon if not distinct in lucide-react
 
   return (
     <div className="space-y-6">
@@ -154,11 +152,11 @@ export function FinanceRequestsManager() {
                       <TableRow><TableCell colSpan={7} className="h-32 text-center text-muted-foreground italic">Nenhuma solicitação encontrada.</TableCell></TableRow>
                   ) : (
                       filteredRequests.map(req => {
-                          const config = statusConfig[req.status];
+                          const config = statusConfig[req.status] || statusConfig.pending;
                           return (
                               <TableRow key={req.id} className="group hover:bg-muted/30">
                                   <TableCell className="text-xs text-muted-foreground">
-                                      {format(req.createdAt.toDate(), 'dd/MM/yy HH:mm')}
+                                      {req.createdAt ? format(req.createdAt.toDate(), 'dd/MM/yy HH:mm') : '-'}
                                   </TableCell>
                                   <TableCell>
                                       <div className="flex flex-col">
