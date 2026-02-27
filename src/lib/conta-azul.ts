@@ -4,7 +4,10 @@
 import { initializeFirebase } from '@/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
-// Host único recomendado pela documentação v2 (Financeiro, Contratos, Clientes)
+/**
+ * Host Único conforme Documentação Técnica Recente.
+ * Mesmo rotas /v1 agora residem no host api-v2.
+ */
 const CONTA_AZUL_API_BASE = 'https://api-v2.contaazul.com';
 const CONTA_AZUL_AUTH_BASE = 'https://auth.contaazul.com';
 
@@ -27,25 +30,20 @@ export async function getValidContaAzulToken(forceRefresh = false) {
 
     const config = configSnap.data();
     
-    // 1. Prioridade para o Token Manual (se preenchido no painel)
-    // Se for um refresh forçado e não tivermos refresh_token, avisamos o usuário.
-    if (forceRefresh && !config.refreshToken) {
-        throw new Error('O Access Token manual expirou. Por favor, cole um novo token ou faça o login via OAuth.');
-    }
-
-    if (!forceRefresh && config.accessToken && !config.refreshToken) {
+    // Prioridade para o Token Manual
+    if (config.accessToken && !config.refreshToken && !forceRefresh) {
         memoryToken = config.accessToken;
         return config.accessToken;
     }
 
     const now = Date.now();
-    // 2. Se o token ainda é válido (com folga de 2 minutos)
+    // Se ainda é válido (folga de 2 min)
     if (!forceRefresh && config.accessToken && config.expiresAt && now < (config.expiresAt - 120000)) {
         memoryToken = config.accessToken;
         return config.accessToken;
     }
 
-    // 3. Tenta renovar via Refresh Token
+    // Renovação via Refresh Token
     if (config.refreshToken && config.clientId && config.clientSecret) {
         try {
             const authHeader = Buffer.from(`${config.clientId.trim()}:${config.clientSecret.trim()}`).toString('base64');
@@ -72,7 +70,7 @@ export async function getValidContaAzulToken(forceRefresh = false) {
                     refreshToken: data.refresh_token,
                     expiresAt: newExpiresAt,
                     updatedAt: new Date().toISOString(),
-                    lastError: 'Token renovado automaticamente.'
+                    lastError: 'Token renovado e pronto para uso.'
                 });
 
                 memoryToken = data.access_token;
@@ -92,12 +90,12 @@ export async function getValidContaAzulToken(forceRefresh = false) {
 }
 
 /**
- * Chamada genérica à API com Auto-Retry em caso de 401.
+ * Chamada genérica à API com Auto-Retry Inteligente (401).
  */
 export async function callContaAzulApi(endpoint: string, method: string = 'GET', body?: any, retryCount = 0): Promise<any> {
     try {
         const token = await getValidContaAzulToken(retryCount > 0);
-        const url = `${CONTA_AZUL_API_BASE}${endpoint}`;
+        const url = `${CONTA_AZUL_API_BASE}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
         
         const response = await fetch(url, {
             method,
@@ -109,14 +107,14 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
             cache: 'no-store'
         });
 
-        if (response.status === 204) return { success: true };
+        if (response.status === 204 || response.status === 202) return { success: true, status: response.status };
 
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            // Auto-Retry em caso de 401 (Unauthorized)
+            // Auto-Retry em caso de Token Expirado (401)
             if (response.status === 401 && retryCount === 0) {
-                memoryToken = null; // Limpa cache local
+                memoryToken = null;
                 return callContaAzulApi(endpoint, method, body, 1);
             }
             
@@ -132,13 +130,11 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
 
 export async function findOrCreateContaAzulCustomer(member: { name: string; email?: string; phone?: string }) {
     try {
-        // Busca via api-v2 (v1 endpoint no host v2)
         const customers = await callContaAzulApi(`/v1/customers?name=${encodeURIComponent(member.name)}`);
         const list = Array.isArray(customers) ? customers : (customers.itens || customers.items || []);
         
         if (list.length > 0) return list[0].id;
 
-        // Cria se não existir
         const newCustomer = await callContaAzulApi('/v1/customers', 'POST', {
             name: member.name,
             email: member.email || '',
@@ -148,7 +144,7 @@ export async function findOrCreateContaAzulCustomer(member: { name: string; emai
 
         return newCustomer.id;
     } catch (e: any) {
-        throw new Error(`Erro no Gerenciamento de Cliente: ${e.message}`);
+        throw new Error(`Erro ao gerenciar cliente no Conta Azul: ${e.message}`);
     }
 }
 

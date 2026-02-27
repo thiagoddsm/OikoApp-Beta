@@ -1,3 +1,4 @@
+
 import { NextResponse } from 'next/server';
 import { findOrCreateContaAzulCustomer, callContaAzulApi, createContaAzulReceivable } from '@/lib/conta-azul';
 
@@ -5,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST() {
     try {
-        // 1. Criar ou buscar um cliente de teste (API v1)
+        // 1. Criar ou buscar um cliente de teste
         const testMember = {
             name: `Membro Teste OikoApp ${Math.floor(Math.random() * 1000)}`,
             email: 'suporte@oikoapp.com.br',
@@ -14,11 +15,10 @@ export async function POST() {
 
         const customerId = await findOrCreateContaAzulCustomer(testMember);
         
-        // 2. Buscar contas financeiras para obter um ID válido (API v2)
+        // 2. Buscar contas financeiras para obter um ID válido
         const bankData = await callContaAzulApi('/v1/conta-financeira');
         const bankAccounts = Array.isArray(bankData) ? bankData : (bankData.itens || bankData.items || []);
         
-        // Filtra conta ativa ou pega a primeira disponível
         const bankAccount = bankAccounts.find((b: any) => b.ativo) || bankAccounts[0];
 
         if (!bankAccount) {

@@ -9,21 +9,16 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { 
-  Loader2, Key, Link as LinkIcon, BarChart, ExternalLink, ShieldCheck, 
-  AlertCircle, DollarSign, TrendingUp, ArrowUpCircle, ArrowDownCircle,
-  LayoutDashboard, HeartHandshake, History, RefreshCw, Wallet, Info, Copy,
-  Settings, FlaskConical, CheckCircle2, PlayCircle, HardDriveDownload, DatabaseZap,
-  HelpCircle, ShieldAlert, Terminal, FileText, BookOpen, Bug, Eye, EyeOff, LogOut,
-  Fingerprint
+  Loader2, Key, Link as LinkIcon, ExternalLink, PlayCircle, 
+  CheckCircle2, HardDriveDownload, DatabaseZap, Settings, FlaskConical,
+  LogOut, Eye, EyeOff, Fingerprint, LayoutDashboard, HeartHandshake, TrendingUp
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useDoc, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { useVolunteering, VolunteeringProvider } from '@/contexts/volunteering-context';
 import { doc } from 'firebase/firestore';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { TithesOfferingsManager } from '@/components/finance/tithes-offerings-manager';
 import { CashFlowManager } from '@/components/finance/cash-flow-manager';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { useSearchParams } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
@@ -38,7 +33,7 @@ type ContaAzulConfig = {
     lastErrorAt?: string;
 }
 
-function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolean, lastError?: string }) {
+function IntegrationLaboratory({ lastError }: { lastError?: string }) {
     const { toast } = useToast();
     const [isTestingRead, setIsTestingRead] = useState(false);
     const [isTestingWrite, setIsTestingWrite] = useState(false);
@@ -49,15 +44,12 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
     };
 
     useEffect(() => {
-        if (lastError) {
-            addLog(lastError);
-        }
+        if (lastError) addLog(lastError);
     }, [lastError]);
 
     const handleReadTest = async () => {
         setIsTestingRead(true);
         addLog("Iniciando teste de leitura (Contas Financeiras)...");
-        
         try {
             const res = await fetch('/api/finance/conta-azul/sync', { method: 'POST' });
             const data = await res.json();
@@ -78,14 +70,13 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
 
     const handleWriteTest = async () => {
         setIsTestingWrite(true);
-        addLog("Iniciando teste de escrita (Cobrança v2)...");
-
+        addLog("Iniciando teste de escrita (Gerar Fatura)...");
         try {
             const res = await fetch('/api/finance/conta-azul/test-write', { method: 'POST' });
             const data = await res.json();
             if (res.ok) {
                 addLog("Sucesso! Registro de teste criado no Conta Azul.");
-                toast({ title: "Escrita OK", description: "Cobrança de teste gerada." });
+                toast({ title: "Escrita OK", description: "Lançamento de teste gerado." });
             } else {
                 throw new Error(data.error || "Erro na API");
             }
@@ -110,14 +101,14 @@ function IntegrationLaboratory({ isConnected, lastError }: { isConnected: boolea
                         {isTestingRead ? <Loader2 className="animate-spin mr-2" /> : <HardDriveDownload className="mr-2 size-5 text-primary" />}
                         <div className="text-left">
                             <p className="font-bold text-xs">1. Testar Leitura</p>
-                            <p className="text-[9px] text-muted-foreground uppercase font-black">PUXAR CONTAS (V1)</p>
+                            <p className="text-[9px] text-muted-foreground uppercase font-black">CONTAS FINANCEIRAS</p>
                         </div>
                     </Button>
                     <Button variant="outline" className="h-16 bg-white border-primary/20 hover:bg-primary/5 transition-all shadow-sm" onClick={handleWriteTest} disabled={isTestingWrite}>
                         {isTestingWrite ? <Loader2 className="animate-spin mr-2" /> : <DatabaseZap className="mr-2 size-5 text-primary" />}
                         <div className="text-left">
                             <p className="font-bold text-xs">2. Testar Escrita</p>
-                            <p className="text-[9px] text-muted-foreground uppercase font-black">GERAR COBRANÇA (V2)</p>
+                            <p className="text-[9px] text-muted-foreground uppercase font-black">LANÇAR R$ 1,00</p>
                         </div>
                     </Button>
                 </div>
@@ -167,7 +158,7 @@ function ContaAzulConnect() {
             clientSecret: clientSecret.trim(),
             accessToken: accessToken.trim() 
         }, { merge: true });
-        toast({ title: 'Configurações Salvas!', description: 'As credenciais foram atualizadas no banco.' });
+        toast({ title: 'Configurações Salvas!', description: 'As credenciais foram atualizadas.' });
     } finally {
         setIsSaving(false);
     }
@@ -175,7 +166,7 @@ function ContaAzulConnect() {
   
   const handleDisconnect = async () => {
     if (!configDocRef) return;
-    if (window.confirm("Deseja encerrar a conexão e limpar todos os tokens?")) {
+    if (confirm("Deseja realmente encerrar a conexão e limpar todos os tokens?")) {
         await updateDocumentNonBlocking(configDocRef, { 
             accessToken: '', 
             refreshToken: '', 
@@ -184,7 +175,9 @@ function ContaAzulConnect() {
             updatedAt: new Date().toISOString()
         });
         setAccessToken('');
-        toast({ title: 'Conexão Encerrada', description: 'Todos os tokens foram removidos.' });
+        setClientId('');
+        setClientSecret('');
+        toast({ title: 'Conexão Encerrada', description: 'Todos os dados foram removidos.' });
     }
   };
 
@@ -221,44 +214,44 @@ function ContaAzulConnect() {
                         <Label className="text-xs font-bold uppercase text-primary flex items-center gap-2">
                             <Fingerprint size={14} /> Access Token (Manual)
                         </Label>
-                        <Input value={accessToken} onChange={(e) => setAccessToken(e.target.value)} placeholder="Cole um token manual se necessário..." className="text-xs font-mono" />
+                        <Input value={accessToken} onChange={(e) => setAccessToken(e.target.value)} placeholder="Cole um token se necessário..." className="text-xs font-mono" />
                     </div>
-                    <Button onClick={handleSave} disabled={isSaving} className="w-full">
+                    <Button onClick={handleSave} disabled={isSaving} className="w-full font-bold">
                         {isSaving ? <Loader2 className="animate-spin mr-2" /> : <LinkIcon className="mr-2 h-4 w-4" />}
                         Salvar Credenciais
                     </Button>
                 </CardContent>
             </Card>
-            <IntegrationLaboratory isConnected={isConnected} lastError={config?.lastError} />
+            <IntegrationLaboratory lastError={config?.lastError} />
         </div>
 
         <Card className={cn("shadow-lg border-2", isConnected ? "border-emerald-200" : "border-primary/20")}>
             <CardHeader className={cn("border-b", isConnected ? "bg-emerald-50" : "bg-muted/30")}>
                 <CardTitle className="text-sm font-black uppercase flex items-center gap-2">
-                    <PlayCircle className="size-4" /> Fluxo de Autorização
+                    <PlayCircle className="size-4" /> Status da Autorização
                 </CardTitle>
             </CardHeader>
             <CardContent className="pt-6 space-y-4 text-center">
                 {!isConnected ? (
                     <>
                         <div className="p-6 bg-muted/20 rounded-xl border border-dashed text-left space-y-3">
-                            <p className="text-sm font-medium">Siga estes passos:</p>
+                            <p className="text-sm font-medium">Próximos Passos:</p>
                             <ol className="text-xs space-y-2 text-muted-foreground list-decimal pl-4">
-                                <li>Configure o <strong>Redirect URI</strong> no portal do desenvolvedor da Conta Azul.</li>
-                                <li>Insira o <strong>Client ID</strong> e <strong>Secret</strong> acima e salve.</li>
-                                <li>Clique no botão abaixo para autorizar.</li>
+                                <li>Insira o <strong>Client ID</strong> e <strong>Secret</strong> e salve.</li>
+                                <li>Configure o <strong>Redirect URI</strong> no portal dev da Conta Azul.</li>
+                                <li>Clique no botão abaixo para autorizar a IBM.</li>
                             </ol>
                         </div>
                         <Button className="w-full h-12 bg-blue-600 hover:bg-blue-700 font-black shadow-xl" asChild disabled={!clientId || !clientSecret}>
-                            <a href={authUrl} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-2 size-5"/>Autorizar Agora</a>
+                            <a href={authUrl} target="_blank" rel="noopener noreferrer"><ExternalLink className="mr-2 size-5"/>Conectar com Conta Azul</a>
                         </Button>
                     </>
                 ) : (
                     <div className="py-8 space-y-4">
                         <div className="size-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner"><CheckCircle2 size={32} /></div>
                         <div>
-                            <h4 className="font-black text-emerald-900">Integração Conectada</h4>
-                            <p className="text-xs text-muted-foreground mt-1">O sistema está pronto para sincronizar dados.</p>
+                            <h4 className="font-black text-emerald-900">IBM Conectada</h4>
+                            <p className="text-xs text-muted-foreground mt-1">O motor de sincronização está ativo.</p>
                         </div>
                         <Button variant="outline" className="text-destructive border-destructive/20 hover:bg-red-50 font-bold" onClick={handleDisconnect}>
                             <LogOut className="size-4 mr-2" /> Encerrar Conexão
@@ -272,14 +265,14 @@ function ContaAzulConnect() {
 }
 
 function FinancePageContent() {
-    const { financialTransactions, isLoading: isLoadingFinances } = useVolunteering();
+    const { financialTransactions } = useVolunteering();
     const searchParams = useSearchParams();
     const { toast } = useToast();
     const [activeTab, setActiveTab] = useState('dashboard');
 
     useEffect(() => {
         const status = searchParams.get('status');
-        if (status === 'connected') toast({ title: "Sucesso!", description: "Conta Azul conectada com sucesso." });
+        if (status === 'connected') toast({ title: "Sucesso!", description: "Conta Azul conectada." });
         else if (status === 'error') toast({ variant: 'destructive', title: "Erro na Autorização", description: searchParams.get('message') || "Verifique as credenciais." });
     }, [searchParams, toast]);
 
