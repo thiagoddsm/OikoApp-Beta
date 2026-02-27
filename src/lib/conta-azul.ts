@@ -6,8 +6,6 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 /**
  * Hosts da Conta Azul conforme Documentação Técnica.
- * api.contaazul.com (V1): Clientes, Produtos, Vendas.
- * api-v2.contaazul.com (V2): Financeiro, Cobranças, Contratos.
  */
 const CONTA_AZUL_V1_HOST = 'https://api.contaazul.com';
 const CONTA_AZUL_V2_HOST = 'https://api-v2.contaazul.com';
@@ -90,19 +88,21 @@ export async function getValidContaAzulToken(forceRefresh = false): Promise<stri
 }
 
 /**
- * Chamada genérica com roteamento inteligente de host conforme documentação oficial.
+ * Chamada genérica com roteamento inteligente de host.
+ * V1: Clientes, Produtos, Vendas.
+ * V2: Financeiro, Cobranças, Contratos.
  */
 export async function callContaAzulApi(endpoint: string, method: string = 'GET', body?: any, retryCount = 0): Promise<any> {
     try {
         const token = await getValidContaAzulToken(retryCount > 0);
         
-        // REGRAS DE ROTEAMENTO (Diferenciação entre Host V1 e Host V2)
         const normalizedEndpoint = endpoint.toLowerCase();
+        // Roteamento conforme documentação: Clientes e Produtos no Host V1
         const isV1Resource = 
             normalizedEndpoint.includes('/customers') || 
             normalizedEndpoint.includes('/clientes') || 
-            normalizedEndpoint.includes('/produtos') ||
-            normalizedEndpoint.includes('/products');
+            normalizedEndpoint.includes('/products') ||
+            normalizedEndpoint.includes('/produtos');
 
         const host = isV1Resource ? CONTA_AZUL_V1_HOST : CONTA_AZUL_V2_HOST;
         const url = `${host}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
@@ -117,7 +117,7 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
             cache: 'no-store'
         });
 
-        // Trata 204 No Content ou 202 Accepted (comuns em escrita v2)
+        // 204 No Content ou 202 Accepted
         if (response.status === 204 || response.status === 202) {
             return { success: true, status: response.status };
         }
@@ -130,7 +130,7 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
                 return callContaAzulApi(endpoint, method, body, 1);
             }
             
-            // Extração de erro aprofundada para evitar [object Object]
+            // Tratamento rigoroso para evitar [object Object]
             const rawError = data.message || data.error_description || data.error || data.msg || data;
             const errorDetail = typeof rawError === 'object' ? JSON.stringify(rawError) : (rawError || `Erro HTTP ${response.status}`);
             throw new Error(errorDetail);
@@ -147,12 +147,13 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
  */
 export async function findOrCreateContaAzulCustomer(member: { name: string; email?: string; phone?: string }) {
     try {
+        // Busca cliente no V1
         const response = await callContaAzulApi(`/v1/customers?name=${encodeURIComponent(member.name)}`);
         const list = Array.isArray(response) ? response : (response.itens || response.items || []);
         
         if (list.length > 0) return list[0].id;
 
-        // Criação exige Host V1
+        // Criação no V1
         const newCustomer = await callContaAzulApi('/v1/customers', 'POST', {
             name: member.name,
             email: member.email || '',

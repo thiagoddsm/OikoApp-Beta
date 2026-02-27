@@ -75,7 +75,7 @@ function IntegrationLaboratory({ lastError }: { lastError?: string }) {
             const res = await fetch('/api/finance/conta-azul/test-write', { method: 'POST' });
             const data = await res.json();
             if (res.ok) {
-                addLog(`Sucesso! Protocolo: ${data.data.protocolId}`);
+                addLog(`Sucesso! Protocolo: ${data.data.protocolId || 'Criado'}`);
                 toast({ title: "Escrita OK", description: "Lançamento de teste gerado." });
             } else {
                 addLog(`ERRO: ${data.error}`);
@@ -266,15 +266,15 @@ function ContaAzulConnect() {
                     <div className="py-8 space-y-4">
                         <div className="size-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner"><CheckCircle2 size={32} /></div>
                         <div>
-                            <h4 className="font-black text-emerald-900">IBM Conectada</h4>
-                            <p className="text-xs text-muted-foreground mt-1">O motor de sincronização está ativo.</p>
+                            <h4 className="font-black text-emerald-900">Integração Ativa</h4>
+                            <p className="text-xs text-muted-foreground mt-1">O motor de sincronização está pronto.</p>
                         </div>
                         <Button 
                             variant="outline" 
                             type="button"
                             className={cn(
                                 "transition-all font-bold w-full max-w-xs", 
-                                confirmDisconnect ? "bg-red-600 text-white border-red-600" : "text-destructive border-destructive/20 hover:bg-red-50"
+                                confirmDisconnect ? "bg-red-600 text-white border-red-600 hover:bg-red-700" : "text-destructive border-destructive/20 hover:bg-red-50"
                             )} 
                             onClick={handleDisconnect}
                             disabled={isDisconnecting}
