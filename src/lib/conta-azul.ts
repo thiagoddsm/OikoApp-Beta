@@ -10,7 +10,6 @@ const CONTA_AZUL_API_V2_BASE = 'https://api-v2.contaazul.com';
 
 /**
  * Recupera o token de acesso válido, renovando-o se necessário.
- * Implementa uma lógica de bloqueio para evitar renovações simultâneas.
  */
 export async function getValidContaAzulToken() {
     const { firestore } = initializeFirebase();
@@ -30,12 +29,9 @@ export async function getValidContaAzulToken() {
         return accessToken;
     }
 
-    // Se não há token ou está perto de expirar, renovamos
+    // Se não há token ou está perto de expirar, renovamos via refresh_token
     if (refreshToken && clientId && clientSecret) {
-        console.log("Token expirado ou ausente. Iniciando renovação na Conta Azul...");
-        
         const authHeader = Buffer.from(`${clientId.trim()}:${clientSecret.trim()}`).toString('base64');
-        
         const params = new URLSearchParams();
         params.append('grant_type', 'refresh_token');
         params.append('refresh_token', refreshToken);
@@ -62,7 +58,6 @@ export async function getValidContaAzulToken() {
 
         const newExpiresAt = Date.now() + (data.expires_in * 1000);
         
-        // Salvamento atômico do novo par de tokens
         await updateDoc(configRef, {
             accessToken: data.access_token,
             refreshToken: data.refresh_token,
@@ -74,20 +69,24 @@ export async function getValidContaAzulToken() {
         return data.access_token;
     }
 
+    // Se temos um accessToken mas não temos expiração (token manual), tentamos usá-lo
+    if (accessToken) return accessToken;
+
     throw new Error('Aplicação não autorizada. Por favor, refaça o login na Conta Azul.');
 }
 
 /**
  * Realiza uma chamada à API da Conta Azul.
- * Encaminha para api-v2 apenas para endpoints de cobrança conforme documentação.
+ * Usa automaticamente api-v2 para endpoints de cobrança e v1 para outros recursos.
  */
 export async function callContaAzulApi(endpoint: string, method: string = 'GET', body?: any, retryCount = 0): Promise<any> {
     try {
         const token = await getValidContaAzulToken();
         
-        // Define o host correto: v2 para o novo endpoint de cobranças, v1 para Clientes/Bancos.
-        const isV2Endpoint = endpoint.includes('/financeiro/eventos-financeiros/contas-a-receber/gerar-cobranca');
-        const baseUrl = isV2Endpoint ? CONTA_AZUL_API_V2_BASE : CONTA_AZUL_API_V1_BASE;
+        // Identifica se deve usar a API v2 baseada na documentação enviada
+        // Cobranças e Contratos usam api-v2. Clientes e Bancos usam v1.
+        const isV2Path = endpoint.includes('/gerar-cobranca') || endpoint.includes('/contratos') || endpoint.includes('/buscar');
+        const baseUrl = isV2Path ? CONTA_AZUL_API_V2_BASE : CONTA_AZUL_API_V1_BASE;
         
         const url = `${baseUrl}${endpoint}`;
         
@@ -103,17 +102,15 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            // Se o erro for 401 (token inválido/expirado), forçamos uma renovação imediata e tentamos novamente UMA vez.
+            // Auto-retry uma vez se o erro for 401 (token inválido)
             if (response.status === 401 && retryCount === 0) {
-                console.warn(`Token rejeitado pela API em ${endpoint}. Tentando renovação forçada...`);
                 const { firestore } = initializeFirebase();
-                // Marcamos como expirado no banco para forçar o refresh no próximo passo
                 await updateDoc(doc(firestore, 'config', 'conta_azul'), { expiresAt: 0 });
                 return callContaAzulApi(endpoint, method, body, 1);
             }
 
-            const errorText = data.message || data.error_description || (typeof data === 'string' ? data : JSON.stringify(data));
-            throw new Error(errorText);
+            const errorText = data.message || data.error_description || JSON.stringify(data);
+            throw new Error(`Falha na rota ${endpoint}: ${errorText}`);
         }
 
         return data;
@@ -147,7 +144,7 @@ export async function createContaAzulCharge(data: {
     dueDate: string;
     type: 'LINK_PAGAMENTO' | 'PIX_COBRANCA' | 'BOLETO';
 }) {
-    // Chamada na API V2 conforme documentação técnica
+    // Chamada na API V2 para gerar cobrança
     return callContaAzulApi('/v1/financeiro/eventos-financeiros/contas-a-receber/gerar-cobranca', 'POST', {
         conta_bancaria: data.bankAccountId,
         descricao_fatura: data.description,
