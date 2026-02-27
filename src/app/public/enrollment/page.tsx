@@ -1,23 +1,32 @@
+
 'use client';
 
 import React, { useMemo, useState } from 'react';
+import { useVolunteering, VolunteeringProvider } from '@/contexts/volunteering-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { 
-    Loader2, BookOpen, Waves, HandHelping, GraduationCap, 
-    ArrowRight, MapPin, Clock, Calendar, CheckCircle2, UserPlus,
-    Target, Building2, UserCheck
+    BookOpen, 
+    ChevronRight, 
+    Waves, 
+    Lightbulb, 
+    School, 
+    HandHelping, 
+    GraduationCap,
+    Clock,
+    MapPin,
+    ArrowRight,
+    Loader2
 } from 'lucide-react';
 import { PublicNavbar } from '@/components/public/navbar';
 import { PublicFooter } from '@/components/public/footer';
-import { useVolunteering } from '@/contexts/volunteering-context';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
-import Image from 'next/image';
 import { EnrollmentDialog } from '@/components/teaching/enrollment-dialog';
 import { cn } from '@/lib/utils';
 
+/**
+ * Define a ordem de importância/discipulado para exibição pública.
+ */
 const getDiscipleshipWeight = (name: string) => {
     const lowerName = name.toLowerCase();
     if (lowerName.includes('pertencer')) return 1;
@@ -29,166 +38,141 @@ const getDiscipleshipWeight = (name: string) => {
     return 99;
 };
 
-export default function PublicEnrollmentPage() {
+function EnrollmentPageContent() {
     const { courses, classes, isLoading } = useVolunteering();
     const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
     const [isEnrollmentOpen, setEnrollmentOpen] = useState(false);
 
     const groupedCourses = useMemo(() => {
         if (!courses) return {};
-        const groups: Record<string, any[]> = {
-            lumine: [],
-            wave: [],
-            dis: [],
-            outros: []
-        };
-
+        const groups: Record<string, any[]> = {};
+        
         courses.forEach(c => {
-            const ministry = c.ministryName?.toLowerCase() || '';
-            if (ministry.includes('lumine') || ministry.includes('ebd')) groups.lumine.push(c);
-            else if (ministry.includes('wave')) groups.wave.push(c);
-            else if (ministry.includes('dis')) groups.dis.push(c);
-            else groups.outros.push(c);
+            const ministry = c.ministryName || 'Geral';
+            if (!groups[ministry]) groups[ministry] = [];
+            groups[ministry].push(c);
         });
 
-        groups.lumine.sort((a, b) => getDiscipleshipWeight(a.name) - getDiscipleshipWeight(b.name));
+        Object.keys(groups).forEach(ministry => {
+            groups[ministry].sort((a, b) => {
+                const weightA = getDiscipleshipWeight(a.name);
+                const weightB = getDiscipleshipWeight(b.name);
+                if (weightA !== weightB) return weightA - weightB;
+                return a.name.localeCompare(b.name);
+            });
+        });
+
         return groups;
     }, [courses]);
 
-    const handleEnroll = (courseId: string) => {
+    const getMinistryIcon = (name: string) => {
+        const n = name.toLowerCase();
+        if (n.includes('wave')) return Waves;
+        if (n === 'dis') return HandHelping;
+        if (n.includes('lumine') || n.includes('ebd')) return Lightbulb;
+        if (n.includes('college') || n.includes('escola')) return School;
+        return BookOpen;
+    };
+
+    const handleEnrollClick = (courseId: string) => {
         setSelectedCourseId(courseId);
         setEnrollmentOpen(true);
     };
 
-    if (isLoading) {
-        return (
-            <div className="flex h-screen w-full items-center justify-center bg-slate-50">
-                <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            </div>
-        );
-    }
-
     return (
-        <div className="flex flex-col min-h-screen bg-slate-50">
+        <div className="min-h-screen bg-slate-50 flex flex-col">
             <PublicNavbar />
+            
+            <main className="flex-1 container mx-auto px-4 py-12 md:py-20">
+                <div className="max-w-4xl mx-auto text-center mb-16 space-y-4">
+                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 py-1 px-4 font-black uppercase tracking-widest text-[10px]">
+                        Ensino & Discipulado
+                    </Badge>
+                    <h1 className="text-4xl md:text-6xl font-black tracking-tighter text-slate-900 italic">
+                        Trilha de <span className="text-primary">Crescimento</span>
+                    </h1>
+                    <p className="text-lg text-muted-foreground">
+                        Encontre o seu lugar na família IBM e avance na sua jornada espiritual através dos nossos cursos e escolas.
+                    </p>
+                </div>
 
-            <main className="flex-1 pb-20">
-                {/* Hero Section */}
-                <section className="bg-slate-900 text-white py-20 px-4 relative overflow-hidden">
-                    <div className="absolute inset-0 opacity-20">
-                        <Image 
-                            src="https://images.unsplash.com/photo-1523050335392-93851179ae22?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxlZHVjYXRpb258ZW58MHx8fHwxNzYzMjU0MjUyfDA&ixlib=rb-4.1.0&q=80&w=1080"
-                            alt="Educação"
-                            fill
-                            className="object-cover"
-                        />
+                {isLoading ? (
+                    <div className="flex justify-center items-center h-64">
+                        <Loader2 className="animate-spin size-8 text-primary opacity-50" />
                     </div>
-                    <div className="container mx-auto relative z-10 text-center">
-                        <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 py-1 px-4 font-black uppercase tracking-widest text-[10px] mb-6">
-                            Ensino & Discipulado
-                        </Badge>
-                        <h1 className="text-4xl md:text-6xl font-black tracking-tighter text-white italic mb-4">
-                            Trilha de <span className="text-primary">Crescimento</span>
-                        </h1>
-                        <p className="text-lg text-slate-300 max-w-2xl mx-auto">
-                            Escolha o seu próximo passo na jornada espiritual. Da integração à membresia à formação de liderança.
-                        </p>
-                    </div>
-                </section>
+                ) : (
+                    <div className="space-y-20">
+                        {Object.entries(groupedCourses).map(([ministry, ministryCourses]) => {
+                            const Icon = getMinistryIcon(ministry);
+                            return (
+                                <section key={ministry} className="space-y-8 animate-in fade-in-50 duration-700">
+                                    <div className="flex items-center gap-4">
+                                        <div className="p-3 bg-primary text-white rounded-2xl shadow-lg shadow-primary/20">
+                                            <Icon size={28} />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-2xl font-black uppercase tracking-tight text-slate-900 leading-none">{ministry}</h3>
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] mt-1">Escola IBM</p>
+                                        </div>
+                                    </div>
 
-                {/* Courses Tabs */}
-                <section className="container mx-auto px-4 -mt-10 relative z-20">
-                    <Tabs defaultValue="lumine" className="w-full">
-                        <div className="flex justify-center mb-8">
-                            <TabsList className="bg-white p-1 rounded-2xl shadow-xl border h-auto flex flex-wrap justify-center">
-                                <TabsTrigger value="lumine" className="rounded-xl px-8 py-3 data-[state=active]:bg-primary data-[state=active]:text-white font-bold">Lumine (EBD)</TabsTrigger>
-                                <TabsTrigger value="wave" className="rounded-xl px-8 py-3 data-[state=active]:bg-primary data-[state=active]:text-white font-bold">Wave (Música)</TabsTrigger>
-                                <TabsTrigger value="dis" className="rounded-xl px-8 py-3 data-[state=active]:bg-primary data-[state=active]:text-white font-bold">DIS (Inclusão)</TabsTrigger>
-                                <TabsTrigger value="outros" className="rounded-xl px-8 py-3 data-[state=active]:bg-primary data-[state=active]:text-white font-bold">Eventos & GCs</TabsTrigger>
-                            </TabsList>
-                        </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {ministryCourses.map(course => {
+                                            const courseClasses = classes.filter(cls => cls.courseId === course.id);
+                                            const hasActiveClasses = courseClasses.length > 0;
 
-                        {/* Lumine Content */}
-                        <TabsContent value="lumine" className="space-y-12 animate-in fade-in-50 duration-500">
-                            <div className="max-w-4xl mx-auto space-y-6">
-                                {groupedCourses.lumine.map((course, idx) => {
-                                    const hasClasses = classes.some(cls => cls.courseId === course.id);
-                                    return (
-                                        <Card key={course.id} className="overflow-hidden border-none shadow-lg hover:shadow-2xl transition-all group">
-                                            <CardContent className="p-0 flex flex-col md:flex-row">
-                                                <div className="w-full md:w-16 bg-primary flex items-center justify-center text-white font-black text-2xl group-hover:scale-110 transition-transform">
-                                                    {idx + 1}
-                                                </div>
-                                                <div className="p-6 flex-1 space-y-4">
-                                                    <div className="flex justify-between items-start">
-                                                        <div>
-                                                            <h3 className="text-2xl font-black uppercase italic tracking-tighter text-slate-900 group-hover:text-primary transition-colors">{course.name}</h3>
-                                                            <Badge variant="secondary" className="mt-1 text-[10px] font-black uppercase tracking-widest bg-primary/10 text-primary border-none">Módulo de Discipulado</Badge>
+                                            return (
+                                                <Card key={course.id} className="group hover:shadow-xl transition-all duration-300 border-none bg-white overflow-hidden flex flex-col">
+                                                    <CardHeader className="pb-4">
+                                                        <div className="flex justify-between items-start mb-2">
+                                                            <Badge variant="secondary" className="text-[9px] uppercase font-black px-2">{course.type || 'Curso'}</Badge>
+                                                            {hasActiveClasses && (
+                                                                <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-600">
+                                                                    <div className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                                    TURMAS ABERTAS
+                                                                </span>
+                                                            )}
                                                         </div>
-                                                        {!hasClasses && <Badge variant="destructive" className="animate-pulse">VAGAS ENCERRADAS</Badge>}
-                                                    </div>
-                                                    <p className="text-muted-foreground text-sm leading-relaxed">{course.description || 'Este módulo faz parte da trilha fundamental da IBM.'}</p>
-                                                    <div className="flex flex-wrap gap-4 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                                                        <div className="flex items-center gap-1.5"><Calendar className="size-3.5 text-primary"/> Domingos</div>
-                                                        <div className="flex items-center gap-1.5"><Clock className="size-3.5 text-primary"/> 09h00 às 10h15</div>
-                                                        <div className="flex items-center gap-1.5"><MapPin className="size-3.5 text-primary"/> Templo Sede</div>
-                                                    </div>
-                                                    <div className="pt-4 flex justify-end border-t">
+                                                        <CardTitle className="text-xl font-black text-slate-900 group-hover:text-primary transition-colors">
+                                                            {course.name}
+                                                        </CardTitle>
+                                                        <CardDescription className="line-clamp-3 text-sm leading-relaxed pt-2">
+                                                            {course.description || 'Uma jornada de aprendizado e crescimento espiritual focada nos princípios do Reino.'}
+                                                        </CardDescription>
+                                                    </CardHeader>
+                                                    <CardContent className="flex-1 flex flex-col justify-end gap-6 pt-0">
+                                                        <div className="flex flex-wrap gap-4 text-xs font-bold text-slate-500 border-t pt-4">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <Clock className="size-3.5 text-primary" />
+                                                                {courseClasses[0]?.startTime || 'Consulte'}
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <MapPin className="size-3.5 text-primary" />
+                                                                {courseClasses[0]?.locationId === 'the_school' ? 'The School' : 'Templo Sede'}
+                                                            </div>
+                                                        </div>
                                                         <Button 
-                                                            disabled={!hasClasses}
-                                                            onClick={() => handleEnroll(course.id)}
-                                                            className="rounded-full px-8 font-black uppercase text-xs h-11 shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
+                                                            onClick={() => handleEnrollClick(course.id)}
+                                                            className={cn(
+                                                                "w-full h-12 font-black text-sm uppercase tracking-wider shadow-lg transition-all active:scale-95",
+                                                                !hasActiveClasses && "bg-slate-200 text-slate-500 hover:bg-slate-200"
+                                                            )}
+                                                            disabled={!hasActiveClasses}
                                                         >
-                                                            {hasClasses ? 'Inscrever-me Gratuitamente' : 'Aguardando Nova Turma'}
-                                                            <ArrowRight className="ml-2 size-4" />
+                                                            {hasActiveClasses ? (
+                                                                <>Quero me Inscrever <ArrowRight className="ml-2 size-4" /></>
+                                                            ) : 'Indisponível no momento'}
                                                         </Button>
-                                                    </div>
-                                                </div>
-                                            </CardContent>
-                                        </Card>
-                                    );
-                                })}
-                            </div>
-                        </TabsContent>
-
-                        {/* Other Contents simplified for space */}
-                        <TabsContent value="wave" className="max-w-4xl mx-auto animate-in slide-in-from-left-4">
-                            <Card className="bg-white/50 border-dashed border-2 p-12 text-center">
-                                <Waves className="size-16 mx-auto mb-4 text-primary opacity-20" />
-                                <h3 className="text-2xl font-black mb-2">Escola de Música Wave</h3>
-                                <p className="text-muted-foreground mb-6">As inscrições para instrumentos e canto estão abertas! Escolha seu plano e comece hoje.</p>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {groupedCourses.wave.map(c => (
-                                        <Button key={c.id} variant="outline" className="h-16 font-bold" onClick={() => handleEnroll(c.id)}>
-                                            {c.name}
-                                        </Button>
-                                    ))}
-                                </div>
-                            </Card>
-                        </TabsContent>
-
-                        <TabsContent value="dis" className="max-w-4xl mx-auto animate-in slide-in-from-left-4">
-                            <Card className="bg-white/50 border-dashed border-2 p-12 text-center">
-                                <HandHelping className="size-16 mx-auto mb-4 text-primary opacity-20" />
-                                <h3 className="text-2xl font-black mb-2">Escola DIS (Libras)</h3>
-                                <p className="text-muted-foreground mb-6">Inclusão que transforma. Inscreva-se para aprender a língua brasileira de sinais.</p>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {groupedCourses.dis.map(c => (
-                                        <Button key={c.id} variant="outline" className="h-16 font-bold" onClick={() => handleEnroll(c.id)}>
-                                            {c.name}
-                                        </Button>
-                                    ))}
-                                </div>
-                            </Card>
-                        </TabsContent>
-
-                        <TabsContent value="outros" className="max-w-4xl mx-auto animate-in slide-in-from-left-4 text-center py-20">
-                            <Target className="size-16 mx-auto mb-4 text-primary opacity-20" />
-                            <h3 className="text-2xl font-black mb-2">Outros Eventos e GCs</h3>
-                            <p className="text-muted-foreground">Novas turmas e workshops serão anunciados em breve.</p>
-                        </TabsContent>
-                    </Tabs>
-                </section>
+                                                    </CardContent>
+                                                </Card>
+                                            );
+                                        })}
+                                    </div>
+                                </section>
+                            );
+                        })}
+                    </div>
+                )}
             </main>
 
             <PublicFooter />
@@ -199,5 +183,13 @@ export default function PublicEnrollmentPage() {
                 initialStudentId={undefined} 
             />
         </div>
+    );
+}
+
+export default function PublicEnrollmentPage() {
+    return (
+        <VolunteeringProvider>
+            <EnrollmentPageContent />
+        </VolunteeringProvider>
     );
 }
