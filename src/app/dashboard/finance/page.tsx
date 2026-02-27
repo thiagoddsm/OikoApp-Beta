@@ -14,9 +14,9 @@ import {
   LogOut, Eye, EyeOff, Fingerprint, LayoutDashboard, HeartHandshake, TrendingUp
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, useDoc, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useDoc } from '@/firebase';
 import { useVolunteering, VolunteeringProvider } from '@/contexts/volunteering-context';
-import { doc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { TithesOfferingsManager } from '@/components/finance/tithes-offerings-manager';
 import { CashFlowManager } from '@/components/finance/cash-flow-manager';
 import { useSearchParams } from 'next/navigation';
@@ -70,7 +70,7 @@ function IntegrationLaboratory({ lastError }: { lastError?: string }) {
 
     const handleWriteTest = async () => {
         setIsTestingWrite(true);
-        addLog("Iniciando teste de escrita (Gerar Fatura)...");
+        addLog("Iniciando teste de escrita (Cobrança v2)...");
         try {
             const res = await fetch('/api/finance/conta-azul/test-write', { method: 'POST' });
             const data = await res.json();
@@ -101,7 +101,7 @@ function IntegrationLaboratory({ lastError }: { lastError?: string }) {
                         {isTestingRead ? <Loader2 className="animate-spin mr-2" /> : <HardDriveDownload className="mr-2 size-5 text-primary" />}
                         <div className="text-left">
                             <p className="font-bold text-xs">1. Testar Leitura</p>
-                            <p className="text-[9px] text-muted-foreground uppercase font-black">CONTAS FINANCEIRAS</p>
+                            <p className="text-[9px] text-muted-foreground uppercase font-black">BANCOS (V2)</p>
                         </div>
                     </Button>
                     <Button variant="outline" className="h-16 bg-white border-primary/20 hover:bg-primary/5 transition-all shadow-sm" onClick={handleWriteTest} disabled={isTestingWrite}>
@@ -153,12 +153,15 @@ function ContaAzulConnect() {
     if (!configDocRef) return;
     setIsSaving(true);
     try {
-        await setDocumentNonBlocking(configDocRef, { 
+        await updateDoc(configDocRef, { 
             clientId: clientId.trim(), 
             clientSecret: clientSecret.trim(),
-            accessToken: accessToken.trim() 
-        }, { merge: true });
+            accessToken: accessToken.trim(),
+            updatedAt: new Date().toISOString()
+        });
         toast({ title: 'Configurações Salvas!', description: 'As credenciais foram atualizadas.' });
+    } catch (e) {
+        toast({ variant: 'destructive', title: 'Erro ao salvar', description: 'Verifique sua conexão.' });
     } finally {
         setIsSaving(false);
     }
@@ -166,8 +169,10 @@ function ContaAzulConnect() {
   
   const handleDisconnect = async () => {
     if (!configDocRef) return;
-    if (confirm("Deseja realmente encerrar a conexão e limpar todos os tokens?")) {
-        await updateDocumentNonBlocking(configDocRef, { 
+    if (!confirm("Deseja realmente encerrar a conexão e limpar todos os tokens?")) return;
+    
+    try {
+        await updateDoc(configDocRef, { 
             accessToken: '', 
             refreshToken: '', 
             expiresAt: 0, 
@@ -175,9 +180,9 @@ function ContaAzulConnect() {
             updatedAt: new Date().toISOString()
         });
         setAccessToken('');
-        setClientId('');
-        setClientSecret('');
-        toast({ title: 'Conexão Encerrada', description: 'Todos os dados foram removidos.' });
+        toast({ title: 'Conexão Encerrada', description: 'Todos os tokens foram removidos.' });
+    } catch (e) {
+        toast({ variant: 'destructive', title: 'Erro ao desconectar' });
     }
   };
 

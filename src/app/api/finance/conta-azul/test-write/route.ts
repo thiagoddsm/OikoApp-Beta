@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST() {
     try {
-        // 1. Criar ou buscar um cliente de teste
+        // 1. Criar ou buscar um cliente de teste usando a nova API
         const testMember = {
             name: `Membro Teste OikoApp ${Math.floor(Math.random() * 1000)}`,
             email: 'suporte@oikoapp.com.br',
@@ -15,7 +15,7 @@ export async function POST() {
 
         const customerId = await findOrCreateContaAzulCustomer(testMember);
         
-        // 2. Buscar contas financeiras para obter um ID válido
+        // 2. Buscar contas financeiras para obter um ID válido (v1 no host api-v2)
         const bankData = await callContaAzulApi('/v1/conta-financeira');
         const bankAccounts = Array.isArray(bankData) ? bankData : (bankData.itens || bankData.items || []);
         
@@ -30,8 +30,8 @@ export async function POST() {
         const receivableData = {
             data_competencia: today,
             valor: 1.00,
-            descricao: "Teste de Permissão de Escrita OikoApp",
-            observacao: "Gerado automaticamente pelo laboratório de integração",
+            observacao: "Teste de Permissão de Escrita OikoApp",
+            descricao: "Lançamento de Teste IBM",
             contato: customerId,
             conta_financeira: bankAccount.id,
             condicao_pagamento: {
@@ -58,7 +58,7 @@ export async function POST() {
                 customerId,
                 selectedBank: bankAccount.name,
                 protocolId: result.protocolId || 'OK',
-                note: "O recebível foi protocolado com sucesso."
+                status: result.status || 'SUCCESS'
             }
         });
 
@@ -66,7 +66,7 @@ export async function POST() {
         console.error('Erro no teste de escrita:', error);
         return NextResponse.json({ 
             success: false, 
-            error: error.message || 'Erro desconhecido ao gravar.'
+            error: error.message || 'Erro desconhecido ao gravar no Conta Azul.'
         }, { status: 500 });
     }
 }
