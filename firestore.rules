@@ -9,6 +9,12 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
 
+    // Permite leitura de usuários para a API Route (que roda sem auth no contexto do client SDK no servidor)
+    // Essencial para o envio de notificações em massa
+    match /users/{userId} {
+      allow read: if true;
+    }
+
     // Regras Específicas para Notificações (Permitem gravação via API Route e leitura via Dashboard)
     // Nota: 'allow read, write: if true' é usado aqui para permitir que a API Route (servidor) 
     // grave o histórico, já que o SDK cliente no servidor não carrega o token do usuário do browser.

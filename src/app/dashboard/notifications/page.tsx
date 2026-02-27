@@ -46,7 +46,7 @@ function WhatsappChats() {
     const [userSearch, setUserSearch] = useState('');
     const scrollRef = useRef<HTMLDivElement>(null);
 
-    // Consulta de Chats com tratamento de erro de permissão
+    // Consulta de Chats
     const chatsQuery = useMemoFirebase(() => 
         firestore ? query(collection(firestore, 'notifications_chats'), orderBy('lastMessageAt', 'desc')) : null,
     [firestore]);
@@ -140,8 +140,8 @@ function WhatsappChats() {
         return (
             <div className="p-8 text-center bg-red-50 border border-red-100 rounded-xl">
                 <AlertCircle className="mx-auto size-8 text-red-500 mb-2" />
-                <h3 className="font-bold text-red-800">Erro de Permissão</h3>
-                <p className="text-xs text-red-600 mt-1">Verifique se os índices do Firestore foram criados no console do Firebase.</p>
+                <h3 className="font-bold text-red-800">Erro ao carregar conversas</h3>
+                <p className="text-xs text-red-600 mt-1">Verifique se os índices do Firestore foram criados.</p>
             </div>
         );
     }
@@ -257,7 +257,7 @@ function WhatsappChats() {
                             <MessageSquare size={64} className="text-primary/20" />
                         </div>
                         <h3 className="font-black text-xl text-slate-900 tracking-tight">Suas Conversas</h3>
-                        <p className="text-sm max-w-xs mt-2 text-slate-500">Selecione um membro na lateral ou inicie uma nova conversa pelo botão <PlusCircle className="inline size-3 mr-0.5" /> no topo.</p>
+                        <p className="text-sm max-w-xs mt-2 text-slate-500">Selecione um membro na lateral ou inicie uma nova conversa.</p>
                         <Button variant="outline" className="mt-6 rounded-full font-bold px-6" onClick={() => setIsNewChatOpen(true)}>
                             <UserPlus className="mr-2 size-4" /> Buscar Pessoa
                         </Button>
@@ -299,9 +299,6 @@ function WhatsappChats() {
                                     <ChevronRight size={16} className="text-slate-300 group-hover:text-primary" />
                                 </button>
                             ))}
-                            {userSearch && filteredUsers.length === 0 && (
-                                <p className="text-center py-8 text-xs text-muted-foreground italic">Nenhum membro encontrado.</p>
-                            )}
                         </div>
                     </div>
                     <DialogFooter>
@@ -327,7 +324,7 @@ function WhatsappSender() {
     const [isLoadingGroups, setIsLoadingGroups] = useState(false);
     const [msgType, setMsgType] = useState<'text' | 'button' | 'survey' | 'media' | 'pix'>('text');
 
-    // Configurações específicas para cada tipo
+    // Configurações específicas
     const [msgTitle, setMsgTitle] = useState('Informativo IBM');
     const [msgFooter, setMsgFooter] = useState('Igreja Batista da Manhã');
     const [msgButtons, setMsgButtons] = useState([{ id: 'btn_1', text: 'Confirmar Presença ✅' }, { id: 'btn_2', text: 'Não poderei ir ❌' }]);
@@ -360,8 +357,7 @@ function WhatsappSender() {
         try {
             const response = await fetch('/api/notifications/groups');
             const data = await response.json();
-            const groupsList = Array.isArray(data.groups) ? data.groups : [];
-            setGroups(groupsList);
+            setGroups(data.groups || []);
         } catch (e) {
             setGroups([]);
         } finally {
@@ -370,9 +366,7 @@ function WhatsappSender() {
     };
 
     useEffect(() => {
-        if (targetAudience === 'whatsapp_group') {
-            fetchGroups();
-        }
+        if (targetAudience === 'whatsapp_group') fetchGroups();
     }, [targetAudience]);
 
     const handleAddUser = (userId: string) => {
@@ -384,58 +378,40 @@ function WhatsappSender() {
         setSelectedUserIds(prev => prev.filter(id => id !== userId));
     };
 
-    // Gerenciamento de Botões
     const handleAddBtn = () => {
         if (msgButtons.length < 3) {
             setMsgButtons([...msgButtons, { id: `btn_${Date.now()}`, text: `Botão ${msgButtons.length + 1}` }]);
         }
     };
-    const handleRemoveBtn = (idx: number) => {
-        setMsgButtons(msgButtons.filter((_, i) => i !== idx));
-    };
+
     const handleUpdateBtn = (idx: number, text: string) => {
         const newBtns = [...msgButtons];
         newBtns[idx].text = text;
         setMsgButtons(newBtns);
     };
 
-    // Gerenciamento de Opções de Enquete
     const handleAddSurveyOption = () => {
-        if (surveyOptions.length < 5) {
-            setSurveyOptions([...surveyOptions, `Opção ${surveyOptions.length + 1}`]);
-        }
-    };
-    const handleRemoveSurveyOption = (index: number) => {
-        setSurveyOptions(surveyOptions.filter((_, i) => i !== index));
-    };
-    const handleUpdateSurveyOption = (index: number, value: string) => {
-        const newOptions = [...surveyOptions];
-        newOptions[index] = value;
-        setSurveyOptions(newOptions);
+        if (surveyOptions.length < 5) setSurveyOptions([...surveyOptions, `Opção ${surveyOptions.length + 1}`]);
     };
 
-    const applyTemplate = (text: string) => {
-        setMessage(text);
+    const handleUpdateSurveyOption = (idx: number, text: string) => {
+        const newOpts = [...surveyOptions];
+        newOpts[idx] = text;
+        setSurveyOptions(newOpts);
     };
 
-    const handleSend = async (e?: React.FormEvent, forcePayload?: any) => {
-        if (e) e.preventDefault();
+    const handleSend = async (e: React.FormEvent) => {
+        e.preventDefault();
         setDebugError(null);
         
-        if (!forcePayload) {
-            if (targetAudience === 'specific_members' && selectedUserIds.length === 0) {
-                toast({ variant: 'destructive', title: "Selecione pelo menos uma pessoa." });
-                return;
-            }
-            if (targetAudience === 'whatsapp_group' && !selectedGroupId) {
-                toast({ variant: 'destructive', title: "Selecione um grupo de WhatsApp." });
-                return;
-            }
+        if (targetAudience === 'specific_members' && selectedUserIds.length === 0) {
+            toast({ variant: 'destructive', title: "Selecione pelo menos uma pessoa." });
+            return;
         }
 
         setIsLoading(true);
 
-        const payload: any = forcePayload || {
+        const payload: any = {
             channel: 'whatsapp',
             audience: targetAudience,
             message,
@@ -444,25 +420,20 @@ function WhatsappSender() {
             type: msgType,
         };
 
-        if (!forcePayload) {
-            if (msgType === 'button') {
-                payload.title = msgTitle || "Convite IBM";
-                payload.footer = msgFooter || "Igreja Batista da Manhã";
-                payload.buttons = msgButtons.map(b => ({ id: b.id, text: b.text }));
-            }
-            if (msgType === 'survey') {
-                payload.surveyName = surveyName || "Enquete IBM";
-                payload.options = surveyOptions;
-            }
-            if (msgType === 'media') {
-                payload.mediaUrl = mediaUrl;
-            }
-            if (msgType === 'pix') {
-                payload.pixKey = pixKey;
-                payload.pixName = pixName;
-                payload.pixCity = pixCity;
-                payload.pixAmount = pixAmount;
-            }
+        if (msgType === 'button') {
+            payload.title = msgTitle;
+            payload.footer = msgFooter;
+            payload.buttons = msgButtons;
+        } else if (msgType === 'survey') {
+            payload.surveyName = surveyName;
+            payload.options = surveyOptions;
+        } else if (msgType === 'media') {
+            payload.mediaUrl = mediaUrl;
+        } else if (msgType === 'pix') {
+            payload.pixKey = pixKey;
+            payload.pixName = pixName;
+            payload.pixCity = pixCity;
+            payload.pixAmount = pixAmount;
         }
 
         try {
@@ -475,23 +446,15 @@ function WhatsappSender() {
             const result = await response.json();
             
             if (response.ok) {
-                toast({ title: "Envio Concluído!", description: `${result.sentCount || 0} mensagens processadas.` });
-                if (!forcePayload) {
-                    if (msgType !== 'pix') setMessage('');
-                    setSelectedUserIds([]);
-                    setSurveyName('');
-                    setMediaUrl('');
-                }
+                toast({ title: "Envio Concluído!", description: `${result.sentCount || 0} mensagens enviadas.` });
+                setMessage('');
+                setSelectedUserIds([]);
             } else {
                 setDebugError(result);
-                toast({ 
-                    variant: 'destructive', 
-                    title: "Falha no Envio", 
-                    description: result.error || "Ocorreu um erro no gateway." 
-                });
+                toast({ variant: 'destructive', title: "Falha no Envio", description: result.error });
             }
         } catch(error) {
-             toast({ variant: 'destructive', title: "Erro crítico", description: "Falha na conexão com o servidor." });
+             toast({ variant: 'destructive', title: "Erro crítico", description: "Falha na conexão." });
         } finally {
             setIsLoading(false);
         }
@@ -502,23 +465,23 @@ function WhatsappSender() {
             <form onSubmit={handleSend} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                        <Label htmlFor="msgType">Formato da Mensagem</Label>
+                        <Label>Formato</Label>
                         <Select value={msgType} onValueChange={(v:any) => setMsgType(v)}>
                             <SelectTrigger className="bg-background">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="text">Apenas Texto (Normal)</SelectItem>
-                                <SelectItem value="button">Mensagem com Botões (Interativa)</SelectItem>
+                                <SelectItem value="text">Apenas Texto</SelectItem>
+                                <SelectItem value="button">Mensagem com Botões</SelectItem>
                                 <SelectItem value="survey">Enquete / Votação</SelectItem>
                                 <SelectItem value="media">Imagem ou Documento</SelectItem>
-                                <SelectItem value="pix">QR Code PIX (Pagamento)</SelectItem>
+                                <SelectItem value="pix">QR Code PIX</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="targetAudience">Público-alvo</Label>
+                        <Label>Público-alvo</Label>
                         <Select value={targetAudience} onValueChange={setTargetAudience}>
                             <SelectTrigger className="bg-background">
                                 <SelectValue placeholder="Selecione o público" />
@@ -533,209 +496,97 @@ function WhatsappSender() {
                 </div>
 
                 {targetAudience === 'specific_members' && (
-                    <div className="space-y-4 p-4 border rounded-lg bg-muted/20 animate-in fade-in zoom-in-95 duration-200">
-                        <Label className="flex items-center gap-2">
-                            <Search size={14} /> Selecionar Pessoas
-                        </Label>
+                    <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+                        <Label>Pessoas Selecionadas</Label>
                         <div className="relative">
                             <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                            <Input 
-                                placeholder="Digite o nome para buscar..." 
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10 bg-background h-11"
-                            />
+                            <Input placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 h-11" />
                             {filteredUsers.length > 0 && (
                                 <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg overflow-hidden">
                                     {filteredUsers.map(u => (
-                                        <button
-                                            key={u.id}
-                                            type="button"
-                                            onClick={() => handleAddUser(u.id)}
-                                            className="w-full px-4 py-3 text-left text-sm hover:bg-primary/10 flex items-center justify-between group border-b last:border-0"
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <Avatar className="h-8 w-8">
-                                                    <AvatarFallback className="bg-primary/5 text-primary text-[10px] font-black">{u.name.charAt(0)}</AvatarFallback>
-                                                </Avatar>
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold">{u.name}</span>
-                                                    <span className="text-[9px] text-muted-foreground uppercase">{u.phone}</span>
-                                                </div>
-                                            </div>
-                                            <UserPlus size={14} className="text-muted-foreground group-hover:text-primary" />
+                                        <button key={u.id} type="button" onClick={() => handleAddUser(u.id)} className="w-full px-4 py-3 text-left hover:bg-primary/10 flex justify-between border-b">
+                                            <span>{u.name}</span>
+                                            <UserPlus size={14} className="text-muted-foreground" />
                                         </button>
                                     ))}
                                 </div>
                             )}
                         </div>
-
                         <div className="flex flex-wrap gap-2 pt-2">
                             {selectedUsersList.map(u => (
-                                <Badge key={u.id} variant="secondary" className="pl-3 pr-1 py-1 gap-1 bg-white border shadow-sm">
+                                <Badge key={u.id} variant="secondary" className="gap-1 bg-white border">
                                     {u.name}
-                                    <button 
-                                        type="button" 
-                                        onClick={() => handleRemoveUser(u.id)}
-                                        className="hover:text-destructive p-0.5 rounded-full hover:bg-destructive/10 transition-colors"
-                                    >
-                                        <X size={12} />
-                                    </button>
+                                    <button type="button" onClick={() => handleRemoveUser(u.id)}><X size={12} /></button>
                                 </Badge>
                             ))}
                         </div>
                     </div>
                 )}
 
-                {targetAudience === 'whatsapp_group' && (
-                    <div className="space-y-2 animate-in fade-in zoom-in-95 duration-200">
-                        <div className="flex justify-between items-center">
-                            <Label htmlFor="group-select">Escolha o Grupo</Label>
-                            <button 
-                                type="button" 
-                                className="text-xs flex items-center gap-1 text-primary hover:underline font-bold"
-                                onClick={fetchGroups} 
-                                disabled={isLoadingGroups}
-                            >
-                                <RefreshCw className={cn("size-3", isLoadingGroups && "animate-spin")} /> Atualizar
-                            </button>
+                {msgType === 'survey' && (
+                    <div className="space-y-4 p-4 border border-dashed rounded-lg bg-blue-50">
+                        <div className="space-y-2">
+                            <Label className="text-xs font-bold text-blue-700">Pergunta da Enquete</Label>
+                            <Input value={surveyName} onChange={e => setSurveyName(e.target.value)} placeholder="Ex: Qual o melhor dia para o nosso GC?" className="bg-white" />
                         </div>
-                        <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
-                            <SelectTrigger id="group-select" className="bg-background h-11">
-                                <SelectValue placeholder={isLoadingGroups ? "Buscando grupos..." : "Selecione um grupo"} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {isLoadingGroups ? (
-                                    <div className="flex items-center justify-center p-4">
-                                        <Loader2 className="size-4 animate-spin mr-2" />
-                                        <span className="text-xs font-medium">Sincronizando com WhatsApp...</span>
-                                    </div>
-                                ) : (
-                                    <>
-                                        {Array.isArray(groups) && groups.length > 0 ? (
-                                            groups.map(g => (
-                                                <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
-                                            ))
-                                        ) : (
-                                            <SelectItem value="none" disabled>Nenhum grupo carregado</SelectItem>
-                                        )}
-                                    </>
-                                )}
-                            </SelectContent>
-                        </Select>
+                        <div className="space-y-3">
+                            <Label className="text-[10px] uppercase font-black text-muted-foreground">Opções (Mín 2, Máx 5)</Label>
+                            {surveyOptions.map((opt, idx) => (
+                                <div key={idx} className="flex gap-2">
+                                    <Input value={opt} onChange={e => handleUpdateSurveyOption(idx, e.target.value)} className="bg-white" />
+                                    {surveyOptions.length > 2 && <Button variant="ghost" size="icon" onClick={() => setSurveyOptions(surveyOptions.filter((_, i) => i !== idx))}><Trash2 size={14}/></Button>}
+                                </div>
+                            ))}
+                            {surveyOptions.length < 5 && <Button variant="outline" size="sm" onClick={handleAddSurveyOption} className="bg-white"><PlusCircle size={12} className="mr-2" /> Adicionar Opção</Button>}
+                        </div>
                     </div>
                 )}
 
                 {msgType === 'button' && (
-                    <div className="space-y-4 p-4 border border-dashed rounded-lg bg-indigo-50 animate-in slide-in-from-top-2">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-4 p-4 border border-dashed rounded-lg bg-indigo-50">
+                        <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label className="text-xs font-bold uppercase text-indigo-700">Título da Mensagem</Label>
-                                <Input value={msgTitle} onChange={e => setMsgTitle(e.target.value)} placeholder="Ex: Convite IBM" className="bg-white" />
+                                <Label className="text-xs font-bold text-indigo-700">Título</Label>
+                                <Input value={msgTitle} onChange={e => setMsgTitle(e.target.value)} className="bg-white" />
                             </div>
                             <div className="space-y-2">
-                                <Label className="text-xs font-bold uppercase text-indigo-700">Rodapé</Label>
-                                <Input value={msgFooter} onChange={e => setMsgFooter(e.target.value)} placeholder="Ex: Igreja Batista da Manhã" className="bg-white" />
+                                <Label className="text-xs font-bold text-indigo-700">Rodapé</Label>
+                                <Input value={msgFooter} onChange={e => setMsgFooter(e.target.value)} className="bg-white" />
                             </div>
                         </div>
                         <div className="space-y-3">
-                            <Label className="text-xs font-black uppercase text-muted-foreground flex items-center gap-2">
-                                <MousePointer2 size={12} /> Botões (Máx 3)
-                            </Label>
+                            <Label className="text-[10px] uppercase font-black text-muted-foreground">Botões Interativos</Label>
                             {msgButtons.map((btn, idx) => (
                                 <div key={btn.id} className="flex gap-2">
-                                    <Input value={btn.text} onChange={e => handleUpdateBtn(idx, e.target.value)} placeholder={`Botão ${idx + 1}`} className="bg-white" />
-                                    {msgButtons.length > 1 && (
-                                        <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveBtn(idx)}>
-                                            <Trash2 size={14} className="text-destructive" />
-                                        </Button>
-                                    )}
+                                    <Input value={btn.text} onChange={e => handleUpdateBtn(idx, e.target.value)} className="bg-white" />
                                 </div>
                             ))}
-                            {msgButtons.length < 3 && (
-                                <Button type="button" variant="outline" size="sm" onClick={handleAddBtn} className="bg-white">
-                                    <PlusCircle size={12} className="mr-2" /> Adicionar Botão
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {msgType === 'survey' && (
-                    <div className="space-y-4 p-4 border border-dashed rounded-lg bg-blue-50 animate-in slide-in-from-top-2">
-                        <div className="space-y-2">
-                            <Label className="text-xs font-bold uppercase text-blue-700 flex items-center gap-2">
-                                <ListTodo size={14} /> Pergunta / Nome da Enquete
-                            </Label>
-                            <Input 
-                                value={surveyName} 
-                                onChange={e => setSurveyName(e.target.value)} 
-                                placeholder="Ex: Qual o melhor dia para o nosso GC?" 
-                                className="bg-white h-11"
-                            />
-                        </div>
-                        <div className="space-y-3">
-                            <Label className="text-xs font-black uppercase text-muted-foreground">Opções de Voto (Mín 2, Máx 5)</Label>
-                            {surveyOptions.map((opt, idx) => (
-                                <div key={idx} className="flex gap-2">
-                                    <Input 
-                                        value={opt} 
-                                        onChange={e => handleUpdateSurveyOption(idx, e.target.value)} 
-                                        placeholder={`Opção ${idx + 1}`} 
-                                        className="bg-white" 
-                                    />
-                                    {surveyOptions.length > 2 && (
-                                        <Button type="button" variant="ghost" size="icon" onClick={() => handleRemoveSurveyOption(idx)}>
-                                            <Trash2 size={14} className="text-destructive" />
-                                        </Button>
-                                    )}
-                                </div>
-                            ))}
-                            {surveyOptions.length < 5 && (
-                                <Button type="button" variant="outline" size="sm" onClick={handleAddSurveyOption} className="bg-white">
-                                    <PlusCircle size={12} className="mr-2" /> Adicionar Opção
-                                </Button>
-                            )}
                         </div>
                     </div>
                 )}
 
                 <div className="space-y-4">
-                    <div className="flex justify-between items-end">
-                        <Label htmlFor="message">Texto Principal</Label>
-                        <div className="flex gap-2">
-                            {QUICK_TEMPLATES.map(t => (
-                                <Button key={t.id} type="button" variant="outline" size="sm" className="h-7 text-[10px] uppercase font-black" onClick={() => applyTemplate(t.text)}>
-                                    <t.icon size={10} className="mr-1" /> {t.label}
-                                </Button>
-                            ))}
-                        </div>
-                    </div>
+                    <Label>Texto da Mensagem</Label>
                     <Textarea 
-                        id="message" 
-                        placeholder={msgType === 'survey' ? "A mensagem principal é opcional para enquetes." : "Olá {{nome}}..."}
-                        className="min-h-[120px] bg-background"
-                        value={message}
-                        onChange={(e) => setMessage(e.target.value)}
-                        required={msgType !== 'survey'}
+                        placeholder="Olá {{nome}}..." 
+                        className="min-h-[120px]" 
+                        value={message} 
+                        onChange={(e) => setMessage(e.target.value)} 
+                        required={msgType !== 'survey'} 
                     />
                 </div>
 
-                <Button type="submit" disabled={isLoading || (msgType !== 'survey' && !message?.trim()) || (msgType === 'survey' && !surveyName?.trim())} className="w-full h-12 text-base font-bold shadow-lg">
+                <Button type="submit" disabled={isLoading} className="w-full h-12 text-base font-bold">
                     {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
                     Enviar Notificação
                 </Button>
             </form>
 
             {debugError && (
-                <Alert variant="destructive" className="animate-in shake-1 border-2 mt-6">
-                    <ShieldAlert className="h-4 w-4" />
-                    <AlertTitle className="font-black uppercase tracking-tighter">Erro do Gateway</AlertTitle>
-                    <AlertDescription className="mt-2 space-y-2">
-                        <p className="text-sm font-bold">{debugError.error}</p>
-                        <div className="bg-black/10 p-3 rounded font-mono text-[10px] overflow-auto max-h-40">
-                            <pre>{JSON.stringify(debugError.details || debugError, null, 2)}</pre>
-                        </div>
+                <Alert variant="destructive" className="mt-6">
+                    <AlertTitle>Erro do Gateway</AlertTitle>
+                    <AlertDescription className="text-xs font-mono whitespace-pre-wrap mt-2 p-2 bg-black/5 rounded">
+                        {JSON.stringify(debugError, null, 2)}
                     </AlertDescription>
                 </Alert>
             )}
@@ -765,20 +616,18 @@ function WhatsappResponses() {
                 </TableHeader>
                 <TableBody>
                     {responses?.length === 0 ? (
-                        <TableRow><TableCell colSpan={3} className="h-32 text-center text-muted-foreground italic">Nenhuma resposta interativa ainda.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={3} className="h-32 text-center text-muted-foreground">Nenhuma resposta recebida.</TableCell></TableRow>
                     ) : (
                         responses?.map((res: any) => (
                             <TableRow key={res.id}>
                                 <TableCell className="font-bold">{res.userName || res.from}</TableCell>
                                 <TableCell>
-                                    <Badge className={cn(
-                                        res.buttonId?.includes('yes') || res.buttonId?.includes('confirm') ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
-                                    )}>
+                                    <Badge variant="secondary" className="bg-emerald-100 text-emerald-800">
                                         {res.buttonText || res.buttonId}
                                     </Badge>
                                 </TableCell>
                                 <TableCell className="text-xs text-muted-foreground">
-                                    {res.receivedAt ? format(res.receivedAt.toDate(), 'dd/MM/yy HH:mm', { locale: ptBR }) : '-'}
+                                    {res.receivedAt ? format(res.receivedAt.toDate(), 'dd/MM/yy HH:mm') : '-'}
                                 </TableCell>
                             </TableRow>
                         ))
@@ -797,71 +646,32 @@ function NotificationsConfig() {
     const [waKey, setWaKey] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [isGeneratingQR, setIsGeneratingQR] = useState(false);
-    const [isDisconnecting, setIsDisconnecting] = useState(false);
-    const [isConfiguringInstance, setIsConfiguringInstance] = useState(false);
-    const [qrCode, setQrCode] = useState<string | null>(null);
-    const [instanceStatus, setInstanceStatus] = useState<{status: string, message?: string, qr?: string, details?: any} | null>(null);
-    const [isLoadingStatus, setIsLoadingStatus] = useState(false);
+    const [instanceStatus, setInstanceStatus] = useState<any>(null);
 
     useEffect(() => {
-        if (config) {
-            setWaKey(config.whatsappApiKey || '');
-        }
+        if (config) setWaKey(config.whatsappApiKey || '');
     }, [config]);
 
-    const checkStatus = useCallback(async () => {
-        setIsLoadingStatus(true);
+    const checkStatus = async () => {
         try {
-            const response = await fetch(`/api/notifications/instance?t=${Date.now()}`);
-            const data = await response.json();
-            
-            if (data.qr) {
-                const qr = data.qr.startsWith('data:') ? data.qr : `data:image/png;base64,${data.qr}`;
-                setQrCode(qr);
-            }
-
+            const res = await fetch('/api/notifications/instance');
+            const data = await res.json();
             setInstanceStatus(data);
-            if (data.status === 'connected') setQrCode(null);
-        } catch (e) {
-            setInstanceStatus({ status: 'error', message: 'Falha ao consultar gateway.' });
-        } finally {
-            setIsLoadingStatus(false);
-        }
-    }, []);
+        } catch (e) {}
+    };
 
     useEffect(() => {
         if (waKey) checkStatus();
-    }, [waKey, checkStatus]);
-
-    const handleConfigureInstance = async () => {
-        setIsConfiguringInstance(true);
-        try {
-            const response = await fetch('/api/notifications/instance', { method: 'PATCH' });
-            if (response.ok) {
-                toast({ title: "Recursos Ativados!", description: "Botões e enquetes habilitados." });
-                checkStatus();
-            } else {
-                const data = await response.json();
-                toast({ variant: 'destructive', title: "Erro", description: data.error });
-            }
-        } catch (e) {
-            toast({ variant: 'destructive', title: "Erro na Requisição" });
-        } finally {
-            setIsConfiguringInstance(false);
-        }
-    };
+    }, [waKey]);
 
     const handleSaveKey = async () => {
         if (!firestore) return;
         setIsSaving(true);
-        setInstanceStatus(null);
-        setQrCode(null);
-        
         const configRef = doc(firestore, 'config', 'notifications');
         try {
             await setDocumentNonBlocking(configRef, { whatsappApiKey: waKey, updatedAt: Timestamp.now() }, { merge: true });
             toast({ title: "Chave Salva!" });
-            setTimeout(checkStatus, 2000);
+            checkStatus();
         } catch (e) {
             toast({ variant: 'destructive', title: "Erro ao salvar" });
         } finally {
@@ -869,253 +679,26 @@ function NotificationsConfig() {
         }
     };
 
-    const handleGenerateQR = async () => {
-        setIsGeneratingQR(true);
-        setQrCode(null);
-        try {
-            const response = await fetch('/api/notifications/instance', { method: 'POST' });
-            const data = await response.json();
-            if (data.qr) {
-                const qr = data.qr.startsWith('data:') ? data.qr : `data:image/png;base64,${data.qr}`;
-                setQrCode(qr);
-                toast({ title: "QR Code Gerado" });
-            } else if (data.status === 'connected') {
-                checkStatus();
-            }
-        } catch (e: any) {
-            toast({ variant: 'destructive', title: "Erro na Requisição" });
-        } finally {
-            setIsGeneratingQR(false);
-        }
-    };
-
-    const handleDisconnect = async () => {
-        if (!confirm("Deseja desconectar?")) return;
-        setIsDisconnecting(true);
-        try {
-            const response = await fetch('/api/notifications/instance', { method: 'DELETE' });
-            if (response.ok) {
-                toast({ title: "Desconectado!" });
-                setQrCode(null);
-                setInstanceStatus(null);
-                setTimeout(checkStatus, 1000);
-            }
-        } catch (e) {
-            toast({ variant: 'destructive', title: "Erro na Requisição" });
-        } finally {
-            setIsDisconnecting(false);
-        }
-    };
-
     if (isLoadingConfig) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
-
-    const webhookUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/notifications/webhook` : '';
 
     return (
         <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="md:col-span-2">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><Key className="size-5 text-primary" />Configuração de Chave</CardTitle>
-                        <CardDescription>Insira a chave da instância do api-wa.me.</CardDescription>
-                    </CardHeader>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card>
+                    <CardHeader><CardTitle>API Key</CardTitle></CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="wa-key">API Key (Instância)</Label>
-                            <Input id="wa-key" type="password" value={waKey} onChange={e => setWaKey(e.target.value)} placeholder="Sua chave secreta" />
-                        </div>
-                    </CardContent>
-                    <CardFooter className="flex justify-end border-t pt-4">
-                        <Button onClick={handleSaveKey} disabled={isSaving} size="sm">
-                            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Settings className="mr-2 size-4" />}
-                            Salvar Chave
-                        </Button>
-                    </CardFooter>
-                </Card>
-
-                <Card className={cn(
-                    "border-2 transition-all shadow-md",
-                    instanceStatus?.status === 'connected' ? "border-emerald-500 bg-emerald-50/30" : 
-                    "border-amber-500 bg-amber-50/30"
-                )}>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-bold flex items-center justify-between">
-                            Status da Instância
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={checkStatus} disabled={isLoadingStatus}>
-                                <RefreshCw className={cn("size-3", isLoadingStatus && "animate-spin")} />
-                            </Button>
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4 text-center">
-                        <div className="flex flex-col items-center gap-2">
-                            <div className={cn(
-                                "size-4 rounded-full animate-pulse",
-                                instanceStatus?.status === 'connected' ? "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" : "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"
-                            )} />
-                            <span className="font-black uppercase text-xs tracking-widest">
-                                {instanceStatus?.status === 'connected' ? 'CONECTADO' : instanceStatus?.status === 'pairing' ? 'AGUARDANDO QR' : (instanceStatus?.status || 'AGUARDANDO CONEXÃO')}
-                            </span>
-                        </div>
-                        
-                        {instanceStatus?.status === 'connected' ? (
-                            <div className="py-2 space-y-3">
-                                <Button 
-                                    variant="default" 
-                                    size="sm" 
-                                    onClick={handleConfigureInstance}
-                                    disabled={isConfiguringInstance}
-                                    className="w-full h-9 font-bold bg-emerald-600 hover:bg-emerald-700"
-                                >
-                                    {isConfiguringInstance ? <Loader2 className="size-4 animate-spin mr-2" /> : <Sparkles className="size-4 mr-2" />} 
-                                    Ativar Recursos
-                                </Button>
-                                <Button 
-                                    variant="outline" 
-                                    size="sm" 
-                                    onClick={handleDisconnect}
-                                    disabled={isDisconnecting}
-                                    className="w-full text-destructive hover:bg-red-50 border-red-100 h-8 text-[10px]"
-                                >
-                                    {isDisconnecting ? <Loader2 className="size-3 animate-spin mr-1" /> : <LogOut className="size-3 mr-1" />} 
-                                    Desconectar
-                                </Button>
-                            </div>
-                        ) : (
-                            <div className="space-y-3">
-                                <Button 
-                                    onClick={handleGenerateQR} 
-                                    disabled={isGeneratingQR || !waKey}
-                                    className="w-full h-9 text-xs font-bold"
-                                >
-                                    {isGeneratingQR ? <Loader2 className="size-3 animate-spin mr-1" /> : <QrCode className="size-3 mr-1" />}
-                                    Gerar Novo QR Code
-                                </Button>
-                                <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    onClick={handleDisconnect}
-                                    className="text-[10px] text-muted-foreground hover:text-destructive"
-                                >
-                                    Limpar Instância Ocupada
-                                </Button>
-                            </div>
-                        )}
+                        <Input type="password" value={waKey} onChange={e => setWaKey(e.target.value)} placeholder="Chave do api-wa.me" />
+                        <Button onClick={handleSaveKey} disabled={isSaving} className="w-full">Salvar Chave</Button>
                     </CardContent>
                 </Card>
-            </div>
 
-            {qrCode && (
-                <Card className="border-primary border-2 bg-primary/5 animate-in zoom-in-95 duration-300">
-                    <CardHeader className="text-center pb-2">
-                        <CardTitle className="text-primary flex items-center justify-center gap-2">
-                            <Smartphone className="size-5" />
-                            Escaneie para Conectar
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex flex-col items-center justify-center py-6 gap-6">
-                        <div className="p-4 bg-white rounded-2xl shadow-xl border-4 border-primary/20">
-                            <Image src={qrCode} alt="WhatsApp QR Code" width={256} height={256} className="rounded-lg" />
-                        </div>
+                <Card>
+                    <CardHeader><CardTitle>Status</CardTitle></CardHeader>
+                    <CardContent className="text-center">
+                        <div className={cn("size-4 rounded-full mx-auto mb-2", instanceStatus?.status === 'connected' ? "bg-emerald-500" : "bg-amber-500")} />
+                        <span className="font-bold text-xs uppercase">{instanceStatus?.status || 'Aguardando'}</span>
                     </CardContent>
                 </Card>
-            )}
-
-            <Card className="bg-muted/30">
-                <CardHeader>
-                    <CardTitle className="text-sm font-bold flex items-center gap-2"><Layers className="size-4 text-primary" /> Webhook</CardTitle>
-                    <CardDescription>Para receber respostas, configure esta URL no painel do api-wa.me:</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="p-3 bg-white border rounded font-mono text-xs break-all select-all shadow-inner">
-                        {webhookUrl}
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
-    );
-}
-
-function WhatsappGroups() {
-    const { toast } = useToast();
-    const [groups, setGroups] = useState<any[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    const fetchGroups = async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            const response = await fetch('/api/notifications/groups');
-            const data = await response.json();
-            if (response.ok) {
-                setGroups(Array.isArray(data.groups) ? data.groups : []);
-            } else {
-                setError(data.error || "Erro ao buscar grupos.");
-            }
-        } catch (e: any) {
-            setError(e.message);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchGroups();
-    }, []);
-
-    const handleUpdateMural = async (groupId: string, groupName: string) => {
-        const description = prompt(`Nova descrição para "${groupName}":`);
-        if (description === null) return;
-
-        try {
-            const response = await fetch('/api/notifications/groups', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ groupId, description, name: groupName })
-            });
-            
-            if (response.ok) {
-                toast({ title: "Mural Atualizado!" });
-            }
-        } catch (e) {
-            toast({ variant: 'destructive', title: "Erro na conexão" });
-        }
-    };
-
-    return (
-        <div className="space-y-4">
-            <div className="flex justify-between items-center">
-                <h3 className="text-lg font-bold">Grupos no WhatsApp</h3>
-                <Button variant="ghost" size="sm" onClick={fetchGroups} disabled={isLoading}>
-                    <RefreshCw className={cn("size-4 mr-2", isLoading && "animate-spin")} /> Atualizar
-                </Button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {isLoading ? (
-                    [...Array(3)].map((_, i) => <Card key={i} className="animate-pulse h-24 bg-muted" />)
-                ) : (
-                    groups.map(group => (
-                        <Card key={group.id} className="hover:border-primary/30 transition-all shadow-sm">
-                            <CardHeader className="p-4">
-                                <CardTitle className="text-sm font-bold flex items-center justify-between">
-                                    <span className="truncate">{group.name}</span>
-                                    <Badge variant="secondary" className="text-[10px]">{group.participantCount} p.</Badge>
-                                </CardTitle>
-                            </CardHeader>
-                            <CardFooter className="p-4 pt-0">
-                                <Button variant="outline" size="sm" className="w-full text-[10px] font-bold h-8" onClick={() => handleUpdateMural(group.id, group.name)}>
-                                    <Edit className="size-3 mr-1" /> Mural / Descrição
-                                </Button>
-                            </CardFooter>
-                        </Card>
-                    ))
-                )}
-                {!isLoading && groups.length === 0 && (
-                    <div className="col-span-full py-12 text-center text-muted-foreground italic border-2 border-dashed rounded-lg bg-muted/10">
-                        Nenhum grupo identificado nesta instância.
-                    </div>
-                )}
             </div>
         </div>
     );
@@ -1124,52 +707,29 @@ function WhatsappGroups() {
 export default function NotificationsPage() {
   return (
     <div className="space-y-6">
-        <Card className="border-primary/20 bg-primary/5 shadow-sm">
+        <Card className="border-primary/20 bg-primary/5">
             <CardHeader>
                 <CardTitle className="text-2xl font-black flex items-center gap-3">
-                    <Send className="text-primary" />
-                    Central de Notificações
+                    <Send className="text-primary" /> Central de Notificações
                 </CardTitle>
-                <CardDescription className="text-slate-600">Comunicação estratégica e interativa para o organismo da igreja.</CardDescription>
+                <CardDescription>Comunicação estratégica para a igreja.</CardDescription>
             </CardHeader>
         </Card>
 
         <Tabs defaultValue="sender" className="w-full">
-            <TabsList className="grid w-full grid-cols-6 max-w-4xl bg-muted/50 p-1 rounded-xl">
-                <TabsTrigger value="sender" className="font-bold rounded-lg"><Send className="mr-2 size-4" /> Disparador</TabsTrigger>
-                <TabsTrigger value="chats" className="font-bold rounded-lg"><MessageSquare className="mr-2 size-4" /> Conversas</TabsTrigger>
-                <TabsTrigger value="groups" className="font-bold rounded-lg"><Group className="mr-2 size-4" /> Grupos</TabsTrigger>
-                <TabsTrigger value="responses" className="font-bold rounded-lg"><CheckCircle className="mr-2 size-4" /> Respostas</TabsTrigger>
-                <TabsTrigger value="history" className="font-bold rounded-lg"><History className="mr-2 size-4" /> Histórico</TabsTrigger>
-                <TabsTrigger value="config" className="font-bold rounded-lg"><Settings className="mr-2 size-4" /> Configs</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-5 max-w-3xl bg-muted/50 p-1 rounded-xl">
+                <TabsTrigger value="sender" className="font-bold">Disparador</TabsTrigger>
+                <TabsTrigger value="chats" className="font-bold">Conversas</TabsTrigger>
+                <TabsTrigger value="responses" className="font-bold">Respostas</TabsTrigger>
+                <TabsTrigger value="history" className="font-bold">Histórico</TabsTrigger>
+                <TabsTrigger value="config" className="font-bold">Configuração</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="sender" className="mt-6">
-                <Card className="shadow-lg border-none">
-                    <CardHeader><CardTitle className="text-lg">Novo Disparo em Massa</CardTitle></CardHeader>
-                    <CardContent><WhatsappSender /></CardContent>
-                </Card>
-            </TabsContent>
-
-            <TabsContent value="chats" className="mt-6">
-                <WhatsappChats />
-            </TabsContent>
-
-            <TabsContent value="groups" className="mt-6">
-                <WhatsappGroups />
-            </TabsContent>
-
-            <TabsContent value="responses" className="mt-6">
-                <WhatsappResponses />
-            </TabsContent>
-
-            <TabsContent value="history" className="mt-6">
-                <NotificationsHistory />
-            </TabsContent>
-
-            <TabsContent value="config" className="mt-6">
-                <NotificationsConfig />
-            </TabsContent>
+            <TabsContent value="sender" className="mt-6"><WhatsappSender /></TabsContent>
+            <TabsContent value="chats" className="mt-6"><WhatsappChats /></TabsContent>
+            <TabsContent value="responses" className="mt-6"><WhatsappResponses /></TabsContent>
+            <TabsContent value="history" className="mt-6"><NotificationsHistory /></TabsContent>
+            <TabsContent value="config" className="mt-6"><NotificationsConfig /></TabsContent>
         </Tabs>
     </div>
   );
@@ -1186,7 +746,7 @@ function NotificationsHistory() {
     if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
-        <div className="rounded-lg border bg-card overflow-hidden shadow-sm">
+        <div className="rounded-lg border bg-card overflow-hidden">
             <Table>
                 <TableHeader className="bg-muted/50">
                     <TableRow>
@@ -1198,20 +758,14 @@ function NotificationsHistory() {
                 </TableHeader>
                 <TableBody>
                     {history?.length === 0 ? (
-                        <TableRow><TableCell colSpan={4} className="h-32 text-center text-muted-foreground">Nenhum histórico de disparos.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={4} className="h-32 text-center text-muted-foreground">Nenhum histórico.</TableCell></TableRow>
                     ) : (
                         history?.map((item: any) => (
                             <TableRow key={item.id}>
-                                <TableCell className="text-xs font-medium">
-                                    {item.sentAt ? format(item.sentAt.toDate(), 'dd/MM/yy HH:mm', { locale: ptBR }) : '-'}
-                                </TableCell>
-                                <TableCell className="text-xs max-w-xs truncate font-medium text-slate-700">{item.message}</TableCell>
-                                <TableCell><Badge variant="secondary" className="bg-slate-100 text-slate-700">{item.recipientCount} pessoas</Badge></TableCell>
-                                <TableCell>
-                                    <div className={cn("flex items-center gap-1.5 font-black text-[10px]", item.status === 'success' ? "text-emerald-600" : "text-amber-600")}>
-                                        <CheckCircle2 size={12} /> {item.status === 'success' ? 'SUCESSO TOTAL' : 'ENTREGA PARCIAL'}
-                                    </div>
-                                </TableCell>
+                                <TableCell className="text-xs">{item.sentAt ? format(item.sentAt.toDate(), 'dd/MM/yy HH:mm') : '-'}</TableCell>
+                                <TableCell className="text-xs max-w-xs truncate">{item.message}</TableCell>
+                                <TableCell>{item.recipientCount} pessoas</TableCell>
+                                <TableCell><Badge variant="outline">{item.status === 'success' ? 'Sucesso' : 'Erro'}</Badge></TableCell>
                             </TableRow>
                         ))
                     )}
