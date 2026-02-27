@@ -114,16 +114,15 @@ export async function POST(request: Request) {
 
         switch (type) {
             case 'button':
-                // Estrutura rigorosa conforme exemplo funcional (Padrão Baileys)
-                endpoint = 'message/text'; 
+                // Estrutura Pro Plano v5 (Singular /message/button)
+                endpoint = 'message/button'; 
                 payload = {
                     to: formattedPhone,
-                    text: personalizedBody,
+                    title: personalizedBody, // No endpoint /button, o title é o corpo da msg
                     footer: footer || 'Igreja Batista da Manhã',
                     buttons: (buttons || []).map((b: any) => ({
-                        buttonId: b.id,
-                        buttonText: { displayText: b.text },
-                        type: 1
+                        id: b.id,
+                        text: b.text
                     }))
                 };
                 break;
@@ -175,7 +174,7 @@ export async function POST(request: Request) {
                 sentCount++;
                 
                 const cleanPhone = formattedPhone.replace('@s.whatsapp.net', '');
-                const displayContent = type === 'survey' ? `[ENQUETE] ${surveyName}` : (type === 'button' ? (payload.text || 'Botão') : (personalizedBody || 'Mídia'));
+                const displayContent = type === 'survey' ? `[ENQUETE] ${surveyName}` : (type === 'button' ? (payload.title || 'Botão') : (personalizedBody || 'Mídia'));
 
                 await addDoc(collection(firestore, 'notifications_messages'), {
                     from: cleanPhone,
