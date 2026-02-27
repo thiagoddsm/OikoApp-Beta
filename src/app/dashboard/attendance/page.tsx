@@ -14,6 +14,7 @@ import { ImportTab } from '@/components/attendance/import-tab';
 export default function AttendancePage() {
   const { firestore } = useFirebase();
   const [activeTab, setActiveTab] = useState('register');
+  const [editingRecord, setEditingRecord] = useState<any>(null);
 
   const registrosQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -21,6 +22,16 @@ export default function AttendancePage() {
   }, [firestore]);
 
   const { data: registros, isLoading } = useCollection(registrosQuery);
+
+  const handleEdit = (record: any) => {
+    setEditingRecord(record);
+    setActiveTab('register');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingRecord(null);
+  };
   
   return (
     <div className="space-y-6">
@@ -39,9 +50,16 @@ export default function AttendancePage() {
                 <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
               </TabsList>
               <TabsContent value="register">
-                <RegisterForm />
+                <RegisterForm 
+                  editingRecord={editingRecord} 
+                  onCancelEdit={handleCancelEdit} 
+                />
                 <div className="mt-8">
-                  <RecordsList registros={registros || []} loading={isLoading} />
+                  <RecordsList 
+                    registros={registros || []} 
+                    loading={isLoading} 
+                    onEdit={handleEdit}
+                  />
                 </div>
               </TabsContent>
                <TabsContent value="import">

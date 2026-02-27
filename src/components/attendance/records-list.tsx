@@ -1,4 +1,3 @@
-// src/components/attendance/records-list.tsx
 'use client';
 import React, { useState, useMemo } from 'react';
 import { doc } from 'firebase/firestore';
@@ -16,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Trash2 } from 'lucide-react';
+import { Trash2, Pencil } from 'lucide-react';
 
 function ConfirmationModal({ open, onOpenChange, onConfirm }) {
   return (
@@ -37,25 +36,25 @@ function ConfirmationModal({ open, onOpenChange, onConfirm }) {
   );
 }
 
-export function RecordsList({ registros, loading }) {
+export function RecordsList({ registros, loading, onEdit }) {
   const { firestore } = useFirebase();
   const [modalOpen, setModalOpen] = useState(false);
-  const [idToDelete, setIdToDelete] = useState(null);
+  const [idToDelete, setIdToDelete] = useState<string | null>(null);
 
-  const handleDeleteClick = (id) => {
+  const handleDeleteClick = (id: string) => {
     setIdToDelete(id);
     setModalOpen(true);
   };
 
   const handleConfirmDelete = () => {
-    if (!idToDelete) return;
+    if (!idToDelete || !firestore) return;
     const docRef = doc(firestore, `registros_de_presenca`, idToDelete);
     deleteDocumentNonBlocking(docRef);
     setModalOpen(false);
     setIdToDelete(null);
   };
 
-  const formatarData = (timestamp) => {
+  const formatarData = (timestamp: any) => {
     if (!timestamp?.seconds) return '-';
     const date = new Date(timestamp.seconds * 1000);
     return date.toLocaleDateString('pt-BR', {timeZone: 'UTC'});
@@ -115,9 +114,14 @@ export function RecordsList({ registros, loading }) {
                   {reg.apresentacaoBebe && <Badge variant="outline">Bebê</Badge>}
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(reg.id)} title="Excluir">
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                  <div className="flex justify-end gap-2">
+                    <Button variant="ghost" size="icon" onClick={() => onEdit(reg)} title="Editar">
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(reg.id)} title="Excluir">
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

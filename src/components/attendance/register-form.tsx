@@ -1,9 +1,8 @@
-// src/components/attendance/register-form.tsx
 'use client';
 
-import React, { useState } from 'react';
-import { useFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, Timestamp } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
+import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { collection, Timestamp, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,7 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader } from 'lucide-react';
+import { Loader, X } from 'lucide-react';
 
 const horariosCultos = [
   "Domingo - 07:30",
@@ -23,7 +22,12 @@ const horariosCultos = [
 ];
 const opcoesClima = ["Ensolarado", "Nublado", "Chuvoso", "Frio", "Agradável"];
 
-export function RegisterForm() {
+interface RegisterFormProps {
+  editingRecord?: any;
+  onCancelEdit?: () => void;
+}
+
+export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps) {
   const { firestore, user } = useFirebase();
   const { toast } = useToast();
   
@@ -39,18 +43,48 @@ export function RegisterForm() {
   const [observacoes, setObservacoes] = useState('');
   const [salvando, setSalvando] = useState(false);
 
+  useEffect(() => {
+    if (editingRecord) {
+      const date = editingRecord.data?.toDate ? editingRecord.data.toDate() : new Date();
+      // Adjust for UTC display in the input
+      const dateStr = date.toISOString().split('T')[0];
+      
+      setData(dateStr);
+      setHorario(editingRecord.horario || horariosCultos[0]);
+      setAdultos(editingRecord.adultos?.toString() || '');
+      setCriancas(editingRecord.criancas?.toString() || '0');
+      setClima(editingRecord.clima || opcoesClima[0]);
+      setFeriadoProximo(editingRecord.feriadoProximo || false);
+      setJogoFutebol(editingRecord.jogoFutebol || false);
+      setSerieMensagem(editingRecord.serieMensagem || '');
+      setApresentacaoBebe(editingRecord.apresentacaoBebe || false);
+      setObservacoes(editingRecord.observacoes || '');
+    } else {
+      resetForm();
+    }
+  }, [editingRecord]);
+
+  const resetForm = () => {
+    setData(new Date().toISOString().split('T')[0]);
+    setHorario(horariosCultos[0]);
+    setAdultos('');
+    setCriancas('');
+    setClima(opcoesClima[0]);
+    setFeriadoProximo(false);
+    setJogoFutebol(false);
+    setSerieMensagem('');
+    setApresentacaoBebe(false);
+    setObservacoes('');
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
-      toast({ title: "Erro", description: "Usuário não autenticado.", variant: "destructive" });
+    if (!user || !firestore) {
+      toast({ title: "Erro", description: "Sessão expirada ou banco inacessível.", variant: "destructive" });
       return;
     }
     if (!adultos || isNaN(Number(adultos))) {
       toast({ title: "Erro de Validação", description: "Por favor, insira um número válido de adultos.", variant: "destructive" });
-      return;
-    }
-    if (criancas && isNaN(Number(criancas))) {
-      toast({ title: "Erro de Validação", description: "Por favor, insira um número válido de crianças.", variant: "destructive" });
       return;
     }
     if (!data) {
@@ -60,11 +94,8 @@ export function RegisterForm() {
 
     setSalvando(true);
     
-    // The time should be set to noon to avoid timezone issues when converting back.
     const dateAsTimestamp = Timestamp.fromDate(new Date(`${data}T12:00:00`));
-
-    const collectionRef = collection(firestore, `registros_de_presenca`);
-    addDocumentNonBlocking(collectionRef, {
+    const payload = {
       data: dateAsTimestamp,
       horario,
       adultos: Number(adultos),
@@ -75,30 +106,41 @@ export function RegisterForm() {
       serieMensagem,
       apresentacaoBebe,
       observacoes,
-      criadoEm: Timestamp.now()
-    }).then(() => {
-        toast({ title: "Sucesso!", description: "Registro salvo com sucesso." });
-        // Reset form
-        setData(new Date().toISOString().split('T')[0]);
-        setHorario(horariosCultos[0]);
-        setAdultos('');
-        setCriancas('');
-        setClima(opcoesClima[0]);
-        setFeriadoProximo(false);
-        setJogoFutebol(false);
-        setSerieMensagem('');
-        setApresentacaoBebe(false);
-        setObservacoes('');
-    }).catch(error => {
-        // Error is handled globally by non-blocking update
-        console.error("Erro ao salvar registro: ", error);
-    }).finally(() => {
-        setSalvando(false);
-    });
+      atualizadoEm: Timestamp.now()
+    };
+
+    if (editingRecord) {
+      const docRef = doc(firestore, 'registros_de_presenca', editingRecord.id);
+      updateDocumentNonBlocking(docRef, payload)
+        .then(() => {
+          toast({ title: "Sucesso!", description: "Registro atualizado com sucesso." });
+          if (onCancelEdit) onCancelEdit();
+        })
+        .finally(() => setSalvando(false));
+    } else {
+      const collectionRef = collection(firestore, `registros_de_presenca`);
+      addDocumentNonBlocking(collectionRef, {
+        ...payload,
+        criadoEm: Timestamp.now()
+      }).then(() => {
+          toast({ title: "Sucesso!", description: "Registro salvo com sucesso." });
+          resetForm();
+      }).finally(() => {
+          setSalvando(false);
+      });
+    }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {editingRecord && (
+        <div className="flex items-center justify-between p-3 bg-primary/10 border border-primary/20 rounded-lg animate-in fade-in zoom-in-95">
+          <p className="text-sm font-bold text-primary">Editando registro de {data}</p>
+          <Button type="button" variant="ghost" size="sm" onClick={onCancelEdit} className="h-8">
+            <X className="size-4 mr-1" /> Cancelar Edição
+          </Button>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="space-y-2">
           <Label htmlFor="data">Data</Label>
@@ -157,12 +199,12 @@ export function RegisterForm() {
       </div>
        <div>
           <Label htmlFor="observacoes">Observações Adicionais</Label>
-          <Textarea id="observacoes" value={observacoes} onChange={(e) => setObservacoes(e.target.value)} placeholder="Algum evento especial? Visitas? etc."/>
+          <Textarea id="observacoes" value={observacoes} onChange={(e) => setObservations(e.target.value)} placeholder="Algum evento especial? Visitas? etc."/>
         </div>
       <div className="text-right">
         <Button type="submit" disabled={salvando || !user}>
           {salvando && <Loader className="mr-2 h-4 w-4 animate-spin" />}
-          {salvando ? "Salvando..." : "Salvar Registro"}
+          {salvando ? "Salvando..." : (editingRecord ? "Atualizar Registro" : "Salvar Registro")}
         </Button>
       </div>
     </form>
