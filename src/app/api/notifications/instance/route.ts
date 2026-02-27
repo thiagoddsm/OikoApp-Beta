@@ -3,8 +3,8 @@ import { initializeFirebase } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
 /**
- * API Route to manage WhatsApp Instance with robust status detection for v5.0.0
- * Handles the new API response structure and ignores deprecation warnings.
+ * API Route to manage WhatsApp Instance with robust status detection for v5.0.0 Pro Plan
+ * Handles multiple response structures and ignores deprecation warnings.
  */
 
 export const dynamic = 'force-dynamic';
@@ -20,14 +20,14 @@ export async function GET() {
         const configSnap = await getDoc(configRef);
         waKey = configSnap.exists() ? configSnap.data()?.whatsappApiKey : null;
     } catch (e: any) {
-        return NextResponse.json({ error: 'Erro de permissão no banco de dados.' }, { status: 500 });
+        return NextResponse.json({ error: 'Erro ao ler configuração do banco de dados.' }, { status: 500 });
     }
 
     if (!waKey) {
-        return NextResponse.json({ 
-            status: 'unconfigured',
-            message: 'API Key não configurada no sistema.'
-        });
+      return NextResponse.json({ 
+          status: 'unconfigured',
+          message: 'API Key não configurada.'
+      });
     }
 
     try {
@@ -47,18 +47,18 @@ export async function GET() {
             });
         }
         
-        // Robust state detection for v5.0.0 Pro Plan
+        // Detecção robusta para Plano Pro v5.0.0
         const instanceData = data.instance || data;
         const stateStr = (instanceData.state || instanceData.status || data.state || data.status || '').toString().toLowerCase();
-        const isAuthenticated = data.authenticated === true || instanceData.authenticated === true || data.is_authenticated === true;
+        const isAuthenticated = data.authenticated === true || instanceData.authenticated === true || data.is_authenticated === true || stateStr === 'connected';
         
-        // Logical "Connected" state check
+        // Verificação lógica de "Conectado"
         const isOnline = isAuthenticated || ['open', 'connected', 'online', 'authenticated', 'ready'].includes(stateStr);
         
         let displayStatus = 'unknown';
         let displayMessage = data.message || stateStr || '';
 
-        // Se a mensagem for apenas o aviso de depreciação, limpamos para não poluir a UI
+        // Limpeza de aviso de depreciação para não poluir a UI
         if (displayMessage.toUpperCase().includes('IMPORTANT: RECEIVE_STATUS_MESSAGE')) {
             displayMessage = isOnline ? 'Conectado e Pronto' : 'Aguardando Conexão';
         }
@@ -124,7 +124,6 @@ export async function PATCH() {
 
         if (!waKey) return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
 
-        // Ativação de Pro Features via PATCH
         const urlParams = new URLSearchParams({
             markMessageRead: 'true',
             saveMedia: 'true',

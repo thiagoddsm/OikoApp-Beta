@@ -181,10 +181,14 @@ function WhatsappChats() {
                                 <Avatar className="h-9 w-9 border-2 border-primary/10">
                                     <AvatarFallback className="bg-primary text-white font-black"><UserIcon size={16} /></AvatarFallback>
                                 </Avatar>
-                                <div>
-                                    <h4 className="font-bold text-sm leading-none">{selectedChat.userName || selectedChat.phoneNumber}</h4>
-                                    <p className="text-[10px] text-muted-foreground mt-1 font-mono tracking-tighter">+{selectedChat.phoneNumber}</p>
-                                </div>
+                                {selectedChat.userName ? (
+                                    <div>
+                                        <h4 className="font-bold text-sm leading-none">{selectedChat.userName}</h4>
+                                        <p className="text-[10px] text-muted-foreground mt-1 font-mono tracking-tighter">+{selectedChat.phoneNumber}</p>
+                                    </div>
+                                ) : (
+                                    <h4 className="font-bold text-sm leading-none">+{selectedChat.phoneNumber}</h4>
+                                )}
                             </div>
                             <div className="flex gap-1">
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"><Phone size={16} /></Button>
@@ -243,7 +247,7 @@ function WhatsappChats() {
                             <MessageSquare size={64} className="text-primary/20" />
                         </div>
                         <h3 className="font-black text-xl text-slate-900 tracking-tight">Suas Conversas</h3>
-                        <p className="text-sm max-w-xs mt-2 text-slate-500 text-slate-900">Selecione um membro na lateral ou inicie uma nova conversa.</p>
+                        <p className="text-sm max-w-xs mt-2 text-slate-500">Selecione um membro na lateral ou inicie uma nova conversa.</p>
                         <Button variant="outline" className="mt-6 rounded-full font-bold px-6" onClick={() => setIsNewChatOpen(true)}>
                             <UserPlus className="mr-2 size-4" /> Buscar Pessoa
                         </Button>
@@ -280,7 +284,7 @@ function WhatsappChats() {
                                     </Avatar>
                                     <div className="flex-1 min-w-0">
                                         <p className="text-sm font-bold text-slate-900 group-hover:text-primary transition-colors">{u.name}</p>
-                                        <p className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter text-slate-900">{u.phone || 'Sem telefone'}</p>
+                                        <p className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter">{u.phone || 'Sem telefone'}</p>
                                     </div>
                                     <ChevronRight size={16} className="text-slate-300 group-hover:text-primary" />
                                 </button>
@@ -310,6 +314,7 @@ function WhatsappSender() {
     const [isLoadingGroups, setIsLoadingGroups] = useState(false);
     const [msgType, setMsgType] = useState<'text' | 'button' | 'survey' | 'media' | 'pix'>('text');
 
+    // Estados detalhados para enquetes e botões
     const [msgTitle, setMsgTitle] = useState('Informativo IBM');
     const [msgFooter, setMsgFooter] = useState('Igreja Batista da Manhã');
     const [msgButtons, setMsgButtons] = useState([{ id: 'btn_1', text: 'Confirmar Presença ✅' }, { id: 'btn_2', text: 'Não poderei ir ❌' }]);
@@ -317,8 +322,6 @@ function WhatsappSender() {
     const [surveyOptions, setSurveyOptions] = useState(['Sim', 'Não']);
     const [mediaUrl, setMediaUrl] = useState('');
     const [pixKey, setPixKey] = useState('');
-    const [pixName, setPixName] = useState('Igreja Batista da Manhã');
-    const [pixCity, setPixCity] = useState('Sao Goncalo');
     const [pixAmount, setPixAmount] = useState('');
 
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
@@ -369,12 +372,6 @@ function WhatsappSender() {
         }
     };
 
-    const handleUpdateBtn = (idx: number, text: string) => {
-        const newBtns = [...msgButtons];
-        newBtns[idx].text = text;
-        setMsgButtons(newBtns);
-    };
-
     const handleAddSurveyOption = () => {
         if (surveyOptions.length < 5) setSurveyOptions([...surveyOptions, `Opção ${surveyOptions.length + 1}`]);
     };
@@ -410,14 +407,12 @@ function WhatsappSender() {
             payload.footer = msgFooter;
             payload.buttons = msgButtons;
         } else if (msgType === 'survey') {
-            payload.surveyName = surveyName;
+            payload.surveyName = surveyName || 'Enquete rápida';
             payload.options = surveyOptions;
         } else if (msgType === 'media') {
             payload.mediaUrl = mediaUrl;
         } else if (msgType === 'pix') {
             payload.pixKey = pixKey;
-            payload.pixName = pixName;
-            payload.pixCity = pixCity;
             payload.pixAmount = pixAmount;
         }
 
@@ -567,8 +562,12 @@ function WhatsappSender() {
                             <Label className="text-[10px] uppercase font-black text-muted-foreground text-slate-900">Botões Interativos</Label>
                             <div className="grid gap-2">
                                 {msgButtons.map((btn, idx) => (
-                                    <div key={btn.id} className="flex gap-2">
-                                        <Input value={btn.text} onChange={e => handleUpdateBtn(idx, e.target.value)} className="bg-white h-10 border-indigo-100" />
+                                    <div key={idx} className="flex gap-2">
+                                        <Input value={btn.text} onChange={e => {
+                                            const n = [...msgButtons];
+                                            n[idx].text = e.target.value;
+                                            setMsgButtons(n);
+                                        }} className="bg-white h-10 border-indigo-100" />
                                         {msgButtons.length > 1 && (
                                             <button type="button" className="h-10 w-10 flex items-center justify-center text-muted-foreground hover:text-destructive" onClick={() => setMsgButtons(msgButtons.filter((_, i) => i !== idx))}>
                                                 <Trash2 size={16}/>
@@ -582,21 +581,6 @@ function WhatsappSender() {
                                     <PlusCircle size={14} className="mr-2" /> Novo Botão
                                 </Button>
                             )}
-                        </div>
-                    </div>
-                )}
-
-                {msgType === 'pix' && (
-                    <div className="space-y-4 p-6 border-2 border-dashed rounded-xl bg-emerald-50/50 animate-in zoom-in-95">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label className="text-xs font-black text-emerald-700">Chave PIX</Label>
-                                <Input value={pixKey} onChange={e => setPixKey(e.target.value)} placeholder="Email, CPF ou Celular" className="bg-white border-emerald-200" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label className="text-xs font-black text-emerald-700">Valor (R$)</Label>
-                                <Input type="number" step="0.01" value={pixAmount} onChange={e => setPixAmount(e.target.value)} placeholder="0,00" className="bg-white border-emerald-200" />
-                            </div>
                         </div>
                     </div>
                 )}
@@ -619,7 +603,7 @@ function WhatsappSender() {
                         onChange={(e) => setMessage(e.target.value)} 
                         required={msgType !== 'survey'} 
                     />
-                    <p className="text-[10px] text-muted-foreground mt-1 italic">Use <code className="font-bold text-primary">{"{{nome}}"}</code> para personalizar com o nome do membro.</p>
+                    <p className="text-[10px] text-muted-foreground mt-1 italic">Use <code className="font-bold text-primary">{"{{nome}}"}</code> para personalizar.</p>
                 </div>
 
                 <Button type="submit" disabled={isLoading} className="w-full h-14 text-lg font-black shadow-xl shadow-primary/20 hover:scale-[1.01] active:scale-95 transition-all">
@@ -633,8 +617,7 @@ function WhatsappSender() {
                     <AlertCircle className="h-5 w-5" />
                     <AlertTitle className="font-black uppercase tracking-widest text-xs">Erro Crítico do Gateway</AlertTitle>
                     <AlertDescription className="mt-2">
-                        <p className="text-xs mb-3">Ocorreu uma falha na comunicação com a API api-wa.me:</p>
-                        <pre className="text-[10px] font-mono whitespace-pre-wrap p-3 bg-black/10 rounded-lg overflow-x-auto border border-black/5">
+                        <pre className="text-[10px] font-mono whitespace-pre-wrap p-3 bg-black/10 rounded-lg overflow-x-auto">
                             {JSON.stringify(debugError, null, 2)}
                         </pre>
                     </AlertDescription>
@@ -666,13 +649,13 @@ function WhatsappResponses() {
                 </TableHeader>
                 <TableBody>
                     {responses?.length === 0 ? (
-                        <TableRow><TableCell colSpan={3} className="h-32 text-center text-muted-foreground italic text-slate-900">Nenhuma resposta captada pelo Webhook ainda.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={3} className="h-32 text-center text-muted-foreground italic text-slate-900">Nenhuma resposta captada ainda.</TableCell></TableRow>
                     ) : (
                         responses?.map((res: any) => (
                             <TableRow key={res.id} className="hover:bg-muted/30">
                                 <TableCell>
                                     <div className="font-bold text-slate-900">{res.userName || res.from}</div>
-                                    <div className="text-[10px] text-muted-foreground font-mono">+{res.from || '---'}</div>
+                                    <div className="text-[10px] text-muted-foreground font-mono">+{res.from}</div>
                                 </TableCell>
                                 <TableCell>
                                     <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-200 font-black text-[10px] py-1">
@@ -745,7 +728,7 @@ function NotificationsConfig() {
         const configRef = doc(firestore, 'config', 'notifications');
         try {
             await setDocumentNonBlocking(configRef, { whatsappApiKey: waKey, updatedAt: Timestamp.now() }, { merge: true });
-            toast({ title: "Chave Salva!", description: "A integração será reiniciada com as novas credenciais." });
+            toast({ title: "Chave Salva!", description: "A integração será reiniciada." });
             checkStatus();
         } catch (e) {
             toast({ variant: 'destructive', title: "Erro ao salvar" });
@@ -777,7 +760,6 @@ function NotificationsConfig() {
                                     Salvar Chave
                                 </Button>
                             </div>
-                            <p className="text-[10px] text-muted-foreground italic mt-1">Essa chave é fornecida no painel do administrador do api-wa.me após contratar o Plano Pro.</p>
                         </div>
 
                         <div className="pt-6 border-t space-y-4">
@@ -816,7 +798,7 @@ function NotificationsConfig() {
                         {isRefreshing ? (
                             <div className="flex flex-col items-center gap-4">
                                 <Loader2 className="animate-spin size-12 text-primary opacity-40" />
-                                <p className="text-[10px] font-bold uppercase text-muted-foreground animate-pulse">Sincronizando com Gateway...</p>
+                                <p className="text-[10px] font-bold uppercase text-muted-foreground animate-pulse">Sincronizando...</p>
                             </div>
                         ) : isConnected ? (
                             <div className="space-y-4 animate-in fade-in zoom-in-95">
@@ -845,68 +827,14 @@ function NotificationsConfig() {
                                 <p className="text-xs font-bold text-muted-foreground uppercase max-w-[200px] mx-auto">
                                     {instanceStatus?.message || 'Status não identificado. Verifique a API Key.'}
                                 </p>
-                                <Button size="sm" variant="ghost" onClick={checkStatus} className="text-[10px] font-black uppercase text-slate-900"><RefreshCw size={14} className="mr-2"/> Atualizar agora</Button>
+                                <Button size="sm" variant="ghost" onClick={checkStatus} className="text-[10px] font-black uppercase text-slate-900"><RefreshCw size={14} className="mr-2"/> Atualizar</Button>
                             </div>
                         )}
                     </CardContent>
-                    <CardFooter className="bg-white/50 border-t p-4 mt-auto">
-                        <div className="w-full flex justify-between items-center text-[10px] font-black text-muted-foreground uppercase text-slate-900">
-                            <span>Última Checagem:</span>
-                            <span>{new Date().toLocaleTimeString()}</span>
-                        </div>
-                    </CardFooter>
                 </Card>
             </div>
         </div>
     );
-}
-
-export default function NotificationsPage() {
-  return (
-    <div className="space-y-6">
-        <Card className="border-primary/20 bg-primary/5 shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                    <CardTitle className="text-2xl font-black flex items-center gap-3 text-primary">
-                        <Send className="size-7" /> Central de Notificações
-                    </CardTitle>
-                    <CardDescription className="text-primary/70 font-medium">Motor de comunicação estratégica e cuidado IBM.</CardDescription>
-                </div>
-                <div className="flex gap-2">
-                    <Badge variant="outline" className="bg-white font-black text-[10px] border-primary/20 text-primary">PLAN PRO ACTIVE</Badge>
-                </div>
-            </CardHeader>
-        </Card>
-
-        <Tabs defaultValue="sender" className="w-full">
-            <div className="overflow-x-auto pb-2">
-                <TabsList className="flex h-auto justify-start bg-muted/50 p-1 rounded-xl w-fit min-w-max">
-                    <TabsTrigger value="sender" className="rounded-lg font-bold py-2 px-6 data-[state=active]:shadow-md">
-                        <Send className="size-4 mr-2" /> Disparador
-                    </TabsTrigger>
-                    <TabsTrigger value="chats" className="rounded-lg font-bold py-2 px-6 data-[state=active]:shadow-md">
-                        <MessageCircle className="size-4 mr-2" /> Conversas
-                    </TabsTrigger>
-                    <TabsTrigger value="responses" className="rounded-lg font-bold py-2 px-6 data-[state=active]:shadow-md">
-                        <MousePointer2 className="size-4 mr-2" /> Respostas
-                    </TabsTrigger>
-                    <TabsTrigger value="history" className="rounded-lg font-bold py-2 px-6 data-[state=active]:shadow-md">
-                        <History className="size-4 mr-2" /> Histórico
-                    </TabsTrigger>
-                    <TabsTrigger value="config" className="rounded-lg font-bold py-2 px-6 data-[state=active]:shadow-md">
-                        <Settings className="size-4 mr-2" /> Configuração
-                    </TabsTrigger>
-                </TabsList>
-            </div>
-            
-            <TabsContent value="sender" className="mt-6 animate-in fade-in-50 duration-300"><WhatsappSender /></TabsContent>
-            <TabsContent value="chats" className="mt-6 animate-in fade-in-50 duration-300"><WhatsappChats /></TabsContent>
-            <TabsContent value="responses" className="mt-6 animate-in fade-in-50 duration-300"><WhatsappResponses /></TabsContent>
-            <TabsContent value="history" className="mt-6 animate-in fade-in-50 duration-300"><NotificationsHistory /></TabsContent>
-            <TabsContent value="config" className="mt-6 animate-in fade-in-50 duration-300"><NotificationsConfig /></TabsContent>
-        </Tabs>
-    </div>
-  );
 }
 
 function NotificationsHistory() {
@@ -932,7 +860,7 @@ function NotificationsHistory() {
                 </TableHeader>
                 <TableBody>
                     {history?.length === 0 ? (
-                        <TableRow><TableCell colSpan={4} className="h-32 text-center text-muted-foreground italic text-slate-900">Nenhum histórico de disparos em massa encontrado.</TableCell></TableRow>
+                        <TableRow><TableCell colSpan={4} className="h-32 text-center text-muted-foreground italic text-slate-900">Nenhum histórico encontrado.</TableCell></TableRow>
                     ) : (
                         history?.map((item: any) => (
                             <TableRow key={item.id} className="hover:bg-muted/30">
@@ -966,4 +894,52 @@ function NotificationsHistory() {
             </Table>
         </div>
     );
+}
+
+export default function NotificationsPage() {
+  return (
+    <div className="space-y-6">
+        <Card className="border-primary/20 bg-primary/5 shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle className="text-2xl font-black flex items-center gap-3 text-primary">
+                        <Send className="size-7" /> Central de Notificações
+                    </CardTitle>
+                    <CardDescription className="text-primary/70 font-medium">Comunicação estratégica e cuidado IBM.</CardDescription>
+                </div>
+                <div className="flex gap-2">
+                    <Badge variant="outline" className="bg-white font-black text-[10px] border-primary/20 text-primary">PLATAFORMA ATIVA</Badge>
+                </div>
+            </CardHeader>
+        </Card>
+
+        <Tabs defaultValue="sender" className="w-full">
+            <div className="overflow-x-auto pb-2">
+                <TabsList className="flex h-auto justify-start bg-muted/50 p-1 rounded-xl w-fit min-w-max">
+                    <TabsTrigger value="sender" className="rounded-lg font-bold py-2 px-6 data-[state=active]:shadow-md">
+                        <Send className="size-4 mr-2" /> Disparador
+                    </TabsTrigger>
+                    <TabsTrigger value="chats" className="rounded-lg font-bold py-2 px-6 data-[state=active]:shadow-md">
+                        <MessageCircle className="size-4 mr-2" /> Conversas
+                    </TabsTrigger>
+                    <TabsTrigger value="responses" className="rounded-lg font-bold py-2 px-6 data-[state=active]:shadow-md">
+                        <MousePointer2 className="size-4 mr-2" /> Respostas
+                    </TabsTrigger>
+                    <TabsTrigger value="history" className="rounded-lg font-bold py-2 px-6 data-[state=active]:shadow-md">
+                        <History className="size-4 mr-2" /> Histórico
+                    </TabsTrigger>
+                    <TabsTrigger value="config" className="rounded-lg font-bold py-2 px-6 data-[state=active]:shadow-md">
+                        <Settings className="size-4 mr-2" /> Configuração
+                    </TabsTrigger>
+                </TabsList>
+            </div>
+            
+            <TabsContent value="sender" className="mt-6 animate-in fade-in-50 duration-300"><WhatsappSender /></TabsContent>
+            <TabsContent value="chats" className="mt-6 animate-in fade-in-50 duration-300"><WhatsappChats /></TabsContent>
+            <TabsContent value="responses" className="mt-6 animate-in fade-in-50 duration-300"><WhatsappResponses /></TabsContent>
+            <TabsContent value="history" className="mt-6 animate-in fade-in-50 duration-300"><NotificationsHistory /></TabsContent>
+            <TabsContent value="config" className="mt-6 animate-in fade-in-50 duration-300"><NotificationsConfig /></TabsContent>
+        </Tabs>
+    </div>
+  );
 }

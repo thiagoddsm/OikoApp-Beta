@@ -3,7 +3,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Regras 100% Liberais para Fase de Testes
+    // Regras 100% Liberais para Fase de Testes (Desenvolvimento)
     match /{document=**} {
       allow read, write: if true;
     }
