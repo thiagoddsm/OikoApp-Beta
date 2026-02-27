@@ -5,43 +5,47 @@ import React from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/icons';
-import { LogIn, Menu } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 export function PublicNavbar() {
   const pathname = usePathname();
-  const isTransparent = pathname === '/';
+
+  const navLinks = [
+    { href: '/', label: 'Início' },
+    { href: '/public/enrollment', label: 'Cursos & GCs' },
+    { href: '/dashboard/gc/map', label: 'Mapa de GCs' },
+  ];
 
   return (
-    <nav className={cn(
-      "h-20 w-full flex items-center z-50 transition-all duration-300",
-      isTransparent ? "absolute top-0 bg-transparent text-white" : "bg-white border-b shadow-sm sticky top-0"
-    )}>
-      <div className="container mx-auto px-4 flex justify-between items-center">
-        <Link href="/" className="flex items-center gap-2 group">
-          <Logo className={cn("size-10 transition-transform group-hover:scale-110", isTransparent ? "text-white" : "text-primary")} />
-          <div className="flex flex-col">
-            <span className="text-xl font-black tracking-tighter leading-none">IBM</span>
-            <span className={cn("text-[9px] font-bold uppercase tracking-[0.2em]", isTransparent ? "text-white/70" : "text-muted-foreground")}>Igreja Batista da Manhã</span>
-          </div>
+    <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container mx-auto flex h-16 items-center justify-between px-4">
+        <Link href="/" className="flex items-center gap-2">
+          <Logo className="size-8 text-primary" />
+          <span className="text-xl font-bold tracking-tighter text-slate-900">OikoApp</span>
         </Link>
 
-        <div className="hidden md:flex items-center gap-8 text-sm font-bold uppercase tracking-widest">
-          <Link href="/" className="hover:text-accent transition-colors">Início</Link>
-          <Link href="/public/enrollment" className="hover:text-accent transition-colors">Cursos</Link>
-          <Link href="/dashboard/gc/map" className="hover:text-accent transition-colors">Células</Link>
+        <div className="hidden md:flex items-center gap-8">
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={cn(
+                "text-sm font-bold uppercase tracking-widest transition-colors hover:text-primary",
+                pathname === link.href ? "text-primary" : "text-muted-foreground"
+              )}
+            >
+              {link.label}
+            </Link>
+          ))}
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button size="sm" asChild className={cn("font-bold", isTransparent ? "bg-white text-slate-900 hover:bg-white/90" : "")}>
-            <Link href="/login">
-              <LogIn className="mr-2 size-4" />
-              Portal do Membro
-            </Link>
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" asChild className="font-bold hidden sm:flex">
+            <Link href="/login">Entrar</Link>
           </Button>
-          <Button variant="ghost" size="icon" className="md:hidden">
-            <Menu />
+          <Button asChild className="font-bold shadow-lg shadow-primary/20">
+            <Link href="/public/enrollment">Fazer Parte</Link>
           </Button>
         </div>
       </div>

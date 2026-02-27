@@ -2,78 +2,69 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Logo } from '@/components/icons';
-import { MapPin, Phone, Mail, Instagram, Youtube, Facebook } from 'lucide-react';
+import { Instagram, Youtube, Facebook, MapPin, Phone, Mail } from 'lucide-react';
 
 export function PublicFooter() {
   return (
-    <footer className="bg-slate-900 text-slate-300 pt-16 pb-8 border-t border-white/5">
+    <footer className="bg-slate-900 text-slate-300 py-16">
       <div className="container mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
           <div className="space-y-6">
-            <div className="flex items-center gap-2 text-white">
-              <Logo className="size-10 text-primary" />
-              <div className="flex flex-col">
-                <span className="text-xl font-black tracking-tighter leading-none uppercase">IBM</span>
-                <span className="text-[9px] font-bold uppercase tracking-[0.2em] opacity-70">Batista da Manhã</span>
-              </div>
-            </div>
+            <Link href="/" className="flex items-center gap-2 text-white">
+              <Logo className="size-8" />
+              <span className="text-2xl font-bold tracking-tighter">OikoApp</span>
+            </Link>
             <p className="text-sm leading-relaxed">
-              Uma igreja feita de pessoas, cuidando de pessoas. Nossa missão é levar a mensagem do evangelho de forma prática e relevante para toda a nossa cidade.
+              Igreja Batista da Manhã - Uma igreja feita de pessoas cuidando de pessoas. Onde o organismo é servido pela organização.
             </p>
             <div className="flex gap-4">
-              <Instagram className="size-5 hover:text-primary cursor-pointer transition-colors" />
-              <Youtube className="size-5 hover:text-primary cursor-pointer transition-colors" />
-              <Facebook className="size-5 hover:text-primary cursor-pointer transition-colors" />
+              <Link href="#" className="hover:text-white transition-colors"><Instagram size={20} /></Link>
+              <Link href="#" className="hover:text-white transition-colors"><Youtube size={20} /></Link>
+              <Link href="#" className="hover:text-white transition-colors"><Facebook size={20} /></Link>
             </div>
           </div>
 
           <div>
-            <h4 className="text-white font-bold mb-6 uppercase tracking-widest text-xs">Explore</h4>
+            <h4 className="text-white font-bold mb-6 uppercase tracking-widest text-sm">Links Rápidos</h4>
             <ul className="space-y-4 text-sm font-medium">
-              <li><a href="/" className="hover:text-primary transition-colors">Home</a></li>
-              <li><a href="/public/enrollment" className="hover:text-primary transition-colors">Cursos & Escolas</a></li>
-              <li><a href="/dashboard/gc/map" className="hover:text-primary transition-colors">Mapa de GCs</a></li>
-              <li><a href="/login" className="hover:text-primary transition-colors">Portal do Membro</a></li>
+              <li><Link href="/public/enrollment" className="hover:text-primary transition-colors">Trilha de Crescimento</Link></li>
+              <li><Link href="/dashboard/gc/map" className="hover:text-primary transition-colors">Encontrar um GC</Link></li>
+              <li><Link href="/public/finance-request" className="hover:text-primary transition-colors">Solicitações Financeiras</Link></li>
+              <li><Link href="/login" className="hover:text-primary transition-colors">Portal do Membro</Link></li>
             </ul>
           </div>
 
           <div>
-            <h4 className="text-white font-bold mb-6 uppercase tracking-widest text-xs">Escolas</h4>
+            <h4 className="text-white font-bold mb-6 uppercase tracking-widest text-sm">Escolas & Projetos</h4>
             <ul className="space-y-4 text-sm font-medium">
-              <li><a href="/dashboard/teaching/wave" className="hover:text-primary transition-colors">Wave Music School</a></li>
-              <li><a href="/dashboard/teaching/dis" className="hover:text-primary transition-colors">DIS Inclusão</a></li>
-              <li><a href="/public/enrollment" className="hover:text-primary transition-colors">Trilha Lumine</a></li>
-              <li><a href="/dashboard/teaching/theoflix" className="hover:text-primary transition-colors">TheoFlix</a></li>
+              <li><Link href="/dashboard/teaching/wave" className="hover:text-primary transition-colors">Escola Wave</Link></li>
+              <li><Link href="/dashboard/teaching/dis" className="hover:text-primary transition-colors">Escola DIS</Link></li>
+              <li><Link href="/dashboard/social" className="hover:text-primary transition-colors">Ação Social</Link></li>
+              <li><Link href="/dashboard/teaching/theoflix" className="hover:text-primary transition-colors">TheoFlix</Link></li>
             </ul>
           </div>
 
-          <div>
-            <h4 className="text-white font-bold mb-6 uppercase tracking-widest text-xs">Contato</h4>
-            <ul className="space-y-4 text-sm">
-              <li className="flex items-start gap-3">
-                <MapPin className="size-5 text-primary shrink-0" />
-                <span>R. Dr. Feliciano Sodré, 123 - Centro, São Gonçalo - RJ</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <Phone className="size-5 text-primary shrink-0" />
-                <span>(21) 99999-9999</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <Mail className="size-5 text-primary shrink-0" />
-                <span>secretaria@igreja.com.br</span>
-              </li>
-            </ul>
+          <div className="space-y-4">
+            <h4 className="text-white font-bold mb-6 uppercase tracking-widest text-sm">Localização</h4>
+            <div className="flex items-start gap-3 text-sm">
+              <MapPin className="size-5 shrink-0 text-primary" />
+              <p>São Gonçalo, Rio de Janeiro - Brasil</p>
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <Phone className="size-5 shrink-0 text-primary" />
+              <p>(21) 99999-9999</p>
+            </div>
+            <div className="flex items-center gap-3 text-sm">
+              <Mail className="size-5 shrink-0 text-primary" />
+              <p>contato@igreja.com</p>
+            </div>
           </div>
         </div>
 
-        <div className="border-t border-white/5 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] font-bold uppercase tracking-[0.2em] opacity-50">
-          <p>© 2025 OikoApp para Igreja Batista da Manhã.</p>
-          <div className="flex gap-6">
-            <span>Privacidade</span>
-            <span>Termos de Uso</span>
-            <span>Governança</span>
-          </div>
+        <div className="mt-16 pt-8 border-t border-slate-800 text-center text-xs">
+          <p>&copy; {new Date().getFullYear()} OikoApp. Todos os direitos reservados à Igreja Batista da Manhã.</p>
         </div>
       </div>
     </footer>
