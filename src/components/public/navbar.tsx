@@ -19,15 +19,14 @@ export function PublicNavbar() {
       <div className="container mx-auto px-4 flex h-16 items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <Logo className="size-8 text-primary" />
-          <span className="text-xl font-black tracking-tighter">IBM</span>
+          <span className="text-xl font-bold tracking-tighter">OikoApp</span>
         </Link>
 
-        {/* Desktop Menu */}
-        <nav className="hidden md:flex items-center gap-8">
-          <Link href="/" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">INÍCIO</Link>
-          <Link href="/public/enrollment" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">CURSOS & GCs</Link>
-          <Link href="/leader/new-member" className="text-sm font-bold text-muted-foreground hover:text-primary transition-colors">SOU LÍDER</Link>
-          <Button asChild className="font-bold rounded-full px-6">
+        <nav className="hidden md:flex items-center gap-6">
+          <Link href="/public/enrollment" className="text-sm font-bold hover:text-primary transition-colors uppercase tracking-widest">Lumine</Link>
+          <Link href="/dashboard/gc/map" className="text-sm font-bold hover:text-primary transition-colors uppercase tracking-widest">Células</Link>
+          <Link href="/dashboard/social" className="text-sm font-bold hover:text-primary transition-colors uppercase tracking-widest">Social</Link>
+          <Button asChild variant="default" size="sm" className="font-bold rounded-full px-6">
             <Link href="/login">
               <LogIn className="mr-2 size-4" />
               Portal do Membro
@@ -35,7 +34,6 @@ export function PublicNavbar() {
           </Button>
         </nav>
 
-        {/* Mobile Menu */}
         <div className="md:hidden">
           <Sheet>
             <SheetTrigger asChild>
@@ -45,18 +43,21 @@ export function PublicNavbar() {
             </SheetTrigger>
             <SheetContent side="right">
               <SheetTitle>Menu</SheetTitle>
-              <nav className="flex flex-col gap-6 mt-8">
-                <Link href="/" className="text-lg font-bold">INÍCIO</Link>
-                <Link href="/public/enrollment" className="text-lg font-bold">CURSOS & GCs</Link>
-                <Link href="/leader/new-member" className="text-lg font-bold">SOU LÍDER</Link>
-                <Button asChild className="font-bold w-full">
-                  <Link href="/login">Entrar no Portal</Link>
-                </Button>
-              </nav>
+              <div className="flex flex-col gap-4 mt-8">
+                <Link href="/public/enrollment" className="text-lg font-bold">Lumine</Link>
+                <Link href="/dashboard/gc/map" className="text-lg font-bold">Células</Link>
+                <Link href="/dashboard/social" className="text-lg font-bold">Social</Link>
+                <Separator />
+                <Link href="/login" className="text-lg font-bold text-primary">Portal do Membro</Link>
+              </div>
             </SheetContent>
           </Sheet>
         </div>
       </div>
     </header>
   );
+}
+
+function Separator() {
+    return <div className="h-px w-full bg-border" />;
 }

@@ -2,70 +2,68 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import { Logo } from '@/components/icons';
-import { Instagram, Youtube, Facebook, MapPin, Phone, Mail } from 'lucide-react';
+import { Instagram, Youtube, Facebook, Mail, MapPin, Phone } from 'lucide-react';
 
 export function PublicFooter() {
   return (
-    <footer className="bg-slate-900 text-white pt-16 pb-8 border-t border-white/5">
+    <footer className="bg-slate-900 text-slate-300 py-16 border-t border-white/5">
       <div className="container mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
           <div className="space-y-6">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 text-white">
               <Logo className="size-8 text-primary" />
-              <span className="text-2xl font-black tracking-tighter">IBM</span>
+              <span className="text-2xl font-bold tracking-tighter">OikoApp</span>
             </div>
-            <p className="text-slate-400 text-sm leading-relaxed">
-              Uma igreja de pessoas cuidando de pessoas. Somos uma família que vive o evangelho de forma prática e relevante.
+            <p className="text-sm leading-relaxed opacity-70">
+              Igreja Batista da Manhã. <br/>
+              Um organismo vivo servindo à cidade de São Gonçalo através do amor e da inclusão.
             </p>
             <div className="flex gap-4">
-              <a href="#" className="p-2 bg-white/5 rounded-full hover:bg-primary transition-colors"><Instagram size={18} /></a>
-              <a href="#" className="p-2 bg-white/5 rounded-full hover:bg-primary transition-colors"><Youtube size={18} /></a>
-              <a href="#" className="p-2 bg-white/5 rounded-full hover:bg-primary transition-colors"><Facebook size={18} /></a>
+              <Instagram className="size-5 hover:text-white cursor-pointer transition-colors" />
+              <Youtube className="size-5 hover:text-white cursor-pointer transition-colors" />
+              <Facebook className="size-5 hover:text-white cursor-pointer transition-colors" />
             </div>
           </div>
 
-          <div>
-            <h4 className="font-bold text-lg mb-6">Links Rápidos</h4>
-            <ul className="space-y-4 text-slate-400 text-sm">
-              <li><Link href="/" className="hover:text-primary transition-colors">Início</Link></li>
-              <li><Link href="/public/enrollment" className="hover:text-primary transition-colors">Cursos e GCs</Link></li>
-              <li><Link href="/login" className="hover:text-primary transition-colors">Portal do Membro</Link></li>
-              <li><Link href="/leader/new-member" className="hover:text-primary transition-colors">Área do Líder</Link></li>
+          <div className="space-y-4">
+            <h4 className="text-white font-bold uppercase tracking-widest text-sm">Escolas</h4>
+            <ul className="space-y-2 text-sm opacity-70">
+              <li className="hover:text-white transition-colors cursor-pointer">Lumine (Teologia)</li>
+              <li className="hover:text-white transition-colors cursor-pointer">Wave (Música)</li>
+              <li className="hover:text-white transition-colors cursor-pointer">DIS (Inclusão)</li>
             </ul>
           </div>
 
-          <div>
-            <h4 className="font-bold text-lg mb-6">Escolas</h4>
-            <ul className="space-y-4 text-slate-400 text-sm">
-              <li><Link href="/dashboard/teaching/wave" className="hover:text-primary transition-colors">Wave Music School</Link></li>
-              <li><Link href="/dashboard/teaching/dis" className="hover:text-primary transition-colors">Escola DIS</Link></li>
-              <li><Link href="/dashboard/teaching/theoflix" className="hover:text-primary transition-colors">TheoFlix</Link></li>
+          <div className="space-y-4">
+            <h4 className="text-white font-bold uppercase tracking-widest text-sm">Comunhão</h4>
+            <ul className="space-y-2 text-sm opacity-70">
+              <li className="hover:text-white transition-colors cursor-pointer">Encontre um GC</li>
+              <li className="hover:text-white transition-colors cursor-pointer">Seja um Voluntário</li>
+              <li className="hover:text-white transition-colors cursor-pointer">Agenda de Cultos</li>
             </ul>
           </div>
 
-          <div>
-            <h4 className="font-bold text-lg mb-6">Contato</h4>
-            <ul className="space-y-4 text-slate-400 text-sm">
-              <li className="flex items-start gap-3">
-                <MapPin className="size-5 text-primary shrink-0" />
-                <span>Rua Dr. Getúlio Vargas, 1234<br />São Gonçalo - RJ</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <Phone className="size-5 text-primary shrink-0" />
+          <div className="space-y-4">
+            <h4 className="text-white font-bold uppercase tracking-widest text-sm">Contato</h4>
+            <div className="space-y-3 text-sm opacity-70">
+              <div className="flex items-start gap-3">
+                <MapPin className="size-4 mt-1 shrink-0" />
+                <span>Rua Dr. Feliciano Sodré, 123, <br/> Centro, São Gonçalo - RJ</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <Phone className="size-4 shrink-0" />
                 <span>(21) 99999-9999</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <Mail className="size-5 text-primary shrink-0" />
-                <span>contato@ibm.com.br</span>
-              </li>
-            </ul>
+              </div>
+              <div className="flex items-center gap-3">
+                <Mail className="size-4 shrink-0" />
+                <span>contato@igreja.com.br</span>
+              </div>
+            </div>
           </div>
         </div>
-
-        <div className="pt-8 border-t border-white/5 text-center text-slate-500 text-xs">
-          <p>&copy; {new Date().getFullYear()} Igreja Batista da Manhã. Todos os direitos reservados. OikoApp System.</p>
+        <div className="mt-16 pt-8 border-t border-white/5 text-center text-xs opacity-40">
+          <p>© {new Date().getFullYear()} Igreja Batista da Manhã. Todos os direitos reservados.</p>
         </div>
       </div>
     </footer>
