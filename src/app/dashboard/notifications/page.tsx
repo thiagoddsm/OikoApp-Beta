@@ -135,8 +135,8 @@ function WhatsappChats() {
     return (
         <div className="flex h-[650px] border rounded-xl overflow-hidden bg-background shadow-lg">
             <div className="w-1/3 border-r bg-muted/10 flex flex-col">
-                <div className="p-4 border-b bg-muted/5 flex justify-between items-center text-slate-900">
-                    <h3 className="font-bold text-sm uppercase tracking-widest opacity-50">Conversas</h3>
+                <div className="p-4 border-b bg-muted/5 flex justify-between items-center">
+                    <h3 className="font-bold text-sm uppercase tracking-widest opacity-50 text-slate-900">Conversas</h3>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:bg-primary/10" onClick={() => setIsNewChatOpen(true)}>
                         <PlusCircle size={18} />
                     </Button>
@@ -154,7 +154,7 @@ function WhatsappChats() {
                                     selectedChat?.id === chat.id ? "bg-white border-l-4 border-l-primary shadow-inner" : ""
                                 )}
                             >
-                                <Avatar className="h-10 w-10 shrink-0 border-2 border-white shadow-sm">
+                                <Avatar className="h-10 w-10 shrink-0 border-2 border-white shadow-sm text-slate-900">
                                     <AvatarFallback className="bg-primary/5 text-primary"><UserIcon size={18} /></AvatarFallback>
                                 </Avatar>
                                 <div className="min-w-0 flex-1">
@@ -173,10 +173,10 @@ function WhatsappChats() {
                 </ScrollArea>
             </div>
 
-            <div className="flex-1 flex flex-col bg-slate-50/20 relative">
+            <div className="flex-1 flex flex-col bg-slate-50/20 relative text-slate-900">
                 {selectedChat ? (
                     <>
-                        <div className="p-4 border-b bg-white/80 backdrop-blur-md flex items-center justify-between sticky top-0 z-10 text-slate-900">
+                        <div className="p-4 border-b bg-white/80 backdrop-blur-md flex items-center justify-between sticky top-0 z-10">
                             <div className="flex items-center gap-3">
                                 <Avatar className="h-9 w-9 border-2 border-primary/10">
                                     <AvatarFallback className="bg-primary text-white font-black"><UserIcon size={16} /></AvatarFallback>
@@ -524,7 +524,7 @@ function WhatsappSender() {
                             <Input value={surveyName} onChange={e => setSurveyName(e.target.value)} placeholder="Ex: Qual o melhor dia para o nosso GC?" className="bg-white h-11 font-bold border-blue-200" />
                         </div>
                         <div className="space-y-3">
-                            <Label className="text-[10px] uppercase font-black text-muted-foreground text-slate-900">Opções de Voto (Mín 2, Máx 5)</Label>
+                            <Label className="text-[10px] uppercase font-black text-muted-foreground">Opções de Voto (Mín 2, Máx 5)</Label>
                             <div className="grid gap-2">
                                 {surveyOptions.map((opt, idx) => (
                                     <div key={idx} className="flex gap-2 group">
@@ -559,7 +559,7 @@ function WhatsappSender() {
                             </div>
                         </div>
                         <div className="space-y-3">
-                            <Label className="text-[10px] uppercase font-black text-muted-foreground text-slate-900">Botões Interativos</Label>
+                            <Label className="text-[10px] uppercase font-black text-muted-foreground">Botões Interativos</Label>
                             <div className="grid gap-2">
                                 {msgButtons.map((btn, idx) => (
                                     <div key={idx} className="flex gap-2">
@@ -598,7 +598,7 @@ function WhatsappSender() {
                     </div>
                     <Textarea 
                         placeholder="Olá {{nome}}, temos um recado..." 
-                        className="min-h-[150px] text-base leading-relaxed bg-white shadow-inner border-slate-200" 
+                        className="min-h-[150px] text-base leading-relaxed bg-white shadow-inner border-slate-200 text-slate-900" 
                         value={message} 
                         onChange={(e) => setMessage(e.target.value)} 
                         required={msgType !== 'survey'} 
@@ -719,7 +719,7 @@ function NotificationsConfig() {
                 if (data.qr || data.status) {
                     setInstanceStatus(data);
                 } else {
-                    setTimeout(checkStatus, 3000);
+                    setTimeout(checkStatus, 2000);
                 }
             } else {
                 toast({ variant: 'destructive', title: "Erro na operação", description: data.error || data.message });
@@ -784,7 +784,7 @@ function NotificationsConfig() {
                                     <Sparkles size={18} className="text-blue-600" />
                                     <span className="text-[10px] font-black uppercase">Ativar Pro</span>
                                 </Button>
-                                <Button variant="outline" className="h-16 flex flex-col gap-1 items-center justify-center border-indigo-200 hover:bg-indigo-50 text-slate-900" onClick={() => handleAction('', 'POST', 'Geração de QR')} disabled={isRefreshing}>
+                                <Button variant="outline" className="h-16 flex flex-col gap-1 items-center justify-center border-indigo-200 hover:bg-indigo-50 text-slate-900" onClick={() => handleAction('', 'POST', 'Conexão')} disabled={isRefreshing}>
                                     <QrCode size={18} className="text-indigo-600" />
                                     <span className="text-[10px] font-black uppercase">Novo QR</span>
                                 </Button>
