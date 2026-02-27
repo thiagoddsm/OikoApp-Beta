@@ -1,12 +1,12 @@
 
 import { NextResponse } from 'next/server';
-import { findOrCreateContaAzulCustomer, createContaAzulCharge, callContaAzulApi, createContaAzulReceivable } from '@/lib/conta-azul';
+import { findOrCreateContaAzulCustomer, callContaAzulApi, createContaAzulReceivable } from '@/lib/conta-azul';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST() {
     try {
-        // 1. Criar ou buscar um cliente de teste (Host: api.contaazul.com)
+        // 1. Criar ou buscar um cliente de teste
         const testMember = {
             name: `Membro Teste OikoApp ${Math.floor(Math.random() * 1000)}`,
             email: 'suporte@oikoapp.com.br',
@@ -15,22 +15,23 @@ export async function POST() {
 
         const customerId = await findOrCreateContaAzulCustomer(testMember);
         
-        // 2. Buscar contas financeiras para obter um ID válido (Host: api-v2.contaazul.com)
+        // 2. Buscar contas financeiras para obter um ID válido
         const bankData = await callContaAzulApi('/v1/conta-financeira');
-        const bankAccounts = Array.isArray(bankData) ? bankData : (bankData.items || []);
+        const bankAccounts = Array.isArray(bankData) ? bankData : (bankData.itens || bankData.items || []);
+        
+        // Filtra conta ativa ou pega a primeira disponível
         const bankAccount = bankAccounts.find((b: any) => b.ativo) || bankAccounts[0];
 
         if (!bankAccount) {
-            throw new Error('Nenhuma conta financeira ativa encontrada para o teste.');
+            throw new Error('Nenhuma conta financeira encontrada no Conta Azul para realizar o teste.');
         }
 
-        // 3. Criar um Recebível (v1 no host api-v2) para obter a id_parcela
-        // A geração de cobrança v2 exige que a parcela já exista no sistema
+        // 3. Criar um Recebível (v1 no host api-v2) para validar escrita
         const today = new Date().toISOString().split('T')[0];
         const receivableData = {
             data_competencia: today,
             valor: 1.00,
-            descricao: "Teste de Permissão OikoApp",
+            descricao: "Teste de Permissão de Escrita OikoApp",
             observacao: "Gerado automaticamente pelo laboratório de integração",
             contato: customerId,
             conta_financeira: bankAccount.id,
@@ -39,7 +40,7 @@ export async function POST() {
                     {
                         descricao: "Parcela Única Teste",
                         data_vencimento: today,
-                        nota: "Teste de integração",
+                        nota: "Teste de integração IBM",
                         conta_financeira: bankAccount.id,
                         detalhe_valor: {
                             valor_bruto: 1.00
@@ -50,11 +51,6 @@ export async function POST() {
         };
 
         const receivableResult = await createContaAzulReceivable(receivableData);
-        const protocolId = receivableResult.protocolId;
-
-        // 4. Reportar sucesso do protocolo
-        // Como o processamento do protocolo é assíncrono na Conta Azul, 
-        // validamos aqui que a escrita do receivable (v1) funcionou.
         
         return NextResponse.json({ 
             success: true, 
@@ -62,8 +58,8 @@ export async function POST() {
             data: {
                 customerId,
                 selectedBank: bankAccount.name,
-                receivableProtocol: protocolId,
-                note: "O recebível foi protocolado com sucesso. Para gerar a cobrança (v2), o id_parcela estará disponível após o processamento do protocolo."
+                receivableProtocol: receivableResult.protocolId,
+                note: "O recebível foi protocolado no Conta Azul. Isso confirma que a aplicação tem permissão de escrita."
             }
         });
 
@@ -71,7 +67,7 @@ export async function POST() {
         console.error('Erro no teste de escrita Conta Azul:', error);
         return NextResponse.json({ 
             success: false, 
-            error: error.message || 'Erro desconhecido'
+            error: error.message || 'Erro desconhecido ao tentar gravar dados.'
         }, { status: 500 });
     }
 }

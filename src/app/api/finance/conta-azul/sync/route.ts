@@ -1,3 +1,4 @@
+
 import { NextResponse } from 'next/server';
 import { callContaAzulApi } from '@/lib/conta-azul';
 
@@ -5,10 +6,11 @@ export const dynamic = 'force-dynamic';
 
 export async function POST() {
     try {
-        // Conforme documentação: /v1/conta-financeira
+        // Conforme documentação: /v1/conta-financeira retorna { itens: [], itens_totais: N }
         const data = await callContaAzulApi('/v1/conta-financeira');
         
-        const list = Array.isArray(data) ? data : (data.items || []);
+        // Suporte para ambas nomenclaturas 'itens' (v2) e 'items' (v1)
+        const list = Array.isArray(data) ? data : (data.itens || data.items || []);
 
         return NextResponse.json({ 
             success: true, 
