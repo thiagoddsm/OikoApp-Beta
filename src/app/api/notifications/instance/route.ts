@@ -10,6 +10,13 @@ import { doc, getDoc } from 'firebase/firestore';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+const formatQr = (qr: string | null) => {
+    if (!qr) return null;
+    if (qr.startsWith('data:image')) return qr;
+    if (qr.startsWith('http')) return qr;
+    return `data:image/png;base64,${qr}`;
+};
+
 export async function GET() {
   try {
     const { firestore } = initializeFirebase();
@@ -51,8 +58,6 @@ export async function GET() {
         const instanceData = data.instance || data;
         const stateStr = (instanceData.state || instanceData.status || data.state || data.status || '').toString().toLowerCase();
         const isAuthenticated = data.authenticated === true || instanceData.authenticated === true || data.is_authenticated === true || stateStr === 'connected';
-        
-        // Verificação lógica de "Conectado"
         const isOnline = isAuthenticated || ['open', 'connected', 'online', 'authenticated', 'ready'].includes(stateStr);
         
         let displayStatus = 'unknown';
@@ -63,9 +68,11 @@ export async function GET() {
             displayMessage = isOnline ? 'Conectado e Pronto' : 'Aguardando Conexão';
         }
 
+        const rawQr = data.qr || data.qrcode || instanceData.qr || data.instance?.qr || null;
+
         if (isOnline) {
             displayStatus = 'connected';
-        } else if (data.qr || data.qrcode || instanceData.qr || stateStr.includes('pairing') || stateStr.includes('qr')) {
+        } else if (rawQr || stateStr.includes('pairing') || stateStr.includes('qr')) {
             displayStatus = 'pairing';
         } else if (['closed', 'logout', 'disconnected', 'offline'].includes(stateStr)) {
             displayStatus = 'offline';
@@ -76,7 +83,7 @@ export async function GET() {
         return NextResponse.json({ 
             status: displayStatus,
             message: displayMessage,
-            qr: data.qr || data.qrcode || instanceData.qr || null,
+            qr: formatQr(rawQr),
             details: data 
         });
     } catch (fetchErr: any) {
@@ -104,10 +111,12 @@ export async function POST() {
         });
 
         const data = await response.json().catch(() => ({}));
+        const rawQr = data.qr || data.qrcode || data.instance?.qr || null;
+
         return NextResponse.json({
             success: response.ok,
-            qr: data.qr || data.qrcode || data.instance?.qr || null,
-            status: data.status || 'pairing',
+            qr: formatQr(rawQr),
+            status: data.status || (rawQr ? 'pairing' : 'unknown'),
             details: data
         });
     } catch (error: any) {

@@ -712,11 +712,16 @@ function NotificationsConfig() {
         setIsRefreshing(true);
         try {
             const res = await fetch(`/api/notifications/instance${endpoint}`, { method });
+            const data = await res.json();
             if (res.ok) {
                 toast({ title: "Sucesso!", description: `${title} concluído.` });
-                setTimeout(checkStatus, 3000);
+                // Se a resposta direta já tem os dados (como no POST do QR), use-os
+                if (data.qr || data.status) {
+                    setInstanceStatus(data);
+                } else {
+                    setTimeout(checkStatus, 3000);
+                }
             } else {
-                const data = await res.json();
                 toast({ variant: 'destructive', title: "Erro na operação", description: data.error || data.message });
             }
         } catch (e) {
@@ -798,7 +803,7 @@ function NotificationsConfig() {
                             <Smartphone className="size-4" /> Status do Dispositivo
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="pt-8 flex flex-col items-center justify-center text-center min-h-[250px] text-slate-900">
+                    <CardContent className="pt-8 flex flex-col items-center justify-center text-center min-h-[250px] text-slate-900 relative">
                         {isRefreshing ? (
                             <div className="flex flex-col items-center gap-4">
                                 <Loader2 className="animate-spin size-12 text-primary opacity-40" />
@@ -815,15 +820,23 @@ function NotificationsConfig() {
                                 </div>
                                 <Badge className="bg-emerald-600 text-white border-none font-black text-[10px] px-4">ATIVO</Badge>
                             </div>
-                        ) : instanceStatus?.qr ? (
+                        ) : (instanceStatus?.qr || instanceStatus?.status === 'pairing') ? (
                             <div className="space-y-4 animate-in fade-in zoom-in-95">
-                                <div className="p-4 bg-white border-2 border-dashed rounded-2xl shadow-xl">
-                                    <img src={instanceStatus.qr} alt="WhatsApp QR Code" className="size-48" />
-                                </div>
+                                {instanceStatus.qr ? (
+                                    <div className="p-4 bg-white border-2 border-dashed rounded-2xl shadow-xl">
+                                        <img src={instanceStatus.qr} alt="WhatsApp QR Code" className="size-48" />
+                                    </div>
+                                ) : (
+                                    <div className="p-12 bg-white border-2 border-dashed rounded-2xl shadow-inner flex flex-col items-center justify-center">
+                                        <Loader2 className="animate-spin size-8 text-primary mb-2" />
+                                        <p className="text-[10px] font-bold uppercase text-muted-foreground">Gerando código...</p>
+                                    </div>
+                                )}
                                 <div>
                                     <h4 className="font-black text-amber-900 uppercase">Aguardando Pareamento</h4>
                                     <p className="text-[10px] text-amber-700 font-bold uppercase mt-1">Escaneie pelo WhatsApp</p>
                                 </div>
+                                <Button size="sm" variant="ghost" onClick={checkStatus} className="text-[10px] font-black uppercase text-slate-900"><RefreshCw size={14} className="mr-2"/> Atualizar</Button>
                             </div>
                         ) : (
                             <div className="space-y-4 opacity-50">
