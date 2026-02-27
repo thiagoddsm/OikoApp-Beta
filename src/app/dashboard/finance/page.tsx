@@ -78,9 +78,8 @@ function IntegrationLaboratory({ lastError }: { lastError?: string }) {
                 addLog(`Sucesso! Protocolo: ${data.data.protocolId}`);
                 toast({ title: "Escrita OK", description: "Lançamento de teste gerado." });
             } else {
-                const errorMsg = typeof data.error === 'object' ? JSON.stringify(data.error) : data.error;
-                addLog(`ERRO: ${errorMsg}`);
-                throw new Error(errorMsg || "Erro na API");
+                addLog(`ERRO: ${data.error}`);
+                throw new Error(data.error || "Erro na API");
             }
         } catch (e: any) {
             addLog(`FALHA NA ESCRITA: ${e.message}`);
@@ -172,14 +171,10 @@ function ContaAzulConnect() {
   };
   
   const handleDisconnect = async () => {
-    if (!configDocRef) {
-        console.error("Referência do documento não encontrada.");
-        return;
-    }
+    if (!configDocRef) return;
     
     if (confirmDisconnect) {
         setIsDisconnecting(true);
-        console.log("Iniciando limpeza de tokens no Firestore...");
         try {
             await updateDoc(configDocRef, { 
                 accessToken: '', 
@@ -189,15 +184,13 @@ function ContaAzulConnect() {
                 updatedAt: new Date().toISOString()
             });
             setConfirmDisconnect(false);
-            toast({ title: 'Conexão Encerrada', description: 'Todos os tokens foram removidos.' });
+            toast({ title: 'Conexão Encerrada', description: 'Tokens removidos com sucesso.' });
         } catch (e: any) {
-            console.error("Erro ao limpar tokens:", e);
             toast({ variant: 'destructive', title: 'Erro ao desconectar', description: e.message });
         } finally {
             setIsDisconnecting(false);
         }
     } else {
-        console.log("Clique de confirmação ativado.");
         setConfirmDisconnect(true);
         setTimeout(() => setConfirmDisconnect(false), 5000);
     }
@@ -207,8 +200,6 @@ function ContaAzulConnect() {
 
   const isConnected = !!config?.accessToken || !!config?.refreshToken;
   const redirectUri = `${origin}/api/finance/conta-azul/callback`;
-  
-  // Escopo corrigido conforme documentação oficial para dar permissão a todos os recursos
   const fullScope = 'read:vendas+write:vendas+read:clientes+write:clientes+read:produtos+write:produtos+read:financeiro+write:financeiro+read:notas_fiscais+read:contratos+write:contratos';
   const authUrl = `https://auth.contaazul.com/login?response_type=code&client_id=${clientId.trim()}&redirect_uri=${encodeURIComponent(redirectUri)}&state=oiko_auth&scope=${fullScope}`;
 
@@ -280,6 +271,7 @@ function ContaAzulConnect() {
                         </div>
                         <Button 
                             variant="outline" 
+                            type="button"
                             className={cn(
                                 "transition-all font-bold w-full max-w-xs", 
                                 confirmDisconnect ? "bg-red-600 text-white border-red-600" : "text-destructive border-destructive/20 hover:bg-red-50"
@@ -288,7 +280,7 @@ function ContaAzulConnect() {
                             disabled={isDisconnecting}
                         >
                             {isDisconnecting ? <Loader2 className="animate-spin size-4 mr-2" /> : confirmDisconnect ? <AlertCircle className="size-4 mr-2" /> : <LogOut className="size-4 mr-2" />}
-                            {confirmDisconnect ? "Clique para Confirmar" : "Encerrar Conexão"}
+                            {confirmDisconnect ? "Confirmar Desconexão?" : "Encerrar Conexão"}
                         </Button>
                     </div>
                 )}

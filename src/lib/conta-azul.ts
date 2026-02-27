@@ -69,8 +69,7 @@ export async function getValidContaAzulToken(forceRefresh = false): Promise<stri
                         accessToken: data.access_token,
                         refreshToken: data.refresh_token,
                         expiresAt: newExpiresAt,
-                        updatedAt: new Date().toISOString(),
-                        lastError: 'SUCESSO: Token renovado e pronto para uso.'
+                        updatedAt: new Date().toISOString()
                     });
                     return data.access_token;
                 } else {
@@ -91,21 +90,19 @@ export async function getValidContaAzulToken(forceRefresh = false): Promise<stri
 }
 
 /**
- * Chamada genérica com roteamento inteligente de host.
+ * Chamada genérica com roteamento inteligente de host conforme documentação oficial.
  */
 export async function callContaAzulApi(endpoint: string, method: string = 'GET', body?: any, retryCount = 0): Promise<any> {
     try {
         const token = await getValidContaAzulToken(retryCount > 0);
         
-        // REGRAS DE ROTEAMENTO (CRÍTICO conforme doc)
-        // Recursos de pessoas/clientes/produtos ficam no Host V1
+        // REGRAS DE ROTEAMENTO (Diferenciação entre Host V1 e Host V2)
         const normalizedEndpoint = endpoint.toLowerCase();
         const isV1Resource = 
             normalizedEndpoint.includes('/customers') || 
             normalizedEndpoint.includes('/clientes') || 
-            normalizedEndpoint.includes('/pessoas') ||
-            normalizedEndpoint.includes('/products') ||
-            normalizedEndpoint.includes('/produtos');
+            normalizedEndpoint.includes('/produtos') ||
+            normalizedEndpoint.includes('/products');
 
         const host = isV1Resource ? CONTA_AZUL_V1_HOST : CONTA_AZUL_V2_HOST;
         const url = `${host}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
@@ -120,7 +117,7 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
             cache: 'no-store'
         });
 
-        // 204 No Content ou 202 Accepted
+        // Trata 204 No Content ou 202 Accepted (comuns em escrita v2)
         if (response.status === 204 || response.status === 202) {
             return { success: true, status: response.status };
         }
@@ -133,8 +130,9 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
                 return callContaAzulApi(endpoint, method, body, 1);
             }
             
-            const rawMsg = data.message || data.error_description || data.error || data.msg || data;
-            const errorDetail = typeof rawMsg === 'object' ? JSON.stringify(rawMsg) : (rawMsg || `Erro HTTP ${response.status}`);
+            // Extração de erro aprofundada para evitar [object Object]
+            const rawError = data.message || data.error_description || data.error || data.msg || data;
+            const errorDetail = typeof rawError === 'object' ? JSON.stringify(rawError) : (rawError || `Erro HTTP ${response.status}`);
             throw new Error(errorDetail);
         }
 
@@ -144,15 +142,17 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
     }
 }
 
+/**
+ * Localiza ou cria um cliente no Host V1.
+ */
 export async function findOrCreateContaAzulCustomer(member: { name: string; email?: string; phone?: string }) {
     try {
-        // Busca sempre no V1
         const response = await callContaAzulApi(`/v1/customers?name=${encodeURIComponent(member.name)}`);
         const list = Array.isArray(response) ? response : (response.itens || response.items || []);
         
         if (list.length > 0) return list[0].id;
 
-        // Criação no V1
+        // Criação exige Host V1
         const newCustomer = await callContaAzulApi('/v1/customers', 'POST', {
             name: member.name,
             email: member.email || '',
@@ -162,13 +162,13 @@ export async function findOrCreateContaAzulCustomer(member: { name: string; emai
 
         return newCustomer.id;
     } catch (e: any) {
-        // Garantir que o erro seja uma string limpa para o log
-        const errorMsg = e.message || 'Erro desconhecido ao gerenciar cliente';
-        throw new Error(`Erro ao gerenciar cliente: ${errorMsg}`);
+        throw new Error(`Erro ao gerenciar cliente: ${e.message}`);
     }
 }
 
+/**
+ * Cria um recebível no Host V2.
+ */
 export async function createContaAzulReceivable(data: any) {
-    // Financeiro deve ir para o Host V2
     return callContaAzulApi('/v1/financeiro/eventos-financeiros/contas-a-receber', 'POST', data);
 }
