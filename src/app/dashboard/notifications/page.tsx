@@ -13,14 +13,13 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { 
     Loader2, Send, Settings, Key, History, MessageSquare, 
     Users, CheckCircle2, Search, UserPlus, X, Info, RefreshCw, 
     Zap, AlertCircle, MessageCircle, MousePointer2, Trash2,
     Smartphone, LogOut, PlusCircle, CheckCircle, User as UserIcon,
     Sparkles, QrCode, ShieldAlert, Phone, ChevronRight, ImageIcon,
-    Globe
+    Globe, HeartHandshake, CalendarDays
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useCollection, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
