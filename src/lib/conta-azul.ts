@@ -5,12 +5,11 @@ import { initializeFirebase } from '@/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 const CONTA_AZUL_AUTH_BASE = 'https://auth.contaazul.com';
-const CONTA_AZUL_API_BASE = 'https://api.contaazul.com';
+const CONTA_AZUL_API_V1_BASE = 'https://api.contaazul.com';
 const CONTA_AZUL_API_V2_BASE = 'https://api-v2.contaazul.com';
 
 /**
  * Recupera o token de acesso válido, renovando-o se necessário.
- * A Conta Azul invalida o Refresh Token antigo imediatamente após o uso.
  */
 export async function getValidContaAzulToken() {
     const { firestore } = initializeFirebase();
@@ -25,8 +24,8 @@ export async function getValidContaAzulToken() {
     const { clientId, clientSecret, accessToken, refreshToken, expiresAt } = config;
 
     const now = Date.now();
-    // Se o token existe e ainda é válido por pelo menos 2 minutos, usamos ele.
-    if (accessToken && expiresAt && now < (expiresAt - 120000)) {
+    // Se o token existe e ainda é válido por pelo menos 1 minuto, usamos ele.
+    if (accessToken && expiresAt && now < (expiresAt - 60000)) {
         return accessToken;
     }
 
@@ -52,7 +51,7 @@ export async function getValidContaAzulToken() {
         if (!response.ok) {
             const errorMsg = data.error_description || data.message || 'Falha na renovação do token.';
             await updateDoc(configRef, { 
-                lastError: `RENOVAÇÃO FALHOU: ${errorMsg}`,
+                lastError: `FALHA NO REFRESH: ${errorMsg}`,
                 lastErrorAt: new Date().toISOString()
             }).catch(() => {});
             throw new Error(errorMsg);
@@ -60,13 +59,11 @@ export async function getValidContaAzulToken() {
 
         const newExpiresAt = Date.now() + (data.expires_in * 1000);
         
-        // Salvamento atômico para garantir consistência do próximo ciclo
         await updateDoc(configRef, {
             accessToken: data.access_token,
             refreshToken: data.refresh_token,
             expiresAt: newExpiresAt,
-            updatedAt: new Date().toISOString(),
-            lastError: 'SUCESSO: Token renovado automaticamente.'
+            updatedAt: new Date().toISOString()
         });
 
         return data.access_token;
@@ -77,15 +74,16 @@ export async function getValidContaAzulToken() {
 
 /**
  * Realiza uma chamada à API da Conta Azul.
- * Detecta automaticamente se deve usar a v1 ou v2 com base no endpoint.
+ * Suporta v1 e v2 alternando o host conforme o endpoint.
  */
 export async function callContaAzulApi(endpoint: string, method: string = 'GET', body?: any, retryCount = 0): Promise<any> {
     try {
         const token = await getValidContaAzulToken();
         
-        // Detecta qual host usar. O v2 é usado para cobranças e novos recursos financeiros.
-        const useV2 = endpoint.includes('/financeiro/eventos-financeiros') || endpoint.includes('gerar-cobranca');
-        const baseUrl = useV2 ? CONTA_AZUL_API_V2_BASE : CONTA_AZUL_API_BASE;
+        // Define o host correto: v2 para endpoints de cobrança, v1 para o resto.
+        const isV2Endpoint = endpoint.includes('/financeiro/eventos-financeiros');
+        const baseUrl = isV2Endpoint ? CONTA_AZUL_API_V2_BASE : CONTA_AZUL_API_V1_BASE;
+        
         const url = `${baseUrl}${endpoint}`;
         
         const response = await fetch(url, {
@@ -100,7 +98,7 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
         const data = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            // Se o erro for 401, tentamos renovar o token e repetir UMA VEZ
+            // Se o erro for 401 (token inválido/expirado), tentamos forçar um refresh e repetir UMA vez.
             if (response.status === 401 && retryCount === 0) {
                 const { firestore } = initializeFirebase();
                 await updateDoc(doc(firestore, 'config', 'conta_azul'), { expiresAt: 0 });
@@ -108,7 +106,7 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
             }
 
             const errorText = data.message || data.error_description || (typeof data === 'string' ? data : JSON.stringify(data));
-            throw new Error(errorText);
+            throw new Error(`Falha na rota ${endpoint}: ${errorText}`);
         }
 
         return data;
@@ -118,11 +116,13 @@ export async function callContaAzulApi(endpoint: string, method: string = 'GET',
 }
 
 export async function findOrCreateContaAzulCustomer(member: { name: string; email?: string; phone?: string }) {
+    // Busca por nome exato na v1
     const customers = await callContaAzulApi(`/v1/customers?name=${encodeURIComponent(member.name)}`);
     const customerList = Array.isArray(customers) ? customers : (customers.items || []);
     
     if (customerList.length > 0) return customerList[0].id;
 
+    // Cria novo cliente na v1
     const newCustomer = await callContaAzulApi('/v1/customers', 'POST', {
         name: member.name,
         email: member.email || '',
@@ -140,6 +140,7 @@ export async function createContaAzulCharge(data: {
     dueDate: string;
     type: 'LINK_PAGAMENTO' | 'PIX_COBRANCA' | 'BOLETO';
 }) {
+    // Chamada obrigatória na V2 conforme documentação
     return callContaAzulApi('/v1/financeiro/eventos-financeiros/contas-a-receber/gerar-cobranca', 'POST', {
         conta_bancaria: data.bankAccountId,
         descricao_fatura: data.description,
