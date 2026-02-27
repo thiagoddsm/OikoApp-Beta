@@ -36,6 +36,10 @@ type Course = {
   ebdTrack?: 'teologico' | 'biblico' | 'discipulado';
 };
 
+/**
+ * Define o peso de ordenação para a trilha de discipulado Lumine.
+ * Ordem: Pertencer, Crescer, Liderar, Cuidar, Apoiar, Enviar.
+ */
 const getDiscipleshipWeight = (name: string) => {
     const lowerName = name.toLowerCase();
     if (lowerName.includes('pertencer')) return 1;
@@ -66,21 +70,19 @@ export function CoursesManagement() {
       groups[ministry].push(c as Course);
     });
 
+    // Ordenação específica para cada grupo
     Object.keys(groups).forEach(ministry => {
         groups[ministry].sort((a, b) => {
             const weightA = getDiscipleshipWeight(a.name);
             const weightB = getDiscipleshipWeight(b.name);
             
-            // If both have specific weights (part of the trail), sort by weight
             if (weightA !== 99 && weightB !== 99) {
                 return weightA - weightB;
             }
             
-            // If only one has weight, it should come first in its section
             if (weightA !== 99) return -1;
             if (weightB !== 99) return 1;
 
-            // Otherwise, fallback to alphabetical
             return a.name.localeCompare(b.name);
         });
     });
@@ -124,7 +126,6 @@ export function CoursesManagement() {
     if (course.ebdTrack === 'teologico') {
         return (
             <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-[10px] font-black h-5 uppercase">
-                <Memory className="size-3 mr-1" /> {/* Manual fix for GraduationCap alias if needed, but assuming lucide is handled by tool */}
                 <GraduationCap className="size-3 mr-1" /> Fase Buscar | 12/03 a 16/04 às 09h00
             </Badge>
         );
