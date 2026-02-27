@@ -2,47 +2,30 @@
 'use client';
 
 import React, { useState, useMemo, Suspense } from 'react';
-import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, orderBy, Timestamp, where } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { useVolunteering, VolunteeringProvider } from '@/contexts/volunteering-context';
+import { useFirebase, addDocumentNonBlocking } from '@/firebase';
+import { collection, Timestamp } from 'firebase/firestore';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-    BookOpen, 
-    CheckCircle2, 
-    Loader2, 
-    ChevronRight, 
-    ArrowLeft, 
-    Users, 
-    MessageSquare,
-    Clock,
-    UserPlus,
-    X,
-    AlertTriangle,
-    ShieldAlert
+    Loader2, BookOpen, Waves, Lightbulb, School, 
+    ArrowLeft, CheckCircle2, Phone, Mail, User, 
+    ChevronRight, AlertCircle, Info, GraduationCap
 } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
-type Course = {
-  id: string;
-  name: string;
-  description: string;
-  ministryName: string;
-  ebdTrack?: string;
-};
-
-type Class = {
-  id: string;
-  courseId: string;
-  name: string;
-};
-
+/**
+ * Ordem litúrgica da Trilha Lumine
+ */
 const getDiscipleshipWeight = (name: string) => {
     const lowerName = name.toLowerCase();
     if (lowerName.includes('pertencer')) return 1;
@@ -54,238 +37,286 @@ const getDiscipleshipWeight = (name: string) => {
     return 99;
 };
 
-function EnrollmentForm({ course, onCancel }: { course: Course, onCancel: () => void }) {
+function EnrollmentForm({ course, classes, on处Success }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isSaving, setIsSaving] = useState(false);
-    const [success, setSuccess] = useState(false);
     const [formData, setFormData] = useState({
         name: '',
-        phone: '',
         email: '',
+        phone: '',
+        classId: '',
+        cpf: '',
+        sexo: '',
+        dataNascimento: ''
     });
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const isMemberCourse = course.name.toLowerCase().includes('membro') || course.name.toLowerCase().includes('pertencer') || course.name.toLowerCase().includes('integração');
+
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.name || !formData.phone || !firestore) return;
+        if (!formData.name || !formData.phone || (!isMemberCourse && !formData.classId)) {
+            toast({ variant: 'destructive', title: 'Campos obrigatórios', description: 'Preencha seu nome, telefone e escolha uma turma.' });
+            return;
+        }
 
         setIsSaving(true);
         try {
-            await addDocumentNonBlocking(collection(firestore, 'enrollment_requests'), {
+            const requestsCol = collection(firestore!, 'enrollment_requests');
+            await addDocumentNonBlocking(requestsCol, {
                 ...formData,
                 courseId: course.id,
-                courseName: course.name,
                 status: 'pending',
-                createdAt: Timestamp.now(),
+                createdAt: Timestamp.now()
             });
-            setSuccess(true);
-            toast({ title: "Solicitação Enviada!", description: "Em breve nossa equipe entrará em contato." });
+            toast({ title: 'Solicitação Enviada!', description: 'Em breve nossa equipe entrará em contato.' });
+            on处Success();
         } catch (error) {
-            toast({ variant: 'destructive', title: "Erro ao enviar", description: "Tente novamente mais tarde." });
+            toast({ variant: 'destructive', title: 'Erro ao enviar', description: 'Tente novamente em instantes.' });
         } finally {
             setIsSaving(false);
         }
     };
 
-    if (success) {
-        return (
-            <div className="text-center py-10 space-y-4">
-                <div className="size-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
-                    <CheckCircle2 size={32} />
-                </div>
-                <h3 className="text-xl font-bold">Inscrição Protocolada!</h3>
-                <p className="text-muted-foreground">Obrigado pelo seu interesse. Nossa secretaria ministerial analisará seu pedido em breve.</p>
-                <Button onClick={onCancel} className="w-full">Voltar aos Cursos</Button>
-            </div>
-        );
-    }
-
     return (
-        <form onSubmit={handleSubmit} className="space-y-6 py-4">
-            <div className="space-y-4">
+        <form onSubmit={handleSave} className="space-y-4 py-4">
+            <div className="space-y-2">
+                <Label htmlFor="name">Nome Completo *</Label>
+                <Input id="name" value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))} required />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="name">Seu Nome Completo *</Label>
-                    <Input id="name" required value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))} placeholder="Como deseja ser chamado" />
-                </div>
-                <div className="space-y-2">
-                    <Label htmlFor="phone">WhatsApp / Celular *</Label>
-                    <Input id="phone" required value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} placeholder="(21) 9..." />
+                    <Label htmlFor="phone">Telefone / WhatsApp *</Label>
+                    <Input id="phone" type="tel" value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} placeholder="(21) 9..." required />
                 </div>
                 <div className="space-y-2">
                     <Label htmlFor="email">E-mail</Label>
-                    <Input id="email" type="email" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} placeholder="seu@email.com" />
+                    <Input id="email" type="email" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} />
                 </div>
             </div>
-            <div className="flex gap-3 pt-4">
-                <Button type="button" variant="ghost" onClick={onCancel} className="flex-1">Cancelar</Button>
-                <Button type="submit" disabled={isSaving} className="flex-1">
-                    {isSaving ? <Loader2 className="size-4 animate-spin mr-2" /> : <UserPlus className="size-4 mr-2" />}
-                    Confirmar Inscrição
-                </Button>
-            </div>
+            {!isMemberCourse && (
+                <div className="space-y-2">
+                    <Label htmlFor="class-select">Selecione a Turma *</Label>
+                    <Select value={formData.classId} onValueChange={v => setFormData(p => ({...p, classId: v}))}>
+                        <SelectTrigger id="class-select">
+                            <SelectValue placeholder="Escolha um horário disponível..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {classes.map(cls => (
+                                <SelectItem key={cls.id} value={cls.id}>
+                                    {cls.name} ({cls.dayOfWeek} às {cls.startTime})
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+            )}
+            {isMemberCourse && (
+                <div className="p-3 bg-primary/5 border rounded-lg flex items-start gap-2">
+                    <Info className="size-4 text-primary shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-muted-foreground">Este curso acontece em ciclos. Ao se inscrever, você será alocado na próxima turma disponível.</p>
+                </div>
+            )}
+            <Button type="submit" className="w-full h-12 font-bold" disabled={isSaving}>
+                {isSaving ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" />}
+                Confirmar Inscrição
+            </Button>
         </form>
     );
 }
 
-function EnrollmentContent() {
-    const { firestore } = useFirebase();
-    const searchParams = useSearchParams();
-    const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+function CourseCard({ course, classes, onSelect }) {
+    const hasClasses = classes.length > 0;
+    const isLumine = course.ministryName.toLowerCase().includes('lumine') || course.ministryName.toLowerCase().includes('ebd');
+    
+    return (
+        <Card className={cn(
+            "flex flex-col h-full transition-all duration-300 border-2",
+            hasClasses ? "hover:shadow-xl hover:border-primary/50" : "opacity-60 grayscale bg-slate-50"
+        )}>
+            <CardHeader className="pb-2">
+                <div className="flex justify-between items-start mb-2">
+                    <div className={cn("p-2 rounded-lg", hasClasses ? "bg-primary/10 text-primary" : "bg-slate-200 text-slate-400")}>
+                        <BookOpen size={20} />
+                    </div>
+                    <Badge variant="outline" className="text-[9px] uppercase font-black tracking-widest">{course.ministryName}</Badge>
+                </div>
+                <CardTitle className="text-xl font-black italic uppercase tracking-tighter">{course.name}</CardTitle>
+                <CardDescription className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-muted-foreground">
+                    <Clock className="size-3" />
+                    {isLumine ? "Todo domingo às 09h00" : (classes[0]?.dayOfWeek ? `${classes[0].dayOfWeek} às ${classes[0].startTime}` : "Horário sob consulta")}
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="flex-1 pb-6">
+                <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                    {course.description || "Inicie sua jornada de aprendizado na IBM."}
+                </p>
+                {!hasClasses && (
+                    <div className="mt-4 flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase">
+                        <AlertCircle size={14} /> Sem turmas abertas
+                    </div>
+                )}
+            </CardContent>
+            <CardFooter>
+                <Button 
+                    className="w-full font-black uppercase text-xs h-11 tracking-wider" 
+                    disabled={!hasClasses}
+                    onClick={() => onSelect(course)}
+                >
+                    {hasClasses ? "Quero me Inscrever" : "Inscrições Indisponíveis"}
+                </Button>
+            </CardFooter>
+        </Card>
+    );
+}
 
-    const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
-    const classesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'classes')) : null, [firestore]);
+function Badge({ children, className, variant = 'default' }: { children: React.ReactNode, className?: string, variant?: 'default' | 'secondary' | 'outline' }) {
+    const variants = {
+        default: 'bg-primary text-primary-foreground',
+        secondary: 'bg-secondary text-secondary-foreground',
+        outline: 'border border-current'
+    };
+    return (
+        <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold transition-colors", variants[variant], className)}>
+            {children}
+        </span>
+    );
+}
 
-    const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery);
-    const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesQuery);
+function EnrollmentPageContent() {
+    const { courses, classes, isLoading } = useVolunteering();
+    const [selectedCourse, setSelectedCourse] = useState<any>(null);
+    const [isSuccess, setIsSuccess] = useState(false);
 
-    const sortedCourses = useMemo(() => {
-        if (!courses) return [];
-        return [...courses].sort((a, b) => {
-            const weightA = getDiscipleshipWeight(a.name);
-            const weightB = getDiscipleshipWeight(b.name);
-            if (weightA !== weightB) return weightA - weightB;
-            return a.name.localeCompare(b.name);
+    const groupedCourses = useMemo(() => {
+        const groups: Record<string, any[]> = {
+            'Lumine (Discipulado)': [],
+            'Wave (Música)': [],
+            'DIS (Inclusão)': [],
+            'Outros': []
+        };
+
+        courses.forEach(c => {
+            const m = c.ministryName.toLowerCase();
+            if (m.includes('lumine') || m.includes('ebd')) groups['Lumine (Discipulado)'].push(c);
+            else if (m.includes('wave')) groups['Wave (Música)'].push(c);
+            else if (m === 'dis') groups['DIS (Inclusão)'].push(c);
+            else groups['Outros'].push(c);
         });
-    }, [courses]);
 
-    const isLoading = isLoadingCourses || isLoadingClasses;
+        // Ordenação Lumine
+        groups['Lumine (Discipulado)'].sort((a, b) => getDiscipleshipWeight(a.name) - getDiscipleshipWeight(b.name));
+
+        return groups;
+    }, [courses]);
 
     if (isLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <Loader2 className="size-8 animate-spin text-primary" />
+            <div className="min-h-screen flex flex-col items-center justify-center gap-4">
+                <Loader2 className="size-10 animate-spin text-primary" />
+                <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground animate-pulse">Carregando catálogo...</p>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 py-12 px-4">
-            <div className="max-w-6xl mx-auto space-y-10">
-                <div className="text-center space-y-4">
-                    <div className="flex justify-center mb-4">
-                        <Link href="/" className="flex items-center gap-2 text-primary hover:opacity-80 transition-opacity">
-                            <ArrowLeft size={16} /> Voltar ao Site
-                        </Link>
-                    </div>
-                    <h1 className="text-4xl font-black tracking-tight text-slate-900 uppercase italic">
-                        Inscrições IBM
-                    </h1>
-                    <p className="text-muted-foreground max-w-2xl mx-auto">
-                        Escolha seu próximo passo na trilha de crescimento. <br/> 
-                        <span className="font-bold text-slate-900">Pertencer, Crescer, Liderar, Cuidar, Apoiar e Enviar.</span>
-                    </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {sortedCourses.map(course => {
-                        const hasClasses = classes?.some(cls => cls.courseId === course.id);
-                        const isLumine = course.ministryName?.toLowerCase().includes('lumine') || course.ministryName?.toLowerCase().includes('ebd');
-
-                        return (
-                            <Card key={course.id} className={cn(
-                                "flex flex-col h-full transition-all duration-300 relative overflow-hidden group",
-                                !hasClasses ? "grayscale opacity-60 border-slate-200 bg-slate-50" : "hover:shadow-xl hover:-translate-y-1"
-                            )}>
-                                <CardHeader>
-                                    <div className="flex justify-between items-start mb-2">
-                                        <div className="p-2 bg-primary/5 rounded-lg text-primary">
-                                            <BookOpen size={20} />
-                                        </div>
-                                        {isLumine && <Badge variant="secondary" className="text-[10px] font-black uppercase">Lumine</Badge>}
-                                    </div>
-                                    <CardTitle className="text-xl font-black uppercase italic tracking-tighter text-slate-900">
-                                        {course.name}
-                                    </CardTitle>
-                                    <div className="flex items-center gap-2 mt-2">
-                                        <Clock size={12} className="text-muted-foreground" />
-                                        <span className="text-[10px] font-bold uppercase text-muted-foreground">Todo domingo às 09h00</span>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="flex-1">
-                                    <p className="text-sm text-muted-foreground leading-relaxed">
-                                        {course.description || "Inicie sua jornada de aprendizado na IBM."}
-                                    </p>
-                                    {!hasClasses && (
-                                        <div className="mt-4 flex items-center gap-2 text-xs font-bold text-destructive">
-                                            <ShieldAlert size={14} />
-                                            SEM TURMAS ABERTAS
-                                        </div>
-                                    )}
-                                </CardContent>
-                                <CardFooter>
-                                    <Button 
-                                        className="w-full h-11 font-black uppercase text-xs tracking-widest"
-                                        disabled={!hasClasses}
-                                        onClick={() => setSelectedCourse(course)}
-                                        variant={hasClasses ? "default" : "secondary"}
-                                    >
-                                        {hasClasses ? "Quero me Inscrever" : "Inscrições Indisponíveis"}
-                                    </Button>
-                                </CardFooter>
-                            </Card>
-                        );
-                    })}
-                </div>
-
-                <div className="bg-white p-8 rounded-2xl border-2 border-dashed border-slate-200 text-center space-y-4 max-w-2xl mx-auto">
-                    <HelpCircle size={32} className="mx-auto text-slate-300" />
-                    <h3 className="font-bold text-lg">Dúvidas sobre os cursos?</h3>
-                    <p className="text-sm text-muted-foreground">Fale diretamente com nossa secretaria ministerial pelo WhatsApp e receba orientações sobre sua trilha.</p>
-                    <Button variant="outline" className="rounded-full px-8" asChild>
-                        <a href="https://wa.me/5521999999999" target="_blank" rel="noopener noreferrer">
-                            <MessageSquare className="size-4 mr-2" /> Atendimento via WhatsApp
-                        </a>
+        <div className="min-h-screen bg-slate-50 font-sans">
+            <header className="bg-white border-b py-6 px-4">
+                <div className="container mx-auto flex flex-col items-center text-center">
+                    <Button variant="ghost" asChild className="mb-4 text-muted-foreground hover:text-primary">
+                        <Link href="/"><ArrowLeft className="mr-2 size-4" /> Voltar ao Site</Link>
                     </Button>
+                    <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter text-slate-900 mb-4">INSCRIÇÕES IBM</h1>
+                    <p className="text-slate-500 max-w-lg">Escolha seu próximo passo na trilha de crescimento.</p>
+                    <div className="mt-4 flex flex-wrap justify-center gap-2">
+                        {['Pertencer', 'Crescer', 'Liderar', 'Cuidar', 'Apoiar', 'Enviar'].map(step => (
+                            <span key={step} className="text-[10px] font-black uppercase text-primary/60">{step}</span>
+                        ))}
+                    </div>
                 </div>
-            </div>
+            </header>
 
+            <main className="container mx-auto px-4 py-12">
+                <Tabs defaultValue="Lumine (Discipulado)" className="w-full">
+                    <div className="flex justify-center mb-12">
+                        <TabsList className="bg-white border p-1 h-14 rounded-2xl shadow-sm overflow-x-auto no-scrollbar max-w-full justify-start md:justify-center">
+                            {Object.keys(groupedCourses).map(group => groupedCourses[group].length > 0 && (
+                                <TabsTrigger 
+                                    key={group} 
+                                    value={group}
+                                    className="px-8 rounded-xl font-black uppercase italic tracking-tighter text-xs data-[state=active]:bg-primary data-[state=active]:text-white transition-all"
+                                >
+                                    {group.split(' ')[0]}
+                                </TabsTrigger>
+                            ))}
+                        </TabsList>
+                    </div>
+
+                    {Object.entries(groupedCourses).map(([group, list]) => (
+                        <TabsContent key={group} value={group} className="mt-0 animate-in fade-in-50 duration-500">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                {list.map(course => (
+                                    <CourseCard 
+                                        key={course.id} 
+                                        course={course} 
+                                        classes={classes.filter(cls => cls.courseId === course.id)}
+                                        onSelect={setSelectedCourse}
+                                    />
+                                ))}
+                            </div>
+                        </TabsContent>
+                    ))}
+                </Tabs>
+            </main>
+
+            {/* Modal de Inscrição */}
             <Dialog open={!!selectedCourse} onOpenChange={(open) => !open && setSelectedCourse(null)}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle className="text-xl font-black uppercase italic tracking-tighter">
+                <DialogContent className="max-w-xl sm:rounded-3xl border-none shadow-2xl">
+                    <DialogHeader className="p-4 bg-primary/5 rounded-t-2xl">
+                        <DialogTitle className="text-2xl font-black italic tracking-tighter uppercase text-primary">
                             Inscrição: {selectedCourse?.name}
                         </DialogTitle>
-                        <DialogDescription>
-                            Preencha os dados abaixo. Nossa equipe entrará em contato para confirmar sua vaga na turma.
-                        </DialogDescription>
+                        <DialogDescription className="font-bold uppercase text-[10px]">Preencha os dados para garantir sua vaga</DialogDescription>
                     </DialogHeader>
-                    {selectedCourse && (
-                        <EnrollmentForm 
-                            course={selectedCourse} 
-                            onCancel={() => setSelectedCourse(null)} 
-                        />
+                    
+                    {isSuccess ? (
+                        <div className="py-12 flex flex-col items-center text-center gap-4 animate-in zoom-in-95">
+                            <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center shadow-inner">
+                                <CheckCircle2 size={48} />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-black text-slate-900">SOLICITAÇÃO RECEBIDA!</h3>
+                                <p className="text-muted-foreground text-sm mt-2">Nossa secretaria entrará em contato em breve para confirmar sua participação.</p>
+                            </div>
+                            <Button className="mt-4 rounded-xl px-8 font-bold" onClick={() => { setSelectedCourse(null); setIsSuccess(false); }}>Fechar</Button>
+                        </div>
+                    ) : (
+                        selectedCourse && (
+                            <EnrollmentForm 
+                                course={selectedCourse} 
+                                classes={classes.filter(cls => cls.courseId === selectedCourse.id)}
+                                on处Success={() => setIsSuccess(true)}
+                            />
+                        )
                     )}
                 </DialogContent>
             </Dialog>
+
+            <footer className="py-12 bg-white border-t mt-20">
+                <div className="container mx-auto px-4 text-center text-muted-foreground text-xs font-bold uppercase tracking-widest">
+                    © {new Date().getFullYear()} Igreja Batista da Manhã • OikoApp
+                </div>
+            </footer>
         </div>
     );
 }
 
-function HelpCircle(props: any) {
-    return (
-        <svg
-            {...props}
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-            <circle cx="12" cy="12" r="10" />
-            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-            <path d="M12 17h.01" />
-        </svg>
-    )
-}
-
 export default function PublicEnrollmentPage() {
     return (
-        <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>}>
-            <EnrollmentContent />
-        </Suspense>
+        <VolunteeringProvider>
+            <Suspense fallback={<div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>}>
+                <EnrollmentPageContent />
+            </Suspense>
+        </VolunteeringProvider>
     );
 }
