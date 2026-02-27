@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST() {
     try {
-        // 1. Criar ou buscar um cliente de teste usando a nova API
+        // 1. Criar ou buscar um cliente usando o Host V1
         const testMember = {
             name: `Membro Teste OikoApp ${Math.floor(Math.random() * 1000)}`,
             email: 'suporte@oikoapp.com.br',
@@ -15,7 +15,7 @@ export async function POST() {
 
         const customerId = await findOrCreateContaAzulCustomer(testMember);
         
-        // 2. Buscar contas financeiras para obter um ID válido (v1 no host api-v2)
+        // 2. Buscar contas financeiras no Host V2 para obter um ID válido
         const bankData = await callContaAzulApi('/v1/conta-financeira');
         const bankAccounts = Array.isArray(bankData) ? bankData : (bankData.itens || bankData.items || []);
         
@@ -25,7 +25,7 @@ export async function POST() {
             throw new Error('Nenhuma conta financeira ativa encontrada para o teste.');
         }
 
-        // 3. Criar um Recebível (v1 no host api-v2) para validar escrita
+        // 3. Criar um Recebível no Host V2 para validar escrita
         const today = new Date().toISOString().split('T')[0];
         const receivableData = {
             data_competencia: today,

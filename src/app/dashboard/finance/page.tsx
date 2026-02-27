@@ -78,8 +78,8 @@ function IntegrationLaboratory({ lastError }: { lastError?: string }) {
                 addLog("Sucesso! Registro de teste criado no Conta Azul.");
                 toast({ title: "Escrita OK", description: "Lançamento de teste gerado." });
             } else {
-                const errorMsg = typeof data.error === 'object' ? JSON.stringify(data.error) : (data.error || "Erro na API");
-                throw new Error(errorMsg);
+                addLog(`ERRO: ${data.error}`);
+                throw new Error(data.error || "Erro na API");
             }
         } catch (e: any) {
             addLog(`FALHA NA ESCRITA: ${e.message}`);
@@ -164,7 +164,7 @@ function ContaAzulConnect() {
         });
         toast({ title: 'Configurações Salvas!', description: 'As credenciais foram atualizadas.' });
     } catch (e) {
-        toast({ variant: 'destructive', title: 'Erro ao salvar', description: 'Verifique sua conexão.' });
+        toast({ variant: 'destructive', title: 'Erro ao salvar' });
     } finally {
         setIsSaving(false);
     }
@@ -175,7 +175,6 @@ function ContaAzulConnect() {
     
     if (confirmDisconnect) {
         setIsDisconnecting(true);
-        console.log("Iniciando desconexão definitiva...");
         try {
             await updateDoc(configDocRef, { 
                 accessToken: '', 
@@ -184,18 +183,16 @@ function ContaAzulConnect() {
                 lastError: 'Desconectado pelo usuário.',
                 updatedAt: new Date().toISOString()
             });
-            setAccessToken('');
             setConfirmDisconnect(false);
-            toast({ title: 'Conexão Encerrada', description: 'Todos os tokens foram removidos.' });
+            toast({ title: 'Conexão Encerrada' });
         } catch (e) {
-            console.error("Erro ao desconectar:", e);
             toast({ variant: 'destructive', title: 'Erro ao desconectar' });
         } finally {
             setIsDisconnecting(false);
         }
     } else {
         setConfirmDisconnect(true);
-        setTimeout(() => setConfirmDisconnect(false), 10000);
+        setTimeout(() => setConfirmDisconnect(false), 5000);
     }
   };
 
@@ -217,7 +214,7 @@ function ContaAzulConnect() {
                 <CardContent className="space-y-4 pt-6">
                     <div className="space-y-2">
                         <Label className="text-xs font-bold uppercase text-muted-foreground">Client ID</Label>
-                        <Input value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="ID da aplicação no portal dev" />
+                        <Input value={clientId} onChange={(e) => setClientId(e.target.value)} placeholder="ID da aplicação" />
                     </div>
                     <div className="space-y-2">
                         <Label className="text-xs font-bold uppercase text-muted-foreground">Client Secret</Label>
@@ -256,8 +253,8 @@ function ContaAzulConnect() {
                             <p className="text-sm font-medium">Próximos Passos:</p>
                             <ol className="text-xs space-y-2 text-muted-foreground list-decimal pl-4">
                                 <li>Insira o <strong>Client ID</strong> e <strong>Secret</strong> e salve.</li>
-                                <li>Configure o <strong>Redirect URI</strong> no portal dev da Conta Azul.</li>
-                                <li>Clique no botão abaixo para autorizar a IBM.</li>
+                                <li>Configure o <strong>Redirect URI</strong> no portal.</li>
+                                <li>Clique abaixo para autorizar.</li>
                             </ol>
                         </div>
                         <Button className="w-full h-12 bg-blue-600 hover:bg-blue-700 font-black shadow-xl" asChild disabled={!clientId || !clientSecret}>
@@ -275,23 +272,14 @@ function ContaAzulConnect() {
                             variant="outline" 
                             className={cn(
                                 "transition-all font-bold", 
-                                confirmDisconnect ? "bg-red-600 text-white border-red-600 hover:bg-red-700" : "text-destructive border-destructive/20 hover:bg-red-50"
+                                confirmDisconnect ? "bg-red-600 text-white border-red-600" : "text-destructive border-destructive/20"
                             )} 
                             onClick={handleDisconnect}
                             disabled={isDisconnecting}
                         >
-                            {isDisconnecting ? (
-                                <Loader2 className="animate-spin size-4 mr-2" />
-                            ) : confirmDisconnect ? (
-                                <AlertCircle className="size-4 mr-2" />
-                            ) : (
-                                <LogOut className="size-4 mr-2" />
-                            )}
-                            {confirmDisconnect ? "Confirmar Desconexão?" : "Encerrar Conexão"}
+                            {isDisconnecting ? <Loader2 className="animate-spin size-4 mr-2" /> : confirmDisconnect ? <AlertCircle className="size-4 mr-2" /> : <LogOut className="size-4 mr-2" />}
+                            {confirmDisconnect ? "Confirmar?" : "Encerrar Conexão"}
                         </Button>
-                        {confirmDisconnect && (
-                            <p className="text-[10px] text-destructive animate-pulse font-bold">Clique novamente para confirmar a limpeza dos dados.</p>
-                        )}
                     </div>
                 )}
             </CardContent>
@@ -341,7 +329,7 @@ function FinancePageContent() {
         </TabsList>
 
         <TabsContent value="dashboard" className="mt-6">
-            <Card><CardHeader><CardTitle>Indicadores de Performance</CardTitle></CardHeader><CardContent className="h-[300px] flex items-center justify-center italic text-muted-foreground">O gráfico de performance será renderizado em breve.</CardContent></Card>
+            <Card><CardHeader><CardTitle>Indicadores de Performance</CardTitle></CardHeader><CardContent className="h-[300px] flex items-center justify-center italic text-muted-foreground">Gráficos de performance financeira em desenvolvimento.</CardContent></Card>
         </TabsContent>
         <TabsContent value="tithes" className="mt-6"><TithesOfferingsManager /></TabsContent>
         <TabsContent value="cashflow" className="mt-6"><CashFlowManager /></TabsContent>
