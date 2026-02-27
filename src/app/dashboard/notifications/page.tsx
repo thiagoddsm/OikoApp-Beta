@@ -710,10 +710,12 @@ function NotificationsConfig() {
     const checkStatus = async () => {
         setIsRefreshing(true);
         try {
-            const res = await fetch('/api/notifications/instance');
+            const res = await fetch('/api/notifications/instance', { cache: 'no-store' });
             const data = await res.json();
             setInstanceStatus(data);
-        } catch (e) {}
+        } catch (e) {
+            console.error("Erro ao verificar status:", e);
+        }
         finally { setIsRefreshing(false); }
     };
 
@@ -822,9 +824,9 @@ function NotificationsConfig() {
                                 </div>
                                 <div>
                                     <h4 className="font-black text-emerald-900 uppercase tracking-tight">Sistema Online</h4>
-                                    <p className="text-[10px] text-emerald-700 font-bold uppercase mt-1">Sincronização Ativa</p>
+                                    <p className="text-[10px] text-emerald-700 font-bold uppercase mt-1">Conectado com Sucesso</p>
                                 </div>
-                                <Badge className="bg-emerald-600 text-white border-none font-black text-[10px] px-4">DISPONÍVEL</Badge>
+                                <Badge className="bg-emerald-600 text-white border-none font-black text-[10px] px-4">ATIVO</Badge>
                             </div>
                         ) : instanceStatus?.qr ? (
                             <div className="space-y-4 animate-in fade-in zoom-in-95">
@@ -839,7 +841,7 @@ function NotificationsConfig() {
                         ) : (
                             <div className="space-y-4 opacity-50">
                                 <Smartphone size={64} className="text-muted-foreground" />
-                                <p className="text-xs font-bold text-muted-foreground uppercase">Verificando dispositivo...</p>
+                                <p className="text-xs font-bold text-muted-foreground uppercase">{instanceStatus?.message || 'Verificando dispositivo...'}</p>
                                 <Button size="sm" variant="ghost" onClick={checkStatus}><RefreshCw size={14} className="mr-2"/> Atualizar agora</Button>
                             </div>
                         )}

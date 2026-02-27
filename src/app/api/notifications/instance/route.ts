@@ -2,10 +2,10 @@
 import { NextResponse } from 'next/server';
 import { initializeFirebase } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { WhatsApp } from '@raphaelvserafim/client-api-whatsapp';
 
 /**
- * API Route to manage WhatsApp Instance using official library
+ * API Route to manage WhatsApp Instance with robust status detection
+ * Direct fetch to us.api-wa.me to ensure compatibility with v5 Pro Plan
  */
 
 export const dynamic = 'force-dynamic';
@@ -32,21 +32,35 @@ export async function GET() {
     }
 
     try {
-        const whatsapp = new WhatsApp({
-            server: "https://us.api-wa.me",
-            key: waKey
+        // Direct fetch to get the most reliable data
+        const response = await fetch(`https://us.api-wa.me/${waKey}/instance`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store'
         });
 
-        const data = await whatsapp.info();
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            return NextResponse.json({ 
+                status: 'error', 
+                message: data.message || `Erro HTTP ${response.status}`,
+                details: data
+            });
+        }
         
-        // Mapeamento resiliente para o status visual
-        const stateStr = (data.instance?.state || data.state || data.status || '').toString().toLowerCase();
-        const isOnline = data.authenticated === true || data.instance?.authenticated === true || ['open', 'connected', 'online', 'authenticated'].includes(stateStr);
+        // Robust state detection for v5.0.0
+        // It checks instance.state, state, status and authenticated flags
+        const instanceData = data.instance || data;
+        const stateStr = (instanceData.state || instanceData.status || data.state || '').toString().toLowerCase();
+        const isAuthenticated = data.authenticated === true || instanceData.authenticated === true;
+        
+        const isOnline = isAuthenticated || ['open', 'connected', 'online', 'authenticated'].includes(stateStr);
         
         let displayStatus = 'unknown';
         if (isOnline) {
             displayStatus = 'connected';
-        } else if (data.qr || data.qrcode || data.instance?.qr || stateStr.includes('pairing') || stateStr.includes('qr')) {
+        } else if (data.qr || data.qrcode || instanceData.qr || stateStr.includes('pairing') || stateStr.includes('qr')) {
             displayStatus = 'pairing';
         } else if (['closed', 'logout', 'disconnected', 'offline'].includes(stateStr)) {
             displayStatus = 'offline';
@@ -56,8 +70,8 @@ export async function GET() {
 
         return NextResponse.json({ 
             status: displayStatus,
-            message: data.message || '',
-            qr: data.qr || data.qrcode || data.instance?.qr || null,
+            message: data.message || stateStr || '',
+            qr: data.qr || data.qrcode || instanceData.qr || null,
             details: data 
         });
     } catch (fetchErr: any) {
