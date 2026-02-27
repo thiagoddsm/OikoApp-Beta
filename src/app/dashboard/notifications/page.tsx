@@ -422,7 +422,6 @@ function WhatsappResponses() {
             const pollName = r.pollName || 'Enquete';
             if (!stats[pollName]) stats[pollName] = {};
             r.selectedOptions?.forEach((opt: string) => {
-                // Algumas APIs enviam a opção como string ou objeto com hash
                 const optLabel = typeof opt === 'string' ? opt : (opt as any).label || (opt as any).text || JSON.stringify(opt);
                 stats[pollName][optLabel] = (stats[pollName][optLabel] || 0) + 1;
             });
@@ -511,7 +510,6 @@ function NotificationsConfig() {
     useEffect(() => {
         if (config) {
             setWaKey(config.whatsappApiKey || '');
-            // Se a URL não estiver no banco, tenta construir uma a partir do host atual
             const defaultWebhook = config.webhookUrl || `${window.location.origin}/api/notifications/webhook`;
             setWebhookUrl(defaultWebhook);
         }
@@ -689,8 +687,8 @@ export default function NotificationsPage() {
                 <TabsList className="flex h-auto justify-start bg-muted/50 p-1 rounded-xl w-fit min-w-max border-2">
                     <TabsTrigger value="sender" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Disparador</TabsTrigger>
                     <TabsTrigger value="chats" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Conversas</TabsTrigger>
-                    <TabsTrigger value="responses" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Respostas Enquetes</TabsTrigger>
-                    <TabsTrigger value="history" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Histórico Envios</TabsTrigger>
+                    <TabsTrigger value="responses" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Respostas</TabsTrigger>
+                    <TabsTrigger value="history" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Histórico</TabsTrigger>
                     <TabsTrigger value="config" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Configuração</TabsTrigger>
                 </TabsList>
             </div>

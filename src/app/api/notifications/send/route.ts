@@ -1,7 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { initializeFirebase } from '@/firebase';
-import { collection, query, where, getDocs, addDoc, Timestamp, doc, setDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, Timestamp, doc, setDoc, getDoc } from 'firebase/firestore';
 
 /**
  * API Route to send WhatsApp messages using direct fetch to api-wa.me
@@ -48,18 +48,15 @@ export async function POST(request: Request) {
     const { firestore } = initializeFirebase();
     
     let waKey = null;
-    try {
-        const configRef = doc(firestore, 'config', 'notifications');
-        const configSnap = await getDoc(configRef);
-        if (configSnap.exists()) {
-            waKey = configSnap.data()?.whatsappApiKey;
-        }
-    } catch (e: any) {
-        return NextResponse.json({ error: `Erro de permissão ao ler banco de dados.` }, { status: 500 });
+    // Tenta ler a configuração. Se falhar, reporta o erro técnico real para debug.
+    const configRef = doc(firestore, 'config', 'notifications');
+    const configSnap = await getDoc(configRef);
+    if (configSnap.exists()) {
+        waKey = configSnap.data()?.whatsappApiKey;
     }
 
     if (!waKey && channel === 'whatsapp') {
-        return NextResponse.json({ error: "API Key não configurada no sistema." }, { status: 400 });
+        return NextResponse.json({ error: "Gateway não configurado. Vá em Configurações e insira sua API Key." }, { status: 400 });
     }
 
     const targetUsers: any[] = [];
@@ -213,7 +210,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, sentCount });
   } catch (error: any) {
     return NextResponse.json({ 
-        error: error.message, 
+        error: `Falha técnica: ${error.message}`, 
         endpoint: currentEndpoint 
     }, { status: 500 });
   }

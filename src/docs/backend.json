@@ -11,162 +11,93 @@
         "phone": { "type": "string" },
         "roles": {
           "type": "array",
-          "items": { "type": "string", "enum": ["admin", "pastor_senior", "pastor", "lider_rede", "lider_area", "lider_gc", "team_leader", "member", "volunteer"] },
-          "description": "User roles."
+          "items": { "type": "string", "enum": ["admin", "pastor_senior", "pastor", "lider_rede", "lider_area", "lider_gc", "team_leader", "member", "volunteer"] }
         },
-        "familyId": { "type": "string", "description": "ID linking users of the same family." },
-        "journey": {
-          "type": "object",
-          "description": "Tracks the user's progress in the spiritual journey.",
-          "properties": {
-            "td": { "type": "boolean", "description": "Trilho do Crescimento" },
-            "baptism": { "type": "boolean" },
-            "membership_course": { "type": "boolean" }
-          }
-        },
-        "skills": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "Spiritual gifts and skills."
-        },
-        "stats": {
-          "type": "object",
-          "properties": {
-            "attendance_streak": { "type": "number" },
-            "last_checkin": { "type": "string", "format": "date-time" },
-            "volunteer_hours": { "type": "number" }
-          }
-        },
-        "blockedDates": {
-            "type": "array",
-            "items": { "type": "string", "format": "date" },
-            "description": "Dates the volunteer is unavailable to serve."
-        },
-        "eligibleEventIds": {
-            "type": "array",
-            "items": { "type": "string" },
-            "description": "IDs of the VolunteeringEvent the user is available for."
-        },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "dataNascimento": { "type": "string", "format": "date" },
-        "address": {
-          "type": "object",
-          "properties": { "street": { "type": "string" } }
-        },
-        "batizado": { "type": "string", "enum": ["sim", "nao"] },
-        "igrejaBatismo": { "type": "string" },
-        "membroAntigo": { "type": "string", "enum": ["sim", "nao"] },
-        "igrejaAntiga": { "type": "string" },
-        "decisao": { "type": "array", "items": { "type": "string", "enum": ["Decisão por Cristo", "Reconciliação", "Ingressar em um GC", "Apenas Visitando", "Procurando uma igreja para congregar"] } },
-        "initialStatus": { "type": "string", "enum": ["nao_convertido", "novo_convertido", "reconciliado", "membro_outra_igreja"], "description": "The initial status of the person when they joined."},
-        "dataDecisao": { "type": "string", "format": "date" },
-        "estadoCivil": { "type": "string" },
-        "temFilhos": { "type": "string", "enum": ["sim", "nao"] },
-        "idadeFilhos": { "type": "string" },
-        "comoConheceu": { "type": "string" },
-        "nomeConvidou": { "type": "string" },
-        "contatoPreferencia": { "type": "array", "items": { "type": "string" } },
-        "contatoTurno": { "type": "array", "items": { "type": "string" } },
-        "observacoes": { "type": "string", "description": "General observations about the user." },
         "integrationStatus": { "type": "string" },
-        "isTeacher": { "type": "boolean", "description": "Indicates if the user is a teacher."},
-        "taughtCourseIds": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "IDs of the Courses the user teaches."
-        },
-        "serviceStatus": { "type": "string", "enum": ["serving", "not_serving"], "description": "Indicates if the user is currently serving." },
-        "serviceAreaId": { "type": "string", "description": "ID of the AreaOfService the user serves in." },
-        "serviceTeamId": { "type": "string", "description": "ID of the Team the user is part of." },
-        "lastServedDate": { "type": "string", "format": "date-time", "description": "The last date the volunteer served." },
-        "hierarchy": {
-          "type": "object",
-          "properties": {
-            "celulaId": { "type": "string" },
-            "supervisorId": { "type": "string" },
-            "role": { "type": "string" }
-          }
-        },
-        "dizimista": { "type": "string", "enum": ["sim", "nao"] },
-        "financialStatus": { "type": "string", "enum": ["active", "blocked", "delinquent"], "description": "Financial status for Wave music school." }
+        "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["name", "email", "createdAt"]
     },
-    "FinancialTransaction": {
-      "title": "Financial Transaction",
+    "NotificationChat": {
+      "title": "Notification Chat",
       "type": "object",
-      "description": "A general financial entry for the church (income or expense).",
+      "description": "Summary of a conversation.",
       "properties": {
-        "type": { "type": "string", "enum": ["income", "expense"] },
-        "category": { "type": "string", "description": "e.g., Dízimo, Oferta, Aluguel, Salário" },
-        "amount": { "type": "number" },
-        "date": { "type": "string", "format": "date-time" },
-        "description": { "type": "string" },
-        "status": { "type": "string", "enum": ["pending", "paid"] },
-        "memberId": { "type": "string", "description": "Optional: User ID for tithes/offerings" },
-        "paymentMethod": { "type": "string", "enum": ["PIX", "Dinheiro", "Cartão", "Transferência"] },
-        "contaAzulSync": { "type": "boolean" }
-      },
-      "required": ["type", "category", "amount", "date", "status"]
-    },
-    "Class": {
-      "title": "Class",
-      "type": "object",
-      "description": "Represents a specific class or group for a course.",
-      "properties": {
-        "courseId": { "type": "string" },
-        "name": { "type": "string" },
-        "teacherId": { "type": "string" },
-        "students": { "type": "array", "items": { "type": "string" }},
-        "frequency": { "type": "string", "enum": ["pontual", "semanal", "quinzenal", "mensal"] },
-        "startDate": { "type": "string", "format": "date" },
-        "endDate": { "type": "string", "format": "date" },
-        "startTime": { "type": "string", "format": "time" },
-        "endTime": { "type": "string", "format": "time" },
-        "dayOfWeek": { "type": "string" },
-        "locationId": { "type": "string" },
-        "attendance": { "type": "array" },
-        "grades": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "studentId": { "type": "string" },
-                    "assessmentName": { "type": "string" },
-                    "grade": { "type": "number" }
-                }
-            }
-        },
-        "materials": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "title": { "type": "string" },
-                    "url": { "type": "string" },
-                    "description": { "type": "string" }
-                }
-            }
-        }
+        "lastMessage": { "type": "string" },
+        "lastMessageAt": { "type": "string", "format": "date-time" },
+        "userName": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "unreadCount": { "type": "number" },
+        "isGroup": { "type": "boolean" }
       }
     },
-    "EnrollmentRequest": {
-        "title": "Enrollment Request",
-        "type": "object",
-        "description": "A request for course enrollment from the public portal.",
-        "properties": {
-            "name": { "type": "string" },
-            "email": { "type": "string" },
-            "phone": { "type": "string" },
-            "cpf": { "type": "string" },
-            "sexo": { "type": "string" },
-            "dataNascimento": { "type": "string" },
-            "courseId": { "type": "string" },
-            "classId": { "type": "string" },
-            "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
-            "createdAt": { "type": "string", "format": "date-time" }
-        },
-        "required": ["name", "phone", "courseId", "status", "createdAt"]
+    "NotificationMessage": {
+      "title": "Notification Message",
+      "type": "object",
+      "description": "Individual message entry.",
+      "properties": {
+        "content": { "type": "string" },
+        "from": { "type": "string" },
+        "fromMe": { "type": "boolean" },
+        "receivedAt": { "type": "string", "format": "date-time" },
+        "type": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" }
+      }
+    },
+    "NotificationResponse": {
+      "title": "Notification Response",
+      "type": "object",
+      "description": "Response to a button or poll.",
+      "properties": {
+        "from": { "type": "string" },
+        "userName": { "type": "string" },
+        "type": { "type": "string", "enum": ["button", "poll"] },
+        "pollName": { "type": "string" },
+        "selectedOptions": { "type": "array", "items": { "type": "string" } },
+        "buttonId": { "type": "string" },
+        "buttonText": { "type": "string" },
+        "receivedAt": { "type": "string", "format": "date-time" }
+      }
+    },
+    "NotificationHistory": {
+      "title": "Notification History",
+      "type": "object",
+      "description": "Log of broadcast messages.",
+      "properties": {
+        "channel": { "type": "string" },
+        "type": { "type": "string" },
+        "message": { "type": "string" },
+        "recipientCount": { "type": "number" },
+        "successCount": { "type": "number" },
+        "status": { "type": "string" },
+        "sentAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "auth": {
+    "providers": ["google.com"]
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/backend/entities/User" },
+      "description": "User profiles."
+    },
+    "/notifications_chats/{chatId}": {
+      "schema": { "$ref": "#/backend/entities/NotificationChat" },
+      "description": "Chat summaries."
+    },
+    "/notifications_messages/{messageId}": {
+      "schema": { "$ref": "#/backend/entities/NotificationMessage" },
+      "description": "Message history."
+    },
+    "/notifications_responses/{docId}": {
+      "schema": { "$ref": "#/backend/entities/NotificationResponse" },
+      "description": "Button and poll responses."
+    },
+    "/notifications_history/{docId}": {
+      "schema": { "$ref": "#/backend/entities/NotificationHistory" },
+      "description": "Broadcast history."
     }
   }
 }
