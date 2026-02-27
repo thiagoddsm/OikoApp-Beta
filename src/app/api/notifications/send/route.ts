@@ -5,7 +5,7 @@ import { collection, query, where, getDocs, addDoc, Timestamp, doc, getDoc, setD
 
 /**
  * API Route to send WhatsApp messages using direct fetch to api-wa.me
- * Optimized for v5.0.0 Pro Plan Features
+ * Optimized for v5.0.0 Pro Plan Features and Baileys structures
  */
 
 const getMimetype = (url: string) => {
@@ -115,15 +115,16 @@ export async function POST(request: Request) {
 
         switch (type) {
             case 'button':
-                // Corrigido para plural 'buttons' conforme padrão Pro v5
-                endpoint = 'message/buttons';
+                // Estrutura conforme exemplo fornecido pelo usuário (Padrão Baileys)
+                endpoint = 'message/text'; 
                 payload = {
                     to: formattedPhone,
-                    title: personalizedBody || (title || 'Informativo IBM').replace('{{nome}}', user.name),
+                    text: personalizedBody || (title || 'Informativo IBM').replace('{{nome}}', user.name),
                     footer: (footer || 'Igreja Batista da Manhã').replace('{{nome}}', user.name),
                     buttons: (buttons || []).map((b: any) => ({
-                        id: b.id,
-                        text: b.text
+                        buttonId: b.id,
+                        buttonText: { displayText: b.text },
+                        type: 1
                     }))
                 };
                 break;
@@ -175,7 +176,7 @@ export async function POST(request: Request) {
                 sentCount++;
                 
                 const cleanPhone = formattedPhone.replace('@s.whatsapp.net', '');
-                const displayContent = type === 'survey' ? `[ENQUETE] ${surveyName}` : (type === 'button' ? (payload.title || 'Botão') : (personalizedBody || title || 'Mídia'));
+                const displayContent = type === 'survey' ? `[ENQUETE] ${surveyName}` : (type === 'button' ? (payload.text || 'Botão') : (personalizedBody || title || 'Mídia'));
 
                 await addDoc(collection(firestore, 'notifications_messages'), {
                     from: cleanPhone,
