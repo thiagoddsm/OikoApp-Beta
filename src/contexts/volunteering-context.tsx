@@ -84,6 +84,7 @@ export type Class = {
   name: string;
   teacherId: string;
   students: string[];
+  maxStudents?: number; // Added capacity limit
   frequency: 'pontual' | 'semanal' | 'quinzenal' | 'mensal';
   startDate?: string;
   endDate?: string;
@@ -752,7 +753,7 @@ export function VolunteeringProvider({ children }: { children: React.ReactNode }
             }
 
             const dateStr = format(current, 'yyyy-MM-dd');
-            if (matches && !holidays.has(dateStr)) occurrences.push(dateStr);
+            if (matches && ! holidays.has(dateStr)) occurrences.push(dateStr);
             if (cls.frequency === 'pontual') break;
             current = addWeeks(current, 1);
         }

@@ -1,11 +1,10 @@
-
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
-import { Loader2, PlusCircle, Edit, Trash2, ChevronRight, Wand2, ClipboardCheck, BookOpen } from 'lucide-react';
+import { Loader2, PlusCircle, Edit, Trash2, ChevronRight, Wand2, ClipboardCheck, BookOpen, Users } from 'lucide-react';
 import { ClassFormDialog } from './class-form-dialog';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { format } from 'date-fns';
@@ -14,7 +13,22 @@ import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 
-type Class = { id: string; name: string; teacherId: string; students: string[]; courseId: string; frequency?: 'pontual' | 'semanal' | 'quinzenal' | 'mensal', startDate?: string, endDate?: string, startTime?: string, endTime?: string, dayOfWeek?: string, weekOfMonth?: string, locationId?: string };
+type Class = { 
+    id: string; 
+    name: string; 
+    teacherId: string; 
+    students: string[]; 
+    maxStudents?: number;
+    courseId: string; 
+    frequency?: 'pontual' | 'semanal' | 'quinzenal' | 'mensal', 
+    startDate?: string, 
+    endDate?: string, 
+    startTime?: string, 
+    endTime?: string, 
+    dayOfWeek?: string, 
+    weekOfMonth?: string, 
+    locationId?: string 
+};
 
 export function CourseClassesManager({ course }) {
     const { firestore } = useFirebase();
@@ -78,6 +92,7 @@ export function CourseClassesManager({ course }) {
                     name: aula.name,
                     teacherId: "",
                     students: [],
+                    maxStudents: 30, // Default for generated cycles
                     frequency: 'mensal',
                     dayOfWeek: "Domingo",
                     weekOfMonth: aula.week as any,
@@ -129,7 +144,7 @@ export function CourseClassesManager({ course }) {
                         <TableRow>
                             <TableHead>Turma</TableHead>
                             <TableHead>Professor</TableHead>
-                            <TableHead>Alunos</TableHead>
+                            <TableHead>Alunos / Vagas</TableHead>
                             <TableHead>Programação</TableHead>
                             <TableHead>Local</TableHead>
                             <TableHead className="text-right">Ações</TableHead>
@@ -145,11 +160,23 @@ export function CourseClassesManager({ course }) {
                                 const locationName = cls.locationId === 'the_school'
                                     ? 'The School'
                                     : (cls.locationId ? roomMap.get(cls.locationId) : '-') || '-';
+                                
+                                const studentCount = cls.students?.length || 0;
+                                const max = cls.maxStudents;
+                                const isFull = max && studentCount >= max;
+
                                 return (
                                 <TableRow key={cls.id} className="group">
                                     <TableCell className="font-medium">{cls.name}</TableCell>
                                     <TableCell>{userMap.get(cls.teacherId) || '-'}</TableCell>
-                                    <TableCell>{cls.students?.length || 0}</TableCell>
+                                    <TableCell>
+                                        <div className="flex items-center gap-2">
+                                            <Badge variant={isFull ? "destructive" : "secondary"} className="font-bold">
+                                                {studentCount}{max ? ` / ${max}` : ''}
+                                            </Badge>
+                                            {isFull && <span className="text-[10px] font-black text-destructive uppercase">Esgotada</span>}
+                                        </div>
+                                    </TableCell>
                                     <TableCell>{formatSchedule(cls)}</TableCell>
                                     <TableCell>{locationName}</TableCell>
                                     <TableCell className="text-right">

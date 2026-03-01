@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Calendar as CalendarIcon, X, PlusCircle } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, X, PlusCircle, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { Calendar } from '@/components/ui/calendar';
@@ -24,6 +24,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
 
   const [name, setName] = useState('');
   const [teacherId, setTeacherId] = useState('');
+  const [maxStudents, setMaxStudents] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   
   const [frequency, setFrequency] = useState<'pontual' | 'semanal' | 'quinzenal' | 'mensal'>('pontual');
@@ -48,6 +49,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
       if (existingClass) {
         setName(existingClass.name || '');
         setTeacherId(existingClass.teacherId || '');
+        setMaxStudents(existingClass.maxStudents?.toString() || '');
         setFrequency(existingClass.frequency || 'pontual');
         setStartDate(existingClass.startDate || '');
         setEndDate(existingClass.endDate || '');
@@ -72,6 +74,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
       } else {
         setName('');
         setTeacherId('');
+        setMaxStudents('');
         setFrequency('pontual');
         setStartDate('');
         setEndDate('');
@@ -105,6 +108,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
         courseId, 
         name, 
         teacherId: teacherId === 'null' ? '' : teacherId, 
+        maxStudents: maxStudents ? parseInt(maxStudents, 10) : undefined,
         students: existingClass?.students || [],
         frequency,
         startDate,
@@ -174,6 +178,12 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
                     {teachers.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="maxStudents" className="flex items-center gap-2">
+                    <Users className="size-3 text-primary"/> Limite de Vagas (Opcional)
+                </Label>
+                <Input id="maxStudents" type="number" value={maxStudents} onChange={e => setMaxStudents(e.target.value)} placeholder="Ex: 20" />
               </div>
           </div>
           
