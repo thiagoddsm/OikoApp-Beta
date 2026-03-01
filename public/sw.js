@@ -1,4 +1,4 @@
-const CACHE_NAME = 'oiko-cache-v1';
+const CACHE_NAME = 'oiko-app-cache-v1';
 const urlsToCache = [
   '/',
   '/manifest.json'

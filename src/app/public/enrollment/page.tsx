@@ -6,111 +6,130 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Clock, Users, CheckCircle2 } from 'lucide-react';
+import { 
+    Loader2, 
+    BookOpen, 
+    School, 
+    Waves, 
+    HandHelping, 
+    GraduationCap, 
+    CheckCircle2, 
+    Users, 
+    Calendar, 
+    Clock, 
+    Info, 
+    Star, 
+    Search,
+    ChevronRight
+} from 'lucide-react';
 import { PublicNavbar } from '@/components/public/navbar';
 import { PublicFooter } from '@/components/public/footer';
-import { EnrollmentDialog } from '@/components/teaching/enrollment-dialog';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-
-/**
- * Função utilitária para calcular informações de curso sem violar regras de hooks.
- */
-function getCourseDisplayInfo(courseId: string, allClasses: Class[]) {
-    const courseClasses = allClasses.filter(c => c.courseId === courseId);
-    
-    if (courseClasses.length === 0) {
-        return { schedule: "Sem turmas ativas", vacancies: 0, isFull: true, hasClasses: false };
-    }
-
-    const schedules = new Set<string>();
-    let totalCapacity = 0;
-    let totalOccupied = 0;
-    let hasUnlimited = false;
-
-    courseClasses.forEach(cls => {
-        if (cls.dayOfWeek && cls.startTime) {
-            schedules.add(`${cls.dayOfWeek} às ${cls.startTime}`);
-        }
-        if (cls.maxStudents) {
-            totalCapacity += cls.maxStudents;
-            totalOccupied += cls.students?.length || 0;
-        } else {
-            hasUnlimited = true;
-        }
-    });
-
-    const vacancies = hasUnlimited ? 999 : (totalCapacity - totalOccupied);
-    const isFull = !hasUnlimited && vacancies <= 0;
-
-    return {
-        schedule: Array.from(schedules).join(', ') || "Horário a definir",
-        vacancies: vacancies,
-        isFull: isFull,
-        hasClasses: true
-    };
-}
+import { EnrollmentDialog } from '@/components/teaching/enrollment-dialog';
 
 function EnrollmentPortal() {
     const { courses, classes, isLoading } = useVolunteering();
+    const [searchTerm, setSearchTerm] = useState('');
     const [isEnrollmentOpen, setEnrollmentOpen] = useState(false);
-    const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+    const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
 
-    const handleEnroll = (courseId: string) => {
-        setSelectedCourseId(courseId);
+    const handleEnroll = (course: Course) => {
+        setSelectedCourse(course);
         setEnrollmentOpen(true);
+    };
+
+    const getScheduleSummary = (courseId: string) => {
+        const courseClasses = classes.filter(c => c.courseId === courseId);
+        if (courseClasses.length === 0) return [];
+
+        const summary: Record<string, { day: string, time: string, capacity: number, occupied: number }> = {};
+        
+        courseClasses.forEach(cls => {
+            const key = `${cls.dayOfWeek}-${cls.startTime}`;
+            if (!summary[key]) {
+                summary[key] = { 
+                    day: cls.dayOfWeek || 'A definir', 
+                    time: cls.startTime, 
+                    capacity: 0, 
+                    occupied: 0 
+                };
+            }
+            summary[key].capacity += (cls.maxStudents || 0);
+            summary[key].occupied += (cls.students?.length || 0);
+        });
+
+        return Object.values(summary);
     };
 
     if (isLoading) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh]">
+            <div className="flex h-screen w-full items-center justify-center">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                <p className="mt-4 text-muted-foreground font-bold uppercase tracking-widest text-xs animate-pulse">Sincronizando Cursos Lumine...</p>
             </div>
         );
     }
 
-    // Organização de cursos por categorias solicitadas
-    const trilhosDiscipulado = courses.filter(c => c.type === 'trilho' && c.ebdTrack === 'discipulado');
-    const trilhosBiblico = courses.filter(c => c.type === 'trilho' && c.ebdTrack === 'biblico');
-    const trilhosTeologico = courses.filter(c => c.type === 'trilho' && c.ebdTrack === 'teologico');
-    const escolas = courses.filter(c => c.ministryName?.toLowerCase().includes('wave') || c.ministryName?.toLowerCase().includes('dis'));
-    const outros = courses.filter(c => c.type !== 'trilho' && !c.ministryName?.toLowerCase().includes('wave') && !c.ministryName?.toLowerCase().includes('dis'));
+    const filteredCourses = courses.filter(c => 
+        c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        c.description.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const trilhos = filteredCourses.filter(c => c.type === 'trilho' || c.ministryName.toLowerCase().includes('lumine'));
+    const escolas = filteredCourses.filter(c => ['wave', 'dis'].includes(c.ministryName.toLowerCase()));
+    const outros = filteredCourses.filter(c => c.type === 'eletivo' && !escolas.includes(c) && !trilhos.includes(c));
 
     const renderCourseCard = (course: Course) => {
-        const info = getCourseDisplayInfo(course.id, classes);
-        
+        const schedules = getScheduleSummary(course.id);
+        const hasClasses = schedules.length > 0;
+        const isFull = hasClasses && schedules.every(s => s.capacity > 0 && s.occupied >= s.capacity);
+
         return (
-            <Card key={course.id} className={cn(
-                "flex flex-col h-full transition-all border-2",
-                !info.hasClasses ? "opacity-50 grayscale" : "hover:border-primary/50 hover:shadow-xl"
-            )}>
+            <Card key={course.id} className={cn("flex flex-col h-full transition-all hover:shadow-lg", !hasClasses && "opacity-60 grayscale-[0.5]")}>
                 <CardHeader className="pb-4">
-                    <div className="flex justify-between items-start mb-3">
-                        <Badge variant="outline" className="text-[9px] uppercase font-black tracking-widest bg-muted/30">{course.ministryName}</Badge>
-                        {info.hasClasses && (
-                            <Badge variant={info.isFull ? "destructive" : "secondary"} className="text-[9px] font-black uppercase">
-                                {info.isFull ? "Vagas Esgotadas" : info.vacancies >= 999 ? "Vagas Disponíveis" : `${info.vacancies} vagas restantes`}
-                            </Badge>
-                        )}
+                    <div className="flex justify-between items-start mb-2">
+                        <Badge variant="outline" className="text-[10px] uppercase font-black tracking-widest">{course.ministryName}</Badge>
+                        {isFull && <Badge variant="destructive" className="text-[9px] font-black uppercase">Esgotado</Badge>}
                     </div>
-                    <CardTitle className="text-xl font-black italic tracking-tighter uppercase text-primary leading-tight line-clamp-2">
+                    <CardTitle className="text-xl font-black italic uppercase tracking-tighter text-slate-900 leading-none">
                         {course.name}
                     </CardTitle>
-                    <CardDescription className="text-xs leading-relaxed line-clamp-2">{course.description}</CardDescription>
+                    <CardDescription className="line-clamp-2 text-xs pt-2 min-h-[3rem]">
+                        {course.description}
+                    </CardDescription>
                 </CardHeader>
-                <CardContent className="flex-1 pt-0">
-                    <div className="bg-slate-50 p-3 rounded-xl border border-dashed flex items-center gap-3">
-                        <Clock className="size-4 text-primary shrink-0" />
-                        <span className="text-xs font-bold text-slate-700 leading-tight">{info.schedule}</span>
+                <CardContent className="flex-1 space-y-4">
+                    <div className="space-y-2">
+                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
+                            <Clock className="size-3" /> Horários Disponíveis
+                        </p>
+                        {hasClasses ? (
+                            <div className="space-y-1.5">
+                                {schedules.map((s, i) => (
+                                    <div key={i} className="flex items-center justify-between text-sm bg-muted/30 p-2 rounded-lg border border-border/50">
+                                        <span className="font-bold text-slate-700">{s.day} às {s.time}</span>
+                                        {s.capacity > 0 && (
+                                            <span className={cn("text-[10px] font-black uppercase", s.occupied >= s.capacity ? "text-destructive" : "text-emerald-600")}>
+                                                {s.capacity - s.occupied} vagas
+                                            </span>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-xs italic text-muted-foreground bg-muted/20 p-3 rounded-lg border border-dashed">
+                                Sem turmas abertas no momento.
+                            </p>
+                        )}
                     </div>
                 </CardContent>
-                <CardFooter className="pt-4">
+                <CardFooter className="pt-0">
                     <Button 
-                        className="w-full font-black uppercase tracking-[0.1em] text-xs h-11 shadow-lg shadow-primary/10" 
-                        disabled={!info.hasClasses || info.isFull}
-                        onClick={() => handleEnroll(course.id)}
+                        onClick={() => handleEnroll(course)} 
+                        disabled={!hasClasses || isFull}
+                        className="w-full font-black uppercase tracking-widest"
                     >
-                        {info.isFull ? "Lista de Espera" : "Garantir minha vaga"}
+                        {isFull ? 'Vagas Esgotadas' : 'Inscrever-se'}
                     </Button>
                 </CardFooter>
             </Card>
@@ -118,60 +137,71 @@ function EnrollmentPortal() {
     };
 
     return (
-        <div className="max-w-7xl mx-auto px-4 py-12 sm:py-20">
-            <div className="text-center mb-16 space-y-4 animate-in fade-in slide-in-from-top-4 duration-1000">
-                <h1 className="text-4xl sm:text-7xl font-black italic tracking-tighter uppercase text-slate-900 leading-none">
-                    Portal de <span className="text-primary underline decoration-primary/20">Inscrições</span>
-                </h1>
-                <p className="text-muted-foreground text-sm sm:text-xl max-w-2xl mx-auto font-medium">Conheça nossa grade de ensino e matricule-se no seu próximo nível.</p>
-            </div>
+        <div className="min-h-screen bg-slate-50 flex flex-col">
+            <PublicNavbar />
+            <main className="flex-1 container mx-auto px-4 py-12 max-w-6xl">
+                <header className="text-center space-y-4 mb-12">
+                    <h1 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-slate-900 leading-none">
+                        Portal de Inscrições
+                    </h1>
+                    <p className="text-muted-foreground max-w-2xl mx-auto">
+                        Escolha sua trilha de crescimento e torne-se parte ativa da nossa comunidade.
+                    </p>
+                    <div className="max-w-md mx-auto relative pt-4">
+                        <Search className="absolute left-3 top-7 size-4 text-muted-foreground" />
+                        <Input 
+                            placeholder="Buscar curso..." 
+                            className="pl-10 rounded-full h-12 bg-white shadow-sm"
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                </header>
 
-            <Tabs defaultValue="trilhos" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 mb-12 h-14 bg-slate-100 p-1.5 rounded-2xl border">
-                    <TabsTrigger value="trilhos" className="rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-xs data-[state=active]:bg-white data-[state=active]:shadow-lg">Trilhos</TabsTrigger>
-                    <TabsTrigger value="escolas" className="rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-xs data-[state=active]:bg-white data-[state=active]:shadow-lg">Escolas</TabsTrigger>
-                    <TabsTrigger value="outros" className="rounded-xl font-black uppercase tracking-widest text-[10px] sm:text-xs data-[state=active]:bg-white data-[state=active]:shadow-lg">Outros</TabsTrigger>
-                </TabsList>
+                <Tabs defaultValue="trilhos" className="space-y-8">
+                    <TabsList className="grid w-full grid-cols-3 max-w-lg mx-auto bg-muted/50 p-1 rounded-xl">
+                        <TabsTrigger value="trilhos" className="rounded-lg font-bold py-2">Trilhos</TabsTrigger>
+                        <TabsTrigger value="escolas" className="rounded-lg font-bold py-2">Escolas</TabsTrigger>
+                        <TabsTrigger value="outros" className="rounded-lg font-bold py-2">Outros</TabsTrigger>
+                    </TabsList>
 
-                <TabsContent value="trilhos" className="animate-in fade-in zoom-in-95 duration-500">
-                    <Tabs defaultValue="discipulado" className="w-full">
-                        <div className="flex justify-center mb-8">
-                            <TabsList className="bg-muted/50 p-1 rounded-full h-10 inline-flex">
-                                <TabsTrigger value="discipulado" className="rounded-full text-[9px] uppercase font-black px-6">Discipulado</TabsTrigger>
-                                <TabsTrigger value="biblico" className="rounded-full text-[9px] uppercase font-black px-6">BÍBLICO</TabsTrigger>
-                                <TabsTrigger value="teologico" className="rounded-full text-[9px] uppercase font-black px-6">Teológico</TabsTrigger>
-                            </TabsList>
-                        </div>
-                        
-                        <TabsContent value="discipulado" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {trilhosDiscipulado.map(renderCourseCard)}
-                        </TabsContent>
-                        <TabsContent value="biblico" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {trilhosBiblico.map(renderCourseCard)}
-                        </TabsContent>
-                        <TabsContent value="teologico" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {trilhosTeologico.map(renderCourseCard)}
-                        </TabsContent>
-                    </Tabs>
-                </TabsContent>
+                    <TabsContent value="trilhos" className="animate-in fade-in-50 duration-500">
+                        <Tabs defaultValue="discipulado">
+                            <div className="flex justify-center mb-8">
+                                <TabsList className="inline-flex bg-slate-200/50 p-1 rounded-full">
+                                    <TabsTrigger value="discipulado" className="rounded-full px-6 text-[10px] uppercase font-black">Discipulado</TabsTrigger>
+                                    <TabsTrigger value="biblico" className="rounded-full px-6 text-[10px] uppercase font-black">BÍBLICO</TabsTrigger>
+                                    <TabsTrigger value="teologico" className="rounded-full px-6 text-[10px] uppercase font-black">Teológico</TabsTrigger>
+                                </TabsList>
+                            </div>
+                            
+                            <TabsContent value="discipulado" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {trilhos.filter(c => c.ebdTrack === 'discipulado' || c.name.toLowerCase().includes('pertencer')).map(renderCourseCard)}
+                            </TabsContent>
+                            <TabsContent value="biblico" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {trilhos.filter(c => c.ebdTrack === 'biblico').map(renderCourseCard)}
+                            </TabsContent>
+                            <TabsContent value="teologico" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {trilhos.filter(c => c.ebdTrack === 'teologico').map(renderCourseCard)}
+                            </TabsContent>
+                        </Tabs>
+                    </TabsContent>
 
-                <TabsContent value="escolas" className="animate-in fade-in zoom-in-95 duration-500">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <TabsContent value="escolas" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in-50">
                         {escolas.map(renderCourseCard)}
-                    </div>
-                </TabsContent>
+                    </TabsContent>
 
-                <TabsContent value="outros" className="animate-in fade-in zoom-in-95 duration-500">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <TabsContent value="outros" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in-50">
                         {outros.map(renderCourseCard)}
-                    </div>
-                </TabsContent>
-            </Tabs>
+                    </TabsContent>
+                </Tabs>
+            </main>
+            <PublicFooter />
 
             <EnrollmentDialog 
                 open={isEnrollmentOpen} 
                 onOpenChange={setEnrollmentOpen} 
-                initialCourseId={selectedCourseId}
+                initialCourseId={selectedCourse?.id} 
             />
         </div>
     );
@@ -179,14 +209,8 @@ function EnrollmentPortal() {
 
 export default function EnrollmentPage() {
     return (
-        <div className="min-h-screen bg-slate-50 flex flex-col">
-            <PublicNavbar />
-            <main className="flex-1">
-                <VolunteeringProvider>
-                    <EnrollmentPortal />
-                </VolunteeringProvider>
-            </main>
-            <PublicFooter />
-        </div>
+        <VolunteeringProvider>
+            <EnrollmentPortal />
+        </VolunteeringProvider>
     );
 }
