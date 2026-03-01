@@ -157,8 +157,8 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl overflow-hidden flex flex-col p-0">
-        <DialogHeader className="p-6 border-b bg-muted/20">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="p-6 border-b bg-muted/20 shrink-0">
           <DialogTitle>{existingClass ? 'Editar Turma' : 'Nova Turma'}</DialogTitle>
           <DialogDescription>Configure os detalhes, horários e exceções da turma.</DialogDescription>
         </DialogHeader>
@@ -274,7 +274,6 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
            </div>
 
            <div className="pt-4 border-t grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Seção de Feriados */}
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
                         <h3 className="font-bold text-xs uppercase text-destructive">Datas sem Aula (Feriados)</h3>
@@ -308,7 +307,6 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
                     </div>
                 </div>
 
-                {/* Seção de Datas Extras */}
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
                         <h3 className="font-bold text-xs uppercase text-emerald-600">Datas Extras (Aulas Avulsas)</h3>
@@ -344,7 +342,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
            </div>
         </div>
 
-        <DialogFooter className="p-6 border-t bg-muted/20">
+        <DialogFooter className="p-6 border-t bg-muted/20 shrink-0">
           <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
           <Button onClick={handleSave} disabled={isSaving}>
             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null} Salvar Alterações
