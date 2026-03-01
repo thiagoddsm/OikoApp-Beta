@@ -1,8 +1,9 @@
 'use client';
 
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import React from 'react';
+import Link from 'next/link';
 import { Logo } from "@/components/icons";
+import { Button } from "@/components/ui/button";
 
 export function PublicNavbar() {
   return (
@@ -12,24 +13,14 @@ export function PublicNavbar() {
           <Logo className="size-8 text-primary" />
           <span className="text-xl font-bold tracking-tighter">OikoApp</span>
         </Link>
-        
-        <nav className="hidden md:flex items-center gap-6">
-          <Link 
-            href="/public/enrollment" 
-            className="text-sm font-medium hover:text-primary transition-colors"
-          >
+        <nav className="flex items-center gap-6">
+          <Link href="/public/enrollment" className="text-sm font-medium hover:text-primary transition-colors">
             Inscrições
           </Link>
-        </nav>
-
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" asChild className="hidden sm:inline-flex text-sm font-bold">
+          <Button asChild size="sm">
             <Link href="/login">Portal do Membro</Link>
           </Button>
-          <Button asChild className="font-bold">
-            <Link href="/public/enrollment">Fazer Parte</Link>
-          </Button>
-        </div>
+        </nav>
       </div>
     </header>
   );
