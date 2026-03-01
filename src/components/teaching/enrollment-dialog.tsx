@@ -14,9 +14,10 @@ interface EnrollmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialStudentId?: string;
+  initialCourseId?: string | null;
 }
 
-export function EnrollmentDialog({ open, onOpenChange, initialStudentId }: EnrollmentDialogProps) {
+export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initialCourseId }: EnrollmentDialogProps) {
   const { users, classes, courses, enrollStudent, addUser, isLoading } = useVolunteering();
   const { toast } = useToast();
 
@@ -35,14 +36,14 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId }: Enrol
   useEffect(() => {
     if (open) {
       setStudentId(initialStudentId || '');
-      setSelectedCourseId('');
+      setSelectedCourseId(initialCourseId || '');
       setClassId('');
       setNewName('');
       setNewEmail('');
       setNewPhone('');
       setMode(initialStudentId ? 'existing' : 'existing');
     }
-  }, [open, initialStudentId]);
+  }, [open, initialStudentId, initialCourseId]);
 
   const selectedCourse = useMemo(() => courses.find(c => c.id === selectedCourseId), [courses, selectedCourseId]);
   const isMemberCourse = useMemo(() => 
@@ -117,14 +118,14 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId }: Enrol
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-hidden flex flex-col p-0">
+        <DialogHeader className="p-6 border-b bg-muted/20">
           <DialogTitle>Realizar Matrícula</DialogTitle>
           <DialogDescription>
             Escolha o aluno e o curso. {isMemberCourse && "A matrícula será feita em todas as disciplinas do curso automaticamente."}
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-6 py-4">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Passo 1: Aluno */}
           {!initialStudentId && (
             <RadioGroup value={mode} onValueChange={(v: any) => setMode(v)} className="flex gap-4 p-1 bg-muted rounded-md">
@@ -243,7 +244,7 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId }: Enrol
             </div>
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="p-6 border-t bg-muted/20">
           <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
           <Button onClick={handleSave} disabled={isSaving || isEnrollmentBlocked || (!isMemberCourse && !classId)}>
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
