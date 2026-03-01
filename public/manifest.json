@@ -1,0 +1,21 @@
+{
+  "name": "OikoApp",
+  "short_name": "Oiko",
+  "description": "O Sistema Operacional da Igreja",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F2F0F7",
+  "theme_color": "#6750A4",
+  "icons": [
+    {
+      "src": "https://placehold.co/192x192/6750A4/FFF.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://placehold.co/512x512/6750A4/FFF.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

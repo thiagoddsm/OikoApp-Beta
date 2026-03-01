@@ -29,6 +29,9 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#6750A4" />
+        <link rel="apple-touch-icon" href="https://placehold.co/192x192/6750A4/FFF.png" />
         <Script
             id="__APP_ID__"
             dangerouslySetInnerHTML={{
@@ -43,6 +46,15 @@ export default function RootLayout({
             strategy="beforeInteractive"
           />
         )}
+        <Script id="register-sw" strategy="afterInteractive">
+          {`
+            if ('serviceWorker' in navigator) {
+              window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js');
+              });
+            }
+          `}
+        </Script>
       </head>
       <body className={cn(
         "min-h-screen bg-background font-body antialiased",
