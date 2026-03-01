@@ -1,403 +1,383 @@
+
 'use client';
 
 import React, { useState, useMemo, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { useVolunteering, VolunteeringProvider } from '@/contexts/volunteering-context';
+import { useFirebase } from '@/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { 
-    Loader2, Search, BookOpen, GraduationCap, CheckCircle2, 
-    ChevronRight, ArrowLeft, UserPlus, Waves, Lightbulb, 
-    School, Info, Mail, User, Phone, Check, ShieldCheck,
-    AlertCircle, Building2
+    BookOpen, 
+    GraduationCap, 
+    Lightbulb, 
+    Music, 
+    Users, 
+    Loader2, 
+    Search, 
+    CheckCircle2, 
+    ArrowRight, 
+    Mail, 
+    UserPlus,
+    School,
+    Waves
 } from 'lucide-react';
 import { PublicNavbar } from '@/components/public/navbar';
 import { PublicFooter } from '@/components/public/footer';
-import { useFirebase, addDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
-import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
+import { useToast } from '@/hooks/use-toast';
 
-const ebdTrackLabels: Record<string, string> = {
-    discipulado: "Trilho de Discipulado",
-    teologico: "Trilho Teológico",
-    biblico: "Trilho Bíblico"
-};
-
-function EnrollmentPageContent() {
-    const { courses, classes, isLoading: isContextLoading } = useVolunteering();
+function EnrollmentFlow({ course, classes, onCancel }) {
     const { firestore } = useFirebase();
+    const { addEnrollmentRequest, addUser } = useVolunteering();
     const { toast } = useToast();
-    const searchParams = useSearchParams();
     
-    // UI State
-    const [activeMainTab, setActiveMainTab] = useState('lumine');
-    const [activeLumineTab, setActiveLumineTab] = useState('discipulado');
-    const [selectedCourse, setSelectedCourse] = useState<any>(null);
-    
-    // Enrollment Flow State
     const [step, setStep] = useState<'email' | 'form' | 'success'>('email');
     const [email, setEmail] = useState('');
-    const [isCheckingEmail, setIsCheckingEmail] = useState(false);
-    const [foundUser, setFoundUser] = useState<any>(null);
-    const [isSubmitting, setIsSaving] = useState(false);
+    const [isChecking, setIsChecking] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    
+    const [userData, setUserData] = useState({
+        name: '',
+        phone: '',
+        classId: '',
+    });
 
-    // Form Fields for new user
-    const [name, setName] = useState('');
-    const [phone, setPhone] = useState('');
-    const [selectedClassId, setSelectedClassId] = useState('');
+    const courseClasses = useMemo(() => classes.filter(c => c.courseId === course.id), [classes, course.id]);
 
     const handleCheckEmail = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!email.trim() || !firestore) return;
         
-        setIsCheckingEmail(true);
+        setIsChecking(true);
         try {
-            const q = query(collection(firestore, 'users'), where('email', '==', email.trim().toLowerCase()));
+            const q = query(collection(firestore, 'users'), where('email', '==', email.trim()));
             const snap = await getDocs(q);
             
             if (!snap.empty) {
-                const user = snap.docs[0].data();
-                setFoundUser({ id: snap.docs[0].id, ...user });
-                setName(user.name);
-                setPhone(user.phone || '');
-                toast({ title: "Bem-vindo de volta!", description: `Identificamos seu cadastro como ${user.name}.` });
+                const userDoc = snap.docs[0];
+                const data = userDoc.data();
+                setUserData(prev => ({ ...prev, name: data.name, phone: data.phone || '' }));
+                toast({ title: `Olá, ${data.name.split(' ')[0]}!`, description: "Reconhecemos seu cadastro. Escolha sua turma abaixo." });
             } else {
-                setFoundUser(null);
-                setName('');
-                setPhone('');
+                toast({ title: "Seja bem-vindo!", description: "Não encontramos seu e-mail. Preencha os dados abaixo para continuar." });
             }
             setStep('form');
         } catch (e) {
-            toast({ variant: 'destructive', title: "Erro na verificação", description: "Tente novamente em instantes." });
+            toast({ variant: 'destructive', title: "Erro na verificação" });
         } finally {
-            setIsCheckingEmail(false);
+            setIsChecking(false);
         }
     };
 
-    const handleFinishEnrollment = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedCourse || !selectedClassId || isSubmitting || !firestore) return;
-
-        setIsSaving(true);
+        if (!userData.classId) {
+            toast({ variant: 'destructive', title: "Escolha uma turma" });
+            return;
+        }
+        setIsSubmitting(true);
+        
         try {
-            const enrollmentData = {
-                userId: foundUser?.id || '',
-                name: name,
-                email: email.trim().toLowerCase(),
-                phone: phone,
-                courseId: selectedCourse.id,
-                classId: selectedClassId,
+            // Se for novo, podemos criar o usuário ou apenas a solicitação
+            // Para simplificar o MVP e evitar duplicidade sem login, criamos apenas a solicitação
+            // O administrador cuidará da criação do usuário ao aprovar.
+            
+            await addEnrollmentRequest({
+                userId: '', // Será preenchido no admin
+                name: userData.name,
+                email: email,
+                phone: userData.phone,
+                courseId: course.id,
+                classId: userData.classId,
                 status: 'pending',
-                createdAt: Timestamp.now(),
-            };
-
-            await addDocumentNonBlocking(collection(firestore, 'enrollment_requests'), enrollmentData);
+                createdAt: new Date() as any
+            });
+            
             setStep('success');
-            toast({ title: "Solicitação Enviada!", description: "Sua inscrição está em análise pela coordenação." });
         } catch (e) {
-            toast({ variant: 'destructive', title: "Erro ao enviar", description: "Não foi possível concluir a solicitação." });
+            toast({ variant: 'destructive', title: "Erro ao enviar inscrição" });
         } finally {
-            setIsSaving(false);
+            setIsSubmitting(false);
         }
     };
 
-    const lumineCourses = useMemo(() => courses.filter(c => c.ministryName?.toLowerCase().includes('lumine') || c.ministryName?.toLowerCase().includes('ebd')), [courses]);
-    const schoolCourses = useMemo(() => courses.filter(c => c.ministryName?.toLowerCase().includes('wave') || c.ministryName?.toLowerCase().includes('dis')), [courses]);
-    const otherCourses = useMemo(() => courses.filter(c => !lumineCourses.includes(c) && !schoolCourses.includes(c)), [courses, lumineCourses, schoolCourses]);
-
-    const filteredLumine = useMemo(() => lumineCourses.filter(c => c.ebdTrack === activeLumineTab), [lumineCourses, activeLumineTab]);
-
-    const courseClasses = useMemo(() => {
-        if (!selectedCourse) return [];
-        return classes.filter(cls => cls.courseId === selectedCourse.id);
-    }, [classes, selectedCourse]);
-
-    const renderCourseCard = (course: any) => {
-        const hasClasses = classes.some(cls => cls.courseId === course.id);
-        const Icon = course.ministryName?.toLowerCase().includes('wave') ? Waves : course.ministryName?.toLowerCase().includes('dis') ? School : Lightbulb;
-
+    if (step === 'success') {
         return (
-            <Card key={course.id} className={cn(
-                "overflow-hidden transition-all duration-300 group flex flex-col border-2",
-                hasClasses ? "hover:border-primary/50 hover:shadow-xl cursor-pointer" : "opacity-60 grayscale border-slate-200"
-            )} onClick={() => hasClasses && setSelectedCourse(course)}>
-                <div className="relative aspect-video bg-muted overflow-hidden">
-                    <Image src={`https://picsum.photos/seed/${course.id}/600/400`} alt={course.name} fill className="object-cover transition-transform group-hover:scale-105" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                    <div className="absolute bottom-3 left-3 flex gap-2">
-                        <Badge className="bg-white/20 text-white backdrop-blur-md border-none text-[10px] uppercase font-black">{course.type || 'Curso'}</Badge>
-                    </div>
+            <div className="py-12 text-center space-y-6 animate-in zoom-in-95">
+                <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+                    <CheckCircle2 size={40} />
                 </div>
-                <CardHeader className="p-4 space-y-1">
-                    <div className="flex items-center gap-2 text-primary font-black uppercase text-[10px] tracking-widest">
-                        <Icon className="size-3" /> {course.ministryName}
-                    </div>
-                    <CardTitle className="text-lg font-black leading-tight group-hover:text-primary transition-colors">{course.name}</CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 pt-0 flex-1">
-                    <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{course.description || 'Nenhuma descrição disponível.'}</p>
-                </CardContent>
-                <CardFooter className="p-4 pt-0">
-                    {hasClasses ? (
-                        <Button className="w-full h-10 font-black uppercase text-xs group-hover:bg-primary shadow-lg">
-                            Inscrever-se Agora <ChevronRight className="ml-2 size-4" />
-                        </Button>
-                    ) : (
-                        <Button disabled variant="secondary" className="w-full h-10 font-bold uppercase text-xs">
-                            Sem Turmas Abertas
-                        </Button>
-                    )}
-                </CardFooter>
-            </Card>
+                <div className="space-y-2">
+                    <h2 className="text-2xl font-black uppercase tracking-tight">Inscrição Recebida!</h2>
+                    <p className="text-muted-foreground max-w-sm mx-auto">Sua solicitação para o curso <strong>{course.name}</strong> foi protocolada. Em breve o responsável entrará em contato.</p>
+                </div>
+                <Button onClick={onCancel} className="w-full max-w-xs h-12 font-bold shadow-lg">Voltar ao Catálogo</Button>
+            </div>
         );
-    };
-
-    if (isContextLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary size-10" /></div>;
+    }
 
     return (
-        <div className="min-h-screen flex flex-col bg-slate-50">
-            <PublicNavbar />
-            
-            <main className="flex-1 container mx-auto px-4 py-12 max-w-6xl">
-                {!selectedCourse ? (
-                    <div className="space-y-12 animate-in fade-in duration-500">
-                        <div className="text-center max-w-3xl mx-auto space-y-4">
-                            <h1 className="text-4xl md:text-6xl font-black italic tracking-tighter text-slate-900 uppercase">
-                                Portal de <span className="text-primary">Inscrições</span>
-                            </h1>
-                            <p className="text-lg text-muted-foreground font-medium">
-                                Escolha sua próxima etapa de crescimento espiritual. Temos cursos para todas as fases da sua caminhada com Cristo.
-                            </p>
-                        </div>
-
-                        <Tabs value={activeMainTab} onValueChange={setActiveMainTab} className="w-full">
-                            <div className="flex justify-center mb-10">
-                                <TabsList className="bg-white p-1 rounded-2xl border-2 shadow-sm h-auto flex flex-wrap justify-center md:flex-nowrap">
-                                    <TabsTrigger value="lumine" className="px-8 py-3 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white font-black uppercase text-xs tracking-widest">
-                                        Trilha Lumine
-                                    </TabsTrigger>
-                                    <TabsTrigger value="schools" className="px-8 py-3 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white font-black uppercase text-xs tracking-widest">
-                                        Escolas IBM
-                                    </TabsTrigger>
-                                    <TabsTrigger value="others" className="px-8 py-3 rounded-xl data-[state=active]:bg-primary data-[state=active]:text-white font-black uppercase text-xs tracking-widest">
-                                        Capacitação Geral
-                                    </TabsTrigger>
-                                </TabsList>
-                            </div>
-
-                            <TabsContent value="lumine" className="space-y-8 mt-0">
-                                <div className="flex flex-col md:flex-row items-center justify-between gap-6 bg-white p-6 rounded-[2rem] border-2 shadow-sm">
-                                    <div className="flex items-center gap-4">
-                                        <div className="p-3 bg-primary/10 text-primary rounded-2xl"><Lightbulb size={32} /></div>
-                                        <div>
-                                            <h2 className="text-2xl font-black italic text-slate-900 uppercase tracking-tight leading-none">Lumine</h2>
-                                            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Trilha do Crescimento IBM</p>
-                                        </div>
-                                    </div>
-                                    <Tabs value={activeLumineTab} onValueChange={setActiveLumineTab} className="w-full md:w-auto">
-                                        <TabsList className="bg-slate-100 p-1 rounded-xl w-full md:w-auto">
-                                            {Object.entries(ebdTrackLabels).map(([id, label]) => (
-                                                <TabsTrigger key={id} value={id} className="text-[10px] font-black uppercase tracking-widest px-4">
-                                                    {label.split(' ')[2]}
-                                                </TabsTrigger>
-                                            ))}
-                                        </TabsList>
-                                    </Tabs>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {filteredLumine.map(renderCourseCard)}
-                                </div>
-                            </TabsContent>
-
-                            <TabsContent value="schools" className="mt-0">
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {schoolCourses.map(renderCourseCard)}
-                                </div>
-                            </TabsContent>
-
-                            <TabsContent value="others" className="mt-0">
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {otherCourses.map(renderCourseCard)}
-                                </div>
-                            </TabsContent>
-                        </Tabs>
+        <Card className="max-w-xl mx-auto border-2 shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4">
+            <CardHeader className="bg-primary/5 border-b py-8">
+                <div className="flex justify-between items-start">
+                    <div>
+                        <CardTitle className="text-2xl font-black italic tracking-tighter uppercase text-primary">Inscrição: {course.name}</CardTitle>
+                        <CardDescription className="mt-1 font-medium">{course.ministryName}</CardDescription>
                     </div>
-                ) : (
-                    <div className="max-w-4xl mx-auto animate-in zoom-in-95 duration-300">
-                        <Button variant="ghost" className="mb-6 hover:bg-slate-200 font-bold" onClick={() => { setSelectedCourse(null); setStep('email'); setEmail(''); setFoundUser(null); }}>
-                            <ArrowLeft className="mr-2 size-4" /> Voltar para o Catálogo
-                        </Button>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                            <div className="lg:col-span-5">
-                                <Card className="overflow-hidden border-none shadow-2xl">
-                                    <div className="relative aspect-[4/5] w-full">
-                                        <Image src={`https://picsum.photos/seed/${selectedCourse.id}/800/1000`} alt={selectedCourse.name} fill className="object-cover" />
-                                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent" />
-                                        <div className="absolute bottom-6 left-6 text-white space-y-2">
-                                            <Badge className="bg-primary/80 border-none px-3 font-black text-[10px] uppercase">{selectedCourse.ministryName}</Badge>
-                                            <h2 className="text-3xl font-black italic uppercase leading-none tracking-tighter">{selectedCourse.name}</h2>
-                                        </div>
-                                    </div>
-                                    <CardContent className="p-6 bg-slate-950 text-slate-300">
-                                        <p className="text-sm leading-relaxed">{selectedCourse.description}</p>
-                                    </CardContent>
-                                </Card>
+                    <Button variant="ghost" size="icon" onClick={onCancel} className="h-8 w-8 rounded-full"><X className="size-4"/></Button>
+                </div>
+            </CardHeader>
+            <CardContent className="p-8">
+                {step === 'email' ? (
+                    <form onSubmit={handleCheckEmail} className="space-y-6">
+                        <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Passo 1: Verificação</Label>
+                            <div className="relative">
+                                <Mail className="absolute left-3 top-3 size-4 text-muted-foreground" />
+                                <Input 
+                                    type="email" 
+                                    placeholder="Digite seu melhor e-mail..." 
+                                    className="pl-10 h-12 text-base font-medium shadow-inner"
+                                    value={email}
+                                    onChange={e => setEmail(e.target.value)}
+                                    required
+                                />
                             </div>
-
-                            <div className="lg:col-span-7">
-                                <Card className="h-full border-2 shadow-xl rounded-[2rem] overflow-hidden">
-                                    <CardHeader className="bg-muted/30 border-b pb-6 pt-8 px-8">
-                                        <div className="flex items-center gap-2 text-[10px] font-black uppercase text-primary mb-2 tracking-[0.2em]">
-                                            <ShieldCheck size={14} /> Passo {step === 'email' ? '1' : step === 'form' ? '2' : 'Final'} de 3
-                                        </div>
-                                        <CardTitle className="text-2xl font-black text-slate-900 uppercase italic">Formulário de Inscrição</CardTitle>
-                                        <CardDescription>Preencha seus dados para garantir sua vaga.</CardDescription>
-                                    </CardHeader>
-                                    
-                                    <CardContent className="p-8">
-                                        {step === 'email' && (
-                                            <form onSubmit={handleCheckEmail} className="space-y-6 animate-in slide-in-from-right-4">
-                                                <div className="space-y-2">
-                                                    <Label htmlFor="email" className="text-xs font-black uppercase tracking-widest text-muted-foreground">Qual o seu e-mail?</Label>
-                                                    <div className="relative">
-                                                        <Mail className="absolute left-3 top-3.5 size-5 text-muted-foreground" />
-                                                        <Input 
-                                                            id="email" 
-                                                            type="email" 
-                                                            placeholder="seuemail@exemplo.com" 
-                                                            className="pl-10 h-12 text-lg font-medium border-2" 
-                                                            value={email}
-                                                            onChange={e => setEmail(e.target.value)}
-                                                            required
-                                                        />
-                                                    </div>
-                                                    <p className="text-[10px] text-muted-foreground italic mt-2">
-                                                        Usamos seu e-mail para verificar se você já possui cadastro em nosso sistema.
-                                                    </p>
+                            <p className="text-[10px] text-muted-foreground italic">Usamos seu e-mail para identificar se você já faz parte da nossa base.</p>
+                        </div>
+                        <Button type="submit" className="w-full h-14 font-black text-lg shadow-xl" disabled={isChecking}>
+                            {isChecking ? <Loader2 className="animate-spin size-6" /> : "Continuar para Inscrição"}
+                        </Button>
+                    </form>
+                ) : (
+                    <form onSubmit={handleSubmit} className="space-y-6 animate-in fade-in-50">
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <Label className="text-xs font-bold text-muted-foreground uppercase">Seu Nome Completo</Label>
+                                <Input 
+                                    value={userData.name} 
+                                    onChange={e => setUserData(p => ({...p, name: e.target.value}))} 
+                                    className="h-11"
+                                    required 
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs font-bold text-muted-foreground uppercase">Celular / WhatsApp</Label>
+                                <Input 
+                                    value={userData.phone} 
+                                    onChange={e => setUserData(p => ({...p, phone: e.target.value}))} 
+                                    className="h-11"
+                                    placeholder="(21) 9..."
+                                    required 
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-xs font-bold text-primary uppercase">Escolha sua Turma</Label>
+                                <Select value={userData.classId} onValueChange={v => setUserData(p => ({...p, classId: v}))}>
+                                    <SelectTrigger className="h-14 font-bold border-primary/30">
+                                        <SelectValue placeholder="Selecione o horário..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {courseClasses.map(cls => (
+                                            <SelectItem key={cls.id} value={cls.id}>
+                                                <div className="flex flex-col items-start py-1">
+                                                    <span className="font-bold">{cls.name}</span>
+                                                    <span className="text-[10px] uppercase font-medium text-muted-foreground">{cls.dayOfWeek} às {cls.startTime}</span>
                                                 </div>
-                                                <Button type="submit" className="w-full h-14 text-lg font-black shadow-lg" disabled={isCheckingEmail}>
-                                                    {isCheckingEmail ? <Loader2 className="animate-spin mr-2" /> : <ChevronRight className="mr-2" />}
-                                                    Continuar
-                                                </Button>
-                                            </form>
-                                        )}
-
-                                        {step === 'form' && (
-                                            <form onSubmit={handleFinishEnrollment} className="space-y-6 animate-in slide-in-from-right-4">
-                                                {foundUser ? (
-                                                    <div className="bg-emerald-50 border-2 border-emerald-200 p-4 rounded-2xl flex items-center gap-4">
-                                                        <div className="size-12 bg-emerald-500 text-white rounded-full flex items-center justify-center font-black text-xl shadow-inner">
-                                                            {foundUser.name.charAt(0)}
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-xs font-black uppercase text-emerald-700 tracking-widest">Identificamos você!</p>
-                                                            <p className="font-bold text-slate-900">{foundUser.name}</p>
-                                                        </div>
-                                                        <Check className="ml-auto text-emerald-600 size-6" />
-                                                    </div>
-                                                ) : (
-                                                    <div className="space-y-4">
-                                                        <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl flex items-center gap-3 mb-4">
-                                                            <Info className="size-4 text-amber-600" />
-                                                            <p className="text-[10px] text-amber-800 font-bold uppercase">Não encontramos cadastro com este e-mail. Por favor, preencha abaixo:</p>
-                                                        </div>
-                                                        <div className="space-y-2">
-                                                            <Label htmlFor="name" className="text-[10px] uppercase font-black text-muted-foreground">Nome Completo</Label>
-                                                            <Input id="name" placeholder="Como quer ser chamado?" className="h-11 font-medium" value={name} onChange={e => setName(e.target.value)} required />
-                                                        </div>
-                                                        <div className="space-y-2">
-                                                            <Label htmlFor="phone" className="text-[10px] uppercase font-black text-muted-foreground">Celular (WhatsApp)</Label>
-                                                            <div className="relative">
-                                                                <Phone className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                                                                <Input id="phone" placeholder="(21) 99999-9999" className="pl-10 h-11 font-medium" value={phone} onChange={e => setPhone(e.target.value)} required />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                <div className="space-y-4 pt-4 border-t">
-                                                    <Label className="text-[10px] uppercase font-black text-primary tracking-[0.2em] flex items-center gap-2">
-                                                        <Building2 className="size-3" /> Selecione sua Turma
-                                                    </Label>
-                                                    <div className="grid gap-3">
-                                                        {courseClasses.map(cls => (
-                                                            <button
-                                                                key={cls.id}
-                                                                type="button"
-                                                                onClick={() => setSelectedClassId(cls.id)}
-                                                                className={cn(
-                                                                    "w-full p-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between",
-                                                                    selectedClassId === cls.id ? "bg-primary/5 border-primary shadow-inner" : "bg-card border-slate-100 hover:border-slate-300"
-                                                                )}
-                                                            >
-                                                                <div>
-                                                                    <p className="font-black text-sm uppercase tracking-tight text-slate-900">{cls.name}</p>
-                                                                    <p className="text-xs text-muted-foreground font-bold mt-1 uppercase">{cls.dayOfWeek} às {cls.startTime}</p>
-                                                                </div>
-                                                                {selectedClassId === cls.id ? <CheckCircle2 className="text-primary size-6" /> : <div className="size-6 rounded-full border-2 border-slate-200" />}
-                                                            </button>
-                                                        ))}
-                                                        {courseClasses.length === 0 && <p className="text-sm text-destructive italic text-center py-4">Nenhuma turma disponível no momento.</p>}
-                                                    </div>
-                                                </div>
-
-                                                <Button type="submit" className="w-full h-14 text-lg font-black shadow-xl" disabled={isSubmitting || !selectedClassId}>
-                                                    {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" />}
-                                                    Confirmar Inscrição
-                                                </Button>
-                                            </form>
-                                        )}
-
-                                        {step === 'success' && (
-                                            <div className="text-center space-y-6 py-8 animate-in zoom-in-95 duration-500">
-                                                <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
-                                                    <Check size={48} />
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <h3 className="text-2xl font-black text-slate-900 uppercase italic">Inscrição Protocolada!</h3>
-                                                    <p className="text-muted-foreground font-medium">
-                                                        Tudo certo, <strong>{name}</strong>! Sua solicitação foi enviada para o ministério responsável. 
-                                                        Em breve entraremos em contato via WhatsApp com as instruções de início.
-                                                    </p>
-                                                </div>
-                                                <div className="p-4 bg-muted/30 rounded-2xl border border-dashed flex items-center gap-3 text-left">
-                                                    <AlertCircle className="size-5 text-primary shrink-0" />
-                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase leading-relaxed">
-                                                        Fique atento ao seu celular. A confirmação oficial será enviada pela coordenação da escola.
-                                                    </p>
-                                                </div>
-                                                <Button variant="outline" className="w-full h-12 font-black" onClick={() => window.location.reload()}>
-                                                    Voltar ao Início
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
+                        <Button type="submit" className="w-full h-14 font-black text-lg shadow-xl" disabled={isSubmitting}>
+                            {isSubmitting ? <Loader2 className="animate-spin size-6" /> : "Confirmar Minha Inscrição"}
+                        </Button>
+                        <Button type="button" variant="ghost" className="w-full text-xs" onClick={() => setStep('email')}>Voltar ao início</Button>
+                    </form>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+function CourseCard({ course, classes, onSelect }) {
+    const hasClasses = classes.some(c => c.courseId === course.id);
+    const ministry = course.ministryName?.toLowerCase() || '';
+    
+    const Icon = ministry.includes('wave') ? Music : 
+                 ministry.includes('dis') ? School :
+                 ministry.includes('lumine') ? Lightbulb : BookOpen;
+
+    return (
+        <Card className={cn(
+            "group overflow-hidden transition-all duration-500 border-none shadow-xl flex flex-col h-full",
+            !hasClasses ? "opacity-60 grayscale scale-[0.98]" : "hover:scale-[1.03] hover:shadow-2xl hover:ring-2 hover:ring-primary/20"
+        )}>
+            <div className="relative aspect-video overflow-hidden">
+                <Image 
+                    src={course.image || `https://picsum.photos/seed/${course.id}/800/450`} 
+                    alt={course.name} 
+                    fill 
+                    className="object-cover transition-transform duration-[2000ms] group-hover:scale-110"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-60" />
+                {!hasClasses && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
+                        <Badge variant="destructive" className="font-black text-xs px-4 py-1">INDISPONÍVEL AGORA</Badge>
                     </div>
                 )}
-            </main>
+            </div>
+            <CardHeader className="p-5 flex-1">
+                <div className="flex justify-between items-start mb-2">
+                    <Badge variant="outline" className="text-[10px] font-black uppercase tracking-widest h-5 border-primary/30 text-primary">
+                        {course.ministryName}
+                    </Badge>
+                    {course.type === 'trilho' && <Badge className="text-[10px] h-5 px-2 bg-indigo-100 text-indigo-700 hover:bg-indigo-100 border-none">TRILHA</Badge>}
+                </div>
+                <CardTitle className="text-lg font-black uppercase italic tracking-tighter leading-none group-hover:text-primary transition-colors">
+                    {course.name}
+                </CardTitle>
+                <CardDescription className="text-xs line-clamp-2 mt-2 leading-relaxed">
+                    {course.description || "Inicie sua jornada de crescimento e aprendizado neste curso fundamental."}
+                </CardDescription>
+            </CardHeader>
+            <CardFooter className="p-5 pt-0">
+                <Button 
+                    className="w-full font-black text-xs uppercase h-10 tracking-widest shadow-lg" 
+                    disabled={!hasClasses}
+                    onClick={() => onSelect(course)}
+                >
+                    {hasClasses ? "Inscrever-se" : "Sem Turmas Abertas"}
+                    {hasClasses && <ArrowRight className="ml-2 size-3" />}
+                </Button>
+            </CardFooter>
+        </Card>
+    );
+}
 
-            <PublicFooter />
+function EnrollmentPageContent() {
+    const { courses, classes, isLoading } = useVolunteering();
+    const [selectedCourse, setSelectedCourse] = useState<any>(null);
+    const [activeTab, setActiveTab] = useState('lumine');
+    const [lumineSubTab, setLumineSubTab] = useState('discipulado');
+
+    const filteredCourses = useMemo(() => {
+        if (!courses) return { lumine: [], schools: [], others: [] };
+        
+        const lumine = courses.filter(c => c.ministryName?.toLowerCase().includes('lumine') || c.ministryName?.toLowerCase().includes('ebd'));
+        const schools = courses.filter(c => c.ministryName?.toLowerCase().includes('wave') || c.ministryName?.toLowerCase().includes('dis'));
+        const others = courses.filter(c => !lumine.includes(c) && !schools.includes(c));
+        
+        return { lumine, schools, others };
+    }, [courses]);
+
+    const lumineByTrack = useMemo(() => {
+        const list = filteredCourses.lumine;
+        return {
+            discipulado: list.filter(c => c.ebdTrack === 'discipulado' || c.name.toLowerCase().includes('pertencer') || c.name.toLowerCase().includes('crescer')),
+            biblico: list.filter(c => c.ebdTrack === 'biblico'),
+            teologico: list.filter(c => c.ebdTrack === 'teologico' || c.ebdTrack === 'teologia'),
+        };
+    }, [filteredCourses.lumine]);
+
+    if (isLoading) {
+        return <div className="flex h-96 w-full items-center justify-center"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
+    }
+
+    if (selectedCourse) {
+        return <EnrollmentFlow course={selectedCourse} classes={classes} onCancel={() => setSelectedCourse(null)} />;
+    }
+
+    return (
+        <div className="space-y-12">
+            <header className="text-center space-y-4 max-w-3xl mx-auto">
+                <div className="size-16 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
+                    <GraduationCap size={32} />
+                </div>
+                <h1 className="text-4xl md:text-6xl font-black italic tracking-tighter uppercase text-slate-900 leading-none">
+                    Lumine <span className="text-primary">IBM</span>
+                </h1>
+                <p className="text-lg text-muted-foreground font-medium leading-relaxed italic">
+                    "Organização servindo ao organismo." Encontre o seu próximo passo na nossa trilha de crescimento espiritual.
+                </p>
+            </header>
+
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <div className="flex justify-center mb-8">
+                    <TabsList className="bg-muted/50 p-1 rounded-2xl border-2 h-auto">
+                        <TabsTrigger value="lumine" className="rounded-xl px-8 py-3 data-[state=active]:bg-white data-[state=active]:shadow-lg font-black text-xs uppercase tracking-widest">Trilha Lumine</TabsTrigger>
+                        <TabsTrigger value="schools" className="rounded-xl px-8 py-3 data-[state=active]:bg-white data-[state=active]:shadow-lg font-black text-xs uppercase tracking-widest">Escolas IBM</TabsTrigger>
+                        <TabsTrigger value="others" className="rounded-xl px-8 py-3 data-[state=active]:bg-white data-[state=active]:shadow-lg font-black text-xs uppercase tracking-widest">Outros Cursos</TabsTrigger>
+                    </TabsList>
+                </div>
+
+                <TabsContent value="lumine" className="space-y-10 animate-in fade-in-50 duration-500">
+                    <div className="flex justify-center">
+                        <Tabs value={lumineSubTab} onValueChange={setLumineSubTab} className="w-full max-w-2xl">
+                            <TabsList className="grid w-full grid-cols-3 bg-slate-100 rounded-lg p-1 h-10">
+                                <TabsTrigger value="discipulado" className="text-[10px] uppercase font-bold tracking-tight">Discipulado</TabsTrigger>
+                                <TabsTrigger value="biblico" className="text-[10px] uppercase font-bold tracking-tight">Bíblia</TabsTrigger>
+                                <TabsTrigger value="teologico" className="text-[10px] uppercase font-bold tracking-tight">Teologia</TabsTrigger>
+                            </TabsList>
+                            
+                            {Object.entries(lumineByTrack).map(([track, list]) => (
+                                <TabsContent key={track} value={track} className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {list.map(course => <CourseCard key={course.id} course={course} classes={classes} onSelect={setSelectedCourse} />)}
+                                    {list.length === 0 && (
+                                        <div className="col-span-full py-20 text-center border-2 border-dashed rounded-3xl bg-muted/20">
+                                            <p className="text-muted-foreground font-bold italic">Nenhum curso disponível nesta categoria no momento.</p>
+                                        </div>
+                                    )}
+                                </TabsContent>
+                            ))}
+                        </Tabs>
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="schools" className="animate-in slide-in-from-left-4 duration-500">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {filteredCourses.schools.map(course => <CourseCard key={course.id} course={course} classes={classes} onSelect={setSelectedCourse} />)}
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="others" className="animate-in slide-in-from-left-4 duration-500">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {filteredCourses.others.map(course => <CourseCard key={course.id} course={course} classes={classes} onSelect={setSelectedCourse} />)}
+                    </div>
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }
 
 export default function EnrollmentPage() {
-    return (
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      <PublicNavbar />
+      <main className="flex-1 container mx-auto px-4 py-12 md:py-20">
         <VolunteeringProvider>
-            <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary size-10" /></div>}>
+            <Suspense fallback={<div className="flex h-96 items-center justify-center"><Loader2 className="animate-spin size-10 text-primary" /></div>}>
                 <EnrollmentPageContent />
             </Suspense>
         </VolunteeringProvider>
-    );
+      </main>
+      <PublicFooter />
+    </div>
+  );
+}
+
+function X({ className }: { className?: string }) {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+            <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+        </svg>
+    )
 }
