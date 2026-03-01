@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -157,22 +158,26 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl border-none">
         <DialogHeader className="p-6 border-b bg-muted/20 shrink-0">
-          <DialogTitle>{existingClass ? 'Editar Turma' : 'Nova Turma'}</DialogTitle>
-          <DialogDescription>Configure os detalhes, horários e exceções da turma.</DialogDescription>
+          <DialogTitle className="text-xl font-black italic tracking-tighter uppercase text-primary">
+            {existingClass ? 'Editar Turma' : 'Nova Turma'}
+          </DialogTitle>
+          <DialogDescription className="text-xs uppercase font-bold text-muted-foreground tracking-widest">
+            Configure os detalhes, horários e exceções da turma.
+          </DialogDescription>
         </DialogHeader>
         
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="flex-1 overflow-y-auto p-6 space-y-8 scroll-smooth">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              <div className="space-y-2">
-                <Label htmlFor="name">Nome da Turma</Label>
-                <Input id="name" value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Turma de Sábado" />
+                <Label htmlFor="name" className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Nome da Turma</Label>
+                <Input id="name" value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Turma de Sábado" className="h-11 font-bold" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="teacherId">Professor</Label>
+                <Label htmlFor="teacherId" className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Professor Responsável</Label>
                 <Select value={teacherId || 'null'} onValueChange={setTeacherId} disabled={isLoading}>
-                  <SelectTrigger id="teacherId"><SelectValue placeholder={isLoading ? "Carregando..." : "Selecione um professor"} /></SelectTrigger>
+                  <SelectTrigger id="teacherId" className="h-11"><SelectValue placeholder={isLoading ? "Carregando..." : "Selecione um professor"} /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="null">Nenhum</SelectItem>
                     {teachers.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
@@ -180,20 +185,22 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="maxStudents" className="flex items-center gap-2">
-                    <Users className="size-3 text-primary"/> Limite de Vagas (Opcional)
+                <Label htmlFor="maxStudents" className="text-[10px] uppercase font-black text-muted-foreground tracking-wider flex items-center gap-2">
+                    <Users className="size-3 text-primary"/> Limite de Vagas (Capacidade)
                 </Label>
-                <Input id="maxStudents" type="number" value={maxStudents} onChange={e => setMaxStudents(e.target.value)} placeholder="Ex: 20" />
+                <Input id="maxStudents" type="number" value={maxStudents} onChange={e => setMaxStudents(e.target.value)} placeholder="Ex: 20" className="h-11" />
               </div>
           </div>
           
-           <div className="pt-4 border-t space-y-4">
-             <h3 className="font-bold text-sm uppercase text-primary">Agendamento & Espaço</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+           <div className="pt-6 border-t space-y-6">
+             <h3 className="font-black text-xs uppercase text-primary tracking-[0.2em] flex items-center gap-2">
+                <Clock className="size-4" /> Agendamento & Espaço
+             </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label htmlFor="frequency">Frequência</Label>
+                  <Label htmlFor="frequency" className="text-[10px] uppercase font-black text-muted-foreground">Frequência</Label>
                    <Select value={frequency} onValueChange={(v: any) => setFrequency(v)}>
-                      <SelectTrigger id="frequency"><SelectValue /></SelectTrigger>
+                      <SelectTrigger id="frequency" className="h-11"><SelectValue /></SelectTrigger>
                       <SelectContent>
                           <SelectItem value="pontual">Pontual (uma vez)</SelectItem>
                           <SelectItem value="semanal">Semanal</SelectItem>
@@ -204,9 +211,9 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
                 </div>
                  {frequency !== 'pontual' && (
                   <div className="space-y-2">
-                    <Label htmlFor="dayOfWeek">Dia da Semana</Label>
+                    <Label htmlFor="dayOfWeek" className="text-[10px] uppercase font-black text-muted-foreground">Dia da Semana</Label>
                     <Select value={dayOfWeek} onValueChange={setDayOfWeek}>
-                        <SelectTrigger id="dayOfWeek"><SelectValue placeholder="Selecione um dia" /></SelectTrigger>
+                        <SelectTrigger id="dayOfWeek" className="h-11"><SelectValue placeholder="Selecione um dia" /></SelectTrigger>
                         <SelectContent>
                             {weekDays.map(day => <SelectItem key={day} value={day}>{day}</SelectItem>)}
                         </SelectContent>
@@ -215,9 +222,9 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
                 )}
                 {frequency === 'mensal' && (
                     <div className="space-y-2">
-                        <Label htmlFor="weekOfMonth">Semana do Mês</Label>
+                        <Label htmlFor="weekOfMonth" className="text-[10px] uppercase font-black text-muted-foreground">Semana do Mês</Label>
                         <Select value={weekOfMonth} onValueChange={(v: any) => setWeekOfMonth(v)}>
-                            <SelectTrigger id="weekOfMonth"><SelectValue placeholder="Selecione a semana" /></SelectTrigger>
+                            <SelectTrigger id="weekOfMonth" className="h-11"><SelectValue placeholder="Selecione a semana" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="1">1ª Semana</SelectItem>
                                 <SelectItem value="2">2ª Semana</SelectItem>
@@ -230,39 +237,39 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
                     </div>
                 )}
                  <div className="space-y-2">
-                    <Label htmlFor="startDate">Data de Início {frequency !== 'pontual' && '(primeira ocorrência)'}</Label>
-                    <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required/>
+                    <Label htmlFor="startDate" className="text-[10px] uppercase font-black text-muted-foreground">Data de Início</Label>
+                    <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required className="h-11"/>
                 </div>
                 {frequency !== 'pontual' && (
                     <div className="space-y-2">
-                        <Label htmlFor="endDate">Data de Término</Label>
-                        <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+                        <Label htmlFor="endDate" className="text-[10px] uppercase font-black text-muted-foreground">Data de Término</Label>
+                        <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-11" />
                     </div>
                 )}
                  <div className="space-y-2">
-                    <Label htmlFor="startTime">Horário de Início</Label>
-                    <Input id="startTime" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required/>
+                    <Label htmlFor="startTime" className="text-[10px] uppercase font-black text-muted-foreground">Horário de Início</Label>
+                    <Input id="startTime" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} required className="h-11 font-mono"/>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="endTime">Horário de Término</Label>
-                    <Input id="endTime" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required/>
+                    <Label htmlFor="endTime" className="text-[10px] uppercase font-black text-muted-foreground">Horário de Término</Label>
+                    <Input id="endTime" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required className="h-11 font-mono"/>
                   </div>
                     <div className="md:col-span-2 space-y-2">
-                        <Label htmlFor="locationType">Local</Label>
+                        <Label htmlFor="locationType" className="text-[10px] uppercase font-black text-muted-foreground">Local das Aulas</Label>
                         <Select value={locationType} onValueChange={(v: any) => setLocationType(v)}>
-                            <SelectTrigger id="locationType"><SelectValue placeholder="Selecione o local..." /></SelectTrigger>
+                            <SelectTrigger id="locationType" className="h-11"><SelectValue placeholder="Selecione o local..." /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="ibm">IBM (Ocupa sala interna)</SelectItem>
-                                <SelectItem value="the_school">The School (Local Externo)</SelectItem>
+                                <SelectItem value="ibm">IBM (Sala interna)</SelectItem>
+                                <SelectItem value="the_school">The School (Externo)</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
 
                     {locationType === 'ibm' && (
-                        <div className="md:col-span-2 space-y-2">
-                            <Label htmlFor="ibmRoomId">Ambiente (IBM)</Label>
+                        <div className="md:col-span-2 space-y-2 animate-in slide-in-from-top-2">
+                            <Label htmlFor="ibmRoomId" className="text-[10px] uppercase font-black text-primary">Ambiente Interno (Reserva de Sala)</Label>
                             <Select value={ibmRoomId || 'null'} onValueChange={setIbmRoomId} disabled={isLoading}>
-                                <SelectTrigger id="ibmRoomId"><SelectValue placeholder={isLoading ? "Carregando..." : "Selecione o ambiente"} /></SelectTrigger>
+                                <SelectTrigger id="ibmRoomId" className="h-11"><SelectValue placeholder={isLoading ? "Carregando..." : "Selecione o ambiente"} /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="null">Não definido</SelectItem>
                                     {rooms.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
@@ -273,14 +280,14 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
               </div>
            </div>
 
-           <div className="pt-4 border-t grid grid-cols-1 md:grid-cols-2 gap-8">
+           <div className="pt-6 border-t grid grid-cols-1 md:grid-cols-2 gap-8 pb-8">
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                        <h3 className="font-bold text-xs uppercase text-destructive">Datas sem Aula (Feriados)</h3>
+                        <h3 className="font-black text-[10px] uppercase text-destructive tracking-widest">Recessos (Feriados)</h3>
                         <Popover>
                             <PopoverTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-7 text-[10px]">
-                                    <CalendarIcon className="size-3 mr-1" /> Marcar Recesso
+                                <Button variant="outline" size="sm" className="h-7 text-[10px] uppercase font-black border-destructive/20 text-destructive hover:bg-destructive/5">
+                                    <CalendarIcon className="size-3 mr-1" /> Marcar
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="end">
@@ -293,14 +300,14 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
                             </PopoverContent>
                         </Popover>
                     </div>
-                    <div className="flex flex-wrap gap-1.5 min-h-[40px]">
+                    <div className="flex flex-wrap gap-1.5 min-h-[40px] p-3 rounded-xl border-2 border-dashed">
                         {holidayDates.length === 0 ? (
-                            <p className="text-[9px] text-muted-foreground italic">Nenhum recesso configurado.</p>
+                            <p className="text-[9px] text-muted-foreground italic font-medium uppercase tracking-tighter self-center mx-auto">Nenhum recesso configurado.</p>
                         ) : (
                             holidayDates.sort().map(date => (
-                                <Badge key={date} variant="secondary" className="pl-2 pr-1 h-5 gap-1 text-[10px] bg-red-50 text-red-700 border-red-100">
+                                <Badge key={date} variant="secondary" className="pl-2 pr-1 h-6 gap-1 text-[10px] bg-red-50 text-red-700 border-red-100 font-bold">
                                     {format(parseISO(date), 'dd/MM')}
-                                    <button onClick={() => removeHoliday(date)} className="hover:text-destructive"><X className="size-2.5" /></button>
+                                    <button onClick={() => removeHoliday(date)} className="hover:text-destructive p-0.5"><X className="size-2.5" /></button>
                                 </Badge>
                             ))
                         )}
@@ -309,11 +316,11 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
 
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                        <h3 className="font-bold text-xs uppercase text-emerald-600">Datas Extras (Aulas Avulsas)</h3>
+                        <h3 className="font-black text-[10px] uppercase text-emerald-600 tracking-widest">Aulas Extras (Avulsas)</h3>
                         <Popover>
                             <PopoverTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-7 text-[10px]">
-                                    <PlusCircle className="size-3 mr-1" /> Adicionar Aula
+                                <Button variant="outline" size="sm" className="h-7 text-[10px] uppercase font-black border-emerald-200 text-emerald-600 hover:bg-emerald-50">
+                                    <PlusCircle className="size-3 mr-1" /> Adicionar
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="end">
@@ -326,14 +333,14 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
                             </PopoverContent>
                         </Popover>
                     </div>
-                    <div className="flex flex-wrap gap-1.5 min-h-[40px]">
+                    <div className="flex flex-wrap gap-1.5 min-h-[40px] p-3 rounded-xl border-2 border-dashed">
                         {extraDates.length === 0 ? (
-                            <p className="text-[9px] text-muted-foreground italic">Nenhuma aula extra agendada.</p>
+                            <p className="text-[9px] text-muted-foreground italic font-medium uppercase tracking-tighter self-center mx-auto">Nenhuma aula extra agendada.</p>
                         ) : (
                             extraDates.sort().map(date => (
-                                <Badge key={date} variant="secondary" className="pl-2 pr-1 h-5 gap-1 text-[10px] bg-emerald-50 text-emerald-700 border-emerald-100">
+                                <Badge key={date} variant="secondary" className="pl-2 pr-1 h-6 gap-1 text-[10px] bg-emerald-50 text-emerald-700 border-emerald-100 font-bold">
                                     {format(parseISO(date), 'dd/MM')}
-                                    <button onClick={() => removeExtraDate(date)} className="hover:text-emerald-600"><X className="size-2.5" /></button>
+                                    <button onClick={() => removeExtraDate(date)} className="hover:text-emerald-600 p-0.5"><X className="size-2.5" /></button>
                                 </Badge>
                             ))
                         )}
@@ -343,9 +350,10 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
         </div>
 
         <DialogFooter className="p-6 border-t bg-muted/20 shrink-0">
-          <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null} Salvar Alterações
+          <DialogClose asChild><Button variant="outline" className="font-bold">Cancelar</Button></DialogClose>
+          <Button onClick={handleSave} disabled={isSaving} className="font-black uppercase tracking-widest shadow-lg shadow-primary/20">
+            {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+            {existingClass ? 'Salvar Alterações' : 'Criar Turma Agora'}
           </Button>
         </DialogFooter>
       </DialogContent>
