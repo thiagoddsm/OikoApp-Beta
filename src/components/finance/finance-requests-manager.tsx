@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -12,7 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { 
   Loader2, PlusCircle, Trash2, Clock, CheckCircle, XCircle, 
-  DollarSign, Wallet, Share2, Receipt, History, Send, Eye, Link as LinkIcon
+  DollarSign, Wallet, Share2, Receipt, History, Send, Eye, Link as LinkIcon,
+  FileText
 } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
@@ -246,15 +246,15 @@ export function FinanceRequestsManager() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                           <Label className="text-[10px] uppercase font-black text-muted-foreground">Nome do Solicitante *</Label>
-                          <Input required value={formData.requesterName} onChange={e => setFormData(p => ({...p, requesterName: e.target.value}))} placeholder="Seu nome completo" />
+                          <input type="text" required className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" value={formData.requesterName} onChange={e => setFormData(p => ({...p, requesterName: e.target.value}))} placeholder="Seu nome completo" />
                       </div>
                       <div className="space-y-2">
                           <Label className="text-[10px] uppercase font-black text-muted-foreground">E-mail *</Label>
-                          <Input required type="email" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} placeholder="seu@email.com" />
+                          <input type="email" required className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} placeholder="seu@email.com" />
                       </div>
                       <div className="space-y-2">
                           <Label className="text-[10px] uppercase font-black text-muted-foreground">Celular</Label>
-                          <Input value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} placeholder="(21) 9..." />
+                          <input type="text" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} placeholder="(21) 9..." />
                       </div>
                       <div className="space-y-2">
                           <Label className="text-[10px] uppercase font-black text-muted-foreground">Objetivo da Solicitação *</Label>
@@ -272,11 +272,11 @@ export function FinanceRequestsManager() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                           <Label className="text-[10px] uppercase font-black text-muted-foreground">Categoria (Ministério/Evento)</Label>
-                          <Input value={formData.category} onChange={e => setFormData(p => ({...p, category: e.target.value}))} placeholder="Ex: Louvor, Conferência..." />
+                          <input type="text" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" value={formData.category} onChange={e => setFormData(p => ({...p, category: e.target.value}))} placeholder="Ex: Louvor, Conferência..." />
                       </div>
                       <div className="space-y-2">
                           <Label className="text-[10px] uppercase font-black text-muted-foreground">Valor (R$) *</Label>
-                          <Input required type="number" step="0.01" value={formData.amount} onChange={e => setFormData(p => ({...p, amount: e.target.value}))} placeholder="0,00" />
+                          <input type="number" step="0.01" required className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" value={formData.amount} onChange={e => setFormData(p => ({...p, amount: e.target.value}))} placeholder="0,00" />
                       </div>
                   </div>
 
@@ -290,18 +290,18 @@ export function FinanceRequestsManager() {
                           <Label className="text-[10px] uppercase font-black text-primary flex items-center gap-1">
                               <DollarSign size={10}/> Chave PIX para Depósito
                           </Label>
-                          <Input value={formData.pixKey} onChange={e => setFormData(p => ({...p, pixKey: e.target.value}))} placeholder="CPF, E-mail, Celular ou Aleatória" />
+                          <input type="text" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" value={formData.pixKey} onChange={e => setFormData(p => ({...p, pixKey: e.target.value}))} placeholder="CPF, E-mail, Celular ou Aleatória" />
                       </div>
                   )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                           <Label className="text-[10px] uppercase font-black text-muted-foreground">Data para Pagamento</Label>
-                          <Input type="date" value={formData.dueDate} onChange={e => setFormData(p => ({...p, dueDate: e.target.value}))} />
+                          <input type="date" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" value={formData.dueDate} onChange={e => setFormData(p => ({...p, dueDate: e.target.value}))} />
                       </div>
                       <div className="space-y-2">
                           <Label className="text-[10px] uppercase font-black text-muted-foreground">Link de Compra (Se houver)</Label>
-                          <Input type="url" value={formData.purchaseLink} onChange={e => setFormData(p => ({...p, purchaseLink: e.target.value}))} placeholder="https://..." />
+                          <input type="url" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" value={formData.purchaseLink} onChange={e => setFormData(p => ({...p, purchaseLink: e.target.value}))} placeholder="https://..." />
                       </div>
                   </div>
 
