@@ -1,10 +1,11 @@
+
 'use client';
 import React, { useMemo, useState } from 'react';
 import { useVolunteering, type EnrollmentRequest } from '@/contexts/volunteering-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle, XCircle, Trash2 } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, Trash2, UserX } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -43,21 +44,23 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
         
         try {
             await approveEnrollmentRequest(request.id, targetClassId);
+            toast({ title: 'Inscrição Aprovada!', description: `${request.name} foi matriculado com sucesso.` });
         } catch (error) {
             console.error("Erro ao aprovar:", error);
-            toast({ variant: 'destructive', title: 'Erro na Aprovação', description: 'Ocorreu uma falha ao vincular o aluno e gerar a fatura.' });
+            toast({ variant: 'destructive', title: 'Erro na Aprovação', description: 'Ocorreu uma falha ao vincular o aluno.' });
         } finally {
             setIsActionInProgress(null);
         }
     };
 
-    const handleReject = async (requestId: string) => {
-        if (!requestId) return;
+    const handleReject = async (request: EnrollmentRequest) => {
+        if (!request.id) return;
         
-        if (confirm('Deseja realmente reprovar esta solicitação?')) {
-            setIsActionInProgress(requestId);
+        if (confirm(`Deseja realmente REPROVAR a solicitação de ${request.name}?`)) {
+            setIsActionInProgress(request.id);
             try {
-                await updateEnrollmentRequest(requestId, { status: 'rejected' });
+                await updateEnrollmentRequest(request.id, { status: 'rejected' });
+                toast({ title: 'Solicitação Reprovada', description: 'O interessado foi marcado como reprovado/recusado.' });
             } catch (error) {
                 console.error("Erro ao reprovar:", error);
                 toast({ variant: 'destructive', title: 'Erro ao Reprovar', description: 'Não foi possível atualizar o status.' });
@@ -67,13 +70,14 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
         }
     };
 
-    const handleDelete = async (requestId: string) => {
-        if (!requestId) return;
+    const handleDelete = async (request: EnrollmentRequest) => {
+        if (!request.id) return;
         
-        if (confirm('Tem certeza que deseja excluir permanentemente esta solicitação?')) {
-            setIsActionInProgress(requestId);
+        if (confirm(`Tem certeza que deseja EXCLUIR permanentemente o registro de ${request.name}?`)) {
+            setIsActionInProgress(request.id);
             try {
-                await deleteEnrollmentRequest(requestId);
+                await deleteEnrollmentRequest(request.id);
+                toast({ title: 'Solicitação Excluída', description: 'O registro foi removido permanentemente.' });
             } catch (error) {
                 console.error("Erro ao excluir:", error);
                 toast({ variant: 'destructive', title: 'Erro ao Excluir', description: 'Ocorreu uma falha ao remover o registro.' });
@@ -89,7 +93,7 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
 
     return (
         <div className="space-y-4">
-            <div className="rounded-lg border bg-card overflow-hidden">
+            <div className="rounded-lg border bg-card overflow-hidden shadow-sm">
                 <Table>
                     <TableHeader className="bg-muted/50">
                         <TableRow>
@@ -147,7 +151,10 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                                         )}
                                     </TableCell>
                                     <TableCell>
-                                        <Badge variant={req.status === 'pending' ? 'outline' : req.status === 'approved' ? 'default' : 'destructive'} className="font-bold">
+                                        <Badge 
+                                            variant={req.status === 'pending' ? 'outline' : req.status === 'approved' ? 'default' : 'destructive'} 
+                                            className={cn("font-black uppercase text-[10px]", req.status === 'approved' ? "bg-emerald-100 text-emerald-800" : "")}
+                                        >
                                             {req.status === 'pending' ? 'Pendente' : req.status === 'approved' ? 'Aprovado' : 'Reprovado'}
                                         </Badge>
                                     </TableCell>
@@ -159,20 +166,20 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                                                         variant="default" 
                                                         size="sm" 
                                                         onClick={() => handleApprove(req)} 
-                                                        className="bg-green-600 hover:bg-green-700 h-8"
+                                                        className="bg-green-600 hover:bg-green-700 h-8 shadow-sm"
                                                         disabled={!!isProcessing}
                                                     >
                                                         {isProcessing ? <Loader2 className="animate-spin size-4" /> : <CheckCircle className="size-4" />}
                                                         <span className="ml-2 hidden md:inline">Aprovar</span>
                                                     </Button>
                                                     <Button 
-                                                        variant="destructive" 
+                                                        variant="outline" 
                                                         size="sm" 
-                                                        onClick={() => handleReject(req.id)} 
-                                                        className="h-8"
+                                                        onClick={() => handleReject(req)} 
+                                                        className="h-8 border-red-200 text-red-600 hover:bg-red-50"
                                                         disabled={!!isProcessing}
                                                     >
-                                                        {isProcessing ? <Loader2 className="animate-spin size-4" /> : <XCircle className="size-4" />}
+                                                        {isProcessing ? <Loader2 className="animate-spin size-4" /> : <UserX className="size-4" />}
                                                         <span className="ml-2 hidden md:inline">Reprovar</span>
                                                     </Button>
                                                 </>
@@ -180,12 +187,12 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
                                             <Button 
                                                 variant="ghost" 
                                                 size="icon" 
-                                                onClick={() => handleDelete(req.id)} 
+                                                onClick={() => handleDelete(req)} 
                                                 className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all"
-                                                title="Excluir Permanentemente"
+                                                title="Excluir Registro"
                                                 disabled={!!isProcessing}
                                             >
-                                                {isProcessing ? <Loader2 className="animate-spin size-4" /> : <Trash2 className="size-4 text-destructive" />}
+                                                {isProcessing ? <Loader2 className="animate-spin size-4" /> : <Trash2 className="size-4" />}
                                             </Button>
                                         </div>
                                     </TableCell>

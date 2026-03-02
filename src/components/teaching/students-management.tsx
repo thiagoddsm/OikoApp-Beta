@@ -2,7 +2,7 @@
 'use client';
 import React, { useMemo, useState } from 'react';
 import { useVolunteering, type User, type Class, type Course } from '@/contexts/volunteering-context';
-import { Loader2, User as UserIcon, Search, Edit, PlusCircle, ChevronRight } from 'lucide-react';
+import { Loader2, User as UserIcon, Search, Edit, PlusCircle, ChevronRight, UserX, Trash2 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
@@ -12,15 +12,18 @@ import { Input } from '../ui/input';
 import { Button } from '../ui/button';
 import Link from 'next/link';
 import { EnrollmentDialog } from './enrollment-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 interface StudentsManagementProps {
     filterCourseIds?: string[];
 }
 
 export function StudentsManagement({ filterCourseIds }: StudentsManagementProps) {
-  const { users, classes, courses, isLoading } = useVolunteering();
+  const { users, classes, courses, isLoading, updateClass } = useVolunteering();
+  const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [isEnrollmentOpen, setEnrollmentOpen] = useState(false);
+  const [isActionInProgress, setIsActionInProgress] = useState<string | null>(null);
 
   const enrollments = useMemo(() => {
     if (!users || !classes || !courses) return [];
@@ -31,7 +34,6 @@ export function StudentsManagement({ filterCourseIds }: StudentsManagementProps)
     const allEnrollments: { id: string; user: User; class: Class; course: Course }[] = [];
 
     classes.forEach(cls => {
-        // Apply filter if provided
         if (filterCourseIds && !filterCourseIds.includes(cls.courseId)) return;
 
         const course = courseMap.get(cls.courseId);
@@ -40,7 +42,7 @@ export function StudentsManagement({ filterCourseIds }: StudentsManagementProps)
                 const user = userMap.get(studentId);
                 if (user) {
                     allEnrollments.push({
-                        id: `${user.id}-${cls.id}`, // unique key for the row
+                        id: `${user.id}-${cls.id}`,
                         user,
                         class: cls,
                         course
@@ -63,6 +65,24 @@ export function StudentsManagement({ filterCourseIds }: StudentsManagementProps)
         enrollment.class.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
   }, [enrollments, searchTerm]);
+
+  const handleRemoveEnrollment = async (studentId: string, classId: string, className: string, studentName: string) => {
+    if (confirm(`Tem certeza que deseja remover ${studentName} da turma ${className}?`)) {
+        setIsActionInProgress(`${studentId}-${classId}`);
+        try {
+            const cls = classes.find(c => c.id === classId);
+            if (cls) {
+                const updatedStudents = cls.students.filter(id => id !== studentId);
+                await updateClass(classId, { students: updatedStudents });
+                toast({ title: 'Matrícula Removida', description: `${studentName} não faz mais parte da turma ${className}.` });
+            }
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Erro ao remover', description: 'Não foi possível processar a exclusão.' });
+        } finally {
+            setIsActionInProgress(null);
+        }
+    }
+  };
   
   if (isLoading) {
     return (
@@ -120,6 +140,7 @@ export function StudentsManagement({ filterCourseIds }: StudentsManagementProps)
                             filteredEnrollments.map((enrollment) => {
                                 const { user, course, class: cls } = enrollment;
                                 const avatar = PlaceHolderImages.find(p => p.id === 'avatar-1');
+                                const isRemoving = isActionInProgress === enrollment.id;
                                 
                                 return (
                                 <TableRow key={enrollment.id} className="hover:bg-muted/30 group">
@@ -143,11 +164,23 @@ export function StudentsManagement({ filterCourseIds }: StudentsManagementProps)
                                       <div className="text-[10px] text-muted-foreground">{cls.dayOfWeek} às {cls.startTime}</div>
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        <Button variant="ghost" size="sm" asChild className="transition-all">
-                                            <Link href={`/dashboard/people/${user.id}`}>
-                                                Ver Perfil <ChevronRight className="ml-1 size-3" />
-                                            </Link>
-                                        </Button>
+                                        <div className="flex justify-end gap-2">
+                                            <Button variant="ghost" size="sm" asChild className="transition-all">
+                                                <Link href={`/dashboard/people/${user.id}`}>
+                                                    Ver Perfil <ChevronRight className="ml-1 size-3" />
+                                                </Link>
+                                            </Button>
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-8 w-8 text-destructive hover:bg-destructive/10" 
+                                                onClick={() => handleRemoveEnrollment(user.id, cls.id, cls.name, user.name)}
+                                                disabled={isRemoving}
+                                                title="Remover Matrícula"
+                                            >
+                                                {isRemoving ? <Loader2 className="animate-spin size-4" /> : <UserX className="size-4" />}
+                                            </Button>
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             )})
