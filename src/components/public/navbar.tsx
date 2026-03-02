@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -6,12 +5,10 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/icons';
 import { LogIn, Menu } from 'lucide-react';
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 
 const navLinks = [
-  { href: '/public/enrollment', label: 'Cursos & Trilhos' },
-  { href: '/dashboard/gc/map', label: 'Mapa de GCs' },
-  { href: '/dashboard/social', label: 'Ação Social' },
+  { href: '/public/enrollment', label: 'Inscrições' },
 ];
 
 export function PublicNavbar() {
@@ -34,7 +31,7 @@ export function PublicNavbar() {
               {link.label}
             </Link>
           ))}
-          <Button asChild className="font-bold rounded-full px-6">
+          <Button asChild className="font-bold rounded-full px-6 bg-[#6A52A3] hover:bg-[#584289] text-white">
             <Link href="/login">
               <LogIn className="mr-2 size-4" />
               Portal do Membro
@@ -46,23 +43,29 @@ export function PublicNavbar() {
         <div className="md:hidden">
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" aria-label="Abrir menu de navegação">
                 <Menu className="size-6" />
               </Button>
             </SheetTrigger>
             <SheetContent side="right">
-              <SheetTitle className="text-left mb-8">Navegação</SheetTitle>
+              {/* SheetTitle e SheetDescription são necessários por questões de acessibilidade no shadcn/ui mais recente */}
+              <SheetTitle className="text-left mb-2">Navegação</SheetTitle>
+              <SheetDescription className="text-left mb-8">
+                Acesse as principais áreas do OikoApp.
+              </SheetDescription>
+              
               <div className="flex flex-col gap-6 mt-4">
                 {navLinks.map((link) => (
                   <Link 
                     key={link.href} 
                     href={link.href} 
-                    className="text-lg font-black uppercase italic tracking-tighter"
+                    className="text-lg font-black uppercase italic tracking-tighter hover:text-[#6A52A3] transition-colors"
                   >
                     {link.label}
                   </Link>
                 ))}
-                <Button asChild className="w-full font-bold">
+                {/* Botão Mobile agora com rounded-full para seguir o padrão visual */}
+                <Button asChild className="w-full font-bold rounded-full bg-[#6A52A3] hover:bg-[#584289] text-white">
                   <Link href="/login">Portal do Membro</Link>
                 </Button>
               </div>

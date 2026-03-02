@@ -1,247 +1,188 @@
+
 'use client';
 
-import React, { useState } from 'react';
-import { initializeFirebase } from '@/firebase';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
+import { useFirebase, addDocumentNonBlocking } from '@/firebase';
+import { collection, Timestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2, Send, CheckCircle, Wallet, DollarSign, Receipt, Info, HeartHandshake } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Send, DollarSign, Receipt, History, Wallet, CheckCircle2 } from 'lucide-react';
 import { Logo } from '@/components/icons';
 
 export default function PublicFinanceRequestPage() {
-  const { toast } = useToast();
-  const [isSaving, setIsSaving] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-
-  const [formData, setFormData] = useState({
-    requesterName: '',
-    phone: '',
-    email: '',
-    category: '',
-    description: '',
-    amount: '',
-    objective: 'reembolso' as 'reembolso' | 'pagamento' | 'prestacao_contas',
-    pixKey: '',
-    dueDate: new Date().toISOString().split('T')[0],
-    purchaseLink: '',
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.requesterName || !formData.email || !formData.amount) {
-        toast({ variant: 'destructive', title: "Campos obrigatórios", description: "Preencha nome, email e valor." });
-        return;
-    }
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
     
-    setIsSaving(true);
-    try {
-        const { firestore } = initializeFirebase();
-        await addDoc(collection(firestore, 'finance_requests'), {
-            ...formData,
-            amount: Number(formData.amount),
-            status: 'pending',
-            createdAt: Timestamp.now(),
-        });
-        setSubmitted(true);
-        toast({ title: "Solicitação Enviada!", description: "Sua solicitação foi registrada com sucesso." });
-    } catch (e) {
-        console.error(e);
-        toast({ variant: 'destructive', title: "Erro ao enviar", description: "Não foi possível enviar sua solicitação agora." });
-    } finally {
-        setIsSaving(false);
-    }
-  };
+    const [isSaving, setIsSaving] = useState(false);
+    const [success, setSuccess] = useState(false);
+    
+    const [formData, setFormData] = useState({
+        requesterName: '',
+        phone: '',
+        email: '',
+        category: 'Ministério',
+        description: '',
+        amount: '',
+        objective: 'reembolso' as 'reembolso' | 'pagamento' | 'prestacao_contas',
+        pixKey: '',
+        dueDate: '',
+        purchaseLink: '',
+    });
 
-  if (submitted) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full text-center p-8 border-t-8 border-emerald-600 shadow-2xl">
-          <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle2 className="text-emerald-600 size-10" />
-          </div>
-          <h2 className="text-2xl font-black text-slate-900 mb-2">Solicitação Enviada!</h2>
-          <p className="text-muted-foreground mb-8">
-            Sua solicitação de {formData.objective === 'reembolso' ? 'reembolso' : formData.objective === 'pagamento' ? 'pagamento' : 'prestação de contas'} foi protocolada e será analisada pela tesouraria.
-          </p>
-          <Button onClick={() => setSubmitted(false)} variant="outline" className="w-full">
-            Enviar Outra Solicitação
-          </Button>
-        </Card>
-      </div>
-    );
-  }
+    useEffect(() => {
+        setFormData(prev => ({
+            ...prev,
+            dueDate: new Date().toISOString().split('T')[0]
+        }));
+    }, []);
 
-  return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4">
-      <div className="max-w-2xl mx-auto space-y-8">
-        <div className="flex flex-col items-center gap-4 text-center mb-8">
-            <div className="p-3 bg-primary rounded-2xl shadow-lg shadow-primary/20">
-                <Logo className="size-8 text-white" />
-            </div>
-            <div>
-                <h1 className="text-3xl font-black tracking-tight text-slate-900 uppercase italic">OikoApp Financeiro</h1>
-                <p className="text-muted-foreground font-medium">Igreja Batista da Manhã - Protocolo de Pagamentos</p>
-            </div>
-        </div>
-
-        <Card className="shadow-xl border-none">
-          <CardHeader className="bg-slate-900 text-white rounded-t-xl py-8">
-            <CardTitle className="flex items-center gap-2 text-xl font-black uppercase tracking-tighter">
-              <Wallet className="size-6 text-primary" />
-              Nova Solicitação
-            </CardTitle>
-            <CardDescription className="text-slate-400">
-              Utilize este formulário para solicitar pagamentos, reembolsos ou prestar contas de ministérios.
-            </CardDescription>
-          </CardHeader>
-          <form onSubmit={handleSubmit}>
-            <CardContent className="space-y-6 pt-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-black text-muted-foreground">Nome Completo *</Label>
-                  <Input 
-                    required 
-                    value={formData.requesterName} 
-                    onChange={e => setFormData(p => ({...p, requesterName: e.target.value}))} 
-                    placeholder="Quem está solicitando?" 
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-black text-muted-foreground">E-mail para Contato *</Label>
-                  <Input 
-                    required 
-                    type="email" 
-                    value={formData.email} 
-                    onChange={e => setFormData(p => ({...p, email: e.target.value}))} 
-                    placeholder="seu@email.com" 
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-black text-muted-foreground">WhatsApp / Celular</Label>
-                  <Input 
-                    value={formData.phone} 
-                    onChange={e => setFormData(p => ({...p, phone: e.target.value}))} 
-                    placeholder="(21) 9..." 
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-black text-muted-foreground">Objetivo da Solicitação *</Label>
-                  <Select value={formData.objective} onValueChange={(v: any) => setFormData(p => ({...p, objective: v}))}>
-                    <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="reembolso">Reembolso</SelectItem>
-                      <SelectItem value="pagamento">Solicitar Pagamento</SelectItem>
-                      <SelectItem value="prestacao_contas">Prestação de Contas</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-black text-muted-foreground">Ministério / Evento</Label>
-                  <Input 
-                    value={formData.category} 
-                    onChange={e => setFormData(p => ({...p, category: e.target.value}))} 
-                    placeholder="Ex: Louvor, GC, Conferência..." 
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-black text-muted-foreground">Valor (R$) *</Label>
-                  <Input 
-                    required 
-                    type="number" 
-                    step="0.01" 
-                    value={formData.amount} 
-                    onChange={e => setFormData(p => ({...p, amount: e.target.value}))} 
-                    placeholder="0,00" 
-                    className="h-11 font-bold text-lg text-primary"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-black text-muted-foreground">Descrição da Despesa *</Label>
-                <Textarea 
-                    required 
-                    value={formData.description} 
-                    onChange={e => setFormData(p => ({...p, description: e.target.value}))} 
-                    placeholder="Explique detalhadamente a finalidade deste gasto..." 
-                    className="min-h-[100px] resize-none"
-                />
-              </div>
-
-              {(formData.objective === 'reembolso' || formData.objective === 'pagamento') && (
-                <div className="space-y-2 animate-in slide-in-from-top-2">
-                  <Label className="text-[10px] uppercase font-black text-primary flex items-center gap-1">
-                    <DollarSign size={10}/> Chave PIX para Depósito
-                  </Label>
-                  <Input 
-                    value={formData.pixKey} 
-                    onChange={e => setFormData(p => ({...p, pixKey: e.target.value}))} 
-                    placeholder="CPF, E-mail, Celular ou Chave Aleatória" 
-                    className="h-11"
-                  />
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-black text-muted-foreground">Previsão / Data Limite</Label>
-                  <Input 
-                    type="date" 
-                    value={formData.dueDate} 
-                    onChange={e => setFormData(p => ({...p, dueDate: e.target.value}))} 
-                    className="h-11"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[10px] uppercase font-black text-muted-foreground">Link de Compra (Se houver)</Label>
-                  <Input 
-                    type="url" 
-                    value={formData.purchaseLink} 
-                    onChange={e => setFormData(p => ({...p, purchaseLink: e.target.value}))} 
-                    placeholder="https://..." 
-                    className="h-11"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2 pt-4">
-                <Label className="text-[10px] uppercase font-black text-muted-foreground flex items-center gap-1">
-                  <Receipt size={10}/> Comprovante (Recibo/Nota)
-                </Label>
-                <div className="border-2 border-dashed rounded-xl p-8 text-center bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer border-slate-200">
-                  <History size={32} className="mx-auto mb-2 text-slate-400 opacity-50" />
-                  <p className="text-xs text-slate-500">
-                    O upload direto será liberado em breve.<br/>
-                    Por enquanto, <strong>envie o comprovante para a Tesouraria</strong><br/>via WhatsApp após terminar este formulário.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-            <CardFooter className="bg-slate-50 rounded-b-xl p-8 border-t">
-              <Button type="submit" disabled={isSaving} className="w-full h-14 text-base font-black shadow-xl shadow-primary/20">
-                {isSaving ? <Loader2 className="mr-2 size-5 animate-spin" /> : <Send className="mr-2 size-5" />}
-                Protocolar Solicitação Agora
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!formData.requesterName || !formData.email || !formData.amount || !firestore) return;
         
-        <p className="text-center text-[10px] text-muted-foreground uppercase font-black tracking-widest pb-8">
-            Organização servindo ao organismo • IBM São Gonçalo
-        </p>
-      </div>
-    </div>
-  );
+        setIsSaving(true);
+        try {
+            await addDocumentNonBlocking(collection(firestore, 'finance_requests'), {
+                ...formData,
+                amount: Number(formData.amount),
+                status: 'pending',
+                createdAt: Timestamp.now(),
+            });
+            setSuccess(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } catch (e) {
+            toast({ variant: 'destructive', title: "Erro ao enviar", description: "Ocorreu uma falha técnica. Tente novamente." });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    if (success) {
+        return (
+            <main className="min-h-screen bg-[#F8F9FA] py-12 md:py-20 px-4 flex items-center justify-center">
+                <Card className="max-w-md w-full text-center p-8 animate-in zoom-in-95 duration-500">
+                    <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner mb-6">
+                        <CheckCircle size={40} />
+                    </div>
+                    <h2 className="text-3xl font-black uppercase italic tracking-tighter text-slate-900 mb-4">Solicitação Enviada!</h2>
+                    <p className="text-muted-foreground mb-8">
+                        Protocolamos sua solicitação financeira com sucesso. Ela será analisada pela tesouraria da IBM em breve.
+                    </p>
+                    <Button onClick={() => window.location.reload()} variant="outline" className="w-full font-bold">Enviar Outra</Button>
+                </Card>
+            </main>
+        );
+    }
+
+    return (
+        <main className="min-h-screen bg-[#F8F9FA] py-12 md:py-20 px-4">
+            <div className="max-w-2xl mx-auto space-y-8">
+                <div className="text-center space-y-4">
+                    <Logo className="size-12 text-primary mx-auto mb-4" />
+                    <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter uppercase text-slate-900 leading-none">Solicitação Financeira</h1>
+                    <p className="text-muted-foreground text-sm md:text-lg">Portal oficial para pedidos de reembolso, pagamentos e prestação de contas dos ministérios IBM.</p>
+                </div>
+
+                <Card className="shadow-2xl border-none overflow-hidden rounded-[2rem]">
+                    <CardHeader className="bg-primary/5 p-8 border-b">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 bg-white rounded-2xl shadow-sm text-primary">
+                                <Wallet size={24} />
+                            </div>
+                            <div>
+                                <CardTitle className="text-xl font-bold">Formulário de Protocolo</CardTitle>
+                                <CardDescription>Preencha os dados com atenção para agilizar a análise.</CardDescription>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <form onSubmit={handleSave}>
+                        <CardContent className="p-8 space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] uppercase font-black text-muted-foreground">Seu Nome Completo *</Label>
+                                    <Input required value={formData.requesterName} onChange={e => setFormData(p => ({...p, requesterName: e.target.value}))} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] uppercase font-black text-muted-foreground">Seu E-mail *</Label>
+                                    <Input required type="email" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] uppercase font-black text-muted-foreground">Celular/WhatsApp</Label>
+                                    <Input value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} placeholder="(21) 9..." />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] uppercase font-black text-muted-foreground">Objetivo *</Label>
+                                    <Select value={formData.objective} onValueChange={(v: any) => setFormData(p => ({...p, objective: v}))}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="reembolso">Reembolso</SelectItem>
+                                            <SelectItem value="pagamento">Solicitar Pagamento</SelectItem>
+                                            <SelectItem value="prestacao_contas">Prestação de Contas</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] uppercase font-black text-muted-foreground">Ministério / Categoria</Label>
+                                    <Input value={formData.category} onChange={e => setFormData(p => ({...p, category: e.target.value}))} placeholder="Ex: Louvor, Mídia, Kids..." />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] uppercase font-black text-muted-foreground">Valor (R$) *</Label>
+                                    <Input required type="number" step="0.01" value={formData.amount} onChange={e => setFormData(p => ({...p, amount: e.target.value}))} placeholder="0,00" className="text-lg font-bold text-primary" />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className="text-[10px] uppercase font-black text-muted-foreground">Descrição da Despesa / Justificativa *</Label>
+                                <Textarea required value={formData.description} onChange={e => setFormData(p => ({...p, description: e.target.value}))} rows={4} placeholder="Descreva para que serve este recurso ou o que foi comprado..." />
+                            </div>
+
+                            {(formData.objective === 'reembolso' || formData.objective === 'pagamento') && (
+                                <div className="p-6 bg-slate-50 border-2 border-dashed rounded-2xl space-y-4">
+                                    <Label className="text-xs font-black uppercase text-primary flex items-center gap-2">
+                                        <DollarSign size={14}/> Dados para Transferência (PIX)
+                                    </Label>
+                                    <Input value={formData.pixKey} onChange={e => setFormData(p => ({...p, pixKey: e.target.value}))} placeholder="Chave PIX (CPF, Celular, Email...)" className="bg-white" />
+                                    <p className="text-[10px] text-muted-foreground italic leading-tight">Certifique-se que a chave informada está correta para evitarmos atrasos no seu repasse.</p>
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] uppercase font-black text-muted-foreground">Data para Pagamento</Label>
+                                    <Input type="date" value={formData.dueDate} onChange={e => setFormData(p => ({...p, dueDate: e.target.value}))} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] uppercase font-black text-muted-foreground">Link de Compra / Referência</Label>
+                                    <Input type="url" value={formData.purchaseLink} onChange={e => setFormData(p => ({...p, purchaseLink: e.target.value}))} placeholder="https://..." />
+                                </div>
+                            </div>
+
+                            <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex items-start gap-3">
+                                <Info className="size-5 text-amber-600 mt-0.5 shrink-0" />
+                                <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
+                                    Ao enviar, sua solicitação será protocolada e passará por análise. 
+                                    Mantenha seus recibos originais guardados para futura entrega física à tesouraria, se necessário.
+                                </p>
+                            </div>
+                        </CardContent>
+                        <CardFooter className="p-8 bg-muted/20 flex flex-col gap-4">
+                            <Button type="submit" disabled={isSaving} className="w-full h-14 font-black text-base uppercase tracking-widest shadow-xl">
+                                {isSaving ? <Loader2 className="mr-2 animate-spin" /> : <Send className="mr-2" />}
+                                Protocolar Solicitação
+                            </Button>
+                            <p className="text-[10px] text-center text-muted-foreground uppercase font-bold tracking-tighter">Igreja Batista da Manhã • Gestão de Recursos</p>
+                        </CardFooter>
+                    </form>
+                </Card>
+            </div>
+        </main>
+    );
 }

@@ -1,6 +1,7 @@
+
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useVolunteering, type FinanceRequest } from '@/contexts/volunteering-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { 
   Loader2, PlusCircle, Trash2, Clock, CheckCircle, XCircle, 
-  DollarSign, Wallet, Share2, Receipt, History, Send
+  DollarSign, Wallet, Share2, Receipt, History, Send, Eye, Link as LinkIcon
 } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
@@ -25,6 +26,7 @@ export function FinanceRequestsManager() {
   const { toast } = useToast();
   
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [viewRequest, setViewRequest] = useState<FinanceRequest | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [filterStatus, setStatusFilter] = useState('all');
 
@@ -37,9 +39,17 @@ export function FinanceRequestsManager() {
     amount: '',
     objective: 'reembolso' as 'reembolso' | 'pagamento' | 'prestacao_contas',
     pixKey: '',
-    dueDate: new Date().toISOString().split('T')[0],
+    dueDate: '',
     purchaseLink: '',
   });
+
+  // Fix hydration mismatch by setting date after mount
+  useEffect(() => {
+    setFormData(prev => ({
+        ...prev,
+        dueDate: new Date().toISOString().split('T')[0]
+    }));
+  }, []);
 
   const filteredRequests = useMemo(() => {
     return financeRequests.filter(r => filterStatus === 'all' || r.status === filterStatus);
@@ -191,6 +201,9 @@ export function FinanceRequestsManager() {
                                   </TableCell>
                                   <TableCell className="text-right">
                                       <div className="flex justify-end gap-1">
+                                          <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setViewRequest(req)} title="Ver Detalhes">
+                                              <Eye className="size-4" />
+                                          </Button>
                                           {req.status === 'pending' && (
                                               <>
                                                   <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-600" onClick={() => handleStatusChange(req.id, 'approved')} title="Aprovar">
@@ -219,6 +232,7 @@ export function FinanceRequestsManager() {
           </Table>
       </div>
 
+      {/* Modal de Nova Solicitação */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
@@ -291,17 +305,6 @@ export function FinanceRequestsManager() {
                       </div>
                   </div>
 
-                  <div className="space-y-2">
-                      <Label className="text-[10px] uppercase font-black text-muted-foreground flex items-center gap-1">
-                          <Receipt size={10}/> Recibo ou Nota Fiscal
-                      </Label>
-                      <div className="border-2 border-dashed rounded-lg p-6 text-center bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer">
-                          <History size={24} className="mx-auto mb-2 text-muted-foreground opacity-50" />
-                          <p className="text-xs text-muted-foreground">O upload de anexos será liberado em breve.<br/>Por enquanto, anexe o link ou envie ao tesoureiro.</p>
-                          <Input type="file" className="hidden" disabled />
-                      </div>
-                  </div>
-
                   <DialogFooter className="border-t pt-6">
                       <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
                       <Button type="submit" disabled={isSaving}>
@@ -310,6 +313,95 @@ export function FinanceRequestsManager() {
                       </Button>
                   </DialogFooter>
               </form>
+          </DialogContent>
+      </Dialog>
+
+      {/* Modal de Detalhes (Visualização) */}
+      <Dialog open={!!viewRequest} onOpenChange={() => setViewRequest(null)}>
+          <DialogContent className="max-w-xl">
+              <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                      <FileText className="size-5 text-primary" />
+                      Detalhes da Solicitação
+                  </DialogTitle>
+                  <DialogDescription>Visualize as informações completas da solicitação de {viewRequest?.requesterName}.</DialogDescription>
+              </DialogHeader>
+              {viewRequest && (
+                  <div className="space-y-6 py-4">
+                      <div className="grid grid-cols-2 gap-4">
+                          <div>
+                              <Label className="text-[10px] uppercase font-black text-muted-foreground">Solicitante</Label>
+                              <p className="text-sm font-bold">{viewRequest.requesterName}</p>
+                              <p className="text-xs text-muted-foreground">{viewRequest.email}</p>
+                          </div>
+                          <div>
+                              <Label className="text-[10px] uppercase font-black text-muted-foreground">Objetivo</Label>
+                              <p className="text-sm font-bold uppercase tracking-tight">{objectiveLabels[viewRequest.objective]}</p>
+                          </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                          <div>
+                              <Label className="text-[10px] uppercase font-black text-muted-foreground">Categoria</Label>
+                              <p className="text-sm font-bold uppercase">{viewRequest.category}</p>
+                          </div>
+                          <div>
+                              <Label className="text-[10px] uppercase font-black text-muted-foreground">Valor Solicitado</Label>
+                              <p className="text-xl font-black text-primary">R$ {viewRequest.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                          </div>
+                      </div>
+
+                      <div>
+                          <Label className="text-[10px] uppercase font-black text-muted-foreground">Descrição / Justificativa</Label>
+                          <div className="bg-muted/30 p-3 rounded-lg text-sm whitespace-pre-wrap mt-1">
+                              {viewRequest.description || "Nenhuma descrição fornecida."}
+                          </div>
+                      </div>
+
+                      {(viewRequest.objective === 'reembolso' || viewRequest.objective === 'pagamento') && (
+                          <div className="p-4 bg-primary/5 border border-primary/10 rounded-xl flex items-center justify-between">
+                              <div>
+                                  <Label className="text-[10px] uppercase font-black text-primary flex items-center gap-1">
+                                      <DollarSign size={10}/> Chave PIX para Depósito
+                                  </Label>
+                                  <p className="font-mono text-sm font-bold mt-1">{viewRequest.pixKey || "Não informada"}</p>
+                              </div>
+                              {viewRequest.pixKey && (
+                                  <Button variant="outline" size="sm" onClick={() => {
+                                      navigator.clipboard.writeText(viewRequest.pixKey || '');
+                                      toast({ title: "PIX Copiado!" });
+                                  }}>Copiar</Button>
+                              )}
+                          </div>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-4">
+                          <div>
+                              <Label className="text-[10px] uppercase font-black text-muted-foreground">Data Desejada</Label>
+                              <p className="text-sm font-bold">{viewRequest.dueDate ? format(new Date(viewRequest.dueDate + 'T12:00:00'), 'dd/MM/yyyy') : '-'}</p>
+                          </div>
+                          <div>
+                              <Label className="text-[10px] uppercase font-black text-muted-foreground">Link de Referência</Label>
+                              {viewRequest.purchaseLink ? (
+                                  <Button asChild variant="link" className="h-auto p-0 text-blue-600">
+                                      <a href={viewRequest.purchaseLink} target="_blank" rel="noopener noreferrer">
+                                          <LinkIcon size={12} className="mr-1" /> Abrir Link
+                                      </a>
+                                  </Button>
+                              ) : <p className="text-sm text-muted-foreground">-</p>}
+                          </div>
+                      </div>
+                  </div>
+              )}
+              <DialogFooter className="border-t pt-6 gap-2">
+                  <DialogClose asChild><Button variant="outline">Fechar</Button></DialogClose>
+                  {viewRequest?.status === 'pending' && (
+                      <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => {
+                          handleStatusChange(viewRequest.id, 'approved');
+                          setViewRequest(null);
+                      }}>Aprovar Solicitação</Button>
+                  )}
+              </DialogFooter>
           </DialogContent>
       </Dialog>
     </div>

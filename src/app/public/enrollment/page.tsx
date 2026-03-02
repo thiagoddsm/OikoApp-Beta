@@ -28,6 +28,100 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { EnrollmentDialog } from '@/components/teaching/enrollment-dialog';
 
+interface Schedule {
+    day: string;
+    time: string;
+    capacity: number;
+    occupied: number;
+}
+
+// Componente extraído para gerenciar o estado do "Ver Mais" independentemente para cada card
+function CourseCard({ 
+    course, 
+    schedules, 
+    hasClasses, 
+    isFull, 
+    onEnroll 
+}: { 
+    course: Course; 
+    schedules: Schedule[]; 
+    hasClasses: boolean; 
+    isFull: boolean; 
+    onEnroll: (c: Course) => void;
+}) {
+    const [isExpanded, setIsExpanded] = useState(false);
+    // Verifica se a descrição é longa o suficiente para necessitar de expansão
+    const isLongDescription = course.description && course.description.length > 100;
+
+    return (
+        <Card className={cn("flex flex-col h-full transition-all hover:shadow-lg bg-white overflow-hidden", !hasClasses && "opacity-60 grayscale-[0.5]")}>
+            <CardHeader className="pb-4">
+                <div className="flex justify-between items-start mb-2">
+                    <Badge variant="outline" className="text-[10px] uppercase font-black tracking-widest">
+                        {course.ministryName}
+                    </Badge>
+                    {isFull && <Badge variant="destructive" className="text-[9px] font-black uppercase">Esgotado</Badge>}
+                </div>
+                <CardTitle className="text-xl font-black italic uppercase tracking-tighter text-slate-900 leading-none">
+                    {course.name}
+                </CardTitle>
+                <div className="relative flex flex-col items-start pt-2">
+                    <CardDescription className={cn(
+                        "text-xs text-muted-foreground leading-relaxed transition-all duration-300 min-h-[3rem]",
+                        !isExpanded && "line-clamp-3"
+                    )}>
+                        {course.description}
+                    </CardDescription>
+                    
+                    {/* Botão Ver Mais (Estilo Pill) */}
+                    {isLongDescription && (
+                        <button 
+                            onClick={() => setIsExpanded(!isExpanded)}
+                            className="mt-2 text-[10px] font-bold text-[#6A52A3] uppercase border border-[#6A52A3] rounded-full px-3 py-1 hover:bg-[#6A52A3]/5 focus:outline-none transition-colors"
+                        >
+                            {isExpanded ? "VER MENOS" : "VER MAIS"}
+                        </button>
+                    )}
+                </div>
+            </CardHeader>
+            <CardContent className="flex-1 space-y-4">
+                <div className="space-y-2">
+                    <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
+                        <Clock className="size-3" /> Horários Disponíveis
+                    </p>
+                    {hasClasses ? (
+                        <div className="space-y-1.5">
+                            {schedules.map((s, i) => (
+                                <div key={i} className="flex items-center justify-between text-sm bg-muted/30 p-2 rounded-lg border border-border/50">
+                                    <span className="font-bold text-slate-700">{s.day} às {s.time}</span>
+                                    {s.capacity > 0 && (
+                                        <span className={cn("text-[10px] font-black uppercase", s.occupied >= s.capacity ? "text-destructive" : "text-emerald-600")}>
+                                            {s.capacity - s.occupied} vagas
+                                        </span>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-xs italic text-muted-foreground bg-muted/20 p-3 rounded-lg border border-dashed">
+                            Sem turmas abertas no momento.
+                        </p>
+                    )}
+                </div>
+            </CardContent>
+            <CardFooter className="pt-0 pb-6 px-6">
+                <Button 
+                    onClick={() => onEnroll(course)} 
+                    disabled={!hasClasses || isFull}
+                    className="w-full font-black uppercase tracking-widest bg-[#6A52A3] hover:bg-[#584289] text-white"
+                >
+                    {isFull ? 'Vagas Esgotadas' : 'Inscrever-se'}
+                </Button>
+            </CardFooter>
+        </Card>
+    );
+}
+
 function EnrollmentPortal() {
     const { courses, classes, isLoading } = useVolunteering();
     const [searchTerm, setSearchTerm] = useState('');
@@ -85,54 +179,14 @@ function EnrollmentPortal() {
         const isFull = hasClasses && schedules.every(s => s.capacity > 0 && s.occupied >= s.capacity);
 
         return (
-            <Card key={course.id} className={cn("flex flex-col h-full transition-all hover:shadow-lg", !hasClasses && "opacity-60 grayscale-[0.5]")}>
-                <CardHeader className="pb-4">
-                    <div className="flex justify-between items-start mb-2">
-                        <Badge variant="outline" className="text-[10px] uppercase font-black tracking-widest">{course.ministryName}</Badge>
-                        {isFull && <Badge variant="destructive" className="text-[9px] font-black uppercase">Esgotado</Badge>}
-                    </div>
-                    <CardTitle className="text-xl font-black italic uppercase tracking-tighter text-slate-900 leading-none">
-                        {course.name}
-                    </CardTitle>
-                    <CardDescription className="line-clamp-2 text-xs pt-2 min-h-[3rem]">
-                        {course.description}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1 space-y-4">
-                    <div className="space-y-2">
-                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
-                            <Clock className="size-3" /> Horários Disponíveis
-                        </p>
-                        {hasClasses ? (
-                            <div className="space-y-1.5">
-                                {schedules.map((s, i) => (
-                                    <div key={i} className="flex items-center justify-between text-sm bg-muted/30 p-2 rounded-lg border border-border/50">
-                                        <span className="font-bold text-slate-700">{s.day} às {s.time}</span>
-                                        {s.capacity > 0 && (
-                                            <span className={cn("text-[10px] font-black uppercase", s.occupied >= s.capacity ? "text-destructive" : "text-emerald-600")}>
-                                                {s.capacity - s.occupied} vagas
-                                            </span>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <p className="text-xs italic text-muted-foreground bg-muted/20 p-3 rounded-lg border border-dashed">
-                                Sem turmas abertas no momento.
-                            </p>
-                        )}
-                    </div>
-                </CardContent>
-                <CardFooter className="pt-0">
-                    <Button 
-                        onClick={() => handleEnroll(course)} 
-                        disabled={!hasClasses || isFull}
-                        className="w-full font-black uppercase tracking-widest"
-                    >
-                        {isFull ? 'Vagas Esgotadas' : 'Inscrever-se'}
-                    </Button>
-                </CardFooter>
-            </Card>
+            <CourseCard
+                key={course.id}
+                course={course}
+                schedules={schedules}
+                hasClasses={hasClasses}
+                isFull={isFull}
+                onEnroll={handleEnroll}
+            />
         );
     };
 
