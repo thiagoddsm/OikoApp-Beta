@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { 
   Loader2, PlusCircle, Trash2, Clock, CheckCircle, XCircle, 
-  DollarSign, Wallet, Share2, Receipt, History, Send, Eye, Link as LinkIcon,
+  DollarSign, Wallet, Share2, History, Send, Eye, Link as LinkIcon,
   FileText
 } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
@@ -318,7 +318,7 @@ export function FinanceRequestsManager() {
 
       {/* Modal de Detalhes (Visualização) */}
       <Dialog open={!!viewRequest} onOpenChange={() => setViewRequest(null)}>
-          <DialogContent className="max-w-xl">
+          <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
                       <FileText className="size-5 text-primary" />
