@@ -11,7 +11,6 @@ let refreshPromise: Promise<string> | null = null;
 
 /**
  * Recupera o token de acesso válido, renovando-o se necessário.
- * Garante que o token retornado é sempre o mais recente.
  */
 export async function getValidContaAzulToken(): Promise<string> {
     const { firestore } = initializeFirebase();
@@ -19,13 +18,13 @@ export async function getValidContaAzulToken(): Promise<string> {
     const configSnap = await getDoc(configRef);
 
     if (!configSnap.exists()) {
-        throw new Error('Configuração Conta Azul não encontrada.');
+        throw new Error('Configuração Conta Azul não encontrada no banco de dados.');
     }
 
     const config = configSnap.data();
     const now = Date.now();
 
-    // Se o token manual estiver preenchido e não houver meio de refresh, use-o
+    // Se o token manual estiver preenchido e não houver meio de refresh, usa ele (fallback)
     if (config.accessToken && !config.refreshToken) {
         return config.accessToken;
     }
@@ -35,10 +34,8 @@ export async function getValidContaAzulToken(): Promise<string> {
         return config.accessToken;
     }
 
-    // Se já houver um processo de renovação em curso, aguarda ele.
     if (refreshPromise) return refreshPromise;
 
-    // Inicia renovação do token
     if (config.refreshToken && config.clientId && config.clientSecret) {
         refreshPromise = (async () => {
             try {
@@ -79,12 +76,11 @@ export async function getValidContaAzulToken(): Promise<string> {
         return refreshPromise;
     }
 
-    throw new Error('Nenhum token válido ou meio de renovação disponível.');
+    throw new Error('Nenhum token válido ou meio de renovação disponível. Por favor, autorize novamente.');
 }
 
 /**
  * Chamada genérica à API da Conta Azul.
- * Centraliza o uso do token válido.
  */
 export async function callContaAzulApi(endpoint: string, method: string = 'GET', body?: any): Promise<any> {
     const token = await getValidContaAzulToken();
@@ -131,5 +127,6 @@ export async function findOrCreateContaAzulCustomer(member: { name: string; emai
 }
 
 export async function createContaAzulReceivable(data: any) {
+    // API V1 Financeiro usa nomes em português: descricao, valor, data_vencimento
     return callContaAzulApi('/v1/financeiro/contas-a-receber', 'POST', data);
 }
