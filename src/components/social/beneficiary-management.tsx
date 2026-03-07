@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, query, doc } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -23,7 +23,13 @@ type Beneficiary = {
     }
 };
 
-function BeneficiaryFormDialog({ open, onOpenChange, existingBeneficiary }) {
+interface BeneficiaryFormDialogProps {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    existingBeneficiary: Beneficiary | null;
+}
+
+function BeneficiaryFormDialog({ open, onOpenChange, existingBeneficiary }: BeneficiaryFormDialogProps) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [name, setName] = useState('');
@@ -58,11 +64,11 @@ function BeneficiaryFormDialog({ open, onOpenChange, existingBeneficiary }) {
         };
 
         if (existingBeneficiary) {
-            const docRef = doc(firestore, 'beneficiaries', existingBeneficiary.id);
+            const docRef = doc(firestore!, 'beneficiaries', existingBeneficiary.id);
             updateDocumentNonBlocking(docRef, dataToSave);
             toast({ title: 'Beneficiário atualizado.' });
         } else {
-            const collectionRef = collection(firestore, 'beneficiaries');
+            const collectionRef = collection(firestore!, 'beneficiaries');
             addDocumentNonBlocking(collectionRef, dataToSave);
             toast({ title: 'Beneficiário adicionado.' });
         }

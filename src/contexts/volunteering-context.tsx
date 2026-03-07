@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, ReactNode, useMemo } from 'react';
-import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
 import { collection, query, where, doc, Timestamp, addDoc } from 'firebase/firestore';
 
 export type User = {
@@ -20,10 +20,18 @@ export type User = {
   isTeacher?: boolean;
   taughtCourseIds?: string[];
   financialStatus?: string;
+  batizado?: 'sim' | 'nao';
+  igrejaBatismo?: string;
+  membroAntigo?: 'sim' | 'nao';
+  igrejaAntiga?: string;
+  decisao?: string[];
+  initialStatus?: string;
+  dataDecisao?: string;
   journey?: {
     stageProgress?: Record<string, any>;
     memberCourseProgress?: Record<string, boolean>;
     theoflixProgress?: Record<string, Record<string, boolean>>;
+    courseStatus?: Record<string, 'pending' | 'approved' | 'rejected'>;
   };
 };
 
@@ -180,6 +188,20 @@ export type FinanceRequest = {
   createdAt: Timestamp;
 };
 
+export type SavedSchedule = {
+  id: string;
+  areaId: string;
+  month: string;
+  schedule: {
+    date: string;
+    eventName: string;
+    areaId: string;
+    teamId: string | null;
+    teamName: string | null;
+    memberIds: string[];
+  }[];
+};
+
 interface VolunteeringContextType {
   users: User[];
   areas: AreaOfService[];
@@ -199,6 +221,7 @@ interface VolunteeringContextType {
   theoflixCourses: any[];
   financialTransactions: FinancialTransaction[];
   financeRequests: FinanceRequest[];
+  savedSchedules: SavedSchedule[];
   isLoading: boolean;
   addArea: (data: Omit<AreaOfService, 'id'>) => Promise<void>;
   updateArea: (id: string, data: Partial<AreaOfService>) => Promise<void>;
@@ -274,6 +297,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   const theoflixCoursesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'theoflix_courses')) : null, [firestore]);
   const financialTransactionsQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'financial_transactions')) : null, [firestore]);
   const financeRequestsQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'finance_requests')) : null, [firestore]);
+  const savedSchedulesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'saved_schedules')) : null, [firestore]);
 
   const { data: users, isLoading: lu } = useCollection<User>(usersQ);
   const { data: areas, isLoading: la } = useCollection<AreaOfService>(areasQ);
@@ -293,8 +317,9 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   const { data: theoflixCourses, isLoading: ltc } = useCollection<any>(theoflixCoursesQ);
   const { data: financialTransactions, isLoading: lft } = useCollection<FinancialTransaction>(financialTransactionsQ);
   const { data: financeRequests, isLoading: lfr } = useCollection<FinanceRequest>(financeRequestsQ);
+  const { data: savedSchedules, isLoading: lss } = useCollection<SavedSchedule>(savedSchedulesQ);
 
-  const isLoading = lu || la || lt || le || lr || lres || lco || lcl || ler || lpl || lwp || ldp || lwpn || ldpn || lwe || ltc || lft || lfr;
+  const isLoading = lu || la || lt || le || lr || lres || lco || lcl || ler || lpl || lwp || ldp || lwpn || ldpn || lwe || ltc || lft || lfr || lss;
 
   const value = useMemo(() => ({
     users: users || [],
@@ -315,27 +340,28 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
     theoflixCourses: theoflixCourses || [],
     financialTransactions: financialTransactions || [],
     financeRequests: financeRequests || [],
+    savedSchedules: savedSchedules || [],
     isLoading,
-    addArea: (data: any) => addDocumentNonBlocking(collection(firestore!, 'areas_of_service'), data),
-    updateArea: (id: string, data: any) => updateDocumentNonBlocking(doc(firestore!, 'areas_of_service', id), data),
-    deleteArea: (id: string) => deleteDocumentNonBlocking(doc(firestore!, 'areas_of_service', id)),
-    addTeam: (data: any) => addDocumentNonBlocking(collection(firestore!, 'teams'), data),
-    updateTeam: (id: string, data: any) => updateDocumentNonBlocking(doc(firestore!, 'teams', id), data),
-    deleteTeam: (id: string) => deleteDocumentNonBlocking(doc(firestore!, 'teams', id)),
-    addEvent: (data: any) => addDocumentNonBlocking(collection(firestore!, 'volunteering_events'), data),
-    updateEvent: (id: string, data: any) => updateDocumentNonBlocking(doc(firestore!, 'volunteering_events', id), data),
-    deleteEvent: (id: string) => deleteDocumentNonBlocking(doc(firestore!, 'volunteering_events', id)),
-    addRoom: (data: any) => addDocumentNonBlocking(collection(firestore!, 'rooms'), data),
-    deleteRoom: (id: string) => deleteDocumentNonBlocking(doc(firestore!, 'rooms', id)),
-    addReservation: (data: any) => addDocumentNonBlocking(collection(firestore!, 'room_reservations'), data),
-    updateReservation: (id: string, data: any) => updateDocumentNonBlocking(doc(firestore!, 'room_reservations', id), data),
-    deleteReservation: (id: string) => deleteDocumentNonBlocking(doc(firestore!, 'room_reservations', id)),
-    updateVolunteer: (id: string, data: any) => updateDocumentNonBlocking(doc(firestore!, 'users', id), data),
+    addArea: async (data: any) => { await addDoc(collection(firestore!, 'areas_of_service'), data); },
+    updateArea: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'areas_of_service', id), data); },
+    deleteArea: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'areas_of_service', id)); },
+    addTeam: async (data: any) => { await addDoc(collection(firestore!, 'teams'), data); },
+    updateTeam: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'teams', id), data); },
+    deleteTeam: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'teams', id)); },
+    addEvent: async (data: any) => { await addDoc(collection(firestore!, 'volunteering_events'), data); },
+    updateEvent: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'volunteering_events', id), data); },
+    deleteEvent: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'volunteering_events', id)); },
+    addRoom: async (data: any) => { await addDoc(collection(firestore!, 'rooms'), data); },
+    deleteRoom: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'rooms', id)); },
+    addReservation: async (data: any) => { await addDoc(collection(firestore!, 'room_reservations'), data); },
+    updateReservation: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'room_reservations', id), data); },
+    deleteReservation: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'room_reservations', id)); },
+    updateVolunteer: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'users', id), data); },
     addUser: async (data: any) => {
         const res = await addDoc(collection(firestore!, 'users'), { ...data, createdAt: Timestamp.now() });
         return res.id;
     },
-    addCourse: (data: any) => addDocumentNonBlocking(collection(firestore!, 'courses'), data),
+    addCourse: async (data: any) => { await addDoc(collection(firestore!, 'courses'), data); },
     addClass: async (data: any) => {
         const res = await addDoc(collection(firestore!, 'classes'), data);
         if (data.locationId && data.locationId !== 'the_school' && data.locationId !== 'null') {
@@ -356,8 +382,8 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
             });
         }
     },
-    updateClass: (id: string, data: any) => updateDocumentNonBlocking(doc(firestore!, 'classes', id), data),
-    deleteClass: (id: string) => deleteDocumentNonBlocking(doc(firestore!, 'classes', id)),
+    updateClass: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'classes', id), data); },
+    deleteClass: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'classes', id)); },
     enrollStudent: async (studentId: string, courseId: string, classId?: string) => {
         if (classId) {
             const classRef = doc(firestore!, 'classes', classId);
@@ -374,28 +400,28 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
             }
         }
     },
-    addPedagogicalLog: (data: any) => addDocumentNonBlocking(collection(firestore!, 'pedagogical_logs'), data),
-    addWavePayment: (data: any) => addDocumentNonBlocking(collection(firestore!, 'wave_payments'), data),
-    updateWavePayment: (id: string, data: any) => updateDocumentNonBlocking(doc(firestore!, 'wave_payments', id), data),
-    deleteWavePayment: (id: string) => deleteDocumentNonBlocking(doc(firestore!, 'wave_payments', id)),
-    addDisPayment: (data: any) => addDocumentNonBlocking(collection(firestore!, 'dis_payments'), data),
-    updateDisPayment: (id: string, data: any) => updateDocumentNonBlocking(doc(firestore!, 'dis_payments', id), data),
-    deleteDisPayment: (id: string) => deleteDocumentNonBlocking(doc(firestore!, 'dis_payments', id)),
-    addWavePlan: (data: any) => addDocumentNonBlocking(collection(firestore!, 'wave_plans'), data),
-    updateWavePlan: (id: string, data: any) => updateDocumentNonBlocking(doc(firestore!, 'wave_plans', id), data),
-    deleteWavePlan: (id: string) => deleteDocumentNonBlocking(doc(firestore!, 'wave_plans', id)),
-    addDisPlan: (data: any) => addDocumentNonBlocking(collection(firestore!, 'dis_plans'), data),
-    updateDisPlan: (id: string, data: any) => updateDocumentNonBlocking(doc(firestore!, 'dis_plans', id), data),
-    deleteDisPlan: (id: string) => deleteDocumentNonBlocking(doc(firestore!, 'dis_plans', id)),
-    addWaveExpense: (data: any) => addDocumentNonBlocking(collection(firestore!, 'wave_expenses'), data),
-    updateWaveExpense: (id: string, data: any) => updateDocumentNonBlocking(doc(firestore!, 'wave_expenses', id), data),
-    deleteWaveExpense: (id: string) => deleteDocumentNonBlocking(doc(firestore!, 'wave_expenses', id)),
-    addFinancialTransaction: (data: any) => addDocumentNonBlocking(collection(firestore!, 'financial_transactions'), data),
-    updateFinancialTransaction: (id: string, data: any) => updateDocumentNonBlocking(doc(firestore!, 'financial_transactions', id), data),
-    deleteFinancialTransaction: (id: string) => deleteDocumentNonBlocking(doc(firestore!, 'financial_transactions', id)),
-    addFinanceRequest: (data: any) => addDocumentNonBlocking(collection(firestore!, 'finance_requests'), data),
-    updateFinanceRequest: (id: string, data: any) => updateDocumentNonBlocking(doc(firestore!, 'finance_requests', id), data),
-    deleteFinanceRequest: (id: string) => deleteDocumentNonBlocking(doc(firestore!, 'finance_requests', id)),
+    addPedagogicalLog: async (data: any) => { await addDoc(collection(firestore!, 'pedagogical_logs'), data); },
+    addWavePayment: async (data: any) => { await addDoc(collection(firestore!, 'wave_payments'), data); },
+    updateWavePayment: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'wave_payments', id), data); },
+    deleteWavePayment: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'wave_payments', id)); },
+    addDisPayment: async (data: any) => { await addDoc(collection(firestore!, 'dis_payments'), data); },
+    updateDisPayment: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'dis_payments', id), data); },
+    deleteDisPayment: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'dis_payments', id)); },
+    addWavePlan: async (data: any) => { await addDoc(collection(firestore!, 'wave_plans'), data); },
+    updateWavePlan: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'wave_plans', id), data); },
+    deleteWavePlan: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'wave_plans', id)); },
+    addDisPlan: async (data: any) => { await addDoc(collection(firestore!, 'dis_plans'), data); },
+    updateDisPlan: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'dis_plans', id), data); },
+    deleteDisPlan: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'dis_plans', id)); },
+    addWaveExpense: async (data: any) => { await addDoc(collection(firestore!, 'wave_expenses'), data); },
+    updateWaveExpense: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'wave_expenses', id), data); },
+    deleteWaveExpense: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'wave_expenses', id)); },
+    addFinancialTransaction: async (data: any) => { await addDoc(collection(firestore!, 'financial_transactions'), data); },
+    updateFinancialTransaction: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'financial_transactions', id), data); },
+    deleteFinancialTransaction: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'financial_transactions', id)); },
+    addFinanceRequest: async (data: any) => { await addDoc(collection(firestore!, 'finance_requests'), data); },
+    updateFinanceRequest: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'finance_requests', id), data); },
+    deleteFinanceRequest: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'finance_requests', id)); },
     approveEnrollmentRequest: async (requestId: string, classId: string) => {
         const req = (enrollmentRequests || []).find(r => r.id === requestId);
         if (!req) return;
@@ -413,8 +439,8 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
         await updateDocumentNonBlocking(doc(firestore!, 'classes', classId), { students: [...targetClass.students, studentId] });
         await updateDocumentNonBlocking(doc(firestore!, 'enrollment_requests', requestId), { status: 'approved' });
     },
-    updateEnrollmentRequest: (id: string, data: any) => updateDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id), data),
-    deleteEnrollmentRequest: (id: string) => deleteDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id)),
+    updateEnrollmentRequest: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id), data); },
+    deleteEnrollmentRequest: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id)); },
     markAttendanceByTheoflix: async (userId: string, courseId: string, episodeIndex: number) => {
         const relevantClasses = (classes || []).filter(c => c.courseId === courseId && c.students.includes(userId));
         for (const cls of relevantClasses) {
@@ -433,12 +459,12 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
             }
         }
     },
-    saveSchedule: (data: any) => {
+    saveSchedule: async (data: any) => {
         const id = `${data.areaId}_${data.month}`;
-        return setDocumentNonBlocking(doc(firestore!, 'saved_schedules', id), data);
+        await setDocumentNonBlocking(doc(firestore!, 'saved_schedules', id), data);
     },
-    deleteSchedule: (id: string) => deleteDocumentNonBlocking(doc(firestore!, 'saved_schedules', id)),
-  }), [users, areas, teams, events, rooms, reservations, courses, classes, enrollmentRequests, pedagogicalLogs, wavePayments, disPayments, wavePlans, disPlans, waveExpenses, theoflixCourses, financialTransactions, financeRequests, isLoading, firestore]);
+    deleteSchedule: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'saved_schedules', id)); },
+  }), [users, areas, teams, events, rooms, reservations, courses, classes, enrollmentRequests, pedagogicalLogs, wavePayments, disPayments, wavePlans, disPlans, waveExpenses, theoflixCourses, financialTransactions, financeRequests, savedSchedules, isLoading, firestore]);
 
   return (
     <VolunteeringContext.Provider value={value}>

@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -18,7 +17,16 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirebase, setDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 
-export function EditGoalDialog({ open, onOpenChange, kpi, title, year, existingGoal }) {
+interface EditGoalDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  kpi: string;
+  title: string;
+  year: number;
+  existingGoal: any;
+}
+
+export function EditGoalDialog({ open, onOpenChange, kpi, title, year, existingGoal }: EditGoalDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [target, setTarget] = useState('');

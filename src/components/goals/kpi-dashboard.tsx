@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -8,7 +7,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { Users, TrendingUp, CheckSquare, Crosshair, UserPlus, GraduationCap, Pencil } from 'lucide-react';
 import { EditGoalDialog } from '@/components/goals/edit-goal-dialog';
 
-const kpiDefinitions = {
+const kpiDefinitions: Record<string, { title: string; icon: React.ElementType }> = {
     'celulas': { title: 'Número de Células', icon: Users },
     'frequencia_culto': { title: 'Frequência Média no Culto', icon: CheckSquare },
     'conversoes': { title: 'Conversões', icon: UserPlus },
@@ -18,7 +17,13 @@ const kpiDefinitions = {
 
 const monthLabels = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
-function KpiCard({ kpi, goal, actualData }) {
+interface KpiCardProps {
+    kpi: string;
+    goal: any;
+    actualData: any;
+}
+
+function KpiCard({ kpi, goal, actualData }: KpiCardProps) {
     const [isEditDialogOpen, setEditDialogOpen] = useState(false);
 
     const { title, icon: Icon } = kpiDefinitions[kpi] || { title: 'KPI Desconhecido', icon: TrendingUp };
@@ -95,8 +100,13 @@ function KpiCard({ kpi, goal, actualData }) {
     );
 }
 
+interface KpiDashboardProps {
+    goals: any[];
+    kpiData: Record<string, any>;
+    year: number;
+}
 
-export default function KpiDashboard({ goals, kpiData, year }) {
+export default function KpiDashboard({ goals, kpiData, year }: KpiDashboardProps) {
     const goalsMap = useMemo(() => {
         const map = new Map();
         goals.forEach(goal => {

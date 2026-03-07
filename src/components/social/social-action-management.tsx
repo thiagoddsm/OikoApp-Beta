@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, query, doc, Timestamp } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -28,7 +28,14 @@ type Beneficiary = {
     name: string;
 };
 
-function ActionFormDialog({ open, onOpenChange, existingAction, beneficiaries }) {
+interface ActionFormDialogProps {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    existingAction: SocialAction | null;
+    beneficiaries: Beneficiary[];
+}
+
+function ActionFormDialog({ open, onOpenChange, existingAction, beneficiaries }: ActionFormDialogProps) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [beneficiaryId, setBeneficiaryId] = useState('');
@@ -61,11 +68,11 @@ function ActionFormDialog({ open, onOpenChange, existingAction, beneficiaries })
         };
 
         if (existingAction) {
-            const docRef = doc(firestore, 'social_actions', existingAction.id);
+            const docRef = doc(firestore!, 'social_actions', existingAction.id);
             updateDocumentNonBlocking(docRef, dataToSave);
             toast({ title: 'Ação social atualizada.' });
         } else {
-            const collectionRef = collection(firestore, 'social_actions');
+            const collectionRef = collection(firestore!, 'social_actions');
             addDocumentNonBlocking(collectionRef, dataToSave);
             toast({ title: 'Ação social registrada.' });
         }
@@ -85,7 +92,7 @@ function ActionFormDialog({ open, onOpenChange, existingAction, beneficiaries })
                         <Select value={beneficiaryId} onValueChange={setBeneficiaryId}>
                             <SelectTrigger><SelectValue placeholder="Selecione..."/></SelectTrigger>
                             <SelectContent>
-                                {beneficiaries.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                                {beneficiaries.map((b: any) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </div>

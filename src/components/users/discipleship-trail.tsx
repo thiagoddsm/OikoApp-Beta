@@ -38,7 +38,18 @@ type Course = {
     name: string;
 };
 
-const TimelineCard = ({ item, isEven, onToggle, isExpanded, isCurrent, isFuture, isCompleted, courseName }) => {
+interface TimelineCardProps {
+    item: TimelineItemData;
+    isEven: boolean;
+    onToggle: (id: string) => void;
+    isExpanded: boolean;
+    isCurrent: boolean;
+    isFuture: boolean;
+    isCompleted: boolean;
+    courseName: string | null;
+}
+
+const TimelineCard = ({ item, isEven, onToggle, isExpanded, isCurrent, isFuture, isCompleted, courseName }: TimelineCardProps) => {
     const Icon = iconMap[item.id] || iconMap['default'];
     const hasTechnicalReq = !!item.requiredCourseId;
     const hasHumanReq = item.requiresDisciplerApproval || item.requiresSupervisorApproval;
@@ -128,7 +139,7 @@ const TimelineCard = ({ item, isEven, onToggle, isExpanded, isCurrent, isFuture,
                                     <div className="space-y-2">
                                         <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Checklist Prático:</p>
                                         <ul className="space-y-1.5">
-                                            {item.questions.map((q, idx) => (
+                                            {item.questions.map((q: any, idx: number) => (
                                                 <li key={idx} className="flex items-start gap-2 text-[11px] text-slate-600 leading-tight">
                                                     <div className="size-1.5 rounded-full bg-primary/30 mt-1 shrink-0" />
                                                     {q.label}
