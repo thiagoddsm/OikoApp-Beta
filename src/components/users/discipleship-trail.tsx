@@ -16,12 +16,6 @@ import {
     Info,
     ChevronDown
 } from 'lucide-react';
-import { 
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { journeyColumns, statusToPhaseMap, phaseConfig, iconMap } from './journey-status-config';
 
 type TimelineItemData = {
@@ -61,7 +55,6 @@ const TimelineCard = ({ item, isEven, onToggle, isExpanded, isCurrent, isFuture,
                 isEven ? 'md:text-right pr-8' : 'md:text-left pl-8 md:col-start-2',
                 isFuture && 'opacity-70'
             )}>
-                 {/* Conector Central */}
                  <div className={cn(
                     "absolute top-6 w-4 h-4 rounded-full bg-background border-4 z-20 shadow-sm transition-transform duration-300",
                     isFuture ? 'border-slate-300' : isCompleted ? 'border-emerald-500 bg-emerald-500' : 'border-primary',
@@ -91,7 +84,6 @@ const TimelineCard = ({ item, isEven, onToggle, isExpanded, isCurrent, isFuture,
                              )}
                         </div>
 
-                        {/* Badges de Requisitos */}
                         <div className={cn("flex flex-wrap items-center gap-2 mt-3", isEven ? "md:justify-end" : "md:justify-start")}>
                             {hasTechnicalReq && (
                                 <Badge variant="outline" className="text-[9px] py-0 h-5 border-emerald-200 bg-emerald-50 text-emerald-700 font-bold">
@@ -204,7 +196,6 @@ export function DiscipleshipTrail({ currentStatusId }: { currentStatusId?: strin
     return (
         <div className="bg-background rounded-lg p-2 md:p-4">
             <div className="max-w-5xl mx-auto px-2 py-4 relative">
-                {/* Linha de fundo */}
                 <div className="absolute left-4 md:left-1/2 top-0 bottom-0 w-1 bg-slate-100 -ml-0.5 md:-ml-0.5 z-0 rounded-full"></div>
 
                 <div className="space-y-2 md:space-y-0 relative">
@@ -239,7 +230,7 @@ export function DiscipleshipTrail({ currentStatusId }: { currentStatusId?: strin
                                     isCurrent={isCurrent}
                                     isCompleted={isCompleted}
                                     isFuture={isFuture}
-                                    courseName={courseName}
+                                    courseName={courseName || ''}
                                 />
                             </React.Fragment>
                         );

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -15,7 +14,14 @@ import { Checkbox } from '../ui/checkbox';
 import { journeyColumns } from '@/components/users/journey-status-config';
 import { Separator } from '../ui/separator';
 
-export function JourneyStageFormDialog({ open, onOpenChange, existingStage, courses }) {
+interface JourneyStageFormDialogProps {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    existingStage: any;
+    courses: any[];
+}
+
+export function JourneyStageFormDialog({ open, onOpenChange, existingStage, courses }: JourneyStageFormDialogProps) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
 
@@ -32,7 +38,7 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage, cour
             if (existingStage) {
                 setStageId(existingStage.id);
                 setTitle(existingStage.title || '');
-                setQuestions(existingStage.questions?.map(q => ({...q, type: q.type || 'checkbox'})) || []);
+                setQuestions(existingStage.questions?.map((q: any) => ({...q, type: q.type || 'checkbox'})) || []);
                 setRequiredCourseId(existingStage.requiredCourseId || 'none');
                 setRequiresDisciplerApproval(existingStage.requiresDisciplerApproval || false);
                 setRequiresSupervisorApproval(existingStage.requiresSupervisorApproval || false);
@@ -62,7 +68,7 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage, cour
     };
 
     const handleSave = async () => {
-        if (!title || !stageId) {
+        if (!title || !stageId || !firestore) {
             toast({ variant: 'destructive', title: 'Campos obrigatórios', description: 'Título e Fase da Integração são obrigatórios.' });
             return;
         }
@@ -102,7 +108,6 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage, cour
                 </DialogHeader>
 
                 <div className="flex-1 overflow-y-auto p-6 space-y-8">
-                    {/* Identificação */}
                     <section className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
@@ -125,7 +130,6 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage, cour
 
                     <Separator />
 
-                    {/* Requisito Técnico */}
                     <section className="space-y-4">
                         <div className="flex items-center gap-2 mb-2">
                             <GraduationCap className="size-4 text-emerald-600" />
@@ -139,7 +143,7 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage, cour
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="none">Nenhum (Avanço liberado tecnicamente)</SelectItem>
-                                    {courses.map(course => (
+                                    {courses.map((course: any) => (
                                         <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
                                     ))}
                                 </SelectContent>
@@ -150,7 +154,6 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage, cour
 
                     <Separator />
 
-                    {/* Validação Humana */}
                     <section className="space-y-4">
                         <div className="flex items-center gap-2 mb-2">
                             <ShieldAlert className="size-4 text-amber-600" />
@@ -184,7 +187,6 @@ export function JourneyStageFormDialog({ open, onOpenChange, existingStage, cour
 
                     <Separator />
 
-                    {/* Checklist Prático */}
                     <section className="space-y-4 pb-8">
                         <div className="flex items-center justify-between gap-2 mb-4">
                             <div className="flex items-center gap-2">

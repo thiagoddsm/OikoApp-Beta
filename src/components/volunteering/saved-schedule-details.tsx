@@ -1,9 +1,8 @@
-
 'use client';
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useVolunteering, type SavedSchedule } from '@/contexts/volunteering-context';
 import { useDoc } from '@/firebase';
-import { Loader2, FileText, Download, Send, Trash2, Search, SlidersHorizontal, ChevronDown, CheckCircle, XCircle, Mail, MessageSquare } from 'lucide-react';
+import { Loader2, Download, Send, Trash2, ChevronDown, Mail, MessageSquare, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -19,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
 export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, monthFilter: string }) {
-    const { teams, users, areas, isLoading: isContextLoading, deleteSchedule } = useVolunteering();
+    const { users, areas, isLoading: isContextLoading, deleteSchedule } = useVolunteering();
     const { toast } = useToast();
     const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
     
@@ -28,7 +27,6 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
     
     const isLoading = isContextLoading || isScheduleLoading;
 
-    // Filters
     const [searchTerm, setSearchTerm] = useState('');
     const [dayFilter, setDayFilter] = useState('all');
     const [eventFilter, setEventFilter] = useState('all');
@@ -38,18 +36,18 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
     const userMap = useMemo(() => new Map(users.map(u => [u.id, u.name])), [users]);
     const areaMap = useMemo(() => new Map(areas.map(a => [a.id, a.name])), [areas]);
 
-
     const filteredScheduleItems = useMemo(() => {
         if (!schedule?.schedule) return [];
 
-        return schedule.schedule.filter(item => {
-            const memberNames = item.memberIds.map(id => userMap.get(id) || '').join(' ');
+        return schedule.schedule.filter((item: any) => {
+            const memberNames = item.memberIds.map((id: string) => userMap.get(id) || '').join(' ');
             const searchMatch = searchTerm === '' || 
                 item.eventName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                item.teamName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                item.teamName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 memberNames.toLowerCase().includes(searchTerm.toLowerCase());
             
-            const date = new Date(item.date.split('/').reverse().join('-') + 'T12:00:00');
+            const dateParts = item.date.split('/');
+            const date = new Date(parseInt(dateParts[2]), parseInt(dateParts[1]) - 1, parseInt(dateParts[0]), 12, 0, 0);
             const dayOfWeekName = weekDays[date.getDay()];
 
             const dayMatch = dayFilter === 'all' || dayOfWeekName === dayFilter;
@@ -64,15 +62,18 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
 
     }, [schedule, searchTerm, dayFilter, eventFilter, teamFilter, statusFilter, userMap]);
     
-    const uniqueEvents = useMemo(() => Array.from(new Set(schedule?.schedule.map(item => item.eventName) || [])), [schedule]);
+    const uniqueEvents = useMemo(() => Array.from(new Set(schedule?.schedule.map((item: any) => item.eventName) || [])), [schedule]);
     const uniqueTeams = useMemo(() => {
-        const teamMap = new Map();
-        schedule?.schedule.forEach(item => teamMap.set(item.teamId, item.teamName));
-        return Array.from(teamMap.entries()).map(([id, name]) => ({ id, name }));
+        const tMap = new Map();
+        schedule?.schedule.forEach((item: any) => {
+            if (item.teamId) tMap.set(item.teamId, item.teamName);
+        });
+        return Array.from(tMap.entries()).map(([id, name]) => ({ id, name }));
     }, [schedule]);
     
     const getDayOfWeek = (dateString: string) => {
-        const date = new Date(dateString.split('/').reverse().join('-') + 'T12:00:00');
+        const dateParts = dateString.split('/');
+        const date = new Date(parseInt(dateParts[2]), parseInt(dateParts[1]) - 1, parseInt(dateParts[0]), 12, 0, 0);
         return weekDays[date.getDay()];
     }
 
@@ -89,13 +90,13 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
         const tableColumn = ["Data", "Dia", "Evento", "Equipe", "Voluntário"];
         const tableRows: any[] = [];
 
-        filteredScheduleItems.forEach(item => {
+        filteredScheduleItems.forEach((item: any) => {
             const rowData = [
                 item.date,
                 getDayOfWeek(item.date),
                 item.eventName,
                 item.teamName || '-',
-                item.memberIds.map(id => userMap.get(id)).join(', ') || 'Vaga Aberta',
+                item.memberIds.map((id: string) => userMap.get(id)).join(', ') || 'Vaga Aberta',
             ];
             tableRows.push(rowData);
         });
@@ -105,7 +106,6 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
     };
 
     const handleNotification = async (channel: 'email' | 'whatsapp', audience: 'all' | string) => {
-        // Simulate API call
         toast({
             title: "Enviando Notificações...",
             description: `A notificação por ${channel} para "${audience}" está sendo processada.`,
@@ -118,16 +118,9 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
         });
 
         if(response.ok) {
-            toast({
-                title: "Notificações na Fila!",
-                description: `As mensagens foram adicionadas à fila de envio.`,
-            });
+            toast({ title: "Notificações na Fila!", description: `As mensagens foram adicionadas à fila de envio.` });
         } else {
-             toast({
-                variant: 'destructive',
-                title: "Erro",
-                description: `Falha ao enviar notificações.`,
-            });
+             toast({ variant: 'destructive', title: "Erro", description: `Falha ao enviar notificações.` });
         }
     };
     
@@ -142,10 +135,8 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
      if (!schedule) {
         return (
             <div className="flex flex-col items-center justify-center p-8 h-64 border-2 border-dashed rounded-lg">
-                <FileText className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold">Nenhuma Escala Encontrada</h3>
                 <p className="text-muted-foreground text-sm">Não há uma escala salva para a área e o período selecionados.</p>
-                 <p className="text-muted-foreground text-sm mt-1">Tente gerar uma na aba "Gerar Escala".</p>
             </div>
         );
     }
@@ -160,31 +151,27 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
                     </div>
                      <div className="flex gap-2">
                         <Button variant="outline" onClick={handleExportPDF}><Download className="mr-2"/>Exportar PDF</Button>
-                        <div className="flex flex-col items-end">
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button><Send className="mr-2"/> Notificar</Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => handleNotification('email', 'all')}>
-                                        <Mail className="mr-2"/> Notificar todos por E-mail
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSub>
-                                        <DropdownMenuSubTrigger>
-                                            <MessageSquare className="mr-2"/> Notificar por WhatsApp
-                                        </DropdownMenuSubTrigger>
-                                        <DropdownMenuPortal>
-                                        <DropdownMenuSubContent>
-                                            <DropdownMenuItem onClick={() => handleNotification('whatsapp', 'all')}>Notificar todos</DropdownMenuItem>
-                                            <DropdownMenuItem disabled>Notificar um voluntário...</DropdownMenuItem>
-                                        </DropdownMenuSubContent>
-                                        </DropdownMenuPortal>
-                                    </DropdownMenuSub>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                             <p className="text-xs text-muted-foreground mt-1">Lembretes automáticos são enviados 3 e 1 dia antes.</p>
-                        </div>
-                         <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)}><Trash2 className="mr-2"/> Excluir Escala</Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button><Send className="mr-2"/> Notificar</Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleNotification('email', 'all')}>
+                                    <Mail className="mr-2"/> Notificar todos por E-mail
+                                </DropdownMenuItem>
+                                <DropdownMenuSub>
+                                    <DropdownMenuSubTrigger>
+                                        <MessageSquare className="mr-2"/> Notificar por WhatsApp
+                                    </DropdownMenuSubTrigger>
+                                    <DropdownMenuPortal>
+                                    <DropdownMenuSubContent>
+                                        <DropdownMenuItem onClick={() => handleNotification('whatsapp', 'all')}>Notificar todos</DropdownMenuItem>
+                                    </DropdownMenuSubContent>
+                                    </DropdownMenuPortal>
+                                </DropdownMenuSub>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                         <Button variant="destructive" onClick={() => setDeleteDialogOpen(true)}><Trash2 className="mr-2"/> Excluir</Button>
                     </div>
                 </CardHeader>
                 <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -195,41 +182,37 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                     <Select value={dayFilter} onValueChange={setDayFilter}>
-                        <SelectTrigger><div className="flex items-center gap-2"><ChevronDown className="h-4 w-4"/>Dia da Semana</div></SelectTrigger>
+                        <SelectTrigger><div className="flex items-center gap-2"><ChevronDown className="h-4 w-4"/>Dia</div></SelectTrigger>
                         <SelectContent><SelectItem value="all">Todos os Dias</SelectItem>{weekDays.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
                     </Select>
                      <Select value={eventFilter} onValueChange={setEventFilter}>
                         <SelectTrigger><div className="flex items-center gap-2"><ChevronDown className="h-4 w-4"/>Evento</div></SelectTrigger>
-                        <SelectContent><SelectItem value="all">Todos os Eventos</SelectItem>{uniqueEvents.map(e => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
+                        <SelectContent><SelectItem value="all">Todos os Eventos</SelectItem>{uniqueEvents.map((e: any) => <SelectItem key={e} value={e}>{e}</SelectItem>)}</SelectContent>
                     </Select>
                      <Select value={teamFilter} onValueChange={setTeamFilter}>
                         <SelectTrigger><div className="flex items-center gap-2"><ChevronDown className="h-4 w-4"/>Equipe</div></SelectTrigger>
-                        <SelectContent><SelectItem value="all">Todas as Equipes</SelectItem>{uniqueTeams.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+                        <SelectContent><SelectItem value="all">Todas as Equipes</SelectItem>{uniqueTeams.map((t: any) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
                     </Select>
                 </CardContent>
             </Card>
             
-            <div className="mt-6 rounded-lg border">
+            <div className="mt-6 rounded-lg border overflow-hidden">
                 <Table>
-                    <TableHeader>
+                    <TableHeader className="bg-muted/50">
                         <TableRow>
-                            <TableHead className="w-[120px]">Data</TableHead>
-                            <TableHead className="w-[130px]">Dia</TableHead>
+                            <TableHead>Data</TableHead>
+                            <TableHead>Dia</TableHead>
                             <TableHead>Evento</TableHead>
                             <TableHead>Equipe</TableHead>
-                            <TableHead>Voluntário / Motivo</TableHead>
-                            <TableHead className="w-[120px]">Status</TableHead>
+                            <TableHead>Voluntário</TableHead>
+                            <TableHead>Status</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {filteredScheduleItems.length === 0 ? (
-                           <TableRow>
-                               <TableCell colSpan={6} className="h-24 text-center">
-                                   Nenhum item corresponde aos filtros aplicados.
-                               </TableCell>
-                           </TableRow>
+                           <TableRow><TableCell colSpan={6} className="h-24 text-center">Nenhum item encontrado.</TableCell></TableRow>
                         ) : (
-                            filteredScheduleItems.map((item, index) => {
+                            filteredScheduleItems.map((item: any, index: number) => {
                                 const hasVolunteers = item.memberIds.length > 0;
                                 return (
                                 <TableRow key={index}>
@@ -238,33 +221,7 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
                                     <TableCell><Badge variant="outline">{item.eventName}</Badge></TableCell>
                                     <TableCell>{item.teamName ? <Badge>{item.teamName}</Badge> : '-'}</TableCell>
                                     <TableCell>
-                                        {hasVolunteers ? (
-                                             <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" className="h-auto p-1 -ml-1">
-                                                        {item.memberIds.map(id => userMap.get(id)).join(', ')}
-                                                        <ChevronDown className="h-3 w-3 ml-2" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="start">
-                                                    <DropdownMenuItem disabled>Trocar por...</DropdownMenuItem>
-                                                    {/* Lógica para listar voluntários elegíveis */}
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        ) : (
-                                            <DropdownMenu>
-                                                 <DropdownMenuTrigger asChild>
-                                                     <Button variant="ghost" className="h-auto p-1 -ml-1 text-destructive">
-                                                        Nenhum voluntário atribuído
-                                                        <ChevronDown className="h-3 w-3 ml-2" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="start">
-                                                    <DropdownMenuItem disabled>Atribuir para...</DropdownMenuItem>
-                                                     {/* Lógica para listar voluntários elegíveis */}
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        )}
+                                        {item.memberIds.map((id: string) => userMap.get(id)).join(', ') || 'Vaga Aberta'}
                                     </TableCell>
                                     <TableCell>
                                         <Badge variant={hasVolunteers ? 'default' : 'destructive'} className={hasVolunteers ? 'bg-green-100 text-green-800' : ''}>

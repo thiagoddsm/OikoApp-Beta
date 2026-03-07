@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useMemo, useState } from 'react';
 import { useVolunteering, type EnrollmentRequest } from '@/contexts/volunteering-context';
@@ -10,6 +9,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
     const { enrollmentRequests, classes, approveEnrollmentRequest, updateEnrollmentRequest, deleteEnrollmentRequest, isLoading } = useVolunteering();

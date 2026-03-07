@@ -1,6 +1,6 @@
 'use client';
 import React, { useMemo } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { BarChart, Bar, PieChart, Pie, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { useCollection, useMemoFirebase } from '@/firebase';
 import { useFirebase } from '@/firebase/provider';
@@ -28,9 +28,9 @@ export function PatrimonyDashboardView() {
     const { data: items, isLoading } = useCollection<PatrimonioItem>(patrimonioQuery);
 
     const dashboardData = useMemo(() => {
-        if (!items) return { kpis: {}, categoryData: [], statusData: [] };
+        if (!items) return { kpis: {} as Record<string, number>, categoryData: [], statusData: [] };
 
-        const kpis = {
+        const kpis: Record<string, number> = {
             total: items.length,
             'Disponível': items.filter(i => i.status === 'Disponível').length,
             'Emprestado': items.filter(i => i.status === 'Emprestado').length,

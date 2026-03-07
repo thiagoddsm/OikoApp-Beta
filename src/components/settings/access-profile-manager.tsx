@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -12,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { DeleteConfirmationDialog } from '../structure/delete-confirmation-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
+import { useFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import type { AccessProfile } from '@/app/dashboard/settings/page';
 
@@ -97,8 +96,14 @@ const actionLabels: Record<string, string> = {
   view_student_area: "Área do Aluno"
 };
 
+interface EditProfileDialogProps {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    onSave: (data: { name: string; description: string }) => void;
+    existingProfile: AccessProfile | null;
+}
 
-function EditProfileDialog({ open, onOpenChange, onSave, existingProfile }) {
+function EditProfileDialog({ open, onOpenChange, onSave, existingProfile }: EditProfileDialogProps) {
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
 
@@ -145,12 +150,20 @@ function EditProfileDialog({ open, onOpenChange, onSave, existingProfile }) {
     );
 }
 
-const PermissionRow = ({ item, permissions, onPermissionChange, roleId, disabled }) => {
+interface PermissionRowProps {
+    item: any;
+    permissions: any;
+    onPermissionChange: (permId: string, action: string, checked: boolean) => void;
+    roleId: string;
+    disabled: boolean;
+}
+
+const PermissionRow = ({ item, permissions, onPermissionChange, roleId, disabled }: PermissionRowProps) => {
   return (
     <div className="grid grid-cols-12 items-center gap-2 py-2">
       <Label className="col-span-5 md:col-span-4 font-normal">{item.label}</Label>
       <div className="col-span-7 md:col-span-8 flex items-center gap-4 flex-wrap">
-        {item.actions.map(action => (
+        {(item.actions as string[]).map(action => (
           <div key={action} className="flex items-center gap-2">
             <Checkbox 
               id={`${roleId}-${item.id}-${action}`}
@@ -176,13 +189,11 @@ export function AccessProfileManager({ roles }: { roles: AccessProfile[] }) {
   const [editingProfile, setEditingProfile] = useState<AccessProfile | null>(null);
   const [deletingProfile, setDeletingProfile] = useState<AccessProfile | null>(null);
   
-  // Local state to manage permission changes before saving
   const [localPermissions, setLocalPermissions] = useState<Record<string, Record<string, Record<string, boolean>>>>({});
   const [isSaving, setIsSaving] = useState<string | null>(null);
   
   useEffect(() => {
-    // Initialize local permissions state from the roles prop
-    const initialPermissions = {};
+    const initialPermissions: Record<string, any> = {};
     roles.forEach(role => {
       initialPermissions[role.id] = role.permissions || {};
     });
@@ -211,7 +222,6 @@ export function AccessProfileManager({ roles }: { roles: AccessProfile[] }) {
 
     updateDocumentNonBlocking(roleDocRef, { permissions: permissionsToSave });
 
-    // Using a timeout just to give visual feedback, as non-blocking updates are fast
     setTimeout(() => {
         setIsSaving(null);
         toast({
@@ -239,17 +249,15 @@ export function AccessProfileManager({ roles }: { roles: AccessProfile[] }) {
       if (!firestore) return;
       
       if (editingProfile) {
-          // Update existing profile
           const docRef = doc(firestore, 'access_profiles', editingProfile.id);
           updateDocumentNonBlocking(docRef, profileData);
           toast({ title: "Perfil Atualizado", description: `O perfil "${profileData.name}" será alterado.`});
       } else {
-          // Create new profile
           const id = profileData.name.toLowerCase().replace(/\s+/g, '_').replace(/[^\w-]/g, '');
           const newProfile = {
               name: profileData.name,
               description: profileData.description,
-              permissions: {} // Start with empty permissions
+              permissions: {}
           };
           const docRef = doc(firestore, 'access_profiles', id);
           setDocumentNonBlocking(docRef, newProfile);
@@ -333,11 +341,11 @@ export function AccessProfileManager({ roles }: { roles: AccessProfile[] }) {
                                                                 roleId={role.id}
                                                                 disabled={isAdmin}
                                                             />
-                                                        ) : subItem.subItems ? (
+                                                        ) : (subItem as any).subItems ? (
                                                             <div key={subItem.id} className="pt-2">
                                                                 <h5 className="font-semibold text-foreground/80 text-sm">{subItem.label}</h5>
                                                                 <div className="pl-6 border-l-2 border-slate-200/70 space-y-1 mt-1">
-                                                                    {subItem.subItems.map(nestedSubItem => (
+                                                                    {(subItem as any).subItems.map((nestedSubItem: any) => (
                                                                         <PermissionRow
                                                                             key={nestedSubItem.id}
                                                                             item={nestedSubItem}

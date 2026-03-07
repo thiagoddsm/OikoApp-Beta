@@ -53,6 +53,8 @@ export function EditGoalDialog({ open, onOpenChange, kpi, title, year, existingG
     
     setIsSaving(true);
 
+    if (!firestore) return;
+
     const goalId = `${kpi}_${year}`;
     const goalRef = doc(firestore, 'goals', goalId);
     
@@ -61,7 +63,6 @@ export function EditGoalDialog({ open, onOpenChange, kpi, title, year, existingG
       kpi,
       year,
       target: numericTarget,
-      // Se já existiam, mantém os valores mensais
       monthlyTargets: existingGoal?.monthlyTargets || Array(12).fill(Math.round(numericTarget / 12)),
       monthlyActuals: existingGoal?.monthlyActuals || Array(12).fill(0),
     };

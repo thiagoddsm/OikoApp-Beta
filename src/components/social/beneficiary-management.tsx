@@ -48,7 +48,7 @@ function BeneficiaryFormDialog({ open, onOpenChange, existingBeneficiary }: Bene
     }, [open, existingBeneficiary]);
 
     const handleSave = async () => {
-        if (!name.trim()) {
+        if (!name.trim() || !firestore) {
             toast({ variant: 'destructive', title: 'Nome é obrigatório.' });
             return;
         }
@@ -64,11 +64,11 @@ function BeneficiaryFormDialog({ open, onOpenChange, existingBeneficiary }: Bene
         };
 
         if (existingBeneficiary) {
-            const docRef = doc(firestore!, 'beneficiaries', existingBeneficiary.id);
+            const docRef = doc(firestore, 'beneficiaries', existingBeneficiary.id);
             updateDocumentNonBlocking(docRef, dataToSave);
             toast({ title: 'Beneficiário atualizado.' });
         } else {
-            const collectionRef = collection(firestore!, 'beneficiaries');
+            const collectionRef = collection(firestore, 'beneficiaries');
             addDocumentNonBlocking(collectionRef, dataToSave);
             toast({ title: 'Beneficiário adicionado.' });
         }

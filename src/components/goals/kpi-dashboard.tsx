@@ -109,11 +109,13 @@ interface KpiDashboardProps {
 export default function KpiDashboard({ goals, kpiData, year }: KpiDashboardProps) {
     const goalsMap = useMemo(() => {
         const map = new Map();
-        goals.forEach(goal => {
-            if (goal.year === year) {
-                map.set(goal.kpi, goal);
-            }
-        });
+        if (goals) {
+            goals.forEach(goal => {
+                if (goal.year === year) {
+                    map.set(goal.kpi, goal);
+                }
+            });
+        }
         return map;
     }, [goals, year]);
 
