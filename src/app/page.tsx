@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -9,11 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { 
   HeartHandshake, 
   GraduationCap, 
-  Users, 
-  MapPin, 
   ArrowRight, 
   Music, 
-  Church, 
   HandHelping,
   LogIn
 } from 'lucide-react';
@@ -116,62 +114,6 @@ export default function LandingPage() {
                 </Card>
               ))}
             </div>
-          </div>
-        </section>
-
-        {/* Escolas e Projetos */}
-        <section className="py-20">
-          <div className="container mx-auto px-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-              <div className="space-y-8">
-                <Badge variant="outline" className="text-primary font-bold uppercase tracking-widest">Inclusão e Impacto</Badge>
-                <h2 className="text-4xl md:text-6xl font-black leading-tight">Projetos que <br /> <span className="text-primary">transformam a cidade.</span></h2>
-                <p className="text-lg text-muted-foreground leading-relaxed">
-                  Não somos apenas uma igreja dentro de quatro paredes. Atuamos ativamente na educação musical com a <strong>Wave</strong>, na inclusão com a <strong>Escola DIS</strong> e no suporte social às famílias de São Gonçalo.
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 bg-emerald-100 text-emerald-700 rounded-lg"><HandHelping /></div>
-                    <div>
-                      <h4 className="font-bold">Ação Social</h4>
-                      <p className="text-sm text-muted-foreground">Suporte a famílias em vulnerabilidade.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-4">
-                    <div className="p-2 bg-blue-100 text-blue-700 rounded-lg"><GraduationCap /></div>
-                    <div>
-                      <h4 className="font-bold">Escola DIS</h4>
-                      <p className="text-sm text-muted-foreground">Inclusão para pessoas com deficiência.</p>
-                    </div>
-                  </div>
-                </div>
-                <Button size="lg" className="rounded-full px-8" asChild>
-                  <Link href="/dashboard/social">Saiba mais sobre nosso impacto</Link>
-                </Button>
-              </div>
-              <div className="relative aspect-square md:aspect-video lg:aspect-square bg-slate-200 rounded-[2rem] overflow-hidden shadow-2xl">
-                 <Image 
-                    src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwyfHxtdXNpYyUyMGNodXJjaHxlbnwwfHx8fDE3NjMyNTMyNDZ8MA&ixlib=rb-4.1.0&q=80&w=1080" 
-                    alt="Ministério" 
-                    fill 
-                    className="object-cover"
-                    data-ai-hint="music church"
-                 />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* CTA Section */}
-        <section className="py-20 bg-primary text-primary-foreground">
-          <div className="container mx-auto px-4 text-center space-y-8">
-            <h2 className="text-3xl md:text-5xl font-black">Já é um membro da IBM?</h2>
-            <p className="text-xl opacity-90 max-w-2xl mx-auto">
-              Acesse sua jornada de discipulado, gerencie suas escalas de serviço e acompanhe o crescimento do seu GC no nosso Portal.
-            </p>
-            <Button size="lg" variant="secondary" className="h-14 px-10 text-lg font-bold shadow-lg" asChild>
-              <Link href="/login">Entrar no Portal do Membro</Link>
-            </Button>
           </div>
         </section>
       </main>

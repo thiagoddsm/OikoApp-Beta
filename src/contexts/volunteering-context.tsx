@@ -1,8 +1,9 @@
+
 'use client';
 
 import React, { createContext, useContext, ReactNode, useMemo } from 'react';
-import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
-import { collection, query, where, doc, Timestamp, addDoc } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
+import { collection, query, doc, Timestamp, addDoc, DocumentReference } from 'firebase/firestore';
 
 export type User = {
   id: string;
@@ -91,6 +92,20 @@ export type Course = {
   type?: 'trilho' | 'eletivo';
   ebdTrack?: 'teologico' | 'biblico' | 'discipulado';
   linkedTheoflixId?: string;
+};
+
+export type SavedSchedule = {
+  id: string;
+  areaId: string;
+  month: string;
+  schedule: {
+    date: string;
+    eventName: string;
+    areaId: string;
+    teamId: string | null;
+    teamName: string | null;
+    memberIds: string[];
+  }[];
 };
 
 export type Class = {
@@ -186,20 +201,6 @@ export type FinanceRequest = {
   purchaseLink?: string;
   status: 'pending' | 'approved' | 'paid' | 'rejected';
   createdAt: Timestamp;
-};
-
-export type SavedSchedule = {
-  id: string;
-  areaId: string;
-  month: string;
-  schedule: {
-    date: string;
-    eventName: string;
-    areaId: string;
-    teamId: string | null;
-    teamName: string | null;
-    memberIds: string[];
-  }[];
 };
 
 interface VolunteeringContextType {

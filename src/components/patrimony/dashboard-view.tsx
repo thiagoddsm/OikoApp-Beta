@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -28,14 +29,14 @@ export function PatrimonyDashboardView() {
     const { data: items, isLoading } = useCollection<PatrimonioItem>(patrimonioQuery);
 
     const dashboardData = useMemo(() => {
-        if (!items) return { kpis: {} as Record<string, number>, categoryData: [], statusData: [] };
-
         const kpis: Record<string, number> = {
-            total: items.length,
-            'Disponível': items.filter(i => i.status === 'Disponível').length,
-            'Emprestado': items.filter(i => i.status === 'Emprestado').length,
-            'Manutenção': items.filter(i => i.status === 'Manutenção').length,
+            total: items?.length || 0,
+            'Disponível': items?.filter(i => i.status === 'Disponível').length || 0,
+            'Emprestado': items?.filter(i => i.status === 'Emprestado').length || 0,
+            'Manutenção': items?.filter(i => i.status === 'Manutenção').length || 0,
         };
+
+        if (!items) return { kpis, categoryData: [], statusData: [] };
 
         const categoryCounts = items.reduce((acc, item) => {
             acc[item.category] = (acc[item.category] || 0) + 1;
@@ -74,9 +75,6 @@ export function PatrimonyDashboardView() {
                             <div className={`text-3xl font-bold ${kpi.color}`}>
                                 {dashboardData.kpis[kpi.status] ?? 0}
                             </div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                                {kpi.status === 'total' ? 'Patrimônio Ativo' : `Itens em ${kpi.title.toLowerCase()}`}
-                            </p>
                         </CardContent>
                     </Card>
                 ))}

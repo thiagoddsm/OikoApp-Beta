@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
@@ -69,7 +70,7 @@ export function EditGoalDialog({ open, onOpenChange, kpi, title, year, existingG
       monthlyActuals: existingGoal?.monthlyActuals || Array(12).fill(0),
     };
 
-    setDocumentNonBlocking(goalRef, goalData, { merge: true });
+    await setDocumentNonBlocking(goalRef, goalData, { merge: true });
 
     toast({
         title: "Meta Atualizada!",
@@ -86,7 +87,7 @@ export function EditGoalDialog({ open, onOpenChange, kpi, title, year, existingG
         <DialogHeader>
           <DialogTitle>Definir Meta para {title}</DialogTitle>
           <DialogDescription>
-            Defina o alvo anual para este indicador em {year}. O sistema distribuirá a meta mensalmente de forma igual, mas você poderá ajustar depois.
+            Defina o alvo anual para este indicador em {year}.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">

@@ -9,24 +9,23 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, PlusCircle, Trash2, HeartHandshake, User, Calendar as CalendarIcon, DollarSign, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Loader2, PlusCircle, Trash2, HeartHandshake, User } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
 export function TithesOfferingsManager() {
-  const { users, financialTransactions, addFinancialTransaction, deleteFinancialTransaction, isLoading } = useVolunteering();
+  const { users, financialTransactions, addFinancialTransaction, deleteFinancialTransaction } = useVolunteering();
   const { toast } = useToast();
   
   const [isSaving, setIsSaving] = useState(false);
-  const [isSyncingId, setIsSyncingId] = useState<string | null>(null);
   
   const [formData, setFormData] = useState({
     memberId: 'null',
     category: 'Dízimo',
     amount: '',
     date: new Date().toISOString().split('T')[0],
-    paymentMethod: 'PIX' as any,
+    paymentMethod: 'PIX',
     description: '',
   });
 
@@ -54,40 +53,13 @@ export function TithesOfferingsManager() {
 
     try {
         await addFinancialTransaction(transactionData);
-        toast({ title: "Lançamento Realizado", description: "O registro foi salvo no sistema local." });
+        toast({ title: "Lançamento Realizado", description: "O registro foi salvo com sucesso." });
         setFormData(prev => ({ ...prev, amount: '', description: '' }));
     } catch (e) {
         toast({ variant: 'destructive', title: "Erro ao salvar" });
     } finally {
         setIsSaving(false);
     }
-  };
-
-  const handleSyncToContaAzul = async (transaction: FinancialTransaction) => {
-      setIsSyncingId(transaction.id);
-      try {
-          const member = users.find(u => u.id === transaction.memberId);
-          
-          const response = await fetch('/api/finance/conta-azul/sync-transaction', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                  transactionId: transaction.id,
-                  memberData: member ? { name: member.name, email: member.email, phone: member.phone } : null
-              })
-          });
-
-          const result = await response.json();
-          if (response.ok) {
-              toast({ title: "Sincronizado!", description: "Lançamento enviado para o Conta Azul." });
-          } else {
-              throw new Error(result.error);
-          }
-      } catch (e: any) {
-          toast({ variant: 'destructive', title: "Erro na Sincronização", description: e.message });
-      } finally {
-          setIsSyncingId(null);
-      }
   };
 
   const userMap = useMemo(() => new Map(users.map(u => [u.id, u.name])), [users]);
@@ -159,7 +131,7 @@ export function TithesOfferingsManager() {
         </CardContent>
         <CardFooter className="justify-end border-t pt-4">
           <Button onClick={handleSave} disabled={isSaving || !formData.amount}>
-            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isSaving && <Loader2 className="mr-2 size-4 animate-spin" />}
             Confirmar Registro
           </Button>
         </CardFooter>
@@ -180,14 +152,13 @@ export function TithesOfferingsManager() {
                   <TableHead>Categoria</TableHead>
                   <TableHead>Método</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
-                  <TableHead>Integração</TableHead>
                   <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {incomeTransactions.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center h-24 text-muted-foreground">Nenhuma entrada registrada.</TableCell>
+                    <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">Nenhuma entrada registrada.</TableCell>
                   </TableRow>
                 ) : (
                   incomeTransactions.map(t => (
@@ -204,24 +175,6 @@ export function TithesOfferingsManager() {
                       <TableCell><Badge variant="secondary">{t.category}</Badge></TableCell>
                       <TableCell className="text-xs text-muted-foreground">{t.paymentMethod}</TableCell>
                       <TableCell className="text-right font-bold text-emerald-600">R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
-                      <TableCell>
-                        {t.contaAzulSync ? (
-                            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                                <CheckCircle2 className="size-3 mr-1" /> Sincronizado
-                            </Badge>
-                        ) : (
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="h-7 text-[10px] font-bold uppercase"
-                                onClick={() => handleSyncToContaAzul(t)}
-                                disabled={isSyncingId === t.id}
-                            >
-                                {isSyncingId === t.id ? <Loader2 className="size-3 animate-spin mr-1" /> : <RefreshCw className="size-3 mr-1" />}
-                                Sincronizar
-                            </Button>
-                        )}
-                      </TableCell>
                       <TableCell>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteFinancialTransaction(t.id)}>
                           <Trash2 className="size-4" />
