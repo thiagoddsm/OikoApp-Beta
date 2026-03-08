@@ -33,10 +33,12 @@ export function EditGoalDialog({ open, onOpenChange, kpi, title, year, existingG
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (existingGoal) {
-      setTarget(existingGoal.target?.toString() || '');
-    } else {
-      setTarget('');
+    if (open) {
+      if (existingGoal) {
+        setTarget(existingGoal.target?.toString() || '');
+      } else {
+        setTarget('');
+      }
     }
   }, [existingGoal, open]);
 

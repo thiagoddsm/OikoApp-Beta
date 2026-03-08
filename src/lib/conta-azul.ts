@@ -130,7 +130,7 @@ export async function createContaAzulReceivable(data: { customer_id: string; val
         valor: data.valor,
         descricao: `[OikoApp] ${data.descricao}`,
         data_vencimento: data.data_vencimento,
-        categoria_id: "categoria_id_padrao", // Deve ser mapeado no futuro
-        conta_corrente_id: "conta_id_padrao" // Deve ser mapeado no futuro
+        categoria_id: "categoria_id_padrao",
+        conta_corrente_id: "conta_id_padrao"
     });
 }

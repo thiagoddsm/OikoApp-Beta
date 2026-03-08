@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -29,9 +28,39 @@ import { Textarea } from '../ui/textarea';
 type User = {
   id: string;
   name: string;
+  email?: string;
+  phone?: string;
+  avatar?: string;
+  integrationStatus?: string;
+  cpf?: string;
+  sexo?: string;
+  escolaridade?: string;
+  profissao?: string;
+  dataNascimento?: string;
+  estadoCivil?: string;
+  address?: {
+    street?: string;
+    cep?: string;
+  };
   hierarchy?: {
     role?: string;
+    celulaId?: string;
+    supervisorId?: string;
   }
+  batizado?: string;
+  igrejaBatismo?: string;
+  membroAntigo?: string;
+  igrejaAntiga?: string;
+  decisao?: string[];
+  initialStatus?: string;
+  dataDecisao?: string;
+  temFilhos?: string;
+  idadeFilhos?: string;
+  comoConheceu?: string;
+  nomeConvidou?: string;
+  contatoPreferencia?: string[];
+  contatoTurno?: string[];
+  observacoes?: string;
 };
 
 type Cell = {
@@ -50,7 +79,13 @@ const escolaridadeOptions = [
     "Pós-Graduação"
 ];
 
-export function EditUserDialog({ user, open, onOpenChange }) {
+interface EditUserDialogProps {
+    user: User | null;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+}
+
+export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps) {
   const { toast } = useToast();
   const { firestore, user: currentUser } = useFirebase();
   const [isSaving, setIsSaving] = useState(false);
@@ -79,8 +114,8 @@ export function EditUserDialog({ user, open, onOpenChange }) {
     idadeFilhos: '',
     comoConheceu: '',
     nomeConvidou: '',
-    contatoPreferencia: [],
-    contatoTurno: [],
+    contatoPreferencia: [] as string[],
+    contatoTurno: [] as string[],
     observacoes: '',
     integrationStatus: '',
     role: '',
@@ -182,7 +217,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
     setFormData(prev => ({ ...prev, [name]: value === 'null' ? '' : value }));
   };
 
-  const handleCheckboxChange = (name: string, value: string, checked: boolean) => {
+  const handleCheckboxChange = (name: 'decisao' | 'contatoPreferencia' | 'contatoTurno', value: string, checked: boolean) => {
     setFormData(prev => {
         const currentValues = (prev[name] as string[]) || [];
         if (checked) {
@@ -260,7 +295,7 @@ export function EditUserDialog({ user, open, onOpenChange }) {
     };
 
     try {
-        if(isEditing) {
+        if(isEditing && user) {
             const userDocRef = doc(firestore, 'users', user.id);
             updateDocumentNonBlocking(userDocRef, dataToSave);
             toast({

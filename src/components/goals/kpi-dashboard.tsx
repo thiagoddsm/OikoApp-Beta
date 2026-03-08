@@ -26,7 +26,9 @@ interface KpiCardProps {
 function KpiCard({ kpi, goal, actualData }: KpiCardProps) {
     const [isEditDialogOpen, setEditDialogOpen] = useState(false);
 
-    const { title, icon: Icon } = kpiDefinitions[kpi] || { title: 'KPI Desconhecido', icon: TrendingUp };
+    const kpiInfo = kpiDefinitions[kpi] || { title: 'KPI Desconhecido', icon: TrendingUp };
+    const { title, icon: Icon } = kpiInfo;
+    
     const target = goal?.target || 0;
     const actual = actualData?.actual || 0;
     const progress = target > 0 ? (actual / target) * 100 : 0;
@@ -108,7 +110,7 @@ interface KpiDashboardProps {
 
 export default function KpiDashboard({ goals, kpiData, year }: KpiDashboardProps) {
     const goalsMap = useMemo(() => {
-        const map = new Map();
+        const map = new Map<string, any>();
         if (goals) {
             goals.forEach(goal => {
                 if (goal.year === year) {

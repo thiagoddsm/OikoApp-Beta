@@ -43,7 +43,7 @@ export default function RootLayout({
         {googleMapsApiKey && (
           <Script
             src={`https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places,marker`}
-            strategy="beforeInteractive"
+            strategy="lazyOnload"
           />
         )}
         <Script id="register-sw" strategy="afterInteractive">

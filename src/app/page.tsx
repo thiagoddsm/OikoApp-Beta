@@ -17,7 +17,6 @@ import {
   HandHelping,
   LogIn
 } from 'lucide-react';
-import { Logo } from "@/components/icons";
 import { PublicNavbar } from '@/components/public/navbar';
 import { PublicFooter } from '@/components/public/footer';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
