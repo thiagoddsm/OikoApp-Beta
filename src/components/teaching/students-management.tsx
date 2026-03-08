@@ -1,18 +1,17 @@
 'use client';
 import React, { useMemo, useState } from 'react';
 import { useVolunteering, type User, type Class, type Course } from '@/contexts/volunteering-context';
-import { Loader2, User as UserIcon, Search, Edit, PlusCircle, ChevronRight, UserX, Trash2 } from 'lucide-react';
+import { Loader2, Search, PlusCircle, ChevronRight, UserX } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui/card';
-import { Input } from '../ui/input';
-import { Button } from '../ui/button';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { EnrollmentDialog } from './enrollment-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
 
 interface StudentsManagementProps {
     filterCourseIds?: string[];
@@ -101,7 +100,7 @@ export function StudentsManagement({ filterCourseIds }: StudentsManagementProps)
               <div>
                   <CardTitle>Alunos Matriculados</CardTitle>
                   <CardDescription>
-                      {filterCourseIds ? "Alunos vinculados ao DIS/Libras." : "Visualize todos os alunos matriculados."}
+                      {filterCourseIds ? "Alunos vinculados a este departamento." : "Visualize todos os alunos matriculados."}
                   </CardDescription>
               </div>
               <div className="flex items-center gap-2">
@@ -135,7 +134,7 @@ export function StudentsManagement({ filterCourseIds }: StudentsManagementProps)
                           {filteredEnrollments.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={4} className="h-32 text-center text-muted-foreground italic">
-                                    Nenhum aluno encontrado para os critérios selecionados.
+                                    Nenhum aluno encontrado.
                                 </TableCell>
                             </TableRow>
                           ) : (

@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, ReactNode, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
-import { collection, query, doc, Timestamp, addDoc, DocumentReference } from 'firebase/firestore';
+import { collection, query, doc, Timestamp, addDoc, type DocumentReference } from 'firebase/firestore';
 
 export type User = {
   id: string;
@@ -27,6 +27,7 @@ export type User = {
   decisao?: string[];
   initialStatus?: string;
   dataDecisao?: string;
+  absenceCount?: number;
   journey?: {
     stageProgress?: Record<string, any>;
     memberCourseProgress?: Record<string, boolean>;
@@ -91,6 +92,7 @@ export type Course = {
   type?: 'trilho' | 'eletivo';
   ebdTrack?: 'teologico' | 'biblico' | 'discipulado';
   linkedTheoflixId?: string;
+  syllabus?: { id: string; title: string; description: string }[];
 };
 
 export type SavedSchedule = {

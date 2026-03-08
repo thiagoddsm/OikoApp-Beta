@@ -1,4 +1,4 @@
 import { NextResponse } from 'next/server';
 export async function POST() {
-  return NextResponse.json({ message: "Integração desativada." });
+  return NextResponse.json({ message: "Integração desativada." }, { status: 404 });
 }

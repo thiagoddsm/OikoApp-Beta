@@ -5,6 +5,14 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  experimental: {
+    allowedDevOrigins: [
+      '*.cloudworkstations.dev',
+      '*.firebase-studio.dev',
+      'localhost:9002',
+      'localhost:6000',
+    ],
+  },
   images: {
     remotePatterns: [
       {
@@ -33,6 +41,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  env: {
+    BUILD_TIMESTAMP: new Date().toISOString(),
+  }
 };
 
 export default nextConfig;
