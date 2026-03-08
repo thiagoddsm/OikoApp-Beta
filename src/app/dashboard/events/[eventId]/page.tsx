@@ -2,10 +2,11 @@
 
 import { EventPlanningForm } from '@/components/events/planning-form';
 import { GuestBriefingGenerator } from '@/components/events/guest-briefing';
+import { PostEventFeedback } from '@/components/events/post-event-feedback';
 import { VolunteeringProvider } from '@/contexts/volunteering-context';
 import { useParams } from 'next/navigation';
 import { useDoc } from '@/firebase';
-import { Loader2, FileText, UserCheck } from 'lucide-react';
+import { Loader2, FileText, UserCheck, MessageSquareCheck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -49,7 +50,7 @@ export default function EventDetailPage() {
     return (
         <VolunteeringProvider>
              <Tabs defaultValue="planning" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
+                <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="planning">
                         <FileText className="mr-2 size-4" />
                         Planejamento Estratégico
@@ -58,12 +59,19 @@ export default function EventDetailPage() {
                         <UserCheck className="mr-2 size-4" />
                         Briefing do Convidado
                     </TabsTrigger>
+                    <TabsTrigger value="post_event">
+                        <MessageSquareCheck className="mr-2 size-4" />
+                        Pós-Evento
+                    </TabsTrigger>
                 </TabsList>
                 <TabsContent value="planning" className="mt-6">
                      <EventPlanningForm existingEvent={eventData} />
                 </TabsContent>
                 <TabsContent value="guest_briefing" className="mt-6">
                     <GuestBriefingGenerator event={eventData} />
+                </TabsContent>
+                <TabsContent value="post_event" className="mt-6">
+                    <PostEventFeedback event={eventData} />
                 </TabsContent>
             </Tabs>
         </VolunteeringProvider>
