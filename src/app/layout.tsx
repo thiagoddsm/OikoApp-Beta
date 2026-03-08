@@ -1,4 +1,3 @@
-
 import type {Metadata} from 'next';
 import { PT_Sans } from 'next/font/google'
 import './globals.css';
@@ -36,9 +35,7 @@ export default function RootLayout({
         <Script
             id="__APP_ID__"
             dangerouslySetInnerHTML={{
-              __html: `
-            window.__app_id = "${appId}";
-          `,
+              __html: `window.__app_id = "${appId}";`,
             }}
           />
         {googleMapsApiKey && (
@@ -47,15 +44,6 @@ export default function RootLayout({
             strategy="lazyOnload"
           />
         )}
-        <Script id="register-sw" strategy="afterInteractive">
-          {`
-            if ('serviceWorker' in navigator) {
-              window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/sw.js');
-              });
-            }
-          `}
-        </Script>
       </head>
       <body className={cn(
         "min-h-screen bg-background font-body antialiased",

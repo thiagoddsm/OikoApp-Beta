@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useMemo, useState } from 'react';
 import { useVolunteering, type User, type Class, type Course } from '@/contexts/volunteering-context';
@@ -13,6 +12,7 @@ import { Button } from '../ui/button';
 import Link from 'next/link';
 import { EnrollmentDialog } from './enrollment-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 interface StudentsManagementProps {
     filterCourseIds?: string[];
@@ -75,6 +75,8 @@ export function StudentsManagement({ filterCourseIds }: StudentsManagementProps)
                 const updatedStudents = cls.students.filter(id => id !== studentId);
                 await updateClass(classId, { students: updatedStudents });
                 toast({ title: 'Matrícula Removida', description: `${studentName} não faz mais parte da turma ${className}.` });
+            } else {
+                toast({ variant: 'destructive', title: 'Erro', description: 'Turma não encontrada.' });
             }
         } catch (error) {
             toast({ variant: 'destructive', title: 'Erro ao remover', description: 'Não foi possível processar a exclusão.' });
@@ -106,7 +108,7 @@ export function StudentsManagement({ filterCourseIds }: StudentsManagementProps)
                  <div className="relative">
                       <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                       <Input
-                          placeholder="Buscar por aluno, curso, turma..."
+                          placeholder="Buscar por aluno..."
                           className="pl-8 w-[250px]"
                           value={searchTerm}
                           onChange={(e) => setSearchTerm(e.target.value)}
@@ -174,7 +176,10 @@ export function StudentsManagement({ filterCourseIds }: StudentsManagementProps)
                                                 variant="ghost" 
                                                 size="icon" 
                                                 className="h-8 w-8 text-destructive hover:bg-destructive/10" 
-                                                onClick={() => handleRemoveEnrollment(user.id, cls.id, cls.name, user.name)}
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    handleRemoveEnrollment(user.id, cls.id, cls.name, user.name);
+                                                }}
                                                 disabled={isRemoving}
                                                 title="Remover Matrícula"
                                             >

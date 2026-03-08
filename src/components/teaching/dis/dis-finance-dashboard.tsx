@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -6,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, CheckCircle, Clock, XCircle, PlusCircle, FileDown, Filter, Edit, Trash2, RefreshCw } from 'lucide-react';
+import { MoreHorizontal, CheckCircle, Clock, XCircle, PlusCircle, Filter, Edit, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { useVolunteering, type DisPayment } from '@/contexts/volunteering-context';
@@ -40,7 +39,7 @@ export function DisFinanceDashboard() {
   }, [disPayments, filter]);
 
   const kpiData = useMemo(() => {
-    if (!disPayments) return { monthlyRevenue: "R$ 0,00", overdueCount: "0" };
+    if (!disPayments) return { monthlyRevenue: "R$ 0,00", overdueCount: 0 };
     
     const currentMonth = new Date().toISOString().slice(0, 7);
     
@@ -55,19 +54,6 @@ export function DisFinanceDashboard() {
         overdueCount: overduePayments.length,
     };
   }, [disPayments]);
-
-  const handleSyncContaAzul = () => {
-      toast({
-          title: "Sincronizando...",
-          description: "Conectando com Conta Azul para atualizar status das faturas.",
-      });
-      setTimeout(() => {
-          toast({
-              title: "Sincronizado",
-              description: "Status de pagamentos atualizados com base no Conta Azul.",
-          });
-      }, 2000);
-  };
 
   const handleAdd = () => {
     setSelectedPayment(null);
@@ -125,13 +111,9 @@ export function DisFinanceDashboard() {
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
                             <CardTitle>Gestão de Faturas</CardTitle>
-                            <CardDescription>Acompanhe os pagamentos integrados ao Conta Azul.</CardDescription>
+                            <CardDescription>Acompanhe os pagamentos internos da escola DIS.</CardDescription>
                         </div>
                         <div className="flex items-center gap-2">
-                            <Button variant="outline" size="sm" onClick={handleSyncContaAzul}>
-                                <RefreshCw className="mr-2 size-4"/>
-                                Sincronizar Conta Azul
-                            </Button>
                             <Button size="sm" onClick={handleAdd}>
                                 <PlusCircle className="mr-2 size-4"/>
                                 Nova Fatura
@@ -162,7 +144,6 @@ export function DisFinanceDashboard() {
                                     <TableHead>Plano</TableHead>
                                     <TableHead>Valor</TableHead>
                                     <TableHead>Mês</TableHead>
-                                    <TableHead>Conta Azul</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead className="text-right w-[100px]">Ações</TableHead>
                                 </TableRow>
@@ -170,7 +151,7 @@ export function DisFinanceDashboard() {
                             <TableBody>
                                 {filteredTransactions.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} className="h-24 text-center">Nenhum pagamento encontrado.</TableCell>
+                                        <TableCell colSpan={6} className="h-24 text-center">Nenhum pagamento encontrado.</TableCell>
                                     </TableRow>
                                 ) : (
                                     filteredTransactions.map((t) => {
@@ -181,13 +162,6 @@ export function DisFinanceDashboard() {
                                                 <TableCell>{planMap.get(t.planId) || '-'}</TableCell>
                                                 <TableCell>R$ {t.amount.toFixed(2).replace('.', ',')}</TableCell>
                                                 <TableCell>{t.month}</TableCell>
-                                                <TableCell>
-                                                    {t.contaAzulInvoiceId ? (
-                                                        <Badge variant="outline" className="text-blue-600 bg-blue-50 border-blue-200">#{t.contaAzulInvoiceId}</Badge>
-                                                    ) : (
-                                                        <span className="text-xs text-muted-foreground italic">Não vinculado</span>
-                                                    )}
-                                                </TableCell>
                                                 <TableCell>
                                                     <Badge variant="outline" className={cn("font-medium", statusConfig[t.status].color)}>
                                                         <StatusIcon className="mr-1.5 h-3.5 w-3.5" />
@@ -200,8 +174,6 @@ export function DisFinanceDashboard() {
                                                         <DropdownMenuContent align="end">
                                                             <DropdownMenuItem onClick={() => handleEdit(t)}><Edit className="mr-2 h-4 w-4" />Editar</DropdownMenuItem>
                                                             <DropdownMenuItem onClick={() => handleDelete(t)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Excluir</DropdownMenuItem>
-                                                            <DropdownMenuSeparator />
-                                                            <DropdownMenuItem disabled={!!t.contaAzulInvoiceId}>Gerar no Conta Azul</DropdownMenuItem>
                                                         </DropdownMenuContent>
                                                     </DropdownMenu>
                                                 </TableCell>
@@ -227,7 +199,7 @@ export function DisFinanceDashboard() {
                     <CardDescription>Indicadores financeiros do curso de Libras.</CardDescription>
                 </CardHeader>
                 <CardContent className="h-64 flex items-center justify-center border-2 border-dashed rounded-lg">
-                    <p className="text-muted-foreground text-center">Gráficos de performance financeira em desenvolvimento.<br/>Integre seu Conta Azul para visualizar dados em tempo real.</p>
+                    <p className="text-muted-foreground text-center">Gráficos de performance financeira em desenvolvimento.</p>
                 </CardContent>
             </Card>
         </TabsContent>

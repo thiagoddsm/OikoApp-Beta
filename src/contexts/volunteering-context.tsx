@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, ReactNode, useMemo } from 'react';
@@ -184,7 +183,6 @@ export type FinancialTransaction = {
   status: 'paid' | 'pending';
   memberId?: string;
   paymentMethod?: string;
-  contaAzulSync?: boolean;
 };
 
 export type FinanceRequest = {

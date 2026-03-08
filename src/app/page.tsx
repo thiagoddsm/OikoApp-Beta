@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -12,12 +11,12 @@ import {
   GraduationCap, 
   ArrowRight, 
   Music, 
-  HandHelping,
   LogIn
 } from 'lucide-react';
 import { PublicNavbar } from '@/components/public/navbar';
 import { PublicFooter } from '@/components/public/footer';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { cn } from '@/lib/utils';
 
 export default function LandingPage() {
   const heroImage = PlaceHolderImages.find(p => p.id === 'login-background');
