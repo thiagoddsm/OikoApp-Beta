@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -7,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, PlusCircle, Edit, Trash2, ChevronRight, Wand2, ClipboardCheck, BookOpen, Users } from 'lucide-react';
 import { ClassFormDialog } from './class-form-dialog';
 import { useVolunteering } from '@/contexts/volunteering-context';
-import { format } from 'date-fns';
+import { format, addWeeks, startOfMonth, nextDay, Day } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
@@ -30,7 +31,7 @@ type Class = {
     locationId?: string 
 };
 
-export function CourseClassesManager({ course }) {
+export function CourseClassesManager({ course }: { course: any }) {
     const { firestore } = useFirebase();
     const { users, rooms, deleteClass, addClass } = useVolunteering();
     const { toast } = useToast();
@@ -49,7 +50,7 @@ export function CourseClassesManager({ course }) {
     const userMap = useMemo(() => new Map(users?.map(u => [u.id, u.name]) || []), [users]);
     const roomMap = useMemo(() => new Map(rooms?.map(r => [r.id, r.name]) || []), [rooms]);
 
-    const isMemberCourse = course.name?.toLowerCase().includes('membro') || course.name?.toLowerCase().includes('integração');
+    const isMemberCourse = course.name?.toLowerCase().includes('membro') || course.name?.toLowerCase().includes('pertencer') || course.name?.toLowerCase().includes('integração');
     const isWaveOrDis = course.ministryName?.toLowerCase().includes('wave') || course.ministryName?.toLowerCase().includes('dis');
 
     const handleAddClass = () => {
@@ -77,32 +78,33 @@ export function CourseClassesManager({ course }) {
         if (!isMemberCourse) return;
         setIsGenerating(true);
 
-        const aulas = [
-            { name: "Aula 1: História & Visão", week: "1" },
-            { name: "Aula 2: DNA & Células", week: "2" },
-            { name: "Aula 3: Mordomia & Finanças", week: "3" },
-            { name: "Aula 4: Governança & Ética", week: "4" },
-            { name: "Aula 5: Comissionamento", week: "last" },
-        ];
-
         try {
-            for (const aula of aulas) {
-                await addClass({
-                    courseId: course.id,
-                    name: aula.name,
-                    teacherId: "",
-                    students: [],
-                    maxStudents: 30, // Default for generated cycles
-                    frequency: 'mensal',
-                    dayOfWeek: "Domingo",
-                    weekOfMonth: aula.week as any,
-                    startTime: "09:00",
-                    endTime: "10:30",
-                    startDate: new Date().toISOString().split('T')[0],
-                    locationId: ""
-                });
-            }
-            toast({ title: "Ciclo Gerado!", description: "As 5 aulas dominicais foram criadas com sucesso." });
+            // Calcula o próximo mês para sugerir o ciclo
+            const nextMonth = new Date();
+            nextMonth.setMonth(nextMonth.getMonth() + 1);
+            const startOfNextMonth = startOfMonth(nextMonth);
+            const firstSunday = nextDay(startOfNextMonth, 0); // 0 = Domingo
+            const lastSunday = addWeeks(firstSunday, 4);
+
+            const monthName = format(firstSunday, 'MMMM', { locale: ptBR });
+            const yearName = format(firstSunday, 'yyyy');
+
+            await addClass({
+                courseId: course.id,
+                name: `Ciclo ${monthName.charAt(0).toUpperCase() + monthName.slice(1)} / ${yearName}`,
+                teacherId: "",
+                students: [],
+                maxStudents: 30,
+                frequency: 'semanal',
+                dayOfWeek: "Domingo",
+                startTime: "09:00",
+                endTime: "10:30",
+                startDate: format(firstSunday, 'yyyy-MM-dd'),
+                endDate: format(lastSunday, 'yyyy-MM-dd'),
+                locationId: ""
+            });
+
+            toast({ title: "Ciclo Gerado!", description: `A turma de ${monthName} foi criada como um ciclo de 5 semanas.` });
         } catch (error) {
             console.error(error);
             toast({ variant: "destructive", title: "Erro", description: "Falha ao gerar o ciclo de turmas." });
@@ -127,24 +129,24 @@ export function CourseClassesManager({ course }) {
     return (
         <>
             <div className="flex justify-between items-center mb-4">
-                <p className="text-sm text-muted-foreground">Gerencie as turmas ativas para este curso.</p>
+                <p className="text-sm text-muted-foreground">Gerencie os ciclos e turmas ativas.</p>
                 <div className="flex gap-2">
-                    {isMemberCourse && classes?.length === 0 && (
+                    {isMemberCourse && (
                         <Button variant="outline" size="sm" onClick={handleGenerateCycle} disabled={isGenerating}>
                             {isGenerating ? <Loader2 className="mr-2 size-4 animate-spin"/> : <Wand2 className="mr-2 size-4"/>}
-                            Gerar Ciclo de 5 Aulas
+                            Gerar Ciclo Mensal (5 domingos)
                         </Button>
                     )}
-                    <Button size="sm" onClick={handleAddClass}><PlusCircle className="mr-2 size-4"/>Nova Turma</Button>
+                    <Button size="sm" onClick={handleAddClass}><PlusCircle className="mr-2 size-4"/>Nova Turma / Ciclo</Button>
                 </div>
             </div>
             <div className="rounded-md border bg-background">
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Turma</TableHead>
+                            <TableHead>Ciclo / Turma</TableHead>
                             <TableHead>Professor</TableHead>
-                            <TableHead>Alunos / Vagas</TableHead>
+                            <TableHead>Inscritos / Vagas</TableHead>
                             <TableHead>Programação</TableHead>
                             <TableHead>Local</TableHead>
                             <TableHead className="text-right">Ações</TableHead>
@@ -154,7 +156,7 @@ export function CourseClassesManager({ course }) {
                         {isLoadingClasses ? (
                             <TableRow><TableCell colSpan={6} className="text-center h-24"><Loader2 className="animate-spin mx-auto"/></TableCell></TableRow>
                         ) : classes?.length === 0 ? (
-                            <TableRow><TableCell colSpan={6} className="text-center h-24">Nenhuma turma cadastrada para este curso.</TableCell></TableRow>
+                            <TableRow><TableCell colSpan={6} className="text-center h-24">Nenhum ciclo cadastrado para este curso.</TableCell></TableRow>
                         ) : (
                             classes?.map(cls => {
                                 const locationName = cls.locationId === 'the_school'
@@ -174,7 +176,7 @@ export function CourseClassesManager({ course }) {
                                             <Badge variant={isFull ? "destructive" : "secondary"} className="font-bold">
                                                 {studentCount}{max ? ` / ${max}` : ''}
                                             </Badge>
-                                            {isFull && <span className="text-[10px] font-black text-destructive uppercase">Esgotada</span>}
+                                            {isFull && <span className="text-[10px] font-black text-destructive uppercase">Lotada</span>}
                                         </div>
                                     </TableCell>
                                     <TableCell>{formatSchedule(cls)}</TableCell>

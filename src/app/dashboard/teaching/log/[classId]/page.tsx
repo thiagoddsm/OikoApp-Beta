@@ -1,26 +1,27 @@
+
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, ArrowLeft, BookOpen, Star, Users, CheckCircle2, ClipboardCheck, History, Lock, AlertCircle, Calendar as CalendarIcon, ChevronRight, ChevronLeft, MinusCircle, Clock, Save, PlayCircle } from 'lucide-react';
+import { Loader2, ArrowLeft, BookOpen, Star, Users, CheckCircle2, ClipboardCheck, History, Search, Plus, Calendar as CalendarIcon, Clock, Save, UserPlus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { format, addWeeks, isBefore, isAfter, startOfDay, parseISO, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, doc } from 'firebase/firestore';
 import { VolunteeringProvider } from '@/contexts/volunteering-context';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { doc } from 'firebase/firestore';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const weekDayMap: Record<string, number> = {
     "Domingo": 0, "Segunda-feira": 1, "Terça-feira": 2, "Quarta-feira": 3,
@@ -50,16 +51,17 @@ function PedagogicalLogPageContent() {
     const [presentStudents, setPresentStudents] = useState<string[]>([]);
     const [onlineStudents, setOnlineStudents] = useState<string[]>([]);
     const [isSaving, setIsSaving] = useState(false);
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
 
     const classData = useMemo(() => classes.find(c => c.id === classId), [classes, classId]);
     const courseData = useMemo(() => classData ? courses.find(c => c.id === classData.courseId) : null, [classData, courses]);
     
-    // Cálculo das datas válidas de aula (Recorrência + Extras - Feriados)
+    // Cálculo das datas válidas de aula (Ciclo Mensal)
     const classOccurrences = useMemo(() => {
         if (!classData || !classData.startDate) return [];
         const occurrences: string[] = [];
         const start = parseISO(classData.startDate);
-        const end = classData.endDate ? parseISO(classData.endDate) : addMonths(start, 6);
+        const end = classData.endDate ? parseISO(classData.endDate) : addMonths(start, 1);
         const targetDay = classData.dayOfWeek ? weekDayMap[classData.dayOfWeek] : -1;
         const holidays = new Set(classData.holidayDates || []);
         const extras = classData.extraDates || [];
@@ -70,39 +72,22 @@ function PedagogicalLogPageContent() {
         if (classData.frequency && classData.frequency !== 'pontual') {
             while (isBefore(current, end) || format(current, 'yyyy-MM-dd') === format(end, 'yyyy-MM-dd')) {
                 if (safe++ > 150) break;
-
                 let matches = false;
                 if (classData.frequency === 'semanal') {
                     matches = targetDay === -1 || current.getDay() === targetDay;
                 } else if (classData.frequency === 'quinzenal') {
                     const diffWeeks = Math.floor((current.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
                     matches = diffWeeks % 2 === 0 && (targetDay === -1 || current.getDay() === targetDay);
-                } else if (classData.frequency === 'mensal') {
-                    if (classData.weekOfMonth) {
-                        const week = Math.ceil(current.getDate() / 7);
-                        const isLastWeek = current.getDate() > (new Date(current.getFullYear(), current.getMonth() + 1, 0).getDate() - 7);
-                        matches = (classData.weekOfMonth === 'last' && isLastWeek) || (week.toString() === classData.weekOfMonth);
-                        matches = matches && current.getDay() === targetDay;
-                    } else {
-                        matches = current.getDate() === start.getDate();
-                    }
                 }
-
                 const dateStr = format(current, 'yyyy-MM-dd');
-                if (matches && !holidays.has(dateStr)) {
-                    occurrences.push(dateStr);
-                }
+                if (matches && !holidays.has(dateStr)) occurrences.push(dateStr);
                 current = addWeeks(current, 1);
             }
         } else if (classData.frequency === 'pontual') {
-            if (!holidays.has(classData.startDate)) {
-                occurrences.push(classData.startDate);
-            }
+            occurrences.push(classData.startDate);
         }
 
-        // Merge extra dates and sort
-        const finalDates = Array.from(new Set([...occurrences, ...extras])).sort();
-        return finalDates;
+        return Array.from(new Set([...occurrences, ...extras])).sort();
     }, [classData]);
 
     useEffect(() => {
@@ -132,38 +117,48 @@ function PedagogicalLogPageContent() {
         }
     }, [selectedDate, classData, pedagogicalLogs, classId]);
 
-    const isMemberCourse = courseData?.name?.toLowerCase().includes('membro') || courseData?.name?.toLowerCase().includes('integração');
-    const isWaveOrDis = courseData?.ministryName.toLowerCase().includes('wave') || courseData?.ministryName.toLowerCase().includes('dis');
-    const showPedagogicalFields = isWaveOrDis;
-
-    const studentList = useMemo(() => {
+    const isMemberCourse = courseData?.name?.toLowerCase().includes('membro') || courseData?.name?.toLowerCase().includes('pertencer');
+    
+    // Lista de alunos inscritos na turma
+    const enrolledStudents = useMemo(() => {
         if (!users || !classData?.students) return [];
         const studentSet = new Set(classData.students);
         return users.filter(u => studentSet.has(u.id));
     }, [users, classData]);
 
+    // Lista de alunos que NÃO estão na turma mas tiveram presença registrada nesta data (Reposição)
+    const repositionStudents = useMemo(() => {
+        if (!users || !classData) return [];
+        const enrolledIds = new Set(classData.students || []);
+        const attendance = classData.attendance?.find(a => a.date === selectedDate);
+        const presentIds = attendance?.presentStudentIds || [];
+        const repositionIds = presentIds.filter(id => !enrolledIds.has(id));
+        return users.filter(u => repositionIds.includes(u.id));
+    }, [users, classData, selectedDate]);
+
     const handleStudentCheck = (studentId: string, checked: boolean) => {
         setPresentStudents(prev => checked ? [...prev, studentId] : prev.filter(id => id !== studentId));
     };
 
+    const handleAddRepositionStudent = (studentId: string) => {
+        if (presentStudents.includes(studentId)) return;
+        setPresentStudents(prev => [...prev, studentId]);
+        setIsSearchOpen(false);
+        toast({ title: "Reposição adicionada", description: "O aluno foi incluído na lista desta aula." });
+    };
+
     const handleSaveLog = async () => {
-        if (showPedagogicalFields && !contentTaught.trim()) {
-            toast({ variant: 'destructive', title: 'Campo obrigatório', description: 'Descreva o conteúdo ensinado.' });
-            return;
-        }
-        
         setIsSaving(true);
         try {
             const logPromise = addPedagogicalLog({
                 classId,
                 date: Timestamp.fromDate(new Date(`${selectedDate}T12:00:00`)),
-                content_taught: contentTaught || (isMemberCourse ? `Presença Módulo ${classData?.weekOfMonth}` : "Aula realizada"),
+                content_taught: contentTaught || "Aula realizada",
                 student_performance: performance,
                 observations,
             });
 
             const existingAttendance = classData?.attendance || [];
-            // Mantemos os onlineStudentIds que já existiam para aquela data
             const updatedAttendance = [
                 ...existingAttendance.filter(a => a.date !== selectedDate), 
                 { date: selectedDate, presentStudentIds: presentStudents, onlineStudentIds: onlineStudents }
@@ -171,8 +166,11 @@ function PedagogicalLogPageContent() {
             const attendancePromise = updateClass(classId, { attendance: updatedAttendance });
 
             const progressPromises: Promise<any>[] = [];
-            if (isMemberCourse && classData?.weekOfMonth && firestore) {
-                const moduleKey = `module${classData.weekOfMonth === 'last' ? '5' : classData.weekOfMonth}`;
+            if (isMemberCourse && firestore) {
+                // Identifica qual módulo é baseado na data dentro do ciclo
+                const dateIndex = classOccurrences.indexOf(selectedDate);
+                const moduleKey = `module${dateIndex + 1}`;
+                
                 presentStudents.forEach(studentId => {
                     const userRef = doc(firestore, 'users', studentId);
                     progressPromises.push(updateDocumentNonBlocking(userRef, { [`journey.memberCourseProgress.${moduleKey}`]: true }));
@@ -180,7 +178,7 @@ function PedagogicalLogPageContent() {
             }
             
             await Promise.all([logPromise, attendancePromise, ...progressPromises]);
-            toast({ title: 'Chamada Salva!', description: `Frequência de ${format(parseISO(selectedDate), 'dd/MM')} registrada.` });
+            toast({ title: 'Registro Salvo!', description: `A presença de ${format(parseISO(selectedDate), 'dd/MM')} foi processada.` });
         } catch (error) {
             toast({ variant: 'destructive', title: 'Erro ao salvar', description: 'Tente novamente.' });
         } finally {
@@ -193,27 +191,24 @@ function PedagogicalLogPageContent() {
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <Button variant="outline" onClick={() => router.back()}>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <Button variant="outline" onClick={() => router.back()} className="h-9">
                     <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para o Painel
                 </Button>
-                <div className="flex items-center gap-4 bg-white p-2 rounded-xl border shadow-sm">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Data da Aula:</Label>
+                <div className="flex items-center gap-4 bg-white p-2 rounded-xl border shadow-sm w-full md:w-auto">
+                    <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Sessão do Ciclo:</Label>
                     <Select value={selectedDate} onValueChange={setSelectedDate}>
-                        <SelectTrigger className="w-[200px] h-9 font-bold">
+                        <SelectTrigger className="w-[220px] h-9 font-bold">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                            {classOccurrences.map(date => {
+                            {classOccurrences.map((date, idx) => {
                                 const attendance = classData.attendance?.find(a => a.date === date);
-                                const hasAttendance = attendance && (attendance.presentStudentIds.length > 0 || attendance.onlineStudentIds?.length > 0);
-                                const isExtra = classData.extraDates?.includes(date);
+                                const hasAttendance = attendance && (attendance.presentStudentIds.length > 0);
                                 return (
                                     <SelectItem key={date} value={date}>
                                         <div className="flex items-center justify-between w-full gap-2">
-                                            <span className={cn(isExtra && "text-emerald-600 font-black")}>
-                                                {format(parseISO(date), 'dd/MM/yyyy')} {isExtra && "(EXTRA)"}
-                                            </span>
+                                            <span className="font-bold">Aula {idx+1}: {format(parseISO(date), 'dd/MM/yyyy')}</span>
                                             {hasAttendance && <CheckCircle2 className="size-3 text-emerald-500" />}
                                         </div>
                                     </SelectItem>
@@ -227,78 +222,89 @@ function PedagogicalLogPageContent() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-6">
                     <Card>
-                        <CardHeader>
-                            <CardTitle className="flex items-center gap-2">
-                                <ClipboardCheck className="text-primary" />
-                                Lista de Chamada: {format(parseISO(selectedDate || '2000-01-01'), 'dd/MM/yyyy')}
-                            </CardTitle>
-                            <CardDescription>Marque os nomes para registrar presença física.</CardDescription>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <div>
+                                <CardTitle className="flex items-center gap-2">
+                                    <ClipboardCheck className="text-primary" />
+                                    Chamada: {classData.name}
+                                </CardTitle>
+                                <CardDescription>Sessão {classOccurrences.indexOf(selectedDate) + 1} de {classOccurrences.length}</CardDescription>
+                            </div>
+                            
+                            <Popover open={isSearchOpen} onOpenChange={setIsSearchOpen}>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" size="sm" className="h-8 font-bold">
+                                        <UserPlus className="mr-2 size-4" /> Reposição
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="p-0 w-80" align="end">
+                                    <Command>
+                                        <CommandInput placeholder="Buscar aluno para reposição..." />
+                                        <CommandList>
+                                            <CommandEmpty>Nenhum aluno encontrado.</CommandEmpty>
+                                            <CommandGroup heading="Membros da Igreja">
+                                                {users.filter(u => !classData.students.includes(u.id)).slice(0, 10).map(u => (
+                                                    <CommandItem key={u.id} onSelect={() => handleAddRepositionStudent(u.id)}>
+                                                        <Plus className="mr-2 size-4" /> {u.name}
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
                         </CardHeader>
                         <CardContent className="space-y-6">
-                            <TooltipProvider>
-                                <ScrollArea className="h-[500px] w-full rounded-md border p-4">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                        {studentList.map(student => {
-                                            const isCidade = student.integrationStatus === 'nao_alcancado';
-                                            const isLockedByStatus = isMemberCourse && isCidade;
-                                            const isPresentPhysical = presentStudents.includes(student.id);
-                                            const isPresentOnline = onlineStudents.includes(student.id);
-
-                                            return (
-                                                <div key={student.id} className={cn(
-                                                    "flex items-center space-x-3 p-3 rounded-xl transition-all border cursor-pointer",
-                                                    isPresentPhysical ? "bg-emerald-50 border-emerald-200" : isPresentOnline ? "bg-blue-50 border-blue-200" : "hover:bg-muted/50 border-transparent",
-                                                    isLockedByStatus && "opacity-50 grayscale"
-                                                )} onClick={() => !isLockedByStatus && handleStudentCheck(student.id, !isPresentPhysical)}>
-                                                    <Checkbox
-                                                        id={`student-${student.id}`}
-                                                        checked={isPresentPhysical}
-                                                        onCheckedChange={checked => handleStudentCheck(student.id, !!checked)}
-                                                        disabled={isLockedByStatus}
-                                                        className="pointer-events-none"
-                                                    />
-                                                    <div className="flex-1 min-w-0">
-                                                        <Label className="font-bold text-sm block truncate">{student.name}</Label>
-                                                        <div className="flex items-center gap-2 mt-0.5">
-                                                            {isLockedByStatus && <span className="text-[9px] text-destructive font-black uppercase tracking-tighter">Bloqueado (Cidade)</span>}
-                                                            {isPresentOnline && <Badge variant="outline" className="text-[8px] h-4 bg-blue-100 text-blue-700 border-none uppercase font-black"><PlayCircle className="size-2 mr-1"/> Validado Online</Badge>}
-                                                        </div>
+                            <ScrollArea className="h-[450px] w-full rounded-md border p-4">
+                                <div className="space-y-6">
+                                    <div className="space-y-2">
+                                        <h4 className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Inscritos no Ciclo</h4>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            {enrolledStudents.map(student => {
+                                                const isPresent = presentStudents.includes(student.id);
+                                                return (
+                                                    <div key={student.id} className={cn(
+                                                        "flex items-center space-x-3 p-3 rounded-xl transition-all border cursor-pointer",
+                                                        isPresent ? "bg-emerald-50 border-emerald-200" : "hover:bg-muted/50 border-transparent"
+                                                    )} onClick={() => handleStudentCheck(student.id, !isPresent)}>
+                                                        <Checkbox checked={isPresent} onCheckedChange={c => handleStudentCheck(student.id, !!c)} className="pointer-events-none" />
+                                                        <Label className="font-bold text-sm block truncate cursor-pointer">{student.name}</Label>
                                                     </div>
-                                                </div>
-                                            )
-                                        })}
+                                                )
+                                            })}
+                                        </div>
                                     </div>
-                                </ScrollArea>
-                            </TooltipProvider>
 
-                            {showPedagogicalFields && (
-                                <div className="space-y-4 pt-6 border-t">
-                                    <h3 className="font-bold text-sm uppercase text-primary">Relatório da Aula</h3>
-                                    <div className="grid gap-4">
-                                        <div>
-                                            <Label>Conteúdo Ministrado</Label>
-                                            <Input value={contentTaught} onChange={e => setContentTaught(e.target.value)} placeholder="O que foi ensinado hoje?" />
-                                        </div>
-                                        <div>
-                                            <Label>Observações</Label>
-                                            <Textarea value={observations} onChange={e => setObservations(e.target.value)} placeholder="Ex: Aluno com dificuldade no rítmo..." />
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <Label>Desempenho da Turma:</Label>
-                                            <div className="flex gap-1">
-                                                {[1,2,3,4,5].map(s => (
-                                                    <Star key={s} className={cn("size-5 cursor-pointer", performance >= s ? "fill-yellow-400 text-yellow-400" : "text-slate-300")} onClick={() => setPerformance(s)} />
-                                                ))}
+                                    {(repositionStudents.length > 0 || presentStudents.some(id => !classData.students.includes(id))) && (
+                                        <div className="space-y-2 pt-4 border-t">
+                                            <h4 className="text-[10px] font-black uppercase text-blue-600 tracking-widest flex items-center gap-2">
+                                                <Badge variant="outline" className="bg-blue-50 text-blue-700 h-4 px-1">REPOSIÇÃO</Badge> Alunos de outros ciclos
+                                            </h4>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                {presentStudents.filter(id => !classData.students.includes(id)).map(id => {
+                                                    const student = users.find(u => u.id === id);
+                                                    if (!student) return null;
+                                                    return (
+                                                        <div key={id} className="flex items-center space-x-3 p-3 rounded-xl bg-blue-50 border-blue-200 border cursor-pointer" onClick={() => handleStudentCheck(id, false)}>
+                                                            <Checkbox checked={true} onCheckedChange={() => handleStudentCheck(id, false)} className="pointer-events-none" />
+                                                            <Label className="font-bold text-sm block truncate cursor-pointer">{student.name}</Label>
+                                                        </div>
+                                                    )
+                                                })}
                                             </div>
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
-                            )}
+                            </ScrollArea>
 
-                            <Button onClick={handleSaveLog} disabled={isSaving} className="w-full h-12 text-base font-bold shadow-lg">
-                                {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" />}
-                                Salvar Registro de {format(parseISO(selectedDate || '2000-01-01'), 'dd/MM')}
-                            </Button>
+                            <div className="space-y-4 pt-4 border-t">
+                                <Label className="text-[10px] uppercase font-black">Observações da Aula</Label>
+                                <Textarea value={observations} onChange={e => setObservations(e.target.value)} placeholder="Ex: Aula de reposição para o João..." className="h-20" />
+                                <Button onClick={handleSaveLog} disabled={isSaving} className="w-full h-12 font-black shadow-lg">
+                                    {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" />}
+                                    Finalizar Registro de Chamada
+                                </Button>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>
@@ -306,68 +312,35 @@ function PedagogicalLogPageContent() {
                 <div className="space-y-6">
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-sm font-bold uppercase flex items-center gap-2">
-                                <History className="size-4" /> Histórico & Estados
+                            <CardTitle className="text-xs font-black uppercase flex items-center gap-2 text-muted-foreground">
+                                <History className="size-4" /> Cronograma do Ciclo
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <ScrollArea className="h-[600px]">
-                                <div className="space-y-3">
-                                    {classOccurrences.map(date => {
-                                        const attendance = classData.attendance?.find(a => a.date === date);
-                                        const isPast = isBefore(parseISO(date), startOfDay(new Date()));
-                                        const isToday = date === format(new Date(), 'yyyy-MM-dd');
-                                        const isSelected = selectedDate === date;
-                                        const isExtra = classData.extraDates?.includes(date);
-
-                                        return (
-                                            <button
-                                                key={date}
-                                                onClick={() => setSelectedDate(date)}
-                                                className={cn(
-                                                    "w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between group",
-                                                    isSelected ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "bg-card hover:bg-muted/50",
-                                                    isExtra && !isSelected && "border-emerald-200 bg-emerald-50/30"
-                                                )}
-                                            >
-                                                <div className="min-w-0">
-                                                    <p className="text-xs font-bold">
-                                                        {format(parseISO(date), 'dd/MM/yyyy', { locale: ptBR })}
-                                                        {isExtra && <span className="ml-2 text-[8px] bg-emerald-500 text-white px-1 rounded">EXTRA</span>}
-                                                    </p>
-                                                    <p className="text-[10px] text-muted-foreground uppercase font-black tracking-tighter">
-                                                        {isToday ? 'Hoje' : isPast ? 'Passada' : 'Pendente'}
-                                                    </p>
-                                                </div>
-                                                {attendance ? (
-                                                    <div className="text-right flex flex-col items-end gap-1">
-                                                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 text-[9px] h-5">
-                                                            {attendance.presentStudentIds.length} físicos
-                                                        </Badge>
-                                                        {attendance.onlineStudentIds && attendance.onlineStudentIds.length > 0 && (
-                                                            <Badge variant="outline" className="text-blue-600 border-blue-200 bg-blue-50 text-[9px] h-5">
-                                                                {attendance.onlineStudentIds.length} online
-                                                            </Badge>
-                                                        )}
-                                                    </div>
-                                                ) : isPast ? (
-                                                    <div className="text-right">
-                                                        <Badge variant="outline" className="text-[9px] h-5 text-destructive border-destructive/30 bg-destructive/5 flex items-center gap-1">
-                                                            <MinusCircle size={10}/> Não realizada
-                                                        </Badge>
-                                                    </div>
-                                                ) : (
-                                                    <div className="text-right opacity-30 group-hover:opacity-100">
-                                                        <Badge variant="outline" className="text-[9px] h-5 flex items-center gap-1">
-                                                            <Clock size={10}/> Pendente
-                                                        </Badge>
-                                                    </div>
-                                                )}
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                            </ScrollArea>
+                            <div className="space-y-3">
+                                {classOccurrences.map((date, idx) => {
+                                    const attendance = classData.attendance?.find(a => a.date === date);
+                                    const isSelected = selectedDate === date;
+                                    return (
+                                        <button key={date} onClick={() => setSelectedDate(date)} className={cn(
+                                            "w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between group",
+                                            isSelected ? "border-primary bg-primary/5 ring-2 ring-primary/20 shadow-sm" : "bg-card hover:bg-muted/50"
+                                        )}>
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-black uppercase text-muted-foreground opacity-60">Aula {idx + 1}</p>
+                                                <p className="text-sm font-bold">{format(parseISO(date), 'dd/MM/yyyy')}</p>
+                                            </div>
+                                            {attendance ? (
+                                                <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 text-[10px] h-5 font-black">
+                                                    {attendance.presentStudentIds.length} PRESENTES
+                                                </Badge>
+                                            ) : (
+                                                <Badge variant="outline" className="text-[10px] h-5 opacity-40 font-black">PENDENTE</Badge>
+                                            )}
+                                        </button>
+                                    )
+                                })}
+                            </div>
                         </CardContent>
                     </Card>
                 </div>

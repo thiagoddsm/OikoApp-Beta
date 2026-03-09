@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -7,16 +8,17 @@ import { Button } from '../ui/button';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '../ui/badge';
+import { format, parseISO } from 'date-fns';
 
 const modules = [
-    { id: 'module1', label: 'História e Visão', description: 'Módulo 1', week: '1' },
-    { id: 'module2', label: 'DNA e Células', description: 'Módulo 2', week: '2' },
-    { id: 'module3', label: 'Mordomia e Finanças', description: 'Módulo 3', week: '3' },
-    { id: 'module4', label: 'Governança e Ética', description: 'Módulo 4', week: '4' },
-    { id: 'module5', label: 'Comissionamento', description: 'Eletivo', week: 'last' },
+    { id: 'module1', label: 'História e Visão', description: 'Módulo 1', index: 0 },
+    { id: 'module2', label: 'DNA e Células', description: 'Módulo 2', index: 1 },
+    { id: 'module3', label: 'Mordomia e Finanças', description: 'Módulo 3', index: 2 },
+    { id: 'module4', label: 'Governança e Ética', description: 'Módulo 4', index: 3 },
+    { id: 'module5', label: 'Comissionamento', description: 'Eletivo', index: 4 },
 ];
 
-export function MemberCourseProgress({ user }) {
+export function MemberCourseProgress({ user }: { user: any }) {
     const { updateVolunteer, classes, courses } = useVolunteering();
     const { toast } = useToast();
     const [isSyncing, setIsSyncing] = useState(false);
@@ -24,7 +26,7 @@ export function MemberCourseProgress({ user }) {
     // 1. Get flags from user document
     const manualProgress = user?.journey?.memberCourseProgress || {};
     
-    // 2. Calculate progress from actual class attendance in context
+    // 2. Calcula progresso de todas as turmas onde este aluno esteve presente
     const memberCourse = useMemo(() => 
         courses.find(c => c.name.toLowerCase().includes('membro') || c.name.toLowerCase().includes('pertencer')),
     [courses]);
@@ -36,21 +38,29 @@ export function MemberCourseProgress({ user }) {
         const relevantClasses = classes.filter(c => c.courseId === memberCourse.id);
 
         modules.forEach(mod => {
-            // Check if user has presence in ANY class of this course that represents this module (week)
-            const isPresentInAnyCycle = relevantClasses.some(c => 
-                c.weekOfMonth === mod.week && 
-                c.attendance?.some(att => 
-                    att.presentStudentIds.includes(user.id) || 
-                    att.onlineStudentIds?.includes(user.id)
-                )
-            );
+            // Verifica se o aluno esteve presente em QUALQUER turma (ciclo) na aula correspondente ao índice
+            const isPresentInAnyCycle = relevantClasses.some(c => {
+                const dates = c.extraDates ? [...(c.extraDates || []), c.startDate] : [c.startDate];
+                // Lógica de Ciclo Mensal: a 1ª aula do ciclo é o Módulo 1, etc.
+                // Buscamos se o ID do aluno aparece no registro de chamada de alguma data que corresponda ao módulo
+                return c.attendance?.some(att => {
+                    const classDates = Array.from(new Set(relevantClasses.flatMap(rc => {
+                        // Expansão simplificada para encontrar a ordem das aulas no ciclo
+                        const start = parseISO(rc.startDate || '');
+                        return [0,1,2,3,4].map(i => format(addWeeks(start, i), 'yyyy-MM-dd'));
+                    })));
+                    
+                    const dateIndexInCycle = classDates.indexOf(att.date);
+                    return dateIndexInCycle === mod.index && (att.presentStudentIds.includes(user.id) || att.onlineStudentIds?.includes(user.id));
+                });
+            });
             if (isPresentInAnyCycle) progress[mod.id] = true;
         });
 
         return progress;
     }, [memberCourse, classes, user.id]);
 
-    // Merge: If it's checked manually OR if attendance is recorded
+    // Merge: Se marcado manualmente OU se houver presença física/online registrada
     const mergedProgress = useMemo(() => {
         const merged = { ...manualProgress };
         modules.forEach(mod => {
@@ -59,11 +69,9 @@ export function MemberCourseProgress({ user }) {
         return merged;
     }, [manualProgress, attendanceProgress]);
     
-    // Member status now requires only modules 1-4
     const mandatoryCompleted = ['module1', 'module2', 'module3', 'module4'].every(m => mergedProgress[m]);
-    const completedCount = modules.filter(m => mergedProgress[m.id]).length;
     const isReadyForModule5 = mandatoryCompleted;
-    const isAllDone = mandatoryCompleted; // Minimum requirement for "Member" status
+    const isAllDone = mandatoryCompleted;
 
     const baptismCheck = user.integrationStatus === 'novo_convertido' ? user.batizado === 'sim' : true;
 
@@ -73,7 +81,7 @@ export function MemberCourseProgress({ user }) {
             await updateVolunteer(user.id, {
                 'journey.memberCourseProgress': mergedProgress
             });
-            toast({ title: "Progresso Sincronizado", description: "O perfil foi atualizado com base nos diários de classe modulares." });
+            toast({ title: "Caderneta Atualizada", description: "O progresso foi sincronizado com os diários de classe de todos os ciclos." });
         } catch (e) {
             toast({ variant: 'destructive', title: "Erro na Sincronização" });
         } finally {
@@ -83,14 +91,9 @@ export function MemberCourseProgress({ user }) {
 
     const handleMakeMember = async () => {
         if (!baptismCheck) {
-            toast({
-                variant: 'destructive',
-                title: 'Impossível Oficializar',
-                description: 'Este membro é um Novo Convertido e precisa do Batismo nas águas para ser oficializado.',
-            });
+            toast({ variant: 'destructive', title: 'Batismo Pendente', description: 'Novos Convertidos precisam do batismo para oficialização.' });
             return;
         }
-
         await updateVolunteer(user.id, { integrationStatus: 'membro' });
         toast({ title: "Bem-vindo!", description: `${user.name} agora é oficialmente um Membro IBM.` });
     };
@@ -101,9 +104,9 @@ export function MemberCourseProgress({ user }) {
                 <div>
                     <CardTitle className="text-lg flex items-center gap-2">
                         <GraduationCap className="size-5 text-primary" />
-                        Status da Integração (Membresia)
+                        Jornada de Membresia (Modular)
                     </CardTitle>
-                    <CardDescription>Acompanhamento modular para se tornar parte do organismo.</CardDescription>
+                    <CardDescription>O progresso é acumulado através de diferentes ciclos e reposições.</CardDescription>
                 </div>
                 <Button variant="ghost" size="sm" onClick={handleSync} disabled={isSyncing} className="text-primary hover:text-primary hover:bg-primary/10">
                     {isSyncing ? <Loader2 className="size-3 animate-spin mr-1" /> : <RefreshCw className="size-3 mr-1" />}
@@ -118,15 +121,12 @@ export function MemberCourseProgress({ user }) {
                         const isElective = mod.id === 'module5';
                         
                         return (
-                            <div 
-                                key={mod.id} 
-                                className={cn(
-                                    "flex flex-col items-center text-center p-3 rounded-xl border-2 transition-all relative",
-                                    isCompleted ? "bg-emerald-50 border-emerald-500 shadow-sm" : 
-                                    isLocked ? "bg-slate-100 border-slate-200 opacity-60" : "bg-white border-slate-200",
-                                    isElective && !isCompleted && "border-dashed"
-                                )}
-                            >
+                            <div key={mod.id} className={cn(
+                                "flex flex-col items-center text-center p-3 rounded-xl border-2 transition-all relative",
+                                isCompleted ? "bg-emerald-50 border-emerald-500 shadow-sm" : 
+                                isLocked ? "bg-slate-100 border-slate-200 opacity-60" : "bg-white border-slate-200",
+                                isElective && !isCompleted && "border-dashed"
+                            )}>
                                 <div className={cn(
                                     "size-10 rounded-full flex items-center justify-center mb-2",
                                     isCompleted ? "bg-emerald-500 text-white" : 
@@ -138,11 +138,8 @@ export function MemberCourseProgress({ user }) {
                                 </div>
                                 <p className="text-[10px] font-black uppercase leading-tight mb-1">{mod.label}</p>
                                 <p className="text-[9px] text-muted-foreground">{mod.description}</p>
-                                
                                 {idx < modules.length - 1 && (
-                                    <div className="hidden sm:block absolute -right-4 top-1/2 -translate-y-1/2 z-10">
-                                        <ArrowRight size={12} className="text-slate-300" />
-                                    </div>
+                                    <div className="hidden sm:block absolute -right-4 top-1/2 -translate-y-1/2 z-10"><ArrowRight size={12} className="text-slate-300" /></div>
                                 )}
                             </div>
                         );
@@ -155,26 +152,15 @@ export function MemberCourseProgress({ user }) {
                         baptismCheck ? "bg-emerald-600 text-white" : "bg-amber-100 border-2 border-amber-500 text-amber-900"
                     )}>
                         <div className="text-left">
-                            <p className="font-black text-lg">
-                                {baptismCheck ? "🎉 Requisitos de Membro Atingidos!" : "⚠️ Pendência de Batismo"}
-                            </p>
-                            <p className="text-xs opacity-90">
-                                {baptismCheck 
-                                    ? "Os 4 módulos obrigatórios foram concluídos. O aluno está apto para a oficialização."
-                                    : "Os módulos foram concluídos, mas o Batismo é obrigatório para Novos Convertidos antes da oficialização."}
-                            </p>
+                            <p className="font-black text-lg">{baptismCheck ? "🎉 Pronto para a Oficialização!" : "⚠️ Pendência de Batismo"}</p>
+                            <p className="text-xs opacity-90">{baptismCheck ? "O aluno completou o currículo modular e está apto para ser membro oficial." : "O currículo foi concluído, mas o batismo é obrigatório para oficializar a membresia."}</p>
                         </div>
                         {user.integrationStatus !== 'membro' ? (
-                            <Button 
-                                variant={baptismCheck ? "secondary" : "destructive"} 
-                                className="font-bold whitespace-nowrap" 
-                                onClick={handleMakeMember}
-                            >
-                                {!baptismCheck && <AlertTriangle size={16} className="mr-2" />}
-                                Oficializar Membresia Agora
+                            <Button variant={baptismCheck ? "secondary" : "destructive"} className="font-bold whitespace-nowrap" onClick={handleMakeMember}>
+                                {!baptismCheck && <AlertTriangle size={16} className="mr-2" />} Oficializar Membro
                             </Button>
                         ) : (
-                            <Badge className="bg-white/20 text-white border-white/40 font-black">MEMBRO OFICIALIZADO</Badge>
+                            <Badge className="bg-white/20 text-white border-white/40 font-black">MEMBRO IBM</Badge>
                         )}
                     </div>
                 )}
