@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useMemo, useState } from 'react';
 import { useVolunteering, type User, type Class, type Course } from '@/contexts/volunteering-context';
@@ -71,13 +72,15 @@ export function StudentsManagement({ filterCourseIds }: StudentsManagementProps)
         try {
             const cls = classes.find(c => c.id === classId);
             if (cls) {
-                const updatedStudents = cls.students.filter(id => id !== studentId);
+                // Garantimos que o filtro remova o ID e enviamos o novo array
+                const updatedStudents = (cls.students || []).filter(id => id !== studentId);
                 await updateClass(classId, { students: updatedStudents });
                 toast({ title: 'Matrícula Removida', description: `${studentName} não faz mais parte da turma ${className}.` });
             } else {
                 toast({ variant: 'destructive', title: 'Erro', description: 'Turma não encontrada.' });
             }
         } catch (error) {
+            console.error("Erro ao remover:", error);
             toast({ variant: 'destructive', title: 'Erro ao remover', description: 'Não foi possível processar a exclusão.' });
         } finally {
             setIsActionInProgress(null);
