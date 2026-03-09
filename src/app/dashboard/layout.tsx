@@ -84,7 +84,6 @@ const menuItems = [
       icon: HeartHandshake,
       subItems: [
         { href: "/dashboard/gc/structure", label: "Estrutura", icon: Network, permissionId: 'gcs_structure' },
-        { href: "/dashboard/gc/cells", label: "Células", icon: Building, permissionId: 'gcs_cells' },
         { href: "/dashboard/gc/report", label: "Relatório de Célula", icon: ClipboardList, permissionId: 'gcs_report' },
         { href: "/dashboard/gc/map", label: "Mapa", icon: Map, permissionId: 'gcs_map' },
       ]
@@ -111,7 +110,6 @@ const menuItems = [
             subItems: [
               { href: "/dashboard/teaching/calendar", label: "Calendário Escolar", icon: CalendarDays, permissionId: 'teaching_courses' },
               { href: "/dashboard/teaching/courses", label: "Cursos e Turmas", icon: BookOpen, permissionId: 'teaching_courses' },
-              { href: "/dashboard/teaching/theoflix", label: "TheoFlix", icon: LayoutTemplate, permissionId: 'teaching_courses' },
               { href: "/dashboard/teaching/teachers", label: "Professores", icon: UserCheckIcon, permissionId: 'teaching_courses' },
               { href: "/dashboard/teaching/students", label: "Alunos", icon: Users2, permissionId: 'teaching_courses' },
             ]
