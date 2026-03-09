@@ -26,7 +26,7 @@ interface KpiCardProps {
 function KpiCard({ kpi, goal, actualData }: KpiCardProps) {
     const [isEditDialogOpen, setEditDialogOpen] = useState(false);
 
-    const kpiInfo = kpiDefinitions[kpi as keyof typeof kpiDefinitions] || { title: 'KPI Desconhecido', icon: TrendingUp };
+    const kpiInfo = kpiDefinitions[kpi] || { title: 'KPI Desconhecido', icon: TrendingUp };
     const { title, icon: Icon } = kpiInfo;
     
     const target = goal?.target || 0;
@@ -112,7 +112,7 @@ export default function KpiDashboard({ goals, kpiData, year }: KpiDashboardProps
     const goalsMap = useMemo(() => {
         const map = new Map<string, any>();
         if (goals) {
-            goals.forEach(goal => {
+            goals.forEach((goal: any) => {
                 if (goal.year === year) {
                     map.set(goal.kpi, goal);
                 }

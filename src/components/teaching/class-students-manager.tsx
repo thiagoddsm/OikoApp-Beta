@@ -1,6 +1,6 @@
 'use client';
 import React, { useMemo, useState } from 'react';
-import { useVolunteering } from '@/contexts/volunteering-context';
+import { useVolunteering, type Class, type User } from '@/contexts/volunteering-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { Loader2, PlusCircle, UserX } from 'lucide-react';
 import { EnrollmentDialog } from './enrollment-dialog';
 
 interface ClassStudentsManagerProps {
-    classData: any;
+    classData: Class;
 }
 
 export function ClassStudentsManager({ classData }: ClassStudentsManagerProps) {
@@ -58,7 +58,7 @@ export function ClassStudentsManager({ classData }: ClassStudentsManagerProps) {
                                 <TableCell colSpan={3} className="h-24 text-center">Nenhum aluno matriculado.</TableCell>
                             </TableRow>
                         ) : (
-                            enrolledStudents.map(student => {
+                            enrolledStudents.map((student: User) => {
                                 const avatar = PlaceHolderImages.find(p => p.id === 'avatar-1');
                                 return (
                                     <TableRow key={student.id}>
@@ -73,8 +73,14 @@ export function ClassStudentsManager({ classData }: ClassStudentsManagerProps) {
                                         </TableCell>
                                         <TableCell className="text-muted-foreground">{student.email || student.phone || '-'}</TableCell>
                                         <TableCell className="text-right">
-                                            <Button variant="ghost" size="icon" onClick={() => handleRemoveStudent(student.id)}>
-                                                <UserX className="size-4 text-destructive" />
+                                            <Button 
+                                              variant="ghost" 
+                                              size="icon" 
+                                              onClick={() => handleRemoveStudent(student.id)}
+                                              className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                              title="Remover Matrícula"
+                                            >
+                                                <UserX className="size-4" />
                                             </Button>
                                         </TableCell>
                                     </TableRow>
