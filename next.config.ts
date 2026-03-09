@@ -42,7 +42,7 @@ const nextConfig: NextConfig = {
     ],
   },
   env: {
-    BUILD_TIMESTAMP: new Date().toISOString(),
+    BUILD_TIMESTAMP: "2025-02-25T15:00:00Z", // Timestamp atualizado para forçar rebuild
   }
 };
 
