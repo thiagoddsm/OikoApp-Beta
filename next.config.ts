@@ -42,7 +42,7 @@ const nextConfig: NextConfig = {
     ],
   },
   env: {
-    BUILD_TIMESTAMP: "2025-02-25T15:00:00Z", // Timestamp atualizado para forçar rebuild
+    BUILD_TIMESTAMP: "2025-02-25T16:30:00Z", // Timestamp atualizado para forçar rebuild e limpar cache
   }
 };
 

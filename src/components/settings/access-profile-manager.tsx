@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, PlusCircle, ShieldCheck, Edit, Trash2 } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '../ui/label';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { DeleteConfirmationDialog } from '../structure/delete-confirmation-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';

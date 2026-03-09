@@ -26,7 +26,7 @@ interface KpiCardProps {
 function KpiCard({ kpi, goal, actualData }: KpiCardProps) {
     const [isEditDialogOpen, setEditDialogOpen] = useState(false);
 
-    const kpiInfo = kpiDefinitions[kpi] || { title: 'KPI Desconhecido', icon: TrendingUp };
+    const kpiInfo = kpiDefinitions[kpi as keyof typeof kpiDefinitions] || { title: 'KPI Desconhecido', icon: TrendingUp };
     const { title, icon: Icon } = kpiInfo;
     
     const target = goal?.target || 0;

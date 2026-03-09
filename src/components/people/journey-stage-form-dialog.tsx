@@ -10,9 +10,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, PlusCircle, Trash2, ShieldAlert } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '../ui/checkbox';
+import { Checkbox } from '@/components/ui/checkbox';
 import { journeyColumns } from '@/components/users/journey-status-config';
-import { Separator } from '../ui/separator';
+import { Separator } from '@/components/ui/separator';
 
 interface JourneyStageFormDialogProps {
     open: boolean;

@@ -1,7 +1,7 @@
 'use server';
 /**
  * Biblioteca Conta Azul desativada.
- * Todas as funcionalidades de integração financeira externa foram removidas conforme solicitação.
+ * Todas as funcionalidades de integração financeira externa foram removidas para estabilizar o build.
  */
 export async function getValidContaAzulToken() { return ''; }
 export async function callContaAzulApi() { return {}; }
