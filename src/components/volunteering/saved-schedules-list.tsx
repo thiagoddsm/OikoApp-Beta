@@ -15,10 +15,10 @@ export function SavedSchedulesList() {
     const [scheduleToDelete, setScheduleToDelete] = useState<SavedSchedule | null>(null);
 
     const filteredSchedules = useMemo(() => {
-        return savedSchedules.filter(schedule =>
+        return (savedSchedules || []).filter((schedule: SavedSchedule) =>
             schedule.month.toLowerCase().includes(searchTerm.toLowerCase()) ||
             schedule.areaId.toLowerCase().includes(searchTerm.toLowerCase())
-        ).sort((a, b) => b.month.localeCompare(a.month));
+        ).sort((a: SavedSchedule, b: SavedSchedule) => b.month.localeCompare(a.month));
     }, [savedSchedules, searchTerm]);
 
     const handleDelete = (schedule: SavedSchedule) => {
@@ -57,7 +57,7 @@ export function SavedSchedulesList() {
 
             {filteredSchedules.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredSchedules.map(schedule => (
+                    {filteredSchedules.map((schedule: SavedSchedule) => (
                         <Card key={schedule.id} className="flex flex-col">
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
@@ -68,12 +68,11 @@ export function SavedSchedulesList() {
                             </CardHeader>
                             <CardContent className="flex-grow">
                                 <p className="text-sm text-muted-foreground">
-                                    {/* Adicionar mais detalhes aqui se necessário */}
                                     Esta escala contém as alocações de voluntários para o período especificado.
                                 </p>
                             </CardContent>
                             <div className="p-4 pt-0 flex justify-end gap-2">
-                                 <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/volunteering/saved-schedules/${schedule.id}`)}>
+                                 <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/volunteering/saved-schedules`)}>
                                     Ver Detalhes
                                 </Button>
                                 <Button variant="destructive" size="sm" onClick={() => handleDelete(schedule)}>

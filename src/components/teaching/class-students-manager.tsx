@@ -1,6 +1,6 @@
 'use client';
 import React, { useMemo, useState } from 'react';
-import { useVolunteering, type User } from '@/contexts/volunteering-context';
+import { useVolunteering } from '@/contexts/volunteering-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,11 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Loader2, PlusCircle, UserX } from 'lucide-react';
 import { EnrollmentDialog } from './enrollment-dialog';
 
-export function ClassStudentsManager({ classData }) {
+interface ClassStudentsManagerProps {
+    classData: any;
+}
+
+export function ClassStudentsManager({ classData }: ClassStudentsManagerProps) {
     const { users, isLoading, updateClass } = useVolunteering();
     const [isEnrollmentOpen, setEnrollmentOpen] = useState(false);
 
@@ -20,7 +24,7 @@ export function ClassStudentsManager({ classData }) {
     
     const handleRemoveStudent = async (studentId: string) => {
         if (confirm('Tem certeza que deseja remover este aluno da turma?')) {
-            const updatedStudents = classData.students.filter(id => id !== studentId);
+            const updatedStudents = classData.students.filter((id: string) => id !== studentId);
             await updateClass(classData.id, { students: updatedStudents });
         }
     };
@@ -84,6 +88,7 @@ export function ClassStudentsManager({ classData }) {
             <EnrollmentDialog
                 open={isEnrollmentOpen}
                 onOpenChange={setEnrollmentOpen}
+                initialCourseId={classData?.courseId}
             />
         </>
     );

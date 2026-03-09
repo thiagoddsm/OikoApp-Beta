@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, HelpCircle, CheckCircle, Send, GraduationCap, PlusCircle, ShieldCheck, UserCheck, AlertTriangle, BookOpen } from 'lucide-react';
+import { Loader2, HelpCircle, CheckCircle, Send, GraduationCap, PlusCircle, ShieldCheck, UserCheck, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '../ui/checkbox';
 import { Label } from '../ui/label';
@@ -86,7 +86,6 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                 };
             }
 
-            // Normal course logic
             const attendedCount = courseClasses.filter(cls => 
                 cls.attendance?.some(att => att.presentStudentIds.includes(memberId))
             ).length;
@@ -133,7 +132,6 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         }
 
         if (targetStageId === 'membro') {
-            // Updated logic for 4 modules
             const progress = memberData.journey?.memberCourseProgress || {};
             const mandatoryModules = ['module1', 'module2', 'module3', 'module4'];
             const completedMandatory = mandatoryModules.every(m => progress[m]);

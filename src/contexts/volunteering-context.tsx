@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, ReactNode, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
-import { collection, query, doc, Timestamp, addDoc, type DocumentReference } from 'firebase/firestore';
+import { collection, query, doc, Timestamp, addDoc } from 'firebase/firestore';
 
 export type User = {
   id: string;
@@ -28,6 +28,7 @@ export type User = {
   initialStatus?: string;
   dataDecisao?: string;
   absenceCount?: number;
+  familyMembers?: { name: string; relation: string; userId?: string }[];
   journey?: {
     stageProgress?: Record<string, any>;
     memberCourseProgress?: Record<string, boolean>;
@@ -238,7 +239,7 @@ interface VolunteeringContextType {
   addReservation: (data: Omit<RoomReservation, 'id'>) => Promise<void>;
   updateReservation: (id: string, data: Partial<RoomReservation>) => Promise<void>;
   deleteReservation: (id: string) => Promise<void>;
-  updateVolunteer: (id: string, data: Partial<User>) => Promise<void>;
+  updateVolunteer: (id: string, data: any) => Promise<void>;
   addUser: (data: any) => Promise<string>;
   addCourse: (data: any) => Promise<void>;
   addClass: (data: any) => Promise<void>;

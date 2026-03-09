@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -9,10 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, PlusCircle, Users, Loader2, UserPlus, Search } from 'lucide-react';
+import { Trash2, PlusCircle, Users, Loader2, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 
 type FamilyLink = {
     name: string;
@@ -24,7 +23,11 @@ const relationOptions = [
     "Cônjuge", "Filho(a)", "Pai", "Mãe", "Irmão(ã)", "Avô/Avó", "Neto(a)", "Tio(a)", "Primo(a)", "Enteado(a)", "Outro"
 ];
 
-export function FamilyManagement({ user }) {
+interface FamilyManagementProps {
+    user: any;
+}
+
+export function FamilyManagement({ user }: FamilyManagementProps) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isAdding, setIsAdding] = useState(false);

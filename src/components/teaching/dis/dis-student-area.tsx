@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
-import { Calendar, Clock, DollarSign, Loader2, MessageSquare, CreditCard, User, GraduationCap } from 'lucide-react';
+import { Calendar, Clock, DollarSign, Loader2, MessageSquare, CreditCard, GraduationCap, PlayCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -107,10 +107,6 @@ export function DisStudentArea() {
                       <div className="flex items-center gap-2 text-xs">
                         <Clock className="size-3.5 text-muted-foreground" />
                         <span className="font-semibold">{cls.dayOfWeek} às {cls.startTime}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs">
-                        <User className="size-3.5 text-muted-foreground" />
-                        <span>Prof. {cls.teacherId ? 'Atribuído' : 'A definir'}</span>
                       </div>
                     </div>
                   </div>

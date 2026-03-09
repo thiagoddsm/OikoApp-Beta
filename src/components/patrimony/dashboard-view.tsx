@@ -72,7 +72,7 @@ export function PatrimonyDashboardView() {
                         </CardHeader>
                         <CardContent>
                             <div className={`text-3xl font-bold ${kpi.color}`}>
-                                {dashboardData.kpis[kpi.status] ?? 0}
+                                {dashboardData.kpis[kpi.status as keyof typeof dashboardData.kpis] ?? 0}
                             </div>
                         </CardContent>
                     </Card>

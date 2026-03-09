@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -20,7 +19,14 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 
-export function CreateRedeDialog({ open, onOpenChange, users, existingRede }) {
+interface CreateRedeDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  users: any[];
+  existingRede: any;
+}
+
+export function CreateRedeDialog({ open, onOpenChange, users, existingRede }: CreateRedeDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [nome, setNome] = useState('');
@@ -32,14 +38,14 @@ export function CreateRedeDialog({ open, onOpenChange, users, existingRede }) {
   const pastors = useMemo(() => {
     if (!users) return [];
     const pastorRoles = ['pastor_senior', 'admin'];
-    return users.filter(u => u.hierarchy?.role && pastorRoles.includes(u.hierarchy.role));
+    return users.filter((u: any) => u.hierarchy?.role && pastorRoles.includes(u.hierarchy.role));
   }, [users]);
 
   // Filter users who can be network leaders
   const networkLeaders = useMemo(() => {
     if (!users) return [];
     const leaderRoles = ['lider_rede', 'pastor_senior', 'admin'];
-    return users.filter(u => u.hierarchy?.role && leaderRoles.includes(u.hierarchy.role));
+    return users.filter((u: any) => u.hierarchy?.role && leaderRoles.includes(u.hierarchy.role));
   }, [users]);
   
   useEffect(() => {
@@ -48,7 +54,6 @@ export function CreateRedeDialog({ open, onOpenChange, users, existingRede }) {
       setLiderId(existingRede.liderId || '');
       setPastorId(existingRede.pastorId || '');
     } else {
-      // Reset form
       setNome('');
       setLiderId('');
       setPastorId('');
@@ -56,7 +61,7 @@ export function CreateRedeDialog({ open, onOpenChange, users, existingRede }) {
   }, [existingRede, open]);
 
   const handleSave = async () => {
-    if (!nome || !liderId || !pastorId) {
+    if (!nome || !liderId || !pastorId || !firestore) {
       toast({
         variant: "destructive",
         title: "Campos obrigatórios",
@@ -72,32 +77,21 @@ export function CreateRedeDialog({ open, onOpenChange, users, existingRede }) {
       pastorId,
     };
 
-    if (existingRede) {
-        const redeDocRef = doc(firestore, 'redes', existingRede.id);
-        updateDocumentNonBlocking(redeDocRef, redeData).then(() => {
-            toast({
-                title: "Sucesso!",
-                description: `A rede "${nome}" foi atualizada.`
-            });
-            onOpenChange(false);
-        }).catch(error => {
-            console.error("Error updating network:", error);
-        }).finally(() => {
-            setIsSaving(false);
-        });
-    } else {
-        const redesCollection = collection(firestore, 'redes');
-        addDocumentNonBlocking(redesCollection, redeData).then(() => {
-          toast({
-            title: "Sucesso!",
-            description: `A rede "${nome}" foi criada.`,
-          });
-          onOpenChange(false);
-        }).catch(error => {
-          console.error("Error creating network:", error);
-        }).finally(() => {
-          setIsSaving(false);
-        });
+    try {
+        if (existingRede) {
+            const redeDocRef = doc(firestore, 'redes', existingRede.id);
+            await updateDocumentNonBlocking(redeDocRef, redeData);
+            toast({ title: "Sucesso!", description: `A rede "${nome}" foi atualizada.` });
+        } else {
+            const redesCollection = collection(firestore, 'redes');
+            await addDocumentNonBlocking(redesCollection, redeData);
+            toast({ title: "Sucesso!", description: `A rede "${nome}" foi criada.` });
+        }
+        onOpenChange(false);
+    } catch (error) {
+        console.error("Error saving network:", error);
+    } finally {
+        setIsSaving(false);
     }
   };
 
@@ -112,36 +106,30 @@ export function CreateRedeDialog({ open, onOpenChange, users, existingRede }) {
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="name" className="text-right">
-              Nome
-            </Label>
+            <Label htmlFor="name" className="text-right">Nome</Label>
             <Input id="name" value={nome} onChange={(e) => setNome(e.target.value)} className="col-span-3" placeholder="Nome da Rede"/>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="leader" className="text-right">
-              Líder (Rede)
-            </Label>
+            <Label htmlFor="leader" className="text-right">Líder (Rede)</Label>
             <Select value={liderId} onValueChange={setLiderId}>
                 <SelectTrigger className="col-span-3">
                     <SelectValue placeholder="Selecione um líder de rede" />
                 </SelectTrigger>
                 <SelectContent>
-                    {networkLeaders.map(user => (
+                    {networkLeaders.map((user: any) => (
                         <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
                     ))}
                 </SelectContent>
             </Select>
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="pastor" className="text-right">
-              Pastor
-            </Label>
+            <Label htmlFor="pastor" className="text-right">Pastor</Label>
             <Select value={pastorId} onValueChange={setPastorId}>
                 <SelectTrigger className="col-span-3">
                     <SelectValue placeholder="Selecione um pastor" />
                 </SelectTrigger>
                 <SelectContent>
-                    {pastors.map(user => (
+                    {pastors.map((user: any) => (
                         <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
                     ))}
                 </SelectContent>
@@ -149,9 +137,7 @@ export function CreateRedeDialog({ open, onOpenChange, users, existingRede }) {
           </div>
         </div>
         <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="secondary">Cancelar</Button>
-          </DialogClose>
+          <DialogClose asChild><Button type="button" variant="secondary">Cancelar</Button></DialogClose>
           <Button type="button" onClick={handleSave} disabled={isSaving}>
             {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Salvar
