@@ -49,7 +49,8 @@ interface NodeCardProps {
 }
 
 const NodeCard = ({ node, onEdit, onDelete, children, onToggle, isExpanded, hasChildren, isRoot }: NodeCardProps) => {
-    const { icon: Icon, color } = nodeIcons[node.type] || nodeIcons.cell;
+    const config = nodeIcons[node.type] || nodeIcons.cell;
+    const Icon = config.icon;
 
     return (
         <div className="relative flex flex-col items-center">
@@ -57,7 +58,7 @@ const NodeCard = ({ node, onEdit, onDelete, children, onToggle, isExpanded, hasC
 
             <Card className="w-64 shadow-md hover:shadow-xl transition-shadow duration-300 z-10 bg-card">
                  <CardHeader className="flex flex-row items-center gap-3 p-4">
-                    <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", color)}>
+                    <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", config.color)}>
                         <Icon className="h-5 w-5" />
                     </div>
                     <div className="flex-1 truncate text-left">
@@ -149,13 +150,14 @@ const buildHierarchy = (users: User[], redes: Rede[], areas: Area[], cells: Cell
         };
     });
 
-    const redeNodes: HierarchyNode[] = redes.map(rede => {
+    const redeNodes: (HierarchyNode & { pastorId: string })[] = redes.map(rede => {
         const redeAreas = areaNodes.filter(a => a.redeId === rede.id);
         const participantes = redeAreas.reduce((sum, a) => sum + a.stats.participantes, 0);
         return {
             id: rede.id,
             nome: rede.nome,
             type: 'rede',
+            pastorId: rede.pastorId,
             liderName: userMap.get(rede.liderId)?.name || 'N/A',
             stats: {
                 directChildren: redeAreas.length,
