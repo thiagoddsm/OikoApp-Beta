@@ -32,6 +32,25 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#6750A4" />
         <link rel="apple-touch-icon" href="https://placehold.co/192x192/6750A4/FFF.png" />
+        
+        {/* Script de Auto-Cura para ChunkLoadError */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.addEventListener('error', (event) => {
+                if (event.message && (
+                  event.message.includes('ChunkLoadError') || 
+                  event.message.includes('Loading chunk') ||
+                  event.message.includes('Failed to load chunk')
+                )) {
+                  console.warn('Detectado ChunkLoadError. Recarregando para sincronizar com o servidor...');
+                  window.location.reload();
+                }
+              }, true);
+            `,
+          }}
+        />
+
         <Script
             id="__APP_ID__"
             dangerouslySetInnerHTML={{
