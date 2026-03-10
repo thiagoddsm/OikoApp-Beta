@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, ArrowLeft, BookOpen, Star, Users, CheckCircle2, ClipboardCheck, History, Search, Plus, Calendar as CalendarIcon, Clock, Save, UserPlus } from 'lucide-react';
+import { Loader2, ArrowLeft, CheckCircle2, ClipboardCheck, History, Plus, Save, UserPlus } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -52,11 +52,15 @@ function PedagogicalLogPageContent() {
     const [onlineStudents, setOnlineStudents] = useState<string[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [today, setToday] = useState<Date | null>(null);
+
+    useEffect(() => {
+        setToday(startOfDay(new Date()));
+    }, []);
 
     const classData = useMemo(() => classes.find(c => c.id === classId), [classes, classId]);
     const courseData = useMemo(() => classData ? courses.find(c => c.id === classData.courseId) : null, [classData, courses]);
     
-    // Cálculo das datas válidas de aula (Ciclo Mensal)
     const classOccurrences = useMemo(() => {
         if (!classData || !classData.startDate) return [];
         const occurrences: string[] = [];
@@ -92,8 +96,8 @@ function PedagogicalLogPageContent() {
 
     useEffect(() => {
         if (classOccurrences.length > 0 && !selectedDate) {
-            const today = format(new Date(), 'yyyy-MM-dd');
-            const closest = classOccurrences.find(d => d === today) || classOccurrences.find(d => isAfter(parseISO(d), new Date())) || classOccurrences[0];
+            const todayStr = format(new Date(), 'yyyy-MM-dd');
+            const closest = classOccurrences.find(d => d === todayStr) || classOccurrences.find(d => isAfter(parseISO(d), new Date())) || classOccurrences[0];
             setSelectedDate(closest);
         }
     }, [classOccurrences, selectedDate]);
@@ -119,14 +123,12 @@ function PedagogicalLogPageContent() {
 
     const isMemberCourse = courseData?.name?.toLowerCase().includes('membro') || courseData?.name?.toLowerCase().includes('pertencer');
     
-    // Lista de alunos inscritos na turma
     const enrolledStudents = useMemo(() => {
         if (!users || !classData?.students) return [];
         const studentSet = new Set(classData.students);
         return users.filter(u => studentSet.has(u.id));
     }, [users, classData]);
 
-    // Lista de alunos que NÃO estão na turma mas tiveram presença registrada nesta data (Reposição)
     const repositionStudents = useMemo(() => {
         if (!users || !classData) return [];
         const enrolledIds = new Set(classData.students || []);
@@ -167,7 +169,6 @@ function PedagogicalLogPageContent() {
 
             const progressPromises: Promise<any>[] = [];
             if (isMemberCourse && firestore) {
-                // Identifica qual módulo é baseado na data dentro do ciclo
                 const dateIndex = classOccurrences.indexOf(selectedDate);
                 const moduleKey = `module${dateIndex + 1}`;
                 

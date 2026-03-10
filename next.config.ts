@@ -1,3 +1,4 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
@@ -42,7 +43,7 @@ const nextConfig: NextConfig = {
     ],
   },
   env: {
-    BUILD_TIMESTAMP: "2025-02-26T15:00:00Z", // Forçar recompilação global para resolver ChunkLoadError
+    BUILD_TIMESTAMP: "2025-02-26T16:00:00Z", // Timestamp atualizado para resolver ChunkLoadError e forçar recompilação limpa
   }
 };
 

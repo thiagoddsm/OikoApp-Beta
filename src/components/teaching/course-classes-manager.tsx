@@ -1,10 +1,11 @@
+
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc } from 'firebase/firestore';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
-import { Loader2, PlusCircle, Edit, Trash2, ChevronRight, Wand2, ClipboardCheck, BookOpen, Users } from 'lucide-react';
+import { Loader2, PlusCircle, Edit, Trash2, ChevronRight, Wand2, ClipboardCheck, BookOpen } from 'lucide-react';
 import { ClassFormDialog } from './class-form-dialog';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { format, addWeeks, startOfMonth, nextDay } from 'date-fns';
@@ -79,11 +80,10 @@ export function CourseClassesManager({ course }: { course: any }) {
         setIsGenerating(true);
 
         try {
-            // Calcula o próximo mês para sugerir o ciclo
             const nextMonth = new Date();
             nextMonth.setMonth(nextMonth.getMonth() + 1);
             const startOfNextMonth = startOfMonth(nextMonth);
-            const firstSunday = nextDay(startOfNextMonth, 0); // 0 = Domingo
+            const firstSunday = nextDay(startOfNextMonth, 0); 
             const lastSunday = addWeeks(firstSunday, 4);
 
             const monthName = format(firstSunday, 'MMMM', { locale: ptBR });

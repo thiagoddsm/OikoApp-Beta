@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -22,10 +23,8 @@ export function MemberCourseProgress({ user }: { user: any }) {
     const { toast } = useToast();
     const [isSyncing, setIsSyncing] = useState(false);
 
-    // 1. Get flags from user document
     const manualProgress = user?.journey?.memberCourseProgress || {};
     
-    // 2. Calcula progresso de todas as turmas onde este aluno esteve presente
     const memberCourse = useMemo(() => 
         courses.find(c => c.name.toLowerCase().includes('membro') || c.name.toLowerCase().includes('pertencer')),
     [courses]);
@@ -37,19 +36,12 @@ export function MemberCourseProgress({ user }: { user: any }) {
         const relevantClasses = classes.filter(c => c.courseId === memberCourse.id);
 
         modules.forEach(mod => {
-            // Verifica se o aluno esteve presente em QUALQUER turma (ciclo) na aula correspondente ao índice
             const isPresentInAnyCycle = relevantClasses.some(c => {
-                const dates = c.extraDates ? [...(c.extraDates || []), c.startDate] : [c.startDate];
-                // Lógica de Ciclo Mensal: a 1ª aula do ciclo é o Módulo 1, etc.
-                // Buscamos se o ID do aluno aparece no registro de chamada de alguma data que corresponda ao módulo
                 return c.attendance?.some(att => {
-                    const classDates = Array.from(new Set(relevantClasses.flatMap(rc => {
-                        // Expansão simplificada para encontrar a ordem das aulas no ciclo
-                        const start = parseISO(rc.startDate || '');
-                        return [0,1,2,3,4].map(i => format(addWeeks(start, i), 'yyyy-MM-dd'));
-                    })));
+                    const start = parseISO(c.startDate || '');
+                    const cycleDates = [0,1,2,3,4].map(i => format(addWeeks(start, i), 'yyyy-MM-dd'));
+                    const dateIndexInCycle = cycleDates.indexOf(att.date);
                     
-                    const dateIndexInCycle = classDates.indexOf(att.date);
                     return dateIndexInCycle === mod.index && (att.presentStudentIds.includes(user.id) || (att.onlineStudentIds && att.onlineStudentIds.includes(user.id)));
                 });
             });
@@ -59,7 +51,6 @@ export function MemberCourseProgress({ user }: { user: any }) {
         return progress;
     }, [memberCourse, classes, user.id]);
 
-    // Merge: Se marcado manualmente OU se houver presença física/online registrada
     const mergedProgress = useMemo(() => {
         const merged = { ...manualProgress };
         modules.forEach(mod => {
