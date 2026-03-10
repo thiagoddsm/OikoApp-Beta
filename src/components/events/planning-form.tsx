@@ -23,7 +23,7 @@ import { ptBR } from 'date-fns/locale';
 import { ScrollArea } from '../ui/scroll-area';
 import { Checkbox } from '../ui/checkbox';
 
-interface PlanningEvent {
+export interface PlanningEvent {
     id: string;
     ministry: string;
     organizer: string;
@@ -33,8 +33,8 @@ interface PlanningEvent {
     recurrenceDetails: any;
     visionAlignment: string;
     phaseAlignment: string;
-    smart: any;
-    method5w2h: any;
+    smart: Record<string, string>;
+    method5w2h: Record<string, string>;
     startDate: string;
     endDate: string;
     date?: string;
@@ -46,7 +46,7 @@ interface PlanningEvent {
     space: string;
     externalLocation: string;
     roomLayout: string;
-    requiredServiceAreas: any[];
+    requiredServiceAreas: { areaId: string; quantity: number }[];
     hasFood: string;
     foodType: string;
     kitchenResponsible: string;
@@ -606,10 +606,10 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
             <div className="bg-white p-5 rounded-lg border border-indigo-100 shadow-sm mb-8">
               <h3 className="font-bold text-indigo-800 mb-4 flex items-center gap-2"><ListChecks size={18}/> Metas SMART (Seja Inteligente)</h3>
               <div className="space-y-3">
-                 {Object.entries(smartMappings).map(([key, { label, placeholder }]) => (
+                 {Object.entries(smartMappings).map(([key, mapping]) => (
                      <div key={key} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                        <Label className="text-xs font-bold uppercase text-indigo-600 md:text-right px-2">{label}</Label>
-                        <Input type="text" name={key} placeholder={placeholder} value={formData.smart[key] || ''} onChange={(e) => handleNestedChange(e, 'smart')} className="md:col-span-3 bg-indigo-50/30" />
+                        <Label className="text-xs font-bold uppercase text-indigo-600 md:text-right px-2">{mapping.label}</Label>
+                        <Input type="text" name={key} placeholder={mapping.placeholder} value={formData.smart[key] || ''} onChange={(e) => handleNestedChange(e, 'smart')} className="md:col-span-3 bg-indigo-50/30" />
                      </div>
                  ))}
               </div>
@@ -618,10 +618,10 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
              <div className="bg-white p-5 rounded-lg border border-emerald-100 shadow-sm">
               <h3 className="font-bold text-emerald-800 mb-4 flex items-center gap-2"><Layout size={18}/> Plano de Ação (5W2H)</h3>
               <div className="space-y-3">
-                 {Object.entries(method5w2hMappings).map(([key, { label, placeholder }]) => (
+                 {Object.entries(method5w2hMappings).map(([key, mapping]) => (
                      <div key={key} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-start">
-                        <Label className="text-xs font-bold uppercase text-emerald-700 md:text-right px-2 pt-2">{label}</Label>
-                        <Textarea name={key} placeholder={placeholder} value={formData.method5w2h[key] || ''} onChange={(e) => handleNestedChange(e, 'method5w2h')} className="md:col-span-3 bg-emerald-50/30" rows={3}/>
+                        <Label className="text-xs font-bold uppercase text-emerald-700 md:text-right px-2 pt-2">{mapping.label}</Label>
+                        <Textarea name={key} placeholder={mapping.placeholder} value={formData.method5w2h[key] || ''} onChange={(e) => handleNestedChange(e, 'method5w2h')} className="md:col-span-3 bg-emerald-50/30" rows={3}/>
                      </div>
                  ))}
               </div>

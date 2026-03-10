@@ -6,14 +6,6 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  experimental: {
-    allowedDevOrigins: [
-      '*.cloudworkstations.dev',
-      '*.firebase-studio.dev',
-      'localhost:9002',
-      'localhost:6000',
-    ],
-  },
   images: {
     remotePatterns: [
       {
@@ -43,7 +35,7 @@ const nextConfig: NextConfig = {
     ],
   },
   env: {
-    BUILD_TIMESTAMP: "2025-02-26T19:30:00Z",
+    BUILD_TIMESTAMP: "2025-02-26T21:00:00Z",
   }
 };
 

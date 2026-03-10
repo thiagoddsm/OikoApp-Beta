@@ -5,7 +5,7 @@ import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, deleteDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where, getDocs } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
-import { Loader2, Users, ChevronDown, Pencil, Trash2, Network, AreaChart, Building2 } from "lucide-react";
+import { Loader2, Users, ChevronDown, Pencil, Trash2, Network, AreaChart, Building2, PlusCircle } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { CreateRedeDialog } from '@/components/structure/create-rede-dialog';
 import { CreateAreaDialog } from '@/components/structure/create-area-dialog';
@@ -119,11 +119,12 @@ const buildHierarchy = (users: User[], redes: Rede[], areas: Area[], cells: Cell
     const seniorPastor = users.find(u => u.hierarchy?.role === 'pastor_senior') || users.find(u => u.hierarchy?.role === 'admin');
     if (!seniorPastor) return null;
 
-    const cellNodes: HierarchyNode[] = cells.map(cell => ({
+    const cellNodes: (HierarchyNode & { areaId: string })[] = cells.map(cell => ({
         id: cell.id,
         nome: cell.nome,
         type: 'cell',
         liderName: userMap.get(cell.liderId)?.name || 'N/A',
+        areaId: cell.areaId,
         stats: {
             directChildren: 0,
             participantes: cell.membros?.length || 0,
@@ -131,13 +132,14 @@ const buildHierarchy = (users: User[], redes: Rede[], areas: Area[], cells: Cell
         children: []
     }));
 
-    const areaNodes: HierarchyNode[] = areas.map(area => {
-        const areaCells = cellNodes.filter(c => (c as any).areaId === area.id);
+    const areaNodes: (HierarchyNode & { redeId: string })[] = areas.map(area => {
+        const areaCells = cellNodes.filter(c => c.areaId === area.id);
         const participantes = areaCells.reduce((sum, c) => sum + c.stats.participantes, 0);
         return {
             id: area.id,
             nome: area.nome,
             type: 'area',
+            redeId: area.redeId,
             liderName: userMap.get(area.liderId)?.name || 'N/A',
             stats: {
                 directChildren: areaCells.length,
@@ -148,7 +150,7 @@ const buildHierarchy = (users: User[], redes: Rede[], areas: Area[], cells: Cell
     });
 
     const redeNodes: HierarchyNode[] = redes.map(rede => {
-        const redeAreas = areaNodes.filter(a => (a as any).redeId === rede.id);
+        const redeAreas = areaNodes.filter(a => a.redeId === rede.id);
         const participantes = redeAreas.reduce((sum, a) => sum + a.stats.participantes, 0);
         return {
             id: rede.id,
