@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -403,7 +402,7 @@ function WhatsappResponses() {
 
     return (
         <div className="space-y-6 text-slate-900">
-            {Object.keys(pollStats).length > 0 && (
+            {pollStats && Object.keys(pollStats).length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {Object.entries(pollStats).map(([name, votes]) => (
                         <Card key={name} className="border-blue-100 bg-blue-50/30 shadow-sm border-2">
@@ -413,10 +412,10 @@ function WhatsappResponses() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-2">
-                                {Object.entries(votes).map(([opt, count]) => (
+                                {Object.entries(votes as any).map(([opt, count]) => (
                                     <div key={opt} className="flex justify-between items-center text-xs bg-white/50 p-2 rounded-lg">
                                         <span className="font-bold text-slate-700">{opt}</span>
-                                        <Badge className="bg-blue-600 text-white font-black">{count} votos</Badge>
+                                        <Badge className="bg-blue-600 text-white font-black">{count as number} votos</Badge>
                                     </div>
                                 ))}
                             </CardContent>
@@ -445,7 +444,7 @@ function WhatsappResponses() {
                                         <div className="font-bold text-sm">+{res.from}</div>
                                     </TableCell>
                                     <TableCell>
-                                        <Badge variant="ghost" className="text-[10px] uppercase font-black">
+                                        <Badge variant="outline" className="text-[10px] uppercase font-black border-none">
                                             {res.type === 'poll' ? <CheckCircle2 className="size-3 mr-1 text-blue-500" /> : <MousePointer2 className="size-3 mr-1 text-emerald-500" />}
                                             {res.type}
                                         </Badge>
@@ -602,12 +601,12 @@ function NotificationsHistory() {
                                     {item.sentAt ? format(item.sentAt.toDate(), 'dd/MM HH:mm') : '-'}
                                 </TableCell>
                                 <TableCell className="max-w-md truncate text-xs font-medium">
-                                    <Badge variant="ghost" className="text-[8px] uppercase p-0.5 mr-2">{item.type || 'text'}</Badge>
+                                    <Badge variant="outline" className="text-[8px] uppercase p-0.5 mr-2 border-none bg-muted/50">{item.type || 'text'}</Badge>
                                     {item.message}
                                 </TableCell>
                                 <TableCell className="text-xs font-black">{item.successCount} / {item.recipientCount}</TableCell>
                                 <TableCell className="text-right">
-                                    <Badge className={cn("text-[10px] font-black uppercase border-none", item.status === 'success' ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800")}>{item.status}</Badge>
+                                    <Badge variant="outline" className={cn("text-[10px] font-black uppercase border-none", item.status === 'success' ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800")}>{item.status}</Badge>
                                 </TableCell>
                             </TableRow>
                         ))

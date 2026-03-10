@@ -1,39 +1,35 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, CheckCircle, ArrowRight, User, Phone, Mail, BookOpen, Clock, MapPin, ChevronRight, Waves, Lightbulb, School } from 'lucide-react';
+import { Loader2, BookOpen, User, Phone, Mail, CheckCircle2, ChevronRight, Waves, Lightbulb, School, HandHelping } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
-export function EnrollmentForm({ initialCourseId }: { initialCourseId?: string }) {
-    const { courses, classes, isLoading, addEnrollmentRequest } = useVolunteering();
+export function PublicEnrollmentForm() {
+    const { courses, classes, addEnrollmentRequest, isLoading: isContextLoading } = useVolunteering();
     const { toast } = useToast();
-    
     const [step, setStep] = useState(1);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isSuccess, setIsSuccess] = useState(false);
-
     const [formData, setFormData] = useState({
-        courseId: initialCourseId || '',
+        courseId: '',
         classId: '',
         name: '',
         email: '',
         phone: '',
     });
 
+    const [isMounted, setIsMounted] = useState(false);
+    useEffect(() => { setIsMounted(true); }, []);
+
     const selectedCourse = useMemo(() => courses.find(c => c.id === formData.courseId), [courses, formData.courseId]);
-    
-    const courseClasses = useMemo(() => {
-        if (!formData.courseId) return [];
-        return classes.filter(cls => cls.courseId === formData.courseId);
-    }, [classes, formData.courseId]);
+    const filteredClasses = useMemo(() => classes.filter(c => c.courseId === formData.courseId), [classes, formData.courseId]);
 
     const handleCourseSelect = (id: string) => {
         setFormData(prev => ({ ...prev, courseId: id, classId: '' }));
@@ -48,7 +44,7 @@ export function EnrollmentForm({ initialCourseId }: { initialCourseId?: string }
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.name || !formData.email || !formData.phone) {
-            toast({ variant: 'destructive', title: 'Campos obrigatórios', description: 'Por favor, preencha todos os seus dados.' });
+            toast({ variant: 'destructive', title: 'Campos obrigatórios', description: 'Por favor, preencha seus dados de contato.' });
             return;
         }
 
@@ -62,189 +58,184 @@ export function EnrollmentForm({ initialCourseId }: { initialCourseId?: string }
                 phone: formData.phone,
                 status: 'pending',
             });
-            setIsSuccess(true);
+            setStep(4);
             toast({ title: 'Solicitação Enviada!', description: 'Nossa equipe entrará em contato em breve.' });
         } catch (error) {
-            toast({ variant: 'destructive', title: 'Erro ao enviar', description: 'Não foi possível processar sua inscrição agora.' });
+            toast({ variant: 'destructive', title: 'Erro ao enviar', description: 'Tente novamente em instantes.' });
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const getMinistryIcon = (name: string) => {
-        const n = name?.toLowerCase() || '';
-        if (n.includes('wave')) return Waves;
-        if (n.includes('lumine') || n.includes('ebd')) return Lightbulb;
-        if (n.includes('college') || n.includes('escola')) return School;
-        return BookOpen;
-    };
+    if (!isMounted) return null;
 
-    if (isSuccess) {
+    if (step === 4) {
         return (
-            <div className="text-center py-12 space-y-6 animate-in zoom-in-95">
-                <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
-                    <CheckCircle size={40} />
+            <div className="text-center py-12 space-y-6 animate-in zoom-in-95 duration-500">
+                <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-lg">
+                    <CheckCircle2 size={40} />
                 </div>
-                <div className="space-y-2">
-                    <h2 className="text-2xl font-black uppercase italic tracking-tighter">Inscrição Recebida!</h2>
-                    <p className="text-muted-foreground text-sm max-w-xs mx-auto">
-                        Obrigado pelo seu interesse, <strong>{formData.name}</strong>. Recebemos seus dados e o responsável pelo curso entrará em contato via WhatsApp em breve.
-                    </p>
-                </div>
-                <Button variant="outline" onClick={() => window.location.reload()} className="rounded-full">Fazer outra inscrição</Button>
+                <h2 className="text-3xl font-black text-slate-900 italic tracking-tighter uppercase">Inscrição Protocolada!</h2>
+                <p className="text-slate-600 max-w-md mx-auto">
+                    Recebemos seu interesse no curso <strong>{selectedCourse?.name}</strong>. Fique atento ao seu WhatsApp, enviaremos as instruções de confirmação em breve.
+                </p>
+                <Button variant="outline" onClick={() => window.location.reload()} className="h-12 px-8 font-black uppercase tracking-widest">Fazer outra inscrição</Button>
             </div>
         );
     }
 
     return (
-        <div className="space-y-8">
-            <header className="text-center space-y-2">
-                <Badge variant="outline" className="text-primary border-primary/30 bg-primary/5 font-black uppercase text-[10px] mb-4">Inscrição Lumine</Badge>
-                <h1 className="text-3xl font-black italic tracking-tighter uppercase leading-none">Faça parte</h1>
-                <p className="text-muted-foreground text-xs uppercase font-bold tracking-widest">Sua jornada de crescimento começa aqui</p>
+        <div className="max-w-4xl mx-auto">
+            <header className="text-center mb-10">
+                <Badge variant="outline" className="text-primary border-primary/30 bg-primary/5 font-black uppercase text-[10px] mb-4 px-3 py-1">Inscrições Abertas</Badge>
+                <h1 className="text-4xl sm:text-5xl font-black text-slate-900 italic tracking-tighter uppercase leading-none">
+                    Faça parte da <span className="text-primary">IBM</span>
+                </h1>
+                <p className="text-slate-500 mt-4 font-medium">Sua jornada de crescimento começa aqui.</p>
+                
+                <div className="flex justify-center gap-2 mt-8 max-w-xs mx-auto">
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className={cn("h-1.5 flex-1 rounded-full transition-all duration-500", step >= i ? "bg-primary" : "bg-slate-100")} />
+                    ))}
+                </div>
             </header>
 
-            <div className="relative">
-                <div className="flex justify-between mb-8 gap-2">
-                    <div className="flex-1 space-y-2">
-                        <div className={cn("h-1.5 flex-1 rounded-full transition-all duration-500", step >= 1 ? "bg-primary" : "bg-slate-100")} />
-                        <p className="text-[8px] font-black uppercase text-center opacity-50">Escolha</p>
-                    </div>
-                    <div className="flex-1 space-y-2">
-                        <div className={cn("h-1.5 flex-1 rounded-full transition-all duration-500", step >= 2 ? "bg-primary" : "bg-slate-100")} />
-                        <p className="text-[8px] font-black uppercase text-center opacity-50">Turma</p>
-                    </div>
-                    <div className="flex-1 space-y-2">
-                        <div className={cn("h-1.5 flex-1 rounded-full transition-all duration-500", step >= 3 ? "bg-primary" : "bg-slate-100")} />
-                        <p className="text-[8px] font-black uppercase text-center opacity-50">Dados</p>
-                    </div>
-                </div>
-
-                {step === 1 && (
-                    <div className="grid grid-cols-1 gap-3 animate-in slide-in-from-left-4 duration-500">
-                        {courses.map(course => {
-                            const Icon = getMinistryIcon(course.ministryName);
-                            return (
-                                <button
-                                    key={course.id}
-                                    onClick={() => handleCourseSelect(course.id)}
-                                    className={cn(
-                                        "p-4 rounded-2xl border-2 text-left transition-all group flex items-center gap-4",
-                                        formData.courseId === course.id ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 hover:border-slate-200 bg-white"
-                                    )}
-                                >
-                                    <div className="size-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center group-hover:scale-110 transition-transform">
-                                        <Icon size={24} />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-black text-sm uppercase italic leading-tight">{course.name}</p>
-                                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter mt-1 line-clamp-1">{course.ministryName}</p>
-                                    </div>
-                                    <ChevronRight className="size-4 text-slate-300 group-hover:text-primary transition-colors" />
-                                </button>
-                            );
-                        })}
-                    </div>
-                )}
-
-                {step === 2 && (
-                    <div className="space-y-4 animate-in slide-in-from-right-4 duration-500">
-                        <div className="flex items-center justify-between">
-                            <h3 className="font-black text-xs uppercase tracking-widest text-primary">Selecione a Turma</h3>
-                            <Button variant="ghost" size="sm" onClick={() => setStep(1)} className="text-[10px] font-black uppercase h-6">Alterar Curso</Button>
-                        </div>
-                        {courseClasses.length === 0 ? (
-                            <div className="p-8 text-center border-2 border-dashed rounded-2xl bg-slate-50">
-                                <p className="text-sm text-muted-foreground font-medium">Não há turmas abertas para este curso no momento.</p>
+            <Card className="border-none shadow-2xl rounded-[2rem] overflow-hidden">
+                <CardContent className="p-0">
+                    {step === 1 && (
+                        <div className="p-6 sm:p-10 space-y-6 animate-in fade-in slide-in-from-bottom-4">
+                            <div className="flex items-center gap-3 mb-2">
+                                <div className="p-2 bg-primary/10 rounded-lg text-primary"><BookOpen size={20}/></div>
+                                <h2 className="text-xl font-black uppercase tracking-tight">Escolha seu Curso</h2>
                             </div>
-                        ) : (
-                            <div className="grid grid-cols-1 gap-3">
-                                {courseClasses.map(cls => (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {courses.map(course => (
                                     <button
-                                        key={cls.id}
-                                        onClick={() => handleClassSelect(cls.id)}
-                                        className={cn(
-                                            "p-4 rounded-2xl border-2 text-left transition-all flex items-center justify-between group",
-                                            formData.classId === cls.id ? "border-primary bg-primary/5" : "border-slate-100 bg-white"
-                                        )}
+                                        key={course.id}
+                                        onClick={() => handleCourseSelect(course.id)}
+                                        className="text-left p-5 rounded-2xl border-2 border-slate-100 hover:border-primary hover:bg-primary/5 transition-all group flex flex-col justify-between h-full"
                                     >
-                                        <div className="space-y-1">
-                                            <p className="font-black text-sm uppercase italic">{cls.name}</p>
-                                            <div className="flex items-center gap-3 text-[10px] font-bold text-muted-foreground uppercase">
-                                                <span className="flex items-center gap-1"><Clock size={12}/> {cls.dayOfWeek} às {cls.startTime}</span>
-                                                <span className="flex items-center gap-1"><MapPin size={12}/> {cls.locationId === 'the_school' ? 'The School' : 'IBM'}</span>
-                                            </div>
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase text-primary mb-1 tracking-widest">{course.ministryName}</p>
+                                            <h3 className="font-bold text-lg text-slate-900 group-hover:text-primary transition-colors">{course.name}</h3>
+                                            <p className="text-xs text-slate-500 mt-2 line-clamp-2 leading-relaxed">{course.description}</p>
                                         </div>
-                                        <div className={cn("size-6 rounded-full border-2 flex items-center justify-center transition-all", formData.classId === cls.id ? "bg-primary border-primary text-white" : "border-slate-300 group-hover:border-primary")}>
-                                            {formData.classId === cls.id && <CheckCircle size={14} />}
-                                        </div>
+                                        <ChevronRight className="size-5 mt-4 text-slate-300 group-hover:text-primary transition-all group-hover:translate-x-1" />
                                     </button>
                                 ))}
                             </div>
-                        )}
-                    </div>
-                )}
-
-                {step === 3 && (
-                    <form onSubmit={handleSubmit} className="space-y-6 animate-in fade-in-50 duration-500">
-                        <div className="flex items-center justify-between">
-                            <h3 className="font-black text-xs uppercase tracking-widest text-primary">Seus Dados</h3>
-                            <Button variant="ghost" size="sm" onClick={() => setStep(2)} className="text-[10px] font-black uppercase h-6">Alterar Turma</Button>
                         </div>
-                        
-                        <div className="space-y-4">
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Nome Completo</Label>
-                                <div className="relative">
-                                    <User className="absolute left-3 top-3 size-4 text-slate-400" />
-                                    <Input 
-                                        className="h-11 pl-10 rounded-xl"
-                                        placeholder="Como devemos te chamar?"
-                                        value={formData.name}
-                                        onChange={e => setFormData(p => ({...p, name: e.target.value}))}
-                                        required
-                                    />
+                    )}
+
+                    {step === 2 && (
+                        <div className="p-6 sm:p-10 space-y-6 animate-in fade-in slide-in-from-right-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-primary/10 rounded-lg text-primary"><School size={20}/></div>
+                                    <h2 className="text-xl font-black uppercase tracking-tight">Selecione uma Turma</h2>
                                 </div>
+                                <Button variant="ghost" onClick={() => setStep(1)} className="text-xs uppercase font-bold">Voltar</Button>
+                            </div>
+                            <div className="space-y-3">
+                                {filteredClasses.length > 0 ? (
+                                    filteredClasses.map(cls => (
+                                        <button
+                                            key={cls.id}
+                                            onClick={() => handleClassSelect(cls.id)}
+                                            className={cn(
+                                                "w-full p-5 rounded-2xl border-2 text-left transition-all flex items-center justify-between group",
+                                                formData.classId === cls.id ? "border-primary bg-primary/5 ring-4 ring-primary/10" : "border-slate-100 hover:border-slate-200"
+                                            )}
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className={cn("size-6 rounded-full border-2 flex items-center justify-center transition-all", formData.classId === cls.id ? "bg-primary border-primary text-white" : "border-slate-300 group-hover:border-primary")}>
+                                                    {formData.classId === cls.id && <CheckCircle2 size={14} />}
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-slate-900">{cls.name}</p>
+                                                    <p className="text-xs text-slate-500">{cls.dayOfWeek} às {cls.startTime}</p>
+                                                </div>
+                                            </div>
+                                            <Badge variant="secondary" className="text-[10px] font-bold">Vagas Disponíveis</Badge>
+                                        </button>
+                                    ))
+                                ) : (
+                                    <div className="text-center py-12 bg-slate-50 rounded-2xl border-2 border-dashed">
+                                        <p className="text-slate-500">Nenhuma turma com inscrições abertas para este curso.</p>
+                                        <Button variant="link" onClick={() => setStep(1)}>Ver outros cursos</Button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {step === 3 && (
+                        <form onSubmit={handleSubmit} className="p-6 sm:p-10 space-y-8 animate-in fade-in slide-in-from-right-4">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-primary/10 rounded-lg text-primary"><User size={20}/></div>
+                                    <h2 className="text-xl font-black uppercase tracking-tight">Seus Dados</h2>
+                                </div>
+                                <Button type="button" variant="ghost" onClick={() => setStep(2)} className="text-xs uppercase font-bold">Voltar</Button>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">WhatsApp</Label>
+                            <div className="grid grid-cols-1 gap-6">
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] uppercase font-black tracking-widest text-slate-500">Nome Completo</Label>
                                     <div className="relative">
-                                        <Phone className="absolute left-3 top-3 size-4 text-slate-400" />
+                                        <User className="absolute left-3 top-3 size-4 text-slate-400" />
                                         <Input 
-                                            className="h-11 pl-10 rounded-xl"
-                                            placeholder="(21) 99999-9999"
-                                            value={formData.phone}
-                                            onChange={e => setFormData(p => ({...p, phone: e.target.value}))}
-                                            required
+                                            required 
+                                            placeholder="Ex: João Silva" 
+                                            className="h-12 pl-10 rounded-xl"
+                                            value={formData.name}
+                                            onChange={e => setFormData(p => ({...p, name: e.target.value}))}
                                         />
                                     </div>
                                 </div>
-                                <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">E-mail</Label>
-                                    <div className="relative">
-                                        <Mail className="absolute left-3 top-3 size-4 text-slate-400" />
-                                        <Input 
-                                            className="h-11 pl-10 rounded-xl"
-                                            type="email"
-                                            placeholder="seu@email.com"
-                                            value={formData.email}
-                                            onChange={e => setFormData(p => ({...p, email: e.target.value}))}
-                                            required
-                                        />
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] uppercase font-black tracking-widest text-slate-500">E-mail</Label>
+                                        <div className="relative">
+                                            <Mail className="absolute left-3 top-3 size-4 text-slate-400" />
+                                            <Input 
+                                                required 
+                                                type="email"
+                                                placeholder="joao@exemplo.com" 
+                                                className="h-12 pl-10 rounded-xl"
+                                                value={formData.email}
+                                                onChange={e => setFormData(p => ({...p, email: e.target.value}))}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] uppercase font-black tracking-widest text-slate-500">WhatsApp</Label>
+                                        <div className="relative">
+                                            <Phone className="absolute left-3 top-3 size-4 text-slate-400" />
+                                            <Input 
+                                                required 
+                                                placeholder="(21) 9..." 
+                                                className="h-12 pl-10 rounded-xl"
+                                                value={formData.phone}
+                                                onChange={e => setFormData(p => ({...p, phone: e.target.value}))}
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <Button type="submit" className="w-full h-12 rounded-xl font-black text-base shadow-lg shadow-primary/20" disabled={isSubmitting}>
-                            {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle className="mr-2" />}
-                            Finalizar Inscrição
-                        </Button>
-                    </form>
-                )}
-            </div>
+                            <Button 
+                                type="submit" 
+                                disabled={isSubmitting} 
+                                className="w-full h-14 font-black uppercase tracking-widest text-lg shadow-xl shadow-primary/20 rounded-2xl"
+                            >
+                                {isSubmitting ? <Loader2 className="animate-spin mr-2" /> : null}
+                                Finalizar Inscrição
+                            </Button>
+                        </form>
+                    )}
+                </CardContent>
+            </Card>
         </div>
     );
 }

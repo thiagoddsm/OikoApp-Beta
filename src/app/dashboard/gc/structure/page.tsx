@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -271,7 +270,7 @@ export default function StructurePage() {
             const areasQ = query(collection(firestore, 'areas'), where('redeId', '==', nodeToDelete.id));
             try {
                 const areasSnapshot = await getDocs(areasQ);
-                const deletePromises: Promise<void>[] = [];
+                const deletePromises: Promise<void>()[] = [];
                 areasSnapshot.forEach(areaDoc => {
                     deletePromises.push(deleteDocumentNonBlocking(doc(firestore, 'areas', areaDoc.id)));
                 });
