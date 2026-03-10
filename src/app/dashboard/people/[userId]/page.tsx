@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -113,14 +112,14 @@ function KpiCard({ icon: Icon, title, value, footer }: { icon: any, title: strin
   return (
     <Card>
       <CardHeader className="pb-4">
-        <CardDescription className="flex items-center gap-2 text-xs">
+        <CardDescription className="flex items-center gap-2 text-xs text-left">
           <Icon className="size-4" /> {title}
         </CardDescription>
-        <CardTitle className="text-xl truncate">{value}</CardTitle>
+        <CardTitle className="text-xl truncate text-left">{value}</CardTitle>
       </CardHeader>
       {footer && (
         <CardContent>
-          <p className="text-xs text-muted-foreground">{footer}</p>
+          <p className="text-xs text-muted-foreground text-left">{footer}</p>
         </CardContent>
       )}
     </Card>
@@ -252,8 +251,8 @@ export default function UserProfilePage() {
                 <MemberCourseProgress user={userProfile} />
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Footprints/>Trilha de Discipulado</CardTitle>
-                    <CardDescription>Acompanhe e gerencie o progresso individual na jornada de crescimento.</CardDescription>
+                    <CardTitle className="flex items-center gap-2 text-left"><Footprints/>Trilha de Discipulado</CardTitle>
+                    <CardDescription className="text-left">Acompanhe e gerencie o progresso individual na jornada de crescimento.</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <DiscipleshipTrail currentStatusId={userProfile.integrationStatus} />
@@ -280,8 +279,8 @@ export default function UserProfilePage() {
             <TabsContent value="service">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Configurações de Serviço Voluntário</CardTitle>
-                        <CardDescription>Gerencie a disponibilidade e as áreas de atuação deste membro.</CardDescription>
+                        <CardTitle className="text-left">Configurações de Serviço Voluntário</CardTitle>
+                        <CardDescription className="text-left">Gerencie a disponibilidade e as áreas de atuação deste membro.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <VolunteerServiceForm user={userProfile} />

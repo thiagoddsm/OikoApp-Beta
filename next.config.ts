@@ -33,10 +33,10 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // Invalidação forçada de cache do Turbopack
+  // Invalidação forçada de cache do Turbopack e limpeza de config experimental
   env: {
     BUILD_ID: "STABLE_BUILD_" + Date.now(),
-    BUILD_TIMESTAMP: "2025-02-27T00:15:00Z",
+    BUILD_TIMESTAMP: new Date().toISOString(),
   }
 };
 

@@ -33,20 +33,29 @@ export default function RootLayout({
         <meta name="theme-color" content="#6750A4" />
         <link rel="apple-touch-icon" href="https://placehold.co/192x192/6750A4/FFF.png" />
         
-        {/* Script de Auto-Cura para ChunkLoadError */}
+        {/* Script de Auto-Cura Robusto para ChunkLoadError */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
-              window.addEventListener('error', (event) => {
-                if (event.message && (
-                  event.message.includes('ChunkLoadError') || 
-                  event.message.includes('Loading chunk') ||
-                  event.message.includes('Failed to load chunk')
-                )) {
-                  console.warn('Detectado ChunkLoadError. Recarregando para sincronizar com o servidor...');
-                  window.location.reload();
-                }
-              }, true);
+              (function() {
+                var handleChunkError = function(e) {
+                  var msg = (e.message || "").toLowerCase();
+                  var isChunkError = msg.indexOf('chunkloaderror') !== -1 || 
+                                   msg.indexOf('loading chunk') !== -1 || 
+                                   msg.indexOf('failed to load chunk') !== -1;
+                  
+                  if (isChunkError || (e.target && e.target.tagName === 'SCRIPT' && e.target.src && e.target.src.indexOf('/_next/static/chunks/') !== -1)) {
+                    console.warn('Erro de Chunk detectado. Sincronizando com o servidor...');
+                    window.location.reload();
+                  }
+                };
+                window.addEventListener('error', handleChunkError, true);
+                window.addEventListener('unhandledrejection', function(event) {
+                  if (event.reason && event.reason.name === 'ChunkLoadError') {
+                    window.location.reload();
+                  }
+                });
+              })();
             `,
           }}
         />

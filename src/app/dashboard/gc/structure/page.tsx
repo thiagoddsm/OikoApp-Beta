@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -60,7 +59,7 @@ const NodeCard = ({ node, onEdit, onDelete, children, onToggle, isExpanded, hasC
                     <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", color)}>
                         <Icon className="h-5 w-5" />
                     </div>
-                    <div className="flex-1 truncate">
+                    <div className="flex-1 truncate text-left">
                         <CardTitle className="text-base truncate">{node.nome}</CardTitle>
                         <CardDescription className="text-xs truncate">{node.liderName}</CardDescription>
                     </div>
@@ -266,9 +265,9 @@ export default function StructurePage() {
         if (!nodeToDelete || !firestore) return;
     
         if (nodeToDelete.type === 'rede') {
-            const areasQuery = query(collection(firestore, 'areas'), where('redeId', '==', nodeToDelete.id));
+            const areasQ = query(collection(firestore, 'areas'), where('redeId', '==', nodeToDelete.id));
             try {
-                const areasSnapshot = await getDocs(areasQuery);
+                const areasSnapshot = await getDocs(areasQ);
                 const deletePromises: Promise<void>[] = [];
                 areasSnapshot.forEach(areaDoc => {
                     deletePromises.push(deleteDocumentNonBlocking(doc(firestore, 'areas', areaDoc.id)));
