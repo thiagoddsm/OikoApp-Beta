@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 
 interface GooglePlacesAutocompleteProps {
   defaultValue?: string;
-  onAddressSelect: (place: google.maps.places.PlaceResult | null) => void;
+  onAddressSelect: (place: any) => void;
   className?: string;
 }
 
@@ -19,8 +19,9 @@ export function GooglePlacesAutocomplete({
   const [inputValue, setInputValue] = useState(defaultValue);
 
   useEffect(() => {
-    // Ensure the Google Maps script is loaded before trying to use its APIs
-    if (!window.google || !window.google.maps || !window.google.maps.places) {
+    // Casting window to any to access google global without TS errors if types are missing
+    const win = window as any;
+    if (!win.google || !win.google.maps || !win.google.maps.places) {
       console.warn("Google Maps script not loaded yet.");
       return;
     }
@@ -29,7 +30,7 @@ export function GooglePlacesAutocomplete({
       return;
     }
 
-    const autocomplete = new google.maps.places.Autocomplete(inputRef.current, {
+    const autocomplete = new win.google.maps.places.Autocomplete(inputRef.current, {
       componentRestrictions: { country: "br" },
       fields: ["address_components", "geometry", "icon", "name", "formatted_address"],
       types: ["address"],
@@ -45,8 +46,9 @@ export function GooglePlacesAutocomplete({
 
     // Cleanup the listener when the component unmounts
     return () => {
-      google.maps.event.removeListener(listener);
-      // More robust cleanup to remove all autocomplete artifacts
+      if (win.google && win.google.maps && win.google.maps.event) {
+        win.google.maps.event.removeListener(listener);
+      }
       const pacContainers = document.querySelectorAll('.pac-container');
       pacContainers.forEach(container => container.remove());
     };

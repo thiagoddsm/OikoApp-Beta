@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -46,7 +47,6 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
   useEffect(() => {
     if (editingRecord) {
       const date = editingRecord.data?.toDate ? editingRecord.data.toDate() : new Date();
-      // Adjust for UTC display in the input
       const dateStr = date.toISOString().split('T')[0];
       
       setData(dateStr);
@@ -185,21 +185,21 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
           <div className="flex items-center space-x-2">
-            <Checkbox id="feriadoProximo" checked={feriadoProximo} onCheckedChange={setFeriadoProximo as (checked: boolean) => void} />
+            <Checkbox id="feriadoProximo" checked={feriadoProximo} onCheckedChange={(checked) => setFeriadoProximo(!!checked)} />
             <Label htmlFor="feriadoProximo" className="font-medium">Feriado Próximo?</Label>
           </div>
           <div className="flex items-center space-x-2">
-            <Checkbox id="jogoFutebol" checked={jogoFutebol} onCheckedChange={setJogoFutebol as (checked: boolean) => void} />
+            <Checkbox id="jogoFutebol" checked={jogoFutebol} onCheckedChange={(checked) => setJogoFutebol(!!checked)} />
             <Label htmlFor="jogoFutebol" className="font-medium">Jogo no Horário?</Label>
           </div>
           <div className="flex items-center space-x-2">
-            <Checkbox id="apresentacaoBebe" checked={apresentacaoBebe} onCheckedChange={setApresentacaoBebe as (checked: boolean) => void} />
+            <Checkbox id="apresentacaoBebe" checked={apresentacaoBebe} onCheckedChange={(checked) => setApresentacaoBebe(!!checked)} />
             <Label htmlFor="apresentacaoBebe" className="font-medium">Apresentação de Bebê?</Label>
           </div>
       </div>
        <div>
           <Label htmlFor="observacoes">Observações Adicionais</Label>
-          <Textarea id="observacoes" value={observacoes} onChange={(e) => setObservations(e.target.value)} placeholder="Algum evento especial? Visitas? etc."/>
+          <Textarea id="observacoes" value={observacoes} onChange={(e) => setObservacoes(e.target.value)} placeholder="Algum evento especial? Visitas? etc."/>
         </div>
       <div className="text-right">
         <Button type="submit" disabled={salvando || !user}>

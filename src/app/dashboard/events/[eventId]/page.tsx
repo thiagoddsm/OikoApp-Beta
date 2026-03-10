@@ -1,3 +1,4 @@
+
 'use client';
 
 import { EventPlanningForm } from '@/components/events/planning-form';
@@ -6,19 +7,17 @@ import { PostEventFeedback } from '@/components/events/post-event-feedback';
 import { VolunteeringProvider } from '@/contexts/volunteering-context';
 import { useParams } from 'next/navigation';
 import { useDoc } from '@/firebase';
-import { Loader2, FileText, UserCheck, MessageSquareCheck } from 'lucide-react';
+import { Loader2, FileText, UserCheck, MessageSquare } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
+import type { PlanningEvent } from '@/components/events/planning-form';
 
 // Define the type for the event data, matching the Firestore structure
 type StrategicEvent = {
   id: string;
   eventName: string;
-  // Add other properties as needed from your backend.json
   [key: string]: any; 
 };
-
 
 export default function EventDetailPage() {
     const params = useParams();
@@ -47,6 +46,9 @@ export default function EventDetailPage() {
         )
     }
     
+    // Casting eventData to PlanningEvent for the form, assuming they share base structure
+    const planningEvent = eventData as unknown as PlanningEvent;
+
     return (
         <VolunteeringProvider>
              <Tabs defaultValue="planning" className="w-full">
@@ -60,12 +62,12 @@ export default function EventDetailPage() {
                         Briefing do Convidado
                     </TabsTrigger>
                     <TabsTrigger value="post_event">
-                        <MessageSquareCheck className="mr-2 size-4" />
+                        <MessageSquare className="mr-2 size-4" />
                         Pós-Evento
                     </TabsTrigger>
                 </TabsList>
                 <TabsContent value="planning" className="mt-6">
-                     <EventPlanningForm existingEvent={eventData} />
+                     <EventPlanningForm existingEvent={planningEvent} />
                 </TabsContent>
                 <TabsContent value="guest_briefing" className="mt-6">
                     <GuestBriefingGenerator event={eventData} />

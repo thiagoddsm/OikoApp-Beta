@@ -1,5 +1,4 @@
 
-// src/components/attendance/attendance-dashboard.tsx
 'use client';
 
 import React, { useMemo, useState } from 'react';
@@ -39,12 +38,17 @@ interface AttendanceRecord {
     apresentacaoBebe?: boolean;
 }
 
-export function AttendanceDashboard({ registros, loading }: { registros: AttendanceRecord[], loading: boolean }) {
+interface AttendanceDashboardProps {
+    registros: AttendanceRecord[];
+    loading: boolean;
+}
+
+export function AttendanceDashboard({ registros, loading }: AttendanceDashboardProps) {
   const [filtroDataInicio, setFiltroDataInicio] = useState('');
   const [filtroDataFim, setFiltroDataFim] = useState('');
   const [filtroHorario, setFiltroHorario] = useState('todos');
   const [filtroSerie, setFiltroSerie] = useState('');
-  const [filtroFeriado, setFiltroFeriado] = useState('todos'); 
+  const [filtroFeriado, setFeriadoProximo] = useState('todos'); 
   const [filtroJogo, setFiltroJogo] = useState('todos'); 
   const [filtroBebe, setFiltroBebe] = useState('todos'); 
 
@@ -208,7 +212,7 @@ export function AttendanceDashboard({ registros, loading }: { registros: Attenda
             onChange={e => setFiltroSerie(e.target.value)}
             placeholder="Buscar por Série..."
           />
-           <Select value={filtroFeriado} onValueChange={setFeriadoProximo as any}>
+           <Select value={filtroFeriado} onValueChange={setFeriadoProximo}>
               <SelectTrigger>
                   <SelectValue placeholder="Feriado próximo?" />
               </SelectTrigger>
