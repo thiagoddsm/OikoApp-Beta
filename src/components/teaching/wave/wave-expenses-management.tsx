@@ -1,6 +1,6 @@
 
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useVolunteering, type WaveExpense } from '@/contexts/volunteering-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
 
-function ExpenseFormDialog({ open, onOpenChange, existingExpense }) {
+interface ExpenseFormDialogProps {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    existingExpense: WaveExpense | null;
+}
+
+function ExpenseFormDialog({ open, onOpenChange, existingExpense }: ExpenseFormDialogProps) {
   const { addWaveExpense, updateWaveExpense } = useVolunteering();
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');

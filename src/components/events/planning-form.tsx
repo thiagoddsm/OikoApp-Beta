@@ -1,3 +1,4 @@
+
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
@@ -22,8 +23,48 @@ import { ptBR } from 'date-fns/locale';
 import { ScrollArea } from '../ui/scroll-area';
 import { Checkbox } from '../ui/checkbox';
 
+interface PlanningEvent {
+    id: string;
+    ministry: string;
+    organizer: string;
+    eventName: string;
+    category: string;
+    recurrence: string;
+    recurrenceDetails: any;
+    visionAlignment: string;
+    phaseAlignment: string;
+    smart: any;
+    method5w2h: any;
+    startDate: string;
+    endDate: string;
+    date?: string;
+    timeLoadIn: string;
+    timeStart: string;
+    timeEnd: string;
+    timeLoadOut: string;
+    eventType: string;
+    space: string;
+    externalLocation: string;
+    roomLayout: string;
+    requiredServiceAreas: any[];
+    hasFood: string;
+    foodType: string;
+    kitchenResponsible: string;
+    isPaid: string;
+    fixedCosts: number;
+    variableCostPerPerson: number;
+    ticketPrice: number;
+    breakEvenAnalysis: number;
+    designSupportNeeded: boolean;
+    designRequests: string[];
+    marketingSupportNeeded: boolean;
+    logisticsNotes: string;
+    serviceTeamsNotes: string;
+    financialsNotes: string;
+    marketingNotes: string;
+}
 
-const smartMappings = {
+const smartMappings: Record<string, { label: string; placeholder: string }> = {
   specific: { label: "Específico (S)", placeholder: "Ex: Treinar 20 novos voluntários para a equipe de mídia." },
   measurable: { label: "Mensurável (M)", placeholder: "Ex: Atingir 80% de aprovação no teste final." },
   achievable: { label: "Alcançável (A)", placeholder: "Ex: Sim, temos 3 instrutores, material e sala disponível." },
@@ -31,7 +72,7 @@ const smartMappings = {
   timeBound: { label: "Temporal (T)", placeholder: "Ex: Treinamento concluído até 15 de Março." }
 };
 
-const method5w2hMappings = {
+const method5w2hMappings: Record<string, { label: string; placeholder: string }> = {
   what: { label: "What (O Quê?)", placeholder: "Ex: Realizar a Conferência de Mulheres 2025." },
   why: { label: "Why (Por Quê?)", placeholder: "Ex: Fortalecer a comunhão e o ensino bíblico para mulheres." },
   who: { label: "Who (Quem?)", placeholder: "Ex: Pastora Maria (coord.), Ana (logística), Equipe de Louvor." },
@@ -63,14 +104,13 @@ const designOptions = [
 ];
 
 
-export function EventPlanningForm({ existingEvent = null }) {
+export function EventPlanningForm({ existingEvent = null }: { existingEvent?: PlanningEvent | null }) {
   const { firestore } = useFirebase();
   const { rooms, areas } = useVolunteering();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  // Estado Unificado
   const [formData, setFormData] = useState({
     ministry: '',
     organizer: 'IBM',
@@ -84,8 +124,8 @@ export function EventPlanningForm({ existingEvent = null }) {
     },
     visionAlignment: '',
     phaseAlignment: '',
-    smart: { specific: '', measurable: '', achievable: '', relevant: '', timeBound: '' },
-    method5w2h: { what: '', why: '', who: '', where: '', when: '', how: '', howMuch: '' },
+    smart: { specific: '', measurable: '', achievable: '', relevant: '', timeBound: '' } as Record<string, string>,
+    method5w2h: { what: '', why: '', who: '', where: '', when: '', how: '', howMuch: '' } as Record<string, string>,
     startDate: '',
     endDate: '',
     timeLoadIn: '',
@@ -245,12 +285,12 @@ export function EventPlanningForm({ existingEvent = null }) {
     const margin = 15;
     let y = 20;
 
-    const addSection = (title, content, startY) => {
+    const addSection = (title: string, content: string, startY: number) => {
         const titleLines = doc.splitTextToSize(title, 180);
         const contentLines = doc.splitTextToSize(content || '-', 180);
         const height = (titleLines.length + contentLines.length) * 5 + 10;
         
-        if (startY + height > 280) { // Check if content fits on page
+        if (startY + height > 280) {
             doc.addPage();
             startY = 20;
         }
@@ -288,7 +328,7 @@ export function EventPlanningForm({ existingEvent = null }) {
     (doc as any).autoTable({
         startY: y,
         head: [['Metas SMART', 'Descrição']],
-        body: Object.entries(formData.smart).map(([key, value]) => [smartMappings[key].label, value || '-']),
+        body: Object.entries(formData.smart).map(([key, value]) => [smartMappings[key]?.label || key, value || '-']),
         theme: 'grid'
     });
     y = (doc as any).autoTable.previous.finalY + 10;
@@ -296,7 +336,7 @@ export function EventPlanningForm({ existingEvent = null }) {
     (doc as any).autoTable({
         startY: y,
         head: [['Plano de Ação (5W2H)', 'Descrição']],
-        body: Object.entries(formData.method5w2h).map(([key, value]) => [method5w2hMappings[key].label, value || '-']),
+        body: Object.entries(formData.method5w2h).map(([key, value]) => [method5w2hMappings[key]?.label || key, value || '-']),
         theme: 'grid'
     });
     y = (doc as any).autoTable.previous.finalY + 10;
@@ -569,7 +609,7 @@ export function EventPlanningForm({ existingEvent = null }) {
                  {Object.entries(smartMappings).map(([key, { label, placeholder }]) => (
                      <div key={key} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
                         <Label className="text-xs font-bold uppercase text-indigo-600 md:text-right px-2">{label}</Label>
-                        <Input type="text" name={key} placeholder={placeholder} value={formData.smart[key]} onChange={(e) => handleNestedChange(e, 'smart')} className="md:col-span-3 bg-indigo-50/30" />
+                        <Input type="text" name={key} placeholder={placeholder} value={formData.smart[key] || ''} onChange={(e) => handleNestedChange(e, 'smart')} className="md:col-span-3 bg-indigo-50/30" />
                      </div>
                  ))}
               </div>
@@ -581,7 +621,7 @@ export function EventPlanningForm({ existingEvent = null }) {
                  {Object.entries(method5w2hMappings).map(([key, { label, placeholder }]) => (
                      <div key={key} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-start">
                         <Label className="text-xs font-bold uppercase text-emerald-700 md:text-right px-2 pt-2">{label}</Label>
-                        <Textarea name={key} placeholder={placeholder} value={formData.method5w2h[key]} onChange={(e) => handleNestedChange(e, 'method5w2h')} className="md:col-span-3 bg-emerald-50/30" rows={3}/>
+                        <Textarea name={key} placeholder={placeholder} value={formData.method5w2h[key] || ''} onChange={(e) => handleNestedChange(e, 'method5w2h')} className="md:col-span-3 bg-emerald-50/30" rows={3}/>
                      </div>
                  ))}
               </div>
@@ -597,7 +637,6 @@ export function EventPlanningForm({ existingEvent = null }) {
                 <div className="mb-8">
                   <Label className="block text-sm font-bold text-gray-700 mb-2">Cronograma Operacional (Datas e Marcos)</Label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                        {/* Coluna de Início */}
                         <div className="space-y-4">
                             <div className="space-y-1.5">
                                 <Label htmlFor="startDate">Data de Início</Label>
@@ -621,7 +660,6 @@ export function EventPlanningForm({ existingEvent = null }) {
                             </div>
                         </div>
 
-                        {/* Coluna de Término */}
                         <div className="space-y-4">
                             <div className="space-y-1.5">
                                 <Label htmlFor="endDate">Data de Término</Label>
@@ -854,5 +892,3 @@ export function EventPlanningForm({ existingEvent = null }) {
     </div>
   );
 }
-
-    

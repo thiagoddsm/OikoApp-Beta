@@ -1,28 +1,34 @@
 
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, deleteDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where, getDocs } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
-import { Loader2, Users, Plus, Minus, ChevronDown, PlusCircle, Pencil, Trash2, Network, AreaChart, Building2 } from "lucide-react";
+import { Loader2, Users, ChevronDown, Pencil, Trash2, Network, AreaChart, Building2 } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { CreateRedeDialog } from '@/components/structure/create-rede-dialog';
 import { CreateAreaDialog } from '@/components/structure/create-area-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
-
 
 type User = { id: string; name: string; hierarchy?: { role?: string; } };
 type Cell = { id: string; nome: string; liderId: string; areaId: string; redeId: string; membros: string[] };
 type Area = { id: string; nome: string; liderId: string; redeId: string; };
 type Rede = { id: string; nome: string; liderId: string; pastorId: string; };
+
+interface HierarchyNode {
+    id: string;
+    nome: string;
+    liderName: string;
+    type: 'pastor' | 'rede' | 'area' | 'cell';
+    stats: {
+        directChildren: number;
+        participantes: number;
+    };
+    children: HierarchyNode[];
+}
 
 const nodeIcons = {
     pastor: { icon: Network, color: 'bg-indigo-100 text-indigo-600' },
@@ -31,12 +37,22 @@ const nodeIcons = {
     cell: { icon: Users, color: 'bg-emerald-100 text-emerald-600' },
 };
 
-const NodeCard = ({ node, onEdit, onDelete, children, onToggle, isExpanded, hasChildren, isRoot }) => {
+interface NodeCardProps {
+    node: HierarchyNode;
+    onEdit?: (node: HierarchyNode) => void;
+    onDelete?: (node: HierarchyNode) => void;
+    children?: React.ReactNode;
+    onToggle?: () => void;
+    isExpanded?: boolean;
+    hasChildren?: boolean;
+    isRoot?: boolean;
+}
+
+const NodeCard = ({ node, onEdit, onDelete, children, onToggle, isExpanded, hasChildren, isRoot }: NodeCardProps) => {
     const { icon: Icon, color } = nodeIcons[node.type] || nodeIcons.cell;
 
     return (
         <div className="relative flex flex-col items-center">
-            {/* Vertical line connecting to parent */}
             {!isRoot && <div className="absolute top-0 -mt-2 h-2 w-0.5 bg-slate-300"></div>}
 
             <Card className="w-64 shadow-md hover:shadow-xl transition-shadow duration-300 z-10 bg-card">
@@ -63,7 +79,7 @@ const NodeCard = ({ node, onEdit, onDelete, children, onToggle, isExpanded, hasC
                         </div>
                      </div>
                  </CardContent>
-                 {(onEdit || onDelete || (hasChildren)) && (
+                 {(onEdit || onDelete || hasChildren) && (
                     <CardFooter className="bg-slate-50 p-1 flex justify-end items-center">
                          {onEdit && (
                             <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(node)}>
@@ -86,9 +102,7 @@ const NodeCard = ({ node, onEdit, onDelete, children, onToggle, isExpanded, hasC
             
             {isExpanded && hasChildren && (
                 <>
-                    {/* Vertical line going down from card */}
                     <div className="absolute top-full h-4 w-0.5 bg-slate-300"></div>
-                     {/* Horizontal line spreading to children */}
                     <div className="absolute top-full mt-4 h-0.5 w-full bg-slate-300"></div>
                     <div className="mt-8 flex justify-center gap-8 w-full">
                         {children}
@@ -99,14 +113,15 @@ const NodeCard = ({ node, onEdit, onDelete, children, onToggle, isExpanded, hasC
     );
 };
 
-const buildHierarchy = (users, redes, areas, cells) => {
+const buildHierarchy = (users: User[], redes: Rede[], areas: Area[], cells: Cell[]): HierarchyNode | null => {
     const userMap = new Map(users.map(u => [u.id, u]));
 
     const seniorPastor = users.find(u => u.hierarchy?.role === 'pastor_senior') || users.find(u => u.hierarchy?.role === 'admin');
     if (!seniorPastor) return null;
 
-    const cellNodes = cells.map(cell => ({
-        ...cell,
+    const cellNodes: HierarchyNode[] = cells.map(cell => ({
+        id: cell.id,
+        nome: cell.nome,
         type: 'cell',
         liderName: userMap.get(cell.liderId)?.name || 'N/A',
         stats: {
@@ -116,11 +131,12 @@ const buildHierarchy = (users, redes, areas, cells) => {
         children: []
     }));
 
-    const areaNodes = areas.map(area => {
-        const areaCells = cellNodes.filter(c => c.areaId === area.id);
+    const areaNodes: HierarchyNode[] = areas.map(area => {
+        const areaCells = cellNodes.filter(c => (c as any).areaId === area.id);
         const participantes = areaCells.reduce((sum, c) => sum + c.stats.participantes, 0);
         return {
-            ...area,
+            id: area.id,
+            nome: area.nome,
             type: 'area',
             liderName: userMap.get(area.liderId)?.name || 'N/A',
             stats: {
@@ -131,11 +147,12 @@ const buildHierarchy = (users, redes, areas, cells) => {
         };
     });
 
-    const redeNodes = redes.map(rede => {
-        const redeAreas = areaNodes.filter(a => a.redeId === rede.id);
+    const redeNodes: HierarchyNode[] = redes.map(rede => {
+        const redeAreas = areaNodes.filter(a => (a as any).redeId === rede.id);
         const participantes = redeAreas.reduce((sum, a) => sum + a.stats.participantes, 0);
         return {
-            ...rede,
+            id: rede.id,
+            nome: rede.nome,
             type: 'rede',
             liderName: userMap.get(rede.liderId)?.name || 'N/A',
             stats: {
@@ -161,7 +178,14 @@ const buildHierarchy = (users, redes, areas, cells) => {
     };
 };
 
-const RenderNode = ({ node, onEditNode, onDeleteNode, isRoot = false }) => {
+interface RenderNodeProps {
+    node: HierarchyNode;
+    onEditNode: (node: HierarchyNode) => void;
+    onDeleteNode: (node: HierarchyNode) => void;
+    isRoot?: boolean;
+}
+
+const RenderNode = ({ node, onEditNode, onDeleteNode, isRoot = false }: RenderNodeProps) => {
     const [isExpanded, setIsExpanded] = useState(isRoot);
     const hasChildren = node.children && node.children.length > 0;
 
@@ -172,26 +196,25 @@ const RenderNode = ({ node, onEditNode, onDeleteNode, isRoot = false }) => {
                 isExpanded={isExpanded}
                 hasChildren={hasChildren}
                 onToggle={() => setIsExpanded(!isExpanded)}
-                onEdit={node.type === 'rede' || node.type === 'area' ? onEditNode : null}
-                onDelete={node.type === 'rede' || node.type === 'area' ? onDeleteNode : null}
+                onEdit={node.type === 'rede' || node.type === 'area' ? onEditNode : undefined}
+                onDelete={node.type === 'rede' || node.type === 'area' ? onDeleteNode : undefined}
                 isRoot={isRoot}
             >
+                {isExpanded && hasChildren && (
+                    <div className="flex justify-center gap-8 w-full relative pt-8">
+                        {node.children.length > 1 && <div className="absolute top-10 h-0.5 bg-slate-300 left-1/4 right-1/4"></div>}
+                        
+                        {node.children.map(childNode => (
+                            <RenderNode 
+                                key={childNode.id} 
+                                node={childNode} 
+                                onEditNode={onEditNode} 
+                                onDeleteNode={onDeleteNode}
+                            />
+                        ))}
+                    </div>
+                )}
             </NodeCard>
-            {isExpanded && hasChildren && (
-                 <div className="flex justify-center gap-8 w-full relative pt-8">
-                     {/* Horizontal connector line */}
-                    {node.children.length > 1 && <div className="absolute top-10 h-0.5 bg-slate-300 left-1/4 right-1/4"></div>}
-                    
-                    {node.children.map(childNode => (
-                         <RenderNode 
-                             key={childNode.id} 
-                             node={childNode} 
-                             onEditNode={onEditNode} 
-                             onDeleteNode={onDeleteNode}
-                         />
-                    ))}
-                </div>
-            )}
         </div>
     );
 };
@@ -202,8 +225,8 @@ export default function StructurePage() {
     const { toast } = useToast();
     const [isRedeDialogOpen, setRedeDialogOpen] = useState(false);
     const [isAreaDialogOpen, setAreaDialogOpen] = useState(false);
-    const [editingNode, setEditingNode] = useState(null);
-    const [nodeToDelete, setNodeToDelete] = useState(null);
+    const [editingNode, setEditingNode] = useState<HierarchyNode | null>(null);
+    const [nodeToDelete, setNodeToDelete] = useState<HierarchyNode | null>(null);
     const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
@@ -223,7 +246,7 @@ export default function StructurePage() {
     
     const isLoading = isLoadingUsers || isLoadingCells || isLoadingAreas || isLoadingRedes;
 
-    const handleEditNode = (node) => {
+    const handleEditNode = (node: HierarchyNode) => {
         setEditingNode(node);
         if (node.type === 'rede') {
             setRedeDialogOpen(true);
@@ -232,7 +255,7 @@ export default function StructurePage() {
         }
     };
     
-    const handleDeleteNode = (node) => {
+    const handleDeleteNode = (node: HierarchyNode) => {
         setNodeToDelete(node);
         setDeleteDialogOpen(true);
     };
@@ -241,18 +264,16 @@ export default function StructurePage() {
         if (!nodeToDelete || !firestore) return;
     
         if (nodeToDelete.type === 'rede') {
-            // Cascade delete: delete areas within the network first
             const areasQuery = query(collection(firestore, 'areas'), where('redeId', '==', nodeToDelete.id));
             try {
                 const areasSnapshot = await getDocs(areasQuery);
-                const deletePromises = [];
+                const deletePromises: Promise<void>[] = [];
                 areasSnapshot.forEach(areaDoc => {
                     deletePromises.push(deleteDocumentNonBlocking(doc(firestore, 'areas', areaDoc.id)));
                 });
                 
                 await Promise.all(deletePromises);
 
-                // After queuing area deletions, delete the network itself
                 const redeDocRef = doc(firestore, 'redes', nodeToDelete.id);
                 deleteDocumentNonBlocking(redeDocRef);
                 
@@ -270,7 +291,6 @@ export default function StructurePage() {
             }
 
         } else if (nodeToDelete.type === 'area') {
-            // Just delete the area
             const docRef = doc(firestore, 'areas', nodeToDelete.id);
             deleteDocumentNonBlocking(docRef);
             toast({

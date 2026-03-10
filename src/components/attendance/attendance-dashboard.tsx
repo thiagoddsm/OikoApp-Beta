@@ -1,9 +1,10 @@
+
 // src/components/attendance/attendance-dashboard.tsx
 'use client';
 
 import React, { useMemo, useState } from 'react';
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, Cell
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -18,23 +19,34 @@ const horariosCultos = [
   "Evento"
 ];
 
-const timestampToDateString = (timestamp) => {
+const timestampToDateString = (timestamp: any) => {
     if (!timestamp?.seconds) return '';
     const date = new Date(timestamp.seconds * 1000);
-    // Add timezone offset to prevent date from shifting
     const offset = date.getTimezoneOffset() * 60000;
     const adjustedDate = new Date(date.getTime() + offset);
     return adjustedDate.toISOString().split('T')[0];
 };
 
-export function AttendanceDashboard({ registros, loading }) {
+interface AttendanceRecord {
+    id: string;
+    data: any;
+    horario: string;
+    adultos: number;
+    criancas: number;
+    serieMensagem?: string;
+    feriadoProximo?: boolean;
+    jogoFutebol?: boolean;
+    apresentacaoBebe?: boolean;
+}
+
+export function AttendanceDashboard({ registros, loading }: { registros: AttendanceRecord[], loading: boolean }) {
   const [filtroDataInicio, setFiltroDataInicio] = useState('');
   const [filtroDataFim, setFiltroDataFim] = useState('');
   const [filtroHorario, setFiltroHorario] = useState('todos');
   const [filtroSerie, setFiltroSerie] = useState('');
-  const [filtroFeriado, setFiltroFeriado] = useState('todos'); // 'todos', 'sim', 'nao'
-  const [filtroJogo, setFiltroJogo] = useState('todos'); // 'todos', 'sim', 'nao'
-  const [filtroBebe, setFiltroBebe] = useState('todos'); // 'todos', 'sim', 'nao'
+  const [filtroFeriado, setFiltroFeriado] = useState('todos'); 
+  const [filtroJogo, setFiltroJogo] = useState('todos'); 
+  const [filtroBebe, setFiltroBebe] = useState('todos'); 
 
   const registrosFiltrados = useMemo(() => {
     let filtrados = [...registros];
@@ -73,7 +85,7 @@ export function AttendanceDashboard({ registros, loading }) {
     return filtrados.sort((a, b) => a.data.seconds - b.data.seconds);
   }, [registros, filtroDataInicio, filtroDataFim, filtroHorario, filtroSerie, filtroFeriado, filtroJogo, filtroBebe]);
 
-  const formatarDataGrafico = (timestamp) => {
+  const formatarDataGrafico = (timestamp: any) => {
     if(!timestamp?.seconds) return "";
     const date = new Date(timestamp.seconds * 1000);
     return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' });
@@ -89,7 +101,7 @@ export function AttendanceDashboard({ registros, loading }) {
   }, [registrosFiltrados]);
 
     const dadosGraficoBarrasHorario = useMemo(() => {
-    const totais = registrosFiltrados.reduce((acc, r) => {
+    const totais = registrosFiltrados.reduce((acc: any, r) => {
       const horario = r.horario;
       if (!acc[horario]) {
         acc[horario] = { totalAdultos: 0, totalCriancas: 0, count: 0 };
@@ -100,7 +112,7 @@ export function AttendanceDashboard({ registros, loading }) {
       return acc;
     }, {});
 
-    return Object.entries(totais).map(([horario, data]) => ({
+    return Object.entries(totais).map(([horario, data]: [string, any]) => ({
       name: horario,
       mediaAdultos: data.count > 0 ? Math.round(data.totalAdultos / data.count) : 0,
       mediaCriancas: data.count > 0 ? Math.round(data.totalCriancas / data.count) : 0,
@@ -108,7 +120,7 @@ export function AttendanceDashboard({ registros, loading }) {
   }, [registrosFiltrados]);
   
    const dadosGraficoBarrasFatores = useMemo(() => {
-    const calcMedia = (filtro) => {
+    const calcMedia = (filtro: (r: AttendanceRecord) => boolean) => {
       const { totalAdultos, totalCriancas, count } = registrosFiltrados.reduce((acc, r) => {
         if (filtro(r)) {
           acc.totalAdultos += r.adultos;
@@ -125,9 +137,9 @@ export function AttendanceDashboard({ registros, loading }) {
     
     const nomes = ['Feriado', 'Jogo', 'Bebê'];
     const filtros = [
-        r => r.feriadoProximo,
-        r => r.jogoFutebol,
-        r => r.apresentacaoBebe
+        (r: AttendanceRecord) => !!r.feriadoProximo,
+        (r: AttendanceRecord) => !!r.jogoFutebol,
+        (r: AttendanceRecord) => !!r.apresentacaoBebe
     ];
 
     return nomes.map((name, index) => {
@@ -196,7 +208,7 @@ export function AttendanceDashboard({ registros, loading }) {
             onChange={e => setFiltroSerie(e.target.value)}
             placeholder="Buscar por Série..."
           />
-           <Select value={filtroFeriado} onValueChange={setFiltroFeriado}>
+           <Select value={filtroFeriado} onValueChange={setFeriadoProximo as any}>
               <SelectTrigger>
                   <SelectValue placeholder="Feriado próximo?" />
               </SelectTrigger>
@@ -255,7 +267,7 @@ export function AttendanceDashboard({ registros, loading }) {
             <Card>
                 <CardHeader><CardTitle>Frequência ao Longo do Tempo</CardTitle></CardHeader>
                 <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
+                    <ResponsiveContainer width="100%" height="300">
                       <LineChart data={dadosGraficoLinha}>
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="data" fontSize={12} />

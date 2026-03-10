@@ -6,7 +6,6 @@ import { generateNewMemberFollowUpTasks } from '@/ai/flows/new-member-follow-up-
 import { initializeFirebase } from '@/firebase';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 
-// This schema should match the one in the AI flow, but with added validation messages.
 const NewMemberInfoSchema = z.object({
   visitorName: z.string().min(2, { message: 'O nome do visitante deve ter pelo menos 2 caracteres.' }),
   visitorType: z.enum(['culto', 'celula'], { required_error: 'Por favor, selecione a origem do visitante.' }),
@@ -26,17 +25,16 @@ export type State = {
 };
 
 async function saveVisitorToFirestore(visitorData: z.infer<typeof NewMemberInfoSchema>) {
-    // We can't use hooks here, so we initialize a server-side instance of Firebase.
     const { firestore } = initializeFirebase();
     const usersCollection = collection(firestore, 'users');
 
     try {
         const newUserDoc = await addDoc(usersCollection, {
             name: visitorData.visitorName,
-            phone: visitorData.leaderPhoneNumber, // Assuming leader's phone is a placeholder for visitor's contact for now
-            email: '', // Email is not collected in this form
+            phone: visitorData.leaderPhoneNumber,
+            email: '', 
             hierarchy: {
-                role: '', // No role assigned initially
+                role: '',
             },
             integrationStatus: visitorData.visitorType === 'culto' ? 'visitante_culto' : 'visitante_celula',
             createdAt: Timestamp.now()
@@ -65,15 +63,18 @@ export async function createFollowUpTasks(prevState: State, formData: FormData):
     };
   }
 
-  // First, save the visitor to Firestore
   const saveResult = await saveVisitorToFirestore(validatedFields.data);
   if (!saveResult.success) {
       return { message: saveResult.error };
   }
 
-  // Then, generate AI tasks
   try {
-    const result = await generateNewMemberFollowUpTasks(validatedFields.data);
+    const result = await generateNewMemberFollowUpTasks({
+        visitorName: validatedFields.data.visitorName,
+        visitorType: validatedFields.data.visitorType,
+        responsibleName: validatedFields.data.leaderName,
+        responsiblePhoneNumber: validatedFields.data.leaderPhoneNumber
+    });
     if (result && result.followUpTasks) {
       return { message: 'Visitante registrado e tarefas de acompanhamento geradas com sucesso!', tasks: result.followUpTasks };
     }

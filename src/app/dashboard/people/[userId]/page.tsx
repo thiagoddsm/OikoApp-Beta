@@ -38,7 +38,6 @@ type UserProfile = {
   escolaridade?: string;
   profissao?: string;
   dataNascimento?: string;
-  sexo?: string;
   estadoCivil?: string;
   address?: {
     street?: string;
@@ -80,6 +79,7 @@ type Cell = {
 type Area = {
     id: string;
     nome: string;
+    redeId?: string;
 }
 
 type Rede = {
