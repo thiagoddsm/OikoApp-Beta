@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -108,8 +109,8 @@ const menuItems = [
             label: "Ensino", 
             icon: GraduationCap,
             subItems: [
+              { href: "/dashboard/teaching/courses", label: "Dashboard & Catálogo", icon: LayoutTemplate, permissionId: 'teaching_courses' },
               { href: "/dashboard/teaching/calendar", label: "Calendário Escolar", icon: CalendarDays, permissionId: 'teaching_courses' },
-              { href: "/dashboard/teaching/courses", label: "Cursos e Turmas", icon: BookOpen, permissionId: 'teaching_courses' },
               { href: "/dashboard/teaching/teachers", label: "Professores", icon: UserCheckIcon, permissionId: 'teaching_courses' },
               { href: "/dashboard/teaching/students", label: "Alunos", icon: Users2, permissionId: 'teaching_courses' },
             ]
@@ -161,7 +162,7 @@ function renderMenuItems(items: any[], pathname: string, permissions: AccessProf
   const visibleItems = filterItems(items);
 
   return visibleItems.map((item) => {
-    const isCollapsibleOpen = item.subItems?.some(sub => sub.href && pathname.startsWith(sub.href)) || item.subItems?.some(sub => sub.subItems?.some(subsub => subsub.href && pathname.startsWith(subsub.href)));
+    const isCollapsibleOpen = item.subItems?.some((sub: any) => sub.href && pathname.startsWith(sub.href)) || item.subItems?.some((sub: any) => sub.subItems?.some((subsub: any) => subsub.href && pathname.startsWith(subsub.href)));
     
     if (item.subItems) {
       return (
@@ -264,6 +265,7 @@ export default function DashboardLayout({
       if (path.startsWith('/dashboard/volunteering')) return 'Gerenciar Áreas de Serviço';
       if (path.startsWith('/dashboard/teaching/theoflix')) return 'TheoFlix';
       if (path.startsWith('/dashboard/teaching/calendar')) return 'Calendário Escolar';
+      if (path.startsWith('/dashboard/teaching/courses')) return 'Dashboard & Catálogo de Ensino';
       if (path.startsWith('/dashboard/teaching')) return 'Ensino';
       if (path.startsWith('/dashboard/briefing-pro')) return 'Briefing Pro';
       if (path.startsWith('/dashboard/events/reservations')) return 'Reservas de Sala';
@@ -357,6 +359,7 @@ export default function DashboardLayout({
               </div>
               <Button size="sm" asChild variant="ghost"><Link href="/">Voltar ao Site</Link></Button>
           </header>
+          <header className="no-print h-1 w-full bg-primary/5" />
           <main className="flex-1 p-4 md:p-6">{children}</main>
         </SidebarInset>
       </SidebarProvider>

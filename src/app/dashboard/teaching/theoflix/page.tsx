@@ -265,7 +265,7 @@ function TheoFlixContent() {
                 src={featuredCourse.image || 'https://picsum.photos/seed/placeholder/1200/800'} 
                 alt={featuredCourse.title} 
                 fill 
-                className="object-cover transition-transform duration-[2000ms] group-hover:scale-110"
+                className="object-cover transition-transform duration-1000 group-hover:scale-110"
                 priority
             />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />

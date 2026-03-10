@@ -8,8 +8,8 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 // --- ICONS (SVG Paths for lightweight icons) ---
-const Icon = ({ name, size = 20, className = "" }) => {
-    const paths = {
+const Icon = ({ name, size = 20, className = "" }: { name: string; size?: number; className?: string }) => {
+    const paths: Record<string, React.ReactNode> = {
         edit: <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />,
         play_arrow: <path d="m5 3 14 9-14 9V3z" />,
         pause: <path d="M6 4h4v16H6zm8 0h4v16h-4z" />,
@@ -47,7 +47,7 @@ export default function CoordenadorPage() {
         return () => clearInterval(timerId);
     }, []);
     
-    const calculateStartTimes = useCallback((items, start) => {
+    const calculateStartTimes = useCallback((items: any[], start: string) => {
         let curr = new Date(`1970-01-01T${start || '00:00'}:00`);
         return items.map(it => {
             const st = isNaN(curr.getTime()) ? '--:--' : curr.toTimeString().slice(0, 5);
@@ -56,8 +56,8 @@ export default function CoordenadorPage() {
         });
     }, []);
 
-    const handleCultInfo = (f, v) => {
-        if (!briefingDocRef) return;
+    const handleCultInfo = (f: string, v: string) => {
+        if (!briefingDocRef || !state) return;
         const newInfo = { ...state.cultInfo, [f]: v };
         if (f === 'startTime') {
             const newItems = calculateStartTimes(state.items, v);
@@ -70,7 +70,7 @@ export default function CoordenadorPage() {
      const handleNext = () => {
         if (!state || !briefingDocRef || state.liveState.currentItemIndex >= state.items.length - 1) return;
         const nextIdx = state.liveState.currentItemIndex + 1;
-        const newItems = state.items.map((it, idx) => idx === state.liveState.currentItemIndex ? { ...it, completed: true } : it);
+        const newItems = state.items.map((it: any, idx: number) => idx === state.liveState.currentItemIndex ? { ...it, completed: true } : it);
         updateDocumentNonBlocking(briefingDocRef, {
             items: newItems,
             liveState: { ...state.liveState, currentItemIndex: nextIdx, isRunning: true, itemStartTime: Date.now(), accumulatedTime: 0 }
@@ -90,12 +90,12 @@ export default function CoordenadorPage() {
         }
     };
     
-    const formatTime = (s) => {
+    const formatTime = (s: number) => {
         const abs = Math.abs(Math.floor(s));
         return `${s < 0 ? '-' : ''}${String(Math.floor(abs / 60)).padStart(2, '0')}:${String(abs % 60).padStart(2, '0')}`;
     };
 
-    const TimerLogic = ({ duration, liveState }) => {
+    const TimerLogic = ({ duration, liveState }: { duration: number; liveState: any }) => {
         const [elapsed, setElapsed] = useState(liveState.accumulatedTime);
         useEffect(() => {
             if (!liveState.isRunning || !liveState.itemStartTime) {
@@ -109,10 +109,10 @@ export default function CoordenadorPage() {
         }, [liveState.isRunning, liveState.itemStartTime, liveState.accumulatedTime]);
         
         const remaining = (duration * 60) - elapsed;
-        return formatTime(remaining);
+        return <>{formatTime(remaining)}</>;
     };
 
-    const PaperView = ({ state }) => {
+    const PaperView = ({ state }: { state: any }) => {
         if (!state) return null;
         const { cultInfo, staff, items, obsDepartamentos } = state;
         return (
@@ -142,7 +142,7 @@ export default function CoordenadorPage() {
                             <h3 className="font-black uppercase text-[10px] text-slate-400 mb-3 border-b border-slate-100 pb-1 text-slate-900">Equipe Técnica</h3>
                             <div className="space-y-1 text-sm">
                                 {Object.entries(staff).map(([k, v]) => (
-                                    <p key={k}><strong className="capitalize text-slate-400 text-[10px] uppercase">{k}:</strong> {v || '-'}</p>
+                                    <p key={k}><strong className="capitalize text-slate-400 text-[10px] uppercase">{k}:</strong> {String(v || '-')}</p>
                                 ))}
                             </div>
                         </section>
@@ -151,7 +151,7 @@ export default function CoordenadorPage() {
                     <div className="col-span-8">
                         <h3 className="font-black uppercase text-[10px] text-slate-400 mb-4 border-b border-slate-100 pb-1 tracking-widest">Liturgia Minuto a Minuto</h3>
                         <div className="space-y-4">
-                            {items.map((it, i) => (
+                            {items.map((it: any, i: number) => (
                                 <div key={it.id} className="flex gap-4 items-start border-b border-slate-50 pb-2">
                                     <span className="font-mono font-bold text-slate-300 w-12 text-sm">{it.startTime}</span>
                                     <div className="flex-1">
@@ -171,7 +171,7 @@ export default function CoordenadorPage() {
                     {Object.entries(obsDepartamentos).map(([k, v]) => v && (
                         <div key={k} className="text-xs">
                             <strong className="uppercase text-slate-400 mb-1 block text-[10px] tracking-widest">{k}</strong>
-                            <p className="text-slate-600 whitespace-pre-line leading-relaxed">{v as string}</p>
+                            <p className="text-slate-600 whitespace-pre-line leading-relaxed">{String(v)}</p>
                         </div>
                     ))}
                 </div>
@@ -307,22 +307,22 @@ export default function CoordenadorPage() {
                             </div>
 
                             <div className="space-y-4">
-                                {state.items.map((it, idx) => (
+                                {state.items.map((it: any, idx: number) => (
                                     <div key={it.id} className="p-6 bg-slate-950/40 rounded-3xl border border-white/5 hover:border-white/10 transition-colors group relative">
                                         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
                                             <div className="md:col-span-1 text-center">
                                                 <span className="text-xs font-mono font-bold text-indigo-500 block mb-2">{it.startTime}</span>
-                                                <input type="color" value={it.colors.item} onChange={e => { if(briefingDocRef) updateDocumentNonBlocking(briefingDocRef, { items: state.items.map(x => x.id === it.id ? { ...x, colors: { ...x.colors, item: e.target.value } } : x) })}} title="Cor Identificadora" />
+                                                <input type="color" value={it.colors.item} onChange={e => { if(briefingDocRef) updateDocumentNonBlocking(briefingDocRef, { items: state.items.map((x: any) => x.id === it.id ? { ...x, colors: { ...x.colors, item: e.target.value } } : x) })}} title="Cor Identificadora" />
                                             </div>
                                             <div className="md:col-span-4">
-                                                <input className="w-full bg-transparent text-xl font-black outline-none text-slate-100" value={it.title} onChange={e => { if(briefingDocRef) updateDocumentNonBlocking(briefingDocRef, { items: state.items.map(x => x.id === it.id ? { ...x, title: e.target.value } : x) })}} />
-                                                <input className="w-full bg-transparent text-xs font-bold text-slate-500 outline-none uppercase mt-1" placeholder="RESPONSÁVEL" value={it.responsible} onChange={e => { if(briefingDocRef) updateDocumentNonBlocking(briefingDocRef, { items: state.items.map(x => x.id === it.id ? { ...x, responsible: e.target.value } : x) })}} />
+                                                <input className="w-full bg-transparent text-xl font-black outline-none text-slate-100" value={it.title} onChange={e => { if(briefingDocRef) updateDocumentNonBlocking(briefingDocRef, { items: state.items.map((x: any) => x.id === it.id ? { ...x, title: e.target.value } : x) })}} />
+                                                <input className="w-full bg-transparent text-xs font-bold text-slate-500 outline-none uppercase mt-1" placeholder="RESPONSÁVEL" value={it.responsible} onChange={e => { if(briefingDocRef) updateDocumentNonBlocking(briefingDocRef, { items: state.items.map((x: any) => x.id === it.id ? { ...x, responsible: e.target.value } : x) })}} />
                                             </div>
                                             <div className="md:col-span-1">
                                                 <div className="flex items-center gap-2 bg-black/40 p-2 rounded-xl border border-white/5">
                                                     <input type="number" className="bg-transparent w-8 text-center font-bold text-sm text-indigo-400" value={it.duration} onChange={e => {
                                                          if(!briefingDocRef) return;
-                                                         const newItems = state.items.map(x => x.id === it.id ? { ...x, duration: Number(e.target.value) } : x);
+                                                         const newItems = state.items.map((x: any) => x.id === it.id ? { ...x, duration: Number(e.target.value) } : x);
                                                          updateDocumentNonBlocking(briefingDocRef, { items: calculateStartTimes(newItems, state.cultInfo.startTime) });
                                                     }} />
                                                     <span className="text-[9px] font-black text-slate-600 uppercase">min</span>
@@ -330,11 +330,11 @@ export default function CoordenadorPage() {
                                             </div>
                                             <div className="md:col-span-5 grid grid-cols-3 gap-2">
                                                 {['lighting', 'sound', 'projection'].map(techKey => (
-                                                    <input key={techKey} placeholder={techKey.toUpperCase()} className="bg-white/5 border border-white/5 rounded-lg p-2 text-[10px] outline-none focus:border-indigo-500/50 text-slate-400" value={it.technical[techKey]} onChange={e => { if(briefingDocRef) updateDocumentNonBlocking(briefingDocRef, { items: state.items.map(x => x.id === it.id ? { ...x, technical: { ...x.technical, [techKey]: e.target.value } } : x) })}} title={techKey.toUpperCase()} />
+                                                    <input key={techKey} placeholder={techKey.toUpperCase()} className="bg-white/5 border border-white/5 rounded-lg p-2 text-[10px] outline-none focus:border-indigo-500/50 text-slate-400" value={it.technical[techKey]} onChange={e => { if(briefingDocRef) updateDocumentNonBlocking(briefingDocRef, { items: state.items.map((x: any) => x.id === it.id ? { ...x, technical: { ...x.technical, [techKey]: e.target.value } } : x) })}} title={techKey.toUpperCase()} />
                                                 ))}
                                             </div>
                                             <div className="md:col-span-1 text-right">
-                                                <button onClick={() => { if(briefingDocRef) updateDocumentNonBlocking(briefingDocRef, { items: calculateStartTimes(state.items.filter(x => x.id !== it.id), state.cultInfo.startTime) })}} className="p-2 text-slate-700 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
+                                                <button onClick={() => { if(briefingDocRef) updateDocumentNonBlocking(briefingDocRef, { items: calculateStartTimes(state.items.filter((x: any) => x.id !== it.id), state.cultInfo.startTime) })}} className="p-2 text-slate-700 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
                                                     <Icon name="delete" />
                                                 </button>
                                             </div>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -122,7 +123,7 @@ const buildHierarchy = (users: User[], redes: Rede[], areas: Area[], cells: Cell
     const cellNodes: (HierarchyNode & { areaId: string })[] = cells.map(cell => ({
         id: cell.id,
         nome: cell.nome,
-        type: 'cell',
+        type: 'cell' as const,
         liderName: userMap.get(cell.liderId)?.name || 'N/A',
         areaId: cell.areaId,
         stats: {
@@ -138,7 +139,7 @@ const buildHierarchy = (users: User[], redes: Rede[], areas: Area[], cells: Cell
         return {
             id: area.id,
             nome: area.nome,
-            type: 'area',
+            type: 'area' as const,
             redeId: area.redeId,
             liderName: userMap.get(area.liderId)?.name || 'N/A',
             stats: {
@@ -155,7 +156,7 @@ const buildHierarchy = (users: User[], redes: Rede[], areas: Area[], cells: Cell
         return {
             id: rede.id,
             nome: rede.nome,
-            type: 'rede',
+            type: 'rede' as const,
             pastorId: rede.pastorId,
             liderName: userMap.get(rede.liderId)?.name || 'N/A',
             stats: {
@@ -172,7 +173,7 @@ const buildHierarchy = (users: User[], redes: Rede[], areas: Area[], cells: Cell
         id: seniorPastor.id,
         nome: 'Igreja Batista da Manhã',
         liderName: `Pastor Sênior: ${seniorPastor.name}`,
-        type: 'pastor',
+        type: 'pastor' as const,
         stats: { 
             directChildren: redeNodes.length,
             participantes: totalParticipantes,
@@ -270,7 +271,7 @@ export default function StructurePage() {
             const areasQ = query(collection(firestore, 'areas'), where('redeId', '==', nodeToDelete.id));
             try {
                 const areasSnapshot = await getDocs(areasQ);
-                const deletePromises: Promise<void>()[] = [];
+                const deletePromises: Promise<void>[] = [];
                 areasSnapshot.forEach(areaDoc => {
                     deletePromises.push(deleteDocumentNonBlocking(doc(firestore, 'areas', areaDoc.id)));
                 });
