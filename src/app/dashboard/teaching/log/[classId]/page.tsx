@@ -1,10 +1,11 @@
+
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, ArrowLeft, CheckCircle2, ClipboardCheck, History, Plus, Save, UserPlus } from 'lucide-react';
+import { Loader2, ArrowLeft, CheckCircle2, ClipboardCheck, History, Plus, Save, UserPlus, Search as SearchIcon } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -26,6 +27,14 @@ const weekDayMap: Record<string, number> = {
     "Domingo": 0, "Segunda-feira": 1, "Terça-feira": 2, "Quarta-feira": 3,
     "Quinta-feira": 4, "Sexta-feira": 5, "Sábado": 6
 };
+
+const moduleNames = [
+    "História e Visão",
+    "DNA e Células",
+    "Mordomia e Finanças",
+    "Governança e Ética",
+    "Comissionamento"
+];
 
 function PedagogicalLogPageContent() {
     const params = useParams();
@@ -101,6 +110,9 @@ function PedagogicalLogPageContent() {
         }
     }, [classOccurrences, selectedDate]);
 
+    const currentModuleIndex = useMemo(() => classOccurrences.indexOf(selectedDate), [classOccurrences, selectedDate]);
+    const currentModuleKey = `module${currentModuleIndex + 1}`;
+
     useEffect(() => {
         if (selectedDate && classData?.attendance) {
             const record = classData.attendance.find(a => a.date === selectedDate);
@@ -117,12 +129,12 @@ function PedagogicalLogPageContent() {
                 setObservations(log.observations);
                 setPerformance(log.student_performance);
             } else {
-                setContentTaught('');
+                setContentTaught(currentModuleIndex !== -1 ? `Aula ${currentModuleIndex + 1}: ${moduleNames[currentModuleIndex] || 'Conteúdo'}` : '');
                 setObservations('');
                 setPerformance(3);
             }
         }
-    }, [selectedDate, classData, pedagogicalLogs, classId]);
+    }, [selectedDate, classData, pedagogicalLogs, classId, currentModuleIndex]);
 
     const isMemberCourse = courseData?.name?.toLowerCase().includes('membro') || courseData?.name?.toLowerCase().includes('pertencer');
     
@@ -132,14 +144,18 @@ function PedagogicalLogPageContent() {
         return users.filter(u => studentSet.has(u.id));
     }, [users, classData]);
 
-    const repositionStudents = useMemo(() => {
-        if (!users || !classData || !selectedDate) return [];
-        const enrolledIds = new Set(classData.students || []);
-        const attendance = classData.attendance?.find(a => a.date === selectedDate);
-        const presentIds = attendance?.presentStudentIds || [];
-        const repositionIds = presentIds.filter(id => !enrolledIds.has(id));
-        return users.filter(u => repositionIds.includes(u.id));
-    }, [users, classData, selectedDate]);
+    // Lógica para sugerir alunos que precisam repor este módulo específico
+    const repositionSuggestions = useMemo(() => {
+        if (!users || !selectedDate || currentModuleIndex === -1 || !isMemberCourse) return [];
+        const enrolledIds = new Set(classData?.students || []);
+        
+        return users.filter(u => {
+            const isNotEnrolled = !enrolledIds.has(u.id);
+            const hasPending = !u.journey?.memberCourseProgress?.[currentModuleKey];
+            const isStudent = u.integrationStatus === 'novo_convertido' || u.integrationStatus === 'membro' || u.integrationStatus === 'consolidado';
+            return isNotEnrolled && hasPending && isStudent;
+        }).slice(0, 15);
+    }, [users, classData, selectedDate, currentModuleIndex, currentModuleKey, isMemberCourse]);
 
     const handleStudentCheck = (studentId: string, checked: boolean) => {
         setPresentStudents(prev => checked ? [...prev, studentId] : prev.filter(id => id !== studentId));
@@ -173,12 +189,9 @@ function PedagogicalLogPageContent() {
 
             const progressPromises: Promise<any>[] = [];
             if (isMemberCourse && firestore) {
-                const dateIndex = classOccurrences.indexOf(selectedDate);
-                const moduleKey = `module${dateIndex + 1}`;
-                
                 presentStudents.forEach(studentId => {
                     const userRef = doc(firestore, 'users', studentId);
-                    progressPromises.push(updateDocumentNonBlocking(userRef, { [`journey.memberCourseProgress.${moduleKey}`]: true }));
+                    progressPromises.push(updateDocumentNonBlocking(userRef, { [`journey.memberCourseProgress.${currentModuleKey}`]: true }));
                 });
             }
             
@@ -233,7 +246,9 @@ function PedagogicalLogPageContent() {
                                     <ClipboardCheck className="text-primary" />
                                     Chamada: {classData.name}
                                 </CardTitle>
-                                <CardDescription>Sessão {classOccurrences.indexOf(selectedDate) + 1} de {classOccurrences.length}</CardDescription>
+                                <CardDescription>
+                                    {currentModuleIndex !== -1 ? `Módulo ${currentModuleIndex + 1}: ${moduleNames[currentModuleIndex]}` : 'Sessão Avulsa'}
+                                </CardDescription>
                             </div>
                             
                             <Popover open={isSearchOpen} onOpenChange={setIsSearchOpen}>
@@ -247,8 +262,22 @@ function PedagogicalLogPageContent() {
                                         <CommandInput placeholder="Buscar aluno para reposição..." />
                                         <CommandList>
                                             <CommandEmpty>Nenhum aluno encontrado.</CommandEmpty>
-                                            <CommandGroup heading="Membros da Igreja">
-                                                {users.filter(u => !classData.students.includes(u.id)).slice(0, 10).map(u => (
+                                            
+                                            {repositionSuggestions.length > 0 && (
+                                                <CommandGroup heading={`Pessoas com pendência no Módulo ${currentModuleIndex + 1}`}>
+                                                    {repositionSuggestions.map(u => (
+                                                        <CommandItem key={u.id} onSelect={() => handleAddRepositionStudent(u.id)} className="cursor-pointer">
+                                                            <div className="flex items-center justify-between w-full">
+                                                                <span>{u.name}</span>
+                                                                <Badge variant="outline" className="text-[8px] bg-amber-50">PENDENTE</Badge>
+                                                            </div>
+                                                        </CommandItem>
+                                                    ))}
+                                                </CommandGroup>
+                                            )}
+
+                                            <CommandGroup heading="Outros Membros">
+                                                {users.filter(u => !classData.students.includes(u.id) && !repositionSuggestions.find(s => s.id === u.id)).slice(0, 10).map(u => (
                                                     <CommandItem key={u.id} onSelect={() => handleAddRepositionStudent(u.id)}>
                                                         <Plus className="mr-2 size-4" /> {u.name}
                                                     </CommandItem>
@@ -280,10 +309,10 @@ function PedagogicalLogPageContent() {
                                         </div>
                                     </div>
 
-                                    {(repositionStudents.length > 0 || presentStudents.some(id => !classData.students.includes(id))) && (
+                                    {presentStudents.filter(id => !classData.students.includes(id)).length > 0 && (
                                         <div className="space-y-2 pt-4 border-t">
                                             <h4 className="text-[10px] font-black uppercase text-blue-600 tracking-widest flex items-center gap-2">
-                                                <Badge variant="outline" className="bg-blue-50 text-blue-700 h-4 px-1">REPOSIÇÃO</Badge> Alunos de outros ciclos
+                                                <Badge variant="outline" className="bg-blue-50 text-blue-700 h-4 px-1">REPOSIÇÃO</Badge> Alunos de outros meses/ciclos
                                             </h4>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                                 {presentStudents.filter(id => !classData.students.includes(id)).map(id => {

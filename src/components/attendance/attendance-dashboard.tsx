@@ -48,7 +48,7 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
   const [filtroDataFim, setFiltroDataFim] = useState('');
   const [filtroHorario, setFiltroHorario] = useState('todos');
   const [filtroSerie, setFiltroSerie] = useState('');
-  const [filtroFeriado, setFeriadoProximo] = useState('todos'); 
+  const [filtroFeriado, setFiltroFeriado] = useState('todos'); 
   const [filtroJogo, setFiltroJogo] = useState('todos'); 
   const [filtroBebe, setFiltroBebe] = useState('todos'); 
 
@@ -57,11 +57,11 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
 
     try {
       if (filtroDataInicio) {
-        const startTimestamp = new Date(filtroDataInicio).getTime() / 1000;
+        const startTimestamp = new Date(filtroDataInicio + 'T00:00:00').getTime() / 1000;
         filtrados = filtrados.filter(r => r.data.seconds >= startTimestamp);
       }
       if (filtroDataFim) {
-        const endTimestamp = new Date(filtroDataFim).getTime() / 1000;
+        const endTimestamp = new Date(filtroDataFim + 'T23:59:59').getTime() / 1000;
         filtrados = filtrados.filter(r => r.data.seconds <= endTimestamp);
       }
     } catch (e) {
@@ -212,7 +212,7 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
             onChange={e => setFiltroSerie(e.target.value)}
             placeholder="Buscar por Série..."
           />
-           <Select value={filtroFeriado} onValueChange={setFeriadoProximo}>
+           <Select value={filtroFeriado} onValueChange={setFiltroFeriado}>
               <SelectTrigger>
                   <SelectValue placeholder="Feriado próximo?" />
               </SelectTrigger>

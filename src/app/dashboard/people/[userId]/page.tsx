@@ -3,8 +3,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useDoc, useMemoFirebase, useFirebase } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
+import { useDoc, useFirebase } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -16,7 +15,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { EditUserDialog } from '@/components/users/edit-user-dialog';
 import { DiscipleshipTrail } from '@/components/users/discipleship-trail';
 import { Progress } from "@/components/ui/progress";
-import { format } from 'date-fns';
 import { DiscipleshipNotes } from '@/components/users/discipleship-notes';
 import { MemberDetails } from '@/components/users/member-details';
 import { VolunteerServiceForm } from '@/components/volunteering/volunteer-service-form';
