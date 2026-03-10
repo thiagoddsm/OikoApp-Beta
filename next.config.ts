@@ -35,7 +35,7 @@ const nextConfig: NextConfig = {
     ],
   },
   env: {
-    BUILD_TIMESTAMP: "2025-02-26T23:30:00Z",
+    BUILD_TIMESTAMP: "2025-02-26T23:55:00Z",
   }
 };
 
