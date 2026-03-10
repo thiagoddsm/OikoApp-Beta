@@ -18,14 +18,6 @@ const horariosCultos = [
   "Evento"
 ];
 
-const timestampToDateString = (timestamp: any) => {
-    if (!timestamp?.seconds) return '';
-    const date = new Date(timestamp.seconds * 1000);
-    const offset = date.getTimezoneOffset() * 60000;
-    const adjustedDate = new Date(date.getTime() + offset);
-    return adjustedDate.toISOString().split('T')[0];
-};
-
 interface AttendanceRecord {
     id: string;
     data: any;
@@ -48,9 +40,9 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
   const [filtroDataFim, setFiltroDataFim] = useState('');
   const [filtroHorario, setFiltroHorario] = useState('todos');
   const [filtroSerie, setFiltroSerie] = useState('');
-  const [filtroFeriado, setFiltroFeriado] = useState('todos'); 
-  const [filtroJogo, setFiltroJogo] = useState('todos'); 
-  const [filtroBebe, setFiltroBebe] = useState('todos'); 
+  const [filtroFeriado, setFeriadoFeriado] = useState('todos'); 
+  const [filtroJogo, setJogoFutebol] = useState('todos'); 
+  const [filtroBebe, setApresentacaoBebe] = useState('todos'); 
 
   const registrosFiltrados = useMemo(() => {
     let filtrados = [...registros];
@@ -212,7 +204,7 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
             onChange={e => setFiltroSerie(e.target.value)}
             placeholder="Buscar por Série..."
           />
-           <Select value={filtroFeriado} onValueChange={setFiltroFeriado}>
+           <Select value={filtroFeriado} onValueChange={setFeriadoFeriado}>
               <SelectTrigger>
                   <SelectValue placeholder="Feriado próximo?" />
               </SelectTrigger>
@@ -222,7 +214,7 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
                   <SelectItem value="nao">Não</SelectItem>
               </SelectContent>
           </Select>
-          <Select value={filtroJogo} onValueChange={setFiltroJogo}>
+          <Select value={filtroJogo} onValueChange={setJogoFutebol}>
               <SelectTrigger>
                   <SelectValue placeholder="Jogo no horário?" />
               </SelectTrigger>
@@ -232,7 +224,7 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
                   <SelectItem value="nao">Não</SelectItem>
               </SelectContent>
           </Select>
-          <Select value={filtroBebe} onValueChange={setFiltroBebe}>
+          <Select value={filtroBebe} onValueChange={setApresentacaoBebe}>
               <SelectTrigger>
                   <SelectValue placeholder="Apresentação de bebê?" />
               </SelectTrigger>
@@ -254,11 +246,11 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
             <CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Total Adultos</CardTitle></CardHeader>
             <CardContent><p className="text-3xl font-bold text-emerald-600">{stats.totalAdultos.toLocaleString('pt-BR')}</p></CardContent>
         </Card>
-         <Card className="text-center">
+        <Card className="text-center">
             <CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Total Crianças</CardTitle></CardHeader>
             <CardContent><p className="text-3xl font-bold text-amber-600">{stats.totalCriancas.toLocaleString('pt-BR')}</p></CardContent>
         </Card>
-         <Card className="text-center">
+        <Card className="text-center">
             <CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Média Geral/Culto</CardTitle></CardHeader>
             <CardContent><p className="text-3xl font-bold text-violet-600">{stats.mediaGeral}</p></CardContent>
         </Card>
