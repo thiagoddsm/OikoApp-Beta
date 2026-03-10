@@ -5,12 +5,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, Clock, Award, Loader2, Users, GraduationCap, ChevronRight, XCircle, Minus, Video, PlayCircle, Star } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { format, parseISO, isBefore, startOfDay, addWeeks, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const weekDayMap: Record<string, number> = {
     "Domingo": 0, "Segunda-feira": 1, "Terça-feira": 2, "Quarta-feira": 3,
@@ -30,7 +28,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
         theoflixCourses.find(tf => tf.id === course?.linkedTheoflixId),
     [theoflixCourses, course]);
 
-    // If it's membership, we group by MODULE (1-5), not dates.
+    // Define the modules for Membership Course
     const modules = useMemo(() => [
         { id: '1', title: 'História e Visão', type: 'Obrigatório', week: '1' },
         { id: '2', title: 'DNA e Células', type: 'Obrigatório', week: '2' },
@@ -51,7 +49,6 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
         students.forEach(s => {
             const progress = s.journey?.memberCourseProgress || {};
             
-            // For stats, we need to consider BOTH manual flags and actual attendance (physical/online)
             let completedMandatoryCount = 0;
             modules.slice(0, 4).forEach(mod => {
                 const modKey = `module${mod.id}`;
@@ -113,7 +110,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                     <Table>
                         <TableHeader className="bg-muted/50">
                             <TableRow>
-                                <TableHead className="min-w-[250px] sticky left-0 bg-white z-[2] border-r shadow-[2px_0_5_rgba(0,0,0,0.05)]">Aluno (Membresia Modular)</TableHead>
+                                <TableHead className="min-w-[250px] sticky left-0 bg-white z-[2] border-r shadow-[2px_0_5px_rgba(0,0,0,0.05)]">Aluno (Membresia Modular)</TableHead>
                                 {modules.map((mod, index) => {
                                     const episode = linkedTheoflix?.episodes?.[index];
                                     return (
@@ -141,7 +138,6 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                             {students.map(student => {
                                 const manualProgress = student.journey?.memberCourseProgress || {};
                                 
-                                // Calculate accurate module completion count considering all sources
                                 let completedMandatoryCount = 0;
                                 modules.slice(0, 4).forEach(mod => {
                                     const modKey = `module${mod.id}`;
@@ -208,7 +204,6 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
         );
     }
 
-    // Default Matrix logic for other courses (Date-based)
     const allDates = useMemo(() => {
         const dates = new Set<string>();
         courseClasses.forEach(cls => {
@@ -241,7 +236,6 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                 if (!holidays.has(cls.startDate)) dates.add(cls.startDate);
             }
             
-            // Add extra dates
             extras.forEach(d => dates.add(d));
         });
         return Array.from(dates).sort();
@@ -253,7 +247,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                 <Table>
                     <TableHeader className="bg-muted/50">
                         <TableRow>
-                            <TableHead className="min-w-[250px] sticky left-0 bg-white z-[2] border-r shadow-[2px_0_5_rgba(0,0,0,0.05)]">Aluno</TableHead>
+                            <TableHead className="min-w-[250px] sticky left-0 bg-white z-[2] border-r shadow-[2px_0_5px_rgba(0,0,0,0.05)]">Aluno</TableHead>
                             {allDates.map((date, index) => {
                                 const episode = linkedTheoflix?.episodes?.[index];
                                 return (
