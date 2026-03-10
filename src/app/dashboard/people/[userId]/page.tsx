@@ -34,7 +34,7 @@ type UserProfile = {
   email?: string;
   phone?: string;
   cpf?: string;
-  sexo?: string; // Corrigido: Removida duplicidade de identificador
+  sexo?: string;
   escolaridade?: string;
   profissao?: string;
   dataNascimento?: string;

@@ -328,4 +328,3 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
     </div>
   );
 }
-

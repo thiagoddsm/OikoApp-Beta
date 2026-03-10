@@ -30,6 +30,7 @@ import {
   Cell
 } from 'recharts';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -127,7 +128,7 @@ export function TeachingOverviewDashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={stats?.schoolData}>
                 <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.5} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={12} fontBold={true} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={12} />
                 <YAxis axisLine={false} tickLine={false} fontSize={12} />
                 <Tooltip 
                   cursor={{ fill: 'rgba(0,0,0,0.05)' }}
