@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -8,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Loader2, PlusCircle, Edit, Trash2, ChevronRight, Wand2, ClipboardCheck, BookOpen, Users } from 'lucide-react';
 import { ClassFormDialog } from './class-form-dialog';
 import { useVolunteering } from '@/contexts/volunteering-context';
-import { format, addWeeks, startOfMonth, nextDay, Day } from 'date-fns';
+import { format, addWeeks, startOfMonth, nextDay } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';

@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -8,7 +7,7 @@ import { Button } from '../ui/button';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '../ui/badge';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, addWeeks } from 'date-fns';
 
 const modules = [
     { id: 'module1', label: 'História e Visão', description: 'Módulo 1', index: 0 },
@@ -51,7 +50,7 @@ export function MemberCourseProgress({ user }: { user: any }) {
                     })));
                     
                     const dateIndexInCycle = classDates.indexOf(att.date);
-                    return dateIndexInCycle === mod.index && (att.presentStudentIds.includes(user.id) || att.onlineStudentIds?.includes(user.id));
+                    return dateIndexInCycle === mod.index && (att.presentStudentIds.includes(user.id) || (att.onlineStudentIds && att.onlineStudentIds.includes(user.id)));
                 });
             });
             if (isPresentInAnyCycle) progress[mod.id] = true;
