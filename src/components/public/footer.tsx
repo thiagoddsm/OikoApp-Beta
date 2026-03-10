@@ -1,8 +1,7 @@
-
 'use client';
 
 import React from 'react';
-import { Logo } from '@/components/icons';
+import { Logo } from "@/components/icons";
 
 export function PublicFooter() {
   return (
@@ -13,8 +12,9 @@ export function PublicFooter() {
             <Logo className="size-6" />
             <span className="text-lg font-bold tracking-tighter">OikoApp</span>
           </div>
-          <div className="text-sm">
-            © {new Date().getFullYear()} Igreja Batista da Manhã. Todos os direitos reservados.
+          <div className="text-sm text-center md:text-right">
+            <p>© {new Date().getFullYear()} Igreja Batista da Manhã.</p>
+            <p className="mt-1 italic">Garantindo que a Organização sirva ao Organismo.</p>
           </div>
         </div>
       </div>

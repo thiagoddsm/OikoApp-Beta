@@ -43,7 +43,7 @@ const nextConfig: NextConfig = {
     ],
   },
   env: {
-    BUILD_TIMESTAMP: "2025-02-26T18:20:00Z", // Força recompilação limpa para resolver ChunkLoadError
+    BUILD_TIMESTAMP: "2025-02-26T18:45:00Z", // Força recompilação para corrigir layout e ChunkLoadError
   }
 };
 
