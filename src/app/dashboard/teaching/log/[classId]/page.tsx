@@ -108,7 +108,11 @@ function PedagogicalLogPageContent() {
             setPresentStudents(record?.presentStudentIds || []);
             setOnlineStudents(record?.onlineStudentIds || []);
             
-            const log = pedagogicalLogs.find(l => l.classId === classId && format(l.date.toDate(), 'yyyy-MM-dd') === selectedDate);
+            const log = pedagogicalLogs.find(l => {
+                const logDate = l.date?.toDate ? l.date.toDate() : (l.date instanceof Date ? l.date : null);
+                return l.classId === classId && logDate && format(logDate, 'yyyy-MM-dd') === selectedDate;
+            });
+
             if (log) {
                 setContentTaught(log.content_taught);
                 setObservations(log.observations);
@@ -130,7 +134,7 @@ function PedagogicalLogPageContent() {
     }, [users, classData]);
 
     const repositionStudents = useMemo(() => {
-        if (!users || !classData) return [];
+        if (!users || !classData || !selectedDate) return [];
         const enrolledIds = new Set(classData.students || []);
         const attendance = classData.attendance?.find(a => a.date === selectedDate);
         const presentIds = attendance?.presentStudentIds || [];
@@ -150,6 +154,7 @@ function PedagogicalLogPageContent() {
     };
 
     const handleSaveLog = async () => {
+        if (!selectedDate) return;
         setIsSaving(true);
         try {
             const logPromise = addPedagogicalLog({
