@@ -2,8 +2,9 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Logo } from '@/components/icons';
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/icons";
+import { LogIn, UserPlus } from 'lucide-react';
 
 export function PublicNavbar() {
   return (
@@ -11,22 +12,22 @@ export function PublicNavbar() {
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2">
           <Logo className="size-8 text-primary" />
-          <span className="text-xl font-bold tracking-tighter">OikoApp</span>
+          <span className="text-xl font-black tracking-tighter text-slate-900">IBM</span>
         </Link>
-        
-        <nav className="hidden md:flex items-center gap-6">
-          <Link href="/" className="text-sm font-medium hover:text-primary transition-colors">Início</Link>
-          <Link href="/dashboard/gc/map" className="text-sm font-medium hover:text-primary transition-colors">GCs</Link>
-          <Link href="/dashboard/teaching/theoflix" className="text-sm font-medium hover:text-primary transition-colors">Escolas</Link>
-          <Link href="/dashboard/social" className="text-sm font-medium hover:text-primary transition-colors">Impacto Social</Link>
-        </nav>
 
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" asChild className="hidden sm:inline-flex">
-            <Link href="/login">Entrar</Link>
+        <div className="flex items-center gap-2 sm:gap-4">
+          <Button variant="ghost" asChild className="font-bold text-slate-600 hover:text-primary hover:bg-primary/5 uppercase text-xs tracking-widest">
+            <Link href="/public/enrollment">
+              <UserPlus className="mr-2 size-4" />
+              Inscrições
+            </Link>
           </Button>
-          <Button asChild>
-            <Link href="/public/enrollment">Fazer Parte</Link>
+          
+          <Button className="font-bold rounded-full px-6 shadow-md transition-all hover:scale-105 active:scale-95" asChild>
+            <Link href="/login">
+              <LogIn className="mr-2 size-4" />
+              Portal do Membro
+            </Link>
           </Button>
         </div>
       </div>
