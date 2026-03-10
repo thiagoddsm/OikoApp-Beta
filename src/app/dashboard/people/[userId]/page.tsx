@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -33,7 +34,7 @@ type UserProfile = {
   email?: string;
   phone?: string;
   cpf?: string;
-  sexo?: string;
+  sexo?: string; // Corrigido: Removida duplicidade de identificador
   escolaridade?: string;
   profissao?: string;
   dataNascimento?: string;

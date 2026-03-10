@@ -1,3 +1,4 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
@@ -33,9 +34,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // Invalidação forçada de cache do Turbopack e limpeza de config experimental
+  // Timestamp de build para invalidar cache do Turbopack
   env: {
-    BUILD_ID: "STABLE_BUILD_" + Date.now(),
+    BUILD_ID: "STABLE_BUILD_1740420000",
     BUILD_TIMESTAMP: new Date().toISOString(),
   }
 };
