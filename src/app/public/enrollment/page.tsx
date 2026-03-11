@@ -1,32 +1,21 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useVolunteering, VolunteeringProvider, type Course, type Class } from '@/contexts/volunteering-context';
+import { usePublicEnrollment, PublicEnrollmentProvider, type Course, type Class } from '@/contexts/public/enrollment-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { 
     Loader2, 
-    BookOpen, 
-    School, 
-    Waves, 
-    HandHelping, 
-    GraduationCap, 
-    CheckCircle2, 
-    Users, 
-    Calendar, 
     Clock, 
-    Info, 
-    Star, 
-    Search,
-    ChevronRight
+    Search
 } from 'lucide-react';
 import { PublicNavbar } from '@/components/public/navbar';
 import { PublicFooter } from '@/components/public/footer';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { EnrollmentDialog } from '@/components/teaching/enrollment-dialog';
+import { PublicEnrollmentDialog } from '@/components/public/public-enrollment-dialog';
 
 interface Schedule {
     day: string;
@@ -35,7 +24,6 @@ interface Schedule {
     occupied: number;
 }
 
-// Componente extraído para gerenciar o estado do "Ver Mais" independentemente para cada card
 function CourseCard({ 
     course, 
     schedules, 
@@ -50,7 +38,6 @@ function CourseCard({
     onEnroll: (c: Course) => void;
 }) {
     const [isExpanded, setIsExpanded] = useState(false);
-    // Verifica se a descrição é longa o suficiente para necessitar de expansão
     const isLongDescription = course.description && course.description.length > 100;
 
     return (
@@ -73,7 +60,6 @@ function CourseCard({
                         {course.description}
                     </CardDescription>
                     
-                    {/* Botão Ver Mais (Estilo Pill) */}
                     {isLongDescription && (
                         <button 
                             onClick={() => setIsExpanded(!isExpanded)}
@@ -123,7 +109,7 @@ function CourseCard({
 }
 
 function EnrollmentPortal() {
-    const { courses, classes, isLoading } = useVolunteering();
+    const { courses, classes, isLoading } = usePublicEnrollment();
     const [searchTerm, setSearchTerm] = useState('');
     const [isEnrollmentOpen, setEnrollmentOpen] = useState(false);
     const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
@@ -252,7 +238,7 @@ function EnrollmentPortal() {
             </main>
             <PublicFooter />
 
-            <EnrollmentDialog 
+            <PublicEnrollmentDialog 
                 open={isEnrollmentOpen} 
                 onOpenChange={setEnrollmentOpen} 
                 initialCourseId={selectedCourse?.id} 
@@ -263,8 +249,8 @@ function EnrollmentPortal() {
 
 export default function EnrollmentPage() {
     return (
-        <VolunteeringProvider>
+        <PublicEnrollmentProvider>
             <EnrollmentPortal />
-        </VolunteeringProvider>
+        </PublicEnrollmentProvider>
     );
 }

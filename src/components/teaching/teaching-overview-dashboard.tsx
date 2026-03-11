@@ -1,7 +1,6 @@
-
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { 
@@ -14,7 +13,8 @@ import {
   Clock, 
   CheckCircle2,
   CalendarDays,
-  Loader2
+  Loader2,
+  ChevronLeft
 } from 'lucide-react';
 import { 
   Bar, 
@@ -25,8 +25,6 @@ import {
   XAxis, 
   YAxis, 
   Legend,
-  PieChart,
-  Pie,
   Cell
 } from 'recharts';
 import { Badge } from '@/components/ui/badge';
@@ -39,6 +37,8 @@ const COLORS = ['#6750A4', '#9A89C6', '#BDB2D9', '#D9D3E9', '#F2F0F7'];
 
 export function TeachingOverviewDashboard() {
   const { classes, courses, enrollmentRequests, users, isLoading } = useVolunteering();
+
+  const [selectedMinistry, setSelectedMinistry] = useState<string | null>(null);
 
   const stats = useMemo(() => {
     if (isLoading) return null;
@@ -53,12 +53,30 @@ export function TeachingOverviewDashboard() {
 
     const teachersCount = users.filter(u => u.isTeacher).length;
 
-    // Distribution by school
-    const schoolCounts: Record<string, number> = {};
+    // Distribution by school (Ministries)
+    const schoolCounts: Record<string, { totalCourses: number, totalStudents: number, totalCapacity: number }> = {};
+    
     courses.forEach(c => {
-      schoolCounts[c.ministryName] = (schoolCounts[c.ministryName] || 0) + 1;
+      const ministry = c.ministryName || 'Geral';
+      if (!schoolCounts[ministry]) {
+          schoolCounts[ministry] = { totalCourses: 0, totalStudents: 0, totalCapacity: 0 };
+      }
+      schoolCounts[ministry].totalCourses += 1;
+      
+      // Encontra turmas desse curso para somar alunos e capacidade
+      const courseClasses = classes.filter(cls => cls.courseId === c.id);
+      courseClasses.forEach(cls => {
+          schoolCounts[ministry].totalStudents += (cls.students?.length || 0);
+          schoolCounts[ministry].totalCapacity += (cls.maxStudents || 20); // Default 20 se nao tiver
+      });
     });
-    const schoolData = Object.entries(schoolCounts).map(([name, value]) => ({ name, value }));
+
+    const schoolData = Object.entries(schoolCounts).map(([name, data]) => ({ 
+        name, 
+        Cursos: data.totalCourses,
+        Alunos: data.totalStudents,
+        Vagas: data.totalCapacity - data.totalStudents // Vagas restantes
+    }));
 
     return {
       totalCourses,
@@ -69,6 +87,31 @@ export function TeachingOverviewDashboard() {
       schoolData
     };
   }, [isLoading, classes, courses, enrollmentRequests, users]);
+
+  // Dados para o Gráfico de Detalhes do Ministério Selecionado
+  const ministryDetailsData = useMemo(() => {
+      if (!selectedMinistry || !courses || !classes) return [];
+      
+      const ministryCourses = courses.filter(c => (c.ministryName || 'Geral') === selectedMinistry);
+      
+      return ministryCourses.map(course => {
+          const courseClasses = classes.filter(cls => cls.courseId === course.id);
+          let totalStudents = 0;
+          let totalCapacity = 0;
+          
+          courseClasses.forEach(cls => {
+              totalStudents += (cls.students?.length || 0);
+              totalCapacity += (cls.maxStudents || 20);
+          });
+
+          return {
+              name: course.name.length > 20 ? course.name.substring(0, 20) + '...' : course.name,
+              fullName: course.name,
+              'Alunos Inscritos': totalStudents,
+              'Vagas Livres': Math.max(0, totalCapacity - totalStudents)
+          };
+      });
+  }, [selectedMinistry, courses, classes]);
 
   const recentRequests = useMemo(() => {
     return enrollmentRequests
@@ -115,28 +158,63 @@ export function TeachingOverviewDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Chart: Distribution by Ministry */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <School className="size-5 text-primary" />
-              Oferta por Escolas / Ministérios
-            </CardTitle>
-            <CardDescription>Quantidade de cursos ativos em cada área de ensino.</CardDescription>
+        {/* Chart: Distribution by Ministry OR Course Details */}
+        <Card className="lg:col-span-2 overflow-hidden">
+          <CardHeader className="border-b bg-muted/10 pb-4">
+            <div className="flex items-center justify-between">
+                <div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                    <School className="size-5 text-primary" />
+                    {selectedMinistry ? `Ocupação: ${selectedMinistry}` : 'Visão por Escolas / Ministérios'}
+                    </CardTitle>
+                    <CardDescription>
+                        {selectedMinistry ? 'Distribuição de vagas e matrículas por curso.' : 'Clique em uma coluna para ver os detalhes dos cursos.'}
+                    </CardDescription>
+                </div>
+                {selectedMinistry && (
+                    <Button variant="outline" size="sm" onClick={() => setSelectedMinistry(null)} className="h-8">
+                        <ChevronLeft className="size-4 mr-1" /> Voltar
+                    </Button>
+                )}
+            </div>
           </CardHeader>
-          <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={stats?.schoolData}>
-                <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.5} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={12} />
-                <YAxis axisLine={false} tickLine={false} fontSize={12} />
-                <Tooltip 
-                  cursor={{ fill: 'rgba(0,0,0,0.05)' }}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                />
-                <Bar dataKey="value" name="Cursos" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} barSize={40} />
-              </BarChart>
-            </ResponsiveContainer>
+          <CardContent className="h-[320px] pt-6">
+            {!selectedMinistry ? (
+                <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats?.schoolData} onClick={(data) => {
+                    if (data && data.activePayload && data.activePayload.length > 0) {
+                        setSelectedMinistry(data.activePayload[0].payload.name);
+                    }
+                }}>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.5} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={12} tickMargin={10} />
+                    <YAxis axisLine={false} tickLine={false} fontSize={12} />
+                    <Tooltip 
+                        cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                    />
+                    <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '20px' }} />
+                    <Bar dataKey="Alunos" name="Alunos Matriculados" stackId="a" fill="#10b981" radius={[0, 0, 4, 4]} cursor="pointer" />
+                    <Bar dataKey="Vagas" name="Vagas Disponíveis" stackId="a" fill="#cbd5e1" radius={[4, 4, 0, 0]} cursor="pointer" />
+                </BarChart>
+                </ResponsiveContainer>
+            ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={ministryDetailsData}>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.5} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={10} tickMargin={10} />
+                    <YAxis axisLine={false} tickLine={false} fontSize={12} />
+                    <Tooltip 
+                        cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                        labelFormatter={(label, payload) => payload[0]?.payload?.fullName || label}
+                    />
+                    <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '20px' }} />
+                    <Bar dataKey="Alunos Inscritos" stackId="a" fill="#6366f1" radius={[0, 0, 4, 4]} maxBarSize={60} />
+                    <Bar dataKey="Vagas Livres" stackId="a" fill="#cbd5e1" radius={[4, 4, 0, 0]} maxBarSize={60} />
+                </BarChart>
+                </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -147,7 +225,7 @@ export function TeachingOverviewDashboard() {
               <Clock className="size-5 text-amber-500" />
               Inscrições Recentes
             </CardTitle>
-            <CardDescription>Aguardando aprovação dos coordenadores.</CardDescription>
+            <CardDescription>Aguardando aprovação.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {recentRequests.length === 0 ? (
@@ -192,8 +270,10 @@ export function TeachingOverviewDashboard() {
               <School size={24} />
             </div>
             <h4 className="font-black text-xs uppercase tracking-widest text-primary mb-1">Capacidade Total</h4>
-            <p className="text-3xl font-black text-slate-900">{stats?.totalClasses ? stats.totalClasses * 20 : 0}</p>
-            <p className="text-[10px] text-muted-foreground font-medium mt-1">Baseado em turmas de 20 vagas</p>
+            <p className="text-3xl font-black text-slate-900">
+              {classes.reduce((acc, cls) => acc + (cls.maxStudents || 20), 0)}
+            </p>
+            <p className="text-[10px] text-muted-foreground font-medium mt-1">Soma de vagas em todas as turmas ativas</p>
           </CardContent>
         </Card>
 
@@ -213,9 +293,15 @@ export function TeachingOverviewDashboard() {
             <div className="size-12 bg-white rounded-2xl shadow-sm flex items-center justify-center text-indigo-600 mb-4">
               <TrendingUp size={24} />
             </div>
-            <h4 className="font-black text-xs uppercase tracking-widest text-indigo-700 mb-1">Taxa de Conclusão</h4>
-            <p className="text-3xl font-black text-slate-900">74%</p>
-            <p className="text-[10px] text-muted-foreground font-medium mt-1">Média geral dos últimos 6 meses</p>
+            <h4 className="font-black text-xs uppercase tracking-widest text-indigo-700 mb-1">Ocupação Geral</h4>
+            <p className="text-3xl font-black text-slate-900">
+                {(() => {
+                    const totalCap = classes.reduce((acc, cls) => acc + (cls.maxStudents || 20), 0);
+                    const totalAlunos = classes.reduce((acc, cls) => acc + (cls.students?.length || 0), 0);
+                    return totalCap > 0 ? Math.round((totalAlunos / totalCap) * 100) : 0;
+                })()}%
+            </p>
+            <p className="text-[10px] text-muted-foreground font-medium mt-1">Das vagas ofertadas já preenchidas</p>
           </CardContent>
         </Card>
       </div>

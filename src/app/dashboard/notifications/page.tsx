@@ -492,8 +492,20 @@ function NotificationsConfig() {
         try {
             const res = await fetch('/api/notifications/instance', { cache: 'no-store' });
             const data = await res.json();
-            setInstanceStatus(data);
-        } catch (e) {} finally { setIsRefreshing(false); }
+            
+            // Tratamento explícito para erros da API do us.api-wa.me
+            if (data.status === 'error' || data.error) {
+                 setInstanceStatus({ status: 'offline', message: data.message || data.error || 'Erro na API' });
+                 toast({ variant: 'destructive', title: 'Erro de Conexão', description: data.message || 'Verifique sua API Key.' });
+            } else {
+                 setInstanceStatus(data);
+            }
+            
+        } catch (e) {
+            setInstanceStatus({ status: 'offline', message: 'Erro de rede' });
+        } finally { 
+            setIsRefreshing(false); 
+        }
     };
 
     const handleSaveKey = async () => {
@@ -503,7 +515,7 @@ function NotificationsConfig() {
         try {
             await setDocumentNonBlocking(configRef, { whatsappApiKey: waKey, webhookUrl, updatedAt: Timestamp.now() }, { merge: true });
             toast({ title: "Configurações Salvas!" });
-            checkStatus();
+            checkStatus(); // Chama o checkStatus automaticamente após salvar
         } catch (e) {
             toast({ variant: 'destructive', title: "Erro ao salvar" });
         } finally {
@@ -560,6 +572,11 @@ function NotificationsConfig() {
                             <div className="space-y-4 opacity-50 text-center">
                                 <Smartphone size={48} className="mx-auto" />
                                 <p className="text-xs font-bold uppercase tracking-widest">Aguardando Conexão</p>
+                                {instanceStatus?.message && (
+                                    <p className="text-[10px] text-destructive font-medium bg-red-50 p-2 rounded-md border border-red-100 mx-4">
+                                        {instanceStatus.message}
+                                    </p>
+                                )}
                                 <Button size="sm" variant="ghost" onClick={checkStatus} className="text-[10px] font-black uppercase tracking-widest"><RefreshCw className="size-3 mr-2" /> Verificar</Button>
                             </div>
                         )}

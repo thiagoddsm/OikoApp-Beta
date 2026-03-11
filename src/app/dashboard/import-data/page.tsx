@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useFirebase, addDocumentNonBlocking } from '@/firebase';
+import { useFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, Timestamp, getDocs, query, writeBatch, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import { Loader2, Upload, CheckCircle, Download, DatabaseZap } from 'lucide-react';
+import { Loader2, Upload, CheckCircle, Download, DatabaseZap, Wand2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 import { Input } from '@/components/ui/input';
@@ -33,21 +33,6 @@ const sampleData = [
         "serviceAreaName": "Recepção",
         "serviceTeamName": "Alpha",
         "gcName": "Conexão Jovem"
-    },
-    {
-        "name": "Maria Oliveira",
-        "email": "maria.oliveira@exemplo.com",
-        "phone": "(21) 98888-7777",
-        "dataNascimento (YYYY-MM-DD)": "1985-10-20",
-        "estadoCivil": "Solteiro(a)",
-        "addressStreet": "Avenida Copacabana, 456, Rio de Janeiro, RJ",
-        "temFilhos (sim/nao)": "nao",
-        "idadeFilhos": "",
-        "integrationStatus": "lider_gc",
-        "role": "lider_gc",
-        "serviceAreaName": "Mídia",
-        "serviceTeamName": "Bravo",
-        "gcName": "Famílias Restauradas"
     }
 ];
 
@@ -134,6 +119,125 @@ function OldAttendanceMigration() {
     );
 }
 
+function FixPertencerClassesMigration() {
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
+    const [isMigrating, setIsMigrating] = useState(false);
+
+    const handleFixClasses = async () => {
+        if (!firestore) return;
+        setIsMigrating(true);
+
+        try {
+            // 1. Encontrar o curso Pertencer
+            const coursesRef = collection(firestore, 'courses');
+            const coursesSnap = await getDocs(coursesRef);
+            const pertencerCourse = coursesSnap.docs.find(doc => 
+                doc.data().name?.toLowerCase().includes('pertencer') || 
+                doc.data().name?.toLowerCase().includes('membro')
+            );
+
+            if (!pertencerCourse) {
+                toast({ variant: 'destructive', title: 'Erro', description: 'Curso Pertencer não encontrado.' });
+                setIsMigrating(false);
+                return;
+            }
+
+            const courseId = pertencerCourse.id;
+
+            // 2. Buscar todas as turmas deste curso
+            const classesRef = collection(firestore, 'classes');
+            const classesSnap = await getDocs(classesRef);
+            const pertencerClasses = classesSnap.docs.filter(doc => doc.data().courseId === courseId);
+
+            if (pertencerClasses.length <= 1) {
+                toast({ title: 'Tudo OK', description: 'Não há múltiplas turmas para unificar.' });
+                setIsMigrating(false);
+                return;
+            }
+
+            // 3. Pegar todos os alunos únicos de todas essas mini-turmas
+            const allStudentIds = new Set<string>();
+            let teacherId = '';
+
+            pertencerClasses.forEach(cls => {
+                const data = cls.data();
+                if (data.teacherId) teacherId = data.teacherId;
+                if (Array.isArray(data.students)) {
+                    data.students.forEach((id: string) => allStudentIds.add(id));
+                }
+            });
+
+            // 4. Criar a Turma Unificada (Turma de Março)
+            // Ajustado para o dia 08/03 conforme solicitado
+            const unifiedClassData = {
+                courseId: courseId,
+                name: "Turma de Março",
+                teacherId: teacherId || '',
+                students: Array.from(allStudentIds),
+                frequency: "semanal",
+                dayOfWeek: "Domingo",
+                startTime: "09:00",
+                endTime: "11:00",
+                startDate: "2024-03-08", // Data ajustada!
+                // Adicionando explicitamente quais datas as aulas ocorrerão
+                extraDates: [
+                    "2024-03-08", // Aula 1
+                    "2024-03-15", // Aula 2
+                    "2024-03-22", // Aula 3
+                    "2024-03-29", // Aula 4
+                ],
+                maxStudents: 100,
+                attendance: [] // Presenças zeradas, será lançado no diário manualmente
+            };
+
+            const newClassRef = doc(collection(firestore, 'classes'));
+            await setDocumentNonBlocking(newClassRef, unifiedClassData);
+
+            // 5. Apagar as mini-turmas antigas
+            for (const cls of pertencerClasses) {
+                await deleteDocumentNonBlocking(doc(firestore, 'classes', cls.id));
+            }
+
+            toast({ 
+                title: 'Sucesso!', 
+                description: `Turmas unificadas em "Turma de Março" com ${allStudentIds.size} alunos consolidados.` 
+            });
+
+        } catch (error) {
+            console.error("Fix classes failed:", error);
+            toast({ variant: 'destructive', title: 'Erro', description: 'Ocorreu um erro ao unificar as turmas.' });
+        } finally {
+            setIsMigrating(false);
+        }
+    };
+
+    return (
+        <Card className="border-amber-200 bg-amber-50/30">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-amber-800">
+                    <Wand2 className="size-5" />
+                    Unificar Turmas do Curso Pertencer
+                </CardTitle>
+                <CardDescription>
+                    Agrupa as turmas "Aula 1", "Aula 2", etc, em uma única "Turma de Março", preservando os alunos.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <p className="text-sm text-amber-900/70">
+                    Use este botão apenas 1 vez para corrigir o lançamento das aulas no formato antigo. As turmas antigas serão excluídas e todos os alunos irão para a Turma de Março (Iniciando no dia 08/03 com 4 aulas apenas).
+                </p>
+            </CardContent>
+            <CardFooter>
+                 <Button onClick={handleFixClasses} variant="outline" className="border-amber-500 text-amber-700 hover:bg-amber-100" disabled={isMigrating}>
+                    {isMigrating ? (
+                        <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processando...</>
+                    ) : 'Executar Unificação'}
+                </Button>
+            </CardFooter>
+        </Card>
+    );
+}
 
 export default function ImportDataPage() {
     const { firestore, user } = useFirebase();
@@ -305,7 +409,10 @@ export default function ImportDataPage() {
                 </CardFooter>
             </Card>
 
-            <OldAttendanceMigration />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FixPertencerClassesMigration />
+                <OldAttendanceMigration />
+            </div>
         </div>
     );
 }

@@ -7,15 +7,47 @@ import { Button } from '../ui/button';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '../ui/badge';
-import { format, parseISO, addWeeks } from 'date-fns';
+import { format, parseISO, addWeeks, addMonths, isBefore } from 'date-fns';
 
-const modules = [
-    { id: 'module1', label: 'História e Visão', description: 'Módulo 1', index: 0 },
-    { id: 'module2', label: 'DNA e Células', description: 'Módulo 2', index: 1 },
-    { id: 'module3', label: 'Mordomia e Finanças', description: 'Módulo 3', index: 2 },
-    { id: 'module4', label: 'Governança e Ética', description: 'Módulo 4', index: 3 },
-    { id: 'module5', label: 'Comissionamento', description: 'Eletivo', index: 4 },
-];
+const weekDayMap: Record<string, number> = {
+    "Domingo": 0, "Segunda-feira": 1, "Terça-feira": 2, "Quarta-feira": 3,
+    "Quinta-feira": 4, "Sexta-feira": 5, "Sábado": 6
+};
+
+function getModuleIndexForDate(dateStr: string, classData: any): number {
+    if (!classData || !classData.startDate) return -1;
+    
+    const occurrences: string[] = [];
+    const start = parseISO(classData.startDate);
+    const end = classData.endDate ? parseISO(classData.endDate) : addMonths(start, 1);
+    const targetDay = classData.dayOfWeek ? weekDayMap[classData.dayOfWeek] : -1;
+    const holidays = new Set(classData.holidayDates || []);
+    const extras = classData.extraDates || [];
+
+    let current = start;
+    let safe = 0;
+
+    if (classData.frequency && classData.frequency !== 'pontual') {
+        while (isBefore(current, end) || format(current, 'yyyy-MM-dd') === format(end, 'yyyy-MM-dd')) {
+            if (safe++ > 150) break;
+            let matches = false;
+            if (classData.frequency === 'semanal') {
+                matches = targetDay === -1 || current.getDay() === targetDay;
+            } else if (classData.frequency === 'quinzenal') {
+                const diffWeeks = Math.floor((current.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
+                matches = diffWeeks % 2 === 0 && (targetDay === -1 || current.getDay() === targetDay);
+            }
+            const dStr = format(current, 'yyyy-MM-dd');
+            if (matches && !holidays.has(dStr)) occurrences.push(dStr);
+            current = addWeeks(current, 1);
+        }
+    } else if (classData.frequency === 'pontual') {
+        occurrences.push(classData.startDate);
+    }
+
+    const allDates = Array.from(new Set([...occurrences, ...extras])).sort();
+    return allDates.indexOf(dateStr); 
+}
 
 export function MemberCourseProgress({ user }: { user: any }) {
     const { updateVolunteer, classes, courses } = useVolunteering();
@@ -28,6 +60,26 @@ export function MemberCourseProgress({ user }: { user: any }) {
         courses.find(c => c.name.toLowerCase().includes('membro') || c.name.toLowerCase().includes('pertencer')),
     [courses]);
 
+    const modules = useMemo(() => {
+        if (memberCourse?.syllabus && memberCourse.syllabus.length > 0) {
+            return memberCourse.syllabus.map((s, index) => ({
+                id: `module${index + 1}`,
+                label: s.title,
+                description: index === memberCourse.syllabus!.length - 1 ? 'Eletivo' : `Módulo ${index + 1}`,
+                index: index,
+                isElective: index === memberCourse.syllabus!.length - 1
+            }));
+        }
+        
+        return [
+            { id: 'module1', label: 'História e Visão', description: 'Módulo 1', index: 0, isElective: false },
+            { id: 'module2', label: 'DNA e Células', description: 'Módulo 2', index: 1, isElective: false },
+            { id: 'module3', label: 'Mordomia e Finanças', description: 'Módulo 3', index: 2, isElective: false },
+            { id: 'module4', label: 'Governança e Ética', description: 'Módulo 4', index: 3, isElective: false },
+            { id: 'module5', label: 'Comissionamento', description: 'Eletivo', index: 4, isElective: true },
+        ];
+    }, [memberCourse]);
+
     const attendanceProgress = useMemo(() => {
         if (!memberCourse || !classes) return {};
         
@@ -37,18 +89,15 @@ export function MemberCourseProgress({ user }: { user: any }) {
         modules.forEach(mod => {
             const isPresentInAnyCycle = relevantClasses.some(c => {
                 return c.attendance?.some(att => {
-                    const start = parseISO(c.startDate || '');
-                    const cycleDates = [0,1,2,3,4].map(i => format(addWeeks(start, i), 'yyyy-MM-dd'));
-                    const dateIndexInCycle = cycleDates.indexOf(att.date);
-                    
-                    return dateIndexInCycle === mod.index && (att.presentStudentIds.includes(user.id) || (att.onlineStudentIds && att.onlineStudentIds.includes(user.id)));
+                    const dateIndexInClass = getModuleIndexForDate(att.date, c);
+                    return dateIndexInClass === mod.index && (att.presentStudentIds.includes(user.id) || (att.onlineStudentIds && att.onlineStudentIds.includes(user.id)));
                 });
             });
             if (isPresentInAnyCycle) progress[mod.id] = true;
         });
 
         return progress;
-    }, [memberCourse, classes, user.id]);
+    }, [memberCourse, classes, user.id, modules]);
 
     const mergedProgress = useMemo(() => {
         const merged = { ...manualProgress };
@@ -56,10 +105,12 @@ export function MemberCourseProgress({ user }: { user: any }) {
             if (attendanceProgress[mod.id]) merged[mod.id] = true;
         });
         return merged;
-    }, [manualProgress, attendanceProgress]);
+    }, [manualProgress, attendanceProgress, modules]);
     
-    const mandatoryCompleted = ['module1', 'module2', 'module3', 'module4'].every(m => mergedProgress[m]);
-    const isReadyForModule5 = mandatoryCompleted;
+    const mandatoryModules = modules.filter(m => !m.isElective);
+    const mandatoryCompleted = mandatoryModules.every(m => mergedProgress[m.id]);
+    
+    const isReadyForElective = mandatoryCompleted;
     const isAllDone = mandatoryCompleted;
 
     const baptismCheck = user.integrationStatus === 'novo_convertido' ? user.batizado === 'sim' : true;
@@ -106,26 +157,25 @@ export function MemberCourseProgress({ user }: { user: any }) {
                 <div className="grid grid-cols-1 sm:grid-cols-5 gap-4 mt-4">
                     {modules.map((mod, idx) => {
                         const isCompleted = mergedProgress[mod.id];
-                        const isLocked = mod.id === 'module5' && !isReadyForModule5;
-                        const isElective = mod.id === 'module5';
+                        const isLocked = mod.isElective && !isReadyForElective;
                         
                         return (
                             <div key={mod.id} className={cn(
                                 "flex flex-col items-center text-center p-3 rounded-xl border-2 transition-all relative",
                                 isCompleted ? "bg-emerald-50 border-emerald-500 shadow-sm" : 
                                 isLocked ? "bg-slate-100 border-slate-200 opacity-60" : "bg-white border-slate-200",
-                                isElective && !isCompleted && "border-dashed"
+                                mod.isElective && !isCompleted && "border-dashed"
                             )}>
                                 <div className={cn(
                                     "size-10 rounded-full flex items-center justify-center mb-2",
                                     isCompleted ? "bg-emerald-500 text-white" : 
                                     isLocked ? "bg-slate-300 text-slate-500" : 
-                                    isElective ? "bg-amber-50 text-amber-500 border border-amber-200" : "bg-slate-100 text-slate-400"
+                                    mod.isElective ? "bg-amber-50 text-amber-500 border border-amber-200" : "bg-slate-100 text-slate-400"
                                 )}>
                                     {isCompleted ? <CheckCircle2 className="size-6" /> : 
                                      isLocked ? <Lock className="size-5" /> : <Circle className="size-6" />}
                                 </div>
-                                <p className="text-[10px] font-black uppercase leading-tight mb-1">{mod.label}</p>
+                                <p className="text-[10px] font-black uppercase leading-tight mb-1 px-1 line-clamp-2">{mod.label}</p>
                                 <p className="text-[9px] text-muted-foreground">{mod.description}</p>
                                 {idx < modules.length - 1 && (
                                     <div className="hidden sm:block absolute -right-4 top-1/2 -translate-y-1/2 z-10"><ArrowRight size={12} className="text-slate-300" /></div>

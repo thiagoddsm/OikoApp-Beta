@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -27,14 +26,6 @@ const weekDayMap: Record<string, number> = {
     "Domingo": 0, "Segunda-feira": 1, "Terça-feira": 2, "Quarta-feira": 3,
     "Quinta-feira": 4, "Sexta-feira": 5, "Sábado": 6
 };
-
-const moduleNames = [
-    "História e Visão",
-    "DNA e Células",
-    "Mordomia e Finanças",
-    "Governança e Ética",
-    "Comissionamento"
-];
 
 function PedagogicalLogPageContent() {
     const params = useParams();
@@ -69,6 +60,25 @@ function PedagogicalLogPageContent() {
     const classData = useMemo(() => classes.find(c => c.id === classId), [classes, classId]);
     const courseData = useMemo(() => classData ? courses.find(c => c.id === classData.courseId) : null, [classData, courses]);
     
+    // Dynamic Module Names based on Course Syllabus
+    const moduleNames = useMemo(() => {
+        if (!courseData) return [];
+        if (courseData.syllabus && courseData.syllabus.length > 0) {
+            return courseData.syllabus.map(s => s.title);
+        }
+        // Fallback for member course if no syllabus is defined
+        if (courseData.name?.toLowerCase().includes('membro') || courseData.name?.toLowerCase().includes('pertencer')) {
+             return [
+                "História e Visão",
+                "DNA e Células",
+                "Mordomia e Finanças",
+                "Governança e Ética",
+                "Comissionamento"
+            ];
+        }
+        return [];
+    }, [courseData]);
+
     const classOccurrences = useMemo(() => {
         if (!classData || !classData.startDate) return [];
         const occurrences: string[] = [];
@@ -129,12 +139,15 @@ function PedagogicalLogPageContent() {
                 setObservations(log.observations);
                 setPerformance(log.student_performance);
             } else {
-                setContentTaught(currentModuleIndex !== -1 ? `Aula ${currentModuleIndex + 1}: ${moduleNames[currentModuleIndex] || 'Conteúdo'}` : '');
+                const defaultContent = currentModuleIndex !== -1 && moduleNames[currentModuleIndex] 
+                    ? `Aula ${currentModuleIndex + 1}: ${moduleNames[currentModuleIndex]}` 
+                    : (currentModuleIndex !== -1 ? `Aula ${currentModuleIndex + 1}` : '');
+                setContentTaught(defaultContent);
                 setObservations('');
                 setPerformance(3);
             }
         }
-    }, [selectedDate, classData, pedagogicalLogs, classId, currentModuleIndex]);
+    }, [selectedDate, classData, pedagogicalLogs, classId, currentModuleIndex, moduleNames]);
 
     const isMemberCourse = courseData?.name?.toLowerCase().includes('membro') || courseData?.name?.toLowerCase().includes('pertencer');
     
@@ -216,18 +229,19 @@ function PedagogicalLogPageContent() {
                 <div className="flex items-center gap-4 bg-white p-2 rounded-xl border shadow-sm w-full md:w-auto">
                     <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Sessão do Ciclo:</Label>
                     <Select value={selectedDate} onValueChange={setSelectedDate}>
-                        <SelectTrigger className="w-[220px] h-9 font-bold">
+                        <SelectTrigger className="w-[280px] h-9 font-bold">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                             {classOccurrences.map((date, idx) => {
                                 const attendance = classData.attendance?.find(a => a.date === date);
                                 const hasAttendance = attendance && (attendance.presentStudentIds.length > 0);
+                                const moduleName = moduleNames[idx] ? `- ${moduleNames[idx]}` : '';
                                 return (
                                     <SelectItem key={date} value={date}>
                                         <div className="flex items-center justify-between w-full gap-2">
-                                            <span className="font-bold">Aula {idx+1}: {format(parseISO(date), 'dd/MM/yyyy')}</span>
-                                            {hasAttendance && <CheckCircle2 className="size-3 text-emerald-500" />}
+                                            <span className="font-bold truncate">Aula {idx+1} {moduleName}</span>
+                                            {hasAttendance && <CheckCircle2 className="size-3 text-emerald-500 shrink-0" />}
                                         </div>
                                     </SelectItem>
                                 )
@@ -247,7 +261,7 @@ function PedagogicalLogPageContent() {
                                     Chamada: {classData.name}
                                 </CardTitle>
                                 <CardDescription>
-                                    {currentModuleIndex !== -1 ? `Módulo ${currentModuleIndex + 1}: ${moduleNames[currentModuleIndex]}` : 'Sessão Avulsa'}
+                                    {currentModuleIndex !== -1 && moduleNames[currentModuleIndex] ? `Módulo ${currentModuleIndex + 1}: ${moduleNames[currentModuleIndex]}` : 'Sessão Avulsa'}
                                 </CardDescription>
                             </div>
                             
@@ -332,9 +346,12 @@ function PedagogicalLogPageContent() {
                             </ScrollArea>
 
                             <div className="space-y-4 pt-4 border-t">
-                                <Label className="text-[10px] uppercase font-black">Observações da Aula</Label>
+                                <Label className="text-[10px] uppercase font-black">Conteúdo Ministrado (Automático pela Ementa)</Label>
+                                <Textarea value={contentTaught} onChange={e => setContentTaught(e.target.value)} className="h-10 text-xs text-muted-foreground bg-muted/50" />
+                                
+                                <Label className="text-[10px] uppercase font-black mt-2 block">Observações da Aula</Label>
                                 <Textarea value={observations} onChange={e => setObservations(e.target.value)} placeholder="Ex: Aula de reposição para o João..." className="h-20" />
-                                <Button onClick={handleSaveLog} disabled={isSaving} className="w-full h-12 font-black shadow-lg">
+                                <Button onClick={handleSaveLog} disabled={isSaving} className="w-full h-12 font-black shadow-lg mt-2">
                                     {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" />}
                                     Finalizar Registro de Chamada
                                 </Button>
@@ -355,21 +372,22 @@ function PedagogicalLogPageContent() {
                                 {classOccurrences.map((date, idx) => {
                                     const attendance = classData.attendance?.find(a => a.date === date);
                                     const isSelected = selectedDate === date;
+                                    const mName = moduleNames[idx] || '';
                                     return (
                                         <button key={date} onClick={() => setSelectedDate(date)} className={cn(
                                             "w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between group",
                                             isSelected ? "border-primary bg-primary/5 ring-2 ring-primary/20 shadow-sm" : "bg-card hover:bg-muted/50"
                                         )}>
-                                            <div className="min-w-0">
-                                                <p className="text-xs font-black uppercase text-muted-foreground opacity-60">Aula {idx + 1}</p>
+                                            <div className="min-w-0 pr-2">
+                                                <p className="text-xs font-black uppercase text-muted-foreground opacity-80 truncate">Aula {idx + 1} {mName ? `- ${mName}` : ''}</p>
                                                 <p className="text-sm font-bold">{format(parseISO(date), 'dd/MM/yyyy')}</p>
                                             </div>
                                             {attendance ? (
-                                                <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 text-[10px] h-5 font-black">
-                                                    {attendance.presentStudentIds.length} PRESENTES
+                                                <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 text-[10px] h-5 font-black shrink-0">
+                                                    {attendance.presentStudentIds.length} PRS.
                                                 </Badge>
                                             ) : (
-                                                <Badge variant="outline" className="text-[10px] h-5 opacity-40 font-black">PENDENTE</Badge>
+                                                <Badge variant="outline" className="text-[10px] h-5 opacity-40 font-black shrink-0">PEND.</Badge>
                                             )}
                                         </button>
                                     )
