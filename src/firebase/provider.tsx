@@ -10,6 +10,7 @@ interface FirebaseProviderProps {
   children: ReactNode;
   firebaseApp: FirebaseApp;
   firestore: Firestore;
+  storage: any;
   auth: Auth;
 }
 
@@ -25,6 +26,8 @@ export interface FirebaseContextState {
   areServicesAvailable: boolean; // True if core services (app, firestore, auth instance) are provided
   firebaseApp: FirebaseApp | null;
   firestore: Firestore | null;
+  storage: any | null;
+  storage: any | null;
   auth: Auth | null; // The Auth service instance
   // User authentication state
   user: User | null;
@@ -36,6 +39,7 @@ export interface FirebaseContextState {
 export interface FirebaseServicesAndUser {
   firebaseApp: FirebaseApp;
   firestore: Firestore;
+  storage: any;
   auth: Auth;
   user: User | null;
   isUserLoading: boolean;

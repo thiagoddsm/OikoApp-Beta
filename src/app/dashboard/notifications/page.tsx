@@ -16,7 +16,7 @@ import {
     Loader2, Send, Settings, Key, History, MessageSquare, 
     Users, CheckCircle2, Search, UserPlus, X, Info, RefreshCw, 
     Smartphone, MessageCircle, Trash2, CheckCircle, 
-    Copy, Globe, HeartHandshake, CalendarDays, MousePointer2
+    Copy, Globe, HeartHandshake, CalendarDays, MousePointer2, QrCode
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useCollection, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
@@ -25,11 +25,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
-const QUICK_TEMPLATES = [
-    { id: 'welcome', label: 'Boas-vindas', text: 'Olá {{nome}}, seja muito bem-vindo à Igreja Batista da Manhã! É um prazer ter você conosco.', icon: UserPlus },
-    { id: 'gc_invite', label: 'Convite GC', text: 'Olá {{nome}}! Gostaria de te convidar para o nosso GC que acontece esta semana. Vamos adorar te receber!', icon: HeartHandshake },
-    { id: 'event', label: 'Evento', text: 'Olá {{nome}}, passando para lembrar do nosso evento que acontecerá em breve. Não perca!', icon: CalendarDays },
-];
+// ... (WhatsAppChats, WhatsappSender, WhatsappResponses permanecem os mesmos)
 
 function WhatsappChats() {
     const { firestore } = useFirebase();
@@ -257,7 +253,7 @@ function WhatsappSender() {
                 setMessage('');
                 setSelectedUserIds([]);
             } else {
-                toast({ variant: 'destructive', title: "Falha no Envio", description: result.error });
+                toast({ variant: 'destructive', title: "Falha no Envio", description: result.error || 'Erro ao enviar.' });
             }
         } catch(error) {
              toast({ variant: 'destructive', title: "Erro crítico", description: "Falha na conexão." });
@@ -467,6 +463,53 @@ function WhatsappResponses() {
     );
 }
 
+function NotificationsHistory() {
+    const { firestore } = useFirebase();
+    const historyQuery = useMemoFirebase(() => 
+        firestore ? query(collection(firestore, 'notifications_history'), orderBy('sentAt', 'desc'), limit(50)) : null,
+    [firestore]);
+    
+    const { data: history, isLoading } = useCollection<any>(historyQuery);
+
+    if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
+
+    return (
+        <div className="rounded-xl border-2 bg-card overflow-hidden shadow-sm text-slate-900">
+            <Table>
+                <TableHeader className="bg-muted/50">
+                    <TableRow>
+                        <TableHead>Data</TableHead>
+                        <TableHead>Conteúdo</TableHead>
+                        <TableHead>Sucesso</TableHead>
+                        <TableHead className="text-right">Status</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {history?.length === 0 ? (
+                        <TableRow><TableCell colSpan={4} className="h-32 text-center text-muted-foreground italic text-xs">Nenhum disparo registrado.</TableCell></TableRow>
+                    ) : (
+                        history?.map((item: any) => (
+                            <TableRow key={item.id}>
+                                <TableCell className="text-[10px] font-bold">
+                                    {item.sentAt ? format(item.sentAt.toDate(), 'dd/MM HH:mm') : '-'}
+                                </TableCell>
+                                <TableCell className="max-w-md truncate text-xs font-medium">
+                                    <Badge variant="outline" className="text-[8px] uppercase p-0.5 mr-2 border-none bg-muted/50">{item.type || 'text'}</Badge>
+                                    {item.message}
+                                </TableCell>
+                                <TableCell className="text-xs font-black">{item.successCount} / {item.recipientCount}</TableCell>
+                                <TableCell className="text-right">
+                                    <Badge variant="outline" className={cn("text-[10px] font-black uppercase border-none", item.status === 'success' ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800")}>{item.status}</Badge>
+                                </TableCell>
+                            </TableRow>
+                        ))
+                    )}
+                </TableBody>
+            </Table>
+        </div>
+    );
+}
+
 function NotificationsConfig() {
     const { firestore } = useFirebase();
     const { toast } = useToast();
@@ -493,7 +536,6 @@ function NotificationsConfig() {
             const res = await fetch('/api/notifications/instance', { cache: 'no-store' });
             const data = await res.json();
             
-            // Tratamento explícito para erros da API do us.api-wa.me
             if (data.status === 'error' || data.error) {
                  setInstanceStatus({ status: 'offline', message: data.message || data.error || 'Erro na API' });
                  toast({ variant: 'destructive', title: 'Erro de Conexão', description: data.message || 'Verifique sua API Key.' });
@@ -506,6 +548,27 @@ function NotificationsConfig() {
         } finally { 
             setIsRefreshing(false); 
         }
+    };
+
+    const handleConnect = async () => {
+        if (!waKey) return;
+        setIsRefreshing(true);
+        try {
+            const res = await fetch('/api/notifications/instance', { 
+                method: 'POST',
+                cache: 'no-store' 
+            });
+            const data = await res.json();
+            
+            if (data.status === 'error' || data.error) {
+                toast({ variant: 'destructive', title: "Erro na API", description: data.message || data.error });
+            } else {
+                setInstanceStatus(data);
+                toast({ title: "Comando Enviado", description: "O servidor está gerando a sessão." });
+            }
+        } catch (e) {
+            toast({ variant: 'destructive', title: "Erro ao conectar" });
+        } finally { setIsRefreshing(false); }
     };
 
     const handleSaveKey = async () => {
@@ -556,80 +619,47 @@ function NotificationsConfig() {
                     </CardContent>
                 </Card>
 
-                <Card className={cn("shadow-lg border-2", instanceStatus?.status === 'connected' ? "border-emerald-200" : "border-amber-200")}>
+                <Card className={cn("shadow-lg border-2", instanceStatus?.parsedStatus === 'connected' ? "border-emerald-200" : "border-amber-200")}>
                     <CardHeader className="border-b bg-white/50">
                         <CardTitle className="text-sm font-black uppercase flex items-center gap-2">Status do Gateway</CardTitle>
                     </CardHeader>
                     <CardContent className="pt-8 flex flex-col items-center justify-center text-center min-h-[250px]">
                         {isRefreshing ? <Loader2 className="animate-spin size-8 text-primary opacity-40" /> : 
-                         instanceStatus?.status === 'connected' ? (
+                         instanceStatus?.parsedStatus === 'connected' ? (
                             <div className="space-y-4">
                                 <div className="size-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner"><CheckCircle size={32} /></div>
                                 <h4 className="font-black text-emerald-900 uppercase">Gateway Ativo</h4>
                                 <Button size="sm" variant="ghost" onClick={checkStatus} className="mt-4 text-[10px] font-black uppercase tracking-widest"><RefreshCw className="size-3 mr-2" /> Atualizar</Button>
                             </div>
+                        ) : instanceStatus?.parsedStatus === 'pairing' && instanceStatus?.qr ? (
+                            <div className="space-y-4">
+                                <div className="bg-white p-2 border rounded-xl shadow-sm inline-block">
+                                    {/* Exibe a imagem base64 diretamente */}
+                                    <img src={instanceStatus.qr.startsWith('data:image') ? instanceStatus.qr : `data:image/png;base64,${instanceStatus.qr}`} alt="QR Code" className="w-48 h-48" />
+                                </div>
+                                <p className="text-xs font-bold text-amber-600 uppercase">Leia o QR Code no WhatsApp</p>
+                                <Button size="sm" variant="outline" onClick={checkStatus} className="text-[10px] font-black uppercase tracking-widest w-full"><RefreshCw className="size-3 mr-2" /> Atualizar Status</Button>
+                            </div>
                         ) : (
-                            <div className="space-y-4 opacity-50 text-center">
+                            <div className="space-y-4 opacity-70 text-center">
                                 <Smartphone size={48} className="mx-auto" />
-                                <p className="text-xs font-bold uppercase tracking-widest">Aguardando Conexão</p>
+                                <p className="text-xs font-bold uppercase tracking-widest">Desconectado</p>
                                 {instanceStatus?.message && (
                                     <p className="text-[10px] text-destructive font-medium bg-red-50 p-2 rounded-md border border-red-100 mx-4">
                                         {instanceStatus.message}
                                     </p>
                                 )}
-                                <Button size="sm" variant="ghost" onClick={checkStatus} className="text-[10px] font-black uppercase tracking-widest"><RefreshCw className="size-3 mr-2" /> Verificar</Button>
+                                <div className="flex gap-2 justify-center">
+                                    <Button size="sm" variant="outline" onClick={handleConnect} className="text-[10px] font-black uppercase tracking-widest">
+                                        <QrCode className="size-3 mr-2" /> Gerar QR Code
+                                    </Button>
+                                    <Button size="sm" variant="ghost" onClick={checkStatus} className="text-[10px] font-black uppercase tracking-widest"><RefreshCw className="size-3" /></Button>
+                                </div>
                             </div>
                         )}
                     </CardContent>
                 </Card>
             </div>
-        </div>
-    );
-}
-
-function NotificationsHistory() {
-    const { firestore } = useFirebase();
-    const historyQuery = useMemoFirebase(() => 
-        firestore ? query(collection(firestore, 'notifications_history'), orderBy('sentAt', 'desc'), limit(50)) : null,
-    [firestore]);
-    
-    const { data: history, isLoading } = useCollection<any>(historyQuery);
-
-    if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
-
-    return (
-        <div className="rounded-xl border-2 bg-card overflow-hidden shadow-sm text-slate-900">
-            <Table>
-                <TableHeader className="bg-muted/50">
-                    <TableRow>
-                        <TableHead>Data</TableHead>
-                        <TableHead>Conteúdo</TableHead>
-                        <TableHead>Sucesso</TableHead>
-                        <TableHead className="text-right">Status</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {history?.length === 0 ? (
-                        <TableRow><TableCell colSpan={4} className="h-32 text-center text-muted-foreground italic text-xs">Nenhum disparo registrado.</TableCell></TableRow>
-                    ) : (
-                        history?.map((item: any) => (
-                            <TableRow key={item.id}>
-                                <TableCell className="text-[10px] font-bold">
-                                    {item.sentAt ? format(item.sentAt.toDate(), 'dd/MM HH:mm') : '-'}
-                                </TableCell>
-                                <TableCell className="max-w-md truncate text-xs font-medium">
-                                    <Badge variant="outline" className="text-[8px] uppercase p-0.5 mr-2 border-none bg-muted/50">{item.type || 'text'}</Badge>
-                                    {item.message}
-                                </TableCell>
-                                <TableCell className="text-xs font-black">{item.successCount} / {item.recipientCount}</TableCell>
-                                <TableCell className="text-right">
-                                    <Badge variant="outline" className={cn("text-[10px] font-black uppercase border-none", item.status === 'success' ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800")}>{item.status}</Badge>
-                                </TableCell>
-                            </TableRow>
-                        ))
-                    )}
-                </TableBody>
-            </Table>
         </div>
     );
 }

@@ -1,11 +1,6 @@
-
 import { NextResponse } from 'next/server';
 import { initializeFirebase } from '@/firebase';
-import { collection, addDoc, Timestamp, doc, setDoc, getDoc, query, where, getDocs } from 'firebase/firestore';
-
-/**
- * API Route to send WhatsApp messages aligned with api-wa.me standard
- */
+import { collection, addDoc, Timestamp, doc, getDoc, getDocs } from 'firebase/firestore';
 
 const getMimetype = (url: string) => {
     const ext = url.split('.').pop()?.toLowerCase();
@@ -25,52 +20,40 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const { 
-        channel, 
-        audience, 
-        message, 
-        userIds, 
-        targetNumber, 
-        type, 
-        buttons, 
-        footer, 
-        surveyName,
-        options,
-        mediaUrl,
-        headerTitle
+        channel, audience, message, userIds, targetNumber, 
+        type, buttons, footer, surveyName, options, mediaUrl, headerTitle
     } = body;
 
     const { firestore } = initializeFirebase();
+    
+    // Buscar chave da API com log de erro detalhado
     const configRef = doc(firestore, 'config', 'notifications');
     const configSnap = await getDoc(configRef);
-    const waKey = configSnap.exists() ? configSnap.data()?.whatsappApiKey : null;
-
+    
+    if (!configSnap.exists()) {
+        return NextResponse.json({ error: "Configuração não encontrada no Firestore" }, { status: 404 });
+    }
+    
+    const waKey = configSnap.data()?.whatsappApiKey;
     if (!waKey && channel === 'whatsapp') {
-        return NextResponse.json({ error: "Gateway não configurado. Vá em Configurações e insira sua API Key." }, { status: 400 });
+        return NextResponse.json({ error: "Gateway não configurado." }, { status: 400 });
     }
 
+    // Buscar usuários
     const targetUsers: any[] = [];
-
     if (targetNumber) {
-        const phoneDigits = targetNumber.replace(/\D/g, '');
-        targetUsers.push({ id: 'custom', name: 'Destinatário', phone: phoneDigits });
+        targetUsers.push({ id: 'custom', name: 'Destinatário', phone: targetNumber.replace(/\D/g, '') });
     } else if (audience === 'specific_members' && userIds) {
-        const usersRef = collection(firestore, 'users');
-        const chunks = [];
-        for (let i = 0; i < userIds.length; i += 30) {
-            chunks.push(userIds.slice(i, i + 30));
-        }
-        for (const chunk of chunks) {
-            const q = query(usersRef, where('__name__', 'in', chunk));
-            const snap = await getDocs(q);
-            snap.forEach(d => {
-                const data = d.data();
-                if (data.phone) targetUsers.push({ id: d.id, name: data.name, phone: data.phone });
-            });
+        for (const uid of userIds) {
+            const userSnap = await getDoc(doc(firestore, 'users', uid));
+            if (userSnap.exists()) {
+                const data = userSnap.data();
+                if (data.phone) targetUsers.push({ id: uid, name: data.name, phone: data.phone });
+            }
         }
     } else {
-        const usersRef = collection(firestore, 'users');
-        const snap = await getDocs(query(usersRef));
-        snap.forEach(d => {
+        const usersSnap = await getDocs(collection(firestore, 'users'));
+        usersSnap.forEach(d => {
             const data = d.data();
             if (data.phone) targetUsers.push({ id: d.id, name: data.name, phone: data.phone });
         });
@@ -78,7 +61,7 @@ export async function POST(request: Request) {
 
     let sentCount = 0;
     let errorCount = 0;
-    let lastError = '';
+    const errors: string[] = [];
 
     for (const user of targetUsers) {
         const phoneDigits = user.phone.replace(/\D/g, '');
@@ -86,112 +69,82 @@ export async function POST(request: Request) {
         
         let endpoint = 'message/text';
         let payload: any = { to: formattedPhone };
-
         const personalizedBody = (message || '').replace('{{nome}}', user.name);
 
         switch (type) {
             case 'button':
                 endpoint = 'message/button_reply';
-                payload = {
-                    to: formattedPhone,
-                    header: {
-                        title: headerTitle || 'Informativo IBM',
-                        hasMediaAttachment: false
-                    },
-                    text: personalizedBody,
-                    footer: footer || 'Igreja Batista da Manhã',
-                    buttons: (buttons || []).map((b: any) => ({
-                        type: 'quick_reply',
-                        id: b.id,
-                        text: b.text
-                    }))
+                payload = { 
+                    to: formattedPhone, 
+                    header: { title: headerTitle || 'Informativo IBM', hasMediaAttachment: false }, 
+                    text: personalizedBody, 
+                    footer: footer || 'Igreja Batista da Manhã', 
+                    buttons: (buttons || []).map((b: any) => ({ type: 'quick_reply', id: b.id, text: b.text })) 
                 };
                 break;
             case 'survey':
                 endpoint = 'message/survey';
-                payload = {
-                    to: formattedPhone,
-                    name: (surveyName || 'Enquete IBM').replace('{{nome}}', user.name),
-                    options: options || []
-                };
+                payload = { to: formattedPhone, name: (surveyName || 'Enquete IBM').replace('{{nome}}', user.name), options: options || [] };
                 break;
             case 'media':
                 if (!mediaUrl) break;
                 const mime = getMimetype(mediaUrl);
-                const isImage = mime.startsWith('image/');
-                const isVideo = mime.startsWith('video/');
-                endpoint = isImage ? 'message/image' : isVideo ? 'message/video' : 'message/document';
-                payload = {
-                    to: formattedPhone,
-                    url: mediaUrl,
-                    caption: personalizedBody,
-                    mimetype: mime,
-                    fileName: 'arquivo'
-                };
+                endpoint = mime.startsWith('image/') ? 'message/image' : mime.startsWith('video/') ? 'message/video' : 'message/document';
+                payload = { to: formattedPhone, url: mediaUrl, caption: personalizedBody, mimetype: mime, fileName: 'arquivo' };
                 break;
             default:
-                endpoint = 'message/text';
-                payload = {
-                    to: formattedPhone,
-                    text: personalizedBody
-                };
+                payload = { to: formattedPhone, text: personalizedBody };
         }
 
         try {
             const response = await fetch(`https://us.api-wa.me/${waKey}/${endpoint}`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'OikoApp-IBM-Server'
+                },
                 body: JSON.stringify(payload)
             });
             
             if (response.ok) {
                 sentCount++;
-                const displayContent = type === 'survey' ? `[ENQUETE] ${surveyName}` : (type === 'button' ? payload.text : (personalizedBody || 'Mídia'));
-
+                const displayContent = type === 'survey' ? `[ENQUETE] ${surveyName}` : (type === 'button' ? personalizedBody : (personalizedBody || 'Mídia'));
+                
                 await addDoc(collection(firestore, 'notifications_messages'), {
-                    from: phoneDigits,
-                    fromMe: true,
-                    userId: user.id,
-                    userName: user.name,
-                    content: displayContent,
-                    type: type || 'text',
-                    receivedAt: Timestamp.now()
+                    from: phoneDigits, fromMe: true, userId: user.id, userName: user.name,
+                    content: displayContent, type: type || 'text', receivedAt: Timestamp.now()
                 });
-
                 await setDoc(doc(firestore, 'notifications_chats', phoneDigits), {
-                    lastMessage: displayContent,
-                    lastMessageAt: Timestamp.now(),
-                    unreadCount: 0,
-                    userName: user.name,
-                    userId: user.id,
-                    phoneNumber: phoneDigits,
-                    isGroup: false
+                    lastMessage: displayContent, lastMessageAt: Timestamp.now(), unreadCount: 0,
+                    userName: user.name, userId: user.id, phoneNumber: phoneDigits, isGroup: false
                 }, { merge: true });
             } else {
-                const responseData = await response.json().catch(() => ({}));
-                lastError = responseData.message || `Erro HTTP ${response.status}`;
+                const err = await response.text();
+                console.error(`Erro API WhatsApp para ${user.phone}: ${err}`);
                 errorCount++;
+                errors.push(`Falha no envio para ${user.name}: ${err}`);
             }
-        } catch (e: any) {
-            lastError = e.message;
+        } catch (e: any) { 
+            console.error("Erro de rede ao enviar para WhatsApp:", e);
             errorCount++;
+            errors.push(`Erro de rede para ${user.name}: ${e.message}`);
         }
     }
 
     if (targetUsers.length > 0) {
         await addDoc(collection(firestore, 'notifications_history'), {
-            channel,
-            type: type || 'text',
+            channel, type: type || 'text',
             message: type === 'survey' ? `[ENQUETE] ${surveyName}` : (message || 'Mídia'),
-            recipientCount: targetUsers.length,
-            successCount: sentCount,
+            recipientCount: targetUsers.length, successCount: sentCount,
             status: errorCount === 0 ? 'success' : (sentCount > 0 ? 'partial' : 'failed'),
+            errors: errors.slice(0, 5),
             sentAt: Timestamp.now()
         });
     }
 
-    return NextResponse.json({ success: true, sentCount });
+    return NextResponse.json({ success: true, sentCount, errorCount, errors });
   } catch (error: any) {
+    console.error("API Route Critical Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

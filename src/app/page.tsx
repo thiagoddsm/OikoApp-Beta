@@ -21,6 +21,36 @@ import { cn } from '@/lib/utils';
 export default function LandingPage() {
   const heroImage = PlaceHolderImages.find(p => p.id === 'login-background');
 
+  const pilares = [
+    { 
+      icon: HeartHandshake, 
+      title: "Comunhão (GCs)", 
+      desc: "Nossas células são o coração da igreja. Pequenos grupos que se reúnem nas casas para cuidado mútuo e amizade.",
+      link: "/dashboard/gc/map",
+      linkText: "Ver Mapa de GCs",
+      color: "text-rose-500",
+      bg: "bg-rose-50"
+    },
+    { 
+      icon: GraduationCap, 
+      title: "Ensino (Teologia)", 
+      desc: "Do curso de membros à Escola de Líderes. Uma trilha de discipulado profunda para o seu crescimento.",
+      link: "/dashboard/teaching/theoflix",
+      linkText: "Conhecer TheoFlix",
+      color: "text-indigo-500",
+      bg: "bg-indigo-50"
+    },
+    { 
+      icon: Music, 
+      title: "Adoração & Artes", 
+      desc: "O ministério Wave e nossas celebrações dominicais focadas em uma adoração que toca o coração de Deus.",
+      link: "/dashboard/teaching/wave",
+      linkText: "Conhecer Escola Wave",
+      color: "text-amber-500",
+      bg: "bg-amber-50"
+    },
+  ];
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <PublicNavbar />
@@ -72,33 +102,14 @@ export default function LandingPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {[
-                { 
-                  icon: HeartHandshake, 
-                  title: "Comunhão (GCs)", 
-                  desc: "Nossas células são o coração da igreja. Pequenos grupos que se reúnem nas casas para cuidado mútuo e amizade.",
-                  link: "/dashboard/gc/map",
-                  linkText: "Ver Mapa de GCs"
-                },
-                { 
-                  icon: GraduationCap, 
-                  title: "Ensino (Teologia)", 
-                  desc: "Do curso de membros à Escola de Líderes. Uma trilha de discipulado profunda para o seu crescimento.",
-                  link: "/dashboard/teaching/theoflix",
-                  linkText: "Conhecer TheoFlix"
-                },
-                { 
-                  icon: Music, 
-                  title: "Adoração & Artes", 
-                  desc: "O ministério Wave e nossas celebrações dominicais focadas em uma adoração que toca o coração de Deus.",
-                  link: "/dashboard/teaching/wave",
-                  linkText: "Conhecer Escola Wave"
-                },
-              ].map((pilar, i) => (
-                <Card key={i} className="border-none shadow-xl hover:translate-y-[-10px] transition-transform duration-300 overflow-hidden group">
+              {pilares.map((pilar, i) => (
+                <Card key={i} className="border-none shadow-xl hover:translate-y-[-10px] transition-all duration-300 overflow-hidden group">
                   <CardContent className="p-8">
-                    <div className="size-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mb-6 group-hover:scale-110 transition-transform">
-                      <pilar.icon size={32} />
+                    <div className={cn(
+                        "size-16 rounded-2xl flex items-center justify-center mb-6 transition-all group-hover:scale-110 group-hover:rotate-3",
+                        pilar.bg, pilar.color
+                    )}>
+                      <pilar.icon size={32} strokeWidth={1.5} />
                     </div>
                     <h3 className="text-2xl font-bold mb-4">{pilar.title}</h3>
                     <p className="text-muted-foreground leading-relaxed mb-6">

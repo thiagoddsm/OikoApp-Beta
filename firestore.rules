@@ -3,9 +3,60 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Regras 100% Liberais para Fase de Testes (Desenvolvimento)
+    // Função para verificar se o usuário está autenticado
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Acesso público para cursos e classes (necessário para portal de inscrição)
+    match /courses/{document} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+    match /classes/{document} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    // Acesso público para gravação de formulários públicos (Inscrições e Orações)
+    match /enrollment_requests/{document} {
+      allow read: if isSignedIn();
+      allow write: if true;
+    }
+    match /prayer_requests/{document} {
+      allow read: if isSignedIn();
+      allow write: if true;
+    }
+
+    // Acesso de Leitura pública para coleções de configuração do servidor
+    // Isso é vital para a API do Next.js conseguir ler a chave do WhatsApp
+    match /config/{document} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+    
+    // Usuários requerem autenticação
+    match /users/{document} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Acesso para notificações
+    match /notifications_chats/{document} {
+      allow read, write: if isSignedIn();
+    }
+    match /notifications_messages/{document} {
+      allow read, write: if isSignedIn();
+    }
+    match /notifications_history/{document} {
+      allow read, write: if isSignedIn();
+    }
+    match /notifications_responses/{document} {
+      allow read, write: if isSignedIn();
+    }
+    
+    // Regra padrão para todo o resto (mantém o acesso autenticado por segurança)
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if isSignedIn();
     }
   }
 }
