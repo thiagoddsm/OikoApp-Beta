@@ -51,7 +51,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         { id: '1', authorId: 'admin', type: 'system', content: `Perfil criado na base de dados.`, createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
     ]);
 
-    // Modularized course status
+    // Integration Logic: Technical Validation from Course Context
     const myCoursesStatus = useMemo(() => {
         const studentClasses = classes.filter(cls => cls.students?.includes(memberId));
         const courseIds = Array.from(new Set(studentClasses.map(c => c.courseId)));
@@ -61,7 +61,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
             const courseClasses = classes.filter(c => c.courseId === courseId);
             const isMembership = course?.name.toLowerCase().includes('membro') || course?.name.toLowerCase().includes('pertencer');
             
-            // For modular courses, we count unique modules completed
+            // For modular courses, we count unique modules completed based on weekly attendance
             if (isMembership) {
                 const modulesCompleted = new Set();
                 courseClasses.forEach(cls => {
@@ -125,12 +125,13 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
 
         const currentStageId = memberData.integrationStatus || 'nao_alcancado';
         
-        // Regras Específicas
+        // Custom Rule: New Convert must have a recorded decision
         if (targetStageId === 'novo_convertido' && currentStageId === 'nao_alcancado') {
             const hasDecision = memberData.decisao?.includes('Decisão por Cristo') || memberData.initialStatus === 'novo_convertido';
             if (!hasDecision) return { valid: false, message: "Este membro precisa registrar uma 'Decisão por Cristo' antes de se tornar Novo Convertido." };
         }
 
+        // Custom Rule: Membership requires Pertencer course modules 1-4 and Baptism
         if (targetStageId === 'membro') {
             const progress = memberData.journey?.memberCourseProgress || {};
             const mandatoryModules = ['module1', 'module2', 'module3', 'module4'];
@@ -216,7 +217,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
     
     return (
       <div className="space-y-6">
-        {/* Validação Técnica (Cursos & Trilhos) */}
+        {/* Technical Validation: Education History */}
         <Card className="bg-emerald-50/50 border-emerald-200">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <div>
@@ -262,7 +263,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
             </CardContent>
         </Card>
 
-        {/* Validação Humana (Checklists e Aprovações) */}
+        {/* Human Validation: Discipleship Checklists and Human Approvals */}
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><UserCheck className="size-5 text-primary" /> Validação Humana & Discipulado</CardTitle>
@@ -271,7 +272,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
             <CardContent>
                  <Tabs defaultValue={currentStatusId || 'nao_alcancado'} className="w-full">
                     <div className="overflow-x-auto pb-2">
-                        <TabsList className="flex h-auto justify-start bg-muted/50 p-1 mb-6 min-w-max">
+                        <TabsList className="flex h-auto justify-start bg-muted/50 p-1 mb-6 min-w-max border">
                             {finalChecklists.map(checklist => (
                                 <TabsTrigger 
                                     key={checklist.id} 
@@ -324,7 +325,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                                         })
                                     ) : (
                                         <div className="p-8 border-2 border-dashed rounded-xl text-center text-muted-foreground text-sm">
-                                            Nenhum checklist configurado para esta fase. Configure em Pessoas &gt; Configurações.
+                                            Nenhum checklist configurado para esta fase.
                                         </div>
                                     )}
                                 </div>

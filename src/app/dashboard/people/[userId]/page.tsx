@@ -33,12 +33,12 @@ function PersonProfilePageContent() {
     const { users, cells, areas, redes, courses, isLoading: isContextLoading } = useVolunteering();
     const [isEditOpen, setIsEditOpen] = useState(false);
 
-    // Fetch person data
+    // Fetch person data in real-time
     const { data: person, isLoading: isPersonLoading } = useDoc<any>(userId ? `users/${userId}` : null);
 
     const isLoading = isPersonLoading || isContextLoading;
 
-    // Progress calculations
+    // Progress calculations for the Member Journey
     const journeyIndex = useMemo(() => {
         if (!person?.integrationStatus) return 0;
         const idx = journeyColumns.findIndex(col => col.id === person.integrationStatus);
@@ -53,7 +53,7 @@ function PersonProfilePageContent() {
         return journeyColumns[journeyIndex]?.title || 'Não definido';
     }, [journeyIndex]);
 
-    // Relational Data for KPI Cards
+    // Relational Data for KPI Cards - Integrating with GCs and Leadership Structure
     const userCell = useMemo(() => {
         if (!cells || !person?.hierarchy?.celulaId) return null;
         return cells.find(c => c.id === person.hierarchy.celulaId);
@@ -92,7 +92,7 @@ function PersonProfilePageContent() {
 
     return (
         <div className="space-y-6">
-            {/* Header Section */}
+            {/* Header Section: Identity and Journey Progress */}
             <Card className="border-none shadow-sm overflow-hidden bg-white">
                 <CardContent className="p-6">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-6">
@@ -133,7 +133,7 @@ function PersonProfilePageContent() {
                 </CardContent>
             </Card>
 
-            {/* KPI Cards Section */}
+            {/* KPI Cards Section: Institutional Alignment */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
                     { label: "Célula (GC)", value: userCell?.nome, desc: "Grupo Pequeno do membro.", icon: Users },
@@ -156,7 +156,7 @@ function PersonProfilePageContent() {
                 ))}
             </div>
 
-            {/* Main Tabs Section */}
+            {/* Main Tabs Section: Integrated Management */}
             <Card className="border-none shadow-sm">
                 <CardContent className="p-0">
                     <Tabs defaultValue="trilha" className="w-full">
