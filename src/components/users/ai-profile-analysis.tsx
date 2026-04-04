@@ -1,13 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useActionState } from 'react';
+import React, { useState, useEffect, useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, User, Bot, Loader2 } from 'lucide-react';
+import { Send, User, Bot, Loader2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getAIAnalysis, type AIState } from '@/app/dashboard/people/[userId]/actions';
 import { useToast } from '@/hooks/use-toast';
@@ -21,19 +20,18 @@ type Message = {
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" size="icon" disabled={pending}>
+    <Button type="submit" size="icon" disabled={pending} className="h-10 w-10 shadow-lg">
       {pending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
     </Button>
   );
 }
 
-
-export function AIProfileAnalysis({ userProfile }) {
+export function AIProfileAnalysis({ userProfile }: { userProfile: any }) {
   const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: `Olá! Sou seu assistente de IA. O que você gostaria de saber sobre o perfil de ${userProfile.name}?`,
+      text: `Olá! Sou seu assistente de inteligência ministerial. Como posso ajudar você a entender melhor o perfil e a jornada de ${userProfile.name}?`,
       sender: 'ai',
     },
   ]);
@@ -52,10 +50,9 @@ export function AIProfileAnalysis({ userProfile }) {
     };
     setMessages(prev => [...prev, userMessage]);
     
-    // Call the server action
+    // Dispara a action no servidor (Genkit)
     formAction(formData);
-
-    setInput(''); // Clear input after sending
+    setInput(''); 
   };
   
    useEffect(() => {
@@ -73,12 +70,19 @@ export function AIProfileAnalysis({ userProfile }) {
         description: state.error,
       });
     }
-  }, [state]);
-
+  }, [state, toast]);
 
   return (
-    <div className="flex flex-col h-[65vh] border rounded-lg">
-      <ScrollArea className="flex-1 p-4">
+    <div className="flex flex-col h-[65vh] border rounded-2xl overflow-hidden bg-white shadow-inner">
+      <div className="bg-primary/5 p-4 border-b flex items-center justify-between">
+        <div className="flex items-center gap-2">
+            <Sparkles className="size-4 text-primary animate-pulse" />
+            <span className="text-xs font-black uppercase tracking-widest text-primary">Análise Predict IBM</span>
+        </div>
+        <Badge variant="outline" className="text-[10px] font-bold bg-white">POWERED BY GENKIT</Badge>
+      </div>
+
+      <ScrollArea className="flex-1 p-6 bg-slate-50/30">
         <div className="space-y-6">
           {messages.map((message) => (
             <div
@@ -88,36 +92,44 @@ export function AIProfileAnalysis({ userProfile }) {
                 message.sender === 'user' ? 'flex-row-reverse' : 'flex-row'
               )}
             >
-              <Avatar className="h-8 w-8">
-                <AvatarFallback>
-                  {message.sender === 'user' ? <User /> : <Bot />}
-                </AvatarFallback>
+              <Avatar className={cn("h-9 w-9 border-2", message.sender === 'ai' ? "border-primary/20" : "border-white")}>
+                {message.sender === 'ai' ? (
+                    <AvatarFallback className="bg-primary text-white"><Bot className="size-5" /></AvatarFallback>
+                ) : (
+                    <AvatarFallback className="bg-slate-200 text-slate-600"><User className="size-5" /></AvatarFallback>
+                )}
               </Avatar>
               <div
                 className={cn(
-                  'max-w-xs md:max-w-md lg:max-w-lg p-3 rounded-lg',
+                  'max-w-[85%] md:max-w-[75%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm',
                   message.sender === 'user'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted'
+                    ? 'bg-primary text-primary-foreground rounded-tr-none'
+                    : 'bg-white text-slate-800 border rounded-tl-none'
                 )}
               >
-                <p className="text-sm whitespace-pre-wrap">{message.text}</p>
+                <p className="whitespace-pre-wrap">{message.text}</p>
               </div>
             </div>
           ))}
         </div>
       </ScrollArea>
-      <div className="p-4 border-t">
-        <form action={handleFormSubmit} className="flex items-center gap-2">
+
+      <div className="p-4 border-t bg-white">
+        <form action={handleFormSubmit} className="flex items-center gap-2 max-w-4xl mx-auto">
           <Input
             name="question"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Pergunte sobre este perfil..."
+            placeholder="Ex: Qual o melhor ministério para este perfil? ou Ele já concluiu a integração?"
+            className="flex-1 h-11 bg-slate-50 border-none focus-visible:ring-primary/20 font-medium"
+            autoComplete="off"
           />
            <input type="hidden" name="userId" value={userProfile.id} />
           <SubmitButton />
         </form>
+        <p className="text-[9px] text-center text-muted-foreground uppercase font-bold mt-2 tracking-tighter">
+            A IA pode cometer erros. Sempre valide as informações com o histórico oficial.
+        </p>
       </div>
     </div>
   );
