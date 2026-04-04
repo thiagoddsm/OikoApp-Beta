@@ -19,6 +19,7 @@ import {
   School,
   GraduationCap
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 import { CourseFormDialog } from './course-form-dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -112,14 +113,27 @@ export function CoursesManagement() {
     setDeletingCourse(null);
   }
 
-  const handleCopyEnrollmentLink = (courseId: string) => {
+  const handleCopyEnrollmentLink = async (courseId: string) => {
     const baseUrl = window.location.origin;
     const link = `${baseUrl}/public/enrollment?courseId=${courseId}`;
-    navigator.clipboard.writeText(link);
-    toast({
-        title: "Link Copiado!",
-        description: "Link direto para inscrição deste curso copiado com sucesso.",
-    });
+    try {
+      await navigator.clipboard.writeText(link);
+      toast({
+          title: "Link Copiado!",
+          description: "Link direto para inscrição deste curso copiado com sucesso.",
+      });
+    } catch (err) {
+      toast({
+        title: "Copie o Link Manualmente",
+        description: (
+          <div className="flex flex-col gap-2">
+            <p>Seu navegador bloqueou a cópia automática. Use o link abaixo:</p>
+            <Input value={link} readOnly className="bg-muted text-sm" />
+          </div>
+        ),
+        duration: 10000,
+      });
+    }
   };
 
   const getTrackInfo = (course: Course) => {

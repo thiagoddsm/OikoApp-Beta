@@ -2,20 +2,23 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useFirebase, addDocumentNonBlocking } from '@/firebase';
+import { addDocumentNonBlocking, FirebaseServices } from '@/firebase'; // Assuming FirebaseServices type is exported
 import { collection, Timestamp } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Send, CheckCircle, Wallet, DollarSign, Receipt, Info, HeartHandshake } from 'lucide-react';
+import { Loader2, Send, CheckCircle, Wallet, DollarSign, Receipt, Info, HeartHandshake, Paperclip } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/icons';
+import { useFirebase } from '@/firebase';
 
-export default function PublicFinanceRequestPage() {
-    const { firestore } = useFirebase();
+
+function PublicFinanceRequestForm({ firebase }: { firebase: FirebaseServices }) {
+    const { firestore, storage } = firebase;
     const { toast } = useToast();
     
     const [isSaving, setIsSaving] = useState(false);
@@ -34,6 +37,8 @@ export default function PublicFinanceRequestPage() {
         purchaseLink: '',
     });
 
+    const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+
     useEffect(() => {
         setFormData(prev => ({
             ...prev,
@@ -45,17 +50,32 @@ export default function PublicFinanceRequestPage() {
         e.preventDefault();
         if (!formData.requesterName || !formData.email || !formData.amount || !firestore) return;
         
+        if (attachmentFile && !storage) {
+            toast({ variant: 'destructive', title: "Erro de Configuração", description: "O serviço de armazenamento não está disponível." });
+            return;
+        }
+
         setIsSaving(true);
         try {
+            let attachmentUrl = '';
+            if (attachmentFile && storage) {
+                const filePath = `finance-attachments/${Date.now()}-${attachmentFile.name}`;
+                const fileRef = ref(storage, filePath);
+                await uploadBytes(fileRef, attachmentFile);
+                attachmentUrl = await getDownloadURL(fileRef);
+            }
+
             await addDocumentNonBlocking(collection(firestore, 'finance_requests'), {
                 ...formData,
                 amount: Number(formData.amount),
                 status: 'pending',
                 createdAt: Timestamp.now(),
+                attachmentUrl,
             });
             setSuccess(true);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (e) {
+            console.error(e);
             toast({ variant: 'destructive', title: "Erro ao enviar", description: "Ocorreu uma falha técnica. Tente novamente." });
         } finally {
             setIsSaving(false);
@@ -165,6 +185,12 @@ export default function PublicFinanceRequestPage() {
                                 </div>
                             </div>
 
+                            <div className="space-y-2">
+                                <Label className="text-[10px] uppercase font-black text-muted-foreground flex items-center gap-1.5"><Paperclip size={12}/> Anexar Comprovante / Nota Fiscal</Label>
+                                <Input type="file" onChange={(e) => setAttachmentFile(e.target.files ? e.target.files[0] : null)} className="pt-2 text-xs h-auto bg-white" />
+                                {attachmentFile && <p className="text-xs text-muted-foreground italic mt-1">Arquivo selecionado: {attachmentFile.name}</p>}
+                            </div>
+
                             <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex items-start gap-3">
                                 <Info className="size-5 text-amber-600 mt-0.5 shrink-0" />
                                 <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
@@ -185,4 +211,19 @@ export default function PublicFinanceRequestPage() {
             </div>
         </main>
     );
+}
+
+export default function PublicFinanceRequestPage() {
+    const firebase = useFirebase();
+
+    if (!firebase || !firebase.firestore || !firebase.storage) {
+        return (
+            <div className="flex h-screen w-full flex-col items-center justify-center bg-[#F8F9FA] space-y-4">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                <p className="text-muted-foreground text-sm font-medium">Carregando formulário...</p>
+            </div>
+        );
+    }
+
+    return <PublicFinanceRequestForm firebase={firebase} />;
 }

@@ -1,9 +1,10 @@
+
 'use client';
 import React, { useMemo } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Clock, Award, Loader2, Users, GraduationCap, ChevronRight, XCircle, Minus, Video, PlayCircle, Star, MonitorPlay } from 'lucide-react';
+import { CheckCircle2, Clock, Award, Loader2, Users, GraduationCap, ChevronRight, XCircle, Minus, Video, PlayCircle, Star } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -15,7 +16,6 @@ const weekDayMap: Record<string, number> = {
     "Quinta-feira": 4, "Sexta-feira": 5, "Sábado": 6
 };
 
-// Helper function to safely determine the module index of a date within a specific class
 function getModuleIndexForDate(dateStr: string, classData: any): number {
     if (!classData || !classData.startDate) return -1;
     
@@ -51,38 +51,62 @@ function getModuleIndexForDate(dateStr: string, classData: any): number {
     return allDates.indexOf(dateStr); 
 }
 
+const Legend = () => (
+    <div className="pt-4 mt-6 border-t">
+        <h4 className="text-xs font-bold uppercase text-muted-foreground mb-3">Legenda</h4>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+                <CheckCircle2 className="size-4 text-emerald-500" />
+                <span>Presença (Presencial)</span>
+            </div>
+            <div className="flex items-center gap-2">
+                <CheckCircle2 className="size-4 text-blue-500" />
+                <span>Presença (Online ao Vivo)</span>
+            </div>
+            <div className="flex items-center gap-2">
+                <CheckCircle2 className="size-4 text-indigo-500" />
+                <span>Concluído (Gravado)</span>
+            </div>
+            <div className="flex items-center gap-2">
+                <Video className="size-4 text-slate-500" />
+                <span>Módulo Híbrido</span>
+            </div>
+             <div className="flex items-center gap-2">
+                <Clock className="size-4 text-slate-300" />
+                <span>Pendente</span>
+            </div>
+        </div>
+    </div>
+);
 
 export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
     const { classes, users, courses, theoflixCourses, isLoading } = useVolunteering();
 
     const course = useMemo(() => courses.find(c => c.id === courseId), [courses, courseId]);
     const isMembership = course?.name?.toLowerCase().includes('membro') || course?.name?.toLowerCase().includes('pertencer') || course?.name?.toLowerCase().includes('integração');
+    const threshold = course?.minAttendanceApproval || 75;
 
     const courseClasses = useMemo(() => classes.filter(c => c.courseId === courseId), [classes, courseId]);
 
-    // Dynamic modules based on course syllabus or fallback
     const modules = useMemo(() => {
         if (course?.syllabus && course.syllabus.length > 0) {
             return course.syllabus.map((s, index) => ({
                 id: (index + 1).toString(),
                 title: s.title,
-                type: index === course.syllabus!.length - 1 && isMembership ? 'Eletivo' : 'Obrigatório', // Último módulo de membro é eletivo (comissionamento)
+                type: index === course.syllabus!.length - 1 && isMembership ? 'Eletivo' : 'Obrigatório',
                 week: (index + 1).toString(),
-                theoflixCourseId: s.theoflixCourseId // Pega o vinculo online
+                theoflixCourseId: s.theoflixCourseId
             }));
         }
-        
-        // Fallback para curso de membros se não houver ementa definida
         if (isMembership) {
             return [
-                { id: '1', title: 'História e Visão', type: 'Obrigatório', week: '1' },
-                { id: '2', title: 'DNA e Células', type: 'Obrigatório', week: '2' },
-                { id: '3', title: 'Mordomia e Finanças', type: 'Obrigatório', week: '3' },
-                { id: '4', title: 'Governança e Ética', type: 'Obrigatório', week: '4' },
-                { id: '5', title: 'Comissionamento', type: 'Eletivo', week: 'last' },
+                { id: '1', title: 'História e Visão', type: 'Obrigatório', week: '1', theoflixCourseId: 'historia-e-visao' },
+                { id: '2', title: 'DNA e Células', type: 'Obrigatório', week: '2', theoflixCourseId: 'dna-e-celulas' },
+                { id: '3', title: 'Mordomia e Finanças', type: 'Obrigatório', week: '3', theoflixCourseId: 'mordomia-e-financas' },
+                { id: '4', title: 'Governança e Ética', type: 'Obrigatório', week: '4', theoflixCourseId: 'governanca-e-etica' },
+                { id: '5', title: 'Comissionamento', type: 'Eletivo', week: 'last', theoflixCourseId: null },
             ];
         }
-
         return [];
     }, [course, isMembership]);
 
@@ -92,100 +116,29 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
         return users.filter(u => studentSet.has(u.id)).sort((a, b) => a.name.localeCompare(b.name));
     }, [users, courseClasses]);
 
-    const stats = useMemo(() => {
-        if (!isMembership) return null;
-        const counts = { ready: 0, finishing: 0, missing: 0 };
-        students.forEach(s => {
-            const progress = s.journey?.memberCourseProgress || {};
-            const theoflixProgress = s.journey?.theoflixProgress || {};
-            
-            let completedMandatoryCount = 0;
-            const mandatoryModules = modules.filter(m => m.type !== 'Eletivo');
-            
-            mandatoryModules.forEach(mod => {
-                const modKey = `module${mod.id}`;
-                const manualDone = progress[modKey];
-                const modIndex = parseInt(mod.id) - 1;
-                
-                // Busca em todas as turmas do curso se o aluno esteve presente
-                const isPresentInClass = courseClasses.some(c => 
-                    c.attendance?.some(att => {
-                        const dateIndexInClass = getModuleIndexForDate(att.date, c);
-                        return dateIndexInClass === modIndex && (att.presentStudentIds.includes(s.id) || att.onlineStudentIds?.includes(s.id));
-                    })
-                );
-
-                // Validação Híbrida: Checa se assistiu todos os vídeos no TheoFlix caso tenha vínculo
-                let isOnlineDone = false;
-                if (mod.theoflixCourseId) {
-                    const tfCourse = theoflixCourses.find(tf => tf.id === mod.theoflixCourseId);
-                    if (tfCourse && tfCourse.episodes && tfCourse.episodes.length > 0) {
-                        const userTfProgress = theoflixProgress[mod.theoflixCourseId] || {};
-                        // Conta quantos vídeos ele terminou
-                        const watchedCount = Object.keys(userTfProgress).filter(k => userTfProgress[k] === true).length;
-                        if (watchedCount >= tfCourse.episodes.length) {
-                            isOnlineDone = true;
-                        }
-                    }
-                }
-                
-                if (manualDone || isPresentInClass || isOnlineDone) completedMandatoryCount++;
-            });
-
-            if (completedMandatoryCount >= mandatoryModules.length) counts.ready++;
-            else counts.missing++;
-        });
-        return counts;
-    }, [students, isMembership, courseClasses, modules, theoflixCourses]);
-
     if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
     if (isMembership) {
         return (
             <div className="space-y-6">
-                {stats && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <Card className="bg-amber-50 border-amber-200 shadow-sm">
-                            <CardContent className="p-4 flex items-center gap-4">
-                                <div className="p-2 bg-amber-500 text-white rounded-lg shadow-inner"><GraduationCap size={20}/></div>
-                                <div>
-                                    <p className="text-[10px] font-black uppercase text-amber-700 tracking-wider">Aptos para Comissionamento</p>
-                                    <p className="text-2xl font-black text-amber-900 leading-none mt-1">{stats.ready}</p>
-                                </div>
-                            </CardContent>
-                        </Card>
-                        <Card className="bg-emerald-50 border-emerald-200 shadow-sm">
-                            <CardContent className="p-4 flex items-center gap-4">
-                                <div className="p-2 bg-emerald-500 text-white rounded-lg shadow-inner"><Award size={20}/></div>
-                                <div>
-                                    <p className="text-[10px] font-black uppercase text-emerald-700 tracking-wider">Membros em Jornada</p>
-                                    <p className="text-2xl font-black text-emerald-900 leading-none mt-1">{students.length}</p>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </div>
-                )}
-
                 <div className="rounded-xl border bg-background overflow-x-auto shadow-sm">
                     <Table>
                         <TableHeader className="bg-muted/50">
                             <TableRow>
                                 <TableHead className="min-w-[250px] sticky left-0 bg-white z-[2] border-r shadow-[2px_0_5px_rgba(0,0,0,0.05)]">Aluno (Membresia Modular)</TableHead>
-                                {modules.map((mod, index) => (
-                                    <TableHead key={mod.id} className="text-center min-w-[160px] py-4">
-                                        <div className="flex flex-col items-center gap-1">
+                                {modules.map((mod) => (
+                                    <TableHead key={mod.id} className="text-center min-w-[180px] py-4">
+                                        <div className="flex flex-col items-center gap-1.5">
                                             <span className={cn(
                                                 "text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter",
                                                 mod.type === 'Eletivo' ? "bg-amber-100 text-amber-700" : "bg-primary/10 text-primary"
                                             )}>
                                                 {mod.type === 'Eletivo' ? 'Eletivo' : `Módulo ${mod.id}`}
                                             </span>
-                                            <span className="font-bold text-slate-900 leading-none text-xs">{mod.title}</span>
-                                            {mod.theoflixCourseId && (
-                                                <span className="text-[8px] flex items-center gap-1 text-indigo-500 font-black uppercase mt-1 bg-indigo-50 px-1 rounded border border-indigo-100">
-                                                    <MonitorPlay size={10} /> Híbrido
-                                                </span>
-                                            )}
+                                            <span className="font-bold text-slate-900 leading-none text-xs flex items-center gap-1.5">
+                                                {mod.title}
+                                                {mod.theoflixCourseId && <Video size={14} className="text-slate-400" />}
+                                            </span>
                                         </div>
                                     </TableHead>
                                 ))}
@@ -197,72 +150,65 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                 const manualProgress = student.journey?.memberCourseProgress || {};
                                 const theoflixProgress = student.journey?.theoflixProgress || {};
                                 let completedCount = 0;
-                                const mandatoryTotal = modules.filter(m => m.type !== 'Eletivo').length;
+                                const mandatoryModules = modules.filter(m => m.type !== 'Eletivo');
+                                const mandatoryTotal = mandatoryModules.length;
 
                                 return (
                                     <TableRow key={student.id} className="hover:bg-muted/30 group">
                                         <TableCell className="sticky left-0 bg-white z-[1] font-medium border-r shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
                                             <div className="flex items-center gap-3">
-                                                <Avatar className="h-8 w-8">
-                                                    <AvatarFallback>{student.name.charAt(0)}</AvatarFallback>
-                                                </Avatar>
+                                                <Avatar className="h-8 w-8"><AvatarFallback>{student.name.charAt(0)}</AvatarFallback></Avatar>
                                                 <p className="truncate text-sm font-bold">{student.name}</p>
                                             </div>
                                         </TableCell>
                                         {modules.map(mod => {
-                                            const modKey = `module${mod.id}`;
-                                            const isManualDone = manualProgress[modKey];
                                             const modIndex = parseInt(mod.id) - 1;
 
-                                            // Presença Presencial
-                                            const isPresentInClass = courseClasses.some(c => 
-                                                c.attendance?.some(att => {
-                                                    const dateIndexInClass = getModuleIndexForDate(att.date, c);
-                                                    return dateIndexInClass === modIndex && (att.presentStudentIds.includes(student.id) || att.onlineStudentIds?.includes(student.id));
-                                                })
-                                            );
+                                            let attendanceRecord: any = null;
+                                            courseClasses.forEach(c => {
+                                                c.attendance?.forEach(att => {
+                                                    if (getModuleIndexForDate(att.date, c) === modIndex) {
+                                                        attendanceRecord = att;
+                                                    }
+                                                });
+                                            });
 
-                                            // Presença Online (TheoFlix)
-                                            let isOnlineDone = false;
+                                            const isInPerson = attendanceRecord?.presentStudentIds?.includes(student.id);
+                                            const isOnlineLive = attendanceRecord?.onlineStudentIds?.includes(student.id);
+
+                                            let isOnlineRecorded = false;
                                             if (mod.theoflixCourseId) {
                                                 const tfCourse = theoflixCourses.find(tf => tf.id === mod.theoflixCourseId);
-                                                if (tfCourse && tfCourse.episodes && tfCourse.episodes.length > 0) {
+                                                if (tfCourse?.episodes?.length > 0) {
                                                     const userTfProgress = theoflixProgress[mod.theoflixCourseId] || {};
-                                                    const watchedCount = Object.keys(userTfProgress).filter(k => userTfProgress[k] === true).length;
-                                                    if (watchedCount >= tfCourse.episodes.length) {
-                                                        isOnlineDone = true;
-                                                    }
+                                                    const watchedCount = Object.keys(userTfProgress).filter(k => userTfProgress[k]).length;
+                                                    if (watchedCount >= tfCourse.episodes.length) isOnlineRecorded = true;
                                                 }
                                             }
 
-                                            const isDone = isManualDone || isPresentInClass || isOnlineDone;
+                                            const isManualDone = manualProgress[`module${mod.id}`];
+                                            const isDone = isInPerson || isOnlineLive || isOnlineRecorded || isManualDone;
 
-                                            if (isDone && mod.type !== 'Eletivo') {
-                                                completedCount++;
-                                            }
+                                            if (isDone && mod.type !== 'Eletivo') completedCount++;
 
-                                            return (
-                                                <TableCell key={mod.id} className="text-center">
-                                                    {isDone ? (
-                                                        <div className="flex flex-col items-center justify-center">
-                                                            <CheckCircle2 className={cn(
-                                                                "size-5 mx-auto",
-                                                                isOnlineDone && !isPresentInClass && !isManualDone ? "text-indigo-500" : "text-emerald-500"
-                                                            )} />
-                                                            {isOnlineDone && !isPresentInClass && !isManualDone && (
-                                                                <span className="text-[8px] font-black text-indigo-500 uppercase mt-1">Via TheoFlix</span>
-                                                            )}
-                                                        </div>
-                                                    ) : (
-                                                        <Clock className="text-slate-200 size-5 mx-auto opacity-50" />
-                                                    )}
-                                                </TableCell>
-                                            );
+                                            let icon = <Clock className="text-slate-300 size-5 mx-auto" />;
+                                            if (isInPerson) icon = <CheckCircle2 className="size-5 mx-auto text-emerald-500" />;
+                                            else if (isOnlineLive) icon = <CheckCircle2 className="size-5 mx-auto text-blue-500" />;
+                                            else if (isOnlineRecorded) icon = <CheckCircle2 className="size-5 mx-auto text-indigo-500" />;
+                                            else if (isManualDone) icon = <CheckCircle2 className="size-5 mx-auto text-emerald-500" />;
+
+                                            return <TableCell key={mod.id} className="text-center">{icon}</TableCell>;
                                         })}
                                         <TableCell className="bg-primary/5 text-center">
-                                            <Badge variant={completedCount >= mandatoryTotal ? "default" : "outline"} className="text-[10px] uppercase font-black">
-                                                {completedCount >= mandatoryTotal ? "APTO" : `${completedCount}/${mandatoryTotal}`}
-                                            </Badge>
+                                            {(() => {
+                                                const percent = mandatoryTotal > 0 ? (completedCount / mandatoryTotal) * 100 : 0;
+                                                const isApproved = percent >= threshold;
+                                                return (
+                                                    <Badge variant={isApproved ? "default" : "outline"} className={cn("text-[10px] uppercase font-black", isApproved ? "bg-emerald-600" : "")}>
+                                                        {isApproved ? "APTO" : `${completedCount}/${mandatoryTotal}`}
+                                                    </Badge>
+                                                )
+                                            })()}
                                         </TableCell>
                                     </TableRow>
                                 );
@@ -270,6 +216,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                         </TableBody>
                     </Table>
                 </div>
+                <Legend />
             </div>
         );
     }
@@ -292,16 +239,15 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                             {allDates.map((date, index) => {
                                 const modDef = modules[index];
                                 return (
-                                    <TableHead key={date} className="text-center min-w-[160px] px-2 py-4">
-                                        <div className="flex flex-col items-center gap-1">
+                                    <TableHead key={date} className="text-center min-w-[180px] px-2 py-4">
+                                        <div className="flex flex-col items-center gap-1.5">
                                             <span className="text-[9px] font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded uppercase">Aula {index + 1}</span>
                                             <span className="font-bold text-slate-900 leading-none">{format(parseISO(date), 'dd/MM')}</span>
-                                            {modDef?.title && <span className="text-[10px] text-muted-foreground truncate w-full px-2 mt-1">{modDef.title}</span>}
-                                            {modDef?.theoflixCourseId && (
-                                                <span className="text-[8px] flex items-center gap-1 text-indigo-500 font-black uppercase mt-1 bg-indigo-50 px-1 rounded border border-indigo-100">
-                                                    <MonitorPlay size={10} /> Híbrido
-                                                </span>
-                                            )}
+                                            {modDef?.title && 
+                                                <span className="text-[10px] text-muted-foreground truncate w-full px-2 mt-1 flex items-center justify-center gap-1.5">
+                                                    {modDef.title}
+                                                    {modDef.theoflixCourseId && <Video size={12} className="text-slate-400" />}
+                                                </span>}
                                         </div>
                                     </TableHead>
                                 )
@@ -316,46 +262,51 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
 
                             return (
                                 <TableRow key={student.id} className="hover:bg-muted/30 group">
-                                    <TableCell className="sticky left-0 bg-white z-[1] font-medium border-r shadow-[2px_0_5_px_rgba(0,0,0,0.05)]">
+                                    <TableCell className="sticky left-0 bg-white z-[1] font-medium border-r shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
                                         <div className="flex items-center gap-3">
                                             <Avatar className="h-8 w-8"><AvatarFallback>{student.name.charAt(0)}</AvatarFallback></Avatar>
                                             <p className="truncate text-sm font-bold">{student.name}</p>
                                         </div>
                                     </TableCell>
                                     {allDates.map((date, index) => {
-                                        const isPresentInClass = courseClasses.some(c => c.attendance?.some(att => att.date === date && (att.presentStudentIds.includes(student.id) || att.onlineStudentIds?.includes(student.id))));
-                                        
-                                        let isOnlineDone = false;
+                                        const attendanceRecord = courseClasses.flatMap(c => c.attendance || []).find(att => att.date === date);
+                                        const isInPerson = attendanceRecord?.presentStudentIds?.includes(student.id);
+                                        const isOnlineLive = attendanceRecord?.onlineStudentIds?.includes(student.id);
+
+                                        let isOnlineRecorded = false;
                                         const modDef = modules[index];
-                                        if (modDef && modDef.theoflixCourseId) {
+                                        if (modDef?.theoflixCourseId) {
                                             const tfCourse = theoflixCourses.find(tf => tf.id === modDef.theoflixCourseId);
-                                            if (tfCourse && tfCourse.episodes && tfCourse.episodes.length > 0) {
+                                            if (tfCourse?.episodes?.length > 0) {
                                                 const userTfProgress = theoflixProgress[modDef.theoflixCourseId] || {};
-                                                const watchedCount = Object.keys(userTfProgress).filter(k => userTfProgress[k] === true).length;
-                                                if (watchedCount >= tfCourse.episodes.length) {
-                                                    isOnlineDone = true;
-                                                }
+                                                const watchedCount = Object.keys(userTfProgress).filter(k => userTfProgress[k]).length;
+                                                if (watchedCount >= tfCourse.episodes.length) isOnlineRecorded = true;
                                             }
                                         }
 
-                                        const isDone = isPresentInClass || isOnlineDone;
+                                        const isDone = isInPerson || isOnlineLive || isOnlineRecorded;
                                         if (isDone) attendedCount++;
 
-                                        return (
-                                            <TableCell key={date} className="text-center">
-                                                {isDone ? (
-                                                    <div className="flex flex-col items-center justify-center">
-                                                        <CheckCircle2 className={cn(
-                                                            "size-5 mx-auto",
-                                                            isOnlineDone && !isPresentInClass ? "text-indigo-500" : "text-emerald-500"
-                                                        )} />
-                                                    </div>
-                                                ) : <Minus className="text-slate-200 size-5 mx-auto" />}
-                                            </TableCell>
-                                        );
+                                        let icon = <Minus className="text-slate-300 size-5 mx-auto" />;
+                                        if (isInPerson) icon = <CheckCircle2 className="size-5 mx-auto text-emerald-500" />;
+                                        else if (isOnlineLive) icon = <CheckCircle2 className="size-5 mx-auto text-blue-500" />;
+                                        else if (isOnlineRecorded) icon = <CheckCircle2 className="size-5 mx-auto text-indigo-500" />;
+
+                                        return <TableCell key={date} className="text-center">{icon}</TableCell>;
                                     })}
                                     <TableCell className="bg-primary/5 text-center">
-                                        <span className="font-black text-primary text-sm">{allDates.length > 0 ? Math.round((attendedCount / allDates.length) * 100) : 0}%</span>
+                                        {(() => {
+                                            const percent = allDates.length > 0 ? Math.round((attendedCount / allDates.length) * 100) : 0;
+                                            const isApproved = percent >= threshold;
+                                            return (
+                                                <span className={cn(
+                                                    "font-black text-sm",
+                                                    isApproved ? "text-emerald-600" : "text-primary"
+                                                )}>
+                                                    {percent}%
+                                                </span>
+                                            )
+                                        })()}
                                     </TableCell>
                                 </TableRow>
                             );
@@ -363,6 +314,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                     </TableBody>
                 </Table>
             </div>
+            <Legend />
         </div>
     );
 }

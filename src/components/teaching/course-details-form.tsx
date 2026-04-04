@@ -7,7 +7,8 @@ import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Loader2, ShieldCheck, Mail, Info, School, PlayCircle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Loader2, ShieldCheck, Mail, Info, School, PlayCircle, Percent } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -23,6 +24,7 @@ export function CourseDetailsForm({ course }) {
     type: 'trilho' as 'trilho' | 'eletivo',
     ebdTrack: '',
     linkedTheoflixId: '',
+    minAttendanceApproval: '75',
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -36,6 +38,7 @@ export function CourseDetailsForm({ course }) {
         type: course.type || 'trilho',
         ebdTrack: course.ebdTrack || '',
         linkedTheoflixId: course.linkedTheoflixId || '',
+        minAttendanceApproval: course.minAttendanceApproval?.toString() || '75',
       });
     }
   }, [course]);
@@ -56,6 +59,7 @@ export function CourseDetailsForm({ course }) {
             type: formData.type,
             ebdTrack: formData.ebdTrack,
             linkedTheoflixId: formData.linkedTheoflixId === 'none' ? '' : formData.linkedTheoflixId,
+            minAttendanceApproval: Number(formData.minAttendanceApproval) || 0,
         });
         toast({ title: 'Sucesso!', description: 'As configurações do curso foram atualizadas.'});
     } catch (e) {
@@ -112,29 +116,45 @@ export function CourseDetailsForm({ course }) {
                   )}
               </div>
 
-              <div className="pt-4 border-t">
-                  <div className="space-y-4">
-                      <div className="flex items-center gap-2 text-primary">
-                          <PlayCircle className="size-5" />
-                          <h4 className="font-bold">Extensão Online (TheoFlix)</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+                  <div className="space-y-2">
+                      <Label htmlFor="minAttendance" className="flex items-center gap-2">
+                          <Percent className="size-3 text-primary" />
+                          Mínimo de Presença para Aprovação
+                      </Label>
+                      <div className="relative">
+                          <Input 
+                            id="minAttendance" 
+                            type="number" 
+                            min="0" 
+                            max="100" 
+                            value={formData.minAttendanceApproval} 
+                            onChange={e => handleFieldChange('minAttendanceApproval', e.target.value)}
+                            className="pr-8"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
                       </div>
-                      <div className="space-y-2">
-                          <Label htmlFor="theoflix-link">Vincular Curso Online</Label>
-                          <Select value={formData.linkedTheoflixId || 'none'} onValueChange={v => handleFieldChange('linkedTheoflixId', v)}>
-                              <SelectTrigger id="theoflix-link">
-                                  <SelectValue placeholder="Nenhum curso online vinculado" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                  <SelectItem value="none">Nenhum vínculo</SelectItem>
-                                  {theoflixCourses.map(tf => (
-                                      <SelectItem key={tf.id} value={tf.id}>{tf.title}</SelectItem>
-                                  ))}
-                              </SelectContent>
-                          </Select>
-                          <p className="text-[10px] text-muted-foreground italic">
-                              Ao vincular, os alunos matriculados neste curso presencial terão um link direto para assistir as aulas no TheoFlix.
-                          </p>
-                      </div>
+                      <p className="text-[10px] text-muted-foreground italic">
+                          Define o limite para o aluno ser considerado "Apto" na matriz de frequência.
+                      </p>
+                  </div>
+
+                  <div className="space-y-2">
+                      <Label htmlFor="theoflix-link" className="flex items-center gap-2">
+                          <PlayCircle className="size-3 text-primary" />
+                          Vincular Curso Online (TheoFlix)
+                      </Label>
+                      <Select value={formData.linkedTheoflixId || 'none'} onValueChange={v => handleFieldChange('linkedTheoflixId', v)}>
+                          <SelectTrigger id="theoflix-link">
+                              <SelectValue placeholder="Nenhum curso online vinculado" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="none">Nenhum vínculo</SelectItem>
+                              {theoflixCourses.map(tf => (
+                                  <SelectItem key={tf.id} value={tf.id}>{tf.title}</SelectItem>
+                              ))}
+                          </SelectContent>
+                      </Select>
                   </div>
               </div>
           </div>

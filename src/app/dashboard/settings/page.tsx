@@ -1,11 +1,12 @@
-
 'use client';
 
 import React, { useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Users, Loader2, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Shield, Users, Loader2, AlertTriangle, Activity, ExternalLink } from "lucide-react";
 import { AccessProfileManager } from '@/components/settings/access-profile-manager';
 import { UserRoleAssignment } from '@/components/settings/user-role-assignment';
 import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
@@ -66,27 +67,54 @@ export default function SettingsPage() {
   }
 
   return (
-     <Card>
-        <CardHeader>
-            <CardTitle>Configurações de Acesso</CardTitle>
-            <CardDescription>
-                Gerencie os perfis de acesso e atribua permissões aos usuários do sistema.
-            </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="profiles">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="profiles"><Shield className="mr-2 size-4" /> Perfis de Acesso</TabsTrigger>
-              <TabsTrigger value="users"><Users className="mr-2 size-4" /> Usuários</TabsTrigger>
-            </TabsList>
-            <TabsContent value="profiles" className="mt-6">
+     <div className="space-y-8">
+        <Card>
+            <CardHeader>
+                <div className="flex items-center gap-4">
+                    <Shield className="size-6 text-primary" />
+                    <CardTitle>Perfis de Acesso</CardTitle>
+                </div>
+                <CardDescription>Gerencie os perfis de acesso do sistema.</CardDescription>
+            </CardHeader>
+            <CardContent>
                 <AccessProfileManager roles={roles || []} />
-            </TabsContent>
-            <TabsContent value="users" className="mt-6">
+            </CardContent>
+        </Card>
+
+        <Separator />
+
+        <Card>
+            <CardHeader>
+                 <div className="flex items-center gap-4">
+                    <Users className="size-6 text-primary" />
+                    <CardTitle>Usuários</CardTitle>
+                </div>
+                <CardDescription>Atribua perfis e permissões aos usuários.</CardDescription>
+            </CardHeader>
+            <CardContent>
                 <UserRoleAssignment roles={roles || []} />
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-    </Card>
+            </CardContent>
+        </Card>
+        
+        <Separator />
+
+        <Card>
+            <CardHeader>
+                <div className="flex items-center gap-4">
+                    <Activity className="size-6 text-primary" />
+                    <CardTitle>Diagnóstico do Sistema</CardTitle>
+                </div>
+                <CardDescription>Verifique a conectividade com serviços essenciais como o Firebase Storage em uma página isolada.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Link href="/dashboard/settings/storage-diagnostic" passHref>
+                    <Button variant="outline">
+                        Abrir Página de Diagnóstico
+                        <ExternalLink className="ml-2 size-4" />
+                    </Button>
+                </Link>
+            </CardContent>
+        </Card>
+    </div>
   );
 }

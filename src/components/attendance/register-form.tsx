@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -36,6 +35,8 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
   const [horario, setHorario] = useState(horariosCultos[0]);
   const [adultos, setAdultos] = useState('');
   const [criancas, setCriancas] = useState('');
+  const [conversoes, setConversoes] = useState('');
+  const [reconciliacoes, setReconciliacoes] = useState('');
   const [clima, setClima] = useState(opcoesClima[0]);
   const [feriadoProximo, setFeriadoProximo] = useState(false);
   const [jogoFutebol, setJogoFutebol] = useState(false);
@@ -53,6 +54,8 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
       setHorario(editingRecord.horario || horariosCultos[0]);
       setAdultos(editingRecord.adultos?.toString() || '');
       setCriancas(editingRecord.criancas?.toString() || '0');
+      setConversoes(editingRecord.conversoes?.toString() || '0');
+      setReconciliacoes(editingRecord.reconciliacoes?.toString() || '0');
       setClima(editingRecord.clima || opcoesClima[0]);
       setFeriadoProximo(editingRecord.feriadoProximo || false);
       setJogoFutebol(editingRecord.jogoFutebol || false);
@@ -69,6 +72,8 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
     setHorario(horariosCultos[0]);
     setAdultos('');
     setCriancas('');
+    setConversoes('');
+    setReconciliacoes('');
     setClima(opcoesClima[0]);
     setFeriadoProximo(false);
     setJogoFutebol(false);
@@ -100,6 +105,8 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
       horario,
       adultos: Number(adultos),
       criancas: Number(criancas || 0),
+      conversoes: Number(conversoes || 0),
+      reconciliacoes: Number(reconciliacoes || 0),
       clima,
       feriadoProximo,
       jogoFutebol,
@@ -141,12 +148,12 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
           </Button>
         </div>
       )}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="space-y-2">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div className="space-y-2 lg:col-span-2">
           <Label htmlFor="data">Data</Label>
           <Input id="data" type="date" value={data} onChange={(e) => setData(e.target.value)} required />
         </div>
-        <div className="space-y-2">
+        <div className="space-y-2 lg:col-span-2">
           <Label htmlFor="horario">Horário do Culto</Label>
           <Select value={horario} onValueChange={setHorario}>
               <SelectTrigger id="horario">
@@ -164,6 +171,14 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
         <div className="space-y-2">
           <Label htmlFor="criancas">Nº de Crianças</Label>
           <Input id="criancas" type="number" value={criancas} onChange={(e) => setCriancas(e.target.value)} placeholder="Ex: 30" min="0"/>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="conversoes">Conversões</Label>
+          <Input id="conversoes" type="number" value={conversoes} onChange={(e) => setConversoes(e.target.value)} placeholder="Ex: 5" min="0"/>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="reconciliacoes">Reconciliações</Label>
+          <Input id="reconciliacoes" type="number" value={reconciliacoes} onChange={(e) => setReconciliacoes(e.target.value)} placeholder="Ex: 10" min="0"/>
         </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

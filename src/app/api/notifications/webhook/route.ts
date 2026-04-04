@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { initializeFirebase } from '@/firebase';
 import { collection, addDoc, query, where, getDocs, Timestamp, setDoc, doc } from 'firebase/firestore';
 
+export const runtime = 'nodejs'; // Garante execução em ambiente Node.js completo
+
 /**
  * Robust Webhook for api-wa.me following data.msgContent pattern
  */

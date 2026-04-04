@@ -1,8 +1,10 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { useFirebase } from '@/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useVolunteering, type FinanceRequest } from '@/contexts/volunteering-context';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,8 +13,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { 
   Loader2, PlusCircle, Trash2, Clock, CheckCircle, XCircle, 
-  DollarSign, Wallet, Share2, History, Send, Eye, Link as LinkIcon,
-  FileText
+  DollarSign, Wallet, Share2, Send, Eye, Link as LinkIcon,
+  FileText, Paperclip
 } from 'lucide-react';
 import { Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
@@ -23,12 +25,16 @@ import { Textarea } from '@/components/ui/textarea';
 
 export function FinanceRequestsManager() {
   const { financeRequests, addFinanceRequest, updateFinanceRequest, deleteFinanceRequest, isLoading } = useVolunteering();
+  const { storage } = useFirebase();
   const { toast } = useToast();
   
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [viewRequest, setViewRequest] = useState<FinanceRequest | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [filterStatus, setStatusFilter] = useState('all');
+
+  // State for the attachment file in the creation form
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
 
   const [formData, setFormData] = useState({
     requesterName: '',
@@ -43,25 +49,40 @@ export function FinanceRequestsManager() {
     purchaseLink: '',
   });
 
-  // Fix hydration mismatch by setting date after mount
   useEffect(() => {
-    setFormData(prev => ({
-        ...prev,
-        dueDate: new Date().toISOString().split('T')[0]
-    }));
+    setFormData(prev => ({ ...prev, dueDate: new Date().toISOString().split('T')[0] }));
   }, []);
+
+  const resetForm = () => {
+    setFormData({
+        requesterName: '', phone: '', email: '', category: 'Ministério',
+        description: '', amount: '', objective: 'reembolso',
+        pixKey: '', dueDate: new Date().toISOString().split('T')[0], purchaseLink: ''
+    });
+    setAttachmentFile(null);
+  };
 
   const filteredRequests = useMemo(() => {
     return financeRequests.filter(r => filterStatus === 'all' || r.status === filterStatus);
   }, [financeRequests, filterStatus]);
 
-  const handleCopyPublicLink = () => {
+  const handleCopyPublicLink = async () => {
     const url = `${window.location.origin}/public/finance-request`;
-    navigator.clipboard.writeText(url);
-    toast({
-        title: "Link Copiado!",
-        description: "Compartilhe este link com quem precisa fazer uma solicitação financeira.",
-    });
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({ title: "Link Copiado!", description: "O link para o formulário público foi copiado para sua área de transferência." });
+    } catch (err) {
+      toast({
+        title: "Copie o Link Manualmente",
+        description: (
+          <div className="flex flex-col gap-2">
+            <p>Seu navegador bloqueou a cópia automática. Use o link abaixo:</p>
+            <Input value={url} readOnly className="bg-muted text-sm" />
+          </div>
+        ),
+        duration: 10000,
+      });
+    }
   };
 
   const handleSaveRequest = async (e: React.FormEvent) => {
@@ -70,36 +91,28 @@ export function FinanceRequestsManager() {
     
     setIsSaving(true);
     try {
+        let attachmentUrl = '';
+        if (attachmentFile && storage) {
+            const filePath = `finance-attachments/${Date.now()}-${attachmentFile.name}`;
+            const fileRef = ref(storage, filePath);
+            await uploadBytes(fileRef, attachmentFile);
+            attachmentUrl = await getDownloadURL(fileRef);
+        }
+
         await addFinanceRequest({
-            requesterName: formData.requesterName,
-            phone: formData.phone,
-            email: formData.email,
-            category: formData.category,
-            description: formData.description,
+            ...formData,
             amount: Number(formData.amount),
-            objective: formData.objective,
-            pixKey: formData.pixKey,
-            dueDate: formData.dueDate,
-            purchaseLink: formData.purchaseLink,
+            attachmentUrl, // Add the URL to the request data
             status: 'pending',
             createdAt: Timestamp.now(),
         });
-        toast({ title: "Solicitação Enviada!", description: "Sua solicitação foi registrada para análise financeira." });
+
+        toast({ title: "Solicitação Enviada!" });
         setIsFormOpen(false);
-        setFormData({
-            requesterName: '',
-            phone: '',
-            email: '',
-            category: 'Ministério',
-            description: '',
-            amount: '',
-            objective: 'reembolso',
-            pixKey: '',
-            dueDate: new Date().toISOString().split('T')[0],
-            purchaseLink: '',
-        });
+        resetForm();
     } catch (e) {
-        toast({ variant: 'destructive', title: "Erro ao enviar", description: "Tente novamente." });
+        console.error(e);
+        toast({ variant: 'destructive', title: "Erro ao enviar" });
     } finally {
         setIsSaving(false);
     }
@@ -107,15 +120,10 @@ export function FinanceRequestsManager() {
 
   const handleStatusChange = async (requestId: string, newStatus: FinanceRequest['status']) => {
       await updateFinanceRequest(requestId, { status: newStatus });
-      toast({ title: "Status Atualizado", description: `Solicitação marcada como ${newStatus}.` });
+      toast({ title: "Status Atualizado" });
   };
 
-  const objectiveLabels = {
-      reembolso: 'Reembolso',
-      pagamento: 'Pagamento',
-      prestacao_contas: 'Prestação de Contas'
-  };
-
+  const objectiveLabels = { reembolso: 'Reembolso', pagamento: 'Pagamento', prestacao_contas: 'Prestação de Contas' };
   const statusConfig = {
       pending: { label: 'Pendente', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
       approved: { label: 'Aprovado', color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
@@ -127,28 +135,22 @@ export function FinanceRequestsManager() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-              <h3 className="text-lg font-black uppercase flex items-center gap-2">
-                  <Wallet className="size-5 text-primary" /> Fluxo de Solicitações
-              </h3>
+              <h3 className="text-lg font-black uppercase flex items-center gap-2"><Wallet className="size-5 text-primary" /> Fluxo de Solicitações</h3>
               <p className="text-sm text-muted-foreground">Gerencie pagamentos, reembolsos e prestação de contas dos ministérios.</p>
           </div>
           <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={handleCopyPublicLink} className="h-10">
-                  <Share2 className="mr-2 size-4" /> Copiar Link Público
-              </Button>
+              <Button variant="outline" onClick={handleCopyPublicLink} className="h-10"><Share2 className="mr-2 size-4" /> Copiar Link Público</Button>
               <Select value={filterStatus} onValueChange={setStatusFilter}>
                   <SelectTrigger className="w-[180px] bg-white"><SelectValue placeholder="Filtrar status" /></SelectTrigger>
                   <SelectContent>
-                      <SelectItem value="all">Todos os Status</SelectItem>
+                      <SelectItem value="all">Todos</SelectItem>
                       <SelectItem value="pending">Pendentes</SelectItem>
                       <SelectItem value="approved">Aprovados</SelectItem>
                       <SelectItem value="paid">Pagos</SelectItem>
                       <SelectItem value="rejected">Rejeitados</SelectItem>
                   </SelectContent>
               </Select>
-              <Button onClick={() => setIsFormOpen(true)} className="shadow-lg h-10">
-                  <PlusCircle className="mr-2 size-4" /> Nova Solicitação
-              </Button>
+              <Button onClick={() => setIsFormOpen(true)} className="shadow-lg h-10"><PlusCircle className="mr-2 size-4" /> Nova Solicitação</Button>
           </div>
       </div>
 
@@ -159,7 +161,7 @@ export function FinanceRequestsManager() {
                       <TableHead>Data</TableHead>
                       <TableHead>Solicitante</TableHead>
                       <TableHead>Objetivo</TableHead>
-                      <TableHead>Categoria</TableHead>
+                      <TableHead>Anexo</TableHead>
                       <TableHead>Valor</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Ações</TableHead>
@@ -173,55 +175,20 @@ export function FinanceRequestsManager() {
                   ) : (
                       filteredRequests.map(req => {
                           const config = statusConfig[req.status] || statusConfig.pending;
-                          const StatusIcon = config.icon;
                           return (
                               <TableRow key={req.id} className="group hover:bg-muted/30">
-                                  <TableCell className="text-xs text-muted-foreground">
-                                      {req.createdAt ? format(req.createdAt.toDate(), 'dd/MM/yy HH:mm') : '-'}
-                                  </TableCell>
-                                  <TableCell>
-                                      <div className="flex flex-col">
-                                          <span className="font-bold text-slate-900">{req.requesterName}</span>
-                                          <span className="text-[10px] text-muted-foreground truncate max-w-[150px]">{req.email}</span>
-                                      </div>
-                                  </TableCell>
-                                  <TableCell>
-                                      <Badge variant="outline" className="bg-white text-[10px] font-black uppercase">
-                                          {objectiveLabels[req.objective]}
-                                      </Badge>
-                                  </TableCell>
-                                  <TableCell className="text-xs text-muted-foreground uppercase font-bold">{req.category}</TableCell>
-                                  <TableCell className="font-black text-slate-900">
-                                      R$ {req.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                                  </TableCell>
-                                  <TableCell>
-                                      <Badge className={cn("text-[10px] font-black uppercase border-none", config.color)}>
-                                          <StatusIcon className="size-3 mr-1" /> {config.label}
-                                      </Badge>
-                                  </TableCell>
+                                  <TableCell className="text-xs text-muted-foreground">{req.createdAt ? format(req.createdAt.toDate(), 'dd/MM/yy HH:mm') : '-'}</TableCell>
+                                  <TableCell><div className="flex flex-col"><span className="font-bold text-slate-900">{req.requesterName}</span><span className="text-[10px] text-muted-foreground truncate max-w-[150px]">{req.email}</span></div></TableCell>
+                                  <TableCell><Badge variant="outline" className="bg-white text-[10px] font-black uppercase">{objectiveLabels[req.objective]}</Badge></TableCell>
+                                  <TableCell className="text-center">{req.attachmentUrl && <Paperclip className="size-4 text-muted-foreground mx-auto" title="Esta solicitação possui um anexo"/>}</TableCell>
+                                  <TableCell className="font-black text-slate-900">R$ {req.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                                  <TableCell><Badge className={cn("text-[10px] font-black uppercase border-none", config.color)}><config.icon className="size-3 mr-1" /> {config.label}</Badge></TableCell>
                                   <TableCell className="text-right">
                                       <div className="flex justify-end gap-1">
-                                          <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setViewRequest(req)} title="Ver Detalhes">
-                                              <Eye className="size-4" />
-                                          </Button>
-                                          {req.status === 'pending' && (
-                                              <>
-                                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-600" onClick={() => handleStatusChange(req.id, 'approved')} title="Aprovar">
-                                                      <CheckCircle className="size-4" />
-                                                  </Button>
-                                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => handleStatusChange(req.id, 'rejected')} title="Rejeitar">
-                                                      <XCircle className="size-4" />
-                                                  </Button>
-                                              </>
-                                          )}
-                                          {req.status === 'approved' && (
-                                              <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-600" onClick={() => handleStatusChange(req.id, 'paid')} title="Marcar como Pago">
-                                                  <DollarSign className="size-4" />
-                                              </Button>
-                                          )}
-                                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => deleteFinanceRequest(req.id)} title="Excluir">
-                                              <Trash2 className="size-4" />
-                                          </Button>
+                                          <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setViewRequest(req)} title="Ver Detalhes"><Eye className="size-4" /></Button>
+                                          {req.status === 'pending' && <><Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-600" onClick={() => handleStatusChange(req.id, 'approved')} title="Aprovar"><CheckCircle className="size-4" /></Button><Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => handleStatusChange(req.id, 'rejected')} title="Rejeitar"><XCircle className="size-4" /></Button></>}
+                                          {req.status === 'approved' && <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-600" onClick={() => handleStatusChange(req.id, 'paid')} title="Marcar como Pago"><DollarSign className="size-4" /></Button>}
+                                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => deleteFinanceRequest(req.id)} title="Excluir"><Trash2 className="size-4" /></Button>
                                       </div>
                                   </TableCell>
                               </TableRow>
@@ -232,176 +199,59 @@ export function FinanceRequestsManager() {
           </Table>
       </div>
 
-      {/* Modal de Nova Solicitação */}
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+      <Dialog open={isFormOpen} onOpenChange={(isOpen) => { if(!isOpen) resetForm(); setIsFormOpen(isOpen); }}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                      <PlusCircle className="size-5 text-primary" />
-                      Nova Solicitação Financeira
-                  </DialogTitle>
+                  <DialogTitle className="flex items-center gap-2"><PlusCircle className="size-5 text-primary" /> Nova Solicitação Financeira</DialogTitle>
                   <DialogDescription>Preencha os campos abaixo para solicitar um pagamento ou reembolso.</DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSaveRequest} className="space-y-6 py-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                          <Label className="text-[10px] uppercase font-black text-muted-foreground">Nome do Solicitante *</Label>
-                          <input type="text" required className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" value={formData.requesterName} onChange={e => setFormData(p => ({...p, requesterName: e.target.value}))} placeholder="Seu nome completo" />
-                      </div>
-                      <div className="space-y-2">
-                          <Label className="text-[10px] uppercase font-black text-muted-foreground">E-mail *</Label>
-                          <input type="email" required className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} placeholder="seu@email.com" />
-                      </div>
-                      <div className="space-y-2">
-                          <Label className="text-[10px] uppercase font-black text-muted-foreground">Celular</Label>
-                          <input type="text" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} placeholder="(21) 9..." />
-                      </div>
-                      <div className="space-y-2">
-                          <Label className="text-[10px] uppercase font-black text-muted-foreground">Objetivo da Solicitação *</Label>
-                          <Select value={formData.objective} onValueChange={(v: any) => setFormData(p => ({...p, objective: v}))}>
-                              <SelectTrigger><SelectValue /></SelectTrigger>
-                              <SelectContent>
-                                  <SelectItem value="reembolso">Reembolso</SelectItem>
-                                  <SelectItem value="pagamento">Solicitar Pagamento</SelectItem>
-                                  <SelectItem value="prestacao_contas">Prestação de Contas</SelectItem>
-                              </SelectContent>
-                          </Select>
-                      </div>
+                      <div className="space-y-2"><Label className="text-[10px] uppercase font-black text-muted-foreground">Nome do Solicitante *</Label><Input required value={formData.requesterName} onChange={e => setFormData(p => ({...p, requesterName: e.target.value}))} placeholder="Seu nome completo" /></div>
+                      <div className="space-y-2"><Label className="text-[10px] uppercase font-black text-muted-foreground">E-mail *</Label><Input type="email" required value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} placeholder="seu@email.com" /></div>
+                      <div className="space-y-2"><Label className="text-[10px] uppercase font-black text-muted-foreground">Celular</Label><Input value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} placeholder="(21) 9..." /></div>
+                      <div className="space-y-2"><Label className="text-[10px] uppercase font-black text-muted-foreground">Objetivo *</Label><Select value={formData.objective} onValueChange={(v: any) => setFormData(p => ({...p, objective: v}))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="reembolso">Reembolso</SelectItem><SelectItem value="pagamento">Solicitar Pagamento</SelectItem><SelectItem value="prestacao_contas">Prestação de Contas</SelectItem></SelectContent></Select></div>
                   </div>
-
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                          <Label className="text-[10px] uppercase font-black text-muted-foreground">Categoria (Ministério/Evento)</Label>
-                          <input type="text" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" value={formData.category} onChange={e => setFormData(p => ({...p, category: e.target.value}))} placeholder="Ex: Louvor, Conferência..." />
-                      </div>
-                      <div className="space-y-2">
-                          <Label className="text-[10px] uppercase font-black text-muted-foreground">Valor (R$) *</Label>
-                          <input type="number" step="0.01" required className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" value={formData.amount} onChange={e => setFormData(p => ({...p, amount: e.target.value}))} placeholder="0,00" />
-                      </div>
+                      <div className="space-y-2"><Label className="text-[10px] uppercase font-black text-muted-foreground">Categoria</Label><Input value={formData.category} onChange={e => setFormData(p => ({...p, category: e.target.value}))} placeholder="Ex: Louvor, Conferência..." /></div>
+                      <div className="space-y-2"><Label className="text-[10px] uppercase font-black text-muted-foreground">Valor (R$) *</Label><Input type="number" step="0.01" required value={formData.amount} onChange={e => setFormData(p => ({...p, amount: e.target.value}))} placeholder="0,00" /></div>
                   </div>
-
+                  <div className="space-y-2"><Label className="text-[10px] uppercase font-black text-muted-foreground">Descrição da Despesa *</Label><Textarea required value={formData.description} onChange={e => setFormData(p => ({...p, description: e.target.value}))} placeholder="Descreva detalhadamente a finalidade do gasto..." /></div>
+                  {(formData.objective === 'reembolso' || formData.objective === 'pagamento') && (<div className="space-y-2 animate-in slide-in-from-top-2"><Label className="text-[10px] uppercase font-black text-primary flex items-center gap-1"><DollarSign size={10}/> Chave PIX</Label><Input value={formData.pixKey} onChange={e => setFormData(p => ({...p, pixKey: e.target.value}))} placeholder="CPF, E-mail, Celular ou Aleatória" /></div>)}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2"><Label className="text-[10px] uppercase font-black text-muted-foreground">Data para Pagamento</Label><Input type="date" value={formData.dueDate} onChange={e => setFormData(p => ({...p, dueDate: e.target.value}))} /></div>
+                      <div className="space-y-2"><Label className="text-[10px] uppercase font-black text-muted-foreground">Link de Compra</Label><Input type="url" value={formData.purchaseLink} onChange={e => setFormData(p => ({...p, purchaseLink: e.target.value}))} placeholder="https://..." /></div>
+                  </div>
                   <div className="space-y-2">
-                      <Label className="text-[10px] uppercase font-black text-muted-foreground">Descrição da Despesa *</Label>
-                      <Textarea required value={formData.description} onChange={e => setFormData(p => ({...p, description: e.target.value}))} placeholder="Descreva detalhadamente a finalidade do gasto..." />
+                      <Label className="text-[10px] uppercase font-black text-muted-foreground flex items-center gap-1.5"><Paperclip size={12}/> Anexar Comprovante / Nota Fiscal</Label>
+                      <Input type="file" onChange={(e) => setAttachmentFile(e.target.files ? e.target.files[0] : null)} className="pt-2 text-xs h-auto" />
+                      {attachmentFile && <p className="text-xs text-muted-foreground italic mt-1">Arquivo: {attachmentFile.name}</p>}
                   </div>
-
-                  {(formData.objective === 'reembolso' || formData.objective === 'pagamento') && (
-                      <div className="space-y-2 animate-in slide-in-from-top-2">
-                          <Label className="text-[10px] uppercase font-black text-primary flex items-center gap-1">
-                              <DollarSign size={10}/> Chave PIX para Depósito
-                          </Label>
-                          <input type="text" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" value={formData.pixKey} onChange={e => setFormData(p => ({...p, pixKey: e.target.value}))} placeholder="CPF, E-mail, Celular ou Aleatória" />
-                      </div>
-                  )}
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                          <Label className="text-[10px] uppercase font-black text-muted-foreground">Data para Pagamento</Label>
-                          <input type="date" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" value={formData.dueDate} onChange={e => setFormData(p => ({...p, dueDate: e.target.value}))} />
-                      </div>
-                      <div className="space-y-2">
-                          <Label className="text-[10px] uppercase font-black text-muted-foreground">Link de Compra (Se houver)</Label>
-                          <input type="url" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" value={formData.purchaseLink} onChange={e => setFormData(p => ({...p, purchaseLink: e.target.value}))} placeholder="https://..." />
-                      </div>
-                  </div>
-
                   <DialogFooter className="border-t pt-6">
                       <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-                      <Button type="submit" disabled={isSaving}>
-                          {isSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Send className="mr-2 size-4" />}
-                          Enviar Solicitação
-                      </Button>
+                      <Button type="submit" disabled={isSaving}>{isSaving ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Send className="mr-2 size-4" />} Enviar Solicitação</Button>
                   </DialogFooter>
               </form>
           </DialogContent>
       </Dialog>
 
-      {/* Modal de Detalhes (Visualização) */}
       <Dialog open={!!viewRequest} onOpenChange={() => setViewRequest(null)}>
           <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                      <FileText className="size-5 text-primary" />
-                      Detalhes da Solicitação
-                  </DialogTitle>
+                  <DialogTitle className="flex items-center gap-2"><FileText className="size-5 text-primary" /> Detalhes da Solicitação</DialogTitle>
                   <DialogDescription>Visualize as informações completas da solicitação de {viewRequest?.requesterName}.</DialogDescription>
               </DialogHeader>
               {viewRequest && (
                   <div className="space-y-6 py-4">
-                      <div className="grid grid-cols-2 gap-4">
-                          <div>
-                              <Label className="text-[10px] uppercase font-black text-muted-foreground">Solicitante</Label>
-                              <p className="text-sm font-bold">{viewRequest.requesterName}</p>
-                              <p className="text-xs text-muted-foreground">{viewRequest.email}</p>
-                          </div>
-                          <div>
-                              <Label className="text-[10px] uppercase font-black text-muted-foreground">Objetivo</Label>
-                              <p className="text-sm font-bold uppercase tracking-tight">{objectiveLabels[viewRequest.objective]}</p>
-                          </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                          <div>
-                              <Label className="text-[10px] uppercase font-black text-muted-foreground">Categoria</Label>
-                              <p className="text-sm font-bold uppercase">{viewRequest.category}</p>
-                          </div>
-                          <div>
-                              <Label className="text-[10px] uppercase font-black text-muted-foreground">Valor Solicitado</Label>
-                              <p className="text-xl font-black text-primary">R$ {viewRequest.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                          </div>
-                      </div>
-
-                      <div>
-                          <Label className="text-[10px] uppercase font-black text-muted-foreground">Descrição / Justificativa</Label>
-                          <div className="bg-muted/30 p-3 rounded-lg text-sm whitespace-pre-wrap mt-1">
-                              {viewRequest.description || "Nenhuma descrição fornecida."}
-                          </div>
-                      </div>
-
-                      {(viewRequest.objective === 'reembolso' || viewRequest.objective === 'pagamento') && (
-                          <div className="p-4 bg-primary/5 border border-primary/10 rounded-xl flex items-center justify-between">
-                              <div>
-                                  <Label className="text-[10px] uppercase font-black text-primary flex items-center gap-1">
-                                      <DollarSign size={10}/> Chave PIX para Depósito
-                                  </Label>
-                                  <p className="font-mono text-sm font-bold mt-1">{viewRequest.pixKey || "Não informada"}</p>
-                              </div>
-                              {viewRequest.pixKey && (
-                                  <Button variant="outline" size="sm" onClick={() => {
-                                      navigator.clipboard.writeText(viewRequest.pixKey || '');
-                                      toast({ title: "PIX Copiado!" });
-                                  }}>Copiar</Button>
-                              )}
-                          </div>
-                      )}
-
-                      <div className="grid grid-cols-2 gap-4">
-                          <div>
-                              <Label className="text-[10px] uppercase font-black text-muted-foreground">Data Desejada</Label>
-                              <p className="text-sm font-bold">{viewRequest.dueDate ? format(new Date(viewRequest.dueDate + 'T12:00:00'), 'dd/MM/yyyy') : '-'}</p>
-                          </div>
-                          <div>
-                              <Label className="text-[10px] uppercase font-black text-muted-foreground">Link de Referência</Label>
-                              {viewRequest.purchaseLink ? (
-                                  <Button asChild variant="link" className="h-auto p-0 text-blue-600">
-                                      <a href={viewRequest.purchaseLink} target="_blank" rel="noopener noreferrer">
-                                          <LinkIcon size={12} className="mr-1" /> Abrir Link
-                                      </a>
-                                  </Button>
-                              ) : <p className="text-sm text-muted-foreground">-</p>}
-                          </div>
-                      </div>
+                      <div className="grid grid-cols-2 gap-4"><div><Label className="text-[10px] uppercase font-black text-muted-foreground">Solicitante</Label><p className="text-sm font-bold">{viewRequest.requesterName}</p><p className="text-xs text-muted-foreground">{viewRequest.email}</p></div><div><Label className="text-[10px] uppercase font-black text-muted-foreground">Objetivo</Label><p className="text-sm font-bold uppercase tracking-tight">{objectiveLabels[viewRequest.objective]}</p></div></div>
+                      <div className="grid grid-cols-2 gap-4"><div><Label className="text-[10px] uppercase font-black text-muted-foreground">Categoria</Label><p className="text-sm font-bold uppercase">{viewRequest.category}</p></div><div><Label className="text-[10px] uppercase font-black text-muted-foreground">Valor Solicitado</Label><p className="text-xl font-black text-primary">R$ {viewRequest.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p></div></div>
+                      <div><Label className="text-[10px] uppercase font-black text-muted-foreground">Descrição</Label><div className="bg-muted/30 p-3 rounded-lg text-sm whitespace-pre-wrap mt-1">{viewRequest.description || "N/A"}</div></div>
+                      {(viewRequest.objective === 'reembolso' || viewRequest.objective === 'pagamento') && (<div className="p-4 bg-primary/5 border border-primary/10 rounded-xl"><div><Label className="text-[10px] uppercase font-black text-primary flex items-center gap-1"><DollarSign size={10}/> Chave PIX</Label><p className="font-mono text-sm font-bold mt-1">{viewRequest.pixKey || "Não informada"}</p></div></div>)}
+                      <div className="grid grid-cols-2 gap-4"><div><Label className="text-[10px] uppercase font-black text-muted-foreground">Data Desejada</Label><p className="text-sm font-bold">{viewRequest.dueDate ? format(new Date(viewRequest.dueDate + 'T12:00:00'), 'dd/MM/yyyy') : '-'}</p></div><div><Label className="text-[10px] uppercase font-black text-muted-foreground">Link de Compra</Label>{viewRequest.purchaseLink ? (<Button asChild variant="link" className="h-auto p-0 text-blue-600"><a href={viewRequest.purchaseLink} target="_blank" rel="noopener noreferrer"><LinkIcon size={12} className="mr-1" /> Abrir Link</a></Button>) : <p className="text-sm text-muted-foreground">-</p>}</div></div>
+                      {viewRequest.attachmentUrl && (<div><Label className="text-[10px] uppercase font-black text-muted-foreground">Anexo</Label><Button asChild variant="secondary" className="w-full"><a href={viewRequest.attachmentUrl} target="_blank" rel="noopener noreferrer"><Paperclip size={12} className="mr-2" /> Ver Comprovante</a></Button></div>)}
                   </div>
               )}
-              <DialogFooter className="border-t pt-6 gap-2">
-                  <DialogClose asChild><Button variant="outline">Fechar</Button></DialogClose>
-                  {viewRequest?.status === 'pending' && (
-                      <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => {
-                          handleStatusChange(viewRequest.id, 'approved');
-                          setViewRequest(null);
-                      }}>Aprovar Solicitação</Button>
-                  )}
-              </DialogFooter>
+              <DialogFooter className="border-t pt-6 gap-2"><DialogClose asChild><Button variant="outline">Fechar</Button></DialogClose></DialogFooter>
           </DialogContent>
       </Dialog>
     </div>

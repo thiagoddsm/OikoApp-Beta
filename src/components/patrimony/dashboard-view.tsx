@@ -1,11 +1,11 @@
 'use client';
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { BarChart, Bar, PieChart, Pie, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { useCollection, useMemoFirebase } from '@/firebase';
 import { useFirebase } from '@/firebase/provider';
 import { collection, query } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
 type PatrimonioItem = {
     id: string;
@@ -20,7 +20,8 @@ const KPI_CARDS = [
   { title: "Manutenção", status: 'Manutenção', color: 'text-red-600', bgColor: 'bg-red-50' },
 ];
 
-const PIE_COLORS = ['#6750A4', '#9A89C6', '#BDB2D9', '#D9D3E9', '#F2F0F7'];
+const COLORS = ['#16a34a', '#facc15', '#dc2626', '#6b7280']; // green, yellow, red, gray
+
 
 export function PatrimonyDashboardView() {
     const { firestore } = useFirebase();
@@ -35,22 +36,21 @@ export function PatrimonyDashboardView() {
             'Manutenção': items?.filter(i => i.status === 'Manutenção').length || 0,
         };
 
-        if (!items) return { kpis, categoryData: [], statusData: [] };
-
-        const categoryCounts = items.reduce((acc, item) => {
+        const categoryDistribution = items?.reduce((acc, item) => {
             acc[item.category] = (acc[item.category] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
+
+        const categoryData = Object.entries(categoryDistribution || {}).map(([name, value]) => ({ name, value }));
         
-        const categoryData = Object.entries(categoryCounts).map(([name, value]) => ({ name, value }));
-        
-        const statusData = [
+        const statusDistribution = [
             { name: 'Disponível', value: kpis['Disponível'] },
             { name: 'Emprestado', value: kpis['Emprestado'] },
             { name: 'Manutenção', value: kpis['Manutenção'] },
         ];
-        
-        return { kpis, categoryData, statusData };
+
+
+        return { kpis, categoryData, statusDistribution };
     }, [items]);
 
      if (isLoading) {
@@ -86,19 +86,10 @@ export function PatrimonyDashboardView() {
                     </CardHeader>
                     <CardContent className="h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
-                             <PieChart>
-                                <Pie
-                                    data={dashboardData.categoryData}
-                                    dataKey="value"
-                                    nameKey="name"
-                                    cx="50%"
-                                    cy="50%"
-                                    innerRadius={60}
-                                    outerRadius={80}
-                                    paddingAngle={5}
-                                >
-                                     {dashboardData.categoryData.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                            <PieChart>
+                                <Pie data={dashboardData.categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} fill="#8884d8" label>
+                                    {dashboardData.categoryData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                     ))}
                                 </Pie>
                                 <Tooltip />
@@ -113,12 +104,15 @@ export function PatrimonyDashboardView() {
                     </CardHeader>
                     <CardContent className="h-[300px]">
                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={dashboardData.statusData} layout="vertical" margin={{ left: 20 }}>
-                                <XAxis type="number" hide />
-                                <YAxis dataKey="name" type="category" hide />
-                                <Tooltip cursor={{ fill: 'rgba(0,0,0,0.05)' }} />
-                                <Bar dataKey="value" name="Quantidade" radius={[0, 4, 4, 0]} barSize={30} fill="hsl(var(--primary))" />
-                            </BarChart>
+                            <PieChart>
+                                <Pie data={dashboardData.statusDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={80} fill="#8884d8" paddingAngle={5} label>
+                                     {dashboardData.statusDistribution.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                                <Legend />
+                            </PieChart>
                         </ResponsiveContainer>
                     </CardContent>
                 </Card>

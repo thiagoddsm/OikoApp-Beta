@@ -248,12 +248,12 @@ function WhatsappSender() {
             
             const result = await response.json();
             
-            if (response.ok) {
+            if (response.ok && result.sentCount > 0) {
                 toast({ title: "Envio Concluído!", description: `${result.sentCount || 0} mensagens enviadas.` });
                 setMessage('');
                 setSelectedUserIds([]);
             } else {
-                toast({ variant: 'destructive', title: "Falha no Envio", description: result.error || 'Erro ao enviar.' });
+                toast({ variant: 'destructive', title: "Falha no Envio", description: result.error || result.message || 'Erro ao enviar.' });
             }
         } catch(error) {
              toast({ variant: 'destructive', title: "Erro crítico", description: "Falha na conexão." });
@@ -521,16 +521,11 @@ function NotificationsConfig() {
     const [instanceStatus, setInstanceStatus] = useState<any>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
-    useEffect(() => {
-        if (config) {
-            setWaKey(config.whatsappApiKey || '');
-            const defaultWebhook = config.webhookUrl || `${window.location.origin}/api/notifications/webhook`;
-            setWebhookUrl(defaultWebhook);
-        }
-    }, [config]);
-
     const checkStatus = async () => {
-        if (!waKey) return;
+        if (!waKey) {
+            setInstanceStatus(null);
+            return;
+        }
         setIsRefreshing(true);
         try {
             const res = await fetch('/api/notifications/instance', { cache: 'no-store' });
@@ -549,6 +544,24 @@ function NotificationsConfig() {
             setIsRefreshing(false); 
         }
     };
+
+    useEffect(() => {
+        if (config) {
+            const key = config.whatsappApiKey || '';
+            setWaKey(key);
+            const defaultWebhook = config.webhookUrl || `${window.location.origin}/api/notifications/webhook`;
+            setWebhookUrl(defaultWebhook);
+        }
+    }, [config]);
+
+    // *** CORREÇÃO: Adicionado useEffect para verificar o status ao carregar a chave ***
+    useEffect(() => {
+        if (waKey) {
+            checkStatus();
+        }
+        // A intenção é executar apenas quando waKey é carregado pela primeira vez.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [waKey]);
 
     const handleConnect = async () => {
         if (!waKey) return;

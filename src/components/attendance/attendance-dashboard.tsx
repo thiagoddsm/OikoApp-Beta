@@ -2,12 +2,21 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar
-} from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+    ResponsiveContainer,
+    LineChart,
+    Line,
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    Tooltip,
+    Legend,
+    CartesianGrid
+} from 'recharts';
 
 const horariosCultos = [
   "Domingo - 07:30",
@@ -34,6 +43,20 @@ interface AttendanceDashboardProps {
     registros: AttendanceRecord[];
     loading: boolean;
 }
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-background border border-border p-2 rounded-lg shadow-lg">
+                <p className="label font-bold">{`${label}`}</p>
+                {payload.map((pld: any, index: number) => (
+                     <p key={index} style={{ color: pld.fill }}>{`${pld.name}: ${pld.value.toLocaleString('pt-BR')}`}</p>
+                ))}
+            </div>
+        );
+    }
+    return null;
+};
 
 export function AttendanceDashboard({ registros, loading }: AttendanceDashboardProps) {
   const [filtroDataInicio, setFiltroDataInicio] = useState('');
@@ -81,76 +104,6 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
     return filtrados.sort((a, b) => a.data.seconds - b.data.seconds);
   }, [registros, filtroDataInicio, filtroDataFim, filtroHorario, filtroSerie, filtroFeriado, filtroJogo, filtroBebe]);
 
-  const formatarDataGrafico = (timestamp: any) => {
-    if(!timestamp?.seconds) return "";
-    const date = new Date(timestamp.seconds * 1000);
-    return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: 'UTC' });
-  };
-
-  const dadosGraficoLinha = useMemo(() => {
-    return registrosFiltrados.map(r => ({
-      data: formatarDataGrafico(r.data),
-      adultos: r.adultos,
-      criancas: r.criancas || 0,
-      total: r.adultos + (r.criancas || 0),
-    }));
-  }, [registrosFiltrados]);
-
-    const dadosGraficoBarrasHorario = useMemo(() => {
-    const totais = registrosFiltrados.reduce((acc: any, r) => {
-      const horario = r.horario;
-      if (!acc[horario]) {
-        acc[horario] = { totalAdultos: 0, totalCriancas: 0, count: 0 };
-      }
-      acc[horario].totalAdultos += r.adultos;
-      acc[horario].totalCriancas += (r.criancas || 0);
-      acc[horario].count += 1;
-      return acc;
-    }, {});
-
-    return Object.entries(totais).map(([horario, data]: [string, any]) => ({
-      name: horario,
-      mediaAdultos: data.count > 0 ? Math.round(data.totalAdultos / data.count) : 0,
-      mediaCriancas: data.count > 0 ? Math.round(data.totalCriancas / data.count) : 0,
-    })).sort((a,b) => (b.mediaAdultos + b.mediaCriancas) - (a.mediaAdultos + a.mediaCriancas));
-  }, [registrosFiltrados]);
-  
-   const dadosGraficoBarrasFatores = useMemo(() => {
-    const calcMedia = (filtro: (r: AttendanceRecord) => boolean) => {
-      const { totalAdultos, totalCriancas, count } = registrosFiltrados.reduce((acc, r) => {
-        if (filtro(r)) {
-          acc.totalAdultos += r.adultos;
-          acc.totalCriancas += (r.criancas || 0);
-          acc.count += 1;
-        }
-        return acc;
-      }, { totalAdultos: 0, totalCriancas: 0, count: 0 });
-      return {
-          mediaAdultos: count > 0 ? Math.round(totalAdultos / count) : 0,
-          mediaCriancas: count > 0 ? Math.round(totalCriancas / count) : 0
-      };
-    };
-    
-    const nomes = ['Feriado', 'Jogo', 'Bebê'];
-    const filtros = [
-        (r: AttendanceRecord) => !!r.feriadoProximo,
-        (r: AttendanceRecord) => !!r.jogoFutebol,
-        (r: AttendanceRecord) => !!r.apresentacaoBebe
-    ];
-
-    return nomes.map((name, index) => {
-        const mediasCom = calcMedia(filtros[index]);
-        const mediasSem = calcMedia(r => !filtros[index](r));
-        return {
-            name: name,
-            'Adultos (Com)': mediasCom.mediaAdultos, 
-            'Adultos (Sem)': mediasSem.mediaAdultos, 
-            'Crianças (Com)': mediasCom.mediaCriancas, 
-            'Crianças (Sem)': mediasSem.mediaCriancas
-        };
-    });
-  }, [registrosFiltrados]);
-
   const stats = useMemo(() => {
       const totalAdultos = registrosFiltrados.reduce((acc, r) => acc + r.adultos, 0);
       const totalCriancas = registrosFiltrados.reduce((acc, r) => acc + (r.criancas || 0), 0);
@@ -166,6 +119,56 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
       }
   }, [registrosFiltrados]);
 
+  const frequenciaAoLongoDoTempoData = useMemo(() => {
+     return registrosFiltrados.map(r => ({
+         date: new Date(r.data.seconds * 1000).toLocaleDateString('pt-BR', { timeZone: 'UTC' }),
+         Adultos: r.adultos,
+         Crianças: r.criancas,
+         Total: r.adultos + (r.criancas || 0)
+     }));
+  }, [registrosFiltrados]);
+
+  const mediaPorHorarioData = useMemo(() => {
+    const grupos = horariosCultos.map(h => ({ 
+        name: h.split(' - ')[1],
+        Adultos: 0,
+        Crianças: 0,
+        count: 0
+    }));
+
+    registrosFiltrados.forEach(r => {
+        const horario = r.horario.split(' - ')[1];
+        const grupo = grupos.find(g => g.name === horario);
+        if (grupo) {
+            grupo.Adultos += r.adultos;
+            grupo.Crianças += (r.criancas || 0);
+            grupo.count++;
+        }
+    });
+
+    return grupos
+      .filter(g => g.count > 0)
+      .map(g => ({...g, Adultos: Math.round(g.Adultos/g.count), Crianças: Math.round(g.Crianças/g.count) }));
+
+  }, [registrosFiltrados]);
+
+  const mediaPorFatoresExternosData = useMemo(() => {
+      const comFeriado = registrosFiltrados.filter(r => r.feriadoProximo);
+      const semFeriado = registrosFiltrados.filter(r => !r.feriadoProximo);
+      const comJogo = registrosFiltrados.filter(r => r.jogoFutebol);
+      const semJogo = registrosFiltrados.filter(r => !r.jogoFutebol);
+
+      const calcMedia = (arr: AttendanceRecord[]) => arr.length > 0 ? Math.round(arr.reduce((acc, r) => acc + r.adultos + (r.criancas || 0), 0) / arr.length) : 0;
+
+      return [
+          { name: 'Feriado Próximo', Média: calcMedia(comFeriado) },
+          { name: 'Sem Feriado', Média: calcMedia(semFeriado) },
+          { name: 'Com Jogo', Média: calcMedia(comJogo) },
+          { name: 'Sem Jogo', Média: calcMedia(semJogo) },
+      ].filter(item => item.Média > 0);
+  }, [registrosFiltrados]);
+
+
   if (loading) {
     return <p className="text-center text-muted-foreground mt-10">Carregando dados...</p>;
   }
@@ -177,37 +180,18 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
           <CardTitle>Filtros e Pesquisa</CardTitle>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Input
-            type="date"
-            value={filtroDataInicio}
-            onChange={e => setFiltroDataInicio(e.target.value)}
-            title="Data Início"
-          />
-          <Input
-            type="date"
-            value={filtroDataFim}
-            onChange={e => setFiltroDataFim(e.target.value)}
-            title="Data Fim"
-          />
+          <Input type="date" value={filtroDataInicio} onChange={e => setFiltroDataInicio(e.target.value)} title="Data Início"/>
+          <Input type="date" value={filtroDataFim} onChange={e => setFiltroDataFim(e.target.value)} title="Data Fim"/>
           <Select value={filtroHorario} onValueChange={setFiltroHorario}>
-              <SelectTrigger>
-                  <SelectValue placeholder="Filtrar por horário" />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Filtrar por horário" /></SelectTrigger>
               <SelectContent>
                   <SelectItem value="todos">Todos Horários</SelectItem>
                   {horariosCultos.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
               </SelectContent>
           </Select>
-          <Input
-            type="search"
-            value={filtroSerie}
-            onChange={e => setFiltroSerie(e.target.value)}
-            placeholder="Buscar por Série..."
-          />
+          <Input type="search" value={filtroSerie} onChange={e => setFiltroSerie(e.target.value)} placeholder="Buscar por Série..."/>
            <Select value={filtroFeriado} onValueChange={setFeriadoFeriado}>
-              <SelectTrigger>
-                  <SelectValue placeholder="Feriado próximo?" />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Feriado próximo?" /></SelectTrigger>
               <SelectContent>
                   <SelectItem value="todos">Feriado? (Todos)</SelectItem>
                   <SelectItem value="sim">Sim</SelectItem>
@@ -215,9 +199,7 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
               </SelectContent>
           </Select>
           <Select value={filtroJogo} onValueChange={setJogoFutebol}>
-              <SelectTrigger>
-                  <SelectValue placeholder="Jogo no horário?" />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Jogo no horário?" /></SelectTrigger>
               <SelectContent>
                   <SelectItem value="todos">Jogo? (Todos)</SelectItem>
                   <SelectItem value="sim">Sim</SelectItem>
@@ -225,9 +207,7 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
               </SelectContent>
           </Select>
           <Select value={filtroBebe} onValueChange={setApresentacaoBebe}>
-              <SelectTrigger>
-                  <SelectValue placeholder="Apresentação de bebê?" />
-              </SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Apresentação de bebê?" /></SelectTrigger>
               <SelectContent>
                   <SelectItem value="todos">Bebê? (Todos)</SelectItem>
                   <SelectItem value="sim">Sim</SelectItem>
@@ -238,22 +218,10 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
       </Card>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="text-center">
-            <CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Registros</CardTitle></CardHeader>
-            <CardContent><p className="text-3xl font-bold text-primary">{stats.count}</p></CardContent>
-        </Card>
-        <Card className="text-center">
-            <CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Total Adultos</CardTitle></CardHeader>
-            <CardContent><p className="text-3xl font-bold text-emerald-600">{stats.totalAdultos.toLocaleString('pt-BR')}</p></CardContent>
-        </Card>
-        <Card className="text-center">
-            <CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Total Crianças</CardTitle></CardHeader>
-            <CardContent><p className="text-3xl font-bold text-amber-600">{stats.totalCriancas.toLocaleString('pt-BR')}</p></CardContent>
-        </Card>
-        <Card className="text-center">
-            <CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Média Geral/Culto</CardTitle></CardHeader>
-            <CardContent><p className="text-3xl font-bold text-violet-600">{stats.mediaGeral}</p></CardContent>
-        </Card>
+        <Card className="text-center"><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Registros</CardTitle></CardHeader><CardContent><p className="text-3xl font-bold text-primary">{stats.count}</p></CardContent></Card>
+        <Card className="text-center"><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Total Adultos</CardTitle></CardHeader><CardContent><p className="text-3xl font-bold text-emerald-600">{stats.totalAdultos.toLocaleString('pt-BR')}</p></CardContent></Card>
+        <Card className="text-center"><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Total Crianças</CardTitle></CardHeader><CardContent><p className="text-3xl font-bold text-amber-600">{stats.totalCriancas.toLocaleString('pt-BR')}</p></CardContent></Card>
+        <Card className="text-center"><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Média Geral/Culto</CardTitle></CardHeader><CardContent><p className="text-3xl font-bold text-violet-600">{stats.mediaGeral}</p></CardContent></Card>
       </div>
       
       {registrosFiltrados.length === 0 ? (
@@ -262,55 +230,52 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
         <div className="space-y-6">
             <Card>
                 <CardHeader><CardTitle>Frequência ao Longo do Tempo</CardTitle></CardHeader>
-                <CardContent>
-                    <ResponsiveContainer width="100%" height="300">
-                      <LineChart data={dadosGraficoLinha}>
+                <CardContent className="h-[350px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                     <LineChart data={frequenciaAoLongoDoTempoData}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="data" fontSize={12} />
-                        <YAxis fontSize={12} allowDecimals={false} />
-                        <Tooltip />
+                        <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                        <YAxis tick={{ fontSize: 12 }} />
+                        <Tooltip content={<CustomTooltip />} />
                         <Legend />
-                        <Line type="monotone" dataKey="adultos" name="Adultos" stroke="hsl(var(--primary))" strokeWidth={2} />
-                        <Line type="monotone" dataKey="criancas" name="Crianças" stroke="hsl(var(--accent))" strokeWidth={2} />
-                        <Line type="monotone" dataKey="total" name="Total" stroke="hsl(var(--secondary-foreground))" strokeWidth={3} />
-                      </LineChart>
-                    </ResponsiveContainer>
+                        <Line type="monotone" dataKey="Total" stroke="#8b5cf6" strokeWidth={2} name="Total de Pessoas" />
+                        <Line type="monotone" dataKey="Adultos" stroke="#10b981" strokeWidth={2} name="Adultos" />
+                        <Line type="monotone" dataKey="Crianças" stroke="#f59e0b" strokeWidth={2} name="Crianças" />
+                     </LineChart>
+                  </ResponsiveContainer>
                 </CardContent>
             </Card>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
              <Card>
                 <CardHeader><CardTitle>Média por Horário (Adultos vs Crianças)</CardTitle></CardHeader>
-                <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={dadosGraficoBarrasHorario} layout="vertical" margin={{ left: 50 }}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" fontSize={12} allowDecimals={false} />
-                        <YAxis dataKey="name" type="category" fontSize={10} width={120} interval={0} />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="mediaAdultos" name="Média Adultos" fill="hsl(var(--primary))" />
-                        <Bar dataKey="mediaCriancas" name="Média Crianças" fill="hsl(var(--accent))" />
-                        </BarChart>
+                <CardContent className="h-[350px]">
+                   <ResponsiveContainer width="100%" height="100%">
+                       <BarChart data={mediaPorHorarioData}>
+                           <CartesianGrid strokeDasharray="3 3" />
+                           <XAxis dataKey="name" tick={{ fontSize: 12 }}/>
+                           <YAxis tick={{ fontSize: 12 }} />
+                           <Tooltip content={<CustomTooltip />}/>
+                           <Legend />
+                           <Bar dataKey="Adultos" fill="#10b981" name="Média de Adultos" />
+                           <Bar dataKey="Crianças" fill="#f59e0b" name="Média de Crianças" />
+                       </BarChart>
                     </ResponsiveContainer>
                 </CardContent>
             </Card>
             
             <Card>
                 <CardHeader><CardTitle>Média por Fatores Externos</CardTitle></CardHeader>
-                <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={dadosGraficoBarrasFatores}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="name" fontSize={12} />
-                            <YAxis fontSize={12} allowDecimals={false} />
-                            <Tooltip />
-                            <Legend />
-                            <Bar dataKey="Adultos (Com)" fill="hsl(var(--chart-1))" />
-                            <Bar dataKey="Adultos (Sem)" fill="hsl(var(--chart-2))" />
-                            <Bar dataKey="Crianças (Com)" fill="hsl(var(--chart-3))" />
-                            <Bar dataKey="Crianças (Sem)" fill="hsl(var(--chart-4))" />
-                        </BarChart>
+                <CardContent className="h-[350px]">
+                     <ResponsiveContainer width="100%" height="100%">
+                       <BarChart data={mediaPorFatoresExternosData} layout="vertical">
+                           <CartesianGrid strokeDasharray="3 3" />
+                           <XAxis type="number" tick={{ fontSize: 12 }} />
+                           <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 12 }} />
+                           <Tooltip content={<CustomTooltip />}/>
+                           <Legend />
+                           <Bar dataKey="Média" fill="#8b5cf6" name="Média de Frequência Total" />
+                       </BarChart>
                     </ResponsiveContainer>
                 </CardContent>
             </Card>

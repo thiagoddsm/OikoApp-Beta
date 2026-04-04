@@ -1,9 +1,20 @@
+// FORCE-CONFIG-INLINE: Bypassing import to defeat dev server cache.
 
-import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, initializeFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+
+// Hardcoded config to ensure the storageBucket is read.
+const firebaseConfig = {
+  "projectId": "studio-1424813022-71754",
+  "appId": "1:989586605112:web:66250f4d31e88166a212cd",
+  "storageBucket": "studio-1424813022-71754.firebasestorage.app",
+  "apiKey": "AIzaSyAOSAJ0WPPXAxbSMtiq7UZxkjzE6vizVq8",
+  "authDomain": "studio-1424813022-71754.firebaseapp.com",
+  "measurementId": "",
+  "messagingSenderId": "989586605112"
+};
 
 function getSdks(firebaseApp: FirebaseApp) {
   return {
@@ -16,9 +27,7 @@ function getSdks(firebaseApp: FirebaseApp) {
 
 export function initializeFirebase() {
   if (!getApps().length) {
-    // Directly initialize with the config to ensure connection to the correct backend.
     const firebaseApp = initializeApp(firebaseConfig);
-    // Initialize Firestore with settings to enable long-polling and prevent errors.
     initializeFirestore(firebaseApp, {
       experimentalForceLongPolling: true,
       ignoreUndefinedProperties: true,
@@ -26,7 +35,6 @@ export function initializeFirebase() {
     return getSdks(firebaseApp);
   }
 
-  // If already initialized, return the SDKs with the already initialized App
   return getSdks(getApp());
 }
 

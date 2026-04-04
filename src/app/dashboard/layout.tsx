@@ -3,18 +3,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Home,
   Users,
   Settings,
-  User,
   LogOut,
-  PlusCircle,
-  BarChart2,
-  Network,
   ChevronDown,
-  Building,
+  Network,
   ClipboardList,
   Map,
   Send,
@@ -34,30 +30,37 @@ import {
   Upload,
   CalendarCog,
   Bot,
-  MessageSquare,
   Footprints,
   FileText,
-  Waves,
   HandHelping,
   Shield,
   CalendarClock,
   Save,
   LayoutTemplate,
+  Menu,
+  Search,
+  Bell,
+  Moon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
-  Sidebar,
-  SidebarContent,
+  SidebarProvider,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarFooter,
-  SidebarProvider,
-  SidebarInset,
-  SidebarTrigger,
 } from "@/components/ui/sidebar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Logo } from "@/components/icons";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -66,11 +69,11 @@ import { signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { PendingAccess } from "@/components/auth/pending-access";
 import { userRoles } from '@/lib/roles';
+import { Input } from "@/components/ui/input";
 import type { AccessProfile } from '@/app/dashboard/settings/page';
 
-
 const menuItems = [
-    { href: "/dashboard", label: "Dashboard", icon: Home, permissionId: 'dashboard' },
+    { href: "/dashboard", label: "Painel Geral", icon: Home, permissionId: 'dashboard' },
     { 
       label: "Pessoas", 
       icon: Users,
@@ -133,75 +136,153 @@ const menuItems = [
         { href: "/dashboard/notifications", label: "Notificações", icon: Send, permissionId: 'ministerial_notifications' },
       ]
     },
-    // Temporary item for data import
+    { href: "/public/enrollment", label: "Inscrições", icon: ClipboardList, permissionId: 'inscricoes', target: '_blank' },
     { href: "/dashboard/import-data", label: "Importar Dados", icon: Upload, permissionId: 'settings' },
 ];
 
-function renderMenuItems(items: any[], pathname: string, permissions: AccessProfile['permissions'], userRole: string | undefined, level = 0) {
+const settingsMenuItems = [
+    { href: "/dashboard/settings", label: "Geral", icon: Settings, permissionId: 'settings' },
+    { href: "/dashboard/settings/notifications", label: "Notificações", icon: Send, permissionId: 'settings' },
+];
+
+function MenuItems({ pathname, permissions, userRole, onLinkClick }) {
   const hasPermission = (permissionId: string | undefined, action: string = 'view') => {
-    if (!permissionId) return true; // Items without a permissionId are public within the dashboard
+    if (!permissionId) return true;
     if (userRole === 'admin') return true;
     if (!permissions) return false;
     return !!permissions[permissionId]?.[action];
   };
 
   const filterItems = (itemsToFilter: any[]): any[] => {
-    return itemsToFilter
-      .map(item => {
-        if (item.subItems) {
-          const visibleSubItems = filterItems(item.subItems);
-          if (visibleSubItems.length > 0) {
-            return { ...item, subItems: visibleSubItems };
-          }
-          return null;
-        }
-        return hasPermission(item.permissionId) ? item : null;
-      })
-      .filter((item): item is NonNullable<typeof item> => item !== null);
+    return itemsToFilter.map(item => {
+      if (item.subItems) {
+        const visibleSubItems = filterItems(item.subItems);
+        return visibleSubItems.length > 0 ? { ...item, subItems: visibleSubItems } : null;
+      }
+      return hasPermission(item.permissionId) ? item : null;
+    }).filter(Boolean);
   };
-  
-  const visibleItems = filterItems(items);
 
-  return visibleItems.map((item) => {
-    const isCollapsibleOpen = item.subItems?.some((sub: any) => sub.href && pathname.startsWith(sub.href)) || item.subItems?.some((sub: any) => sub.subItems?.some((subsub: any) => subsub.href && pathname.startsWith(subsub.href)));
-    
-    if (item.subItems) {
-      return (
-        <Collapsible key={item.label} className="w-full" defaultOpen={isCollapsibleOpen}>
-          <SidebarMenuItem>
-            <CollapsibleTrigger asChild className="w-full">
-              <SidebarMenuButton className="justify-between w-full" isActive={isCollapsibleOpen}>
-                  <div className="flex items-center gap-2">
-                    {item.icon && <item.icon className="size-4" />}
-                    <span>{item.label}</span>
-                  </div>
-                  <ChevronDown className="size-4 transition-transform [&[data-state=open]]:rotate-180" />
-              </SidebarMenuButton>
-            </CollapsibleTrigger>
+  const renderMenuItems = (items: any[]) => {
+    return items.map((item, index) => {
+      const isCollapsibleOpen = item.subItems?.some((sub: any) => 
+        (sub.href && pathname.startsWith(sub.href)) || 
+        (sub.subItems && sub.subItems.some((subsub: any) => subsub.href && pathname.startsWith(subsub.href)))
+      );
+
+      const baseItemClasses = "w-full justify-start items-center gap-3 rounded-lg px-3 py-2.5 text-slate-600 font-medium transition-all duration-200 hover:bg-slate-100 hover:text-slate-900";
+      const activeItemClasses = "bg-primary/10 text-primary font-semibold";
+
+      if (item.subItems) {
+        return (
+          <Collapsible key={index} className="w-full" defaultOpen={isCollapsibleOpen}>
+            <SidebarMenuItem>
+              <CollapsibleTrigger asChild className="w-full">
+                <SidebarMenuButton 
+                  className={cn(baseItemClasses, "justify-between", isCollapsibleOpen && "text-slate-900")} 
+                  isActive={isCollapsibleOpen}>
+                    <div className="flex items-center gap-3">
+                      {item.icon && <item.icon className="size-5 shrink-0" />}
+                      <span>{item.label}</span>
+                    </div>
+                    <ChevronDown className="size-4 transition-transform [&[data-state=open]]:rotate-180 shrink-0" />
+                </SidebarMenuButton>
+              </CollapsibleTrigger>
+            </SidebarMenuItem>
+            <CollapsibleContent asChild>
+               <SidebarMenu className="ml-4 pl-4 my-1 space-y-1 border-l border-slate-200">
+                  {renderMenuItems(item.subItems)}
+              </SidebarMenu>
+            </CollapsibleContent>
+          </Collapsible>
+        );
+      }
+      
+      if (item.href) {
+        const isActive = item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href);
+        return (
+          <SidebarMenuItem key={item.href}>
+            <SidebarMenuButton asChild isActive={isActive} className={cn(baseItemClasses, isActive && activeItemClasses)}>
+              <Link href={item.href} onClick={onLinkClick} target={item.target}>
+                {item.icon && <item.icon className="size-5 shrink-0" />}
+                <span>{item.label}</span>
+              </Link>
+            </SidebarMenuButton>
           </SidebarMenuItem>
-          <CollapsibleContent>
-            <SidebarMenu className={cn(level > 0 ? "pl-6" : "pl-6")}>
-              {renderMenuItems(item.subItems, pathname, permissions, userRole, level + 1)}
-            </SidebarMenu>
-          </CollapsibleContent>
-        </Collapsible>
-      );
-    }
-    
-    if (item.href) {
-      return (
-        <SidebarMenuItem key={item.href}>
-          <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)} className="justify-start">
-            <Link href={item.href}>
-              {item.icon && <item.icon className="size-4" />}
-              <span>{item.label}</span>
-            </Link>
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      );
-    }
-    return null;
-  });
+        );
+      }
+      return null;
+    });
+  }
+
+  const visibleItems = filterItems(menuItems);
+  const visibleSettingsItems = filterItems(settingsMenuItems);
+
+  return (
+    <div className="flex flex-col grow overflow-y-auto">
+      <SidebarMenu className="py-4 space-y-1 px-3">
+        <li className="px-3 pb-2 text-sm font-semibold tracking-wider text-slate-500 uppercase">Menu</li>
+        {renderMenuItems(visibleItems)}
+      </SidebarMenu>
+      <SidebarMenu className="space-y-1 p-3 mt-auto">
+        {(userRole === 'admin' || userRole === 'pastor_senior') && (
+           <Collapsible className="w-full" defaultOpen={pathname.startsWith('/dashboard/settings')}>
+            <SidebarMenuItem>
+              <CollapsibleTrigger asChild className="w-full">
+                <SidebarMenuButton 
+                  className={cn("w-full justify-start items-center gap-3 rounded-lg px-3 py-2.5 text-slate-600 font-medium transition-all duration-200 hover:bg-slate-100 hover:text-slate-900 justify-between", pathname.startsWith('/dashboard/settings') && "text-slate-900")} 
+                  isActive={pathname.startsWith('/dashboard/settings')}>
+                    <div className="flex items-center gap-3">
+                      <Settings className="size-5 shrink-0" />
+                      <span>Configurações</span>
+                    </div>
+                    <ChevronDown className="size-4 transition-transform [&[data-state=open]]:rotate-180 shrink-0" />
+                </SidebarMenuButton>
+              </CollapsibleTrigger>
+            </SidebarMenuItem>
+            <CollapsibleContent asChild>
+              <SidebarMenu className="ml-4 pl-4 my-1 space-y-1 border-l border-slate-200">
+                {renderMenuItems(visibleSettingsItems)}
+              </SidebarMenu>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+      </SidebarMenu>
+    </div>
+  );
+}
+
+function MobileMenu({ pathname, permissions, userRole, onLinkClick, children }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const handleLinkClick = () => {
+    setIsOpen(false);
+    onLinkClick();
+  }
+
+  return (
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+      <SheetTrigger asChild>
+        {children}
+      </SheetTrigger>
+      <SheetContent side="left" className="flex flex-col p-0 w-72">
+        <SheetTitle className="sr-only">Menu</SheetTitle>
+        <SheetDescription className="sr-only">Navegue pelas seções do painel.</SheetDescription>
+        <SidebarHeader className="border-b border-slate-200">
+          <div className="flex items-center gap-3 p-3">
+            <Logo className="size-8 text-primary" />
+            <div>
+              <span className="text-lg font-bold text-slate-800">Oiko</span>
+              <span className="text-lg font-light text-slate-600">App</span>
+            </div>
+          </div>
+        </SidebarHeader>
+        <div className="flex-1 overflow-y-auto">
+            <MenuItems pathname={pathname} permissions={permissions} userRole={userRole} onLinkClick={handleLinkClick} />
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
 }
 
 
@@ -244,44 +325,8 @@ export default function DashboardLayout({
   const getInitials = (name: string | null | undefined) => {
     if (!name) return 'U';
     const names = name.split(' ');
-    if (names.length > 1) {
-      return `${names[0][0]}${names[names.length - 1][0]}`;
-    }
+    if (names.length > 1) return `${names[0][0]}${names[names.length - 1][0]}`;
     return name.substring(0, 2);
-  };
-
-  const getPageTitle = (path: string) => {
-      if (path === '/dashboard') return 'Dashboard';
-      if (path.startsWith('/dashboard/people/journey')) return 'Jornada do Membro';
-      if (path.startsWith('/dashboard/people/list')) return 'Lista de Pessoas';
-      if (path.startsWith('/dashboard/people/settings')) return 'Configurações da Jornada';
-      if (path.startsWith('/dashboard/people')) return 'Pessoas';
-      if (path.startsWith('/dashboard/gc')) return 'GCs e Discipulado';
-      if (path.startsWith('/dashboard/discipleship')) return 'Discipulado';
-      if (path.startsWith('/dashboard/attendance')) return 'Frequência nos Cultos';
-      if (path.startsWith('/dashboard/volunteering/teams')) return 'Gerenciar Equipes';
-      if (path.startsWith('/dashboard/volunteering/events')) return 'Gerenciar Eventos';
-      if (path.startsWith('/dashboard/volunteering/schedule')) return 'Geração de Escalas';
-      if (path.startsWith('/dashboard/volunteering/saved-schedules')) return 'Escalas Salvas';
-      if (path.startsWith('/dashboard/volunteering')) return 'Gerenciar Áreas de Serviço';
-      if (path.startsWith('/dashboard/teaching/theoflix')) return 'TheoFlix';
-      if (path.startsWith('/dashboard/teaching/calendar')) return 'Calendário Escolar';
-      if (path.startsWith('/dashboard/teaching/courses')) return 'Dashboard & Catálogo de Ensino';
-      if (path.startsWith('/dashboard/teaching')) return 'Ensino';
-      if (path.startsWith('/dashboard/briefing-pro')) return 'Briefing Pro';
-      if (path.startsWith('/dashboard/events/reservations')) return 'Reservas de Sala';
-      if (path.startsWith('/dashboard/events/planning')) return 'Planejamento de Evento';
-      if (path.startsWith('/dashboard/events')) return 'Protocolos de Evento';
-      if (path.startsWith('/dashboard/patrimony')) return 'Gestão de Patrimônio';
-      if (path.startsWith('/dashboard/social')) return 'Ação Social';
-      if (path.startsWith('/dashboard/goals')) return 'Metas e KPIs';
-      if (path.startsWith('/dashboard/ai-agent')) return 'Agente IA';
-      if (path.startsWith('/dashboard/import-data')) return 'Importação de Dados';
-      if (path.startsWith('/dashboard/notifications')) return 'Central de Notificações';
-      if (path.startsWith('/dashboard/finance')) return 'Gestão Financeira';
-      if (path.startsWith('/dashboard/settings')) return 'Configurações';
-        
-      return 'OikoApp';
   };
   
   if (isLoading) {
@@ -292,84 +337,124 @@ export default function DashboardLayout({
     );
   }
   
-  const hasAccess = !!userRole;
-
-
-  if (user && !hasAccess) {
+  if (user && !userData?.hierarchy?.role) {
     return <div className="p-4"><PendingAccess userName={user.displayName} onLogout={handleLogout} /></div>;
   }
 
-  if (user && hasAccess) {
-    const userRoleLabel = userRoles[userRole] || 'Membro';
+  if (user) {
+    const userRoleLabel = userRole ? userRoles[userRole] : 'Membro';
 
     return (
       <SidebarProvider>
-        <Sidebar>
-          <SidebarHeader>
-            <div className="flex items-center gap-2">
-              <Logo className="size-7 text-primary" />
-              <span className="text-lg font-semibold">OikoApp</span>
+        <div className="min-h-screen w-full flex bg-slate-50">
+          {/* --- Desktop Sidebar --- */}
+          <aside className="hidden lg:flex lg:flex-col lg:w-72 lg:border-r lg:border-slate-200 bg-white">
+            <SidebarHeader className="border-b border-slate-200">
+              <div className="flex items-center gap-3 p-3">
+                <Logo className="size-8 text-primary" />
+                <div>
+                  <span className="text-lg font-bold text-slate-800">Oiko</span>
+                  <span className="text-lg font-light text-slate-600">App</span>
+                </div>
+              </div>
+            </SidebarHeader>
+            <div className="flex-1 flex flex-col overflow-y-auto">
+                <MenuItems pathname={pathname} permissions={accessProfile?.permissions} userRole={userRole} onLinkClick={() => {}} />
             </div>
-          </SidebarHeader>
-          <SidebarContent>
-            <SidebarMenu>
-              {renderMenuItems(menuItems, pathname, accessProfile?.permissions, userRole)}
-            </SidebarMenu>
-          </SidebarContent>
-          <SidebarFooter>
-            <SidebarMenu>
-              {(userRole === 'admin' || userRole === 'pastor_senior') && (
-                <SidebarMenuItem>
-                    <SidebarMenuButton asChild isActive={pathname === '/dashboard/settings'} className="justify-start">
-                      <Link href="/dashboard/settings">
-                        <Settings className="size-4" />
-                        <span>Configurações</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-              )}
-              <SidebarMenuItem>
-                <div className="flex items-center gap-2 p-2 rounded-md">
-                    <Avatar className="h-8 w-8">
-                      {user.photoURL && <AvatarImage src={user.photoURL} alt={user.displayName || 'User Avatar'} />}
-                      <AvatarFallback>{getInitials(user.displayName)}</AvatarFallback>
+             <SidebarFooter className="border-t border-slate-200">
+                <div className="flex items-center gap-3 p-4">
+                    <Avatar className="h-10 w-10 border-2 border-white">
+                        {user.photoURL && <AvatarImage src={user.photoURL} alt={user.displayName || 'User Avatar'} />}
+                        <AvatarFallback className="font-bold text-slate-600 bg-slate-200">{getInitials(user.displayName)}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col text-sm truncate">
-                      <span className="font-semibold truncate">{user.displayName || 'Usuário'}</span>
-                      <span className="text-muted-foreground text-xs truncate">{user.email || 'Sem email'}</span>
-                      {userRoleLabel && <span className="text-muted-foreground text-xs truncate font-bold capitalize">{userRoleLabel}</span>}
+                        <span className="font-semibold truncate text-slate-800">{user.displayName || 'Usuário'}</span>
+                        <span className="text-slate-500 text-xs truncate capitalize">{userRoleLabel}</span>
                     </div>
-                  </div>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton onClick={handleLogout} className="justify-start w-full">
-                    <LogOut className="size-4" />
-                    <span>Sair</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarFooter>
-        </Sidebar>
-        <SidebarInset>
-          <header className="flex h-14 items-center gap-4 border-b bg-background/95 px-6 backdrop-blur-sm sticky top-0 z-30">
-              <SidebarTrigger className="md:hidden" />
-              <div className="flex-1">
-                  <h1 className="text-lg font-semibold">
-                      {getPageTitle(pathname)}
-                  </h1>
-              </div>
-              <Button size="sm" asChild variant="ghost"><Link href="/">Voltar ao Site</Link></Button>
-          </header>
-          <header className="no-print h-1 w-full bg-primary/5" />
-          <main className="flex-1 p-4 md:p-6">{children}</main>
-        </SidebarInset>
+                     <Button variant="ghost" size="icon" onClick={handleLogout} className="ml-auto shrink-0">
+                         <LogOut className="size-5" />
+                     </Button>
+                </div>
+            </SidebarFooter>
+          </aside>
+
+          {/* --- Main Content --- */}
+          <div className="flex-1 flex flex-col">
+             <header className="flex h-16 items-center gap-4 border-b bg-white px-6 sticky top-0 z-30">
+                <MobileMenu 
+                    pathname={pathname} 
+                    permissions={accessProfile?.permissions} 
+                    userRole={userRole} 
+                    onLinkClick={() => {}}
+                >
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        className="shrink-0 lg:hidden"
+                        >
+                        <Menu className="h-5 w-5" />
+                        <span className="sr-only">Toggle navigation menu</span>
+                    </Button>
+                </MobileMenu>
+                 <div className="w-full flex-1">
+                    <form>
+                        <div className="relative">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                type="search"
+                                placeholder="Buscar em todo o sistema..."
+                                className="w-full appearance-none bg-background pl-8 shadow-none md:w-2/3 lg:w-1/3"
+                            />
+                        </div>
+                    </form>
+                </div>
+                <Button variant="ghost" size="icon" className="rounded-full">
+                    <Moon className="h-5 w-5" />
+                </Button>
+                 <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="rounded-full">
+                            <Bell className="h-5 w-5" />
+                            <span className="sr-only">Notificações</span>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Notificações</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem>Não há novas notificações.</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+                 <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                         <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                            <Avatar className="h-10 w-10">
+                                {user.photoURL && <AvatarImage src={user.photoURL} alt={user.displayName || 'User Avatar'} />}
+                                <AvatarFallback className="font-bold text-slate-600 bg-slate-200">{getInitials(user.displayName)}</AvatarFallback>
+                            </Avatar>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild><Link href="/dashboard/settings">Configurações</Link></DropdownMenuItem>
+                        <DropdownMenuItem>Suporte</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={handleLogout}>Sair</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </header>
+             <main className="flex-1 p-4 md:p-6 bg-slate-50 overflow-y-auto">
+                {children}
+             </main>
+          </div>
+        </div>
       </SidebarProvider>
     );
   }
 
   return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <Logo className="h-12 w-12 animate-pulse text-primary" />
-      </div>
+    <div className="flex h-screen w-full items-center justify-center">
+      <Logo className="h-12 w-12 animate-pulse text-primary" />
+    </div>
   );
 }

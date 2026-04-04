@@ -23,8 +23,10 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { theoflixDB, type Course, type Episode } from '@/lib/theoflix-data';
-import { Play, Info, Plus, Lock, Search, Clock, CheckCircle2, PlayCircle, Star, Heart, X, Settings, Loader2, ArrowLeft, CheckCircle } from 'lucide-react';
+import { Play, Info, Plus, Lock, Search, Clock, CheckCircle2, PlayCircle, Star, Heart, X, Settings, Loader2, ArrowLeft, CheckCircle, BookCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirebase, useCollection, useMemoFirebase, useDoc, updateDocumentNonBlocking } from '@/firebase';
 import { collection, query, doc, orderBy } from 'firebase/firestore';
@@ -86,7 +88,8 @@ function TheoFlixContent() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isManagerOpen, setManagerOpen] = useState(false);
   const [isApiReady, setIsApiReady] = useState(false);
-  
+  const [lessonNotes, setLessonNotes] = useState('');
+
   const playerRef = useRef<any>(null);
 
   const userProgress = useMemo(() => userData?.journey?.theoflixProgress || {}, [userData]);
@@ -134,6 +137,37 @@ function TheoFlixContent() {
     return `${m}min`;
   }, [selectedCourse]);
 
+  const getCourseTotalDuration = (course: Course): string => {
+    if (!course?.episodes?.length) return "";
+    const totalMinutes = course.episodes.reduce((acc, ep) => {
+        const duration = ep.duration || "0";
+        const hMatch = duration.match(/(\d+)\s*h/i);
+        const mMatch = duration.match(/(\d+)\s*m/i);
+        
+        let mins = 0;
+        if (hMatch) mins += parseInt(hMatch[1], 10) * 60;
+        if (mMatch) mins += parseInt(mMatch[1], 10);
+        
+        if (!hMatch && !mMatch) {
+            const rawNum = parseInt(duration.replace(/\D/g, ''), 10);
+            if (!isNaN(rawNum)) mins += rawNum;
+        }
+        
+        return acc + mins;
+    }, 0);
+
+    if (totalMinutes === 0) return "";
+
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
+    
+    const parts: string[] = [];
+    if (h > 0) parts.push(`${h}H`);
+    if (m > 0) parts.push(`${m}MIN`);
+    
+    return parts.join(' ');
+  };
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!window.YT) {
@@ -178,10 +212,10 @@ function TheoFlixContent() {
     });
 
     if (episodeIndex > -1) {
-        markAttendanceByTheoflix(user.uid, selectedCourse.id, episodeIndex);
+        markAttendanceByTheoflix(user.uid, selectedCourse.id, episodeIndex, lessonNotes);
     }
-
-    toast({ title: "Aula Concluída! 🎉", description: "Seu progresso foi salvo com sucesso." });
+    setLessonNotes('');
+    toast({ title: "Aula Concluída! 🎉", description: "Seu progresso e anotações foram salvos com sucesso." });
   };
 
   const toggleMyList = (id: string) => {
@@ -206,11 +240,13 @@ function TheoFlixContent() {
   const handleCourseClick = (course: Course) => {
     setSelectedCourse(course);
     setCurrentEpisode(course.episodes[0] || null); 
+    setLessonNotes('');
   };
 
   const handlePlayEpisode = (episode: Episode) => {
     setCurrentEpisode(episode);
     setIsPlaying(true);
+    setLessonNotes('');
   };
 
   const handleClosePlayer = () => {
@@ -333,7 +369,7 @@ function TheoFlixContent() {
                                 </h3>
                                 <div className="flex items-center justify-between">
                                     <span className="text-[8px] sm:text-[10px] font-bold text-muted-foreground uppercase">
-                                        <Clock className="size-2.5 sm:size-3 inline mr-1" /> {course.duration || '2h'}
+                                        <Clock className="size-2.5 sm:size-3 inline mr-1" /> {getCourseTotalDuration(course)}
                                     </span>
                                     <Badge variant="secondary" className="text-[7px] sm:text-[9px] h-3 sm:h-4 px-1 font-black">
                                         {course.type}
@@ -432,6 +468,15 @@ function TheoFlixContent() {
                     </section>
                 </div>
                 <div className="space-y-6 sm:space-y-10">
+                     <div className="space-y-4">
+                        <Label className="text-xs font-black uppercase text-slate-400 tracking-widest">Observações da Aula</Label>
+                        <Textarea 
+                            value={lessonNotes}
+                            onChange={(e) => setLessonNotes(e.target.value)}
+                            placeholder="Anotações, dúvidas ou insights..."
+                            className="bg-slate-900 border-slate-800 text-slate-200 h-32 text-sm"
+                        />
+                    </div>
                     <div className="space-y-4 sm:space-y-6">
                         <h4 className="text-[8px] sm:text-[10px] font-black text-slate-500 uppercase tracking-widest border-b border-white/5 pb-3">Ficha Técnica</h4>
                         <div className="space-y-3 sm:space-y-5 text-xs sm:text-sm font-bold">
@@ -448,13 +493,18 @@ function TheoFlixContent() {
                         </div>
                     </div>
                     
-                    <Button 
-                      variant="secondary" 
-                      onClick={handleClosePlayer} 
-                      className="w-full h-10 sm:h-12 rounded-xl font-black bg-slate-800 text-white hover:bg-slate-700 border-none shadow-lg transition-colors text-xs sm:text-sm"
-                    >
-                      <ArrowLeft className="mr-2 size-3 sm:size-4" /> VOLTAR PARA A GALERIA
-                    </Button>
+                    <div className="flex flex-col gap-3">
+                        <Button onClick={handleMarkAsCompleted} className="w-full h-12 font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg">
+                            <BookCheck className="mr-2 size-5"/> Marcar como Concluída
+                        </Button>
+                        <Button 
+                          variant="secondary" 
+                          onClick={handleClosePlayer} 
+                          className="w-full h-10 sm:h-12 rounded-xl font-black bg-slate-800 text-white hover:bg-slate-700 border-none shadow-lg transition-colors text-xs sm:text-sm"
+                        >
+                          <ArrowLeft className="mr-2 size-3 sm:size-4" /> VOLTAR PARA A GALERIA
+                        </Button>
+                    </div>
                 </div>
               </div>
             </div>

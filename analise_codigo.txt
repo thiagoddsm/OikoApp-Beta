@@ -1,0 +1,1382 @@
+--- FILE START ---
+PATH: src/app/dashboard/teaching/courses/[courseId]/page.tsx
+
+DESCRIÇÃO: Página de detalhes de um curso específico. Exibe KPIs (indicadores chave de desempenho) como número de alunos e turmas, e permite a gestão do curso através de abas como 'Visão Geral', 'Frequência', 'Alunos', 'Turmas', etc.
+
+CONTEÚDO:
+```tsx
+'use client';
+
+import React, { useMemo, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useDoc, useFirebase } from '@/firebase';
+import { 
+  Loader2, ArrowLeft, BookOpen, Users, User, FileText, 
+  ClipboardCheck, Folder, Inbox, GraduationCap, TrendingUp,
+  LayoutDashboard, PlusCircle, UserPlus, Waves, Lightbulb, School, HandHelping,
+  CheckCircle2
+} from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { VolunteeringProvider, useVolunteering } from '@/contexts/volunteering-context';
+import { CourseDetailsForm } from '@/components/teaching/course-details-form';
+import { CourseClassesManager } from '@/components/teaching/course-classes-manager';
+import { CourseTeachersManager } from '@/components/teaching/course-teachers-manager';
+import { EnrollmentRequestsList } from '@/components/teaching/enrollment-requests-list';
+import { StudentsManagement } from '@/components/teaching/students-management';
+import { CourseAttendanceMatrix } from '@/components/teaching/course-attendance-matrix';
+import { CourseSyllabusManager } from '@/components/teaching/course-syllabus-manager';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
+import Link from 'next/link';
+
+type Course = {
+  id: string;
+  name: string;
+  description: string;
+  ministryName: string;
+  responsibleId?: string;
+  location?: string;
+  defaultDay?: string;
+  defaultTime?: string;
+  teacherIds?: string[];
+  type?: 'trilho' | 'eletivo';
+  syllabus?: { id: string; title: string; description: string }[];
+};
+
+function CourseDetailPageContent() {
+    const params = useParams();
+    const router = useRouter();
+    const courseId = params.courseId as string;
+    const { classes, enrollmentRequests, users, isLoading: isContextLoading } = useVolunteering();
+    const [activeTab, setActiveTab] = useState('overview');
+    
+    const { data: course, isLoading: isCourseLoading } = useDoc<Course>(courseId ? `courses/${courseId}` : null);
+
+    const isLoading = isCourseLoading || isContextLoading;
+
+    // --- KPIs Calculations ---
+    const courseClasses = useMemo(() => classes.filter(c => c.courseId === courseId), [classes, courseId]);
+    const pendingRequests = useMemo(() => enrollmentRequests.filter(r => r.courseId === courseId && r.status === 'pending'), [enrollmentRequests, courseId]);
+    
+    const courseStudentsCount = useMemo(() => {
+        const studentSet = new Set<string>();
+        courseClasses.forEach(c => c.students?.forEach(s => studentSet.add(s)));
+        return studentSet.size;
+    }, [courseClasses]);
+
+    const courseTeachersCount = useMemo(() => {
+        return course?.teacherIds?.length || 0;
+    }, [course?.teacherIds]);
+
+    const getMinistryIcon = (name: string) => {
+        const n = name?.toLowerCase() || '';
+        if (n.includes('wave')) return Waves;
+        if (n === 'dis') return HandHelping;
+        if (n.includes('lumine')) return Lightbulb;
+        if (n.includes('college') || n.includes('escola')) return School;
+        return BookOpen;
+    };
+
+    if (isLoading) {
+        return <div className="flex justify-center p-10"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>
+    }
+
+    if (!course) {
+        return (
+            <Card>
+                <CardHeader><CardTitle>Curso não encontrado</CardTitle></CardHeader>
+                <CardContent>
+                    <p>O curso que você está procurando não existe ou foi removida.</p>
+                     <Button onClick={() => router.back()} className="mt-4"><ArrowLeft className="mr-2"/>Voltar</Button>
+                </CardContent>
+            </Card>
+        )
+    }
+
+    const MinistryIcon = getMinistryIcon(course.ministryName);
+
+    const kpis = [
+        { id: 'students', title: "Alunos Ativos", value: courseStudentsCount, icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
+        { id: 'requests', title: "Pendentes", value: pendingRequests.length, icon: Inbox, color: "text-amber-600", bg: "bg-amber-50" },
+        { id: 'classes', title: "Turmas", value: courseClasses.length, icon: School, color: "text-purple-600", bg: "bg-purple-50" },
+        { id: 'teachers', title: "Professores", value: courseTeachersCount, icon: GraduationCap, color: "text-green-600", bg: "bg-green-50" },
+    ];
+
+    return (
+        <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                <Button variant="outline" size="sm" asChild>
+                    <Link href="/dashboard/teaching/courses">
+                        <ArrowLeft className="mr-2 h-4 w-4"/>Voltar
+                    </Link>
+                </Button>
+                <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="px-3 py-1 font-bold">{course.ministryName}</Badge>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {kpis.map((kpi) => (
+                    <button 
+                        key={kpi.id} 
+                        onClick={() => setActiveTab(kpi.id === 'requests' ? 'requests' : kpi.id === 'classes' ? 'classes' : kpi.id === 'students' ? 'students' : kpi.id === 'teachers' ? 'teachers' : activeTab)}
+                        className="text-left transition-all hover:scale-105 active:scale-95 outline-none"
+                    >
+                        <Card className={cn("h-full border-none shadow-sm", activeTab === kpi.id ? "ring-2 ring-primary" : "")}>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                                <CardTitle className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{kpi.title}</CardTitle>
+                                <div className={cn("p-2 rounded-lg", kpi.bg, kpi.color)}>
+                                    <kpi.icon className="h-4 w-4" />
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="text-2xl font-black">{kpi.value}</div>
+                            </CardContent>
+                        </Card>
+                    </button>
+                ))}
+            </div>
+
+            <Card>
+                <CardHeader className="flex flex-row items-center gap-4">
+                    <div className="p-3 bg-primary/10 rounded-xl text-primary">
+                        <MinistryIcon size={32} />
+                    </div>
+                    <div>
+                        <CardTitle className="text-2xl font-black">{course.name}</CardTitle>
+                        <CardDescription>{course.description}</CardDescription>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                        <div className="overflow-x-auto pb-2">
+                            <TabsList className="flex h-auto justify-start bg-muted/50 p-1 mb-8 min-w-max">
+                                <TabsTrigger value="overview"><LayoutDashboard className="mr-2 size-4"/>Geral</TabsTrigger>
+                                <TabsTrigger value="attendance"><CheckCircle2 className="mr-2 size-4"/>Frequência & Aprovação</TabsTrigger>
+                                <TabsTrigger value="requests">Solicitações {pendingRequests.length > 0 && <Badge className="ml-2 h-4 px-1">{pendingRequests.length}</Badge>}</TabsTrigger>
+                                <TabsTrigger value="students">Alunos</TabsTrigger>
+                                <TabsTrigger value="classes">Turmas</TabsTrigger>
+                                <TabsTrigger value="teachers">Professores</TabsTrigger>
+                                <TabsTrigger value="syllabus">Ementa</TabsTrigger>
+                            </TabsList>
+                        </div>
+
+                        <TabsContent value="overview" className="mt-0 animate-in fade-in-50 duration-300">
+                            <CourseDetailsForm course={course} />
+                        </TabsContent>
+
+                        <TabsContent value="attendance" className="mt-0 animate-in fade-in-50 duration-300">
+                            <CourseAttendanceMatrix courseId={course.id} />
+                        </TabsContent>
+
+                        <TabsContent value="requests" className="mt-0 animate-in slide-in-from-left-4 duration-300">
+                            <EnrollmentRequestsList courseId={course.id} />
+                        </TabsContent>
+
+                        <TabsContent value="students" className="mt-0 animate-in slide-in-from-left-4 duration-300">
+                            <StudentsManagement filterCourseIds={[course.id]} />
+                        </TabsContent>
+
+                        <TabsContent value="classes" className="mt-0 animate-in slide-in-from-left-4 duration-300">
+                            <CourseClassesManager course={course} />
+                        </TabsContent>
+
+                        <TabsContent value="teachers" className="mt-0 animate-in slide-in-from-left-4 duration-300">
+                            <CourseTeachersManager course={course} />
+                        </TabsContent>
+
+                        <TabsContent value="syllabus" className="mt-0 animate-in slide-in-from-left-4 duration-300">
+                            <CourseSyllabusManager course={course} />
+                        </TabsContent>
+                    </Tabs>
+                </CardContent>
+            </Card>
+        </div>
+    );
+}
+
+export default function CourseDetailPage() {
+    return (
+        <VolunteeringProvider>
+            <CourseDetailPageContent />
+        </VolunteeringProvider>
+    )
+}
+
+```
+
+--- FILE END ---
+
+--- FILE START ---
+PATH: src/app/dashboard/teaching/classes/[classId]/page.tsx
+
+DESCRIÇÃO: Página de detalhes de uma turma específica. Mostra informações da turma e do curso a que pertence, e organiza em abas a gestão de 'Alunos', 'Notas', 'Diário de Classe' e 'Materiais'.
+
+CONTEÚDO:
+```tsx
+
+'use client';
+
+import React, { useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useDoc } from '@/firebase';
+import { Loader2, ArrowLeft, BookOpen, Users, Folder, GraduationCap, Edit } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { VolunteeringProvider } from '@/contexts/volunteering-context';
+import { ClassStudentsManager } from '@/components/teaching/class-students-manager';
+import { ClassGradesManager } from '@/components/teaching/class-grades-manager';
+import { ClassMaterialsManager } from '@/components/teaching/class-materials-manager';
+import { ClassFormDialog } from '@/components/teaching/class-form-dialog';
+import Link from 'next/link';
+
+type Class = {
+  id: string;
+  name: string;
+  courseId: string;
+  [key: string]: any;
+};
+
+type Course = {
+    id: string;
+    name: string;
+}
+
+function ClassDetailPageContent() {
+    const params = useParams();
+    const router = useRouter();
+    const classId = params.classId as string;
+    
+    const { data: classData, isLoading: isLoadingClass } = useDoc<Class>(classId ? `classes/${classId}` : null);
+    const { data: courseData, isLoading: isLoadingCourse } = useDoc<Course>(classData ? `courses/${classData.courseId}` : null);
+    
+    const [isEditOpen, setEditOpen] = useState(false);
+
+    const isLoading = isLoadingClass || isLoadingCourse;
+
+    if (isLoading) {
+        return <div className="flex justify-center p-10"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>
+    }
+
+    if (!classData || !courseData) {
+        return (
+            <Card>
+                <CardHeader><CardTitle>Turma não encontrada</CardTitle></CardHeader>
+                <CardContent>
+                    <p>A turma que você está procurando não existe ou foi removida.</p>
+                     <Button onClick={() => router.back()} className="mt-4"><ArrowLeft className="mr-2"/>Voltar</Button>
+                </CardContent>
+            </Card>
+        )
+    }
+
+    return (
+        <div className="space-y-6">
+            <div className="flex justify-between items-center">
+                <Button variant="outline" asChild>
+                    <Link href={`/dashboard/teaching/courses/${courseData.id}`}>
+                        <ArrowLeft className="mr-2 h-4 w-4"/>Voltar para o curso {courseData.name}
+                    </Link>
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+                    <Edit className="mr-2 h-4 w-4" /> Editar Detalhes da Turma
+                </Button>
+            </div>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Turma: {classData.name}</CardTitle>
+                    <CardDescription>Curso: {courseData.name}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Tabs defaultValue="students">
+                        <TabsList className="grid w-full grid-cols-4">
+                            <TabsTrigger value="students"><Users className="mr-2 h-4 w-4"/>Alunos</TabsTrigger>
+                            <TabsTrigger value="grades"><GraduationCap className="mr-2 h-4 w-4"/>Notas</TabsTrigger>
+                            <TabsTrigger value="log"><BookOpen className="mr-2 h-4 w-4"/>Diário de Classe</TabsTrigger>
+                            <TabsTrigger value="materials"><Folder className="mr-2 h-4 w-4"/>Materiais</TabsTrigger>
+                        </TabsList>
+                        
+                        <TabsContent value="students" className="mt-6">
+                            <ClassStudentsManager classData={classData} />
+                        </TabsContent>
+                        
+                        <TabsContent value="grades" className="mt-6">
+                             <ClassGradesManager classData={classData} />
+                        </TabsContent>
+                        
+                        <TabsContent value="log" className="mt-6">
+                            <div className="text-center py-10 border-2 border-dashed rounded-lg">
+                                 <p className="text-muted-foreground mb-4">O Diário de Classe é usado pelos professores para lançar presenças e conteúdos.</p>
+                                 <Button asChild>
+                                    <Link href={`/dashboard/teaching/log/${classId}`}>
+                                        <BookOpen className="mr-2 size-4" /> Ir para o Diário da Turma
+                                    </Link>
+                                 </Button>
+                            </div>
+                        </TabsContent>
+                        
+                        <TabsContent value="materials" className="mt-6">
+                             <ClassMaterialsManager classData={classData} />
+                        </TabsContent>
+                    </Tabs>
+                </CardContent>
+            </Card>
+
+            <ClassFormDialog 
+                open={isEditOpen} 
+                onOpenChange={setEditOpen} 
+                existingClass={classData} 
+                courseId={courseData.id} 
+            />
+        </div>
+    );
+}
+
+export default function ClassDetailPage() {
+    return (
+        <VolunteeringProvider>
+            <ClassDetailPageContent />
+        </VolunteeringProvider>
+    )
+}
+
+```
+
+--- FILE END ---
+
+--- FILE START ---
+PATH: src/components/teaching/class-students-manager.tsx
+
+DESCRIÇÃO: Componente responsável por gerir e exibir a lista de alunos matriculados numa turma. Permite adicionar novos alunos e remover matrículas existentes.
+
+CONTEÚDO:
+```tsx
+'use client';
+import React, { useMemo, useState } from 'react';
+import { useVolunteering, type Class, type User } from '@/contexts/volunteering-context';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { Loader2, PlusCircle, UserX } from 'lucide-react';
+import { EnrollmentDialog } from './enrollment-dialog';
+
+interface ClassStudentsManagerProps {
+    classData: Class;
+}
+
+export function ClassStudentsManager({ classData }: ClassStudentsManagerProps) {
+    const { users, isLoading, updateClass } = useVolunteering();
+    const [isEnrollmentOpen, setEnrollmentOpen] = useState(false);
+
+    const enrolledStudents = useMemo(() => {
+        if (!users || !classData?.students) return [];
+        const studentSet = new Set(classData.students);
+        const students = users.filter(u => studentSet.has(u.id));
+        // ORDENANDO ALUNOS POR NOME
+        students.sort((a, b) => a.name.localeCompare(b.name));
+        return students;
+    }, [users, classData]);
+    
+    const handleRemoveStudent = async (studentId: string) => {
+        if (confirm('Tem certeza que deseja remover este aluno da turma?')) {
+            const updatedStudents = classData.students.filter((id: string) => id !== studentId);
+            await updateClass(classData.id, { students: updatedStudents });
+        }
+    };
+
+    if (isLoading) {
+        return <div className="flex justify-center p-4"><Loader2 className="animate-spin" /></div>;
+    }
+    
+    return (
+        <>
+            <div className="flex justify-between items-center mb-4">
+                <p className="text-sm text-muted-foreground">
+                    {enrolledStudents.length} aluno(s) matriculado(s) nesta turma.
+                </p>
+                <Button size="sm" onClick={() => setEnrollmentOpen(true)}>
+                    <PlusCircle className="mr-2 size-4" /> Matricular Aluno
+                </Button>
+            </div>
+            <div className="rounded-md border">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Aluno</TableHead>
+                            <TableHead>Contato</TableHead>
+                            <TableHead className="text-right">Ações</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {enrolledStudents.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={3} className="h-24 text-center">Nenhum aluno matriculado.</TableCell>
+                            </TableRow>
+                        ) : (
+                            enrolledStudents.map((student: User) => {
+                                const avatar = PlaceHolderImages.find(p => p.id === 'avatar-1');
+                                return (
+                                    <TableRow key={student.id}>
+                                        <TableCell>
+                                            <div className="flex items-center gap-3">
+                                                <Avatar className="h-9 w-9">
+                                                    {avatar && <AvatarImage src={avatar.imageUrl} alt={student.name} />}
+                                                    <AvatarFallback>{student.name.charAt(0)}</AvatarFallback>
+                                                </Avatar>
+                                                <span className="font-medium">{student.name}</span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-muted-foreground">{student.email || student.phone || '-'}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Button 
+                                              variant="ghost" 
+                                              size="icon" 
+                                              onClick={() => handleRemoveStudent(student.id)}
+                                              className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                              title="Remover Matrícula"
+                                            >
+                                                <UserX className="size-4" />
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                )
+                            })
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
+            
+            <EnrollmentDialog
+                open={isEnrollmentOpen}
+                onOpenChange={setEnrollmentOpen}
+                initialCourseId={classData?.courseId}
+            />
+        </>
+    );
+}
+
+```
+
+--- FILE END ---
+
+--- FILE START ---
+PATH: src/app/public/finance-request/page.tsx
+
+DESCRIÇÃO: Formulário público para que os membros da igreja possam submeter solicitações financeiras. Inclui campos para dados do solicitante, tipo de pedido (reembolso, pagamento), valor, e anexos.
+
+CONTEÚDO:
+```tsx
+
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useFirebase, addDocumentNonBlocking } from '@/firebase';
+import { collection, Timestamp } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2, Send, CheckCircle, Wallet, DollarSign, Receipt, Info, HeartHandshake, Paperclip } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Logo } from '@/components/icons';
+
+function PublicFinanceRequestForm() {
+    const { firestore, storage } = useFirebase();
+    const { toast } = useToast();
+    
+    const [isSaving, setIsSaving] = useState(false);
+    const [success, setSuccess] = useState(false);
+    
+    const [formData, setFormData] = useState({
+        requesterName: '',
+        phone: '',
+        email: '',
+        category: 'Ministério',
+        description: '',
+        amount: '',
+        objective: 'reembolso' as 'reembolso' | 'pagamento' | 'prestacao_contas',
+        pixKey: '',
+        dueDate: '',
+        purchaseLink: '',
+    });
+
+    const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+
+    useEffect(() => {
+        setFormData(prev => ({
+            ...prev,
+            dueDate: new Date().toISOString().split('T')[0]
+        }));
+    }, []);
+
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!formData.requesterName || !formData.email || !formData.amount || !firestore) return;
+        
+        if (attachmentFile && !storage) {
+            toast({ variant: 'destructive', title: "Erro de Configuração", description: "O serviço de armazenamento não está disponível." });
+            return;
+        }
+
+        setIsSaving(true);
+        try {
+            let attachmentUrl = '';
+            if (attachmentFile && storage) {
+                const filePath = `finance-attachments/${Date.now()}-${attachmentFile.name}`;
+                const fileRef = ref(storage, filePath);
+                await uploadBytes(fileRef, attachmentFile);
+                attachmentUrl = await getDownloadURL(fileRef);
+            }
+
+            await addDocumentNonBlocking(collection(firestore, 'finance_requests'), {
+                ...formData,
+                amount: Number(formData.amount),
+                status: 'pending',
+                createdAt: Timestamp.now(),
+                attachmentUrl,
+            });
+            setSuccess(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } catch (e) {
+            console.error(e);
+            toast({ variant: 'destructive', title: "Erro ao enviar", description: "Ocorreu uma falha técnica. Tente novamente." });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    if (success) {
+        return (
+            <main className="min-h-screen bg-[#F8F9FA] py-12 md:py-20 px-4 flex items-center justify-center">
+                <Card className="max-w-md w-full text-center p-8 animate-in zoom-in-95 duration-500">
+                    <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner mb-6">
+                        <CheckCircle size={40} />
+                    </div>
+                    <h2 className="text-3xl font-black uppercase italic tracking-tighter text-slate-900 mb-4">Solicitação Enviada!</h2>
+                    <p className="text-muted-foreground mb-8">
+                        Protocolamos sua solicitação financeira com sucesso. Ela será analisada pela tesouraria da IBM em breve.
+                    </p>
+                    <Button onClick={() => window.location.reload()} variant="outline" className="w-full font-bold">Enviar Outra</Button>
+                </Card>
+            </main>
+        );
+    }
+
+    return (
+        <main className="min-h-screen bg-[#F8F9FA] py-12 md:py-20 px-4">
+            <div className="max-w-2xl mx-auto space-y-8">
+                <div className="text-center space-y-4">
+                    <Logo className="size-12 text-primary mx-auto mb-4" />
+                    <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter uppercase text-slate-900 leading-none">Solicitação Financeira</h1>
+                    <p className="text-muted-foreground text-sm md:text-lg">Portal oficial para pedidos de reembolso, pagamentos e prestação de contas dos ministérios IBM.</p>
+                </div>
+
+                <Card className="shadow-2xl border-none overflow-hidden rounded-[2rem]">
+                    <CardHeader className="bg-primary/5 p-8 border-b">
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 bg-white rounded-2xl shadow-sm text-primary">
+                                <Wallet size={24} />
+                            </div>
+                            <div>
+                                <CardTitle className="text-xl font-bold">Formulário de Protocolo</CardTitle>
+                                <CardDescription>Preencha os dados com atenção para agilizar a análise.</CardDescription>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <form onSubmit={handleSave}>
+                        <CardContent className="p-8 space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] uppercase font-black text-muted-foreground">Seu Nome Completo *</Label>
+                                    <Input required value={formData.requesterName} onChange={e => setFormData(p => ({...p, requesterName: e.target.value}))} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] uppercase font-black text-muted-foreground">Seu E-mail *</Label>
+                                    <Input required type="email" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] uppercase font-black text-muted-foreground">Celular/WhatsApp</Label>
+                                    <Input value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} placeholder="(21) 9..." />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] uppercase font-black text-muted-foreground">Objetivo *</Label>
+                                    <Select value={formData.objective} onValueChange={(v: any) => setFormData(p => ({...p, objective: v}))}>
+                                        <SelectTrigger><SelectValue /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="reembolso">Reembolso</SelectItem>
+                                            <SelectItem value="pagamento">Solicitar Pagamento</SelectItem>
+                                            <SelectItem value="prestacao_contas">Prestação de Contas</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] uppercase font-black text-muted-foreground">Ministério / Categoria</Label>
+                                    <Input value={formData.category} onChange={e => setFormData(p => ({...p, category: e.target.value}))} placeholder="Ex: Louvor, Mídia, Kids..." />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] uppercase font-black text-muted-foreground">Valor (R$) *</Label>
+                                    <Input required type="number" step="0.01" value={formData.amount} onChange={e => setFormData(p => ({...p, amount: e.target.value}))} placeholder="0,00" className="text-lg font-bold text-primary" />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className="text-[10px] uppercase font-black text-muted-foreground">Descrição da Despesa / Justificativa *</Label>
+                                <Textarea required value={formData.description} onChange={e => setFormData(p => ({...p, description: e.target.value}))} rows={4} placeholder="Descreva para que serve este recurso ou o que foi comprado..." />
+                            </div>
+
+                            {(formData.objective === 'reembolso' || formData.objective === 'pagamento') && (
+                                <div className="p-6 bg-slate-50 border-2 border-dashed rounded-2xl space-y-4">
+                                    <Label className="text-xs font-black uppercase text-primary flex items-center gap-2">
+                                        <DollarSign size={14}/> Dados para Transferência (PIX)
+                                    </Label>
+                                    <Input value={formData.pixKey} onChange={e => setFormData(p => ({...p, pixKey: e.target.value}))} placeholder="Chave PIX (CPF, Celular, Email...)" className="bg-white" />
+                                    <p className="text-[10px] text-muted-foreground italic leading-tight">Certifique-se que a chave informada está correta para evitarmos atrasos no seu repasse.</p>
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] uppercase font-black text-muted-foreground">Data para Pagamento</Label>
+                                    <Input type="date" value={formData.dueDate} onChange={e => setFormData(p => ({...p, dueDate: e.target.value}))} />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] uppercase font-black text-muted-foreground">Link de Compra / Referência</Label>
+                                    <Input type="url" value={formData.purchaseLink} onChange={e => setFormData(p => ({...p, purchaseLink: e.target.value}))} placeholder="https://..." />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className="text-[10px] uppercase font-black text-muted-foreground flex items-center gap-1.5"><Paperclip size={12}/> Anexar Comprovante / Nota Fiscal</Label>
+                                <Input type="file" onChange={(e) => setAttachmentFile(e.target.files ? e.target.files[0] : null)} className="pt-2 text-xs h-auto bg-white" />
+                                {attachmentFile && <p className="text-xs text-muted-foreground italic mt-1">Arquivo selecionado: {attachmentFile.name}</p>}
+                            </div>
+
+                            <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex items-start gap-3">
+                                <Info className="size-5 text-amber-600 mt-0.5 shrink-0" />
+                                <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
+                                    Ao enviar, sua solicitação será protocolada e passará por análise. 
+                                    Mantenha seus recibos originais guardados para futura entrega física à tesouraria, se necessário.
+                                </p>
+                            </div>
+                        </CardContent>
+                        <CardFooter className="p-8 bg-muted/20 flex flex-col gap-4">
+                            <Button type="submit" disabled={isSaving} className="w-full h-14 font-black text-base uppercase tracking-widest shadow-xl">
+                                {isSaving ? <Loader2 className="mr-2 animate-spin" /> : <Send className="mr-2" />}
+                                Protocolar Solicitação
+                            </Button>
+                            <p className="text-[10px] text-center text-muted-foreground uppercase font-bold tracking-tighter">Igreja Batista da Manhã • Gestão de Recursos</p>
+                        </CardFooter>
+                    </form>
+                </Card>
+            </div>
+        </main>
+    );
+}
+
+export default function PublicFinanceRequestPage() {
+    const firebase = useFirebase();
+
+    if (!firebase || !firebase.firestore) {
+        return (
+            <div className="flex h-screen w-full flex-col items-center justify-center bg-[#F8F9FA] space-y-4">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                <p className="text-muted-foreground text-sm font-medium">Carregando formulário...</p>
+            </div>
+        );
+    }
+
+    return <PublicFinanceRequestForm />;
+}
+
+```
+
+--- FILE END ---
+
+--- FILE START ---
+PATH: src/components/patrimony/inventory-view.tsx
+
+DESCRIÇÃO: Componente que exibe o inventário de património numa tabela. Permite a busca de itens, e oferece ações como editar ou excluir um item do património.
+
+CONTEÚDO:
+```tsx
+'use client';
+import React, { useState, useMemo } from 'react';
+import { useCollection, useMemoFirebase, deleteDocumentNonBlocking } from '@/firebase';
+import { useFirebase } from '@/firebase/provider';
+import { collection, query, doc } from 'firebase/firestore';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Loader2, PlusCircle, MoreHorizontal, Pencil, Trash2, Search } from 'lucide-react';
+import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
+import { PatrimonyFormDialog } from './patrimony-form-dialog';
+import { cn } from '@/lib/utils';
+
+type PatrimonioItem = {
+    id: string;
+    name: string;
+    category: string;
+    location: string;
+    status: 'Disponível' | 'Emprestado' | 'Manutenção';
+    purchaseDate?: string;
+    purchaseValue?: number;
+    qrCodeValue?: string;
+};
+
+const statusColors: Record<string, string> = {
+    'Disponível': 'bg-green-100 text-green-700',
+    'Emprestado': 'bg-amber-100 text-amber-700',
+    'Manutenção': 'bg-red-100 text-red-700',
+};
+
+export function InventoryView() {
+    const { firestore } = useFirebase();
+    const patrimonioQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'patrimonio')) : null, [firestore]);
+    const { data: items, isLoading } = useCollection<PatrimonioItem>(patrimonioQuery);
+
+    const [isFormOpen, setFormOpen] = useState(false);
+    const [isDeleteOpen, setDeleteOpen] = useState(false);
+    const [selectedItem, setSelectedItem] = useState<PatrimonioItem | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const filteredItems = useMemo(() => {
+        if (!items) return [];
+        return items.filter(item => 
+            item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.location.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [items, searchTerm]);
+
+    const handleDelete = (item: PatrimonioItem) => {
+        setSelectedItem(item);
+        setDeleteOpen(true);
+    };
+
+    const handleEdit = (item: PatrimonioItem) => {
+        setSelectedItem(item);
+        setFormOpen(true);
+    };
+
+    const handleAdd = () => {
+        setSelectedItem(null);
+        setFormOpen(true);
+    };
+
+    const confirmDelete = () => {
+        if (selectedItem?.id && firestore) {
+            deleteDocumentNonBlocking(doc(firestore, 'patrimonio', selectedItem.id));
+        }
+        setDeleteOpen(false);
+    };
+
+    return (
+        <>
+            <div className="mb-4 flex items-center justify-between gap-4">
+                <div className="relative w-full max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                        placeholder="Buscar por nome, ID, local..." 
+                        className="pl-10"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                <Button onClick={handleAdd}>
+                    <PlusCircle className="mr-2 size-4" /> Novo Item
+                </Button>
+            </div>
+
+            <div className="rounded-lg border">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>ID</TableHead>
+                            <TableHead>Item</TableHead>
+                            <TableHead>Localização</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="text-right">Ações</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {isLoading ? (
+                            <TableRow>
+                                <TableCell colSpan={5} className="h-24 text-center">
+                                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
+                                </TableCell>
+                            </TableRow>
+                        ) : filteredItems.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={5} className="h-24 text-center">
+                                    Nenhum item encontrado.
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            filteredItems.map(item => (
+                                <TableRow key={item.id} className="hover:bg-muted/50">
+                                    <TableCell className="font-mono text-xs">{item.qrCodeValue || item.id.substring(0, 6)}</TableCell>
+                                    <TableCell>
+                                        <div className="font-medium">{item.name}</div>
+                                        <div className="text-xs text-muted-foreground">{item.category}</div>
+                                    </TableCell>
+                                    <TableCell className="text-muted-foreground">{item.location}</TableCell>
+                                    <TableCell>
+                                        <Badge variant="outline" className={cn("font-bold", statusColors[item.status])}>
+                                            {item.status}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                                    <MoreHorizontal className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={() => handleEdit(item)}>
+                                                    <Pencil className="mr-2 h-4 w-4" /> Editar
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => handleDelete(item)} className="text-destructive">
+                                                    <Trash2 className="mr-2 h-4 w-4" /> Excluir
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
+            
+            <PatrimonyFormDialog 
+                open={isFormOpen}
+                onOpenChange={setFormOpen}
+                existingItem={selectedItem}
+            />
+
+            {selectedItem && (
+                 <DeleteConfirmationDialog
+                    open={isDeleteOpen}
+                    onOpenChange={setDeleteOpen}
+                    onConfirm={confirmDelete}
+                    itemName={selectedItem.name}
+                    itemType="Item de Patrimônio"
+                />
+            )}
+        </>
+    );
+}
+```
+
+--- FILE END ---
+
+--- FILE START ---
+PATH: src/components/patrimony/patrimony-form-dialog.tsx
+
+DESCRIÇÃO: Um formulário em formato de diálogo (popup) para adicionar ou editar itens do património. Contém campos como nome, categoria, localização, e valor.
+
+CONTEÚDO:
+```tsx
+'use client';
+import React, { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogClose,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { collection, doc, serverTimestamp } from 'firebase/firestore';
+
+type PatrimonioItem = {
+    id: string;
+    name: string;
+    category: string;
+    location: string;
+    status: 'Disponível' | 'Emprestado' | 'Manutenção';
+    purchaseDate?: string;
+    purchaseValue?: number;
+    qrCodeValue?: string;
+};
+
+interface PatrimonyFormDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  existingItem: PatrimonioItem | null;
+}
+
+const statusOptions = ["Disponível", "Emprestado", "Manutenção"];
+const categoryOptions = ["Áudio", "Instrumentos", "Mobília", "Vídeo", "Iluminação", "Cozinha", "Decoração", "Cabos", "Outros"];
+
+export function PatrimonyFormDialog({ open, onOpenChange, existingItem }: PatrimonyFormDialogProps) {
+  const { firestore } = useFirebase();
+  const { toast } = useToast();
+  
+  const [formData, setFormData] = useState({
+    name: '',
+    category: '',
+    location: '',
+    status: 'Disponível',
+    purchaseValue: '',
+    purchaseDate: '',
+  });
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      if (existingItem) {
+        setFormData({
+            name: existingItem.name || '',
+            category: existingItem.category || '',
+            location: existingItem.location || '',
+            status: existingItem.status || 'Disponível',
+            purchaseValue: existingItem.purchaseValue?.toString() || '',
+            purchaseDate: existingItem.purchaseDate || '',
+        });
+      } else {
+        // Reset for new item
+         setFormData({
+            name: '',
+            category: '',
+            location: '',
+            status: 'Disponível',
+            purchaseValue: '',
+            purchaseDate: '',
+        });
+      }
+    }
+  }, [open, existingItem]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectChange = (name: string, value: string) => {
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSave = async () => {
+    if (!formData.name.trim() || !formData.category.trim() || !formData.location.trim()) {
+        toast({
+            variant: "destructive",
+            title: "Campos Obrigatórios",
+            description: "Nome, Categoria e Localização são obrigatórios."
+        });
+        return;
+    }
+    setIsSaving(true);
+    
+    const dataToSave = {
+        ...formData,
+        purchaseValue: Number(formData.purchaseValue) || 0,
+    };
+
+    try {
+        if (existingItem) {
+            const itemDoc = doc(firestore, 'patrimonio', existingItem.id);
+            updateDocumentNonBlocking(itemDoc, dataToSave);
+            toast({ title: 'Sucesso!', description: 'O item será atualizado em breve.' });
+        } else {
+            const collectionRef = collection(firestore, 'patrimonio');
+            const newItemData = {
+                ...dataToSave,
+                createdAt: serverTimestamp(),
+                qrCodeValue: '', // Será gerado no backend ou em outro fluxo
+            };
+            addDocumentNonBlocking(collectionRef, newItemData);
+            toast({ title: 'Sucesso!', description: 'O novo item será adicionado.' });
+        }
+        onOpenChange(false);
+    } catch(e) {
+        toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível salvar o item.' });
+    } finally {
+        setIsSaving(false);
+    }
+
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{existingItem ? 'Editar Item' : 'Adicionar Novo Item'}</DialogTitle>
+          <DialogDescription>
+            Preencha os detalhes do bem que está sendo adicionado ao inventário da igreja.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+            <div>
+                <Label htmlFor="name">Nome do Item *</Label>
+                <Input id="name" name="name" value={formData.name} onChange={handleChange} />
+            </div>
+             <div className="grid grid-cols-2 gap-4">
+                 <div>
+                    <Label htmlFor="category">Categoria *</Label>
+                    <Select value={formData.category} onValueChange={(v) => handleSelectChange('category', v)}>
+                        <SelectTrigger id="category"><SelectValue placeholder="Selecione..."/></SelectTrigger>
+                        <SelectContent>
+                            {categoryOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+                 <div>
+                    <Label htmlFor="status">Status *</Label>
+                    <Select value={formData.status} onValueChange={(v) => handleSelectChange('status', v)}>
+                        <SelectTrigger id="status"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            {statusOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+            <div>
+                <Label htmlFor="location">Localização Padrão *</Label>
+                <Input id="location" name="location" value={formData.location} onChange={handleChange} placeholder="Ex: Depósito de Mídia, Sala 3"/>
+            </div>
+             <div className="grid grid-cols-2 gap-4">
+                <div>
+                    <Label htmlFor="purchaseValue">Valor de Compra (R$)</Label>
+                    <Input id="purchaseValue" name="purchaseValue" type="number" value={formData.purchaseValue} onChange={handleChange} placeholder="Ex: 1200.50"/>
+                </div>
+                 <div>
+                    <Label htmlFor="purchaseDate">Data da Compra</Label>
+                    <Input id="purchaseDate" name="purchaseDate" type="date" value={formData.purchaseDate} onChange={handleChange}/>
+                </div>
+            </div>
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="button" variant="secondary">
+              Cancelar
+            </Button>
+          </DialogClose>
+          <Button type="button" onClick={handleSave} disabled={isSaving}>
+            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Salvar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+```
+
+--- FILE END ---
+
+--- FILE START ---
+PATH: src/components/patrimony/dashboard-view.tsx
+
+DESCRIÇÃO: Painel de controlo visual para o módulo de património. Apresenta gráficos (de pizza) que ilustram a distribuição de itens por categoria e por status (Disponível, Emprestado, etc.).
+
+CONTEÚDO:
+```tsx
+'use client';
+import React, { useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useCollection, useMemoFirebase } from '@/firebase';
+import { useFirebase } from '@/firebase/provider';
+import { collection, query } from 'firebase/firestore';
+import { Loader2 } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+
+type PatrimonioItem = {
+    id: string;
+    name: string;
+    category: string;
+    status: 'Disponível' | 'Emprestado' | 'Manutenção';
+};
+
+const KPI_CARDS = [
+  { title: "Total de Itens", status: 'total', color: 'text-blue-600', bgColor: 'bg-blue-50' },
+  { title: "Emprestados", status: 'Emprestado', color: 'text-amber-600', bgColor: 'bg-amber-50' },
+  { title: "Manutenção", status: 'Manutenção', color: 'text-red-600', bgColor: 'bg-red-50' },
+];
+
+const COLORS = ['#16a34a', '#facc15', '#dc2626', '#6b7280']; // green, yellow, red, gray
+
+
+export function PatrimonyDashboardView() {
+    const { firestore } = useFirebase();
+    const patrimonioQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'patrimonio')) : null, [firestore]);
+    const { data: items, isLoading } = useCollection<PatrimonioItem>(patrimonioQuery);
+
+    const dashboardData = useMemo(() => {
+        const kpis: Record<string, number> = {
+            total: items?.length || 0,
+            'Disponível': items?.filter(i => i.status === 'Disponível').length || 0,
+            'Emprestado': items?.filter(i => i.status === 'Emprestado').length || 0,
+            'Manutenção': items?.filter(i => i.status === 'Manutenção').length || 0,
+        };
+
+        const categoryDistribution = items?.reduce((acc, item) => {
+            acc[item.category] = (acc[item.category] || 0) + 1;
+            return acc;
+        }, {} as Record<string, number>);
+
+        const categoryData = Object.entries(categoryDistribution || {}).map(([name, value]) => ({ name, value }));
+        
+        const statusDistribution = [
+            { name: 'Disponível', value: kpis['Disponível'] },
+            { name: 'Emprestado', value: kpis['Emprestado'] },
+            { name: 'Manutenção', value: kpis['Manutenção'] },
+        ];
+
+
+        return { kpis, categoryData, statusDistribution };
+    }, [items]);
+
+     if (isLoading) {
+        return (
+            <div className="flex h-64 w-full items-center justify-center">
+                <Loader2 className="size-8 animate-spin text-primary" />
+            </div>
+        );
+    }
+    
+    return (
+        <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                 {KPI_CARDS.map(kpi => (
+                    <Card key={kpi.status} className="hover:shadow-md transition-shadow">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium text-muted-foreground">{kpi.title}</CardTitle>
+                             <div className={`p-2 rounded-lg ${kpi.bgColor} ${kpi.color}`}>📦</div>
+                        </CardHeader>
+                        <CardContent>
+                            <div className={`text-3xl font-bold ${kpi.color}`}>
+                                {dashboardData.kpis[kpi.status as keyof typeof dashboardData.kpis] ?? 0}
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+            
+             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Distribuição por Categoria</CardTitle>
+                    </CardHeader>
+                    <CardContent className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie data={dashboardData.categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} fill="#8884d8" label>
+                                    {dashboardData.categoryData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                                <Legend />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader>
+                        <CardTitle>Status do Inventário</CardTitle>
+                    </CardHeader>
+                    <CardContent className="h-[300px]">
+                       <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie data={dashboardData.statusDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={80} fill="#8884d8" paddingAngle={5} label>
+                                     {dashboardData.statusDistribution.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                                <Legend />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    );
+}
+
+```
+
+--- FILE END ---
+
+--- FILE START ---
+PATH: src/components/settings/storage-test.tsx
+
+DESCRIÇÃO: Componente de diagnóstico para testar a conexão com o Firebase Storage. Permite que um utilizador selecione e envie um ficheiro de teste para a nuvem, validando as configurações de segurança e a disponibilidade do serviço.
+
+CONTEÚDO:
+```tsx
+'use client';
+
+import React, { useState, useRef } from 'react';
+import { useFirebase } from '@/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { CheckCircle, AlertTriangle, Loader2, UploadCloud, File as FileIcon } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+export function StorageTest() {
+  const { storage } = useFirebase();
+  const { toast } = useToast();
+  
+  // State is used to trigger UI re-renders (e.g., show the file name and enable the button)
+  const [fileName, setFileName] = useState<string | null>(null);
+  // Ref is used to hold the most current value of the file for the upload handler
+  const fileRef = useRef<File | null>(null);
+  
+  const [isLoading, setIsLoading] = useState(false);
+  const [uploadResult, setUploadResult] = useState<{ status: 'success' | 'error'; message: string; url?: string } | null>(null);
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files ? event.target.files[0] : null;
+    if (selectedFile) {
+      setFileName(selectedFile.name); // Update state to re-render UI
+      fileRef.current = selectedFile;   // Update ref to hold the actual file data
+      setUploadResult(null);
+    }
+  };
+
+  const handleTestUpload = async () => {
+    // Always read from the ref inside the handler to prevent stale state issues
+    const currentFile = fileRef.current;
+
+    if (!currentFile || !storage) {
+      toast({
+        variant: 'destructive',
+        title: 'Nenhum arquivo selecionado',
+        description: 'Por favor, escolha um arquivo para testar o upload.',
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    setUploadResult(null);
+    const testRef = ref(storage, `test-uploads/${new Date().toISOString()}_${currentFile.name}`);
+
+    try {
+      const snapshot = await uploadBytes(testRef, currentFile);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      setUploadResult({
+        status: 'success',
+        message: 'Upload realizado com sucesso! O Firebase Storage está funcionando.',
+        url: downloadURL,
+      });
+      toast({
+        title: 'Sucesso!',
+        description: 'O arquivo foi enviado para o Storage.',
+      });
+    } catch (error: any) {
+      console.error("Storage upload error:", error);
+      setUploadResult({
+        status: 'error',
+        message: `Falha no upload: ${error.message}. Verifique as regras de segurança do Storage e a configuração do bucket.`,
+      });
+      toast({
+        variant: 'destructive',
+        title: 'Erro no Upload',
+        description: 'Não foi possível enviar o arquivo. Verifique o console para detalhes.',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Diagnóstico do Sistema</CardTitle>
+        <CardDescription>
+          Use esta ferramenta para verificar a saúde e a conectividade dos serviços essenciais, como o Firebase Storage.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+          <div className="p-6 border-2 border-dashed rounded-lg">
+              <div className="text-center">
+                  <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground" />
+                  <h3 className="mt-4 text-lg font-semibold text-slate-800">Teste de Escrita no Storage</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                      Selecione um arquivo e clique em "Testar Upload" para verificar se o sistema consegue gravar dados no Firebase Storage.
+                  </p>
+              </div>
+
+              <div className="mt-6 max-w-md mx-auto">
+                <div className="flex items-center gap-4">
+                    <Input id="storage-test-file" type="file" onChange={handleFileChange} className="flex-1" />
+                    <Button onClick={handleTestUpload} disabled={isLoading || !fileName}>
+                        {isLoading ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : null}
+                        Testar Upload
+                    </Button>
+                </div>
+                {fileName && (
+                    <div className="mt-4 flex items-center justify-center text-sm text-muted-foreground">
+                        <FileIcon className="mr-2 size-4" />
+                        <span>{fileName}</span>
+                    </div>
+                )}
+              </div>
+          </div>
+
+        {uploadResult && (
+          <div
+            className={`mt-4 p-4 rounded-md ${
+              uploadResult.status === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            }`}
+          >
+            <div className="flex">
+              <div className="flex-shrink-0">
+                {uploadResult.status === 'success' ? (
+                  <CheckCircle className="h-5 w-5" />
+                ) : (
+                  <AlertTriangle className="h-5 w-5" />
+                )}
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium">{uploadResult.message}</p>
+                {uploadResult.url && (
+                  <a
+                    href={uploadResult.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 text-sm font-semibold underline hover:text-green-900"
+                  >
+                    Ver arquivo enviado
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+```
+
+--- FILE END ---

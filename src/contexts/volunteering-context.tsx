@@ -94,6 +94,7 @@ export type Course = {
   type?: 'trilho' | 'eletivo';
   ebdTrack?: 'teologico' | 'biblico' | 'discipulado';
   linkedTheoflixId?: string;
+  minAttendanceApproval?: number;
   syllabus?: { id: string; title: string; description: string }[];
 };
 
@@ -203,6 +204,7 @@ export type FinanceRequest = {
   purchaseLink?: string;
   status: 'pending' | 'approved' | 'paid' | 'rejected';
   createdAt: Timestamp;
+  attachmentUrl?: string; // Added field for the attachment URL
 };
 
 interface VolunteeringContextType {

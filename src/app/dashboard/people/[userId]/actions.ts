@@ -1,48 +1,78 @@
+
 'use server';
 
-import { z } from 'zod';
-import { runUserProfileAnalysis } from '@/ai/flows/user-profile-analysis-flow';
+import { revalidatePath } from 'next/cache';
+import { Person } from '@/types/person';
+import { Timestamp } from 'firebase-admin/firestore';
 
-export type AIState = {
-  message: string | null;
-  analysis: string | null;
-  error: string | null;
-};
+// START: Firebase Admin Initialization
+// Esta seção inicializa o Firebase Admin SDK para permitir a comunicação segura com o Firestore no servidor.
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 
-const AnalysisSchema = z.object({
-  userId: z.string().min(1, 'ID do usuário é obrigatório.'),
-  question: z.string().min(5, 'A pergunta deve ter pelo menos 5 caracteres.'),
-});
+// Garante que a inicialização ocorra apenas uma vez (padrão singleton)
+if (!getApps().length) {
+  try {
+    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+      ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
+      : undefined;
 
-export async function getAIAnalysis(prevState: AIState, formData: FormData): Promise<AIState> {
-  const validatedFields = AnalysisSchema.safeParse({
-    userId: formData.get('userId'),
-    question: formData.get('question'),
-  });
+    initializeApp({
+      credential: serviceAccount ? cert(serviceAccount) : undefined,
+    });
+  } catch (e) {
+    console.error('Firebase Admin initialization error', e);
+  }
+}
 
-  if (!validatedFields.success) {
-      const firstError = Object.values(validatedFields.error.flatten().fieldErrors)[0]?.[0];
-      return {
-          message: null,
-          analysis: null,
-          error: firstError || 'Dados inválidos.',
-      };
+const db = getFirestore();
+// END: Firebase Admin Initialization
+
+/**
+ * Atualiza os dados de uma pessoa no Firestore usando o Firebase Admin SDK.
+ * @param person - O objeto completo da pessoa, incluindo o ID.
+ */
+export async function updatePerson(person: Person) {
+  if (!person.id) {
+    throw new Error('O ID da pessoa é necessário para a atualização.');
   }
 
-  try {
-    const analysisText = await runUserProfileAnalysis(validatedFields.data);
-    if (analysisText) {
-      return { message: 'Análise concluída.', analysis: analysisText, error: null };
+  const { id, ...personData } = person;
+
+  // Converte objetos de Timestamp do cliente para Timestamps do Admin SDK para garantir compatibilidade.
+  const convertToAdminTypes = (data: any): any => {
+    if (!data) return data;
+    if (Array.isArray(data)) {
+      return data.map(convertToAdminTypes);
     }
-    return { message: null, analysis: null, error: 'A IA não retornou uma análise. Tente novamente.' };
+    if (typeof data === 'object' && data !== null) {
+      if (typeof data.seconds === 'number' && typeof data.nanoseconds === 'number') {
+        return new Timestamp(data.seconds, data.nanoseconds);
+      }
+      const newObj: { [key: string]: any } = {};
+      for (const key of Object.keys(data)) {
+        newObj[key] = convertToAdminTypes(data[key]);
+      }
+      return newObj;
+    }
+    return data;
+  };
+
+  const personToUpdate = convertToAdminTypes(personData);
+
+  try {
+    const personRef = db.collection('users').doc(id);
+    await personRef.update(personToUpdate);
+
+    revalidatePath(`/dashboard/people/${id}`);
+
+    return { success: true, message: 'Pessoa atualizada com sucesso.' };
+
   } catch (error) {
-    console.error('Error getting AI analysis:', error);
-    // Make the error message more descriptive for debugging
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    return { 
-        message: null, 
-        analysis: null, 
-        error: `Erro no servidor: ${errorMessage}` 
-    };
+    console.error('Erro ao atualizar a pessoa:', error);
+    if (error instanceof Error) {
+      return { success: false, message: `Falha ao atualizar a pessoa: ${error.message}` };
+    }
+    return { success: false, message: 'Ocorreu um erro desconhecido ao atualizar a pessoa.' };
   }
 }

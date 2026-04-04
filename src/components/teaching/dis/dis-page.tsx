@@ -8,6 +8,7 @@ import { School, Banknote, Share2 } from 'lucide-react';
 import { DisFinanceDashboard } from './dis-finance-dashboard';
 import { DisAdminDashboard } from './dis-admin-dashboard';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering } from '@/contexts/volunteering-context';
 
@@ -32,18 +33,31 @@ export function DisSchoolPage() {
   const { toast } = useToast();
   const { courses } = useVolunteering();
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
     const disCourse = courses.find(c => c.ministryName.toLowerCase() === 'dis' || c.name.toLowerCase().includes('libras'));
     const baseUrl = window.location.origin;
     const link = disCourse 
         ? `${baseUrl}/public/enrollment?courseId=${disCourse.id}`
         : `${baseUrl}/public/enrollment`;
     
-    navigator.clipboard.writeText(link);
-    toast({
-        title: "Link Copiado!",
-        description: "O link de inscrição para o DIS foi copiado para a área de transferência.",
-    });
+    try {
+        await navigator.clipboard.writeText(link);
+        toast({
+            title: "Link Copiado!",
+            description: "O link de inscrição para o DIS foi copiado para a área de transferência.",
+        });
+    } catch (err) {
+        toast({
+            title: "Copie o Link Manualmente",
+            description: (
+              <div className="flex flex-col gap-2">
+                <p>Seu navegador bloqueou a cópia automática. Use o link abaixo:</p>
+                <Input value={link} readOnly className="bg-muted text-sm" />
+              </div>
+            ),
+            duration: 10000,
+        });
+    }
   };
 
   return (

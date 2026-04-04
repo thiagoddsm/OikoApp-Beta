@@ -1,102 +1,87 @@
+
 import { NextResponse } from 'next/server';
 import { initializeFirebase } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
-export const dynamic = 'force-dynamic';
-
-async function getConfigSafely() {
-    try {
-        const { firestore } = initializeFirebase();
-        const configSnap = await getDoc(doc(firestore, 'config', 'notifications'));
-        return configSnap.exists() ? configSnap.data()?.whatsappApiKey : null;
-    } catch (e: any) {
-        console.warn("Falha ao ler config segura. Possivelmente regras bloqueando no SSR.", e.message);
-        throw e;
-    }
-}
-
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const waKey = await getConfigSafely();
-
-    if (!waKey) return NextResponse.json({ status: 'unconfigured', message: 'API Key não configurada.' });
-
-    // A documentação da API confirma que o response status é 200 e ele envia um JSON detalhado
-    // Precisamos parsear esse JSON para entender se a instância está conectada.
-    const response = await fetch(`https://us.api-wa.me/${waKey}/instance`, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        cache: 'no-store'
-    });
-
-    const data = await response.json().catch(() => ({}));
+    const { firestore } = initializeFirebase();
     
-    // Tratamento específico baseado na resposta real do Swagger da API-WA.me:
-    // "phoneConnected": false significa que não tem whatsapp lido.
-    // "socketConnection": 0 pode indicar status desconectado (dependendo da versão da api deles)
+    // 1. Buscar a chave correta do Firestore
+    const configRef = doc(firestore, 'config', 'notifications');
+    const configSnap = await getDoc(configRef);
     
-    let displayStatus = 'offline';
-    let qrCode = null;
+    if (!configSnap.exists()) {
+        return NextResponse.json({ error: "Configuração de notificação não encontrada." }, { status: 404 });
+    }
     
-    if (data && data.instance) {
-        if (data.instance.phoneConnected === true || data.instance.state === 'open' || data.instance.status === 'connected') {
-            displayStatus = 'connected';
-        } else if (data.instance.qr) {
-            displayStatus = 'pairing';
-            qrCode = data.instance.qr;
-        }
-    } else if (data && data.status === 200 && data.state === 'open') {
-         displayStatus = 'connected';
+    // *** CORREÇÃO: Usando 'whatsappApiKey' em vez de 'apiToken' ***
+    const apiKey = configSnap.data()?.whatsappApiKey;
+
+    if (!apiKey) {
+        return NextResponse.json({ status: 'offline', message: "Gateway de WhatsApp não configurado. Token da API ausente." }, { status: 400 });
     }
 
-    return NextResponse.json({
-        ...data,
-        parsedStatus: displayStatus,
-        qr: qrCode
+    // 2. Chamar o endpoint /instance da API externa
+    const response = await fetch(`https://us.api-wa.me/${apiKey}/instance`, {
+        method: 'GET',
+        headers: { 'accept': '*/*' },
+        cache: 'no-store' // Garante que a informação é sempre fresca
     });
+
+    if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Erro ao buscar status da instância:", errorText);
+        return NextResponse.json({ status: 'offline', message: "Não foi possível obter o status da instância.", details: errorText }, { status: response.status });
+    }
+
+    const data = await response.json();
+
+    // Adiciona um status parseado para facilitar o frontend
+    let parsedStatus = 'offline';
+    if (data?.instance?.phoneConnected) {
+        parsedStatus = 'connected';
+    } else if (data?.instance?.socketConnection === 0 && data?.instance?.user === undefined) {
+        parsedStatus = 'pairing';
+    }
+
+    // 3. Retornar o status da instância para o cliente
+    return NextResponse.json({ ...data, parsedStatus });
 
   } catch (error: any) {
-    console.error("Erro na rota de instance (GET):", error);
-    if (error.code === 'permission-denied') {
-        return NextResponse.json({ status: 'error', message: 'Firebase bloqueou leitura. Verifique firestore.rules.' }, { status: 403 });
-    }
-    return NextResponse.json({ status: 'error', message: error.message }, { status: 500 });
+    console.error("API Route Critical Error (instance status):", error);
+    return NextResponse.json({ status: 'offline', message: `Erro interno no servidor: ${error.message}` }, { status: 500 });
   }
 }
 
-export async function POST() {
+// Adicionando um método POST para iniciar a conexão e gerar o QR Code
+export async function POST(request: Request) {
     try {
-        const waKey = await getConfigSafely();
+        const { firestore } = initializeFirebase();
+        const configRef = doc(firestore, 'config', 'notifications');
+        const configSnap = await getDoc(configRef);
+        const apiKey = configSnap.data()?.whatsappApiKey;
 
-        if (!waKey) return NextResponse.json({ error: "Chave não configurada." }, { status: 400 });
-
-        const response = await fetch(`https://us.api-wa.me/${waKey}/instance`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        });
-
-        const data = await response.json().catch(() => ({}));
-        
-        let displayStatus = 'offline';
-        let qrCode = null;
-        
-        if (data && data.instance) {
-            if (data.instance.phoneConnected === true) {
-                displayStatus = 'connected';
-            } else if (data.instance.qr) {
-                displayStatus = 'pairing';
-                qrCode = data.instance.qr;
-            }
+        if (!apiKey) {
+            return NextResponse.json({ error: "Gateway de WhatsApp não configurado." }, { status: 400 });
         }
-        
-        return NextResponse.json({ 
-            success: response.ok, 
-            ...data,
-            parsedStatus: displayStatus,
-            qr: qrCode
+
+        // Este endpoint é para iniciar a conexão
+        const response = await fetch(`https://us.api-wa.me/${apiKey}/instance/init`, {
+            method: 'POST',
+            headers: { 'accept': '*/*' }
         });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            return NextResponse.json({ error: "Não foi possível iniciar a instância.", details: errorText }, { status: response.status });
+        }
+
+        const data = await response.json();
+        return NextResponse.json(data);
+
     } catch (error: any) {
-        console.error("Erro na rota de instance (POST):", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.error("API Route Critical Error (instance init):", error);
+        return NextResponse.json({ error: `Erro interno no servidor: ${error.message}` }, { status: 500 });
     }
 }

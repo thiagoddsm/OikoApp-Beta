@@ -3,7 +3,6 @@ import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { Users, TrendingUp, CheckSquare, Crosshair, UserPlus, GraduationCap, Pencil } from 'lucide-react';
 import { EditGoalDialog } from '@/components/goals/edit-goal-dialog';
 
@@ -14,8 +13,6 @@ const kpiDefinitions: Record<string, { title: string; icon: React.ElementType }>
     'batismos': { title: 'Batismos', icon: Crosshair },
     'novos_lideres': { title: 'Formação de Novos Líderes', icon: GraduationCap },
 };
-
-const monthLabels = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
 interface KpiCardProps {
     kpi: string;
@@ -32,16 +29,6 @@ function KpiCard({ kpi, goal, actualData }: KpiCardProps) {
     const target = goal?.target || 0;
     const actual = actualData?.actual || 0;
     const progress = target > 0 ? (actual / target) * 100 : 0;
-    
-    const monthlyTarget = target > 0 ? Math.round(target / 12) : 0;
-
-    const chartData = useMemo(() => 
-        monthLabels.map((month, index) => ({
-            name: month,
-            meta: goal?.monthlyTargets?.[index] || monthlyTarget,
-            realizado: actualData?.monthlyActuals?.[index] || 0,
-        }))
-    , [goal, actualData, monthlyTarget]);
 
     return (
         <Card>
@@ -69,23 +56,7 @@ function KpiCard({ kpi, goal, actualData }: KpiCardProps) {
                 <Progress value={progress} />
 
                 <div className="h-40">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={chartData} margin={{ top: 5, right: 0, left: -20, bottom: 5 }}>
-                             <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                            <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
-                            <YAxis fontSize={12} allowDecimals={false} tickLine={false} axisLine={false} />
-                            <Tooltip
-                                cursor={{ fill: 'hsla(var(--muted))' }}
-                                contentStyle={{
-                                    background: 'hsl(var(--background))',
-                                    border: '1px solid hsl(var(--border))',
-                                    borderRadius: 'var(--radius)',
-                                }}
-                            />
-                            <Bar dataKey="meta" name="Meta" fill="hsl(var(--muted))" radius={[4, 4, 0, 0]} />
-                            <Bar dataKey="realizado" name="Realizado" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
+                   <p>Gráfico temporariamente indisponível.</p>
                 </div>
             </CardContent>
             {isEditDialogOpen && (

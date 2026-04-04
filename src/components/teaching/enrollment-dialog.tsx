@@ -55,9 +55,11 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
   [selectedCourse]);
 
   const selectedUser = useMemo(() => users.find(u => u.id === (studentId || '')), [users, studentId]);
-  const isStudentInCidade = selectedUser?.integrationStatus === 'nao_alcancado';
 
-  const isEnrollmentBlocked = isMemberCourse && isStudentInCidade;
+  // REGRA REMOVIDA: Alunos no estágio CIDADE podem se matricular em cursos de membresia.
+  // Esta mudança foi feita para permitir que o curso 'Pertencer' funcione como uma porta de entrada
+  // para novos membros, exatamente como solicitado pelo usuário.
+  const isEnrollmentBlocked = false;
 
   const filteredClasses = useMemo(() => {
     if (!selectedCourseId || isMemberCourse) return [];

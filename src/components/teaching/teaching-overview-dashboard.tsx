@@ -53,7 +53,6 @@ export function TeachingOverviewDashboard() {
 
     const teachersCount = users.filter(u => u.isTeacher).length;
 
-    // Distribution by school (Ministries)
     const schoolCounts: Record<string, { totalCourses: number, totalStudents: number, totalCapacity: number }> = {};
     
     courses.forEach(c => {
@@ -63,11 +62,10 @@ export function TeachingOverviewDashboard() {
       }
       schoolCounts[ministry].totalCourses += 1;
       
-      // Encontra turmas desse curso para somar alunos e capacidade
       const courseClasses = classes.filter(cls => cls.courseId === c.id);
       courseClasses.forEach(cls => {
           schoolCounts[ministry].totalStudents += (cls.students?.length || 0);
-          schoolCounts[ministry].totalCapacity += (cls.maxStudents || 20); // Default 20 se nao tiver
+          schoolCounts[ministry].totalCapacity += (cls.maxStudents || 20);
       });
     });
 
@@ -75,7 +73,7 @@ export function TeachingOverviewDashboard() {
         name, 
         Cursos: data.totalCourses,
         Alunos: data.totalStudents,
-        Vagas: data.totalCapacity - data.totalStudents // Vagas restantes
+        Vagas: data.totalCapacity - data.totalStudents
     }));
 
     return {
@@ -88,7 +86,6 @@ export function TeachingOverviewDashboard() {
     };
   }, [isLoading, classes, courses, enrollmentRequests, users]);
 
-  // Dados para o Gráfico de Detalhes do Ministério Selecionado
   const ministryDetailsData = useMemo(() => {
       if (!selectedMinistry || !courses || !classes) return [];
       
@@ -120,6 +117,15 @@ export function TeachingOverviewDashboard() {
       .slice(0, 5);
   }, [enrollmentRequests]);
 
+  const handleBarClick = (chartData: any) => {
+    if (chartData && chartData.activeIndex !== undefined && stats?.schoolData) {
+        const clickedItem = stats.schoolData[chartData.activeIndex];
+        if (clickedItem && clickedItem.name) {
+            setSelectedMinistry(clickedItem.name);
+        }
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -137,7 +143,6 @@ export function TeachingOverviewDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((kpi, idx) => (
           <Card key={idx} className="border-none shadow-sm transition-all hover:shadow-md">
@@ -158,7 +163,6 @@ export function TeachingOverviewDashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Chart: Distribution by Ministry OR Course Details */}
         <Card className="lg:col-span-2 overflow-hidden">
           <CardHeader className="border-b bg-muted/10 pb-4">
             <div className="flex items-center justify-between">
@@ -178,14 +182,10 @@ export function TeachingOverviewDashboard() {
                 )}
             </div>
           </CardHeader>
-          <CardContent className="h-[320px] pt-6">
+          <CardContent className="h-[320px] pt-6 outline-none focus:outline-none">
             {!selectedMinistry ? (
-                <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats?.schoolData} onClick={(data) => {
-                    if (data && data.activePayload && data.activePayload.length > 0) {
-                        setSelectedMinistry(data.activePayload[0].payload.name);
-                    }
-                }}>
+                <ResponsiveContainer key="overview" width="100%" height="100%" className="outline-none focus:outline-none">
+                <BarChart data={stats?.schoolData} onClick={handleBarClick}>
                     <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.5} />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={12} tickMargin={10} />
                     <YAxis axisLine={false} tickLine={false} fontSize={12} />
@@ -199,7 +199,7 @@ export function TeachingOverviewDashboard() {
                 </BarChart>
                 </ResponsiveContainer>
             ) : (
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer key="details" width="100%" height="100%" className="outline-none focus:outline-none">
                 <BarChart data={ministryDetailsData}>
                     <CartesianGrid vertical={false} strokeDasharray="3 3" opacity={0.5} />
                     <XAxis dataKey="name" axisLine={false} tickLine={false} fontSize={10} tickMargin={10} />
@@ -218,7 +218,6 @@ export function TeachingOverviewDashboard() {
           </CardContent>
         </Card>
 
-        {/* Recent Pending Enrollments */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
@@ -262,7 +261,6 @@ export function TeachingOverviewDashboard() {
         </Card>
       </div>
 
-      {/* Stats Summary Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="bg-primary/5 border-primary/10 shadow-inner">
           <CardContent className="p-6 flex flex-col items-center text-center">

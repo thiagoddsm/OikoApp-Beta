@@ -19,7 +19,10 @@ export function ClassStudentsManager({ classData }: ClassStudentsManagerProps) {
     const enrolledStudents = useMemo(() => {
         if (!users || !classData?.students) return [];
         const studentSet = new Set(classData.students);
-        return users.filter(u => studentSet.has(u.id));
+        const students = users.filter(u => studentSet.has(u.id));
+        // ORDENANDO ALUNOS POR NOME
+        students.sort((a, b) => a.name.localeCompare(b.name));
+        return students;
     }, [users, classData]);
     
     const handleRemoveStudent = async (studentId: string) => {

@@ -93,6 +93,8 @@ export function RecordsList({ registros, loading, onEdit }) {
               <TableHead>Horário</TableHead>
               <TableHead>Adultos</TableHead>
               <TableHead>Crianças</TableHead>
+              <TableHead className="text-emerald-600">Conversões</TableHead>
+              <TableHead className="text-sky-600">Reconciliações</TableHead>
               <TableHead>Total</TableHead>
               <TableHead>Série</TableHead>
               <TableHead>Contexto</TableHead>
@@ -106,6 +108,8 @@ export function RecordsList({ registros, loading, onEdit }) {
                 <TableCell>{reg.horario.split(' - ')[1]}</TableCell>
                 <TableCell>{reg.adultos}</TableCell>
                 <TableCell>{reg.criancas || 0}</TableCell>
+                <TableCell className="font-semibold text-emerald-600">{reg.conversoes || 0}</TableCell>
+                <TableCell className="font-semibold text-sky-600">{reg.reconciliacoes || 0}</TableCell>
                 <TableCell className="font-semibold text-primary">{reg.adultos + (reg.criancas || 0)}</TableCell>
                 <TableCell className="truncate max-w-xs">{reg.serieMensagem || "-"}</TableCell>
                 <TableCell className="space-x-1">

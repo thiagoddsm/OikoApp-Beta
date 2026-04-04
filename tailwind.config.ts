@@ -9,7 +9,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['var(--font-body)', 'sans-serif'],
+        headline: ["Manrope", "sans-serif"],
+        body: ["Inter", "sans-serif"],
         code: ['monospace'],
       },
       colors: {
@@ -69,9 +70,13 @@ export default {
         'ibm-purple': '#9333ea',
       },
       borderRadius: {
+        DEFAULT: "0.5rem",
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+        xl: "1rem",
+        "2xl": "1.5rem",
+        full: "9999px",
       },
       keyframes: {
         'accordion-down': {
