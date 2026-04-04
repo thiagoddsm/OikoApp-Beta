@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, ReactNode, useMemo } from 'react';
@@ -302,12 +303,12 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   const financialTransactionsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'financial_transactions')) : null, [firestore, user]);
   const financeRequestsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'finance_requests')) : null, [firestore, user]);
   const savedSchedulesQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'saved_schedules')) : null, [firestore, user]);
+  const roomsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'rooms')) : null, [firestore, user]);
+  const theoflixCoursesQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'theoflix_courses')) : null, [firestore, user]);
 
   // Queries públicas necessárias para matrículas
   const coursesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
   const classesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'classes')) : null, [firestore]);
-  const roomsQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'rooms')) : null, [firestore]);
-  const theoflixCoursesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'theoflix_courses')) : null, [firestore]);
 
   const { data: users, isLoading: lu } = useCollection<User>(usersQ);
   const { data: areas, isLoading: la } = useCollection<AreaOfService>(areasQ);
@@ -329,7 +330,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   const { data: financeRequests, isLoading: lfr } = useCollection<FinanceRequest>(financeRequestsQ);
   const { data: savedSchedules, isLoading: lss } = useCollection<SavedSchedule>(savedSchedulesQ);
 
-  const isLoading = (user ? lu : false) || la || lt || le || lr || lres || lco || lcl || ler || lpl || lwp || ldp || lwpn || ldpn || lwe || ltc || lft || lfr || lss;
+  const isLoading = (user ? lu : false) || la || lt || le || (user ? lr : false) || lres || lco || lcl || ler || lpl || lwp || ldp || lwpn || ldpn || lwe || (user ? ltc : false) || lft || lfr || lss;
 
   const value = useMemo(() => ({
     users: users || [],
@@ -474,7 +475,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
         await setDocumentNonBlocking(doc(firestore!, 'saved_schedules', id), data);
     },
     deleteSchedule: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'saved_schedules', id)); },
-  }), [users, areas, teams, events, rooms, reservations, courses, classes, enrollmentRequests, pedagogicalLogs, wavePayments, disPayments, wavePlans, disPlans, waveExpenses, theoflixCourses, financialTransactions, financeRequests, savedSchedules, isLoading, firestore]);
+  }), [users, areas, teams, events, rooms, reservations, courses, classes, enrollmentRequests, pedagogicalLogs, wavePayments, disPayments, wavePlans, findPlanById, waveExpenses, theoflixCourses, financialTransactions, financeRequests, savedSchedules, isLoading, firestore]);
 
   return (
     <VolunteeringContext.Provider value={value}>
