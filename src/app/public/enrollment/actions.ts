@@ -4,7 +4,7 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
 /**
- * Inicializa o Firebase Admin de forma segura no servidor.
+ * Inicialização robusta do Firebase Admin no servidor.
  */
 function getAdminDb() {
   if (!getApps().length) {
@@ -27,48 +27,57 @@ function getAdminDb() {
  * Utilitário para mascarar o nome (Ex: João Silva -> J*** S****)
  */
 function maskName(name: string): string {
-  if (!name) return 'Membro IBM';
-  const parts = name.split(' ');
-  return parts.map(p => p.length > 1 ? p[0] + '*'.repeat(p.length - 1) : p).join(' ');
+  if (!name) return "";
+  const parts = name.trim().split(/\s+/);
+  return parts.map(part => {
+    if (part.length <= 1) return part;
+    return part[0] + "*".repeat(Math.min(part.length - 1, 3));
+  }).join(" ");
 }
 
 /**
- * Utilitário para mascarar o telefone (Ex: 21999998888 -> (21) *****-8888)
+ * Utilitário para mascarar o telefone (Ex: 21999998888 -> (21) *****-88)
  */
 function maskPhone(phone: string): string {
-  if (!phone) return 'Telefone não informado';
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length < 4) return phone;
-  const lastFour = digits.slice(-4);
-  const hidden = '*'.repeat(digits.length - 4);
-  return `(${digits.slice(0, 2)}) ${hidden.slice(2)}-${lastFour}`;
+  if (!phone) return "";
+  const cleaned = phone.replace(/\D/g, "");
+  if (cleaned.length < 4) return phone;
+  const lastTwo = cleaned.slice(-2);
+  const prefix = cleaned.length > 10 ? cleaned.slice(0, 2) : "";
+  return prefix ? `(${prefix}) *****-${lastTwo}` : `*****-${lastTwo}`;
 }
 
+export type VerifiedMember = {
+  id: string;
+  name: string;
+  phone: string;
+  isExisting: boolean;
+};
+
 /**
- * Verifica se um e-mail já existe na base de usuários e retorna dados mascarados.
- * Rodando no servidor para contornar regras de permissão do cliente.
+ * Verifica se um e-mail existe na base de usuários e retorna dados mascarados.
  */
-export async function verifyMemberEmail(email: string) {
+export async function verifyMemberEmail(email: string): Promise<VerifiedMember | null> {
+  if (!email || !email.includes('@')) return null;
+
   try {
     const db = getAdminDb();
     const usersRef = db.collection('users');
-    const snapshot = await usersRef.where('email', '==', email.toLowerCase()).limit(1).get();
+    const snapshot = await usersRef.where('email', '==', email.toLowerCase().trim()).limit(1).get();
 
     if (snapshot.empty) {
-      return { exists: false };
+      return { id: '', name: '', phone: '', isExisting: false };
     }
 
     const userData = snapshot.docs[0].data();
     return {
-      exists: true,
-      member: {
-        id: snapshot.docs[0].id,
-        name: maskName(userData.name),
-        phone: maskPhone(userData.phone || '')
-      }
+      id: snapshot.docs[0].id,
+      name: maskName(userData.name || ""),
+      phone: maskPhone(userData.phone || ""),
+      isExisting: true
     };
   } catch (error) {
-    console.error("Error verifying email in Server Action:", error);
-    throw new Error("Falha na verificação do servidor.");
+    console.error("Error verifying email:", error);
+    throw new Error("Falha na verificação de segurança.");
   }
 }
