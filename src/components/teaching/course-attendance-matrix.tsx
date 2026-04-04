@@ -1,15 +1,16 @@
-
 'use client';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Clock, Award, Loader2, Users, GraduationCap, ChevronRight, XCircle, Minus, Video, PlayCircle, Star } from 'lucide-react';
+import { CheckCircle2, Clock, Award, Loader2, Users, GraduationCap, ChevronRight, XCircle, Minus, Video, PlayCircle, Star, Filter } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { format, parseISO, isBefore, startOfDay, addWeeks, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 const weekDayMap: Record<string, number> = {
     "Domingo": 0, "Segunda-feira": 1, "Terça-feira": 2, "Quarta-feira": 3,
@@ -81,12 +82,18 @@ const Legend = () => (
 
 export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
     const { classes, users, courses, theoflixCourses, isLoading } = useVolunteering();
+    const [selectedClassId, setSelectedClassId] = useState<string>('all');
 
     const course = useMemo(() => courses.find(c => c.id === courseId), [courses, courseId]);
     const isMembership = course?.name?.toLowerCase().includes('membro') || course?.name?.toLowerCase().includes('pertencer') || course?.name?.toLowerCase().includes('integração');
     const threshold = course?.minAttendanceApproval || 75;
 
     const courseClasses = useMemo(() => classes.filter(c => c.courseId === courseId), [classes, courseId]);
+
+    const filteredClasses = useMemo(() => {
+        if (selectedClassId === 'all') return courseClasses;
+        return courseClasses.filter(c => c.id === selectedClassId);
+    }, [courseClasses, selectedClassId]);
 
     const modules = useMemo(() => {
         if (course?.syllabus && course.syllabus.length > 0) {
@@ -112,15 +119,53 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
 
     const students = useMemo(() => {
         const studentSet = new Set<string>();
-        courseClasses.forEach(cls => cls.students?.forEach(sId => studentSet.add(sId)));
+        filteredClasses.forEach(cls => cls.students?.forEach(sId => studentSet.add(sId)));
         return users.filter(u => studentSet.has(u.id)).sort((a, b) => a.name.localeCompare(b.name));
-    }, [users, courseClasses]);
+    }, [users, filteredClasses]);
+
+    const allDates = useMemo(() => {
+        const dates = new Set<string>();
+        filteredClasses.forEach(cls => {
+            cls.attendance?.forEach(att => dates.add(att.date));
+        });
+        return Array.from(dates).sort();
+    }, [filteredClasses]);
 
     if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
+
+    const matrixHeader = (
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 bg-slate-50 p-4 rounded-xl border border-dashed">
+            <div className="flex items-center gap-3">
+                <div className="bg-primary/10 p-2.5 rounded-xl text-primary shadow-sm">
+                    <Filter className="size-5" />
+                </div>
+                <div>
+                    <h3 className="text-sm font-black uppercase tracking-tight text-slate-900 leading-none">Matriz de Aproveitamento</h3>
+                    <p className="text-[10px] text-muted-foreground font-bold uppercase mt-1">Controle de frequência e conclusão</p>
+                </div>
+            </div>
+            
+            <div className="flex items-center gap-3 bg-white p-1.5 rounded-lg border shadow-sm min-w-[300px]">
+                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Filtrar Turma:</Label>
+                <Select value={selectedClassId} onValueChange={setSelectedClassId}>
+                    <SelectTrigger className="h-8 font-bold border-none shadow-none focus:ring-0">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Todas as Turmas (Consolidado)</SelectItem>
+                        {courseClasses.map(cls => (
+                            <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+        </div>
+    );
 
     if (isMembership) {
         return (
             <div className="space-y-6">
+                {matrixHeader}
                 <div className="rounded-xl border bg-background overflow-x-auto shadow-sm">
                     <Table>
                         <TableHeader className="bg-muted/50">
@@ -221,16 +266,9 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
         );
     }
 
-    const allDates = useMemo(() => {
-        const dates = new Set<string>();
-        courseClasses.forEach(cls => {
-            cls.attendance?.forEach(att => dates.add(att.date));
-        });
-        return Array.from(dates).sort();
-    }, [courseClasses]);
-
     return (
         <div className="space-y-6">
+            {matrixHeader}
             <div className="rounded-xl border bg-background overflow-x-auto shadow-sm">
                 <Table>
                     <TableHeader className="bg-muted/50">
@@ -269,7 +307,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                         </div>
                                     </TableCell>
                                     {allDates.map((date, index) => {
-                                        const attendanceRecord = courseClasses.flatMap(c => c.attendance || []).find(att => att.date === date);
+                                        const attendanceRecord = filteredClasses.flatMap(c => c.attendance || []).find(att => att.date === date);
                                         const isInPerson = attendanceRecord?.presentStudentIds?.includes(student.id);
                                         const isOnlineLive = attendanceRecord?.onlineStudentIds?.includes(student.id);
 
