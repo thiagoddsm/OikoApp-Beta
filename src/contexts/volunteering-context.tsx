@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, ReactNode, useMemo } from 'react';
@@ -96,6 +95,10 @@ export type Course = {
   linkedTheoflixId?: string;
   minAttendanceApproval?: number;
   syllabus?: { id: string; title: string; description: string }[];
+  // Novos campos de pré-requisito
+  requiresMemberStatus?: boolean;
+  requiresBaptism?: boolean;
+  prerequisiteCourseId?: string;
 };
 
 export type SavedSchedule = {
@@ -204,7 +207,7 @@ export type FinanceRequest = {
   purchaseLink?: string;
   status: 'pending' | 'approved' | 'paid' | 'rejected';
   createdAt: Timestamp;
-  attachmentUrl?: string; // Added field for the attachment URL
+  attachmentUrl?: string;
 };
 
 interface VolunteeringContextType {

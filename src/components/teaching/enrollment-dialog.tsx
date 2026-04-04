@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
@@ -6,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Loader2, UserPlus, Search, BookOpen, Layers, AlertTriangle, Mail, ArrowLeft, CheckCircle } from 'lucide-react';
+import { Loader2, UserPlus, Search, BookOpen, Layers, AlertTriangle, Mail, ArrowLeft, CheckCircle, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering } from '@/contexts/volunteering-context';
 
@@ -56,10 +55,39 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
 
   const selectedUser = useMemo(() => users.find(u => u.id === (studentId || '')), [users, studentId]);
 
-  // REGRA REMOVIDA: Alunos no estágio CIDADE podem se matricular em cursos de membresia.
-  // Esta mudança foi feita para permitir que o curso 'Pertencer' funcione como uma porta de entrada
-  // para novos membros, exatamente como solicitado pelo usuário.
-  const isEnrollmentBlocked = false;
+  // Lógica de validação de pré-requisitos
+  const enrollmentError = useMemo(() => {
+    if (!selectedCourseId) return null;
+    const course = courses.find(c => c.id === selectedCourseId);
+    if (!course) return null;
+
+    // Se é um novo usuário, ele não atende a pré-requisitos de membresia ou cursos anteriores
+    const isNew = mode === 'new';
+    
+    const integrationStatus = isNew ? 'nao_alcancado' : selectedUser?.integrationStatus;
+    const batizado = isNew ? 'nao' : selectedUser?.batizado;
+    const courseStatus = isNew ? {} : (selectedUser?.journey?.courseStatus || {});
+
+    if (course.requiresMemberStatus && integrationStatus !== 'membro') {
+        return "Este curso é exclusivo para membros oficiais da IBM.";
+    }
+    
+    if (course.requiresBaptism && batizado !== 'sim') {
+        return "Este curso exige que o aluno seja batizado nas águas.";
+    }
+    
+    if (course.prerequisiteCourseId) {
+        const isApproved = courseStatus[course.prerequisiteCourseId] === 'approved';
+        if (!isApproved) {
+            const preReqCourse = courses.find(c => c.id === course.prerequisiteCourseId);
+            return `É necessário ter aprovação no curso "${preReqCourse?.name || 'pré-requisito'}" para se matricular.`;
+        }
+    }
+
+    return null;
+  }, [selectedCourseId, selectedUser, courses, mode]);
+
+  const isEnrollmentBlocked = !!enrollmentError;
 
   const filteredClasses = useMemo(() => {
     if (!selectedCourseId || isMemberCourse) return [];
@@ -99,8 +127,8 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
     if (isEnrollmentBlocked) {
         toast({ 
             variant: 'destructive', 
-            title: 'Matrícula Bloqueada', 
-            description: 'Visitantes no estágio "Cidade" não podem fazer o curso de membresia. Registre uma decisão primeiro.' 
+            title: 'Inscrição Bloqueada', 
+            description: enrollmentError 
         });
         return;
     }
@@ -137,7 +165,7 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-hidden flex flex-col p-0">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-hidden flex flex-col p-0 shadow-2xl border-none">
         <DialogHeader className="p-6 border-b bg-muted/20">
           <div className="flex items-center gap-2">
             {step === 'details' && !initialStudentId && (
@@ -145,9 +173,9 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
                     <ArrowLeft className="size-4" />
                 </Button>
             )}
-            <DialogTitle>Realizar Matrícula</DialogTitle>
+            <DialogTitle className="text-xl font-black italic tracking-tighter uppercase text-primary">Realizar Matrícula</DialogTitle>
           </div>
-          <DialogDescription>
+          <DialogDescription className="text-xs font-bold uppercase text-muted-foreground tracking-widest mt-1">
             {step === 'email' ? 'Informe o e-mail do aluno para verificar o cadastro.' : 'Confirme os dados e selecione o curso/turma.'}
           </DialogDescription>
         </DialogHeader>
@@ -222,7 +250,7 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
                     <div>
                         <Label htmlFor="course-id" className="text-[10px] uppercase font-black text-muted-foreground">Selecionar Curso</Label>
                         <Select value={selectedCourseId} onValueChange={(v) => { setSelectedCourseId(v); setClassId(''); }} disabled={isLoading || !!initialCourseId}>
-                            <SelectTrigger id="course-id" className="mt-1 h-11">
+                            <SelectTrigger id="course-id" className="mt-1 h-11 font-bold">
                                 <SelectValue placeholder="Escolha o curso..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -238,21 +266,27 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
                         </Select>
                     </div>
 
-                    {/* Turmas */}
+                    {/* Turmas ou Erro de Pré-requisito */}
                     <div>
                         <Label htmlFor="class-id" className="text-[10px] uppercase font-black text-muted-foreground">Turma / Disciplina</Label>
                         
                         {isEnrollmentBlocked ? (
-                            <div className="mt-2 p-4 bg-destructive/10 border-2 border-destructive rounded-lg flex items-start gap-3">
-                                <AlertTriangle className="size-5 text-destructive shrink-0 mt-0.5" />
-                                <div className="text-[11px] text-destructive leading-tight font-medium">
-                                    Acesso Negado: Alunos no estágio <strong>CIDADE</strong> não podem ingressar na membresia. Registre uma decisão primeiro.
+                            <div className="mt-2 p-4 bg-red-50 border-2 border-red-200 rounded-xl flex items-start gap-3 animate-in zoom-in-95">
+                                <Lock className="size-5 text-red-600 shrink-0 mt-0.5" />
+                                <div className="space-y-1">
+                                    <p className="text-xs font-black uppercase text-red-700">Inscrição Bloqueada</p>
+                                    <p className="text-sm font-medium text-red-900 leading-tight">
+                                        {enrollmentError}
+                                    </p>
                                 </div>
                             </div>
                         ) : isMemberCourse ? (
-                            <div className="mt-2 p-4 bg-primary/5 border border-primary/20 rounded-lg flex items-start gap-3">
+                            <div className="mt-2 p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-start gap-3">
                                 <Layers className="size-5 text-primary shrink-0 mt-0.5" />
-                                <div className="text-[11px] text-muted-foreground mt-1">Ciclo Modular: O aluno será inscrito em todas as aulas dominicais automaticamente.</div>
+                                <div className="space-y-1">
+                                    <p className="text-xs font-black uppercase text-primary">Ciclo Modular</p>
+                                    <p className="text-[11px] text-muted-foreground leading-tight">O aluno será inscrito em todas as aulas dominicais deste curso automaticamente.</p>
+                                </div>
                             </div>
                         ) : (
                             <Select value={classId} onValueChange={setClassId} disabled={isLoading || !selectedCourseId}>
@@ -285,8 +319,12 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
 
         {step === 'details' && (
             <DialogFooter className="p-6 border-t bg-muted/20">
-                <DialogClose asChild><Button variant="outline">Cancelar</Button></DialogClose>
-                <Button onClick={handleSave} disabled={isSaving || isEnrollmentBlocked || (!isMemberCourse && !classId)}>
+                <DialogClose asChild><Button variant="outline" className="font-bold">Cancelar</Button></DialogClose>
+                <Button 
+                    onClick={handleSave} 
+                    disabled={isSaving || isEnrollmentBlocked || (!isMemberCourse && !classId)}
+                    className="font-black uppercase tracking-widest shadow-lg"
+                >
                     {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {mode === 'new' ? 'Cadastrar e Matricular' : 'Confirmar Matrícula'}
                 </Button>

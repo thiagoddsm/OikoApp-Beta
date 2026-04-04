@@ -1,4 +1,3 @@
-
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
@@ -8,13 +7,14 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Loader2, ShieldCheck, Mail, Info, School, PlayCircle, Percent } from 'lucide-react';
+import { Loader2, ShieldCheck, Mail, Info, School, PlayCircle, Percent, Lock, UserCheck, CheckCircle2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 
 export function CourseDetailsForm({ course }) {
-  const { users, theoflixCourses, isLoading } = useVolunteering();
+  const { users, courses, theoflixCourses, isLoading } = useVolunteering();
   const { firestore } = useFirebase();
   const { toast } = useToast();
   
@@ -25,6 +25,9 @@ export function CourseDetailsForm({ course }) {
     ebdTrack: '',
     linkedTheoflixId: '',
     minAttendanceApproval: '75',
+    requiresMemberStatus: false,
+    requiresBaptism: false,
+    prerequisiteCourseId: '',
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -39,11 +42,14 @@ export function CourseDetailsForm({ course }) {
         ebdTrack: course.ebdTrack || '',
         linkedTheoflixId: course.linkedTheoflixId || '',
         minAttendanceApproval: course.minAttendanceApproval?.toString() || '75',
+        requiresMemberStatus: course.requiresMemberStatus || false,
+        requiresBaptism: course.requiresBaptism || false,
+        prerequisiteCourseId: course.prerequisiteCourseId || '',
       });
     }
   }, [course]);
 
-  const handleFieldChange = (name: string, value: string) => {
+  const handleFieldChange = (name: string, value: any) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
   
@@ -60,6 +66,9 @@ export function CourseDetailsForm({ course }) {
             ebdTrack: formData.ebdTrack,
             linkedTheoflixId: formData.linkedTheoflixId === 'none' ? '' : formData.linkedTheoflixId,
             minAttendanceApproval: Number(formData.minAttendanceApproval) || 0,
+            requiresMemberStatus: formData.requiresMemberStatus,
+            requiresBaptism: formData.requiresBaptism,
+            prerequisiteCourseId: formData.prerequisiteCourseId === 'none' ? '' : formData.prerequisiteCourseId,
         });
         toast({ title: 'Sucesso!', description: 'As configurações do curso foram atualizadas.'});
     } catch (e) {
@@ -74,7 +83,7 @@ export function CourseDetailsForm({ course }) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <div className="lg:col-span-2 space-y-6">
+      <div className="lg:col-span-2 space-y-8">
           <div className="space-y-4">
               <div className="space-y-2">
                   <Label htmlFor="desc">Descrição Detalhada</Label>
@@ -134,9 +143,6 @@ export function CourseDetailsForm({ course }) {
                           />
                           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
                       </div>
-                      <p className="text-[10px] text-muted-foreground italic">
-                          Define o limite para o aluno ser considerado "Apto" na matriz de frequência.
-                      </p>
                   </div>
 
                   <div className="space-y-2">
@@ -158,6 +164,68 @@ export function CourseDetailsForm({ course }) {
                   </div>
               </div>
           </div>
+
+          {/* Seção de Pré-requisitos */}
+          <div className="pt-6 border-t space-y-6">
+              <div className="flex items-center gap-2 text-primary font-bold">
+                  <Lock className="size-5" />
+                  Trava de Pré-requisitos (Opcional)
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-xl border border-slate-200">
+                  <div className="space-y-4">
+                      <div className="flex items-center justify-between gap-4">
+                          <div className="space-y-0.5">
+                              <Label className="text-sm font-bold flex items-center gap-2">
+                                  <UserCheck className="size-3 text-indigo-600" /> Somente Membros
+                              </Label>
+                              <p className="text-[10px] text-muted-foreground italic">Exige status oficial de Membro IBM.</p>
+                          </div>
+                          <Switch 
+                            checked={formData.requiresMemberStatus} 
+                            onCheckedChange={(v) => handleFieldChange('requiresMemberStatus', v)} 
+                          />
+                      </div>
+
+                      <div className="flex items-center justify-between gap-4">
+                          <div className="space-y-0.5">
+                              <Label className="text-sm font-bold flex items-center gap-2">
+                                  <CheckCircle2 className="size-3 text-blue-600" /> Somente Batizados
+                              </Label>
+                              <p className="text-[10px] text-muted-foreground italic">Exige registro de batismo nas águas.</p>
+                          </div>
+                          <Switch 
+                            checked={formData.requiresBaptism} 
+                            onCheckedChange={(v) => handleFieldChange('requiresBaptism', v)} 
+                          />
+                      </div>
+                  </div>
+
+                  <div className="space-y-2">
+                      <Label className="text-sm font-bold flex items-center gap-2">
+                          <GraduationCap className="size-3 text-amber-600" /> Concluiu o curso...
+                      </Label>
+                      <Select 
+                        value={formData.prerequisiteCourseId || 'none'} 
+                        onValueChange={(v) => handleFieldChange('prerequisiteCourseId', v)}
+                      >
+                          <SelectTrigger className="bg-white">
+                              <SelectValue placeholder="Nenhum curso prévio" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="none">Sem curso prévio</SelectItem>
+                              {courses.filter(c => c.id !== course.id).map(c => (
+                                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                              ))}
+                          </SelectContent>
+                      </Select>
+                      <p className="text-[10px] text-muted-foreground italic">
+                          O aluno precisa ter sido aprovado no curso selecionado para poder se matricular neste.
+                      </p>
+                  </div>
+              </div>
+          </div>
+
           <div className="flex justify-end pt-4">
             <Button onClick={handleSave} disabled={isSaving}>
               {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>} Salvar Configurações
