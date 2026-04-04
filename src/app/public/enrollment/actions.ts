@@ -1,23 +1,43 @@
-
 'use server';
 
 import { initializeFirebase } from '@/firebase';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 
-export async function addEnrollmentRequest(data: { name: string; email?: string; phone: string; courseId: string }) {
-    try {
-        const { firestore } = initializeFirebase();
-        const col = collection(firestore, 'enrollment_requests');
-        
-        await addDoc(col, {
-            ...data,
-            status: 'pending',
-            createdAt: Timestamp.now(),
-        });
+/**
+ * Verifica se um e-mail já possui cadastro no sistema.
+ * Executado no servidor para evitar a necessidade de permissão de leitura pública na coleção 'users'.
+ */
+export async function verifyMemberEmail(email: string) {
+  if (!email || !email.includes('@')) {
+    return { success: false, message: 'E-mail inválido.' };
+  }
 
-        return { success: true };
-    } catch (error: any) {
-        console.error("Erro ao salvar solicitação de inscrição:", error);
-        return { success: false, error: error.message };
+  try {
+    const { firestore } = initializeFirebase();
+    const q = query(
+      collection(firestore, 'users'),
+      where('email', '==', email.trim().toLowerCase()),
+      limit(1)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    
+    if (!querySnapshot.empty) {
+      const userData = querySnapshot.docs[0].data();
+      return {
+        success: true,
+        isMember: true,
+        user: {
+          id: querySnapshot.docs[0].id,
+          name: userData.name,
+          phone: userData.phone
+        }
+      };
     }
+    
+    return { success: true, isMember: false };
+  } catch (error) {
+    console.error('Error verifying email:', error);
+    return { success: false, message: 'Erro ao verificar e-mail no servidor.' };
+  }
 }

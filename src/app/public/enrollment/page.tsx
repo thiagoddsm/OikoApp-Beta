@@ -1,388 +1,368 @@
-
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useFirebase } from '@/firebase';
-import { useVolunteering, VolunteeringProvider } from '@/contexts/volunteering-context';
-import { collection, query, where, getDocs, limit, Timestamp, addDoc } from 'firebase/firestore';
+import { useFirebase, useVolunteering, VolunteeringProvider } from '@/contexts/volunteering-context';
+import { collection, Timestamp, addDoc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-    Loader2, 
-    Search, 
-    BookOpen, 
-    Waves, 
-    HandHelping, 
-    Lightbulb, 
-    School, 
-    GraduationCap, 
-    CheckCircle, 
-    ArrowRight,
-    UserPlus,
-    Mail,
-    Phone,
-    User,
-    Calendar,
-    ChevronRight,
-    MapPin,
-    AlertCircle
+    Loader2, Send, CheckCircle, Search, Mail, 
+    ArrowLeft, UserCheck, GraduationCap, School, 
+    BookOpen, Waves, HandHelping, Lightbulb,
+    ChevronRight, CalendarDays, UserPlus
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/icons';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-
-// Helper to filter and group courses
-const getCourseGroup = (course: any) => {
-    const ministry = course.ministryName?.toLowerCase() || '';
-    if (ministry.includes('wave')) return 'wave';
-    if (ministry.includes('dis')) return 'dis';
-    if (ministry.includes('lumine') || ministry.includes('ebd')) return 'lumine';
-    return 'ministerios';
-};
+import { verifyMemberEmail } from './actions';
 
 function EnrollmentPortal() {
     const { firestore } = useFirebase();
     const { courses, classes } = useVolunteering();
     const { toast } = useToast();
-
-    const [activeTab, setActiveTab] = useState('ensino');
-    const [ensinoSubTab, setEnsinoSubTab] = useState('lumine');
-    const [lumineTrack, setLumineTrack] = useState('all');
-    const [searchTerm, setSearchTerm] = useState('');
     
-    // Step-by-step Enrollment State
-    const [selectedCourse, setSelectedCourse] = useState<any>(null);
-    const [enrollStep, setEnrollStep] = useState<'email' | 'details' | 'success'>('email');
-    const [isProcessing, setIsProcessing] = useState(false);
+    const [step, setStep] = useState<'email' | 'form'>('email');
+    const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [success, setSuccess] = useState(false);
     
     const [emailInput, setEmailInput] = useState('');
-    const [identifiedUser, setIdentifiedUser] = useState<any>(null);
-    const [formData, setFormData] = useState({ name: '', phone: '' });
+    const [isMember, setIsMember] = useState(false);
+    
+    const [formData, setFormData] = useState({
+        name: '',
+        phone: '',
+        courseId: '',
+        classId: '',
+    });
 
-    // Filtering logic
-    const filteredCourses = useMemo(() => {
-        return courses.filter(c => {
-            const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase());
-            const group = getCourseGroup(c);
-            
-            if (activeTab === 'ensino') {
-                if (ensinoSubTab === 'lumine') {
-                    const isLumine = group === 'lumine';
-                    const matchesTrack = lumineTrack === 'all' || c.ebdTrack === lumineTrack;
-                    return isLumine && matchesTrack && matchesSearch;
-                }
-                if (ensinoSubTab === 'escolas') {
-                    return (group === 'wave' || group === 'dis') && matchesSearch;
-                }
-                return group === 'ministerios' && matchesSearch;
-            }
-            
-            return false; // Events tab logic would go here
-        });
-    }, [courses, activeTab, ensinoSubTab, lumineTrack, searchTerm]);
+    const [selectedTab, setSelectedTab] = useState('ensino');
+    const [schoolTab, setSchoolTab] = useState('lumine');
+    const [lumineFilter, setLumineFilter] = useState('all');
 
-    const handleOpenEnroll = (course: any) => {
-        setSelectedCourse(course);
-        setEnrollStep('email');
-        setEmailInput('');
-        setIdentifiedUser(null);
-        setFormData({ name: '', phone: '' });
-    };
+    const handleVerifyEmail = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!emailInput.trim() || isCheckingEmail) return;
 
-    const handleVerifyEmail = async () => {
-        if (!emailInput.trim() || !firestore) return;
-        setIsProcessing(true);
-        
+        setIsCheckingEmail(true);
         try {
-            const q = query(
-                collection(firestore, 'users'), 
-                where('email', '==', emailInput.toLowerCase().trim()), 
-                limit(1)
-            );
-            const querySnapshot = await getDocs(q);
+            const result = await verifyMemberEmail(emailInput);
             
-            if (!querySnapshot.empty) {
-                const userData = querySnapshot.docs[0].data();
-                setIdentifiedUser({ id: querySnapshot.docs[0].id, ...userData });
-                setFormData({ name: userData.name || '', phone: userData.phone || '' });
-                toast({ title: "Bem-vindo de volta!", description: `Identificamos seu cadastro, ${userData.name?.split(' ')[0]}.` });
+            if (result.success) {
+                if (result.isMember && result.user) {
+                    setIsMember(true);
+                    setFormData(p => ({ ...p, name: result.user!.name, phone: result.user!.phone || '' }));
+                    toast({ title: "Bem-vindo de volta!", description: `Reconhecemos seu cadastro, ${result.user.name.split(' ')[0]}.` });
+                } else {
+                    setIsMember(false);
+                    toast({ title: "Novo por aqui?", description: "Não encontramos seu e-mail. Vamos criar seu protocolo agora." });
+                }
+                setStep('form');
             } else {
-                setIdentifiedUser(null);
-                setFormData({ name: '', phone: '' });
+                toast({ variant: 'destructive', title: "Erro na verificação", description: result.message });
             }
-            setEnrollStep('details');
         } catch (error) {
-            console.error(error);
-            toast({ variant: 'destructive', title: "Erro na verificação", description: "Não foi possível consultar seu e-mail." });
+            toast({ variant: 'destructive', title: "Erro técnico", description: "Não foi possível verificar seu e-mail agora." });
         } finally {
-            setIsProcessing(false);
+            setIsCheckingEmail(false);
         }
     };
 
-    const handleConfirmProtocol = async () => {
-        if (!formData.name || !emailInput || !selectedCourse || !firestore) return;
-        setIsProcessing(true);
+    const handleEnroll = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!formData.name || !formData.courseId || isSaving || !firestore) return;
 
+        setIsSaving(true);
         try {
             await addDoc(collection(firestore, 'enrollment_requests'), {
-                courseId: selectedCourse.id,
-                name: formData.name,
-                email: emailInput.toLowerCase().trim(),
-                phone: formData.phone,
+                ...formData,
+                email: emailInput.trim().toLowerCase(),
                 status: 'pending',
-                identifiedUserId: identifiedUser?.id || null,
                 createdAt: Timestamp.now(),
             });
-            setEnrollStep('success');
-        } catch (error) {
-            console.error(error);
-            toast({ variant: 'destructive', title: "Falha no Protocolo", description: "Tente novamente em instantes." });
+            setSuccess(true);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } catch (e) {
+            toast({ variant: 'destructive', title: "Erro ao protocolar", description: "Ocorreu uma falha técnica. Tente novamente." });
         } finally {
-            setIsProcessing(false);
+            setIsSaving(false);
         }
     };
+
+    const filteredCourses = useMemo(() => {
+        if (selectedTab === 'eventos') return [];
+        
+        let filtered = courses;
+        
+        if (schoolTab === 'lumine') {
+            filtered = filtered.filter(c => c.ministryName?.toLowerCase().includes('lumine') || c.ministryName?.toLowerCase().includes('ebd'));
+            if (lumineFilter !== 'all') {
+                filtered = filtered.filter(c => c.ebdTrack === lumineFilter);
+            }
+        } else if (schoolTab === 'escolas') {
+            filtered = filtered.filter(c => c.ministryName?.toLowerCase().includes('wave') || c.ministryName?.toLowerCase().includes('dis'));
+        } else if (schoolTab === 'ministerios') {
+            filtered = filtered.filter(c => 
+                !c.ministryName?.toLowerCase().includes('lumine') && 
+                !c.ministryName?.toLowerCase().includes('ebd') &&
+                !c.ministryName?.toLowerCase().includes('wave') &&
+                !c.ministryName?.toLowerCase().includes('dis')
+            );
+        }
+        
+        return filtered;
+    }, [courses, selectedTab, schoolTab, lumineFilter]);
+
+    const selectedCourse = useMemo(() => courses.find(c => c.id === formData.courseId), [courses, formData.courseId]);
+    const courseClasses = useMemo(() => classes.filter(c => c.courseId === formData.courseId), [classes, formData.courseId]);
+
+    if (success) {
+        return (
+            <main className="min-h-screen bg-[#F8F9FA] py-12 md:py-20 px-4 flex items-center justify-center">
+                <Card className="max-w-md w-full text-center p-8 animate-in zoom-in-95 duration-500 rounded-[2rem] border-none shadow-2xl">
+                    <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner mb-6">
+                        <CheckCircle size={40} />
+                    </div>
+                    <h2 className="text-3xl font-black uppercase italic tracking-tighter text-slate-900 mb-4">Interesse Protocolado!</h2>
+                    <p className="text-muted-foreground mb-8">
+                        Recebemos sua solicitação para <strong>{selectedCourse?.name}</strong>. Nossa equipe entrará em contato em breve para confirmar sua vaga.
+                    </p>
+                    <Button onClick={() => window.location.reload()} variant="outline" className="w-full font-bold h-12 rounded-xl">Protocolar Outro</Button>
+                </Card>
+            </main>
+        );
+    }
 
     return (
         <main className="min-h-screen bg-[#F8F9FA] pb-20">
-            {/* Custom Hero */}
-            <div className="bg-white border-b pt-20 pb-16 px-4">
-                <div className="max-w-4xl mx-auto text-center space-y-6">
-                    <Logo className="size-16 text-primary mx-auto mb-4" />
-                    <h1 className="text-5xl md:text-8xl font-black italic tracking-tighter uppercase text-slate-900 leading-[0.85]">
-                        Portal de <span className="text-primary">Inscrições</span>
-                    </h1>
-                    <p className="text-muted-foreground text-lg md:text-xl font-medium max-w-2xl mx-auto">
-                        Escolha seu próximo passo de crescimento na Igreja Batista da Manhã.
-                    </p>
-                    
-                    {/* Search Bar */}
-                    <div className="relative max-w-md mx-auto mt-10">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground size-5" />
-                        <Input 
-                            placeholder="Buscar curso ou evento..." 
-                            className="h-14 pl-12 rounded-2xl border-2 focus-visible:ring-primary shadow-sm text-lg"
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
-                        />
-                    </div>
+            {/* Top Branding */}
+            <div className="bg-slate-900 text-white py-12 md:py-24 px-4 overflow-hidden relative">
+                <div className="absolute top-0 right-0 p-20 opacity-5 pointer-events-none"><Logo className="size-[30rem]" /></div>
+                <div className="max-w-6xl mx-auto text-center space-y-6 relative z-10">
+                    <Badge className="bg-primary/20 text-white border-primary/30 py-1 px-4 text-xs font-bold uppercase tracking-[0.2em]">Inscrições Abertas</Badge>
+                    <h1 className="text-5xl md:text-8xl font-black italic tracking-tighter uppercase text-white leading-[0.85]">Portal de Inscrições</h1>
+                    <p className="text-slate-400 max-w-2xl mx-auto text-sm md:text-xl font-medium leading-tight">Garanta sua vaga nos próximos eventos estratégicos e cursos de capacitação da IBM.</p>
                 </div>
             </div>
 
-            {/* Navigation Tabs */}
-            <div className="container mx-auto px-4 mt-12">
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <div className="flex justify-center mb-12">
-                        <TabsList className="bg-slate-200/50 p-1.5 rounded-2xl h-16 w-full max-w-sm border shadow-inner">
-                            <TabsTrigger value="ensino" className="rounded-xl font-black uppercase italic tracking-widest text-xs h-full data-[state=active]:bg-white data-[state=active]:shadow-xl">Ensino</TabsTrigger>
-                            <TabsTrigger value="eventos" className="rounded-xl font-black uppercase italic tracking-widest text-xs h-full data-[state=active]:bg-white data-[state=active]:shadow-xl">Eventos</TabsTrigger>
-                        </TabsList>
-                    </div>
+            <div className="max-w-7xl mx-auto px-4 -mt-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                
+                {/* Lado Esquerdo: Catálogo */}
+                <div className="lg:col-span-8 space-y-8">
+                    <Card className="shadow-xl border-none rounded-[2rem] overflow-hidden bg-white">
+                        <CardHeader className="bg-slate-50 border-b p-6">
+                            <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+                                <TabsList className="grid w-full grid-cols-2 bg-slate-200/50 p-1 h-14 rounded-2xl">
+                                    <TabsTrigger value="ensino" className="rounded-xl font-black uppercase italic tracking-tighter text-lg data-[state=active]:bg-primary data-[state=active]:text-white">Ensino</TabsTrigger>
+                                    <TabsTrigger value="eventos" className="rounded-xl font-black uppercase italic tracking-tighter text-lg data-[state=active]:bg-primary data-[state=active]:text-white">Eventos</TabsTrigger>
+                                </TabsList>
+                            </Tabs>
+                        </CardHeader>
+                        <CardContent className="p-6">
+                            {selectedTab === 'ensino' && (
+                                <Tabs value={schoolTab} onValueChange={setSchoolTab} className="w-full space-y-6">
+                                    <div className="flex justify-center">
+                                        <TabsList className="bg-transparent gap-4">
+                                            <TabsTrigger value="lumine" className="font-bold uppercase text-[10px] tracking-widest data-[state=active]:bg-primary/10 data-[state=active]:text-primary border rounded-full px-6">Escola Lumine</TabsTrigger>
+                                            <TabsTrigger value="escolas" className="font-bold uppercase text-[10px] tracking-widest data-[state=active]:bg-primary/10 data-[state=active]:text-primary border rounded-full px-6">Escolas (Wave/DIS)</TabsTrigger>
+                                            <TabsTrigger value="ministerios" className="font-bold uppercase text-[10px] tracking-widest data-[state=active]:bg-primary/10 data-[state=active]:text-primary border rounded-full px-6">Ministérios</TabsTrigger>
+                                        </TabsList>
+                                    </div>
 
-                    <TabsContent value="ensino" className="space-y-12 animate-in fade-in duration-500">
-                        {/* Ensino Sub-Navigation */}
-                        <div className="flex flex-wrap justify-center gap-3">
-                            {[
-                                { id: 'lumine', label: 'Escola Lumine', icon: Lightbulb },
-                                { id: 'escolas', label: 'Escolas Wave & DIS', icon: School },
-                                { id: 'ministerios', label: 'Ministérios', icon: BookOpen }
-                            ].map(sub => (
-                                <Button 
-                                    key={sub.id}
-                                    variant={ensinoSubTab === sub.id ? 'default' : 'outline'}
-                                    onClick={() => setEnsinoSubTab(sub.id)}
-                                    className={cn(
-                                        "h-12 px-8 rounded-2xl font-bold transition-all shadow-sm",
-                                        ensinoSubTab === sub.id ? "scale-105 shadow-primary/20" : "bg-white"
+                                    {schoolTab === 'lumine' && (
+                                        <div className="flex flex-wrap justify-center gap-2 mb-6">
+                                            {[
+                                                { id: 'all', label: 'Ver Todos' },
+                                                { id: 'teologico', label: 'Trilho Teológico' },
+                                                { id: 'biblico', label: 'Trilho Bíblico' },
+                                                { id: 'discipulado', label: 'Trilho Discipulado' }
+                                            ].map(filter => (
+                                                <button 
+                                                    key={filter.id}
+                                                    onClick={() => setLumineFilter(filter.id)}
+                                                    className={cn(
+                                                        "px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-tighter transition-all border",
+                                                        lumineFilter === filter.id ? "bg-primary text-white border-primary shadow-lg scale-105" : "bg-white text-muted-foreground hover:border-primary/30"
+                                                    )}
+                                                >
+                                                    {filter.label}
+                                                </button>
+                                            ))}
+                                        </div>
                                     )}
-                                >
-                                    <sub.icon className="mr-2 size-4" />
-                                    {sub.label}
-                                </Button>
-                            ))}
-                        </div>
 
-                        {/* Lumine Track Filters */}
-                        {ensinoSubTab === 'lumine' && (
-                            <div className="flex justify-center gap-2 animate-in slide-in-from-top-2">
-                                {[
-                                    { id: 'all', label: 'Todos' },
-                                    { id: 'teologico', label: 'Teológico' },
-                                    { id: 'biblico', label: 'Bíblico' },
-                                    { id: 'discipulado', label: 'Discipulado' }
-                                ].map(track => (
-                                    <button 
-                                        key={track.id}
-                                        onClick={() => setLumineTrack(track.id)}
-                                        className={cn(
-                                            "px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border-2",
-                                            lumineTrack === track.id ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-500 border-slate-100 hover:border-slate-300"
-                                        )}
-                                    >
-                                        {track.label}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Grid de Cursos */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                            {filteredCourses.map(course => (
-                                <Card key={course.id} className="border-none shadow-xl rounded-[2.5rem] overflow-hidden group hover:translate-y-[-8px] transition-all duration-500 bg-white">
-                                    <div className="h-48 bg-slate-100 relative overflow-hidden">
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent z-10" />
-                                        <div className="absolute top-4 right-4 z-20">
-                                            <Badge className="bg-white/90 text-slate-900 border-none font-black uppercase italic tracking-tighter text-[10px]">
-                                                {course.ministryName}
-                                            </Badge>
-                                        </div>
-                                        <div className="absolute bottom-4 left-6 z-20 text-white">
-                                            <h3 className="text-2xl font-black uppercase italic tracking-tighter leading-none">{course.name}</h3>
-                                        </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {filteredCourses.map(course => {
+                                            const isSelected = formData.courseId === course.id;
+                                            const hasActiveClasses = classes.some(cls => cls.courseId === course.id);
+                                            
+                                            return (
+                                                <button 
+                                                    key={course.id}
+                                                    onClick={() => setFormData(p => ({ ...p, courseId: course.id, classId: '' }))}
+                                                    className={cn(
+                                                        "text-left p-6 rounded-3xl border-2 transition-all group relative overflow-hidden",
+                                                        isSelected ? "border-primary bg-primary/5 ring-4 ring-primary/10" : "bg-white border-slate-100 hover:border-slate-300"
+                                                    )}
+                                                >
+                                                    <div className="flex flex-col h-full gap-4">
+                                                        <div className="flex justify-between items-start">
+                                                            <div className={cn("p-2.5 rounded-2xl shadow-sm transition-colors", isSelected ? "bg-primary text-white" : "bg-slate-50 text-slate-400 group-hover:bg-primary/5 group-hover:text-primary")}>
+                                                                {schoolTab === 'lumine' ? <Lightbulb size={20} /> : schoolTab === 'escolas' ? <Waves size={20} /> : <BookOpen size={20} />}
+                                                            </div>
+                                                            <Badge variant="secondary" className="text-[8px] font-black uppercase">{course.ministryName}</Badge>
+                                                        </div>
+                                                        <div>
+                                                            <h3 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 leading-none mb-2">{course.name}</h3>
+                                                            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{course.description}</p>
+                                                        </div>
+                                                        <div className="mt-auto pt-4 border-t border-dashed flex items-center justify-between">
+                                                            <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase">
+                                                                <CalendarDays size={12} />
+                                                                {hasActiveClasses ? "Próxima Turma: Março" : "Aguardando Agenda"}
+                                                            </div>
+                                                            {isSelected && <CheckCircle size={16} className="text-primary animate-in zoom-in" />}
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            )
+                                        })}
                                     </div>
-                                    <CardContent className="p-8 space-y-4">
-                                        <p className="text-muted-foreground text-sm leading-relaxed line-clamp-3">
-                                            {course.description || "Nenhuma descrição disponível."}
-                                        </p>
-                                        
-                                        <div className="flex flex-wrap gap-2 pt-2">
-                                            {course.ebdTrack && (
-                                                <Badge variant="outline" className="bg-primary/5 text-primary border-primary/10 font-bold text-[9px] uppercase">
-                                                    Trilha {course.ebdTrack}
-                                                </Badge>
-                                            )}
-                                            <Badge variant="outline" className="text-[9px] uppercase font-bold">
-                                                {classes.filter(cls => cls.courseId === course.id).length} Turmas Ativas
-                                            </Badge>
-                                        </div>
-                                    </CardContent>
-                                    <CardFooter className="px-8 pb-8 pt-0">
-                                        <Button className="w-full h-12 rounded-2xl font-black uppercase italic tracking-widest shadow-lg shadow-primary/20 group" onClick={() => handleOpenEnroll(course)}>
-                                            Inscrever-se Agora
-                                            <ArrowRight className="ml-2 size-4 group-hover:translate-x-1 transition-transform" />
-                                        </Button>
-                                    </CardFooter>
-                                </Card>
-                            ))}
-                        </div>
+                                </TabsContent>
+                            )}
 
-                        {filteredCourses.length === 0 && (
-                            <div className="text-center py-20 bg-white rounded-[3rem] border-2 border-dashed">
-                                <Search className="size-12 mx-auto text-slate-200 mb-4" />
-                                <p className="text-muted-foreground font-bold">Nenhum curso encontrado nesta categoria.</p>
-                            </div>
-                        )}
-                    </TabsContent>
-
-                    <TabsContent value="eventos" className="animate-in fade-in duration-500">
-                        <div className="text-center py-32 bg-white rounded-[3rem] border-2 border-dashed shadow-sm">
-                            <Calendar className="size-16 mx-auto text-slate-200 mb-6" />
-                            <h2 className="text-2xl font-black uppercase italic tracking-tighter text-slate-900">Agenda de Eventos</h2>
-                            <p className="text-muted-foreground mt-2">Em breve, você poderá se inscrever nos próximos eventos estratégicos da IBM por aqui.</p>
-                        </div>
-                    </TabsContent>
-                </Tabs>
-            </div>
-
-            {/* Enrollment Modal */}
-            <Dialog open={!!selectedCourse} onOpenChange={(open) => !open && setSelectedCourse(null)}>
-                <DialogContent className="sm:max-w-md p-0 overflow-hidden rounded-[2.5rem] border-none shadow-2xl">
-                    <DialogHeader className="p-8 bg-slate-900 text-white shrink-0">
-                        <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter">Protocolo de Inscrição</DialogTitle>
-                        <DialogDescription className="text-slate-400 font-medium">{selectedCourse?.name}</DialogDescription>
-                    </DialogHeader>
-
-                    {enrollStep === 'email' && (
-                        <div className="p-8 space-y-6 animate-in fade-in slide-in-from-top-4">
-                            <div className="space-y-2">
-                                <Label className="text-[10px] uppercase font-black text-muted-foreground">Comece pelo seu E-mail</Label>
-                                <div className="flex gap-2">
-                                    <div className="relative flex-1">
-                                        <Mail className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                                        <Input 
-                                            placeholder="seu@email.com" 
-                                            className="pl-10 h-12 rounded-xl"
-                                            value={emailInput}
-                                            onChange={e => setEmailInput(e.target.value)}
-                                            onKeyDown={e => e.key === 'Enter' && handleVerifyEmail()}
-                                        />
-                                    </div>
-                                    <Button onClick={handleVerifyEmail} className="h-12 px-6 font-bold" disabled={!emailInput.trim() || isProcessing}>
-                                        {isProcessing ? <Loader2 className="animate-spin size-4" /> : 'Verificar'}
-                                    </Button>
-                                </div>
-                            </div>
-                            <p className="text-xs text-muted-foreground italic leading-relaxed">
-                                Identificaremos se você já possui cadastro em nossa base ministerial para agilizar seu processo.
-                            </p>
-                        </div>
-                    )}
-
-                    {enrollStep === 'details' && (
-                        <div className="p-8 space-y-6 animate-in zoom-in-95 duration-300">
-                            {identifiedUser ? (
-                                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-4">
-                                    <div className="size-12 bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-lg">
-                                        <CheckCircle size={24} />
-                                    </div>
+                            {selectedTab === 'eventos' && (
+                                <div className="py-20 text-center space-y-4 bg-slate-50 rounded-[2rem] border-2 border-dashed">
+                                    <CalendarDays size={48} className="mx-auto text-slate-300" />
                                     <div>
-                                        <p className="text-[10px] font-black uppercase text-emerald-600">Cadastro Identificado</p>
-                                        <p className="font-bold text-slate-900">{identifiedUser.name}</p>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="space-y-4">
-                                    <div className="p-4 bg-blue-50 border border-blue-100 rounded-2xl flex items-center gap-3">
-                                        <UserPlus size={20} className="text-blue-600" />
-                                        <p className="text-xs font-bold text-blue-800">Primeira vez por aqui? Seja bem-vindo!</p>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] uppercase font-black">Seu Nome Completo</Label>
-                                        <Input value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))} placeholder="Como deseja ser chamado?" className="h-12 rounded-xl" />
+                                        <h3 className="text-xl font-black uppercase italic tracking-tighter">Eventos em Breve</h3>
+                                        <p className="text-sm text-muted-foreground">Estamos preparando os próximos calendários estratégicos.</p>
                                     </div>
                                 </div>
                             )}
+                        </CardContent>
+                    </Card>
+                </div>
 
-                            <div className="space-y-2">
-                                <Label className="text-[10px] uppercase font-black">WhatsApp / Telefone</Label>
-                                <Input value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} placeholder="(21) 9...." className="h-12 rounded-xl" />
-                            </div>
+                {/* Lado Direito: Protocolo */}
+                <div className="lg:col-span-4 sticky top-6">
+                    <Card className="shadow-2xl border-none overflow-hidden rounded-[2.5rem] bg-slate-900 text-white">
+                        <CardHeader className="bg-white/5 border-b border-white/10 p-8 text-center">
+                            <CardTitle className="text-2xl font-black uppercase italic tracking-tighter leading-none mb-2">Protocolar Interesse</CardTitle>
+                            <CardDescription className="text-white/50 text-[10px] uppercase font-bold tracking-widest">
+                                {step === 'email' ? 'Identificação Necessária' : 'Finalize seu Cadastro'}
+                            </CardDescription>
+                        </CardHeader>
+                        
+                        <CardContent className="p-8">
+                            {step === 'email' ? (
+                                <form onSubmit={handleVerifyEmail} className="space-y-6">
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] uppercase font-black text-white/50 ml-1">E-mail para Início</Label>
+                                        <div className="relative">
+                                            <Mail className="absolute left-4 top-4 size-5 text-white/20" />
+                                            <Input 
+                                                required 
+                                                type="email"
+                                                className="h-14 bg-white/5 border-white/10 pl-12 rounded-2xl focus:bg-white/10 transition-all text-white placeholder:text-white/20" 
+                                                placeholder="seu@email.com"
+                                                value={emailInput}
+                                                onChange={e => setEmailInput(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                    <Button disabled={isCheckingEmail || !emailInput} className="w-full h-14 bg-primary hover:bg-primary/90 text-white font-black text-sm uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/20">
+                                        {isCheckingEmail ? <Loader2 className="animate-spin size-5" /> : "Verificar Cadastro"}
+                                    </Button>
+                                    <p className="text-[9px] text-white/30 text-center font-bold uppercase leading-tight">
+                                        Usamos seu e-mail para reconhecer sua jornada e facilitar sua inscrição.
+                                    </p>
+                                </form>
+                            ) : (
+                                <form onSubmit={handleEnroll} className="space-y-6 animate-in slide-in-from-right-4 duration-500">
+                                    <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-1">
+                                        <Label className="text-[9px] uppercase font-black text-primary">Opção Selecionada</Label>
+                                        <p className="text-sm font-black uppercase italic truncate">{selectedCourse?.name || "Nenhuma Selecionada"}</p>
+                                    </div>
 
-                            <Button className="w-full h-14 rounded-2xl font-black uppercase italic tracking-widest shadow-xl" onClick={handleConfirmProtocol} disabled={isProcessing}>
-                                {isProcessing ? <Loader2 className="animate-spin size-5" /> : 'Confirmar Inscrição'}
-                            </Button>
-                            
-                            <Button variant="ghost" className="w-full text-[10px] font-bold uppercase tracking-widest text-muted-foreground" onClick={() => setEnrollStep('email')}>
-                                Corrigir E-mail
-                            </Button>
-                        </div>
-                    )}
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] uppercase font-black text-white/50 ml-1">Nome Completo</Label>
+                                        <div className="relative">
+                                            <UserPlus className="absolute left-4 top-4 size-5 text-white/20" />
+                                            <Input 
+                                                required 
+                                                className="h-14 bg-white/5 border-white/10 pl-12 rounded-2xl text-white placeholder:text-white/20" 
+                                                placeholder="Como prefere ser chamado?"
+                                                value={formData.name}
+                                                onChange={e => setFormData(p => ({...p, name: e.target.value}))}
+                                                disabled={isMember}
+                                            />
+                                        </div>
+                                    </div>
 
-                    {enrollStep === 'success' && (
-                        <div className="p-12 text-center space-y-6 animate-in zoom-in-95 duration-500">
-                            <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
-                                <CheckCircle size={40} />
-                            </div>
-                            <div className="space-y-2">
-                                <h2 className="text-3xl font-black uppercase italic tracking-tighter text-slate-900">Protocolado!</h2>
-                                <p className="text-muted-foreground font-medium">Sua solicitação para <span className="font-bold text-primary">{selectedCourse?.name}</span> foi enviada com sucesso.</p>
-                            </div>
-                            <p className="text-xs text-muted-foreground bg-muted p-4 rounded-xl">
-                                Um responsável entrará em contato via WhatsApp para confirmar os detalhes da sua turma.
-                            </p>
-                            <Button className="w-full h-12 rounded-2xl font-black" variant="outline" onClick={() => setSelectedCourse(null)}>Fechar</Button>
-                        </div>
-                    )}
-                </DialogContent>
-            </Dialog>
+                                    <div className="space-y-2">
+                                        <Label className="text-[10px] uppercase font-black text-white/50 ml-1">Celular / WhatsApp</Label>
+                                        <Input 
+                                            required 
+                                            className="h-14 bg-white/5 border-white/10 rounded-2xl text-white placeholder:text-white/20" 
+                                            placeholder="(21) 9..."
+                                            value={formData.phone}
+                                            onChange={e => setFormData(p => ({...p, phone: e.target.value}))}
+                                        />
+                                    </div>
+
+                                    {courseClasses.length > 0 && (
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] uppercase font-black text-white/50 ml-1">Turma Preferencial</Label>
+                                            <select 
+                                                required
+                                                className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl text-white px-4 appearance-none outline-none focus:bg-white/10"
+                                                value={formData.classId}
+                                                onChange={e => setFormData(p => ({ ...p, classId: e.target.value }))}
+                                            >
+                                                <option value="" className="bg-slate-900">Selecione o horário...</option>
+                                                {courseClasses.map(cls => (
+                                                    <option key={cls.id} value={cls.id} className="bg-slate-900">
+                                                        {cls.name} ({cls.dayOfWeek} às {cls.startTime})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+
+                                    <Button type="submit" disabled={isSaving || !formData.courseId} className="w-full h-14 bg-primary hover:bg-primary/90 text-white font-black text-sm uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/20">
+                                        {isSaving ? <Loader2 className="animate-spin size-5" /> : (
+                                            <>
+                                                <Send className="size-4 mr-2" />
+                                                Protocolar Agora
+                                            </>
+                                        )}
+                                    </Button>
+
+                                    <button 
+                                        type="button"
+                                        onClick={() => setStep('email')}
+                                        className="w-full text-center text-[10px] font-black uppercase text-white/30 hover:text-white transition-colors"
+                                    >
+                                        Voltar e Trocar E-mail
+                                    </button>
+                                </form>
+                            )}
+                        </CardContent>
+                        <CardFooter className="bg-white/5 p-6 flex flex-col gap-2">
+                            <p className="text-[9px] text-center text-white/30 uppercase font-black tracking-tighter">Igreja Batista da Manhã • Ano da Visão</p>
+                        </CardFooter>
+                    </Card>
+                </div>
+            </div>
         </main>
     );
 }
 
-// Wrapper to provide context
 export default function EnrollmentPage() {
     return (
         <VolunteeringProvider>
@@ -390,12 +370,3 @@ export default function EnrollmentPage() {
         </VolunteeringProvider>
     );
 }
-
-// Need Dialog components from UI
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
