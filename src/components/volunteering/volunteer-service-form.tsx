@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Calendar } from '@/components/ui/calendar';
 import { format, parse } from 'date-fns';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { ScrollArea } from '../ui/scroll-area';
 
 interface VolunteerServiceFormProps {
@@ -178,7 +178,7 @@ export function VolunteerServiceForm({ user }: VolunteerServiceFormProps) {
                                 <SelectItem value="null">Nenhuma</SelectItem>
                                 {teams.map(team => <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>)}
                             </SelectContent>
-                        </p>
+                        </Select>
                         <p className="text-xs text-muted-foreground">A equipe para o sistema de rodízio (Ex: Alpha, Bravo).</p>
                     </div>
                 </div>
