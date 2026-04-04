@@ -51,7 +51,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         { id: '1', authorId: 'admin', type: 'system', content: `Perfil criado na base de dados.`, createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
     ]);
 
-    // Integration Logic: Technical Validation from Course Context
+    // Integração: Validação Técnica vinda do Contexto de Cursos
     const myCoursesStatus = useMemo(() => {
         const studentClasses = classes.filter(cls => cls.students?.includes(memberId));
         const courseIds = Array.from(new Set(studentClasses.map(c => c.courseId)));
@@ -61,7 +61,6 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
             const courseClasses = classes.filter(c => c.courseId === courseId);
             const isMembership = course?.name.toLowerCase().includes('membro') || course?.name.toLowerCase().includes('pertencer');
             
-            // For modular courses, we count unique modules completed based on weekly attendance
             if (isMembership) {
                 const modulesCompleted = new Set();
                 courseClasses.forEach(cls => {
@@ -125,13 +124,11 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
 
         const currentStageId = memberData.integrationStatus || 'nao_alcancado';
         
-        // Custom Rule: New Convert must have a recorded decision
         if (targetStageId === 'novo_convertido' && currentStageId === 'nao_alcancado') {
             const hasDecision = memberData.decisao?.includes('Decisão por Cristo') || memberData.initialStatus === 'novo_convertido';
             if (!hasDecision) return { valid: false, message: "Este membro precisa registrar uma 'Decisão por Cristo' antes de se tornar Novo Convertido." };
         }
 
-        // Custom Rule: Membership requires Pertencer course modules 1-4 and Baptism
         if (targetStageId === 'membro') {
             const progress = memberData.journey?.memberCourseProgress || {};
             const mandatoryModules = ['module1', 'module2', 'module3', 'module4'];
@@ -217,7 +214,6 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
     
     return (
       <div className="space-y-6">
-        {/* Technical Validation: Education History */}
         <Card className="bg-emerald-50/50 border-emerald-200">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <div>
@@ -227,8 +223,8 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                     </CardTitle>
                     <CardDescription className="text-emerald-700/70">Histórico de formação e conclusão de disciplinas.</CardDescription>
                 </div>
-                <Button size="sm" onClick={() => setEnrollmentOpen(true)} className="bg-emerald-600 hover:bg-emerald-700">
-                    <PlusCircle className="mr-2 h-4 w-4" /> Matricular Aluno
+                <Button size="sm" onClick={() => setEnrollmentOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 font-bold">
+                    <PlusCircle className="mr-2 h-4 w-4" /> Matricular
                 </Button>
             </CardHeader>
             <CardContent>
@@ -263,7 +259,6 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
             </CardContent>
         </Card>
 
-        {/* Human Validation: Discipleship Checklists and Human Approvals */}
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><UserCheck className="size-5 text-primary" /> Validação Humana & Discipulado</CardTitle>
@@ -407,7 +402,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                                         </p>
                                     )}
                                 </div>
-                                <Button size="lg" onClick={() => handleSaveStage(checklist)} disabled={isSaving === checklist.id} className="min-w-[180px]">
+                                <Button size="lg" onClick={() => handleSaveStage(checklist)} disabled={isSaving === checklist.id} className="min-w-[180px] font-bold">
                                     {isSaving === checklist.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                                     Salvar Anotações
                                 </Button>

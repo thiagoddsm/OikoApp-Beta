@@ -92,7 +92,7 @@ const TimelineCard = ({ item, isEven, onToggle, isExpanded, isCurrent, isFuture,
                             )}
                             {hasHumanReq && (
                                 <Badge variant="outline" className="text-[9px] py-0 h-5 border-amber-200 bg-amber-50 text-amber-700 font-bold">
-                                    <Handshake className="size-3 mr-1" /> Requisito Humano
+                                    <ShieldAlert className="size-3 mr-1" /> Requisito Humano
                                 </Badge>
                             )}
                             <div className={cn("text-[10px] text-muted-foreground flex items-center gap-1 mt-1 font-medium", isEven ? "md:flex-row-reverse" : "")}>

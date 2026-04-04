@@ -16,7 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { VolunteeringProvider, useVolunteering } from '@/contexts/volunteering-context';
 import { journeyColumns } from '@/components/users/journey-status-config';
 
-// Sub-components
+// Sub-componentes do Perfil
 import { MemberDetails } from '@/components/users/member-details';
 import { DiscipleshipNotes } from '@/components/users/discipleship-notes';
 import { DiscipleshipTrail } from '@/components/users/discipleship-trail';
@@ -33,12 +33,12 @@ function PersonProfilePageContent() {
     const { users, cells, areas, redes, courses, isLoading: isContextLoading } = useVolunteering();
     const [isEditOpen, setIsEditOpen] = useState(false);
 
-    // Fetch person data in real-time
+    // Busca os dados da pessoa em tempo real
     const { data: person, isLoading: isPersonLoading } = useDoc<any>(userId ? `users/${userId}` : null);
 
     const isLoading = isPersonLoading || isContextLoading;
 
-    // Progress calculations for the Member Journey
+    // Cálculos de Progresso para a Jornada do Membro (Níveis 1 a 11)
     const journeyIndex = useMemo(() => {
         if (!person?.integrationStatus) return 0;
         const idx = journeyColumns.findIndex(col => col.id === person.integrationStatus);
@@ -53,7 +53,7 @@ function PersonProfilePageContent() {
         return journeyColumns[journeyIndex]?.title || 'Não definido';
     }, [journeyIndex]);
 
-    // Relational Data for KPI Cards - Integrating with GCs and Leadership Structure
+    // Dados Relacionais para os Cards de KPI - Integração com GCs e Liderança
     const userCell = useMemo(() => {
         if (!cells || !person?.hierarchy?.celulaId) return null;
         return cells.find(c => c.id === person.hierarchy.celulaId);
@@ -92,7 +92,7 @@ function PersonProfilePageContent() {
 
     return (
         <div className="space-y-6">
-            {/* Header Section: Identity and Journey Progress */}
+            {/* Header: Identidade e Progresso na Jornada */}
             <Card className="border-none shadow-sm overflow-hidden bg-white">
                 <CardContent className="p-6">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-6">
@@ -106,13 +106,13 @@ function PersonProfilePageContent() {
                                     {journeyIndex + 1}
                                 </div>
                             </div>
-                            <div className="space-y-1">
+                            <div className="space-y-1 text-center md:text-left">
                                 <h1 className="text-2xl font-black text-slate-900 tracking-tight">{person.name}</h1>
-                                <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
+                                <div className="flex items-center justify-center md:justify-start gap-2 text-muted-foreground text-sm font-medium">
                                     <Footprints size={14} className="text-primary" />
                                     {statusLabel}
                                 </div>
-                                <div className="pt-2 w-64">
+                                <div className="pt-2 w-64 mx-auto md:mx-0">
                                     <div className="flex justify-between text-[10px] uppercase font-black text-muted-foreground mb-1">
                                         <span>Progresso na Trilha</span>
                                         <span>Nível {journeyIndex + 1} de {journeyColumns.length}</span>
@@ -133,7 +133,7 @@ function PersonProfilePageContent() {
                 </CardContent>
             </Card>
 
-            {/* KPI Cards Section: Institutional Alignment */}
+            {/* Cards de KPI: Contexto Ministerial */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
                     { label: "Célula (GC)", value: userCell?.nome, desc: "Grupo Pequeno do membro.", icon: Users },
@@ -156,7 +156,7 @@ function PersonProfilePageContent() {
                 ))}
             </div>
 
-            {/* Main Tabs Section: Integrated Management */}
+            {/* Abas Principais: Gestão Integrada */}
             <Card className="border-none shadow-sm">
                 <CardContent className="p-0">
                     <Tabs defaultValue="trilha" className="w-full">
@@ -176,9 +176,9 @@ function PersonProfilePageContent() {
                                 <MemberCourseProgress user={person} />
                                 
                                 <div className="pt-6 border-t">
-                                    <h3 className="text-lg font-bold flex items-center gap-2 mb-6">
+                                    <h3 className="text-lg font-bold flex items-center gap-2 mb-6 text-slate-900">
                                         <CheckCircle2 className="text-emerald-600" />
-                                        Cursos Concluídos
+                                        Cursos Concluídos (Certificados)
                                     </h3>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                         {person.journey?.courseStatus && Object.entries(person.journey.courseStatus).some(([_, s]) => s === 'approved') ? (
@@ -208,7 +208,7 @@ function PersonProfilePageContent() {
                                 <div className="pt-6 border-t">
                                     <h3 className="text-lg font-bold flex items-center gap-2 mb-6">
                                         <GraduationCap className="text-primary" />
-                                        Trilha de Discipulado
+                                        Trilha de Discipulado Visual
                                     </h3>
                                     <DiscipleshipTrail currentStatusId={person.integrationStatus} />
                                 </div>

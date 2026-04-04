@@ -148,7 +148,7 @@ export function MemberCourseProgress({ user }: { user: any }) {
                     </CardTitle>
                     <CardDescription>O progresso é acumulado através de diferentes ciclos e reposições.</CardDescription>
                 </div>
-                <Button variant="ghost" size="sm" onClick={handleSync} disabled={isSyncing} className="text-primary hover:text-primary hover:bg-primary/10">
+                <Button variant="ghost" size="sm" onClick={handleSync} disabled={isSyncing} className="text-primary hover:text-primary hover:bg-primary/10 font-bold">
                     {isSyncing ? <Loader2 className="size-3 animate-spin mr-1" /> : <RefreshCw className="size-3 mr-1" />}
                     Sincronizar
                 </Button>
