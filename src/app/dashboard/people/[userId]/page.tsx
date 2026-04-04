@@ -1,396 +1,210 @@
-
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { doc, Timestamp } from 'firebase/firestore';
-import { useFirebase, useDoc } from '@/firebase';
-import { notFound } from 'next/navigation';
-import { Person } from '@/types/person';
-
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
-import { updatePerson } from './actions';
-
-import {
-  User, Mail, Phone, Building, Briefcase, GraduationCap, MapPin, Hash, Shield, Calendar, Edit, Loader2, Link as LinkIcon,
-  Heart, Home, Cake, Info, Dna, Droplet, Star, Rss, SquareUser, Workflow
+import React, { useState, useMemo } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useDoc } from '@/firebase';
+import { 
+  Loader2, ArrowLeft, Edit, Users, ShieldCheck, Network, Map, 
+  Footprints, User as UserIcon, Heart, HandHelping, Bot, GraduationCap
 } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { VolunteeringProvider, useVolunteering } from '@/contexts/volunteering-context';
+import { journeyColumns } from '@/components/users/journey-status-config';
 
-// Funções de formatação e componentes de UI
-function formatCPF(cpf: string | undefined): string {
-    if (!cpf) return 'Não informado';
-    const cleaned = ('' + cpf).replace(/\D/g, '');
-    const match = cleaned.match(/^(\d{3})(\d{3})(\d{3})(\d{2})$/);
-    if (match) {
-        return `${match[1]}.${match[2]}.${match[3]}-${match[4]}`;
-    }
-    return cpf;
-}
+// Sub-components
+import { MemberDetails } from '@/components/users/member-details';
+import { DiscipleshipNotes } from '@/components/users/discipleship-notes';
+import { DiscipleshipTrail } from '@/components/users/discipleship-trail';
+import { MemberCourseProgress } from '@/components/users/member-course-progress';
+import { FamilyManagement } from '@/components/users/family-management';
+import { VolunteerServiceForm } from '@/components/volunteering/volunteer-service-form';
+import { AIProfileAnalysis } from '@/components/users/ai-profile-analysis';
+import { EditUserDialog } from '@/components/users/edit-user-dialog';
 
-function formatCEP(cep: string | undefined): string {
-    if (!cep) return 'Não informado';
-    const cleaned = ('' + cep).replace(/\D/g, '');
-    const match = cleaned.match(/^(\d{5})(\d{3})$/);
-    if (match) {
-        return `${match[1]}-${match[2]}`;
-    }
-    return cep;
-}
+function PersonProfilePageContent() {
+    const params = useParams();
+    const router = useRouter();
+    const userId = params.userId as string;
+    const { users, cells, areas, redes, isLoading: isContextLoading } = useVolunteering();
+    const [isEditOpen, setIsEditOpen] = useState(false);
 
-const InfoField = ({ icon: Icon, label, value }: { icon: React.ElementType, label: string, value: string | undefined | null }) => (
-    <div className="flex items-start gap-4">
-        <div className="text-muted-foreground pt-1">
-            <Icon size={16} />
-        </div>
-        <div>
-            <p className="text-xs font-semibold text-muted-foreground">{label}</p>
-            <p className="text-sm font-medium text-foreground">{value || 'Não informado'}</p>
-        </div>
-    </div>
-);
+    // Fetch person data
+    const { data: person, isLoading: isPersonLoading } = useDoc<any>(userId ? `users/${userId}` : null);
 
-function EditProfileModal({ person, isOpen, onOpenChange, onSave }: {
-    person: Person;
-    isOpen: boolean;
-    onOpenChange: (open: boolean) => void;
-    onSave: (updatedPerson: Person) => void;
-}) {
-    const [editedPerson, setEditedPerson] = useState<Person>(person);
-    const [isSaving, setIsSaving] = useState(false);
-    const { toast } = useToast();
+    const isLoading = isPersonLoading || isContextLoading;
 
-    useEffect(() => {
-        setEditedPerson(person);
+    // Progress calculations
+    const journeyIndex = useMemo(() => {
+        if (!person?.integrationStatus) return 0;
+        const idx = journeyColumns.findIndex(col => col.id === person.integrationStatus);
+        return idx === -1 ? 0 : idx;
     }, [person]);
 
-    const handleChange = (path: string, value: any) => {
-        setEditedPerson(prev => {
-            const keys = path.split('.');
-            const newPerson = JSON.parse(JSON.stringify(prev));
-            let current = newPerson;
-            for (let i = 0; i < keys.length - 1; i++) {
-                if (!current[keys[i]]) current[keys[i]] = {};
-                current = current[keys[i]];
-            }
-            current[keys[keys.length - 1]] = value;
-            return newPerson;
-        });
-    };
-    
-    const handleDateChange = (path: string, value: string) => {
-        const date = value ? new Date(value) : null;
-        handleChange(path, date ? Timestamp.fromDate(date) : null);
-    };
+    const progressValue = useMemo(() => {
+        return ((journeyIndex + 1) / journeyColumns.length) * 100;
+    }, [journeyIndex]);
 
-    const handleSave = async () => {
-        setIsSaving(true);
-        try {
-            const result = await updatePerson(editedPerson);
-            if (result.success) {
-                onSave(editedPerson);
-                toast({ title: 'Perfil Atualizado', description: 'As informações foram salvas com sucesso.' });
-                onOpenChange(false);
-            } else {
-                throw new Error(result.message || 'Ocorreu um erro desconhecido ao salvar.');
-            }
-        } catch (error) {
-            console.error('Failed to update person:', error);
-            const errorMessage = error instanceof Error ? error.message : 'Não foi possível atualizar o perfil.';
-            toast({ variant: 'destructive', title: 'Erro ao Salvar', description: errorMessage });
-        } finally {
-            setIsSaving(false);
-        }
-    };
+    const statusLabel = useMemo(() => {
+        return journeyColumns[journeyIndex]?.title || 'Não definido';
+    }, [journeyIndex]);
+
+    // Relational Data for KPI Cards
+    const userCell = useMemo(() => cells.find(c => c.id === person?.hierarchy?.celulaId), [cells, person]);
+    const userSupervisor = useMemo(() => users.find(u => u.id === person?.hierarchy?.supervisorId), [users, person]);
+    const userArea = useMemo(() => areas.find(a => a.id === userCell?.areaId), [areas, userCell]);
+    const userRede = useMemo(() => redes.find(r => r.id === userArea?.redeId), [redes, userArea]);
+
+    if (isLoading) {
+        return <div className="flex justify-center p-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>
+    }
+
+    if (!person) {
+        return (
+            <Card>
+                <CardHeader><CardTitle>Pessoa não encontrada</CardTitle></CardHeader>
+                <CardContent>
+                    <p>O perfil que você está procurando não existe ou foi removido.</p>
+                    <Button onClick={() => router.back()} className="mt-4"><ArrowLeft className="mr-2"/>Voltar</Button>
+                </CardContent>
+            </Card>
+        )
+    }
 
     return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-4xl h-[90vh]">
-                <DialogHeader>
-                    <DialogTitle>Editar Perfil de {person.name}</DialogTitle>
-                    <DialogDescription>Atualize as informações. Clique em salvar ao terminar.</DialogDescription>
-                </DialogHeader>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-4 overflow-y-auto px-1">
-                   {/* Coluna 1: Dados Pessoais */}
-                    <div className="space-y-4">
-                        <h4 className="font-semibold text-lg">Dados Pessoais</h4>
-                        <div className='space-y-2'>
-                           <Label>Nome Completo</Label>
-                           <Input value={editedPerson.name || ''} onChange={(e) => handleChange('name', e.target.value)} />
-                        </div>
-                         <div className='space-y-2'>
-                           <Label>Data de Nascimento</Label>
-                            <Input type='date' value={editedPerson.birthDate ? (editedPerson.birthDate as Timestamp).toDate().toISOString().split('T')[0] : ''} onChange={(e) => handleDateChange('birthDate', e.target.value)} />
-                        </div>
-                         <div className='space-y-2'>
-                           <Label>Gênero</Label>
-                           <Select value={editedPerson.gender || ''} onValueChange={(v) => handleChange('gender', v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value='Masculino'>Masculino</SelectItem><SelectItem value='Feminino'>Feminino</SelectItem></SelectContent></Select>
-                        </div>
-                        <div className='space-y-2'>
-                            <Label>Estado Civil</Label>
-                             <Select value={editedPerson.maritalStatus || ''} onValueChange={(v) => handleChange('maritalStatus', v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value='Solteiro(a)'>Solteiro(a)</SelectItem><SelectItem value='Casado(a)'>Casado(a)</SelectItem><SelectItem value='Divorciado(a)'>Divorciado(a)</SelectItem><SelectItem value='Viúvo(a)'>Viúvo(a)</SelectItem></SelectContent></Select>
-                        </div>
-                        <div className='space-y-2'>
-                           <Label>CPF</Label>
-                           <Input value={editedPerson.cpf || ''} onChange={(e) => handleChange('cpf', e.target.value)} />
-                        </div>
-                        <div className='space-y-2'>
-                            <Label>RG</Label>
-                            <Input value={editedPerson.rg || ''} onChange={(e) => handleChange('rg', e.target.value)} />
-                        </div>
-                        <div className='space-y-2'>
-                            <Label>Naturalidade</Label>
-                            <Input value={editedPerson.nationality || ''} onChange={(e) => handleChange('nationality', e.target.value)} />
-                        </div>
-                    </div>
-                    
-                    {/* Coluna 2: Contatos e Endereço */}
-                    <div className="space-y-4">
-                        <h4 className="font-semibold text-lg">Contatos Pessoais</h4>
-                        <div className='space-y-2'>
-                            <Label>E-mail</Label>
-                            <Input type="email" value={editedPerson.contacts?.email || ''} onChange={(e) => handleChange('contacts.email', e.target.value)} />
-                        </div>
-                        <div className='space-y-2'>
-                            <Label>Celular</Label>
-                            <Input value={editedPerson.contacts?.cellPhone || ''} onChange={(e) => handleChange('contacts.cellPhone', e.target.value)} />
-                        </div>
-                        <div className='space-y-2'>
-                            <Label>Telefone</Label>
-                            <Input value={editedPerson.contacts?.phone || ''} onChange={(e) => handleChange('contacts.phone', e.target.value)} />
-                        </div>
-
-                         <h4 className="font-semibold text-lg pt-4">Endereço Residencial</h4>
-                         <div className='space-y-2'>
-                            <Label>CEP</Label>
-                            <Input value={editedPerson.address?.cep || ''} onChange={(e) => handleChange('address.cep', e.target.value)} />
-                        </div>
-                         <div className='space-y-2'>
-                            <Label>Endereço</Label>
-                            <Input value={editedPerson.address?.street || ''} onChange={(e) => handleChange('address.street', e.target.value)} />
-                        </div>
-                        <div className='grid grid-cols-2 gap-4'>
-                            <div className='space-y-2'>
-                                <Label>Número</Label>
-                                <Input value={editedPerson.address?.number || ''} onChange={(e) => handleChange('address.number', e.target.value)} />
+        <div className="space-y-6">
+            {/* Header Section */}
+            <Card className="border-none shadow-sm overflow-hidden bg-white">
+                <CardContent className="p-6">
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="flex items-center gap-6">
+                            <div className="relative">
+                                <Avatar className="h-24 w-24 ring-4 ring-primary/10">
+                                    <AvatarImage src={person.photoURL} />
+                                    <AvatarFallback className="text-2xl font-bold">{person.name?.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <div className="absolute -bottom-2 -right-2 size-8 bg-primary rounded-full border-4 border-white flex items-center justify-center text-white text-xs font-bold shadow-lg">
+                                    {journeyIndex + 1}
+                                </div>
                             </div>
-                             <div className='space-y-2'>
-                                <Label>Complemento</Label>
-                                <Input value={editedPerson.address?.complement || ''} onChange={(e) => handleChange('address.complement', e.target.value)} />
+                            <div className="space-y-1">
+                                <h1 className="text-2xl font-black text-slate-900 tracking-tight">{person.name}</h1>
+                                <div className="flex items-center gap-2 text-muted-foreground text-sm font-medium">
+                                    <Footprints size={14} className="text-primary" />
+                                    {statusLabel}
+                                </div>
+                                <div className="pt-2 w-64">
+                                    <div className="flex justify-between text-[10px] uppercase font-black text-muted-foreground mb-1">
+                                        <span>Progresso na Trilha</span>
+                                        <span>Nível {journeyIndex + 1} de {journeyColumns.length}</span>
+                                    </div>
+                                    <Progress value={progressValue} className="h-2" />
+                                </div>
                             </div>
                         </div>
-                        <div className='space-y-2'>
-                            <Label>Bairro</Label>
-                            <Input value={editedPerson.address?.neighborhood || ''} onChange={(e) => handleChange('address.neighborhood', e.target.value)} />
+                        <div className="flex flex-col sm:flex-row gap-2">
+                            <Button className="font-bold h-10 px-6 rounded-xl shadow-lg shadow-primary/20" onClick={() => setIsEditOpen(true)}>
+                                <Edit className="size-4 mr-2" /> Editar Perfil
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-10 px-6 rounded-xl border-slate-200" onClick={() => router.back()}>
+                                <ArrowLeft className="size-4 mr-2" /> Voltar
+                            </Button>
                         </div>
-                        <div className='grid grid-cols-2 gap-4'>
-                           <div className='space-y-2'>
-                               <Label>Cidade</Label>
-                               <Input value={editedPerson.address?.city || ''} onChange={(e) => handleChange('address.city', e.target.value)} />
-                           </div>
-                           <div className='space-y-2'>
-                               <Label>UF</Label>
-                               <Input value={editedPerson.address?.state || ''} onChange={(e) => handleChange('address.state', e.target.value)} />
-                           </div>
-                       </div>
                     </div>
+                </CardContent>
+            </Card>
 
-                    {/* Coluna 3: Profissional e Igreja */}
-                     <div className="space-y-4">
-                        <h4 className="font-semibold text-lg">Dados Profissionais</h4>
-                         <div className='space-y-2'>
-                            <Label>Escolaridade</Label>
-                             <Select value={editedPerson.professional?.educationLevel || ''} onValueChange={(v) => handleChange('professional.educationLevel', v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value='Fundamental Incompleto'>Fundamental Incompleto</SelectItem><SelectItem value='Fundamental Completo'>Fundamental Completo</SelectItem><SelectItem value='Médio Incompleto'>Médio Incompleto</SelectItem><SelectItem value='Médio Completo'>Médio Completo</SelectItem><SelectItem value='Superior Incompleto'>Superior Incompleto</SelectItem><SelectItem value='Superior Completo'>Superior Completo</SelectItem><SelectItem value='Pós-graduação'>Pós-graduação</SelectItem></SelectContent></Select>
-                        </div>
-                         <div className='space-y-2'>
-                            <Label>Profissão</Label>
-                            <Input value={editedPerson.professional?.profession || ''} onChange={(e) => handleChange('professional.profession', e.target.value)} />
+            {/* KPI Cards Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                    { label: "Célula (GC)", value: userCell?.nome, desc: "Grupo Pequeno do membro.", icon: Users },
+                    { label: "Discipulador", value: userSupervisor?.name, desc: "Líder que acompanha este membro.", icon: ShieldCheck },
+                    { label: "Área", value: userArea?.nome, desc: "Área de supervisão do GC.", icon: Map },
+                    { label: "Rede", value: userRede?.nome, desc: "Rede de supervisão da Área.", icon: Network },
+                ].map((kpi, i) => (
+                    <Card key={i} className="border-none shadow-sm bg-white">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-[10px] uppercase font-black text-muted-foreground flex items-center gap-2">
+                                <kpi.icon size={12} className="text-primary" />
+                                {kpi.label}
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-lg font-black text-slate-900 truncate">{kpi.value || 'N/A'}</div>
+                            <p className="text-[10px] text-muted-foreground mt-1">{kpi.desc}</p>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+
+            {/* Main Tabs Section */}
+            <Card className="border-none shadow-sm">
+                <CardContent className="p-0">
+                    <Tabs defaultValue="trilha" className="w-full">
+                        <div className="px-6 pt-2 border-b bg-muted/30">
+                            <TabsList className="h-12 bg-transparent gap-6 overflow-x-auto no-scrollbar flex-nowrap">
+                                <TabsTrigger value="trilha" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none font-bold text-xs uppercase whitespace-nowrap"><Footprints size={14} className="mr-2" /> Trilha</TabsTrigger>
+                                <TabsTrigger value="discipulado" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none font-bold text-xs uppercase whitespace-nowrap"><ShieldCheck size={14} className="mr-2" /> Discipulado</TabsTrigger>
+                                <TabsTrigger value="detalhes" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none font-bold text-xs uppercase whitespace-nowrap"><UserIcon size={14} className="mr-2" /> Detalhes</TabsTrigger>
+                                <TabsTrigger value="familia" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none font-bold text-xs uppercase whitespace-nowrap"><Heart size={14} className="mr-2" /> Família</TabsTrigger>
+                                <TabsTrigger value="servico" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none font-bold text-xs uppercase whitespace-nowrap"><HandHelping size={14} className="mr-2" /> Serviço</TabsTrigger>
+                                <TabsTrigger value="ai" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none font-bold text-xs uppercase whitespace-nowrap"><Bot size={14} className="mr-2" /> Análise IA</TabsTrigger>
+                            </TabsList>
                         </div>
 
-                        <h4 className="font-semibold text-lg pt-4">Dados da Igreja</h4>
-                         <div className='space-y-2'>
-                             <Label>Código de Membro</Label>
-                            <Input value={editedPerson.code || ''} onChange={(e) => handleChange('code', e.target.value)} />
-                        </div>
-                        <div className='space-y-2'>
-                             <Label>Status na Jornada</Label>
-                            <Input value={editedPerson.churchData?.integrationStatus || ''} onChange={(e) => handleChange('churchData.integrationStatus', e.target.value)} />
-                        </div>
-                        <div className='space-y-2'>
-                            <Label>Pequeno Grupo (GC)</Label>
-                            <Input value={editedPerson.gc || ''} onChange={(e) => handleChange('gc', e.target.value)} />
-                        </div>
+                        <div className="p-6">
+                            <TabsContent value="trilha" className="mt-0 space-y-8 animate-in fade-in-50">
+                                <MemberCourseProgress user={person} />
+                                <div className="pt-6 border-t">
+                                    <h3 className="text-lg font-bold flex items-center gap-2 mb-6">
+                                        <GraduationCap className="text-primary" />
+                                        Trilha de Discipulado
+                                    </h3>
+                                    <DiscipleshipTrail currentStatusId={person.integrationStatus} />
+                                </div>
+                            </TabsContent>
 
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-                    <Button onClick={handleSave} disabled={isSaving}>
-                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                        Salvar Alterações
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                            <TabsContent value="discipulado" className="mt-0 animate-in fade-in-50">
+                                <DiscipleshipNotes memberId={person.id} memberName={person.name} currentStatusId={person.integrationStatus} />
+                            </TabsContent>
+
+                            <TabsContent value="detalhes" className="mt-0 animate-in fade-in-50">
+                                <MemberDetails user={person} />
+                            </TabsContent>
+
+                            <TabsContent value="familia" className="mt-0 animate-in fade-in-50">
+                                <FamilyManagement user={person} />
+                            </TabsContent>
+
+                            <TabsContent value="servico" className="mt-0 animate-in fade-in-50">
+                                <VolunteerServiceForm user={person} />
+                            </TabsContent>
+
+                            <TabsContent value="ai" className="mt-0 animate-in fade-in-50">
+                                <AIProfileAnalysis userProfile={person} />
+                            </TabsContent>
+                        </div>
+                    </Tabs>
+                </CardContent>
+            </Card>
+
+            <EditUserDialog 
+                open={isEditOpen}
+                onOpenChange={setIsEditOpen}
+                user={person}
+            />
+        </div>
     );
 }
 
-export default function PersonProfilePage({ params }: { params: Promise<{ userId: string }> }) {
-    const { userId } = React.use(params);
-    const { firestore } = useFirebase();
-    const [isEditing, setIsEditing] = useState(false);
-    
-    // 1. O caminho do documento para o hook useDoc
-    const personPath = useMemo(() => (userId ? `users/${userId}` : null), [userId]);
-
-    // 2. O hook `useDoc` retorna um objeto { data, isLoading, error }
-    const { data: personData, isLoading, error } = useDoc<Person>(personPath);
-    
-    // 3. O estado local `person` é sincronizado com o resultado do hook.
-    const [person, setPerson] = useState<Person | null>(null);
-
-    useEffect(() => {
-        if (personData) {
-            setPerson(personData);
-        }
-    }, [personData]);
-
-    // 4. Tratamento explícito dos estados de carregamento e erro.
-    if (isLoading) {
-        return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-    }
-
-    if (error) {
-        console.error("Firebase error:", error);
-        return <div className="text-center text-red-500">Ocorreu um erro ao carregar os dados.</div>;
-    }
-
-    if (!isLoading && !personData) {
-        notFound();
-    }
-    
-    if (!person) {
-        return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-    }
-
-    const getInitials = (name: string | undefined) => {
-        if (!name) return '';
-        const names = name.split(' ');
-        if (names.length > 1) {
-            return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
-        }
-        return name.substring(0, 2).toUpperCase();
-    };
-
-    const handleSave = (updatedPerson: Person) => {
-        setPerson(updatedPerson);
-    };
-
-    const age = person.birthDate ? new Date().getFullYear() - (person.birthDate as Timestamp).toDate().getFullYear() : null;
-    
+export default function PersonProfilePage() {
     return (
-      <div className="container mx-auto p-4 sm:p-6 lg:p-8">
-        <div className="flex flex-col lg:flex-row items-start gap-8">
-            <div className="w-full lg:w-1/3 flex flex-col items-center text-center lg:items-start lg:text-left">
-                <Avatar className="h-32 w-32 mb-4 ring-4 ring-primary/20 ring-offset-2 bg-background">
-                    <AvatarImage src={person.photoURL} alt={person.name} />
-                    <AvatarFallback className='text-4xl'>{getInitials(person.name)}</AvatarFallback>
-                </Avatar>
-                <h1 className="text-3xl font-bold text-foreground">{person.name}</h1>
-                <p className="text-md text-muted-foreground">{person.professional?.profession || 'Profissão não informada'}</p>
-                <p className="text-sm text-muted-foreground">{age ? `${age} anos` : 'Idade não informada'}</p>
-                <Button className="mt-6 w-full lg:w-auto" onClick={() => setIsEditing(true)}>
-                    <Edit className="mr-2 h-4 w-4" /> Editar Perfil
-                </Button>
-            </div>
-
-            <div className="w-full lg:w-2/3">
-                <Tabs defaultValue="profile" className="w-full">
-                    <TabsList className='grid w-full grid-cols-4'>
-                        <TabsTrigger value="profile">Perfil</TabsTrigger>
-                        <TabsTrigger value="address">Endereços</TabsTrigger>
-                        <TabsTrigger value="professional">Profissional</TabsTrigger>
-                        <TabsTrigger value="church">Jornada</TabsTrigger>
-                    </TabsList>
-                    
-                    <TabsContent value="profile" className='mt-6'>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Informações Pessoais</CardTitle>
-                                <CardDescription>Dados de identificação e contato.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-6 pt-6">
-                                <div className="grid md:grid-cols-2 gap-x-8 gap-y-6">
-                                    <InfoField icon={Cake} label='Data de Nascimento' value={person.birthDate ? (person.birthDate as Timestamp).toDate().toLocaleDateString('pt-BR') : ''} />
-                                    <InfoField icon={Heart} label='Estado Civil' value={person.maritalStatus} />
-                                    <InfoField icon={SquareUser} label='Gênero' value={person.gender} />
-                                    <InfoField icon={Info} label='CPF' value={formatCPF(person.cpf)} />
-                                    <InfoField icon={Info} label='RG' value={person.rg} />
-                                    <InfoField icon={Dna} label='Naturalidade' value={person.nationality} />
-                                </div>
-                                <Separator />
-                                <div className="grid md:grid-cols-2 gap-x-8 gap-y-6">
-                                     <InfoField icon={Mail} label='E-mail' value={person.contacts?.email} />
-                                     <InfoField icon={Phone} label='Celular' value={person.contacts?.cellPhone} />
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                    <TabsContent value="address" className='mt-6'>
-                        <Card>
-                            <CardHeader><CardTitle>Endereço Residencial</CardTitle></CardHeader>
-                            <CardContent className="space-y-6 pt-2">
-                                <div className="grid md:grid-cols-2 gap-x-8 gap-y-6">
-                                    <InfoField icon={MapPin} label='CEP' value={formatCEP(person.address?.cep)} />
-                                    <InfoField icon={Home} label='Endereço' value={`${person.address?.street || ''}, ${person.address?.number || ''}`} />
-                                    <InfoField icon={Home} label='Bairro' value={person.address?.neighborhood} />
-                                    <InfoField icon={Home} label='Cidade/UF' value={person.address?.city ? `${person.address.city} - ${person.address.state || ''}`: ''} />
-                                    <InfoField icon={Home} label='Complemento' value={person.address?.complement} />
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                     <TabsContent value="professional" className='mt-6'>
-                        <Card>
-                            <CardHeader><CardTitle>Informações Profissionais</CardTitle></CardHeader>
-                            <CardContent className="space-y-6 pt-2">
-                               <div className="grid md:grid-cols-2 gap-x-8 gap-y-6">
-                                    <InfoField icon={GraduationCap} label='Escolaridade' value={person.professional?.educationLevel} />
-                                    <InfoField icon={Briefcase} label='Profissão' value={person.professional?.profession} />
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                     <TabsContent value="church" className='mt-6'>
-                        <Card>
-                            <CardHeader><CardTitle>Jornada na Igreja</CardTitle></CardHeader>
-                            <CardContent className="space-y-6 pt-2">
-                                <div className="grid md:grid-cols-2 gap-x-8 gap-y-6">
-                                    <InfoField icon={Hash} label='Código de Membro' value={person.code} />
-                                    <InfoField icon={Rss} label='Status na Jornada' value={person.churchData?.integrationStatus} />
-                                    <InfoField icon={Workflow} label='Pequeno Grupo (GC)' value={person.gc} />
-                                    <InfoField icon={Calendar} label='Data de Cadastro' value={person.churchData?.registrationDate ? (person.churchData.registrationDate as Timestamp).toDate().toLocaleDateString('pt-BR') : ''} />
-                                </div>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                </Tabs>
-            </div>
-        </div>
-
-         <EditProfileModal 
-            person={person} 
-            isOpen={isEditing} 
-            onOpenChange={setIsEditing} 
-            onSave={handleSave}
-        />
-      </div>
-    );
+        <VolunteeringProvider>
+            <PersonProfilePageContent />
+        </VolunteeringProvider>
+    )
 }
