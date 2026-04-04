@@ -475,7 +475,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
         await setDocumentNonBlocking(doc(firestore!, 'saved_schedules', id), data);
     },
     deleteSchedule: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'saved_schedules', id)); },
-  }), [users, areas, teams, events, rooms, reservations, courses, classes, enrollmentRequests, pedagogicalLogs, wavePayments, disPayments, wavePlans, findPlanById, waveExpenses, theoflixCourses, financialTransactions, financeRequests, savedSchedules, isLoading, firestore]);
+  }), [users, areas, teams, events, rooms, reservations, courses, classes, enrollmentRequests, pedagogicalLogs, wavePayments, disPayments, wavePlans, waveExpenses, theoflixCourses, financialTransactions, financeRequests, savedSchedules, isLoading, firestore]);
 
   return (
     <VolunteeringContext.Provider value={value}>
