@@ -247,16 +247,11 @@ export default function PersonProfilePage({ params }: { params: Promise<{ userId
     const { firestore } = useFirebase();
     const [isEditing, setIsEditing] = useState(false);
     
-    // 1. A referência só é criada se `firestore` e `userId` (como string válida) existirem.
-    const personRef = useMemo(() => {
-        if (firestore && typeof userId === 'string' && userId) {
-            return doc(firestore, 'users', userId);
-        }
-        return null;
-    }, [firestore, userId]);
+    // 1. O caminho do documento para o hook useDoc
+    const personPath = useMemo(() => (userId ? `users/${userId}` : null), [userId]);
 
-    // 2. O hook `useDoc` recebe a referência (ou null, que ele trata de forma segura).
-    const [personData, isLoading, error] = useDoc<Person>(personRef);
+    // 2. O hook `useDoc` retorna um objeto { data, isLoading, error }
+    const { data: personData, isLoading, error } = useDoc<Person>(personPath);
     
     // 3. O estado local `person` é sincronizado com o resultado do hook.
     const [person, setPerson] = useState<Person | null>(null);
