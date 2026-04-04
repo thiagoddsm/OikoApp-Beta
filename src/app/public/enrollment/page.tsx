@@ -1,69 +1,77 @@
+
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { useFirebase, useCollection, addDocumentNonBlocking, useMemoFirebase } from '@/firebase';
-import { collection, query, Timestamp } from 'firebase/firestore';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useFirebase, useCollection, useMemoFirebase, addDocumentNonBlocking } from '@/firebase';
+import { collection, query, where, Timestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, CheckCircle, BookOpen, UserPlus, Phone, Mail, CalendarDays, ArrowRight, Heart } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+    Loader2, BookOpen, Calendar, CheckCircle, 
+    ChevronRight, Waves, Lightbulb, School, HandHelping,
+    ArrowRight, Star, Heart, Sparkles, Send, Phone, Mail, User
+} from 'lucide-react';
+import { PublicNavbar } from '@/components/public/navbar';
+import { PublicFooter } from '@/components/public/footer';
+import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { Logo } from '@/components/icons';
-import { cn } from "@/lib/utils";
 import Link from 'next/link';
 
-function EventCard({ title, date, desc, href, icon: Icon, colorClass }: any) {
+type Course = {
+  id: string;
+  name: string;
+  description: string;
+  ministryName: string;
+  type?: 'trilho' | 'eletivo';
+};
+
+function CourseCard({ course, isSelected, onClick }: { course: Course, isSelected: boolean, onClick: () => void }) {
+    const getMinistryIcon = (name: string) => {
+        const n = name?.toLowerCase() || '';
+        if (n.includes('wave')) return Waves;
+        if (n === 'dis') return HandHelping;
+        if (n.includes('lumine')) return Lightbulb;
+        if (n.includes('college') || n.includes('escola')) return School;
+        return BookOpen;
+    };
+
+    const Icon = getMinistryIcon(course.ministryName);
+
     return (
-        <Card className="border-none shadow-xl overflow-hidden group hover:translate-y-[-4px] transition-all duration-300">
-            <div className={cn("h-2 w-full", colorClass)} />
-            <CardHeader>
-                <div className="flex justify-between items-start">
-                    <div className={cn("p-2 rounded-lg", colorClass.replace('bg-', 'bg-opacity-10 text-'))}>
-                        <Icon size={24} />
-                    </div>
-                    <Badge variant="secondary" className="text-[10px] font-black uppercase tracking-widest">Destaque</Badge>
+        <Card 
+            className={cn(
+                "cursor-pointer transition-all duration-300 hover:shadow-md border-2",
+                isSelected ? "border-primary bg-primary/5 ring-1 ring-primary/20" : "border-transparent bg-white"
+            )}
+            onClick={onClick}
+        >
+            <CardContent className="p-5 flex items-center gap-4">
+                <div className={cn(
+                    "p-3 rounded-xl transition-colors",
+                    isSelected ? "bg-primary text-white" : "bg-muted text-primary"
+                )}>
+                    <Icon size={24} />
                 </div>
-                <CardTitle className="text-xl font-black mt-4 uppercase italic tracking-tighter leading-none">{title}</CardTitle>
-                <CardDescription className="flex items-center gap-1 font-bold text-primary mt-1">
-                    <CalendarDays size={14} /> {date}
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                    {desc}
-                </p>
+                <div className="min-w-0 flex-1">
+                    <p className="font-black text-sm uppercase tracking-tight text-slate-900 truncate">{course.name}</p>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">{course.ministryName}</p>
+                </div>
+                {isSelected && <CheckCircle className="text-primary size-5 shrink-0" />}
             </CardContent>
-            <CardFooter className="pt-0 pb-6 px-6">
-                <Button asChild className={cn("w-full font-black uppercase tracking-widest flex items-center gap-2", colorClass)}>
-                    <Link href={href}>
-                        Ver Página do Evento
-                        <ArrowRight size={16} />
-                    </Link>
-                </Button>
-            </CardFooter>
         </Card>
     );
 }
 
-function Badge({ children, className, variant }: any) {
-    return (
-        <div className={cn(
-            "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-            variant === 'secondary' ? "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80" : "text-foreground",
-            className
-        )}>
-            {children}
-        </div>
-    );
-}
-
-function EnrollmentPortal() {
+export default function EnrollmentPage() {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     
     const [isSaving, setIsSaving] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [activeTab, setActiveTab] = useState('courses');
     
     const [formData, setFormData] = useState({
         name: '',
@@ -73,22 +81,20 @@ function EnrollmentPortal() {
     });
 
     const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
-    const { data: courses, isLoading } = useCollection<any>(coursesQuery);
+    const { data: courses, isLoading } = useCollection<Course>(coursesQuery);
 
     const filteredCourses = useMemo(() => {
         if (!courses) return [];
-        // Apenas cursos que possuem turmas vinculadas (idealmente) ou todos para a demo
-        return courses.filter(c => c.name);
+        return courses.sort((a, b) => a.name.localeCompare(b.name));
     }, [courses]);
 
-    const handleEnroll = async (e: React.FormEvent) => {
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.name || !formData.email || !formData.courseId || !firestore) return;
+        if (!formData.name || !formData.phone || !formData.courseId || !firestore) return;
 
         setIsSaving(true);
         try {
-            const requestsRef = collection(firestore, 'enrollment_requests');
-            await addDocumentNonBlocking(requestsRef, {
+            await addDocumentNonBlocking(collection(firestore, 'enrollment_requests'), {
                 ...formData,
                 status: 'pending',
                 createdAt: Timestamp.now(),
@@ -96,7 +102,7 @@ function EnrollmentPortal() {
             setSuccess(true);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (e) {
-            toast({ variant: 'destructive', title: "Erro ao processar", description: "Tente novamente em instantes." });
+            toast({ variant: 'destructive', title: "Erro ao enviar", description: "Ocorreu uma falha técnica. Tente novamente." });
         } finally {
             setIsSaving(false);
         }
@@ -104,143 +110,170 @@ function EnrollmentPortal() {
 
     if (success) {
         return (
-            <div className="max-w-md mx-auto text-center p-8 animate-in zoom-in-95 duration-500">
-                <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner mb-6">
-                    <CheckCircle size={40} />
-                </div>
-                <h2 className="text-3xl font-black uppercase italic tracking-tighter text-slate-900 mb-4">Interesse Registrado!</h2>
-                <p className="text-muted-foreground mb-8 leading-relaxed">
-                    Recebemos sua solicitação de matrícula. Nossa equipe de ensino entrará em contato em breve via WhatsApp para confirmar sua turma.
-                </p>
-                <Button onClick={() => window.location.reload()} variant="outline" className="w-full font-bold">Voltar ao Início</Button>
+            <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
+                <PublicNavbar />
+                <main className="flex-1 flex items-center justify-center p-4">
+                    <Card className="max-w-md w-full text-center p-8 animate-in zoom-in-95 duration-500 rounded-[2.5rem] shadow-2xl border-none">
+                        <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner mb-6">
+                            <CheckCircle size={40} />
+                        </div>
+                        <h2 className="text-3xl font-black uppercase italic tracking-tighter text-slate-900 mb-4">Interesse Registrado!</h2>
+                        <p className="text-muted-foreground mb-8 leading-relaxed">
+                            Recebemos sua solicitação de matrícula. Em breve, o responsável pelo curso entrará em contato com você via WhatsApp para confirmar os detalhes.
+                        </p>
+                        <Button onClick={() => window.location.reload()} variant="outline" className="w-full font-black uppercase h-12 rounded-xl">Voltar ao Portal</Button>
+                    </Card>
+                </main>
+                <PublicFooter />
             </div>
         );
     }
 
     return (
-        <div className="space-y-16">
-            {/* Eventos Estratégicos */}
-            <section>
-                <div className="flex items-center gap-3 mb-8">
-                    <div className="h-8 w-1.5 bg-rose-600 rounded-full" />
-                    <h2 className="text-2xl font-black uppercase italic tracking-tighter">Eventos com <span className="text-rose-600">Inscrições Abertas</span></h2>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    <EventCard 
-                        title="Jantar dos Namorados 2026"
-                        date="12 de Junho, 19h"
-                        desc="Uma noite inesquecível com Stand-up de Welson Nunes e Menu Gourmet All-inclusive para casais."
-                        href="/eventos/jantar-dos-namorados"
-                        icon={Heart}
-                        colorClass="bg-rose-600"
-                    />
-                </div>
-            </section>
+        <div className="min-h-screen bg-[#F8F9FA] flex flex-col font-sans">
+            <PublicNavbar />
 
-            {/* Cursos e Escolas */}
-            <section>
-                <div className="flex items-center gap-3 mb-8">
-                    <div className="h-8 w-1.5 bg-primary rounded-full" />
-                    <h2 className="text-2xl font-black uppercase italic tracking-tighter text-slate-900">Matrículas <span className="text-primary">Escolares</span></h2>
-                </div>
+            <main className="flex-1 py-12 md:py-20 px-4">
+                <div className="max-w-6xl mx-auto space-y-12">
+                    <div className="text-center space-y-4">
+                        <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 py-1 px-4 text-xs font-black uppercase tracking-[0.2em]">Inscrições Abertas</Badge>
+                        <h1 className="text-4xl md:text-6xl font-black italic tracking-tighter uppercase text-slate-900 leading-[0.9]">O Riso que Restaura <br/><span className="text-primary">& Trilhas de Crescimento</span></h1>
+                        <p className="text-muted-foreground text-sm md:text-lg max-w-2xl mx-auto">Garanta sua vaga nos próximos eventos estratégicos e cursos de capacitação da IBM.</p>
+                    </div>
 
-                <form onSubmit={handleEnroll} className="space-y-8">
-                    <Card className="shadow-2xl border-none overflow-hidden rounded-[2rem]">
-                        <CardHeader className="bg-primary/5 p-8 border-b">
-                            <CardTitle className="text-xl font-bold">Escolha seu Curso</CardTitle>
-                            <CardDescription>Selecione uma das opções abaixo para iniciar sua jornada de crescimento.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="p-8">
-                            {isLoading ? (
-                                <div className="flex justify-center p-12"><Loader2 className="animate-spin size-8 text-primary" /></div>
-                            ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {filteredCourses.map(course => (
-                                        <Card key={course.id} className={cn(
-                                            "cursor-pointer transition-all hover:shadow-lg border-2",
-                                            formData.courseId === course.id ? "border-primary bg-primary/5" : "border-transparent"
-                                        )} onClick={() => setFormData(p => ({...p, courseId: course.id}))}>
-                                            <CardContent className="p-6">
-                                                <Badge className="mb-3 bg-primary/10 text-primary border-none text-[10px] font-black uppercase tracking-tighter">
-                                                    {course.ministryName}
-                                                </Badge>
-                                                <h4 className="font-bold text-slate-900 mb-2 leading-tight">{course.name}</h4>
-                                                <p className="text-xs text-muted-foreground line-clamp-2">{course.description}</p>
-                                            </CardContent>
-                                        </Card>
-                                    ))}
-                                    {filteredCourses.length === 0 && <p className="col-span-full text-center py-10 text-muted-foreground italic">Nenhum curso disponível para matrícula agora.</p>}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                        <div className="flex justify-center mb-8">
+                            <TabsList className="bg-white p-1 rounded-2xl shadow-sm border border-slate-100 h-14 w-full max-w-md">
+                                <TabsTrigger value="courses" className="rounded-xl font-black uppercase text-xs tracking-widest flex-1 data-[state=active]:bg-primary data-[state=active]:text-white">Escolas & Cursos</TabsTrigger>
+                                <TabsTrigger value="events" className="rounded-xl font-black uppercase text-xs tracking-widest flex-1 data-[state=active]:bg-primary data-[state=active]:text-white">Eventos</TabsTrigger>
+                            </TabsList>
+                        </div>
 
-                    <Card className="shadow-2xl border-none overflow-hidden rounded-[2rem]">
-                        <CardHeader className="bg-primary/5 p-8 border-b">
-                            <CardTitle className="text-xl font-bold">Seus Dados de Contato</CardTitle>
-                            <CardDescription>Precisamos dessas informações para confirmar sua vaga na turma.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="p-8 space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] uppercase font-black text-muted-foreground">Nome Completo</Label>
-                                    <div className="relative">
-                                        <UserPlus className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                                        <Input required value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))} className="pl-10" placeholder="Como quer ser chamado?" />
-                                    </div>
+                        <TabsContent value="courses" className="animate-in fade-in-50 duration-500">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                                {/* Lista de Cursos */}
+                                <div className="lg:col-span-2 space-y-6">
+                                    <h3 className="text-xl font-black uppercase italic tracking-tight flex items-center gap-2">
+                                        <BookOpen className="text-primary" /> Escolha seu curso
+                                    </h3>
+                                    {isLoading ? (
+                                        <div className="flex justify-center py-20"><Loader2 className="animate-spin text-primary size-10" /></div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {filteredCourses.map(course => (
+                                                <CourseCard 
+                                                    key={course.id} 
+                                                    course={course} 
+                                                    isSelected={formData.courseId === course.id}
+                                                    onClick={() => setFormData(p => ({...p, courseId: course.id}))}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] uppercase font-black text-muted-foreground">E-mail</Label>
-                                    <div className="relative">
-                                        <Mail className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                                        <Input required type="email" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} className="pl-10" placeholder="seu@email.com" />
+
+                                {/* Formulário de Inscrição */}
+                                <Card className="shadow-2xl border-none rounded-[2rem] h-fit sticky top-24 overflow-hidden">
+                                    <CardHeader className="bg-primary text-white p-8">
+                                        <CardTitle className="text-xl font-black uppercase italic tracking-tighter">Ficha de Matrícula</CardTitle>
+                                        <CardDescription className="text-primary-foreground/80 font-medium">Preencha seus dados para contato.</CardDescription>
+                                    </CardHeader>
+                                    <form onSubmit={handleSave}>
+                                        <CardContent className="p-8 space-y-5">
+                                            <div className="space-y-2">
+                                                <Label className="text-[10px] uppercase font-black text-muted-foreground flex items-center gap-1.5"><User size={12}/> Seu Nome Completo</Label>
+                                                <Input required value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))} className="h-11 bg-slate-50 border-slate-200" />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-[10px] uppercase font-black text-muted-foreground flex items-center gap-1.5"><Phone size={12}/> Celular/WhatsApp</Label>
+                                                <Input required value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} placeholder="(21) 9..." className="h-11 bg-slate-50 border-slate-200" />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label className="text-[10px] uppercase font-black text-muted-foreground flex items-center gap-1.5"><Mail size={12}/> E-mail</Label>
+                                                <Input required type="email" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} className="h-11 bg-slate-50 border-slate-200" />
+                                            </div>
+                                            
+                                            {!formData.courseId && (
+                                                <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-3 animate-pulse">
+                                                    <Sparkles className="size-5 text-amber-600 mt-0.5" />
+                                                    <p className="text-[11px] text-amber-800 font-bold uppercase leading-tight">Selecione um curso na lista ao lado para habilitar o envio.</p>
+                                                </div>
+                                            )}
+                                        </CardContent>
+                                        <CardFooter className="p-8 pt-0">
+                                            <Button type="submit" disabled={isSaving || !formData.courseId} className="w-full h-14 font-black uppercase text-sm tracking-widest shadow-xl">
+                                                {isSaving ? <Loader2 className="mr-2 animate-spin" /> : <Send className="mr-2 size-4" />}
+                                                Solicitar Inscrição
+                                            </Button>
+                                        </CardFooter>
+                                    </form>
+                                </Card>
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="events" className="animate-in fade-in-50 duration-500">
+                            <div className="max-w-4xl mx-auto space-y-8">
+                                <Card className="border-none shadow-2xl overflow-hidden rounded-[2.5rem] bg-indigo-950 text-white group">
+                                    <div className="grid grid-cols-1 md:grid-cols-2">
+                                        <div className="relative h-64 md:h-full overflow-hidden">
+                                            <img 
+                                                src="https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=1200&auto=format&fit=crop" 
+                                                className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                                                alt="Jantar Namorados" 
+                                            />
+                                            <div className="absolute inset-0 bg-indigo-950/40" />
+                                            <div className="absolute top-6 left-6">
+                                                <Badge className="bg-rose-600 text-white border-none font-black uppercase px-3 py-1 text-[10px]">Destaque do Mês</Badge>
+                                            </div>
+                                        </div>
+                                        <div className="p-8 md:p-12 space-y-6">
+                                            <div className="space-y-2">
+                                                <h2 className="text-3xl md:text-5xl font-black uppercase italic tracking-tighter leading-none">Jantar dos <br/><span className="text-rose-500">Namorados</span></h2>
+                                                <p className="text-indigo-200 font-medium">O Riso que Restaura - Show de Stand-Up & Menu Gourmet</p>
+                                            </div>
+                                            <div className="flex flex-col gap-3">
+                                                <div className="flex items-center gap-3 text-sm font-bold text-white/80">
+                                                    <Calendar className="size-5 text-rose-500" /> 12 de Junho • 19h30
+                                                </div>
+                                                <div className="flex items-center gap-3 text-sm font-bold text-white/80">
+                                                    <Star className="size-5 text-rose-500" /> Templo IBM • Mutondo
+                                                </div>
+                                            </div>
+                                            <Button asChild className="w-full h-14 bg-rose-600 hover:bg-rose-700 font-black uppercase tracking-widest text-sm rounded-2xl shadow-xl shadow-rose-900/40">
+                                                <Link href="/eventos/jantar-dos-namorados">
+                                                    Ver Detalhes & Reservar <ArrowRight className="ml-2 size-5" />
+                                                </Link>
+                                            </Button>
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label className="text-[10px] uppercase font-black text-muted-foreground">WhatsApp (com DDD)</Label>
-                                    <div className="relative">
-                                        <Phone className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                                        <Input required type="tel" value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} className="pl-10" placeholder="(21) 9..." />
-                                    </div>
+                                </Card>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <Card className="p-8 rounded-[2rem] border-none shadow-xl bg-white flex flex-col justify-between">
+                                        <div className="space-y-4">
+                                            <div className="size-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center shadow-sm"><Heart size={24}/></div>
+                                            <h3 className="text-xl font-black uppercase italic tracking-tighter">Congresso de Família</h3>
+                                            <p className="text-sm text-muted-foreground leading-relaxed">Em breve iniciaremos as inscrições para o maior congresso de casais e famílias da IBM.</p>
+                                        </div>
+                                        <Button variant="outline" className="mt-8 font-black uppercase text-[10px] tracking-widest h-10 rounded-xl" disabled>Em breve</Button>
+                                    </Card>
+                                    
+                                    <Card className="p-8 rounded-[2rem] border-none shadow-xl bg-white flex flex-col justify-between">
+                                        <div className="space-y-4">
+                                            <div className="size-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shadow-sm"><Waves size={24}/></div>
+                                            <h3 className="text-xl font-black uppercase italic tracking-tighter">Batismo Wave</h3>
+                                            <p className="text-sm text-muted-foreground leading-relaxed">Celebração de novos começos na praia. Se você deseja descer às águas, prepare-se.</p>
+                                        </div>
+                                        <Button variant="outline" className="mt-8 font-black uppercase text-[10px] tracking-widest h-10 rounded-xl" disabled>Em breve</Button>
+                                    </Card>
                                 </div>
                             </div>
-                        </CardContent>
-                        <CardFooter className="p-8 bg-muted/20 border-t">
-                            <Button type="submit" disabled={isSaving || !formData.courseId} className="w-full h-14 font-black text-base uppercase tracking-widest shadow-xl">
-                                {isSaving ? <Loader2 className="mr-2 animate-spin" /> : null}
-                                Solicitar Matrícula
-                            </Button>
-                        </CardFooter>
-                    </Card>
-                </form>
-            </section>
+                        </TabsContent>
+                    </Tabs>
+                </div>
+            </main>
+
+            <PublicFooter />
         </div>
-    );
-}
-
-export default function EnrollmentPage() {
-    return (
-        <main className="min-h-screen bg-[#F8F9FA] pb-20">
-            <nav className="h-20 flex items-center bg-white border-b sticky top-0 z-50">
-                <div className="container mx-auto px-4 flex justify-between items-center">
-                    <Link href="/" className="flex items-center gap-2">
-                        <Logo className="size-8 text-primary" />
-                        <span className="text-xl font-black italic tracking-tighter uppercase text-slate-900">Oiko<span className="text-primary">App</span></span>
-                    </Link>
-                    <Button variant="ghost" className="font-bold" asChild><Link href="/login">Área do Membro</Link></Button>
-                </div>
-            </nav>
-
-            <header className="bg-slate-900 py-16 md:py-24 text-white">
-                <div className="container mx-auto px-4 text-center">
-                    <h1 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter leading-none mb-4">Portal de <span className="text-primary">Inscrições</span></h1>
-                    <p className="text-slate-400 max-w-2xl mx-auto text-sm md:text-lg">Reserve sua vaga em nossos próximos cursos e eventos estratégicos.</p>
-                </div>
-            </header>
-
-            <div className="container mx-auto px-4 -mt-10">
-                <EnrollmentPortal />
-            </div>
-        </main>
     );
 }
