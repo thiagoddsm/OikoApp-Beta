@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useDoc } from '@/firebase';
 import { 
   Loader2, ArrowLeft, Edit, Users, ShieldCheck, Network, Map, 
-  Footprints, User as UserIcon, Heart, HandHelping, Bot, GraduationCap
+  Footprints, User as UserIcon, Heart, HandHelping, Bot, GraduationCap, CheckCircle2
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,7 +30,7 @@ function PersonProfilePageContent() {
     const params = useParams();
     const router = useRouter();
     const userId = params.userId as string;
-    const { users, cells, areas, redes, isLoading: isContextLoading } = useVolunteering();
+    const { users, cells, areas, redes, courses, isLoading: isContextLoading } = useVolunteering();
     const [isEditOpen, setIsEditOpen] = useState(false);
 
     // Fetch person data
@@ -53,7 +53,7 @@ function PersonProfilePageContent() {
         return journeyColumns[journeyIndex]?.title || 'Não definido';
     }, [journeyIndex]);
 
-    // Relational Data for KPI Cards - Corrigindo o erro de undefined .find()
+    // Relational Data for KPI Cards
     const userCell = useMemo(() => {
         if (!cells || !person?.hierarchy?.celulaId) return null;
         return cells.find(c => c.id === person.hierarchy.celulaId);
@@ -174,6 +174,37 @@ function PersonProfilePageContent() {
                         <div className="p-6">
                             <TabsContent value="trilha" className="mt-0 space-y-8 animate-in fade-in-50">
                                 <MemberCourseProgress user={person} />
+                                
+                                <div className="pt-6 border-t">
+                                    <h3 className="text-lg font-bold flex items-center gap-2 mb-6">
+                                        <CheckCircle2 className="text-emerald-600" />
+                                        Cursos Concluídos
+                                    </h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {person.journey?.courseStatus && Object.entries(person.journey.courseStatus).some(([_, s]) => s === 'approved') ? (
+                                            Object.entries(person.journey.courseStatus)
+                                                .filter(([_, status]) => status === 'approved')
+                                                .map(([courseId]) => {
+                                                    const c = courses.find(course => course.id === courseId);
+                                                    if (!c) return null;
+                                                    return (
+                                                        <div key={courseId} className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between group hover:shadow-md transition-all">
+                                                            <div className="min-w-0">
+                                                                <p className="font-black text-emerald-900 truncate uppercase text-sm tracking-tight">{c.name}</p>
+                                                                <p className="text-[9px] uppercase font-black text-emerald-600 mt-1">{c.ministryName}</p>
+                                                            </div>
+                                                            <Badge className="bg-emerald-600 text-[10px] font-black uppercase">Concluído</Badge>
+                                                        </div>
+                                                    );
+                                                })
+                                        ) : (
+                                            <div className="col-span-full py-8 text-center border-2 border-dashed rounded-xl bg-muted/20">
+                                                <p className="text-xs text-muted-foreground uppercase font-bold tracking-widest">Nenhuma certificação ativa no momento.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
                                 <div className="pt-6 border-t">
                                     <h3 className="text-lg font-bold flex items-center gap-2 mb-6">
                                         <GraduationCap className="text-primary" />
