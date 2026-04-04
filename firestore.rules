@@ -2,14 +2,23 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Regras Públicas: Catálogo de Ensino
+    // Regras Públicas: Permite que o portal de inscrições funcione sem login
     match /courses/{courseId} {
       allow read: if true;
     }
     match /classes/{classId} {
       allow read: if true;
     }
+    match /theoflix_courses/{courseId} {
+      allow read: if true;
+    }
     
+    // Regras de Identificação: Permite busca por e-mail no portal público
+    match /users/{userId} {
+      allow read: if true; 
+      allow write: if request.auth != null;
+    }
+
     // Regras Públicas: Protocolos de Inscrição
     match /enrollment_requests/{requestId} {
       allow create: if true;
@@ -21,14 +30,8 @@ service cloud.firestore {
       allow create: if true;
       allow read, write: if request.auth != null;
     }
-
-    // Regras de Identificação: Permite busca por e-mail no portal público
-    match /users/{userId} {
-      allow read: if true; 
-      allow write: if request.auth != null;
-    }
     
-    // Regras Gerais
+    // Regras Gerais para Admin/Liderança
     match /{document=**} {
       allow read, write: if request.auth != null;
     }
