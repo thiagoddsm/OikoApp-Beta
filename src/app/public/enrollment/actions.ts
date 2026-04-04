@@ -1,43 +1,50 @@
 'use server';
 
-import { initializeFirebase } from '@/firebase';
-import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+
+if (!getApps().length) {
+  try {
+    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+      ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
+      : undefined;
+
+    initializeApp({
+      credential: serviceAccount ? cert(serviceAccount) : undefined,
+    });
+  } catch (e) {
+    console.error('Firebase Admin initialization error', e);
+  }
+}
+
+const db = getFirestore();
 
 /**
- * Verifica se um e-mail já possui cadastro no sistema.
- * Executado no servidor para evitar a necessidade de permissão de leitura pública na coleção 'users'.
+ * Verifica se um e-mail já existe na coleção de usuários do sistema.
+ * Executa no lado do servidor para ignorar restrições de permissão pública do Firestore.
  */
 export async function verifyMemberEmail(email: string) {
-  if (!email || !email.includes('@')) {
-    return { success: false, message: 'E-mail inválido.' };
-  }
+  if (!email) return { exists: false };
 
   try {
-    const { firestore } = initializeFirebase();
-    const q = query(
-      collection(firestore, 'users'),
-      where('email', '==', email.trim().toLowerCase()),
-      limit(1)
-    );
-    
-    const querySnapshot = await getDocs(q);
-    
-    if (!querySnapshot.empty) {
-      const userData = querySnapshot.docs[0].data();
-      return {
-        success: true,
-        isMember: true,
-        user: {
-          id: querySnapshot.docs[0].id,
-          name: userData.name,
-          phone: userData.phone
-        }
-      };
+    const usersRef = db.collection('users');
+    const snapshot = await usersRef.where('email', '==', email.toLowerCase().trim()).limit(1).get();
+
+    if (snapshot.empty) {
+      return { exists: false };
     }
-    
-    return { success: true, isMember: false };
+
+    const userData = snapshot.docs[0].data();
+    return {
+      exists: true,
+      user: {
+        id: snapshot.docs[0].id,
+        name: userData.name,
+        phone: userData.phone || '',
+      }
+    };
   } catch (error) {
     console.error('Error verifying email:', error);
-    return { success: false, message: 'Erro ao verificar e-mail no servidor.' };
+    return { exists: false, error: 'Erro ao verificar e-mail' };
   }
 }

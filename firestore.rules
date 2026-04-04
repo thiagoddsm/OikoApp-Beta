@@ -21,7 +21,7 @@ service cloud.firestore {
 
     // Rules for authenticated users only
     match /users/{userId} {
-      // Use Server Actions for anonymous email verification
+      // Direct read/write restricted to authenticated users
       allow read, write: if request.auth != null;
     }
     

@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useFirebase, useVolunteering, VolunteeringProvider } from '@/contexts/volunteering-context';
+import { useFirebase, useVolunteering } from '@/firebase';
+import { VolunteeringProvider } from '@/contexts/volunteering-context';
 import { collection, Timestamp, addDoc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
@@ -9,355 +10,406 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-    Loader2, Send, CheckCircle, Search, Mail, 
-    ArrowLeft, UserCheck, GraduationCap, School, 
-    BookOpen, Waves, HandHelping, Lightbulb,
-    ChevronRight, CalendarDays, UserPlus
+    Loader2, 
+    Send, 
+    CheckCircle, 
+    GraduationCap, 
+    Users, 
+    Calendar, 
+    ChevronRight, 
+    ArrowLeft,
+    Lightbulb,
+    Waves,
+    HandHelping,
+    School,
+    BookOpen,
+    Mail,
+    Search,
+    Info,
+    CalendarDays
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/icons';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { verifyMemberEmail } from './actions';
 
-function EnrollmentPortal() {
+function PublicEnrollmentContent() {
     const { firestore } = useFirebase();
     const { courses, classes } = useVolunteering();
     const { toast } = useToast();
     
     const [step, setStep] = useState<'email' | 'form'>('email');
-    const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+    const [email, setEmail] = useState('');
+    const [isVerifying, setIsVerifying] = useState(false);
+    
+    const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+    const [selectedTab, setSelectedTab] = useState('ensino');
     const [isSaving, setIsSaving] = useState(false);
     const [success, setSuccess] = useState(false);
-    
-    const [emailInput, setEmailInput] = useState('');
-    const [isMember, setIsMember] = useState(false);
     
     const [formData, setFormData] = useState({
         name: '',
         phone: '',
-        courseId: '',
         classId: '',
     });
 
-    const [selectedTab, setSelectedTab] = useState('ensino');
-    const [schoolTab, setSchoolTab] = useState('lumine');
-    const [lumineFilter, setLumineFilter] = useState('all');
-
     const handleVerifyEmail = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!emailInput.trim() || isCheckingEmail) return;
+        if (!email.trim()) return;
 
-        setIsCheckingEmail(true);
+        setIsVerifying(true);
         try {
-            const result = await verifyMemberEmail(emailInput);
-            
-            if (result.success) {
-                if (result.isMember && result.user) {
-                    setIsMember(true);
-                    setFormData(p => ({ ...p, name: result.user!.name, phone: result.user!.phone || '' }));
-                    toast({ title: "Bem-vindo de volta!", description: `Reconhecemos seu cadastro, ${result.user.name.split(' ')[0]}.` });
-                } else {
-                    setIsMember(false);
-                    toast({ title: "Novo por aqui?", description: "Não encontramos seu e-mail. Vamos criar seu protocolo agora." });
-                }
-                setStep('form');
+            const result = await verifyMemberEmail(email);
+            if (result.exists && result.user) {
+                setFormData(prev => ({
+                    ...prev,
+                    name: result.user.name,
+                    phone: result.user.phone,
+                }));
+                toast({
+                    title: `Olá, ${result.user.name.split(' ')[0]}!`,
+                    description: "Reconhecemos seu cadastro. Prossiga com sua inscrição.",
+                });
             } else {
-                toast({ variant: 'destructive', title: "Erro na verificação", description: result.message });
+                toast({
+                    title: "Novo Cadastro",
+                    description: "Não encontramos seu e-mail. Por favor, preencha os dados abaixo.",
+                });
             }
+            setStep('form');
         } catch (error) {
-            toast({ variant: 'destructive', title: "Erro técnico", description: "Não foi possível verificar seu e-mail agora." });
+            toast({
+                variant: 'destructive',
+                title: "Erro de Conexão",
+                description: "Não foi possível verificar seu cadastro agora.",
+            });
         } finally {
-            setIsCheckingEmail(false);
+            setIsVerifying(false);
         }
     };
 
-    const handleEnroll = async (e: React.FormEvent) => {
+    const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.name || !formData.courseId || isSaving || !firestore) return;
+        if (!selectedCourseId || !formData.name || !email || !firestore) return;
 
         setIsSaving(true);
         try {
             await addDoc(collection(firestore, 'enrollment_requests'), {
                 ...formData,
-                email: emailInput.trim().toLowerCase(),
+                email: email.toLowerCase().trim(),
+                courseId: selectedCourseId,
                 status: 'pending',
                 createdAt: Timestamp.now(),
             });
             setSuccess(true);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (e) {
-            toast({ variant: 'destructive', title: "Erro ao protocolar", description: "Ocorreu uma falha técnica. Tente novamente." });
+            console.error(e);
+            toast({ variant: 'destructive', title: "Erro ao enviar", description: "Falha técnica ao processar inscrição." });
         } finally {
             setIsSaving(false);
         }
     };
 
-    const filteredCourses = useMemo(() => {
-        if (selectedTab === 'eventos') return [];
-        
-        let filtered = courses;
-        
-        if (schoolTab === 'lumine') {
-            filtered = filtered.filter(c => c.ministryName?.toLowerCase().includes('lumine') || c.ministryName?.toLowerCase().includes('ebd'));
-            if (lumineFilter !== 'all') {
-                filtered = filtered.filter(c => c.ebdTrack === lumineFilter);
+    const groupedCourses = useMemo(() => {
+        const groups: Record<string, any> = { Lumine: { teologico: [], biblico: [], discipulado: [] }, Escolas: [], Geral: [] };
+        courses.forEach(c => {
+            const m = c.ministryName?.toLowerCase() || '';
+            if (m.includes('lumine') || m.includes('ebd')) {
+                if (c.ebdTrack === 'teologico') groups.Lumine.teologico.push(c);
+                else if (c.ebdTrack === 'biblico') groups.Lumine.biblico.push(c);
+                else groups.Lumine.discipulado.push(c);
+            } else if (m.includes('wave') || m.includes('dis')) {
+                groups.Escolas.push(c);
+            } else {
+                groups.Geral.push(c);
             }
-        } else if (schoolTab === 'escolas') {
-            filtered = filtered.filter(c => c.ministryName?.toLowerCase().includes('wave') || c.ministryName?.toLowerCase().includes('dis'));
-        } else if (schoolTab === 'ministerios') {
-            filtered = filtered.filter(c => 
-                !c.ministryName?.toLowerCase().includes('lumine') && 
-                !c.ministryName?.toLowerCase().includes('ebd') &&
-                !c.ministryName?.toLowerCase().includes('wave') &&
-                !c.ministryName?.toLowerCase().includes('dis')
-            );
-        }
-        
-        return filtered;
-    }, [courses, selectedTab, schoolTab, lumineFilter]);
+        });
+        return groups;
+    }, [courses]);
 
-    const selectedCourse = useMemo(() => courses.find(c => c.id === formData.courseId), [courses, formData.courseId]);
-    const courseClasses = useMemo(() => classes.filter(c => c.courseId === formData.courseId), [classes, formData.courseId]);
+    const CourseCard = ({ course }: { course: any }) => {
+        const courseClasses = classes.filter(cls => cls.courseId === course.id);
+        const hasOpenClasses = courseClasses.length > 0;
+
+        return (
+            <Card className={cn(
+                "group cursor-pointer transition-all duration-500 hover:shadow-xl border-2 overflow-hidden",
+                selectedCourseId === course.id ? "border-primary ring-2 ring-primary/20 bg-primary/5" : "border-slate-100 hover:border-primary/30"
+            )} onClick={() => hasOpenClasses && setSelectedCourseId(course.id)}>
+                <CardContent className="p-6">
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="p-3 bg-white rounded-2xl shadow-sm group-hover:scale-110 transition-transform">
+                            {course.ministryName?.toLowerCase().includes('wave') ? <Waves className="text-primary" /> :
+                             course.ministryName?.toLowerCase().includes('dis') ? <HandHelping className="text-primary" /> :
+                             <GraduationCap className="text-primary" />}
+                        </div>
+                        {hasOpenClasses ? (
+                            <Badge className="bg-emerald-500 text-white font-black text-[10px] uppercase">Inscrições Abertas</Badge>
+                        ) : (
+                            <Badge variant="outline" className="text-slate-400 font-bold text-[10px] uppercase">Em breve</Badge>
+                        )}
+                    </div>
+                    <h4 className="text-lg font-black uppercase italic tracking-tighter leading-none mb-2">{course.name}</h4>
+                    <p className="text-xs text-muted-foreground line-clamp-2 mb-4">{course.description}</p>
+                    
+                    {hasOpenClasses && (
+                        <div className="space-y-2 pt-4 border-t border-dashed">
+                            {courseClasses.slice(0, 2).map(cls => (
+                                <div key={cls.id} className="flex items-center justify-between text-[10px] font-bold uppercase tracking-tight text-slate-500">
+                                    <div className="flex items-center gap-1.5"><Calendar className="size-3" /> {cls.dayOfWeek}</div>
+                                    <div className="flex items-center gap-1.5"><Clock className="size-3" /> {cls.startTime}</div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+        );
+    };
+
+    const EnrollmentForm = () => (
+        <Card className="shadow-2xl border-none overflow-hidden rounded-[2rem] animate-in slide-in-from-bottom-4 duration-700">
+            <CardHeader className="bg-primary/5 p-8 border-b">
+                <div className="flex items-center gap-4">
+                    <div className="p-4 bg-white rounded-[1.5rem] shadow-sm text-primary">
+                        <Users size={32} />
+                    </div>
+                    <div>
+                        <CardTitle className="text-2xl font-black uppercase italic tracking-tighter">Protocolo de Inscrição</CardTitle>
+                        <CardDescription className="text-sm font-medium">Confirme seus dados para garantir sua vaga.</CardDescription>
+                    </div>
+                </div>
+            </CardHeader>
+            <form onSubmit={handleSave}>
+                <CardContent className="p-8 space-y-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                            <Label className="text-[10px] uppercase font-black text-muted-foreground">Nome Completo</Label>
+                            <Input required value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))} className="h-12" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-[10px] uppercase font-black text-muted-foreground">Celular/WhatsApp</Label>
+                            <Input required value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} placeholder="(21) 9..." className="h-12" />
+                        </div>
+                    </div>
+
+                    <div className="p-6 bg-slate-50 border-2 border-dashed rounded-[1.5rem] space-y-4">
+                        <Label className="text-xs font-black uppercase text-primary flex items-center gap-2">
+                            <GraduationCap size={16}/> Turma Selecionada
+                        </Label>
+                        <div className="space-y-3">
+                            {classes.filter(cls => cls.courseId === selectedCourseId).map(cls => (
+                                <label 
+                                    key={cls.id} 
+                                    className={cn(
+                                        "flex items-center justify-between p-4 bg-white border-2 rounded-2xl cursor-pointer transition-all",
+                                        formData.classId === cls.id ? "border-primary bg-primary/5" : "border-slate-100 hover:border-primary/20"
+                                    )}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <input 
+                                            type="radio" 
+                                            name="classSelect" 
+                                            checked={formData.classId === cls.id} 
+                                            onChange={() => setFormData(p => ({...p, classId: cls.id}))}
+                                            className="size-4 text-primary"
+                                        />
+                                        <div className="flex flex-col">
+                                            <span className="font-bold text-sm">{cls.name}</span>
+                                            <span className="text-[10px] text-muted-foreground font-black uppercase">{cls.dayOfWeek} às {cls.startTime}</span>
+                                        </div>
+                                    </div>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                </CardContent>
+                <CardFooter className="p-8 bg-muted/20 flex flex-col gap-4">
+                    <Button type="submit" disabled={isSaving || !formData.classId} className="w-full h-16 font-black text-lg uppercase tracking-widest shadow-xl">
+                        {isSaving ? <Loader2 className="mr-2 animate-spin" /> : <Send className="mr-2" />}
+                        Confirmar Protocolo
+                    </Button>
+                    <p className="text-[10px] text-center text-muted-foreground uppercase font-bold tracking-tighter">Igreja Batista da Manhã • Ano da Visão</p>
+                </CardFooter>
+            </form>
+        </Card>
+    );
 
     if (success) {
         return (
-            <main className="min-h-screen bg-[#F8F9FA] py-12 md:py-20 px-4 flex items-center justify-center">
-                <Card className="max-w-md w-full text-center p-8 animate-in zoom-in-95 duration-500 rounded-[2rem] border-none shadow-2xl">
-                    <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner mb-6">
-                        <CheckCircle size={40} />
+            <main className="min-h-screen bg-[#F8F9FA] py-20 px-4 flex items-center justify-center">
+                <Card className="max-w-md w-full text-center p-12 animate-in zoom-in-95 duration-500 rounded-[3rem] shadow-2xl border-none">
+                    <div className="size-24 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner mb-8">
+                        <CheckCircle size={48} />
                     </div>
-                    <h2 className="text-3xl font-black uppercase italic tracking-tighter text-slate-900 mb-4">Interesse Protocolado!</h2>
-                    <p className="text-muted-foreground mb-8">
-                        Recebemos sua solicitação para <strong>{selectedCourse?.name}</strong>. Nossa equipe entrará em contato em breve para confirmar sua vaga.
+                    <h2 className="text-4xl font-black uppercase italic tracking-tighter text-slate-900 mb-4 leading-none">Inscrição Protocolada!</h2>
+                    <p className="text-muted-foreground text-lg mb-10 leading-relaxed font-medium">
+                        Recebemos seu pedido. A liderança do curso entrará em contato em breve para confirmar sua participação.
                     </p>
-                    <Button onClick={() => window.location.reload()} variant="outline" className="w-full font-bold h-12 rounded-xl">Protocolar Outro</Button>
+                    <Button onClick={() => window.location.reload()} variant="outline" className="w-full h-14 font-black rounded-2xl uppercase tracking-widest">Enviar Outra</Button>
                 </Card>
             </main>
         );
     }
 
     return (
-        <main className="min-h-screen bg-[#F8F9FA] pb-20">
-            {/* Top Branding */}
-            <div className="bg-slate-900 text-white py-12 md:py-24 px-4 overflow-hidden relative">
-                <div className="absolute top-0 right-0 p-20 opacity-5 pointer-events-none"><Logo className="size-[30rem]" /></div>
-                <div className="max-w-6xl mx-auto text-center space-y-6 relative z-10">
-                    <Badge className="bg-primary/20 text-white border-primary/30 py-1 px-4 text-xs font-bold uppercase tracking-[0.2em]">Inscrições Abertas</Badge>
-                    <h1 className="text-5xl md:text-8xl font-black italic tracking-tighter uppercase text-white leading-[0.85]">Portal de Inscrições</h1>
-                    <p className="text-slate-400 max-w-2xl mx-auto text-sm md:text-xl font-medium leading-tight">Garanta sua vaga nos próximos eventos estratégicos e cursos de capacitação da IBM.</p>
-                </div>
-            </div>
-
-            <div className="max-w-7xl mx-auto px-4 -mt-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <main className="min-h-screen bg-[#F8F9FA] py-12 md:py-24 px-4 overflow-x-hidden">
+            <div className="max-w-6xl mx-auto space-y-16">
                 
-                {/* Lado Esquerdo: Catálogo */}
-                <div className="lg:col-span-8 space-y-8">
-                    <Card className="shadow-xl border-none rounded-[2rem] overflow-hidden bg-white">
-                        <CardHeader className="bg-slate-50 border-b p-6">
-                            <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
-                                <TabsList className="grid w-full grid-cols-2 bg-slate-200/50 p-1 h-14 rounded-2xl">
-                                    <TabsTrigger value="ensino" className="rounded-xl font-black uppercase italic tracking-tighter text-lg data-[state=active]:bg-primary data-[state=active]:text-white">Ensino</TabsTrigger>
-                                    <TabsTrigger value="eventos" className="rounded-xl font-black uppercase italic tracking-tighter text-lg data-[state=active]:bg-primary data-[state=active]:text-white">Eventos</TabsTrigger>
-                                </TabsList>
-                            </Tabs>
-                        </CardHeader>
-                        <CardContent className="p-6">
-                            {selectedTab === 'ensino' && (
-                                <Tabs value={schoolTab} onValueChange={setSchoolTab} className="w-full space-y-6">
-                                    <div className="flex justify-center">
-                                        <TabsList className="bg-transparent gap-4">
-                                            <TabsTrigger value="lumine" className="font-bold uppercase text-[10px] tracking-widest data-[state=active]:bg-primary/10 data-[state=active]:text-primary border rounded-full px-6">Escola Lumine</TabsTrigger>
-                                            <TabsTrigger value="escolas" className="font-bold uppercase text-[10px] tracking-widest data-[state=active]:bg-primary/10 data-[state=active]:text-primary border rounded-full px-6">Escolas (Wave/DIS)</TabsTrigger>
-                                            <TabsTrigger value="ministerios" className="font-bold uppercase text-[10px] tracking-widest data-[state=active]:bg-primary/10 data-[state=active]:text-primary border rounded-full px-6">Ministérios</TabsTrigger>
-                                        </TabsList>
-                                    </div>
+                {/* Header */}
+                <div className="text-center space-y-6 relative">
+                    <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 size-64 bg-primary/5 rounded-full blur-3xl -z-10" />
+                    <Logo className="size-16 text-primary mx-auto mb-6" />
+                    <h1 className="text-5xl md:text-8xl font-black italic tracking-tighter uppercase text-slate-900 leading-[0.85]">
+                        Portal de Inscrições
+                    </h1>
+                    <p className="text-muted-foreground text-lg md:text-xl max-w-2xl mx-auto font-medium">
+                        Sua jornada de crescimento começa aqui. Escolha um curso ou evento e faça parte do que Deus está fazendo.
+                    </p>
+                </div>
 
-                                    {schoolTab === 'lumine' && (
-                                        <div className="flex flex-wrap justify-center gap-2 mb-6">
-                                            {[
-                                                { id: 'all', label: 'Ver Todos' },
-                                                { id: 'teologico', label: 'Trilho Teológico' },
-                                                { id: 'biblico', label: 'Trilho Bíblico' },
-                                                { id: 'discipulado', label: 'Trilho Discipulado' }
-                                            ].map(filter => (
-                                                <button 
-                                                    key={filter.id}
-                                                    onClick={() => setLumineFilter(filter.id)}
-                                                    className={cn(
-                                                        "px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-tighter transition-all border",
-                                                        lumineFilter === filter.id ? "bg-primary text-white border-primary shadow-lg scale-105" : "bg-white text-muted-foreground hover:border-primary/30"
-                                                    )}
-                                                >
-                                                    {filter.label}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
+                <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+                    <div className="flex justify-center mb-12">
+                        <TabsList className="bg-slate-100/50 p-1.5 rounded-[2rem] h-auto border-2 border-white/50 shadow-inner">
+                            <TabsTrigger value="ensino" className="px-10 py-3 rounded-[1.5rem] font-black uppercase text-xs tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-lg">
+                                <GraduationCap className="size-4 mr-2" /> Ensino
+                            </TabsTrigger>
+                            <TabsTrigger value="eventos" className="px-10 py-3 rounded-[1.5rem] font-black uppercase text-xs tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-lg">
+                                <CalendarDays className="size-4 mr-2" /> Eventos
+                            </TabsTrigger>
+                        </TabsList>
+                    </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {filteredCourses.map(course => {
-                                            const isSelected = formData.courseId === course.id;
-                                            const hasActiveClasses = classes.some(cls => cls.courseId === course.id);
-                                            
-                                            return (
-                                                <button 
-                                                    key={course.id}
-                                                    onClick={() => setFormData(p => ({ ...p, courseId: course.id, classId: '' }))}
-                                                    className={cn(
-                                                        "text-left p-6 rounded-3xl border-2 transition-all group relative overflow-hidden",
-                                                        isSelected ? "border-primary bg-primary/5 ring-4 ring-primary/10" : "bg-white border-slate-100 hover:border-slate-300"
-                                                    )}
-                                                >
-                                                    <div className="flex flex-col h-full gap-4">
-                                                        <div className="flex justify-between items-start">
-                                                            <div className={cn("p-2.5 rounded-2xl shadow-sm transition-colors", isSelected ? "bg-primary text-white" : "bg-slate-50 text-slate-400 group-hover:bg-primary/5 group-hover:text-primary")}>
-                                                                {schoolTab === 'lumine' ? <Lightbulb size={20} /> : schoolTab === 'escolas' ? <Waves size={20} /> : <BookOpen size={20} />}
-                                                            </div>
-                                                            <Badge variant="secondary" className="text-[8px] font-black uppercase">{course.ministryName}</Badge>
-                                                        </div>
-                                                        <div>
-                                                            <h3 className="text-xl font-black uppercase italic tracking-tighter text-slate-900 leading-none mb-2">{course.name}</h3>
-                                                            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{course.description}</p>
-                                                        </div>
-                                                        <div className="mt-auto pt-4 border-t border-dashed flex items-center justify-between">
-                                                            <div className="flex items-center gap-1.5 text-[10px] font-black text-primary uppercase">
-                                                                <CalendarDays size={12} />
-                                                                {hasActiveClasses ? "Próxima Turma: Março" : "Aguardando Agenda"}
-                                                            </div>
-                                                            {isSelected && <CheckCircle size={16} className="text-primary animate-in zoom-in" />}
-                                                        </div>
-                                                    </div>
-                                                </button>
-                                            )
-                                        })}
-                                    </div>
-                                </TabsContent>
-                            )}
-
-                            {selectedTab === 'eventos' && (
-                                <div className="py-20 text-center space-y-4 bg-slate-50 rounded-[2rem] border-2 border-dashed">
-                                    <CalendarDays size={48} className="mx-auto text-slate-300" />
+                    <TabsContent value="ensino" className="mt-0">
+                        <div className="space-y-16">
+                            {/* Lumine Section */}
+                            <section className="space-y-10">
+                                <div className="flex items-center gap-4 px-2">
+                                    <div className="p-4 bg-primary text-white rounded-[1.5rem] shadow-xl shadow-primary/20"><Lightbulb size={32} /></div>
                                     <div>
-                                        <h3 className="text-xl font-black uppercase italic tracking-tighter">Eventos em Breve</h3>
-                                        <p className="text-sm text-muted-foreground">Estamos preparando os próximos calendários estratégicos.</p>
+                                        <h2 className="text-3xl font-black uppercase italic tracking-tighter text-slate-900">Lumine (EBD)</h2>
+                                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Escola Bíblica Discipuladora</p>
                                     </div>
                                 </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </div>
+                                
+                                <div className="grid grid-cols-1 gap-12 pl-4 border-l-4 border-primary/10 ml-8">
+                                    {['discipulado', 'teologico', 'biblico'].map(track => {
+                                        const list = (groupedCourses.Lumine as any)[track];
+                                        if (list?.length === 0) return null;
+                                        return (
+                                            <div key={track} className="space-y-6">
+                                                <h4 className="text-sm font-black text-primary/60 uppercase tracking-[0.25em] flex items-center gap-2">
+                                                    <ChevronRight className="size-4" /> Trilho {track === 'teologico' ? 'Teológico' : track === 'biblico' ? 'Bíblico' : 'de Discipulado'}
+                                                </h4>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                                    {list.map((course: any) => <CourseCard key={course.id} course={course} />)}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </section>
 
-                {/* Lado Direito: Protocolo */}
-                <div className="lg:col-span-4 sticky top-6">
-                    <Card className="shadow-2xl border-none overflow-hidden rounded-[2.5rem] bg-slate-900 text-white">
-                        <CardHeader className="bg-white/5 border-b border-white/10 p-8 text-center">
-                            <CardTitle className="text-2xl font-black uppercase italic tracking-tighter leading-none mb-2">Protocolar Interesse</CardTitle>
-                            <CardDescription className="text-white/50 text-[10px] uppercase font-bold tracking-widest">
-                                {step === 'email' ? 'Identificação Necessária' : 'Finalize seu Cadastro'}
-                            </CardDescription>
-                        </CardHeader>
-                        
-                        <CardContent className="p-8">
-                            {step === 'email' ? (
-                                <form onSubmit={handleVerifyEmail} className="space-y-6">
+                            {/* Escolas Section */}
+                            <section className="space-y-10">
+                                <div className="flex items-center gap-4 px-2">
+                                    <div className="p-4 bg-slate-900 text-white rounded-[1.5rem] shadow-xl"><School size={32} /></div>
+                                    <div>
+                                        <h2 className="text-3xl font-black uppercase italic tracking-tighter text-slate-900">Escolas & Academias</h2>
+                                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Wave, DIS e Artes</p>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {groupedCourses.Escolas?.map((course: any) => (
+                                        <CourseCard key={course.id} course={course} />
+                                    ))}
+                                </div>
+                            </section>
+
+                            {/* Ministérios Section */}
+                            <section className="space-y-10">
+                                <div className="flex items-center gap-4 px-2">
+                                    <div className="p-4 bg-indigo-600 text-white rounded-[1.5rem] shadow-xl"><BookOpen size={32} /></div>
+                                    <div>
+                                        <h2 className="text-3xl font-black uppercase italic tracking-tighter text-slate-900">Ministérios</h2>
+                                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Cursos Gerais e Treinamentos</p>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {groupedCourses.Geral?.map((course: any) => (
+                                        <CourseCard key={course.id} course={course} />
+                                    ))}
+                                </div>
+                            </section>
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="eventos" className="mt-0">
+                        <div className="py-20 text-center space-y-4 bg-slate-50 rounded-[3rem] border-4 border-dashed border-slate-200">
+                            <CalendarDays className="size-16 mx-auto text-slate-300 opacity-50" />
+                            <h3 className="text-2xl font-black uppercase text-slate-400 italic">Nenhum evento com inscrições abertas</h3>
+                            <p className="text-slate-400 font-medium max-w-sm mx-auto">Novos eventos estratégicos serão listados aqui em breve. Fique atento aos avisos oficiais.</p>
+                        </div>
+                    </TabsContent>
+                </Tabs>
+
+                {/* Seção de Identificação / Protocolo */}
+                <section id="protocolo" className="max-w-2xl mx-auto pt-12 border-t-2 border-slate-100">
+                    {step === 'email' ? (
+                        <Card className="shadow-2xl border-none overflow-hidden rounded-[2.5rem] animate-in slide-in-from-bottom-4 duration-700">
+                            <CardHeader className="bg-primary p-10 text-white text-center">
+                                <div className="size-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-6 backdrop-blur-xl">
+                                    <Mail className="size-8" />
+                                </div>
+                                <CardTitle className="text-3xl font-black uppercase italic tracking-tighter">Identificação</CardTitle>
+                                <CardDescription className="text-primary-foreground/80 font-medium">Informe seu e-mail para iniciar o protocolo.</CardDescription>
+                            </CardHeader>
+                            <form onSubmit={handleVerifyEmail}>
+                                <CardContent className="p-10 space-y-6">
                                     <div className="space-y-2">
-                                        <Label className="text-[10px] uppercase font-black text-white/50 ml-1">E-mail para Início</Label>
+                                        <Label className="text-[10px] uppercase font-black text-muted-foreground ml-2">E-mail do Membro ou Visitante</Label>
                                         <div className="relative">
-                                            <Mail className="absolute left-4 top-4 size-5 text-white/20" />
+                                            <Search className="absolute left-4 top-4 size-5 text-muted-foreground" />
                                             <Input 
+                                                type="email" 
                                                 required 
-                                                type="email"
-                                                className="h-14 bg-white/5 border-white/10 pl-12 rounded-2xl focus:bg-white/10 transition-all text-white placeholder:text-white/20" 
-                                                placeholder="seu@email.com"
-                                                value={emailInput}
-                                                onChange={e => setEmailInput(e.target.value)}
+                                                value={email} 
+                                                onChange={e => setEmail(e.target.value)} 
+                                                placeholder="seu@email.com" 
+                                                className="h-14 pl-12 rounded-2xl text-lg font-bold shadow-inner"
                                             />
                                         </div>
                                     </div>
-                                    <Button disabled={isCheckingEmail || !emailInput} className="w-full h-14 bg-primary hover:bg-primary/90 text-white font-black text-sm uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/20">
-                                        {isCheckingEmail ? <Loader2 className="animate-spin size-5" /> : "Verificar Cadastro"}
+                                    <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-100 rounded-2xl">
+                                        <Info className="size-5 text-blue-600 shrink-0 mt-0.5" />
+                                        <p className="text-[11px] text-blue-800 leading-relaxed font-medium italic">
+                                            Se você já tem cadastro no OikoApp, seus dados serão reconhecidos automaticamente.
+                                        </p>
+                                    </div>
+                                </CardContent>
+                                <CardFooter className="px-10 pb-10">
+                                    <Button type="submit" disabled={isVerifying} className="w-full h-16 font-black text-lg uppercase tracking-widest shadow-xl">
+                                        {isVerifying ? <Loader2 className="mr-2 animate-spin" /> : <ArrowRight className="mr-2" />}
+                                        Iniciar Inscrição
                                     </Button>
-                                    <p className="text-[9px] text-white/30 text-center font-bold uppercase leading-tight">
-                                        Usamos seu e-mail para reconhecer sua jornada e facilitar sua inscrição.
-                                    </p>
-                                </form>
+                                </CardFooter>
+                            </form>
+                        </Card>
+                    ) : (
+                        <div className="space-y-8">
+                            {!selectedCourseId ? (
+                                <div className="p-8 text-center bg-amber-50 border-2 border-dashed border-amber-200 rounded-[2rem] space-y-4">
+                                    <Search className="size-10 mx-auto text-amber-400" />
+                                    <p className="text-amber-900 font-bold uppercase text-sm italic">Selecione um curso acima para prosseguir</p>
+                                    <Button variant="ghost" onClick={() => setStep('email')} className="text-amber-700 font-black text-[10px] uppercase tracking-widest"><ArrowLeft className="size-3 mr-2" /> Mudar E-mail</Button>
+                                </div>
                             ) : (
-                                <form onSubmit={handleEnroll} className="space-y-6 animate-in slide-in-from-right-4 duration-500">
-                                    <div className="p-4 bg-white/5 border border-white/10 rounded-2xl space-y-1">
-                                        <Label className="text-[9px] uppercase font-black text-primary">Opção Selecionada</Label>
-                                        <p className="text-sm font-black uppercase italic truncate">{selectedCourse?.name || "Nenhuma Selecionada"}</p>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] uppercase font-black text-white/50 ml-1">Nome Completo</Label>
-                                        <div className="relative">
-                                            <UserPlus className="absolute left-4 top-4 size-5 text-white/20" />
-                                            <Input 
-                                                required 
-                                                className="h-14 bg-white/5 border-white/10 pl-12 rounded-2xl text-white placeholder:text-white/20" 
-                                                placeholder="Como prefere ser chamado?"
-                                                value={formData.name}
-                                                onChange={e => setFormData(p => ({...p, name: e.target.value}))}
-                                                disabled={isMember}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] uppercase font-black text-white/50 ml-1">Celular / WhatsApp</Label>
-                                        <Input 
-                                            required 
-                                            className="h-14 bg-white/5 border-white/10 rounded-2xl text-white placeholder:text-white/20" 
-                                            placeholder="(21) 9..."
-                                            value={formData.phone}
-                                            onChange={e => setFormData(p => ({...p, phone: e.target.value}))}
-                                        />
-                                    </div>
-
-                                    {courseClasses.length > 0 && (
-                                        <div className="space-y-2">
-                                            <Label className="text-[10px] uppercase font-black text-white/50 ml-1">Turma Preferencial</Label>
-                                            <select 
-                                                required
-                                                className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl text-white px-4 appearance-none outline-none focus:bg-white/10"
-                                                value={formData.classId}
-                                                onChange={e => setFormData(p => ({ ...p, classId: e.target.value }))}
-                                            >
-                                                <option value="" className="bg-slate-900">Selecione o horário...</option>
-                                                {courseClasses.map(cls => (
-                                                    <option key={cls.id} value={cls.id} className="bg-slate-900">
-                                                        {cls.name} ({cls.dayOfWeek} às {cls.startTime})
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    )}
-
-                                    <Button type="submit" disabled={isSaving || !formData.courseId} className="w-full h-14 bg-primary hover:bg-primary/90 text-white font-black text-sm uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/20">
-                                        {isSaving ? <Loader2 className="animate-spin size-5" /> : (
-                                            <>
-                                                <Send className="size-4 mr-2" />
-                                                Protocolar Agora
-                                            </>
-                                        )}
-                                    </Button>
-
-                                    <button 
-                                        type="button"
-                                        onClick={() => setStep('email')}
-                                        className="w-full text-center text-[10px] font-black uppercase text-white/30 hover:text-white transition-colors"
-                                    >
-                                        Voltar e Trocar E-mail
-                                    </button>
-                                </form>
+                                <EnrollmentForm />
                             )}
-                        </CardContent>
-                        <CardFooter className="bg-white/5 p-6 flex flex-col gap-2">
-                            <p className="text-[9px] text-center text-white/30 uppercase font-black tracking-tighter">Igreja Batista da Manhã • Ano da Visão</p>
-                        </CardFooter>
-                    </Card>
-                </div>
+                        </div>
+                    )}
+                </section>
             </div>
         </main>
     );
@@ -366,7 +418,7 @@ function EnrollmentPortal() {
 export default function EnrollmentPage() {
     return (
         <VolunteeringProvider>
-            <EnrollmentPortal />
+            <PublicEnrollmentContent />
         </VolunteeringProvider>
     );
 }
