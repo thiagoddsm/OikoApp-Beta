@@ -338,220 +338,227 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
 
 
   return (
-    <>
-      <div className="grid gap-6 py-4 max-h-[70vh] overflow-y-auto pr-4">
-        <section className="space-y-4 p-4 border rounded-lg">
-            <h4 className="font-semibold text-primary border-b pb-2">Dados Pessoais</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                    <Label htmlFor="name">Nome Completo *</Label>
-                    <Input id="name" name="name" value={formData.name} onChange={handleInputChange} required />
-                </div>
-                <div className="space-y-1.5">
-                    <Label htmlFor="phone">Celular (com DDD) *</Label>
-                    <Input id="phone" name="phone" type="tel" value={formData.phone} onChange={handleInputChange} placeholder="(99) 99999-9999" required />
-                </div>
-                <div className="space-y-1.5">
-                    <Label htmlFor="cpf">CPF</Label>
-                    <Input id="cpf" name="cpf" value={formData.cpf} onChange={handleInputChange} placeholder="000.000.000-00" />
-                </div>
-                <div className="space-y-1.5">
-                    <Label htmlFor="sexo">Sexo</Label>
-                    <Select value={formData.sexo} onValueChange={(v) => handleSelectChange('sexo', v)}>
-                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Masculino">Masculino</SelectItem>
-                            <SelectItem value="Feminino">Feminino</SelectItem>
-                            <SelectItem value="Outro">Outro</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div className="space-y-1.5">
-                    <Label htmlFor="dataNascimento">Data de Nascimento</Label>
-                    <Input id="dataNascimento" name="dataNascimento" type="date" value={formData.dataNascimento} onChange={handleInputChange} />
-                </div>
-                <div className="space-y-1.5">
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" name="email" type="email" value={formData.email} onChange={handleInputChange} />
-                </div>
-                <div className="space-y-1.5">
-                    <Label htmlFor="escolaridade">Escolaridade</Label>
-                    <Select value={formData.escolaridade} onValueChange={(v) => handleSelectChange('escolaridade', v)}>
-                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                        <SelectContent>
-                            {escolaridadeOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </div>
-                <div className="space-y-1.5">
-                    <Label htmlFor="profissao">Profissão</Label>
-                    <Input id="profissao" name="profissao" value={formData.profissao} onChange={handleInputChange} placeholder="Ex: Advogado, Vendedor..." />
-                </div>
-                <div className="space-y-1.5">
-                    <Label htmlFor="addressCep">CEP</Label>
-                    <Input id="addressCep" name="addressCep" value={formData.addressCep} onChange={handleInputChange} placeholder="00000-000" />
-                </div>
-                <div className="space-y-1.5">
-                    <Label htmlFor="addressStreet">Endereço (Rua e Nº)</Label>
-                    <Input id="addressStreet" name="addressStreet" value={formData.addressStreet} onChange={handleInputChange} placeholder="Rua das Flores, 123" />
-                </div>
-                 <div className="space-y-1.5">
-                    <Label htmlFor="estadoCivil">Estado Civil</Label>
-                    <Select value={formData.estadoCivil} onValueChange={(v) => handleSelectChange('estadoCivil', v)}>
-                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="Solteiro(a)">Solteiro(a)</SelectItem>
-                            <SelectItem value="Casado(a)">Casado(a)</SelectItem>
-                            <SelectItem value="União Estável">União Estável</SelectItem>
-                            <SelectItem value="Divorciado(a)">Divorciado(a)</SelectItem>
-                            <SelectItem value="Viúvo(a)">Viúvo(a)</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-                 <div className="space-y-1.5">
-                    <Label>Possui filho(s)?</Label>
-                     <RadioGroup value={formData.temFilhos} onValueChange={(v) => handleRadioChange('temFilhos', v)} className="flex items-center gap-4"><RadioGroupItem value="sim" id="filhos-sim" /><Label htmlFor="filhos-sim">Sim</Label><RadioGroupItem value="nao" id="filhos-nao" /><Label htmlFor="filhos-nao">Não</Label></RadioGroup>
-                </div>
-                {formData.temFilhos === 'sim' && <div className="md:col-span-2 space-y-1.5"><Label htmlFor="idadeFilhos">Qual a idade do(s) seu(s) filho(s)?</Label><Input id="idadeFilhos" name="idadeFilhos" value={formData.idadeFilhos} onChange={handleInputChange} placeholder="Ex: 5, 10, 15" /></div>}
-            </div>
-        </section>
-        
-        <section className="space-y-4 p-4 border rounded-lg">
-            <h4 className="font-semibold text-primary border-b pb-2">Jornada Espiritual</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <div className="space-y-1.5">
-                    <Label>Batizado?</Label>
-                    <RadioGroup value={formData.batizado} onValueChange={(v) => handleRadioChange('batizado', v)} className="flex items-center gap-4"><RadioGroupItem value="sim" id="batizado-sim" /><Label htmlFor="batizado-sim">Sim</Label><RadioGroupItem value="nao" id="batizado-nao" /><Label htmlFor="batizado-nao">Não</Label></RadioGroup>
-                </div>
-                {formData.batizado === 'sim' && <div className="space-y-1.5"><Label htmlFor="igrejaBatismo">Qual igreja foi batizado?</Label><Input id="igrejaBatismo" name="igrejaBatismo" value={formData.igrejaBatismo} onChange={handleInputChange}/></div>}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>{isEditing ? 'Editar Perfil' : 'Adicionar Nova Pessoa'}</DialogTitle>
+          <DialogDescription>
+            {isEditing ? 'Altere as informações do membro abaixo.' : 'Preencha os dados para adicionar uma nova pessoa à Jornada do Membro.'}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-6 py-4 max-h-[70vh] overflow-y-auto pr-4">
+          <section className="space-y-4 p-4 border rounded-lg">
+              <h4 className="font-semibold text-primary border-b pb-2">Dados Pessoais</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                      <Label htmlFor="name">Nome Completo *</Label>
+                      <Input id="name" name="name" value={formData.name} onChange={handleInputChange} required />
+                  </div>
+                  <div className="space-y-1.5">
+                      <Label htmlFor="phone">Celular (com DDD) *</Label>
+                      <Input id="phone" name="phone" type="tel" value={formData.phone} onChange={handleInputChange} placeholder="(99) 99999-9999" required />
+                  </div>
+                  <div className="space-y-1.5">
+                      <Label htmlFor="cpf">CPF</Label>
+                      <Input id="cpf" name="cpf" value={formData.cpf} onChange={handleInputChange} placeholder="000.000.000-00" />
+                  </div>
+                  <div className="space-y-1.5">
+                      <Label htmlFor="sexo">Sexo</Label>
+                      <Select value={formData.sexo} onValueChange={(v) => handleSelectChange('sexo', v)}>
+                          <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="Masculino">Masculino</SelectItem>
+                              <SelectItem value="Feminino">Feminino</SelectItem>
+                              <SelectItem value="Outro">Outro</SelectItem>
+                          </SelectContent>
+                      </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                      <Label htmlFor="dataNascimento">Data de Nascimento</Label>
+                      <Input id="dataNascimento" name="dataNascimento" type="date" value={formData.dataNascimento} onChange={handleInputChange} />
+                  </div>
+                  <div className="space-y-1.5">
+                      <Label htmlFor="email">Email</Label>
+                      <Input id="email" name="email" type="email" value={formData.email} onChange={handleInputChange} />
+                  </div>
+                  <div className="space-y-1.5">
+                      <Label htmlFor="escolaridade">Escolaridade</Label>
+                      <Select value={formData.escolaridade} onValueChange={(v) => handleSelectChange('escolaridade', v)}>
+                          <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                          <SelectContent>
+                              {escolaridadeOptions.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                          </SelectContent>
+                      </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                      <Label htmlFor="profissao">Profissão</Label>
+                      <Input id="profissao" name="profissao" value={formData.profissao} onChange={handleInputChange} placeholder="Ex: Advogado, Vendedor..." />
+                  </div>
+                  <div className="space-y-1.5">
+                      <Label htmlFor="addressCep">CEP</Label>
+                      <Input id="addressCep" name="addressCep" value={formData.addressCep} onChange={handleInputChange} placeholder="00000-000" />
+                  </div>
+                  <div className="space-y-1.5">
+                      <Label htmlFor="addressStreet">Endereço (Rua e Nº)</Label>
+                      <Input id="addressStreet" name="addressStreet" value={formData.addressStreet} onChange={handleInputChange} placeholder="Rua das Flores, 123" />
+                  </div>
+                  <div className="space-y-1.5">
+                      <Label htmlFor="estadoCivil">Estado Civil</Label>
+                      <Select value={formData.estadoCivil} onValueChange={(v) => handleSelectChange('estadoCivil', v)}>
+                          <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="Solteiro(a)">Solteiro(a)</SelectItem>
+                              <SelectItem value="Casado(a)">Casado(a)</SelectItem>
+                              <SelectItem value="União Estável">União Estável</SelectItem>
+                              <SelectItem value="Divorciado(a)">Divorciado(a)</SelectItem>
+                              <SelectItem value="Viúvo(a)">Viúvo(a)</SelectItem>
+                          </SelectContent>
+                      </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                      <Label>Possui filho(s)?</Label>
+                      <RadioGroup value={formData.temFilhos} onValueChange={(v) => handleRadioChange('temFilhos', v)} className="flex items-center gap-4"><RadioGroupItem value="sim" id="filhos-sim" /><Label htmlFor="filhos-sim">Sim</Label><RadioGroupItem value="nao" id="filhos-nao" /><Label htmlFor="filhos-nao">Não</Label></RadioGroup>
+                  </div>
+                  {formData.temFilhos === 'sim' && <div className="md:col-span-2 space-y-1.5"><Label htmlFor="idadeFilhos">Qual a idade do(s) seu(s) filho(s)?</Label><Input id="idadeFilhos" name="idadeFilhos" value={formData.idadeFilhos} onChange={handleInputChange} placeholder="Ex: 5, 10, 15" /></div>}
+              </div>
+          </section>
+          
+          <section className="space-y-4 p-4 border rounded-lg">
+              <h4 className="font-semibold text-primary border-b pb-2">Jornada Espiritual</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                      <Label>Batizado?</Label>
+                      <RadioGroup value={formData.batizado} onValueChange={(v) => handleRadioChange('batizado', v)} className="flex items-center gap-4"><RadioGroupItem value="sim" id="batizado-sim" /><Label htmlFor="batizado-sim">Sim</Label><RadioGroupItem value="nao" id="batizado-nao" /><Label htmlFor="batizado-nao">Não</Label></RadioGroup>
+                  </div>
+                  {formData.batizado === 'sim' && <div className="space-y-1.5"><Label htmlFor="igrejaBatismo">Qual igreja foi batizado?</Label><Input id="igrejaBatismo" name="igrejaBatismo" value={formData.igrejaBatismo} onChange={handleInputChange}/></div>}
 
-                 <div className="space-y-1.5">
-                    <Label>Veio de outra igreja?</Label>
-                    <RadioGroup value={formData.membroAntigo} onValueChange={(v) => handleRadioChange('membroAntigo', v)} className="flex items-center gap-4"><RadioGroupItem value="sim" id="membro-sim" /><Label htmlFor="membro-sim">Sim</Label><RadioGroupItem value="nao" id="membro-nao" /><Label htmlFor="membro-nao">Não</Label></RadioGroup>
-                </div>
-                {formData.membroAntigo === 'sim' && <div className="space-y-1.5"><Label htmlFor="igrejaAntiga">Qual o nome da igreja de origem?</Label><Input id="igrejaAntiga" name="igrejaAntiga" value={formData.igrejaAntiga} onChange={handleInputChange}/></div>}
-                
-                <div className="space-y-1.5">
-                    <Label htmlFor="initialStatus">Status Inicial *</Label>
-                    <Select value={formData.initialStatus} onValueChange={(v) => handleSelectChange('initialStatus', v)}>
-                        <SelectTrigger id="initialStatus"><SelectValue placeholder="Selecione o status..."/></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="nao_convertido">Não Convertido</SelectItem>
-                            <SelectItem value="novo_convertido">Novo Convertido</SelectItem>
-                            <SelectItem value="reconciliado">Reconciliado</SelectItem>
-                            <SelectItem value="membro_outra_igreja">Membro de outra igreja</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-                
-                 <div className="space-y-1.5">
-                    <Label>Decisões Tomadas</Label>
-                     <div className="flex flex-col space-y-2">
-                        {decisaoOptions.map(item => (<div key={item} className="flex items-center gap-2"><Checkbox id={`decisao-${item}`} checked={formData.decisao.includes(item)} onCheckedChange={(checked) => handleCheckboxChange('decisao', item, !!checked)}/><Label htmlFor={`decisao-${item}`}>{item}</Label></div>))}
-                    </div>
-                </div>
+                  <div className="space-y-1.5">
+                      <Label>Veio de outra igreja?</Label>
+                      <RadioGroup value={formData.membroAntigo} onValueChange={(v) => handleRadioChange('membroAntigo', v)} className="flex items-center gap-4"><RadioGroupItem value="sim" id="membro-sim" /><Label htmlFor="membro-sim">Sim</Label><RadioGroupItem value="nao" id="membro-nao" /><Label htmlFor="membro-nao">Não</Label></RadioGroup>
+                  </div>
+                  {formData.membroAntigo === 'sim' && <div className="space-y-1.5"><Label htmlFor="igrejaAntiga">Qual o nome da igreja de origem?</Label><Input id="igrejaAntiga" name="igrejaAntiga" value={formData.igrejaAntiga} onChange={handleInputChange}/></div>}
+                  
+                  <div className="space-y-1.5">
+                      <Label htmlFor="initialStatus">Status Inicial *</Label>
+                      <Select value={formData.initialStatus} onValueChange={(v) => handleSelectChange('initialStatus', v)}>
+                          <SelectTrigger id="initialStatus"><SelectValue placeholder="Selecione o status..."/></SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="nao_convertido">Não Convertido</SelectItem>
+                              <SelectItem value="novo_convertido">Novo Convertido</SelectItem>
+                              <SelectItem value="reconciliado">Reconciliado</SelectItem>
+                              <SelectItem value="membro_outra_igreja">Membro de outra igreja</SelectItem>
+                          </SelectContent>
+                      </Select>
+                  </div>
+                  
+                  <div className="space-y-1.5">
+                      <Label>Decisões Tomadas</Label>
+                      <div className="flex flex-col space-y-2">
+                          {decisaoOptions.map(item => (<div key={item} className="flex items-center gap-2"><Checkbox id={`decisao-${item}`} checked={formData.decisao.includes(item)} onCheckedChange={(checked) => handleCheckboxChange('decisao', item, !!checked)}/><Label htmlFor={`decisao-${item}`}>{item}</Label></div>))}
+                      </div>
+                  </div>
 
-                 <div className="space-y-1.5">
-                    <Label htmlFor="dataDecisao">Data da decisão</Label>
-                    <Input id="dataDecisao" name="dataDecisao" type="date" value={formData.dataDecisao} onChange={handleInputChange} />
-                </div>
-            </div>
-        </section>
+                  <div className="space-y-1.5">
+                      <Label htmlFor="dataDecisao">Data da decisão</Label>
+                      <Input id="dataDecisao" name="dataDecisao" type="date" value={formData.dataDecisao} onChange={handleInputChange} />
+                  </div>
+              </div>
+          </section>
 
-         <section className="space-y-4 p-4 border rounded-lg">
-            <h4 className="font-semibold text-primary border-b pb-2">Chegada na IBM</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <div className="space-y-1.5">
-                    <Label htmlFor="comoConheceu">Como conheceu a IBM?</Label>
-                    <Select value={formData.comoConheceu} onValueChange={(v) => handleSelectChange('comoConheceu', v)}>
-                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                        <SelectContent><SelectItem value="Convite">Convite</SelectItem><SelectItem value="Fachada">Fachada</SelectItem><SelectItem value="Redes Sociais">Redes Sociais</SelectItem><SelectItem value="GC">GC</SelectItem></SelectContent>
-                    </Select>
-                </div>
-                 {formData.comoConheceu === 'Convite' && <div className="space-y-1.5"><Label htmlFor="nomeConvidou">Qual nome da pessoa que te convidou?</Label><Input id="nomeConvidou" name="nomeConvidou" value={formData.nomeConvidou} onChange={handleInputChange}/></div>}
-                
-                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label>Forma de Contato Preferida</Label>
-                        <div className="flex items-center gap-4">
-                        {contatoPreferenciaOptions.map(item => (<div key={item} className="flex items-center gap-2"><Checkbox id={`pref-${item}`} checked={formData.contatoPreferencia.includes(item)} onCheckedChange={(checked) => handleCheckboxChange('contatoPreferencia', item, !!checked)}/><Label htmlFor={`pref-${item}`}>{item}</Label></div>))}
-                        </div>
-                    </div>
-                     <div className="space-y-2">
-                        <Label>Turno Preferido</Label>
-                         <div className="flex items-center gap-4">
-                        {contatoTurnoOptions.map(item => (<div key={item} className="flex items-center gap-2"><Checkbox id={`turno-${item}`} checked={formData.contatoTurno.includes(item)} onCheckedChange={(checked) => handleCheckboxChange('contatoTurno', item, !!checked)}/><Label htmlFor={`turno-${item}`}>{item}</Label></div>))}
-                         </div>
-                    </div>
-                </div>
-            </div>
-         </section>
+          <section className="space-y-4 p-4 border rounded-lg">
+              <h4 className="font-semibold text-primary border-b pb-2">Chegada na IBM</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                      <Label htmlFor="comoConheceu">Como conheceu a IBM?</Label>
+                      <Select value={formData.comoConheceu} onValueChange={(v) => handleSelectChange('comoConheceu', v)}>
+                          <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                          <SelectContent><SelectItem value="Convite">Convite</SelectItem><SelectItem value="Fachada">Fachada</SelectItem><SelectItem value="Redes Sociais">Redes Sociais</SelectItem><SelectItem value="GC">GC</SelectItem></SelectContent>
+                      </Select>
+                  </div>
+                  {formData.comoConheceu === 'Convite' && <div className="space-y-1.5"><Label htmlFor="nomeConvidou">Qual nome da pessoa que te convidou?</Label><Input id="nomeConvidou" name="nomeConvidou" value={formData.nomeConvidou} onChange={handleInputChange}/></div>}
+                  
+                  <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                          <Label>Forma de Contato Preferida</Label>
+                          <div className="flex items-center gap-4">
+                          {contatoPreferenciaOptions.map(item => (<div key={item} className="flex items-center gap-2"><Checkbox id={`pref-${item}`} checked={formData.contatoPreferencia.includes(item)} onCheckedChange={(checked) => handleCheckboxChange('contatoPreferencia', item, !!checked)}/><Label htmlFor={`pref-${item}`}>{item}</Label></div>))}
+                          </div>
+                      </div>
+                      <div className="space-y-2">
+                          <Label>Turno Preferido</Label>
+                          <div className="flex items-center gap-4">
+                          {contatoTurnoOptions.map(item => (<div key={item} className="flex items-center gap-2"><Checkbox id={`turno-${item}`} checked={formData.contatoTurno.includes(item)} onCheckedChange={(checked) => handleCheckboxChange('contatoTurno', item, !!checked)}/><Label htmlFor={`turno-${item}`}>{item}</Label></div>))}
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </section>
 
-         <section className="space-y-4 p-4 border rounded-lg">
-            <h4 className="font-semibold text-primary border-b pb-2">Estrutura e Jornada</h4>
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <div className="space-y-1.5">
-                    <Label htmlFor="integrationStatus">Etapa da Jornada</Label>
-                    <Select value={formData.integrationStatus} onValueChange={(v) => handleSelectChange('integrationStatus', v)}>
-                        <SelectTrigger><SelectValue placeholder="Selecione a etapa..." /></SelectTrigger>
-                        <SelectContent>
-                            {journeyColumns.map(col => <SelectItem key={col.id} value={col.id}>{col.title}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </div>
-                 <div className="space-y-1.5">
-                    <Label htmlFor="role">Perfil de Acesso</Label>
-                    <Select value={formData.role} onValueChange={(v) => handleSelectChange('role', v)} disabled={isOnlyAdmin}>
-                        <SelectTrigger><SelectValue placeholder="Selecione o perfil..." /></SelectTrigger>
-                        <SelectContent>
-                            {Object.entries(userRoles).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                    {isOnlyAdmin && <p className="text-xs text-destructive">Você é o único admin e não pode alterar seu próprio perfil.</p>}
-                </div>
-                 <div className="space-y-1.5">
-                    <Label htmlFor="celulaId">Célula (GC)</Label>
-                    <Select value={formData.celulaId} onValueChange={(v) => handleSelectChange('celulaId', v)} disabled={isLoadingCells}>
-                        <SelectTrigger><SelectValue placeholder={isLoadingCells ? "Carregando..." : "Selecione a célula..."} /></SelectTrigger>
-                        <SelectContent>
-                             <SelectItem value="null">Nenhuma</SelectItem>
-                            {cells?.map(cell => <SelectItem key={cell.id} value={cell.id}>{cell.nome}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </div>
-                 <div className="space-y-1.5">
-                    <Label htmlFor="supervisorId">Responsável pelo Acompanhamento</Label>
-                     <Select value={formData.supervisorId} onValueChange={(v) => handleSelectChange('supervisorId', v)} disabled={isLoadingUsers}>
-                        <SelectTrigger><SelectValue placeholder={isLoadingUsers ? "Carregando..." : "Selecione o responsável..."} /></SelectTrigger>
-                        <SelectContent>
-                             <SelectItem value="null">Nenhum</SelectItem>
-                            {supervisors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </div>
-             </div>
-        </section>
+          <section className="space-y-4 p-4 border rounded-lg">
+              <h4 className="font-semibold text-primary border-b pb-2">Estrutura e Jornada</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                      <Label htmlFor="integrationStatus">Etapa da Jornada</Label>
+                      <Select value={formData.integrationStatus} onValueChange={(v) => handleSelectChange('integrationStatus', v)}>
+                          <SelectTrigger><SelectValue placeholder="Selecione a etapa..." /></SelectTrigger>
+                          <SelectContent>
+                              {journeyColumns.map(col => <SelectItem key={col.id} value={col.id}>{col.title}</SelectItem>)}
+                          </SelectContent>
+                      </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                      <Label htmlFor="role">Perfil de Acesso</Label>
+                      <Select value={formData.role} onValueChange={(v) => handleSelectChange('role', v)} disabled={isOnlyAdmin}>
+                          <SelectTrigger><SelectValue placeholder="Selecione o perfil..." /></SelectTrigger>
+                          <SelectContent>
+                              {Object.entries(userRoles).map(([value, label]) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+                          </SelectContent>
+                      </Select>
+                      {isOnlyAdmin && <p className="text-xs text-destructive">Você é o único admin e não pode alterar seu próprio perfil.</p>}
+                  </div>
+                  <div className="space-y-1.5">
+                      <Label htmlFor="celulaId">Célula (GC)</Label>
+                      <Select value={formData.celulaId} onValueChange={(v) => handleSelectChange('celulaId', v)} disabled={isLoadingCells}>
+                          <SelectTrigger><SelectValue placeholder={isLoadingCells ? "Carregando..." : "Selecione a célula..."} /></SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="null">Nenhuma</SelectItem>
+                              {cells?.map(cell => <SelectItem key={cell.id} value={cell.id}>{cell.nome}</SelectItem>)}
+                          </SelectContent>
+                      </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                      <Label htmlFor="supervisorId">Responsável pelo Acompanhamento</Label>
+                      <Select value={formData.supervisorId} onValueChange={(v) => handleSelectChange('supervisorId', v)} disabled={isLoadingUsers}>
+                          <SelectTrigger><SelectValue placeholder={isLoadingUsers ? "Carregando..." : "Selecione o responsável..."} /></SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="null">Nenhum</SelectItem>
+                              {supervisors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                          </SelectContent>
+                      </Select>
+                  </div>
+              </div>
+          </section>
 
-         <section className="space-y-4 p-4 border rounded-lg">
-            <h4 className="font-semibold text-primary border-b pb-2">Observações</h4>
-            <div className="space-y-1.5">
-                <Label htmlFor="observacoes">Observações Gerais</Label>
-                <Textarea id="observacoes" name="observacoes" value={formData.observacoes} onChange={handleInputChange} placeholder="Alergias, necessidades especiais, ou qualquer outra informação relevante." />
-            </div>
-         </section>
-        
-      </div>
-      <DialogFooter>
-        <DialogClose asChild>
-          <Button type="button" variant="secondary">
-            Cancelar
+          <section className="space-y-4 p-4 border rounded-lg">
+              <h4 className="font-semibold text-primary border-b pb-2">Observações</h4>
+              <div className="space-y-1.5">
+                  <Label htmlFor="observacoes">Observações Gerais</Label>
+                  <Textarea id="observacoes" name="observacoes" value={formData.observacoes} onChange={handleInputChange} placeholder="Alergias, necessidades especiais, ou qualquer outra informação relevante." />
+              </div>
+          </section>
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="button" variant="secondary">
+              Cancelar
+            </Button>
+          </DialogClose>
+          <Button type="button" onClick={handleSave} disabled={isSaving}>
+            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Salvar
           </Button>
-        </DialogClose>
-        <Button type="button" onClick={handleSave} disabled={isSaving}>
-          {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Salvar
-        </Button>
-      </DialogFooter>
-    </>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -15,7 +13,6 @@ import { Loader2, Plus, Users, Search, Footprints } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
-import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { EditUserDialog } from '@/components/users/edit-user-dialog';
 import { journeyColumns } from '@/components/users/journey-status-config';
 
@@ -138,27 +135,15 @@ export default function JourneyPage() {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                    <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                      <DialogTrigger asChild>
-                        <Button size="sm">
-                            <Plus className="mr-2 h-4 w-4" />
-                            Adicionar Pessoa
-                        </Button>
-                      </DialogTrigger>
-                       <DialogContent className="max-w-4xl">
-                          <DialogHeader>
-                            <DialogTitle>Adicionar Nova Pessoa</DialogTitle>
-                            <DialogDescription>
-                              Preencha os dados para adicionar uma nova pessoa à Jornada do Membro.
-                            </DialogDescription>
-                          </DialogHeader>
-                           <EditUserDialog 
-                                user={null}
-                                open={isFormOpen}
-                                onOpenChange={setIsFormOpen}
-                           />
-                       </DialogContent>
-                    </Dialog>
+                    <Button size="sm" onClick={() => setIsFormOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Adicionar Pessoa
+                    </Button>
+                    <EditUserDialog 
+                        user={null}
+                        open={isFormOpen}
+                        onOpenChange={setIsFormOpen}
+                    />
                 </div>
             </header>
 
@@ -193,5 +178,3 @@ export default function JourneyPage() {
         </div>
     );
 }
-
-    

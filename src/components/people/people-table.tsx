@@ -10,12 +10,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Input } from '@/components/ui/input';
 import { Loader2, Plus, Search } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { EditUserDialog } from '@/components/users/edit-user-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { format, differenceInYears, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { format, parseISO } from 'date-fns';
 
 type User = {
     id: string;
@@ -124,27 +122,15 @@ export function PeopleTable() {
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
-                     <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                      <DialogTrigger asChild>
-                        <Button size="sm">
-                            <Plus className="mr-2 h-4 w-4" />
-                            Adicionar Pessoa
-                        </Button>
-                      </DialogTrigger>
-                       <DialogContent className="max-w-4xl">
-                          <DialogHeader>
-                            <DialogTitle>Adicionar Nova Pessoa</DialogTitle>
-                            <DialogDescription>
-                              Preencha os dados para adicionar uma nova pessoa à Jornada do Membro.
-                            </DialogDescription>
-                          </DialogHeader>
-                           <EditUserDialog 
-                                user={null}
-                                open={isFormOpen}
-                                onOpenChange={setIsFormOpen}
-                           />
-                       </DialogContent>
-                    </Dialog>
+                    <Button size="sm" onClick={() => setIsFormOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Adicionar Pessoa
+                    </Button>
+                    <EditUserDialog 
+                        user={null}
+                        open={isFormOpen}
+                        onOpenChange={setIsFormOpen}
+                    />
                 </div>
             </CardHeader>
             <CardContent>
