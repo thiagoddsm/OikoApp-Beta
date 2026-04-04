@@ -6,7 +6,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 /**
  * Inicializa o Firebase Admin de forma segura no servidor.
  */
-function getDb() {
+function getAdminDb() {
   if (!getApps().length) {
     try {
       const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
@@ -26,64 +26,49 @@ function getDb() {
 /**
  * Utilitário para mascarar o nome (Ex: João Silva -> J*** S****)
  */
-function maskName(name: string) {
-  if (!name) return '';
-  return name
-    .split(' ')
-    .map(part => {
-      if (part.length <= 1) return part;
-      return part[0] + '*'.repeat(Math.min(part.length - 1, 4));
-    })
-    .join(' ');
+function maskName(name: string): string {
+  if (!name) return 'Membro IBM';
+  const parts = name.split(' ');
+  return parts.map(p => p.length > 1 ? p[0] + '*'.repeat(p.length - 1) : p).join(' ');
 }
 
 /**
- * Utilitário para mascarar o telefone (Ex: (21) 99999-8888 -> (21) *****-88)
+ * Utilitário para mascarar o telefone (Ex: 21999998888 -> (21) *****-8888)
  */
-function maskPhone(phone: string) {
-  if (!phone) return '';
+function maskPhone(phone: string): string {
+  if (!phone) return 'Telefone não informado';
   const digits = phone.replace(/\D/g, '');
   if (digits.length < 4) return phone;
-  
-  // Mantém o DDD e os últimos 2 dígitos
-  const ddd = digits.substring(0, 2);
-  const last2 = digits.substring(digits.length - 2);
-  
-  return `(${ddd}) *****-${last2}`;
+  const lastFour = digits.slice(-4);
+  const hidden = '*'.repeat(digits.length - 4);
+  return `(${digits.slice(0, 2)}) ${hidden.slice(2)}-${lastFour}`;
 }
 
 /**
- * Verifica se um e-mail já pertence a um membro e retorna dados mascarados para privacidade.
+ * Verifica se um e-mail já existe na base de usuários e retorna dados mascarados.
+ * Rodando no servidor para contornar regras de permissão do cliente.
  */
 export async function verifyMemberEmail(email: string) {
-  if (!email || !email.includes('@')) return { exists: false };
-
   try {
-    const db = getDb();
+    const db = getAdminDb();
     const usersRef = db.collection('users');
-    const snapshot = await usersRef.where('email', '==', email.toLowerCase().trim()).limit(1).get();
+    const snapshot = await usersRef.where('email', '==', email.toLowerCase()).limit(1).get();
 
     if (snapshot.empty) {
       return { exists: false };
     }
 
     const userData = snapshot.docs[0].data();
-    
     return {
       exists: true,
       member: {
         id: snapshot.docs[0].id,
-        maskedName: maskName(userData.name),
-        maskedPhone: maskPhone(userData.phone || ''),
-        // Enviamos os dados reais para o formulário usar no envio, 
-        // mas eles só serão exibidos no cliente após a confirmação do usuário que "sou eu".
-        // Para segurança máxima, o ideal seria não enviar, mas aqui precisamos para o protocolo.
-        name: userData.name,
-        phone: userData.phone || '',
+        name: maskName(userData.name),
+        phone: maskPhone(userData.phone || '')
       }
     };
   } catch (error) {
-    console.error('Error verifying email:', error);
-    return { exists: false, error: 'Erro ao verificar e-mail.' };
+    console.error("Error verifying email in Server Action:", error);
+    throw new Error("Falha na verificação do servidor.");
   }
 }
