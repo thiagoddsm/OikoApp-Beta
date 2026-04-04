@@ -178,7 +178,7 @@ export function VolunteerServiceForm({ user }: VolunteerServiceFormProps) {
                                 <SelectItem value="null">Nenhuma</SelectItem>
                                 {teams.map(team => <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>)}
                             </SelectContent>
-                        </Select>
+                        </p>
                         <p className="text-xs text-muted-foreground">A equipe para o sistema de rodízio (Ex: Alpha, Bravo).</p>
                     </div>
                 </div>
