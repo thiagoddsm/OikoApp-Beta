@@ -1,223 +1,353 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { useFirebase, addDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, Timestamp } from 'firebase/firestore';
+import { PublicNavbar } from '@/components/public/navbar';
+import { PublicFooter } from '@/components/public/footer';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from '@/components/ui/badge';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { 
-    Loader2, 
-    CheckCircle, 
-    Calendar, 
-    ArrowRight, 
-    Users, 
+    Search, 
     BookOpen, 
-    Heart, 
-    Info,
+    Calendar, 
+    ChevronRight, 
+    GraduationCap, 
+    Music, 
+    HeartHandshake, 
+    Sparkles, 
+    Lightbulb,
+    Loader2,
+    MapPin,
+    Clock,
     Send
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useVolunteering, type Course, type VolunteeringEvent } from '@/contexts/volunteering-context';
 import { cn } from '@/lib/utils';
-import Link from 'next/link';
-
-// Tipagem para os cursos escolares
-type Course = {
-    id: string;
-    name: string;
-    description: string;
-    ministryName: string;
-};
+import { useFirebase, addDocumentNonBlocking } from '@/firebase';
+import { collection, Timestamp } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 function EnrollmentPortal() {
+    const { courses, events, classes, isLoading } = useVolunteering();
     const { firestore } = useFirebase();
     const { toast } = useToast();
+
+    const [searchTerm, setSearchTerm] = useState('');
+    const [mainTab, setMainTab] = useState('ensino');
+    const [ensinoTab, setEnsinoTab] = useState('lumine');
+    const [lumineTrack, setLumineTab] = useState('discipulado');
     
-    const [isSaving, setIsSaving] = useState(false);
-    const [success, setSuccess] = useState(false);
-    const [activeTab, setActiveTab] = useState('courses');
-    
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
     const [formData, setFormData] = useState({
         name: '',
         email: '',
-        phone: '',
-        courseId: '',
+        phone: ''
     });
 
-    const coursesQuery = useMemoFirebase(() => firestore ? collection(firestore, 'courses') : null, [firestore]);
-    const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery);
-
+    // --- FILTRAGEM DE CURSOS ---
     const filteredCourses = useMemo(() => {
-        if (!courses) return [];
-        return courses.sort((a, b) => a.name.localeCompare(b.name));
-    }, [courses]);
-
-    const handleSave = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!formData.name || !formData.email || !formData.courseId || !firestore) {
-            toast({ variant: 'destructive', title: "Campos obrigatórios", description: "Preencha seus dados e selecione um curso." });
-            return;
+        let list = courses;
+        if (searchTerm) {
+            list = list.filter(c => 
+                c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                c.description.toLowerCase().includes(searchTerm.toLowerCase())
+            );
         }
+        return list;
+    }, [courses, searchTerm]);
 
-        setIsSaving(true);
+    const lumineCourses = useMemo(() => 
+        filteredCourses.filter(c => c.ministryName?.toLowerCase().includes('lumine') || c.ebdTrack),
+    [filteredCourses]);
+
+    const escolasCourses = useMemo(() => 
+        filteredCourses.filter(c => c.ministryName?.toLowerCase().includes('wave') || c.ministryName?.toLowerCase().includes('dis')),
+    [filteredCourses]);
+
+    const ministeriosCourses = useMemo(() => 
+        filteredCourses.filter(c => 
+            !c.ministryName?.toLowerCase().includes('lumine') && 
+            !c.ministryName?.toLowerCase().includes('wave') && 
+            !c.ministryName?.toLowerCase().includes('dis') &&
+            !c.ebdTrack
+        ),
+    [filteredCourses]);
+
+    const lumineByTrack = useMemo(() => ({
+        teologico: lumineCourses.filter(c => c.ebdTrack === 'teologico'),
+        biblico: lumineCourses.filter(c => c.ebdTrack === 'biblico'),
+        discipulado: lumineCourses.filter(c => c.ebdTrack === 'discipulado' || c.name.toLowerCase().includes('pertencer') || c.name.toLowerCase().includes('crescer'))
+    }), [lumineCourses]);
+
+    const handleEnroll = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedCourseId || !formData.name || !formData.email) return;
+
+        setIsSubmitting(true);
         try {
-            await addDocumentNonBlocking(collection(firestore, 'enrollment_requests'), {
+            await addDocumentNonBlocking(collection(firestore!, 'enrollment_requests'), {
                 ...formData,
+                courseId: selectedCourseId,
                 status: 'pending',
-                createdAt: Timestamp.now(),
+                createdAt: Timestamp.now()
             });
-            setSuccess(true);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        } catch (e) {
-            console.error(e);
-            toast({ variant: 'destructive', title: "Erro ao enviar", description: "Ocorreu uma falha técnica. Tente novamente." });
+            toast({ title: "Solicitação Enviada!", description: "Em breve a coordenação entrará em contato." });
+            setSelectedCourseId(null);
+            setFormData({ name: '', email: '', phone: '' });
+        } catch (err) {
+            toast({ variant: 'destructive', title: "Erro ao enviar", description: "Tente novamente mais tarde." });
         } finally {
-            setIsSaving(false);
+            setIsSubmitting(false);
         }
     };
 
-    if (success) {
+    const renderCourseCard = (course: Course) => {
+        const hasClasses = classes.some(cls => cls.courseId === course.id);
+        const isSelected = selectedCourseId === course.id;
+
         return (
-            <main className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-                <Card className="max-w-md w-full text-center p-8 animate-in zoom-in-95 duration-500 rounded-[2rem] border-none shadow-2xl">
-                    <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <CheckCircle size={40} />
+            <Card 
+                key={course.id} 
+                className={cn(
+                    "group transition-all duration-300 border-2 cursor-pointer relative overflow-hidden",
+                    isSelected ? "border-primary ring-2 ring-primary/20 shadow-xl" : "hover:border-primary/30 hover:shadow-md"
+                )}
+                onClick={() => setSelectedCourseId(course.id)}
+            >
+                <CardHeader className="p-5">
+                    <div className="flex justify-between items-start mb-2">
+                        <Badge variant="outline" className="text-[9px] font-black uppercase tracking-widest bg-muted/50 border-none">
+                            {course.ministryName}
+                        </Badge>
+                        {isSelected && <Sparkles className="size-4 text-primary animate-pulse" />}
                     </div>
-                    <h2 className="text-3xl font-black uppercase italic tracking-tighter text-slate-900 mb-4">Interesse Registrado!</h2>
-                    <p className="text-muted-foreground mb-8">
-                        Recebemos sua solicitação. O responsável pelo curso entrará em contato em breve para confirmar sua matrícula e horários.
+                    <CardTitle className="text-lg font-black uppercase italic tracking-tighter leading-tight group-hover:text-primary transition-colors">
+                        {course.name}
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="p-5 pt-0">
+                    <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+                        {course.description}
                     </p>
-                    <Button onClick={() => window.location.reload()} variant="outline" className="w-full font-bold h-12 rounded-xl">Fechar</Button>
-                </Card>
-            </main>
+                </CardContent>
+                <CardFooter className="p-5 pt-0 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        {hasClasses ? (
+                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100 text-[10px] font-bold">Turmas Abertas</Badge>
+                        ) : (
+                            <Badge variant="secondary" className="text-[10px] font-bold">Lista de Espera</Badge>
+                        )}
+                    </div>
+                    <ChevronRight className={cn("size-5 transition-all", isSelected ? "text-primary translate-x-1" : "text-muted-foreground/30")} />
+                </CardFooter>
+            </Card>
+        );
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex flex-col min-h-screen items-center justify-center bg-white">
+                <Loader2 className="size-12 animate-spin text-primary opacity-20" />
+                <p className="mt-4 text-xs font-black uppercase tracking-[0.3em] text-slate-400">Carregando Portal...</p>
+            </div>
         );
     }
 
     return (
-        <main className="min-h-screen bg-slate-50 py-12 md:py-20 px-4">
-            <div className="max-w-6xl mx-auto space-y-12">
-                <div className="text-center space-y-4">
-                    <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 py-1 px-4 text-xs font-black uppercase tracking-[0.2em]">Inscrições Abertas</Badge>
-                    <h1 className="text-4xl md:text-6xl font-black italic tracking-tighter uppercase text-slate-900 leading-[0.9]">O Riso que Restaura <br/><span className="text-primary">& Trilhas de Crescimento</span></h1>
-                    <p className="text-muted-foreground text-sm md:text-lg max-w-2xl mx-auto">Garanta sua vaga nos próximos eventos estratégicos e cursos de capacitação da IBM.</p>
-                </div>
+        <div className="flex flex-col min-h-screen bg-white font-body">
+            <PublicNavbar />
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-2 space-y-8">
-                        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                            <TabsList className="bg-white p-1 rounded-2xl shadow-sm border h-auto mb-8">
-                                <TabsTrigger value="courses" className="rounded-xl px-8 py-3 font-bold data-[state=active]:bg-primary data-[state=active]:text-white transition-all">Cursos Escolares</TabsTrigger>
-                                <TabsTrigger value="events" className="rounded-xl px-8 py-3 font-bold data-[state=active]:bg-rose-600 data-[state=active]:text-white transition-all">Eventos Estratégicos</TabsTrigger>
+            <main className="flex-1 py-16 px-4 sm:px-6">
+                <div className="max-w-6xl mx-auto space-y-12">
+                    {/* --- CABEÇALHO --- */}
+                    <div className="text-center space-y-6">
+                        <h1 className="text-5xl md:text-7xl font-black italic tracking-tighter uppercase text-slate-950 leading-[0.85]">
+                            Portal de <span className="text-primary">Inscrições</span>
+                        </h1>
+                        <p className="text-slate-500 text-lg max-w-xl mx-auto font-medium">
+                            Escolha sua trilha de crescimento e torne-se parte ativa da nossa comunidade.
+                        </p>
+                        
+                        {/* --- BUSCA --- */}
+                        <div className="max-w-xl mx-auto relative group">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                            <Input 
+                                placeholder="Buscar por curso ou evento..." 
+                                className="h-14 pl-12 rounded-full border-2 bg-slate-50/50 focus:bg-white transition-all text-lg shadow-sm"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    {/* --- ABAS PRINCIPAIS --- */}
+                    <Tabs value={mainTab} onValueChange={setMainTab} className="w-full">
+                        <div className="flex justify-center mb-12">
+                            <TabsList className="bg-slate-100 p-1 rounded-full h-12">
+                                <TabsTrigger value="ensino" className="rounded-full px-8 font-black uppercase text-xs tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-md">
+                                    <GraduationCap className="size-4 mr-2" /> Ensino
+                                </TabsTrigger>
+                                <TabsTrigger value="evento" className="rounded-full px-8 font-black uppercase text-xs tracking-widest data-[state=active]:bg-white data-[state=active]:shadow-md">
+                                    <Calendar className="size-4 mr-2" /> Eventos
+                                </TabsTrigger>
                             </TabsList>
+                        </div>
 
-                            <TabsContent value="courses" className="mt-0 space-y-6 animate-in fade-in-50">
-                                {isLoadingCourses ? (
-                                    <div className="flex justify-center p-12"><Loader2 className="animate-spin size-8 text-primary" /></div>
-                                ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {filteredCourses.map(course => (
-                                            <Card 
-                                                key={course.id} 
-                                                className={cn(
-                                                    "cursor-pointer transition-all hover:shadow-md border-2",
-                                                    formData.courseId === course.id ? "border-primary bg-primary/5" : "border-transparent"
-                                                )}
-                                                onClick={() => setFormData(p => ({...p, courseId: course.id}))}
-                                            >
-                                                <CardContent className="p-6">
-                                                    <div className="flex justify-between items-start mb-4">
-                                                        <Badge variant="outline" className="text-[10px] uppercase font-black">{course.ministryName}</Badge>
-                                                        {formData.courseId === course.id && <CheckCircle className="size-5 text-primary" />}
-                                                    </div>
-                                                    <h3 className="font-bold text-lg text-slate-900 mb-2 uppercase">{course.name}</h3>
-                                                    <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{course.description}</p>
-                                                </CardContent>
-                                            </Card>
-                                        ))}
-                                    </div>
-                                )}
-                            </TabsContent>
+                        <TabsContent value="ensino" className="mt-0 animate-in fade-in duration-500">
+                            <Tabs value={ensinoTab} onValueChange={setEnsinoTab} className="w-full">
+                                <div className="flex justify-center mb-10">
+                                    <TabsList className="bg-transparent border-b rounded-none h-10 w-full max-w-md justify-center gap-8">
+                                        <TabsTrigger value="lumine" className="border-b-2 border-transparent rounded-none px-0 data-[state=active]:border-primary data-[state=active]:bg-transparent font-bold text-sm uppercase tracking-wider">Lumine</TabsTrigger>
+                                        <TabsTrigger value="escolas" className="border-b-2 border-transparent rounded-none px-0 data-[state=active]:border-primary data-[state=active]:bg-transparent font-bold text-sm uppercase tracking-wider">Escolas</TabsTrigger>
+                                        <TabsTrigger value="ministerios" className="border-b-2 border-transparent rounded-none px-0 data-[state=active]:border-primary data-[state=active]:bg-transparent font-bold text-sm uppercase tracking-wider">Ministérios</TabsTrigger>
+                                    </TabsList>
+                                </div>
 
-                            <TabsContent value="events" className="mt-0 animate-in fade-in-50">
-                                <Card className="border-none shadow-xl overflow-hidden rounded-[2rem]">
-                                    <div className="aspect-video relative">
-                                        <img src="https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=1200" alt="Jantar dos Namorados" className="object-cover w-full h-full" />
-                                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent" />
-                                        <div className="absolute bottom-6 left-6 right-6">
-                                            <Badge className="bg-rose-600 text-white font-black mb-2">12 DE JUNHO</Badge>
-                                            <h3 className="text-2xl md:text-4xl font-black text-white uppercase italic tracking-tighter">Jantar dos Namorados 2026</h3>
+                                {/* --- LUMINE --- */}
+                                <TabsContent value="lumine" className="space-y-12">
+                                    <Tabs value={lumineTrack} onValueChange={setLumineTab} className="w-full">
+                                        <div className="flex justify-center mb-8">
+                                            <TabsList className="bg-slate-50 p-1 rounded-xl">
+                                                <TabsTrigger value="discipulado" className="rounded-lg px-6 font-bold text-xs uppercase">Trilho Discipulado</TabsTrigger>
+                                                <TabsTrigger value="teologico" className="rounded-lg px-6 font-bold text-xs uppercase">Trilho Teológico</TabsTrigger>
+                                                <TabsTrigger value="biblico" className="rounded-lg px-6 font-bold text-xs uppercase">Trilho Bíblico</TabsTrigger>
+                                            </TabsList>
                                         </div>
-                                    </div>
-                                    <CardContent className="p-8">
-                                        <p className="text-slate-600 mb-6 leading-relaxed">
-                                            Uma noite inesquecível de comunhão, riso e alta gastronomia. Show de Stand-up com Welson Nunes e Menu Gourmet assinado por AR Eventos.
-                                        </p>
-                                        <Button asChild className="bg-rose-600 hover:bg-rose-700 h-12 px-8 font-black uppercase tracking-widest rounded-xl">
-                                            <Link href="/eventos/jantar-dos-namorados">Ver Página do Evento</Link>
+                                        
+                                        {['discipulado', 'teologico', 'biblico'].map(track => (
+                                            <TabsContent key={track} value={track} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in slide-in-from-bottom-2">
+                                                {lumineByTrack[track as keyof typeof lumineByTrack].map(renderCourseCard)}
+                                                {lumineByTrack[track as keyof typeof lumineByTrack].length === 0 && (
+                                                    <div className="col-span-full py-20 text-center border-2 border-dashed rounded-3xl">
+                                                        <p className="text-muted-foreground font-medium italic">Nenhum curso disponível neste trilho no momento.</p>
+                                                    </div>
+                                                )}
+                                            </TabsContent>
+                                        ))}
+                                    </Tabs>
+                                </TabsContent>
+
+                                {/* --- ESCOLAS (WAVE/DIS) --- */}
+                                <TabsContent value="escolas" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in slide-in-from-bottom-2">
+                                    {escolasCourses.map(renderCourseCard)}
+                                </TabsContent>
+
+                                {/* --- MINISTÉRIOS --- */}
+                                <TabsContent value="ministerios" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in slide-in-from-bottom-2">
+                                    {ministeriosCourses.map(renderCourseCard)}
+                                </TabsContent>
+                            </Tabs>
+                        </TabsContent>
+
+                        {/* --- EVENTOS --- */}
+                        <TabsContent value="evento" className="space-y-8 animate-in fade-in duration-500">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                <Card className="border-none shadow-xl bg-indigo-900 text-white overflow-hidden group">
+                                    <div className="h-48 bg-[url('https://images.unsplash.com/photo-1511795409834-ef04bbd61622?q=80&w=800&auto=format&fit=crop')] bg-cover bg-center group-hover:scale-110 transition-transform duration-700 opacity-60" />
+                                    <CardHeader className="p-6">
+                                        <Badge className="w-fit bg-rose-600 text-white border-none font-black text-[10px] mb-2 uppercase">Destaque</Badge>
+                                        <CardTitle className="text-2xl font-black italic uppercase tracking-tighter">Jantar dos Namorados 2026</CardTitle>
+                                        <CardDescription className="text-indigo-200">O Riso que Restaura - Noite exclusiva para casais.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="px-6 pb-6">
+                                        <div className="flex flex-col gap-2 text-sm">
+                                            <div className="flex items-center gap-2 opacity-80"><Clock size={14}/> 12 de Junho, 19h30</div>
+                                            <div className="flex items-center gap-2 opacity-80"><MapPin size={14}/> Templo IBM</div>
+                                        </div>
+                                        <Button className="w-full mt-6 bg-white text-indigo-900 font-black uppercase hover:bg-indigo-50" asChild>
+                                            <a href="/eventos/jantar-dos-namorados">Ver Página do Evento</a>
                                         </Button>
                                     </CardContent>
                                 </Card>
-                            </TabsContent>
-                        </Tabs>
-                    </div>
+                                
+                                {events.map(event => (
+                                    <Card key={event.id} className="border-none shadow-lg hover:shadow-2xl transition-all">
+                                        <CardHeader>
+                                            <CardTitle className="text-xl font-black uppercase italic tracking-tighter">{event.name}</CardTitle>
+                                            <CardDescription>Evento ministerial aberto para participação.</CardDescription>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="flex flex-col gap-2 text-sm text-muted-foreground font-medium">
+                                                <div className="flex items-center gap-2"><Clock size={14}/> {event.time}</div>
+                                                <div className="flex items-center gap-2"><MapPin size={14}/> {event.room || 'Auditório'}</div>
+                                            </div>
+                                            <Button variant="outline" className="w-full mt-6 font-bold uppercase text-xs" disabled>
+                                                Saiba Mais
+                                            </Button>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </div>
+                        </TabsContent>
+                    </Tabs>
 
-                    <div className="lg:col-span-1">
-                        <Card className="shadow-2xl border-none rounded-[2rem] sticky top-8">
-                            <CardHeader className="p-8 border-b bg-slate-50 rounded-t-[2rem]">
-                                <CardTitle className="text-xl font-bold flex items-center gap-2">
-                                    <Users className="size-5 text-primary" />
-                                    Dados do Aluno
-                                </CardTitle>
-                                <CardDescription>Preencha para solicitar sua vaga.</CardDescription>
-                            </CardHeader>
-                            <form onSubmit={handleSave}>
-                                <CardContent className="p-8 space-y-6">
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] uppercase font-black text-muted-foreground">Nome Completo</Label>
-                                        <Input required value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))} placeholder="Seu nome" className="h-12" />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] uppercase font-black text-muted-foreground">E-mail</Label>
-                                        <Input type="email" required value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} placeholder="seu@email.com" className="h-12" />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label className="text-[10px] uppercase font-black text-muted-foreground">Telefone / WhatsApp</Label>
-                                        <Input required value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} placeholder="(21) 9..." className="h-12" />
-                                    </div>
-
-                                    {activeTab === 'courses' && !formData.courseId && (
-                                        <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl flex items-start gap-3 animate-pulse">
-                                            <Info className="size-5 text-amber-600 shrink-0 mt-0.5" />
-                                            <p className="text-[11px] text-amber-800 font-bold uppercase tracking-tighter">Selecione um curso na lista ao lado.</p>
-                                        </div>
-                                    )}
-                                </CardContent>
-                                <CardFooter className="p-8 pt-0">
-                                    <Button type="submit" disabled={isSaving || (activeTab === 'courses' && !formData.courseId)} className="w-full h-14 font-black text-base uppercase tracking-widest shadow-xl">
-                                        {isSaving ? <Loader2 className="mr-2 animate-spin" /> : <Send className="mr-2" />}
-                                        {activeTab === 'courses' ? 'Solicitar Matrícula' : 'Garantir Vaga'}
+                    {/* --- FORMULÁRIO DE INSCRIÇÃO (STICKY MOBILE/SIDEBAR DESKTOP) --- */}
+                    {selectedCourseId && (
+                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in">
+                            <Card className="max-w-md w-full shadow-2xl rounded-[2rem] border-none overflow-hidden">
+                                <CardHeader className="bg-primary p-8 text-white relative">
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={() => setSelectedCourseId(null)}
+                                        className="absolute top-4 right-4 text-white hover:bg-white/20"
+                                    >
+                                        <X className="size-6" />
                                     </Button>
-                                </CardFooter>
-                            </form>
-                        </Card>
-                    </div>
+                                    <Badge className="bg-white/20 text-white border-none font-bold text-[10px] mb-2">QUASE LÁ!</Badge>
+                                    <CardTitle className="text-2xl font-black uppercase italic tracking-tighter">Inscrição</CardTitle>
+                                    <CardDescription className="text-white/70 font-medium">
+                                        {courses.find(c => c.id === selectedCourseId)?.name}
+                                    </CardDescription>
+                                </CardHeader>
+                                <form onSubmit={handleEnroll}>
+                                    <CardContent className="p-8 space-y-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Seu Nome Completo</Label>
+                                            <Input required value={formData.name} onChange={e => setFormData(p => ({...p, name: e.target.value}))} placeholder="Como quer ser chamado" className="h-12" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Seu E-mail</Label>
+                                            <Input required type="email" value={formData.email} onChange={e => setFormData(p => ({...p, email: e.target.value}))} placeholder="seu@email.com" className="h-12" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Celular / WhatsApp</Label>
+                                            <Input required value={formData.phone} onChange={e => setFormData(p => ({...p, phone: e.target.value}))} placeholder="(21) 9..." className="h-12" />
+                                        </div>
+                                    </CardContent>
+                                    <CardFooter className="p-8 bg-slate-50 border-t">
+                                        <Button type="submit" disabled={isSubmitting} className="w-full h-14 font-black uppercase tracking-[0.2em] shadow-lg">
+                                            {isSubmitting ? <Loader2 className="animate-spin" /> : <Send className="mr-2" />}
+                                            Confirmar Interesse
+                                        </Button>
+                                    </CardFooter>
+                                </form>
+                            </Card>
+                        </div>
+                    )}
                 </div>
-            </div>
-        </main>
+            </main>
+
+            <PublicFooter />
+        </div>
     );
 }
+
+const X = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+);
 
 export default function EnrollmentPage() {
     const firebase = useFirebase();
 
-    if (!firebase || !firebase.firestore) {
+    if (!firebase) {
         return (
-            <div className="flex h-screen w-full flex-col items-center justify-center bg-slate-50 space-y-4">
-                <Loader2 className="h-12 w-12 animate-spin text-primary" />
-                <p className="text-muted-foreground text-sm font-medium uppercase tracking-widest">Iniciando Portal...</p>
+            <div className="flex h-screen w-full flex-col items-center justify-center bg-white space-y-4">
+                <Loader2 className="h-12 w-12 animate-spin text-primary opacity-20" />
+                <p className="text-muted-foreground text-xs font-black uppercase tracking-widest">Iniciando Portal...</p>
             </div>
         );
     }
