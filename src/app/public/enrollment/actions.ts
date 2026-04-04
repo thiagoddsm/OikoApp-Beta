@@ -1,35 +1,22 @@
+
 'use server';
 
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-
-if (!getApps().length) {
-  try {
-    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
-      ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
-      : undefined;
-
-    initializeApp({
-      credential: serviceAccount ? cert(serviceAccount) : undefined,
-    });
-  } catch (e) {
-    console.error('Firebase Admin initialization error', e);
-  }
-}
-
-const db = getFirestore();
+import { initializeFirebase } from '@/firebase';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 
 /**
- * Verifica se um e-mail já existe na coleção de usuários do sistema.
- * Executa no lado do servidor para ignorar restrições de permissão pública do Firestore.
+ * Verifica se um e-mail já pertence a um membro cadastrado.
+ * Executado no servidor para contornar restrições de leitura pública da coleção 'users'.
  */
 export async function verifyMemberEmail(email: string) {
-  if (!email) return { exists: false };
-
   try {
-    const usersRef = db.collection('users');
-    const snapshot = await usersRef.where('email', '==', email.toLowerCase().trim()).limit(1).get();
+    const { firestore } = initializeFirebase();
+    if (!firestore) throw new Error('Firestore não inicializado.');
 
+    const usersRef = collection(firestore, 'users');
+    const q = query(usersRef, where('email', '==', email.trim().toLowerCase()), limit(1));
+    const snapshot = await getDocs(q);
+    
     if (snapshot.empty) {
       return { exists: false };
     }
@@ -43,8 +30,8 @@ export async function verifyMemberEmail(email: string) {
         phone: userData.phone || '',
       }
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error verifying email:', error);
-    return { exists: false, error: 'Erro ao verificar e-mail' };
+    return { exists: false, error: error.message || 'Falha ao verificar e-mail.' };
   }
 }
