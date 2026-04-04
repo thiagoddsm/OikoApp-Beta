@@ -1,123 +1,98 @@
-
 'use server';
 
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { initializeFirebase } from '@/firebase';
+import { collection, query, where, getDocs, doc, getDoc, addDoc, Timestamp } from 'firebase/firestore';
 
 /**
- * Inicialização robusta do Firebase Admin para uso em Server Actions
- */
-function getDb() {
-  if (!getApps().length) {
-    try {
-      const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
-        ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
-        : undefined;
-
-      initializeApp({
-        credential: serviceAccount ? cert(serviceAccount) : undefined,
-      });
-    } catch (e) {
-      console.error('Firebase Admin initialization error', e);
-    }
-  }
-  return getFirestore();
-}
-
-/**
- * Utilitário para mascarar o nome (Ex: João Silva -> J*** S****)
- */
-function maskName(name: string): string {
-  if (!name) return "";
-  return name.split(' ').map(word => {
-    if (word.length <= 1) return word;
-    return word[0] + '*'.repeat(word.length - 1);
-  }).join(' ');
-}
-
-/**
- * Utilitário para mascarar o telefone (Ex: 21999998888 -> (21) *****-88)
- */
-function maskPhone(phone: string): string {
-  if (!phone) return "";
-  const cleaned = phone.replace(/\D/g, '');
-  if (cleaned.length < 10) return "****-****";
-  const lastTwo = cleaned.slice(-2);
-  const ddd = cleaned.slice(0, 2);
-  return `(${ddd}) *****-${lastTwo}`;
-}
-
-/**
- * Verifica se o e-mail pertence a um membro e retorna dados mascarados para privacidade
+ * Verifica se um e-mail pertence a um membro cadastrado.
+ * Retorna dados mascarados para privacidade e o ID interno para submissão.
  */
 export async function verifyMemberEmail(email: string) {
-  if (!email) return { exists: false };
+    const { firestore } = initializeFirebase();
+    if (!firestore) return { error: "Database not available" };
 
-  try {
-    const db = getDb();
-    const usersRef = db.collection('users');
-    const snapshot = await usersRef.where('email', '==', email.toLowerCase().trim()).limit(1).get();
+    try {
+        const q = query(collection(firestore, 'users'), where('email', '==', email.toLowerCase().trim()));
+        const snap = await getDocs(q);
 
-    if (snapshot.empty) {
-      return { exists: false };
+        if (snap.empty) {
+            return { found: false };
+        }
+
+        const userData = snap.docs[0].data();
+        const userId = snap.docs[0].id;
+
+        // Máscaras de privacidade
+        const maskName = (name: string) => {
+            if (!name) return "";
+            return name.split(' ').map(part => {
+                if (part.length <= 1) return part;
+                return part[0] + '*'.repeat(part.length - 1);
+            }).join(' ');
+        };
+
+        const maskPhone = (phone: string) => {
+            if (!phone) return "";
+            const digits = phone.replace(/\D/g, '');
+            if (digits.length < 4) return "****";
+            return `(${digits.substring(0, 2)}) *****-${digits.slice(-2)}`;
+        };
+
+        return {
+            found: true,
+            userId,
+            maskedName: maskName(userData.name),
+            maskedPhone: maskPhone(userData.phone)
+        };
+    } catch (e) {
+        console.error("Error verifying email:", e);
+        return { error: "Falha na comunicação com o servidor." };
     }
-
-    const userData = snapshot.docs[0].data();
-    return {
-      exists: true,
-      userId: snapshot.docs[0].id,
-      maskedName: maskName(userData.name || ""),
-      maskedPhone: maskPhone(userData.phone || ""),
-    };
-  } catch (error) {
-    console.error("Error verifying email:", error);
-    return { exists: false, error: "Erro na verificação" };
-  }
 }
 
 /**
- * Submete o protocolo de inscrição de forma segura.
- * Se for um membro existente (ID fornecido), busca os dados REAIS no servidor para evitar salvar asteriscos.
+ * Registra o protocolo de inscrição.
+ * Se userId for fornecido, busca os dados REAIS no banco para evitar salvar as máscaras (***).
  */
 export async function submitEnrollmentRequest(data: {
-    courseId: string;
-    classId?: string;
     userId?: string;
     name?: string;
-    email?: string;
+    email: string;
     phone?: string;
+    courseId: string;
+    classId?: string;
 }) {
-    const db = getDb();
-    const requestsRef = db.collection('enrollment_requests');
+    const { firestore } = initializeFirebase();
+    if (!firestore) throw new Error("Database not available");
 
-    let finalData = {
-        courseId: data.courseId,
-        classId: data.classId || "",
-        status: 'pending',
-        createdAt: new Date(),
-        name: data.name || "",
-        email: data.email || "",
-        phone: data.phone || "",
-        userId: data.userId || null
-    };
+    let finalName = data.name;
+    let finalPhone = data.phone;
+    let finalEmail = data.email;
 
-    // Se identificamos um usuário, ignoramos os campos de texto do cliente (que podem estar mascarados)
-    // e pegamos o valor real do banco de dados
+    // Se é um membro reconhecido, buscamos os dados reais no servidor
     if (data.userId) {
-        const userDoc = await db.collection('users').doc(data.userId).get();
-        if (userDoc.exists) {
-            const realUser = userDoc.data()!;
-            finalData.name = realUser.name || finalData.name;
-            finalData.email = realUser.email || finalData.email;
-            finalData.phone = realUser.phone || finalData.phone;
+        const userDoc = await getDoc(doc(firestore, 'users', data.userId));
+        if (userDoc.exists()) {
+            const realData = userDoc.data();
+            finalName = realData.name;
+            finalPhone = realData.phone;
+            finalEmail = realData.email;
         }
     }
 
-    try {
-        await requestsRef.add(finalData);
-        return { success: true };
-    } catch (error) {
-        console.error("Error submitting request:", error);
-        return { success: false, error: "Falha ao registrar protocolo" };
+    if (!finalName || !finalEmail) {
+        throw new Error("Dados de identificação ausentes.");
     }
+
+    await addDoc(collection(firestore, 'enrollment_requests'), {
+        name: finalName,
+        email: finalEmail.toLowerCase(),
+        phone: finalPhone || '',
+        courseId: data.courseId,
+        classId: data.classId || '',
+        status: 'pending',
+        createdAt: Timestamp.now()
+    });
+
+    return { success: true };
 }
