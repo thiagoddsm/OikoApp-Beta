@@ -95,7 +95,6 @@ export type Course = {
   linkedTheoflixId?: string;
   minAttendanceApproval?: number;
   syllabus?: { id: string; title: string; description: string }[];
-  // Novos campos de pré-requisito
   requiresMemberStatus?: boolean;
   requiresBaptism?: boolean;
   prerequisiteCourseId?: string;
@@ -285,27 +284,30 @@ interface VolunteeringContextType {
 const VolunteeringContext = createContext<VolunteeringContextType | undefined>(undefined);
 
 export function VolunteeringProvider({ children }: { children: ReactNode }) {
-  const { firestore } = useFirebase();
+  const { firestore, user } = useFirebase();
 
-  const usersQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
-  const areasQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'areas_of_service')) : null, [firestore]);
-  const teamsQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'teams')) : null, [firestore]);
-  const eventsQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'volunteering_events')) : null, [firestore]);
-  const roomsQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'rooms')) : null, [firestore]);
-  const reservationsQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'room_reservations')) : null, [firestore]);
+  // Queries sensíveis que exigem login
+  const usersQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'users')) : null, [firestore, user]);
+  const areasQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'areas_of_service')) : null, [firestore, user]);
+  const teamsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'teams')) : null, [firestore, user]);
+  const eventsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'volunteering_events')) : null, [firestore, user]);
+  const reservationsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'room_reservations')) : null, [firestore, user]);
+  const enrollmentRequestsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'enrollment_requests')) : null, [firestore, user]);
+  const pedagogicalLogsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'pedagogical_logs')) : null, [firestore, user]);
+  const wavePaymentsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'wave_payments')) : null, [firestore, user]);
+  const disPaymentsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'dis_payments')) : null, [firestore, user]);
+  const wavePlansQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'wave_plans')) : null, [firestore, user]);
+  const disPlansQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'dis_plans')) : null, [firestore, user]);
+  const waveExpensesQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'wave_expenses')) : null, [firestore, user]);
+  const financialTransactionsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'financial_transactions')) : null, [firestore, user]);
+  const financeRequestsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'finance_requests')) : null, [firestore, user]);
+  const savedSchedulesQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'saved_schedules')) : null, [firestore, user]);
+
+  // Queries públicas necessárias para matrículas
   const coursesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
   const classesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'classes')) : null, [firestore]);
-  const enrollmentRequestsQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'enrollment_requests')) : null, [firestore]);
-  const pedagogicalLogsQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'pedagogical_logs')) : null, [firestore]);
-  const wavePaymentsQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'wave_payments')) : null, [firestore]);
-  const disPaymentsQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'dis_payments')) : null, [firestore]);
-  const wavePlansQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'wave_plans')) : null, [firestore]);
-  const disPlansQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'dis_plans')) : null, [firestore]);
-  const waveExpensesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'wave_expenses')) : null, [firestore]);
+  const roomsQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'rooms')) : null, [firestore]);
   const theoflixCoursesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'theoflix_courses')) : null, [firestore]);
-  const financialTransactionsQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'financial_transactions')) : null, [firestore]);
-  const financeRequestsQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'finance_requests')) : null, [firestore]);
-  const savedSchedulesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'saved_schedules')) : null, [firestore]);
 
   const { data: users, isLoading: lu } = useCollection<User>(usersQ);
   const { data: areas, isLoading: la } = useCollection<AreaOfService>(areasQ);
@@ -327,7 +329,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   const { data: financeRequests, isLoading: lfr } = useCollection<FinanceRequest>(financeRequestsQ);
   const { data: savedSchedules, isLoading: lss } = useCollection<SavedSchedule>(savedSchedulesQ);
 
-  const isLoading = lu || la || lt || le || lr || lres || lco || lcl || ler || lpl || lwp || ldp || lwpn || ldpn || lwe || ltc || lft || lfr || lss;
+  const isLoading = (user ? lu : false) || la || lt || le || lr || lres || lco || lcl || ler || lpl || lwp || ldp || lwpn || ldpn || lwe || ltc || lft || lfr || lss;
 
   const value = useMemo(() => ({
     users: users || [],
