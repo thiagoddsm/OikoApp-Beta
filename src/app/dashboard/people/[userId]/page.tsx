@@ -24,7 +24,7 @@ import {
   Heart, Home, Cake, Info, Dna, Droplet, Star, Rss, SquareUser, Workflow
 } from 'lucide-react';
 
-// Funções de formatação e componentes de UI (mantidos como estavam)
+// Funções de formatação e componentes de UI
 function formatCPF(cpf: string | undefined): string {
     if (!cpf) return 'Não informado';
     const cleaned = ('' + cpf).replace(/\D/g, '');
@@ -110,7 +110,6 @@ function EditProfileModal({ person, isOpen, onOpenChange, onSave }: {
         }
     };
 
-    // O JSX do Modal é mantido, pois a lógica de UI está correta.
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-4xl h-[90vh]">
@@ -243,12 +242,11 @@ function EditProfileModal({ person, isOpen, onOpenChange, onSave }: {
     );
 }
 
-export default function PersonProfilePage({ params }: { params: { userId: string } }) {
+export default function PersonProfilePage({ params }: { params: Promise<{ userId: string }> }) {
+    const { userId } = React.use(params);
     const { firestore } = useFirebase();
-    const { userId } = params;
     const [isEditing, setIsEditing] = useState(false);
     
-    // **CORREÇÃO DEFINITIVA**
     // 1. A referência só é criada se `firestore` e `userId` (como string válida) existirem.
     const personRef = useMemo(() => {
         if (firestore && typeof userId === 'string' && userId) {
@@ -274,19 +272,15 @@ export default function PersonProfilePage({ params }: { params: { userId: string
         return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
     }
 
-    // Se houver um erro na consulta, registramos e podemos mostrar uma mensagem.
     if (error) {
         console.error("Firebase error:", error);
         return <div className="text-center text-red-500">Ocorreu um erro ao carregar os dados.</div>;
     }
 
-    // Se o carregamento terminou e não há dados, significa que o documento não foi encontrado.
     if (!isLoading && !personData) {
         notFound();
     }
     
-    // Se `person` ainda não foi definido, exibe o loading para evitar erros de renderização.
-    // Isso cobre o pequeno intervalo entre o `personData` chegar e o `useEffect` atualizar o estado.
     if (!person) {
         return <div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
     }
@@ -331,7 +325,6 @@ export default function PersonProfilePage({ params }: { params: { userId: string
                         <TabsTrigger value="church">Jornada</TabsTrigger>
                     </TabsList>
                     
-                    {/* TabsContent... (sem alterações) */}
                     <TabsContent value="profile" className='mt-6'>
                         <Card>
                             <CardHeader>
