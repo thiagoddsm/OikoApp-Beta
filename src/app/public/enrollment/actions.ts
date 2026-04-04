@@ -1,83 +1,88 @@
 'use server';
 
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-
-/**
- * Inicialização robusta do Firebase Admin no servidor.
- */
-function getAdminDb() {
-  if (!getApps().length) {
-    try {
-      const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
-        ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
-        : undefined;
-
-      initializeApp({
-        credential: serviceAccount ? cert(serviceAccount) : undefined,
-      });
-    } catch (e) {
-      console.error('Firebase Admin initialization error', e);
-    }
-  }
-  return getFirestore();
-}
+import { initializeFirebase } from '@/firebase';
+import { collection, query, where, getDocs, limit, doc, getDoc, addDoc, Timestamp } from 'firebase/firestore';
 
 /**
  * Utilitário para mascarar o nome (Ex: João Silva -> J*** S****)
  */
 function maskName(name: string): string {
-  if (!name) return "";
-  const parts = name.trim().split(/\s+/);
+  if (!name) return '';
+  const parts = name.split(' ');
   return parts.map(part => {
-    if (part.length <= 1) return part;
-    return part[0] + "*".repeat(Math.min(part.length - 1, 3));
-  }).join(" ");
+    if (part.length <= 2) return part;
+    return part[0] + '*'.repeat(part.length - 2) + part[part.length - 1];
+  }).join(' ');
 }
 
 /**
- * Utilitário para mascarar o telefone (Ex: 21999998888 -> (21) *****-88)
+ * Utilitário para mascarar o telefone (Ex: (21) 99999-8888 -> (21) *****-88)
  */
 function maskPhone(phone: string): string {
-  if (!phone) return "";
-  const cleaned = phone.replace(/\D/g, "");
+  if (!phone) return '';
+  const cleaned = phone.replace(/\D/g, '');
   if (cleaned.length < 4) return phone;
-  const lastTwo = cleaned.slice(-2);
-  const prefix = cleaned.length > 10 ? cleaned.slice(0, 2) : "";
-  return prefix ? `(${prefix}) *****-${lastTwo}` : `*****-${lastTwo}`;
+  return phone.replace(/(\d{2})(\d{4,5})(\d{2})/, (_, ddd, mid, last) => `(${ddd}) ${'*'.repeat(mid.length)}-${last}`);
 }
 
-export type VerifiedMember = {
-  id: string;
-  name: string;
-  phone: string;
-  isExisting: boolean;
-};
-
 /**
- * Verifica se um e-mail existe na base de usuários e retorna dados mascarados.
+ * Verifica se um e-mail já existe na base de usuários e retorna dados mascarados
  */
-export async function verifyMemberEmail(email: string): Promise<VerifiedMember | null> {
-  if (!email || !email.includes('@')) return null;
-
+export async function verifyMemberEmail(email: string) {
   try {
-    const db = getAdminDb();
-    const usersRef = db.collection('users');
-    const snapshot = await usersRef.where('email', '==', email.toLowerCase().trim()).limit(1).get();
+    const { firestore } = initializeFirebase();
+    const q = query(
+      collection(firestore, 'users'), 
+      where('email', '==', email.trim().toLowerCase()), 
+      limit(1)
+    );
+    
+    const querySnapshot = await getDocs(q);
 
-    if (snapshot.empty) {
-      return { id: '', name: '', phone: '', isExisting: false };
+    if (!querySnapshot.empty) {
+      const userDoc = querySnapshot.docs[0];
+      const data = userDoc.data();
+      return {
+        exists: true,
+        user: {
+          id: userDoc.id,
+          name: maskName(data.name || ''),
+          phone: maskPhone(data.phone || ''),
+          email: data.email
+        }
+      };
     }
-
-    const userData = snapshot.docs[0].data();
-    return {
-      id: snapshot.docs[0].id,
-      name: maskName(userData.name || ""),
-      phone: maskPhone(userData.phone || ""),
-      isExisting: true
-    };
+    return { exists: false };
   } catch (error) {
     console.error("Error verifying email:", error);
-    throw new Error("Falha na verificação de segurança.");
+    throw new Error("Não foi possível validar seu e-mail agora.");
   }
+}
+
+/**
+ * Submete o protocolo de inscrição buscando dados reais se o usuário já existir
+ */
+export async function submitEnrollmentRequest(data: any) {
+    try {
+        const { firestore } = initializeFirebase();
+        let finalData = { ...data, createdAt: Timestamp.now(), status: 'pending' };
+
+        // Se for um usuário existente, buscamos os dados reais no servidor para salvar o registro correto
+        if (data.userId) {
+            const userRef = doc(firestore, 'users', data.userId);
+            const userSnap = await getDoc(userRef);
+            if (userSnap.exists()) {
+                const userData = userSnap.data();
+                finalData.name = userData.name;
+                finalData.phone = userData.phone;
+                finalData.email = userData.email;
+            }
+        }
+
+        const docRef = await addDoc(collection(firestore, 'enrollment_requests'), finalData);
+        return { success: true, id: docRef.id };
+    } catch (error) {
+        console.error("Error submitting enrollment:", error);
+        throw new Error("Falha ao processar sua inscrição. Tente novamente.");
+    }
 }
