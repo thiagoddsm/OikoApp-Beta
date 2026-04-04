@@ -53,11 +53,26 @@ function PersonProfilePageContent() {
         return journeyColumns[journeyIndex]?.title || 'Não definido';
     }, [journeyIndex]);
 
-    // Relational Data for KPI Cards
-    const userCell = useMemo(() => cells.find(c => c.id === person?.hierarchy?.celulaId), [cells, person]);
-    const userSupervisor = useMemo(() => users.find(u => u.id === person?.hierarchy?.supervisorId), [users, person]);
-    const userArea = useMemo(() => areas.find(a => a.id === userCell?.areaId), [areas, userCell]);
-    const userRede = useMemo(() => redes.find(r => r.id === userArea?.redeId), [redes, userArea]);
+    // Relational Data for KPI Cards - Corrigindo o erro de undefined .find()
+    const userCell = useMemo(() => {
+        if (!cells || !person?.hierarchy?.celulaId) return null;
+        return cells.find(c => c.id === person.hierarchy.celulaId);
+    }, [cells, person]);
+
+    const userSupervisor = useMemo(() => {
+        if (!users || !person?.hierarchy?.supervisorId) return null;
+        return users.find(u => u.id === person.hierarchy.supervisorId);
+    }, [users, person]);
+
+    const userArea = useMemo(() => {
+        if (!areas || !userCell?.areaId) return null;
+        return areas.find(a => a.id === userCell.areaId);
+    }, [areas, userCell]);
+
+    const userRede = useMemo(() => {
+        if (!redes || !userArea?.redeId) return null;
+        return redes.find(r => r.id === userArea.redeId);
+    }, [redes, userArea]);
 
     if (isLoading) {
         return <div className="flex justify-center p-20"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>
