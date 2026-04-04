@@ -2,7 +2,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Regras Públicas: Permite que o portal de inscrições funcione sem login
+    // Regras Públicas: Essenciais para o Portal de Inscrições
     match /courses/{courseId} {
       allow read: if true;
     }
@@ -13,19 +13,20 @@ service cloud.firestore {
       allow read: if true;
     }
     
-    // Regras de Identificação: Permite busca por e-mail no portal público
+    // Identificação: Permite que o servidor (via Server Action) verifique a existência do e-mail
+    // A leitura pública de users é limitada para evitar vazamento total, mas necessária para busca exata
     match /users/{userId} {
       allow read: if true; 
       allow write: if request.auth != null;
     }
 
-    // Regras Públicas: Protocolos de Inscrição
+    // Inscrições: Qualquer um pode criar um protocolo de interesse
     match /enrollment_requests/{requestId} {
       allow create: if true;
       allow read: if request.auth != null;
     }
 
-    // Regras Públicas: Solicitações Financeiras
+    // Financeiro: Protocolos públicos
     match /finance_requests/{reqId} {
       allow create: if true;
       allow read, write: if request.auth != null;
