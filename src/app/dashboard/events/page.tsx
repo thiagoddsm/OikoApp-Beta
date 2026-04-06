@@ -4,6 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -63,13 +64,26 @@ export default function EventsListPage() {
     });
   }
   
-  const handleShareLink = () => {
+  const handleShareLink = async () => {
     const url = `${window.location.origin}/public/event-planning`;
-    navigator.clipboard.writeText(url);
-    toast({
-      title: "Link Copiado!",
-      description: "O link para o formulário público foi copiado para sua área de transferência."
-    })
+    try {
+      await navigator.clipboard.writeText(url);
+      toast({
+        title: "Link Copiado!",
+        description: "O link para o formulário público foi copiado para sua área de transferência."
+      });
+    } catch (err) {
+      toast({
+        title: "Copie o Link Manualmente",
+        description: (
+          <div className="flex flex-col gap-2">
+            <p>Seu navegador bloqueou a cópia automática. Use o link abaixo:</p>
+            <Input value={url} readOnly className="bg-muted text-sm" />
+          </div>
+        ),
+        duration: 10000,
+      });
+    }
   }
 
   return (
