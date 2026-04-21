@@ -238,10 +238,10 @@ export function TeachingOverviewDashboard() {
                 return (
                   <div key={req.id} className="flex items-start gap-3 p-3 rounded-xl border-2 border-dashed border-muted transition-colors hover:border-primary/30 group">
                     <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-xs font-bold group-hover:bg-primary group-hover:text-white transition-colors">
-                      {req.name.charAt(0)}
+                      {(req.name || '?').charAt(0)}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-black truncate text-slate-900 leading-none mb-1">{req.name}</p>
+                      <p className="text-sm font-black truncate text-slate-900 leading-none mb-1">{req.name || 'Sem nome'}</p>
                       <p className="text-[10px] font-bold text-primary truncate uppercase tracking-tighter">{course?.name || 'Carregando...'}</p>
                       <div className="flex items-center gap-2 mt-2">
                         <Badge variant="outline" className="text-[8px] h-4 font-black bg-amber-50 text-amber-700 border-amber-200">PENDENTE</Badge>

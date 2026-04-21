@@ -77,7 +77,7 @@ export function PeopleTable() {
     const filteredUsers = useMemo(() => {
         if (!users) return [];
         return users.filter(user => 
-            user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (user.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
             user.email?.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [users, searchTerm]);
@@ -160,13 +160,13 @@ export function PeopleTable() {
                                 <TableRow key={user.id}>
                                     <TableCell>
                                         <Avatar>
-                                            <AvatarImage src={avatar.imageUrl} alt={user.name} />
-                                            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                                            <AvatarImage src={avatar.imageUrl} alt={user.name || 'User'} />
+                                            <AvatarFallback>{(user.name || '?').charAt(0)}</AvatarFallback>
                                         </Avatar>
                                     </TableCell>
                                     <TableCell>
                                         <Link href={`/dashboard/people/${user.id}`} className="font-medium hover:underline">
-                                            {user.name}
+                                            {user.name || 'Sem nome'}
                                         </Link>
                                     </TableCell>
                                     <TableCell>
