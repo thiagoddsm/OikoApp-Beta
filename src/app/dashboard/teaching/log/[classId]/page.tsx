@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Loader2, ArrowLeft, CheckCircle2, ClipboardCheck, History, Plus, Save, UserPlus, Search as SearchIcon } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { format, addWeeks, isBefore, isAfter, startOfDay, parseISO, addMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Timestamp, doc } from 'firebase/firestore';
@@ -19,7 +18,6 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 const weekDayMap: Record<string, number> = {
@@ -51,6 +49,7 @@ function PedagogicalLogPageContent() {
     const [onlineStudents, setOnlineStudents] = useState<string[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
     const [today, setToday] = useState<Date | null>(null);
 
     useEffect(() => {
@@ -157,18 +156,44 @@ function PedagogicalLogPageContent() {
         return users.filter(u => studentSet.has(u.id));
     }, [users, classData]);
 
-    // Lógica para sugerir alunos que precisam repor este módulo específico
+    // Alunos de TURMAS ANTERIORES do mesmo curso que faltaram a este módulo específico
+    const previousClassStudentsForModule = useMemo(() => {
+        if (!users || !selectedDate || currentModuleIndex === -1 || !isMemberCourse || !courseData) return [];
+        const currentEnrolledIds = new Set(classData?.students || []);
+
+        // Turmas anteriores do mesmo curso (excluindo a turma atual)
+        const siblingClasses = classes.filter(c => c.courseId === courseData.id && c.id !== classId);
+
+        const studentIds = new Set<string>();
+        siblingClasses.forEach(sibling => {
+            (sibling.students || []).forEach(sid => {
+                // Não está na turma atual
+                if (currentEnrolledIds.has(sid)) return;
+                // Ainda não tem o módulo concluído
+                const user = users.find(u => u.id === sid);
+                if (!user) return;
+                if (user.journey?.memberCourseProgress?.[currentModuleKey]) return;
+                studentIds.add(sid);
+            });
+        });
+
+        return users.filter(u => studentIds.has(u.id));
+    }, [users, classes, classData, courseData, classId, selectedDate, currentModuleIndex, currentModuleKey, isMemberCourse]);
+
+    // Lógica para sugerir alunos que precisam repor este módulo específico (pendência no progresso geral)
     const repositionSuggestions = useMemo(() => {
         if (!users || !selectedDate || currentModuleIndex === -1 || !isMemberCourse) return [];
         const enrolledIds = new Set(classData?.students || []);
+        const previousClassIds = new Set(previousClassStudentsForModule.map(u => u.id));
         
         return users.filter(u => {
             const isNotEnrolled = !enrolledIds.has(u.id);
+            const isNotFromPreviousClass = !previousClassIds.has(u.id); // evitar duplicata
             const hasPending = !u.journey?.memberCourseProgress?.[currentModuleKey];
             const isStudent = u.integrationStatus === 'novo_convertido' || u.integrationStatus === 'membro' || u.integrationStatus === 'consolidado';
-            return isNotEnrolled && hasPending && isStudent;
+            return isNotEnrolled && isNotFromPreviousClass && hasPending && isStudent;
         }).slice(0, 15);
-    }, [users, classData, selectedDate, currentModuleIndex, currentModuleKey, isMemberCourse]);
+    }, [users, classData, selectedDate, currentModuleIndex, currentModuleKey, isMemberCourse, previousClassStudentsForModule]);
 
     const handleStudentCheck = (studentId: string, checked: boolean) => {
         setPresentStudents(prev => checked ? [...prev, studentId] : prev.filter(id => id !== studentId));
@@ -178,6 +203,7 @@ function PedagogicalLogPageContent() {
         if (presentStudents.includes(studentId)) return;
         setPresentStudents(prev => [...prev, studentId]);
         setIsSearchOpen(false);
+        setSearchQuery('');
         toast({ title: "Reposição adicionada", description: "O aluno foi incluído na lista desta aula." });
     };
 
@@ -272,33 +298,111 @@ function PedagogicalLogPageContent() {
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="p-0 w-80" align="end">
-                                    <Command>
-                                        <CommandInput placeholder="Buscar aluno para reposição..." />
-                                        <CommandList>
-                                            <CommandEmpty>Nenhum aluno encontrado.</CommandEmpty>
-                                            
-                                            {repositionSuggestions.length > 0 && (
-                                                <CommandGroup heading={`Pessoas com pendência no Módulo ${currentModuleIndex + 1}`}>
-                                                    {repositionSuggestions.map(u => (
-                                                        <CommandItem key={u.id} onSelect={() => handleAddRepositionStudent(u.id)} className="cursor-pointer">
-                                                            <div className="flex items-center justify-between w-full">
-                                                                <span>{u.name}</span>
-                                                                <Badge variant="outline" className="text-[8px] bg-amber-50">PENDENTE</Badge>
-                                                            </div>
-                                                        </CommandItem>
-                                                    ))}
-                                                </CommandGroup>
+                                    {/* Dropdown customizado — evita bug do Command dentro de Popover no Radix UI */}
+                                    <div className="flex flex-col">
+                                        {/* Campo de busca */}
+                                        <div className="flex items-center border-b px-3">
+                                            <SearchIcon className="mr-2 size-4 shrink-0 opacity-50" />
+                                            <input
+                                                autoFocus
+                                                placeholder="Buscar aluno para reposição..."
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                className="flex h-10 w-full bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+                                            />
+                                        </div>
+
+                                        <div className="max-h-72 overflow-y-auto py-1">
+                                            {/* Turmas anteriores */}
+                                            {previousClassStudentsForModule.filter(u =>
+                                                !searchQuery || u.name?.toLowerCase().includes(searchQuery.toLowerCase())
+                                            ).length > 0 && (
+                                                <div>
+                                                    <p className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                                        Turmas anteriores — Módulo {currentModuleIndex + 1}
+                                                    </p>
+                                                    {previousClassStudentsForModule
+                                                        .filter(u => !searchQuery || u.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+                                                        .map(u => (
+                                                            <button
+                                                                key={u.id}
+                                                                type="button"
+                                                                onClick={() => handleAddRepositionStudent(u.id)}
+                                                                className="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground cursor-pointer text-left transition-colors"
+                                                            >
+                                                                <span className="truncate">{u.name}</span>
+                                                                <Badge variant="outline" className="ml-2 shrink-0 text-[8px] bg-blue-50 text-blue-700">TURMA ANT.</Badge>
+                                                            </button>
+                                                        ))
+                                                    }
+                                                </div>
                                             )}
 
-                                            <CommandGroup heading="Outros Membros">
-                                                {users.filter(u => !classData.students.includes(u.id) && !repositionSuggestions.find(s => s.id === u.id)).slice(0, 10).map(u => (
-                                                    <CommandItem key={u.id} onSelect={() => handleAddRepositionStudent(u.id)}>
-                                                        <Plus className="mr-2 size-4" /> {u.name}
-                                                    </CommandItem>
-                                                ))}
-                                            </CommandGroup>
-                                        </CommandList>
-                                    </Command>
+                                            {/* Pendência no módulo */}
+                                            {repositionSuggestions.filter(u =>
+                                                !searchQuery || u.name?.toLowerCase().includes(searchQuery.toLowerCase())
+                                            ).length > 0 && (
+                                                <div>
+                                                    <p className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                                        Pendência no Módulo {currentModuleIndex + 1}
+                                                    </p>
+                                                    {repositionSuggestions
+                                                        .filter(u => !searchQuery || u.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+                                                        .map(u => (
+                                                            <button
+                                                                key={u.id}
+                                                                type="button"
+                                                                onClick={() => handleAddRepositionStudent(u.id)}
+                                                                className="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground cursor-pointer text-left transition-colors"
+                                                            >
+                                                                <span className="truncate">{u.name}</span>
+                                                                <Badge variant="outline" className="ml-2 shrink-0 text-[8px] bg-amber-50">PENDENTE</Badge>
+                                                            </button>
+                                                        ))
+                                                    }
+                                                </div>
+                                            )}
+
+                                            {/* Busca geral */}
+                                            {searchQuery && users.filter(u =>
+                                                !classData.students.includes(u.id) &&
+                                                !repositionSuggestions.find(s => s.id === u.id) &&
+                                                !previousClassStudentsForModule.find(s => s.id === u.id) &&
+                                                u.name?.toLowerCase().includes(searchQuery.toLowerCase())
+                                            ).length > 0 && (
+                                                <div>
+                                                    <p className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Outros membros</p>
+                                                    {users
+                                                        .filter(u =>
+                                                            !classData.students.includes(u.id) &&
+                                                            !repositionSuggestions.find(s => s.id === u.id) &&
+                                                            !previousClassStudentsForModule.find(s => s.id === u.id) &&
+                                                            u.name?.toLowerCase().includes(searchQuery.toLowerCase())
+                                                        )
+                                                        .slice(0, 10)
+                                                        .map(u => (
+                                                            <button
+                                                                key={u.id}
+                                                                type="button"
+                                                                onClick={() => handleAddRepositionStudent(u.id)}
+                                                                className="flex w-full items-center px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground cursor-pointer text-left transition-colors"
+                                                            >
+                                                                <Plus className="mr-2 size-4 shrink-0" />
+                                                                <span className="truncate">{u.name}</span>
+                                                            </button>
+                                                        ))
+                                                    }
+                                                </div>
+                                            )}
+
+                                            {/* Vazio */}
+                                            {previousClassStudentsForModule.filter(u => !searchQuery || u.name?.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 &&
+                                             repositionSuggestions.filter(u => !searchQuery || u.name?.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 &&
+                                             (!searchQuery || users.filter(u => !classData.students.includes(u.id) && u.name?.toLowerCase().includes(searchQuery.toLowerCase())).length === 0) && (
+                                                <p className="py-6 text-center text-sm text-muted-foreground">Nenhum aluno encontrado.</p>
+                                            )}
+                                        </div>
+                                    </div>
                                 </PopoverContent>
                             </Popover>
                         </CardHeader>
@@ -316,7 +420,7 @@ function PedagogicalLogPageContent() {
                                                         isPresent ? "bg-emerald-50 border-emerald-200" : "hover:bg-muted/50 border-transparent"
                                                     )} onClick={() => handleStudentCheck(student.id, !isPresent)}>
                                                         <Checkbox checked={isPresent} onCheckedChange={c => handleStudentCheck(student.id, !!c)} className="pointer-events-none" />
-                                                        <Label className="font-bold text-sm block truncate cursor-pointer">{student.name}</Label>
+                                                        <span className="font-bold text-sm block truncate cursor-pointer">{student.name}</span>
                                                     </div>
                                                 )
                                             })}
@@ -335,7 +439,7 @@ function PedagogicalLogPageContent() {
                                                     return (
                                                         <div key={id} className="flex items-center space-x-3 p-3 rounded-xl bg-blue-50 border-blue-200 border cursor-pointer" onClick={() => handleStudentCheck(id, false)}>
                                                             <Checkbox checked={true} onCheckedChange={() => handleStudentCheck(id, false)} className="pointer-events-none" />
-                                                            <Label className="font-bold text-sm block truncate cursor-pointer">{student.name}</Label>
+                                                            <span className="font-bold text-sm block truncate cursor-pointer">{student.name}</span>
                                                         </div>
                                                     )
                                                 })}

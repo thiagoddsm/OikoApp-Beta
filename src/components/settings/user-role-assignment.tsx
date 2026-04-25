@@ -74,10 +74,10 @@ export function UserRoleAssignment({ roles }: UserRoleAssignmentProps) {
                               <div className="flex items-center gap-3">
                                   <Avatar className="h-10 w-10">
                                       {avatar && <AvatarImage src={avatar.imageUrl} alt={targetUser.name} />}
-                                      <AvatarFallback>{targetUser.name.charAt(0)}</AvatarFallback>
+                                      <AvatarFallback>{(targetUser.name || '?').charAt(0)}</AvatarFallback>
                                   </Avatar>
                                   <div>
-                                      <p className="font-medium">{targetUser.name}</p>
+                                      <p className="font-medium">{targetUser.name || '(sem nome)'}</p>
                                       <p className="text-sm text-muted-foreground">{targetUser.email}</p>
                                   </div>
                               </div>
