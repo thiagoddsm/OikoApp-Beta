@@ -45,7 +45,7 @@ function UserCard({ user }: { user: User }) {
                 <CardContent className="p-3 flex items-center gap-3">
                     <Avatar className="h-10 w-10">
                         {avatar && <AvatarImage src={avatar.imageUrl} alt={avatar.description} />}
-                        <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                        <AvatarFallback>{(user.name || '?').charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div>
                         <p className="font-semibold text-sm">{user.name}</p>
@@ -80,7 +80,7 @@ export default function JourneyPage() {
             if (acc[status] === undefined) {
                  acc[status] = []; // Should not happen with initialization, but for safety
             }
-            if (user.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+            if ((user.name || '').toLowerCase().includes(searchTerm.toLowerCase())) {
                 acc[status].push(user);
             }
             return acc;

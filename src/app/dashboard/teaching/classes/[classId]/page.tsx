@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDoc } from '@/firebase';
-import { Loader2, ArrowLeft, BookOpen, Users, Folder, GraduationCap, Edit } from 'lucide-react';
+import { Loader2, ArrowLeft, BookOpen, Users, Folder, GraduationCap, Edit, FileSpreadsheet } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,6 +12,7 @@ import { VolunteeringProvider } from '@/contexts/volunteering-context';
 import { ClassStudentsManager } from '@/components/teaching/class-students-manager';
 import { ClassGradesManager } from '@/components/teaching/class-grades-manager';
 import { ClassMaterialsManager } from '@/components/teaching/class-materials-manager';
+import { ClassPerformanceReport } from '@/components/teaching/class-performance-report';
 import { ClassFormDialog } from '@/components/teaching/class-form-dialog';
 import Link from 'next/link';
 
@@ -74,10 +75,11 @@ function ClassDetailPageContent() {
                 </CardHeader>
                 <CardContent>
                     <Tabs defaultValue="students">
-                        <TabsList className="grid w-full grid-cols-4">
+                        <TabsList className="grid w-full grid-cols-5">
                             <TabsTrigger value="students"><Users className="mr-2 h-4 w-4"/>Alunos</TabsTrigger>
                             <TabsTrigger value="grades"><GraduationCap className="mr-2 h-4 w-4"/>Notas</TabsTrigger>
-                            <TabsTrigger value="log"><BookOpen className="mr-2 h-4 w-4"/>Diário de Classe</TabsTrigger>
+                            <TabsTrigger value="report"><FileSpreadsheet className="mr-2 h-4 w-4"/>Relatório</TabsTrigger>
+                            <TabsTrigger value="log"><BookOpen className="mr-2 h-4 w-4"/>Diário</TabsTrigger>
                             <TabsTrigger value="materials"><Folder className="mr-2 h-4 w-4"/>Materiais</TabsTrigger>
                         </TabsList>
                         
@@ -87,6 +89,10 @@ function ClassDetailPageContent() {
                         
                         <TabsContent value="grades" className="mt-6">
                              <ClassGradesManager classData={classData} />
+                        </TabsContent>
+
+                        <TabsContent value="report" className="mt-6">
+                             <ClassPerformanceReport classData={classData} />
                         </TabsContent>
                         
                         <TabsContent value="log" className="mt-6">

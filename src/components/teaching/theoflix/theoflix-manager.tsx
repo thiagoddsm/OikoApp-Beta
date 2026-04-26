@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useFirebase, setDocumentNonBlocking, deleteDocumentNonBlocking, useDoc } from '@/firebase';
 import { doc } from 'firebase/firestore';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
     Dialog, 
     DialogContent, 
@@ -88,6 +89,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
     
     const { data: theoflixConfig } = useDoc<any>('config/theoflix');
     const [youtubeApiKey, setYoutubeApiKey] = useState('');
+    const [quizMinScore, setQuizMinScore] = useState(70);
     const [isSavingConfig, setIsSavingConfig] = useState(false);
 
     const [formCourse, setFormCourse] = useState<Partial<Course>>({
@@ -97,7 +99,8 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
         image: '',
         type: 'Obrigatório',
         tags: [],
-        episodes: []
+        episodes: [],
+        requireEnrollment: false
     });
 
     const [formLevel, setFormLevel] = useState<Partial<TheoLevel>>({
@@ -107,14 +110,17 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
     });
 
     useEffect(() => {
-        if (theoflixConfig) setYoutubeApiKey(theoflixConfig.youtubeApiKey || '');
+        if (theoflixConfig) {
+            setYoutubeApiKey(theoflixConfig.youtubeApiKey || '');
+            setQuizMinScore(theoflixConfig.quizMinScore || 70);
+        }
     }, [theoflixConfig]);
 
     useEffect(() => {
         if (selectedCourse) {
             setFormCourse({ ...selectedCourse, episodes: selectedCourse.episodes || [] });
         } else {
-            setFormCourse({ title: '', desc: '', level: 1, image: '', type: 'Obrigatório', tags: [], episodes: [] });
+            setFormCourse({ title: '', desc: '', level: 1, image: '', type: 'Obrigatório', tags: [], episodes: [], requireEnrollment: false });
         }
     }, [selectedCourse, open]);
 
@@ -132,9 +138,10 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
         try {
             await setDocumentNonBlocking(doc(firestore, 'config', 'theoflix'), {
                 youtubeApiKey,
+                quizMinScore,
                 updatedAt: new Date().toISOString()
             }, { merge: true });
-            toast({ title: "Configuração Salva!", description: "A API Key do YouTube foi atualizada." });
+            toast({ title: "Configuração Salva!", description: "As configurações do TheoFlix foram atualizadas." });
         } catch (e) {
             toast({ variant: 'destructive', title: "Erro ao salvar config" });
         } finally {
@@ -312,6 +319,25 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                                         </div>
                                     </div>
 
+                                    <div className="flex items-center space-x-2 p-4 bg-slate-50 rounded-xl border border-dashed">
+                                        <Checkbox 
+                                            id="requireEnrollment" 
+                                            checked={formCourse.requireEnrollment} 
+                                            onCheckedChange={(checked) => setFormCourse(p => ({...p, requireEnrollment: !!checked}))}
+                                        />
+                                        <div className="grid gap-1.5 leading-none">
+                                            <label
+                                                htmlFor="requireEnrollment"
+                                                className="text-xs font-black uppercase tracking-tight leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                            >
+                                                Restrito a Alunos Matriculados
+                                            </label>
+                                            <p className="text-[10px] text-muted-foreground font-medium">
+                                                Se ativo, apenas alunos matriculados no curso presencial correspondente poderão assistir.
+                                            </p>
+                                        </div>
+                                    </div>
+
                                     <div className="space-y-2">
                                         <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Sinopse do Curso</Label>
                                         <Textarea rows={4} value={formCourse.desc} onChange={e => setFormCourse(p => ({...p, desc: e.target.value}))} placeholder="Breve descrição do conteúdo..." className="resize-none" />
@@ -349,9 +375,105 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                                                             <Input className="h-10 text-sm bg-white" value={ep.duration} onChange={e => { const n = [...formCourse.episodes!]; n[idx].duration = e.target.value; setFormCourse(p => ({...p, episodes: n})); }} placeholder="Ex: 45min" />
                                                         </div>
                                                     </div>
-                                                    <Button variant="ghost" size="icon" className="absolute -top-3 -right-3 h-8 w-8 rounded-full bg-white shadow-xl text-destructive border-2 hover:scale-110 active:scale-95 transition-transform" onClick={() => setFormCourse(p => ({...p, episodes: p.episodes?.filter((_, i) => i !== idx)}))}>
-                                                        <X size={16} />
-                                                    </Button>
+                                                    <div className="absolute -top-3 -right-3 flex gap-2">
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-white shadow-xl text-destructive border-2 hover:scale-110 active:scale-95 transition-transform" onClick={() => setFormCourse(p => ({...p, episodes: p.episodes?.filter((_, i) => i !== idx)}))}>
+                                                            <X size={16} />
+                                                        </Button>
+                                                    </div>
+
+                                                    {/* Editor de Quiz */}
+                                                    <div className="mt-4 pt-4 border-t border-dashed">
+                                                        <div className="flex items-center justify-between mb-3">
+                                                            <div className="flex items-center gap-2">
+                                                                <DatabaseZap className={cn("size-4", ep.quiz?.enabled ? "text-primary" : "text-muted-foreground")} />
+                                                                <span className="text-[10px] font-black uppercase tracking-widest">Avaliação (Quiz)</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <Label htmlFor={`quiz-enable-${idx}`} className="text-[9px] font-bold uppercase cursor-pointer">Ativar Quiz</Label>
+                                                                <input 
+                                                                    id={`quiz-enable-${idx}`}
+                                                                    type="checkbox" 
+                                                                    checked={!!ep.quiz?.enabled} 
+                                                                    onChange={e => {
+                                                                        const n = [...formCourse.episodes!];
+                                                                        n[idx].quiz = { enabled: e.target.checked, questions: n[idx].quiz?.questions || [] };
+                                                                        setFormCourse(p => ({...p, episodes: n}));
+                                                                    }}
+                                                                    className="size-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                                                />
+                                                            </div>
+                                                        </div>
+
+                                                        {ep.quiz?.enabled && (
+                                                            <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                                                {(ep.quiz.questions || []).map((q, qIdx) => (
+                                                                    <div key={qIdx} className="bg-white p-3 rounded-xl border border-primary/10 relative space-y-3">
+                                                                        <div className="flex justify-between items-start">
+                                                                            <span className="text-[9px] font-black text-primary/50">PERGUNTA {qIdx + 1}</span>
+                                                                            <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={() => {
+                                                                                const n = [...formCourse.episodes!];
+                                                                                n[idx].quiz!.questions = n[idx].quiz!.questions.filter((_, i) => i !== qIdx);
+                                                                                setFormCourse(p => ({...p, episodes: n}));
+                                                                            }}>
+                                                                                <Trash2 size={12} />
+                                                                            </Button>
+                                                                        </div>
+                                                                        <Input 
+                                                                            placeholder="Texto da pergunta..." 
+                                                                            className="h-9 text-xs font-bold"
+                                                                            value={q.question}
+                                                                            onChange={e => {
+                                                                                const n = [...formCourse.episodes!];
+                                                                                n[idx].quiz!.questions[qIdx].question = e.target.value;
+                                                                                setFormCourse(p => ({...p, episodes: n}));
+                                                                            }}
+                                                                        />
+                                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                                            {[0, 1, 2, 3].map(optIdx => (
+                                                                                <div key={optIdx} className="flex items-center gap-2">
+                                                                                    <input 
+                                                                                        type="radio" 
+                                                                                        name={`correct-${idx}-${qIdx}`}
+                                                                                        checked={q.correctIndex === optIdx}
+                                                                                        onChange={() => {
+                                                                                            const n = [...formCourse.episodes!];
+                                                                                            n[idx].quiz!.questions[qIdx].correctIndex = optIdx;
+                                                                                            setFormCourse(p => ({...p, episodes: n}));
+                                                                                        }}
+                                                                                        className="size-3 text-primary"
+                                                                                    />
+                                                                                    <Input 
+                                                                                        placeholder={`Opção ${optIdx + 1}`} 
+                                                                                        className={cn("h-8 text-[10px]", q.correctIndex === optIdx && "border-primary bg-primary/5")}
+                                                                                        value={q.options[optIdx] || ''}
+                                                                                        onChange={e => {
+                                                                                            const n = [...formCourse.episodes!];
+                                                                                            const opts = [...n[idx].quiz!.questions[qIdx].options];
+                                                                                            opts[optIdx] = e.target.value;
+                                                                                            n[idx].quiz!.questions[qIdx].options = opts;
+                                                                                            setFormCourse(p => ({...p, episodes: n}));
+                                                                                        }}
+                                                                                    />
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                                <Button 
+                                                                    variant="ghost" 
+                                                                    size="sm" 
+                                                                    className="w-full h-8 text-[10px] font-black uppercase border-2 border-dashed border-primary/20 text-primary hover:bg-primary/5"
+                                                                    onClick={() => {
+                                                                        const n = [...formCourse.episodes!];
+                                                                        n[idx].quiz!.questions.push({ question: '', options: ['', '', '', ''], correctIndex: 0 });
+                                                                        setFormCourse(p => ({...p, episodes: n}));
+                                                                    }}
+                                                                >
+                                                                    <PlusCircle className="mr-1 size-3" /> Adicionar Pergunta
+                                                                </Button>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </Card>
                                             ))}
                                             {formCourse.episodes?.length === 0 && (
@@ -476,6 +598,24 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                                             Esta chave é necessária para que o botão de "Varinha Mágica" funcione. 
                                             Ela permite que o sistema busque o título e a duração dos vídeos diretamente do YouTube.
                                         </p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3 pt-6 border-t border-dashed">
+                                    <Label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Nota de Corte do Quiz (%)</Label>
+                                    <div className="flex items-center gap-4">
+                                        <Input 
+                                            type="number" 
+                                            min="0"
+                                            max="100"
+                                            value={quizMinScore} 
+                                            onChange={e => setQuizMinScore(parseInt(e.target.value))} 
+                                            className="w-24 h-11 text-center font-bold"
+                                        />
+                                        <p className="text-[10px] text-muted-foreground font-medium italic">Percentual mínimo de acertos para aprovação na aula.</p>
+                                        <Button onClick={handleSaveConfig} disabled={isSavingConfig} className="h-11 px-4 ml-auto">
+                                            {isSavingConfig ? <Loader2 className="animate-spin size-4" /> : <Save className="size-4" />}
+                                        </Button>
                                     </div>
                                 </div>
                             </CardContent>

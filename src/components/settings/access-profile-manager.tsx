@@ -58,7 +58,7 @@ const permissionsConfig = [
         id: 'ministerial_teaching',
         label: 'Ensino',
         subItems: [
-            { id: 'teaching_courses', label: 'Cursos e Turmas Gerais', actions: ['view', 'edit', 'delete'] },
+            { id: 'teaching_courses', label: 'Cursos e Turmas Gerais', actions: ['view', 'edit', 'delete', 'view_student_area'] },
             { id: 'teaching_wave', label: 'Wave - Escola de Música', actions: ['view_admin', 'view_finance', 'view_teacher_area', 'view_student_area'] },
             { id: 'teaching_dis', label: 'DIS - Escola de Inclusão', actions: ['view_admin', 'view_finance', 'view_teacher_area', 'view_student_area'] },
         ]

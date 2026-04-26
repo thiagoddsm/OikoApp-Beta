@@ -2,8 +2,8 @@
 'use client';
 
 import React, { createContext, useContext, ReactNode, useMemo } from 'react';
-import { useFirebase, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
-import { collection, query, doc, Timestamp, addDoc } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, useDoc } from '@/firebase';
+import { collection, query, doc, Timestamp, addDoc, where } from 'firebase/firestore';
 
 export type User = {
   id: string;
@@ -287,23 +287,39 @@ const VolunteeringContext = createContext<VolunteeringContextType | undefined>(u
 export function VolunteeringProvider({ children }: { children: ReactNode }) {
   const { firestore, user } = useFirebase();
 
-  // Queries sensíveis que exigem login
-  const usersQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'users')) : null, [firestore, user]);
-  const areasQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'areas_of_service')) : null, [firestore, user]);
-  const teamsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'teams')) : null, [firestore, user]);
-  const eventsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'volunteering_events')) : null, [firestore, user]);
-  const reservationsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'room_reservations')) : null, [firestore, user]);
-  const enrollmentRequestsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'enrollment_requests')) : null, [firestore, user]);
-  const pedagogicalLogsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'pedagogical_logs')) : null, [firestore, user]);
-  const wavePaymentsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'wave_payments')) : null, [firestore, user]);
-  const disPaymentsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'dis_payments')) : null, [firestore, user]);
-  const wavePlansQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'wave_plans')) : null, [firestore, user]);
-  const disPlansQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'dis_plans')) : null, [firestore, user]);
-  const waveExpensesQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'wave_expenses')) : null, [firestore, user]);
-  const financialTransactionsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'financial_transactions')) : null, [firestore, user]);
-  const financeRequestsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'finance_requests')) : null, [firestore, user]);
-  const savedSchedulesQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'saved_schedules')) : null, [firestore, user]);
-  const roomsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'rooms')) : null, [firestore, user]);
+  const { data: userData, isLoading: loadingRole } = useDoc<{ hierarchy?: { role?: string }; }>(user ? `users/${user.uid}` : null);
+
+  // Wait until we actually know the role before running role-sensitive queries.
+  // isAdmin defaults to false while loading which causes query flip-flop → Firestore assertion crash.
+  const roleResolved = !loadingRole && (userData !== undefined || !user);
+  const isAdmin = roleResolved && (userData?.hierarchy?.role === 'admin' || userData?.hierarchy?.role === 'pastor_senior');
+
+  // Queries sensíveis que exigem login e papel adequado (só rodam após papel ser conhecido)
+  const usersQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'users')) : null, [firestore, user, roleResolved, isAdmin]);
+  const areasQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'areas_of_service')) : null, [firestore, user, roleResolved, isAdmin]);
+  const teamsQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'teams')) : null, [firestore, user, roleResolved, isAdmin]);
+  const eventsQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'volunteering_events')) : null, [firestore, user, roleResolved, isAdmin]);
+  const reservationsQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'room_reservations')) : null, [firestore, user, roleResolved, isAdmin]);
+  const enrollmentRequestsQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'enrollment_requests')) : null, [firestore, user, roleResolved, isAdmin]);
+
+  const pedagogicalLogsQ = useMemoFirebase(() => {
+    if (!firestore || !user || !roleResolved) return null;
+    if (isAdmin) return query(collection(firestore, 'pedagogical_logs'));
+    return null;
+  }, [firestore, user, roleResolved, isAdmin]);
+
+  const wavePlansQ = useMemoFirebase(() => (firestore && user && roleResolved) ? query(collection(firestore, 'wave_plans')) : null, [firestore, user, roleResolved]);
+  const disPlansQ = useMemoFirebase(() => (firestore && user && roleResolved) ? query(collection(firestore, 'dis_plans')) : null, [firestore, user, roleResolved]);
+
+  // Pagamentos: apenas admins. Alunos buscam diretamente no StudentDashboard.
+  const wavePaymentsQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'wave_payments')) : null, [firestore, user, roleResolved, isAdmin]);
+  const disPaymentsQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'dis_payments')) : null, [firestore, user, roleResolved, isAdmin]);
+
+  const waveExpensesQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'wave_expenses')) : null, [firestore, user, roleResolved, isAdmin]);
+  const financialTransactionsQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'financial_transactions')) : null, [firestore, user, roleResolved, isAdmin]);
+  const financeRequestsQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'finance_requests')) : null, [firestore, user, roleResolved, isAdmin]);
+  const savedSchedulesQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'saved_schedules')) : null, [firestore, user, roleResolved, isAdmin]);
+  const roomsQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'rooms')) : null, [firestore, user, roleResolved, isAdmin]);
   const theoflixCoursesQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'theoflix_courses')) : null, [firestore, user]);
 
   // Queries públicas necessárias para matrículas
@@ -330,7 +346,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   const { data: financeRequests, isLoading: lfr } = useCollection<FinanceRequest>(financeRequestsQ);
   const { data: savedSchedules, isLoading: lss } = useCollection<SavedSchedule>(savedSchedulesQ);
 
-  const isLoading = (user ? lu : false) || la || lt || le || (user ? lr : false) || lres || lco || lcl || ler || lpl || lwp || ldp || lwpn || ldpn || lwe || (user ? ltc : false) || lft || lfr || lss;
+  const isLoading = loadingRole || (user ? lu : false) || la || lt || le || (user ? lr : false) || lres || lco || lcl || ler || lpl || lwp || ldp || lwpn || ldpn || lwe || (user ? ltc : false) || lft || lfr || lss;
 
   const value = useMemo(() => ({
     users: users || [],
@@ -369,47 +385,47 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
     deleteReservation: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'room_reservations', id)); },
     updateVolunteer: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'users', id), data); },
     addUser: async (data: any) => {
-        const res = await addDoc(collection(firestore!, 'users'), { ...data, createdAt: Timestamp.now() });
-        return res.id;
+      const res = await addDoc(collection(firestore!, 'users'), { ...data, createdAt: Timestamp.now() });
+      return res.id;
     },
     addCourse: async (data: any) => { await addDoc(collection(firestore!, 'courses'), data); },
     addClass: async (data: any) => {
-        const res = await addDoc(collection(firestore!, 'classes'), data);
-        if (data.locationId && data.locationId !== 'the_school' && data.locationId !== 'null') {
-            const roomObj = (rooms || []).find(r => r.id === data.locationId);
-            await addDoc(collection(firestore!, 'room_reservations'), {
-                eventName: `Aulas: ${data.name}`,
-                rooms: [roomObj?.name || 'Sala'],
-                startDateTime: Timestamp.fromDate(new Date(`${data.startDate}T${data.startTime}`)),
-                endDateTime: Timestamp.fromDate(new Date(`${data.startDate}T${data.endTime}`)),
-                recurrenceEndDate: data.endDate ? Timestamp.fromDate(new Date(`${data.endDate}T23:59:59`)) : null,
-                frequency: data.frequency,
-                dayOfWeek: data.dayOfWeek,
-                weekOfMonth: data.weekOfMonth,
-                status: 'approved',
-                requesterId: 'system',
-                id: `class_res_${res.id}`,
-                createdAt: Timestamp.now()
-            });
-        }
+      const res = await addDoc(collection(firestore!, 'classes'), data);
+      if (data.locationId && data.locationId !== 'the_school' && data.locationId !== 'null') {
+        const roomObj = (rooms || []).find(r => r.id === data.locationId);
+        await addDoc(collection(firestore!, 'room_reservations'), {
+          eventName: `Aulas: ${data.name}`,
+          rooms: [roomObj?.name || 'Sala'],
+          startDateTime: Timestamp.fromDate(new Date(`${data.startDate}T${data.startTime}`)),
+          endDateTime: Timestamp.fromDate(new Date(`${data.startDate}T${data.endTime}`)),
+          recurrenceEndDate: data.endDate ? Timestamp.fromDate(new Date(`${data.endDate}T23:59:59`)) : null,
+          frequency: data.frequency,
+          dayOfWeek: data.dayOfWeek,
+          weekOfMonth: data.weekOfMonth,
+          status: 'approved',
+          requesterId: 'system',
+          id: `class_res_${res.id}`,
+          createdAt: Timestamp.now()
+        });
+      }
     },
     updateClass: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'classes', id), data); },
     deleteClass: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'classes', id)); },
     enrollStudent: async (studentId: string, courseId: string, classId?: string) => {
-        if (classId) {
-            const classRef = doc(firestore!, 'classes', classId);
-            const cls = (classes || []).find(c => c.id === classId);
-            if (cls && !cls.students.includes(studentId)) {
-                await updateDocumentNonBlocking(classRef, { students: [...cls.students, studentId] });
-            }
-        } else {
-            const relevantClasses = (classes || []).filter(c => c.courseId === courseId);
-            for (const cls of relevantClasses) {
-                if (!cls.students.includes(studentId)) {
-                    await updateDocumentNonBlocking(doc(firestore!, 'classes', cls.id), { students: [...cls.students, studentId] });
-                }
-            }
+      if (classId) {
+        const classRef = doc(firestore!, 'classes', classId);
+        const cls = (classes || []).find(c => c.id === classId);
+        if (cls && !cls.students.includes(studentId)) {
+          await updateDocumentNonBlocking(classRef, { students: [...cls.students, studentId] });
         }
+      } else {
+        const relevantClasses = (classes || []).filter(c => c.courseId === courseId);
+        for (const cls of relevantClasses) {
+          if (!cls.students.includes(studentId)) {
+            await updateDocumentNonBlocking(doc(firestore!, 'classes', cls.id), { students: [...cls.students, studentId] });
+          }
+        }
+      }
     },
     addPedagogicalLog: async (data: any) => { await addDoc(collection(firestore!, 'pedagogical_logs'), data); },
     addWavePayment: async (data: any) => { await addDoc(collection(firestore!, 'wave_payments'), data); },
@@ -434,45 +450,45 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
     updateFinanceRequest: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'finance_requests', id), data); },
     deleteFinanceRequest: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'finance_requests', id)); },
     approveEnrollmentRequest: async (requestId: string, classId: string) => {
-        const req = (enrollmentRequests || []).find(r => r.id === requestId);
-        if (!req) return;
-        const targetClass = (classes || []).find(c => c.id === classId);
-        if (!targetClass) return;
-        
-        let studentId = (users || []).find(u => u.email === req.email || u.phone === req.phone)?.id;
-        if (!studentId) {
-            const newUser = await addDoc(collection(firestore!, 'users'), {
-                name: req.name, email: req.email, phone: req.phone, integrationStatus: 'nao_alcancado', createdAt: Timestamp.now()
-            });
-            studentId = newUser.id;
-        }
-        
-        await updateDocumentNonBlocking(doc(firestore!, 'classes', classId), { students: [...targetClass.students, studentId] });
-        await updateDocumentNonBlocking(doc(firestore!, 'enrollment_requests', requestId), { status: 'approved' });
+      const req = (enrollmentRequests || []).find(r => r.id === requestId);
+      if (!req) return;
+      const targetClass = (classes || []).find(c => c.id === classId);
+      if (!targetClass) return;
+
+      let studentId = (users || []).find(u => u.email === req.email || u.phone === req.phone)?.id;
+      if (!studentId) {
+        const newUser = await addDoc(collection(firestore!, 'users'), {
+          name: req.name, email: req.email, phone: req.phone, integrationStatus: 'nao_alcancado', createdAt: Timestamp.now()
+        });
+        studentId = newUser.id;
+      }
+
+      await updateDocumentNonBlocking(doc(firestore!, 'classes', classId), { students: [...targetClass.students, studentId] });
+      await updateDocumentNonBlocking(doc(firestore!, 'enrollment_requests', requestId), { status: 'approved' });
     },
     updateEnrollmentRequest: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id), data); },
     deleteEnrollmentRequest: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id)); },
     markAttendanceByTheoflix: async (userId: string, courseId: string, episodeIndex: number) => {
-        const relevantClasses = (classes || []).filter(c => c.courseId === courseId && c.students.includes(userId));
-        for (const cls of relevantClasses) {
-            const today = new Date().toISOString().split('T')[0];
-            const existingAttendance = cls.attendance || [];
-            const recordIdx = existingAttendance.findIndex(a => a.date === today);
-            if (recordIdx > -1) {
-                const record = existingAttendance[recordIdx];
-                if (!record.onlineStudentIds?.includes(userId)) {
-                    record.onlineStudentIds = [...(record.onlineStudentIds || []), userId];
-                    await updateDocumentNonBlocking(doc(firestore!, 'classes', cls.id), { attendance: existingAttendance });
-                }
-            } else {
-                existingAttendance.push({ date: today, presentStudentIds: [], onlineStudentIds: [userId] });
-                await updateDocumentNonBlocking(doc(firestore!, 'classes', cls.id), { attendance: existingAttendance });
-            }
+      const relevantClasses = (classes || []).filter(c => c.courseId === courseId && c.students.includes(userId));
+      for (const cls of relevantClasses) {
+        const today = new Date().toISOString().split('T')[0];
+        const existingAttendance = cls.attendance || [];
+        const recordIdx = existingAttendance.findIndex(a => a.date === today);
+        if (recordIdx > -1) {
+          const record = existingAttendance[recordIdx];
+          if (!record.onlineStudentIds?.includes(userId)) {
+            record.onlineStudentIds = [...(record.onlineStudentIds || []), userId];
+            await updateDocumentNonBlocking(doc(firestore!, 'classes', cls.id), { attendance: existingAttendance });
+          }
+        } else {
+          existingAttendance.push({ date: today, presentStudentIds: [], onlineStudentIds: [userId] });
+          await updateDocumentNonBlocking(doc(firestore!, 'classes', cls.id), { attendance: existingAttendance });
         }
+      }
     },
     saveSchedule: async (data: any) => {
-        const id = `${data.areaId}_${data.month}`;
-        await setDocumentNonBlocking(doc(firestore!, 'saved_schedules', id), data);
+      const id = `${data.areaId}_${data.month}`;
+      await setDocumentNonBlocking(doc(firestore!, 'saved_schedules', id), data);
     },
     deleteSchedule: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'saved_schedules', id)); },
   }), [users, areas, teams, events, rooms, reservations, courses, classes, enrollmentRequests, pedagogicalLogs, wavePayments, disPayments, wavePlans, waveExpenses, theoflixCourses, financialTransactions, financeRequests, savedSchedules, isLoading, firestore]);

@@ -146,10 +146,14 @@ const settingsMenuItems = [
 ];
 
 function MenuItems({ pathname, permissions, userRole, onLinkClick }) {
+  // IDs acessíveis por padrão para qualquer membro autenticado (sem perfil de acesso específico)
+  const DEFAULT_MEMBER_PERMISSIONS = new Set(['dashboard', 'teaching_courses']);
+
   const hasPermission = (permissionId: string | undefined, action: string = 'view') => {
     if (!permissionId) return true;
     if (userRole === 'admin') return true;
-    if (!permissions) return false;
+    // Se não há perfil de acesso mas é uma rota liberada por padrão para membros
+    if (!permissions) return DEFAULT_MEMBER_PERMISSIONS.has(permissionId);
     return !!permissions[permissionId]?.[action];
   };
 

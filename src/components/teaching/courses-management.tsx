@@ -137,21 +137,6 @@ export function CoursesManagement() {
   };
 
   const getTrackInfo = (course: Course) => {
-    if (course.ebdTrack === 'teologico') {
-        return (
-            <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-[10px] font-black h-5 uppercase">
-                <GraduationCap className="size-3 mr-1" /> Fase Buscar | 12/03 a 16/04 às 09h00
-            </Badge>
-        );
-    }
-    const isStandardTrack = course.ebdTrack === 'biblico' || course.ebdTrack === 'discipulado' || course.name.toLowerCase().includes('crescer') || course.name.toLowerCase().includes('pertencer');
-    if (isStandardTrack) {
-        return (
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] font-black h-5 uppercase">
-                <GraduationCap className="size-3 mr-1" /> Todo domingo às 09h00
-            </Badge>
-        );
-    }
     return null;
   };
 

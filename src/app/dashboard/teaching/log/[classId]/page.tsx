@@ -19,6 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Input } from '@/components/ui/input';
 
 const weekDayMap: Record<string, number> = {
     "Domingo": 0, "Segunda-feira": 1, "Terça-feira": 2, "Quarta-feira": 3,
@@ -31,20 +32,21 @@ function PedagogicalLogPageContent() {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const classId = params.classId as string;
-    const { 
-        classes, 
-        courses, 
-        users, 
-        pedagogicalLogs, 
-        addPedagogicalLog, 
+    const {
+        classes,
+        courses,
+        users,
+        pedagogicalLogs,
+        addPedagogicalLog,
         updateClass,
-        isLoading 
+        isLoading
     } = useVolunteering();
-    
+
     const [selectedDate, setSelectedDate] = useState<string>('');
     const [contentTaught, setContentTaught] = useState('');
     const [observations, setObservations] = useState('');
-    const [performance, setPerformance] = useState(3);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [performance, setPerformance] = useState(5);
     const [presentStudents, setPresentStudents] = useState<string[]>([]);
     const [onlineStudents, setOnlineStudents] = useState<string[]>([]);
     const [isSaving, setIsSaving] = useState(false);
@@ -58,7 +60,7 @@ function PedagogicalLogPageContent() {
 
     const classData = useMemo(() => classes.find(c => c.id === classId), [classes, classId]);
     const courseData = useMemo(() => classData ? courses.find(c => c.id === classData.courseId) : null, [classData, courses]);
-    
+
     // Dynamic Module Names based on Course Syllabus
     const moduleNames = useMemo(() => {
         if (!courseData) return [];
@@ -67,7 +69,7 @@ function PedagogicalLogPageContent() {
         }
         // Fallback for member course if no syllabus is defined
         if (courseData.name?.toLowerCase().includes('membro') || courseData.name?.toLowerCase().includes('pertencer')) {
-             return [
+            return [
                 "História e Visão",
                 "DNA e Células",
                 "Mordomia e Finanças",
@@ -127,7 +129,7 @@ function PedagogicalLogPageContent() {
             const record = classData.attendance.find(a => a.date === selectedDate);
             setPresentStudents(record?.presentStudentIds || []);
             setOnlineStudents(record?.onlineStudentIds || []);
-            
+
             const log = pedagogicalLogs.find(l => {
                 const logDate = l.date?.toDate ? l.date.toDate() : (l.date instanceof Date ? l.date : null);
                 return l.classId === classId && logDate && format(logDate, 'yyyy-MM-dd') === selectedDate;
@@ -138,8 +140,8 @@ function PedagogicalLogPageContent() {
                 setObservations(log.observations);
                 setPerformance(log.student_performance);
             } else {
-                const defaultContent = currentModuleIndex !== -1 && moduleNames[currentModuleIndex] 
-                    ? `Aula ${currentModuleIndex + 1}: ${moduleNames[currentModuleIndex]}` 
+                const defaultContent = currentModuleIndex !== -1 && moduleNames[currentModuleIndex]
+                    ? `Aula ${currentModuleIndex + 1}: ${moduleNames[currentModuleIndex]}`
                     : (currentModuleIndex !== -1 ? `Aula ${currentModuleIndex + 1}` : '');
                 setContentTaught(defaultContent);
                 setObservations('');
@@ -149,12 +151,15 @@ function PedagogicalLogPageContent() {
     }, [selectedDate, classData, pedagogicalLogs, classId, currentModuleIndex, moduleNames]);
 
     const isMemberCourse = courseData?.name?.toLowerCase().includes('membro') || courseData?.name?.toLowerCase().includes('pertencer');
-    
+
     const enrolledStudents = useMemo(() => {
         if (!users || !classData?.students) return [];
         const studentSet = new Set(classData.students);
-        return users.filter(u => studentSet.has(u.id));
-    }, [users, classData]);
+        return users
+            .filter(u => studentSet.has(u.id))
+            .filter(u => (u.name || '').toLowerCase().includes(searchTerm.toLowerCase()))
+            .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
+    }, [users, classData, searchTerm]);
 
     // Alunos de TURMAS ANTERIORES do mesmo curso que faltaram a este módulo específico
     const previousClassStudentsForModule = useMemo(() => {
@@ -185,7 +190,7 @@ function PedagogicalLogPageContent() {
         if (!users || !selectedDate || currentModuleIndex === -1 || !isMemberCourse) return [];
         const enrolledIds = new Set(classData?.students || []);
         const previousClassIds = new Set(previousClassStudentsForModule.map(u => u.id));
-        
+
         return users.filter(u => {
             const isNotEnrolled = !enrolledIds.has(u.id);
             const isNotFromPreviousClass = !previousClassIds.has(u.id); // evitar duplicata
@@ -221,7 +226,7 @@ function PedagogicalLogPageContent() {
 
             const existingAttendance = classData?.attendance || [];
             const updatedAttendance = [
-                ...existingAttendance.filter(a => a.date !== selectedDate), 
+                ...existingAttendance.filter(a => a.date !== selectedDate),
                 { date: selectedDate, presentStudentIds: presentStudents, onlineStudentIds: onlineStudents }
             ];
             const attendancePromise = updateClass(classId, { attendance: updatedAttendance });
@@ -233,7 +238,7 @@ function PedagogicalLogPageContent() {
                     progressPromises.push(updateDocumentNonBlocking(userRef, { [`journey.memberCourseProgress.${currentModuleKey}`]: true }));
                 });
             }
-            
+
             await Promise.all([logPromise, attendancePromise, ...progressPromises]);
             toast({ title: 'Registro Salvo!', description: `A presença de ${format(parseISO(selectedDate), 'dd/MM')} foi processada.` });
         } catch (error) {
@@ -266,7 +271,7 @@ function PedagogicalLogPageContent() {
                                 return (
                                     <SelectItem key={date} value={date}>
                                         <div className="flex items-center justify-between w-full gap-2">
-                                            <span className="font-bold truncate">Aula {idx+1} {moduleName}</span>
+                                            <span className="font-bold truncate">Aula {idx + 1} {moduleName}</span>
                                             {hasAttendance && <CheckCircle2 className="size-3 text-emerald-500 shrink-0" />}
                                         </div>
                                     </SelectItem>
@@ -276,7 +281,7 @@ function PedagogicalLogPageContent() {
                     </Select>
                 </div>
             </div>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 <div className="lg:col-span-2 space-y-6">
                     <Card>
@@ -290,7 +295,7 @@ function PedagogicalLogPageContent() {
                                     {currentModuleIndex !== -1 && moduleNames[currentModuleIndex] ? `Módulo ${currentModuleIndex + 1}: ${moduleNames[currentModuleIndex]}` : 'Sessão Avulsa'}
                                 </CardDescription>
                             </div>
-                            
+
                             <Popover open={isSearchOpen} onOpenChange={setIsSearchOpen}>
                                 <PopoverTrigger asChild>
                                     <Button variant="outline" size="sm" className="h-8 font-bold">
@@ -317,51 +322,51 @@ function PedagogicalLogPageContent() {
                                             {previousClassStudentsForModule.filter(u =>
                                                 !searchQuery || u.name?.toLowerCase().includes(searchQuery.toLowerCase())
                                             ).length > 0 && (
-                                                <div>
-                                                    <p className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                                                        Turmas anteriores — Módulo {currentModuleIndex + 1}
-                                                    </p>
-                                                    {previousClassStudentsForModule
-                                                        .filter(u => !searchQuery || u.name?.toLowerCase().includes(searchQuery.toLowerCase()))
-                                                        .map(u => (
-                                                            <button
-                                                                key={u.id}
-                                                                type="button"
-                                                                onClick={() => handleAddRepositionStudent(u.id)}
-                                                                className="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground cursor-pointer text-left transition-colors"
-                                                            >
-                                                                <span className="truncate">{u.name}</span>
-                                                                <Badge variant="outline" className="ml-2 shrink-0 text-[8px] bg-blue-50 text-blue-700">TURMA ANT.</Badge>
-                                                            </button>
-                                                        ))
-                                                    }
-                                                </div>
-                                            )}
+                                                    <div>
+                                                        <p className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                                            Turmas anteriores — Módulo {currentModuleIndex + 1}
+                                                        </p>
+                                                        {previousClassStudentsForModule
+                                                            .filter(u => !searchQuery || u.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+                                                            .map(u => (
+                                                                <button
+                                                                    key={u.id}
+                                                                    type="button"
+                                                                    onClick={() => handleAddRepositionStudent(u.id)}
+                                                                    className="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground cursor-pointer text-left transition-colors"
+                                                                >
+                                                                    <span className="truncate">{u.name}</span>
+                                                                    <Badge variant="outline" className="ml-2 shrink-0 text-[8px] bg-blue-50 text-blue-700">TURMA ANT.</Badge>
+                                                                </button>
+                                                            ))
+                                                        }
+                                                    </div>
+                                                )}
 
                                             {/* Pendência no módulo */}
                                             {repositionSuggestions.filter(u =>
                                                 !searchQuery || u.name?.toLowerCase().includes(searchQuery.toLowerCase())
                                             ).length > 0 && (
-                                                <div>
-                                                    <p className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                                                        Pendência no Módulo {currentModuleIndex + 1}
-                                                    </p>
-                                                    {repositionSuggestions
-                                                        .filter(u => !searchQuery || u.name?.toLowerCase().includes(searchQuery.toLowerCase()))
-                                                        .map(u => (
-                                                            <button
-                                                                key={u.id}
-                                                                type="button"
-                                                                onClick={() => handleAddRepositionStudent(u.id)}
-                                                                className="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground cursor-pointer text-left transition-colors"
-                                                            >
-                                                                <span className="truncate">{u.name}</span>
-                                                                <Badge variant="outline" className="ml-2 shrink-0 text-[8px] bg-amber-50">PENDENTE</Badge>
-                                                            </button>
-                                                        ))
-                                                    }
-                                                </div>
-                                            )}
+                                                    <div>
+                                                        <p className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                                            Pendência no Módulo {currentModuleIndex + 1}
+                                                        </p>
+                                                        {repositionSuggestions
+                                                            .filter(u => !searchQuery || u.name?.toLowerCase().includes(searchQuery.toLowerCase()))
+                                                            .map(u => (
+                                                                <button
+                                                                    key={u.id}
+                                                                    type="button"
+                                                                    onClick={() => handleAddRepositionStudent(u.id)}
+                                                                    className="flex w-full items-center justify-between px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground cursor-pointer text-left transition-colors"
+                                                                >
+                                                                    <span className="truncate">{u.name}</span>
+                                                                    <Badge variant="outline" className="ml-2 shrink-0 text-[8px] bg-amber-50">PENDENTE</Badge>
+                                                                </button>
+                                                            ))
+                                                        }
+                                                    </div>
+                                                )}
 
                                             {/* Busca geral */}
                                             {searchQuery && users.filter(u =>
@@ -370,43 +375,52 @@ function PedagogicalLogPageContent() {
                                                 !previousClassStudentsForModule.find(s => s.id === u.id) &&
                                                 u.name?.toLowerCase().includes(searchQuery.toLowerCase())
                                             ).length > 0 && (
-                                                <div>
-                                                    <p className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Outros membros</p>
-                                                    {users
-                                                        .filter(u =>
-                                                            !classData.students.includes(u.id) &&
-                                                            !repositionSuggestions.find(s => s.id === u.id) &&
-                                                            !previousClassStudentsForModule.find(s => s.id === u.id) &&
-                                                            u.name?.toLowerCase().includes(searchQuery.toLowerCase())
-                                                        )
-                                                        .slice(0, 10)
-                                                        .map(u => (
-                                                            <button
-                                                                key={u.id}
-                                                                type="button"
-                                                                onClick={() => handleAddRepositionStudent(u.id)}
-                                                                className="flex w-full items-center px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground cursor-pointer text-left transition-colors"
-                                                            >
-                                                                <Plus className="mr-2 size-4 shrink-0" />
-                                                                <span className="truncate">{u.name}</span>
-                                                            </button>
-                                                        ))
-                                                    }
-                                                </div>
-                                            )}
+                                                    <div>
+                                                        <p className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-muted-foreground">Outros membros</p>
+                                                        {users
+                                                            .filter(u =>
+                                                                !classData.students.includes(u.id) &&
+                                                                !repositionSuggestions.find(s => s.id === u.id) &&
+                                                                !previousClassStudentsForModule.find(s => s.id === u.id) &&
+                                                                u.name?.toLowerCase().includes(searchQuery.toLowerCase())
+                                                            )
+                                                            .slice(0, 10)
+                                                            .map(u => (
+                                                                <button
+                                                                    key={u.id}
+                                                                    type="button"
+                                                                    onClick={() => handleAddRepositionStudent(u.id)}
+                                                                    className="flex w-full items-center px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground cursor-pointer text-left transition-colors"
+                                                                >
+                                                                    <Plus className="mr-2 size-4 shrink-0" />
+                                                                    <span className="truncate">{u.name}</span>
+                                                                </button>
+                                                            ))
+                                                        }
+                                                    </div>
+                                                )}
 
                                             {/* Vazio */}
                                             {previousClassStudentsForModule.filter(u => !searchQuery || u.name?.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 &&
-                                             repositionSuggestions.filter(u => !searchQuery || u.name?.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 &&
-                                             (!searchQuery || users.filter(u => !classData.students.includes(u.id) && u.name?.toLowerCase().includes(searchQuery.toLowerCase())).length === 0) && (
-                                                <p className="py-6 text-center text-sm text-muted-foreground">Nenhum aluno encontrado.</p>
-                                            )}
+                                                repositionSuggestions.filter(u => !searchQuery || u.name?.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 &&
+                                                (!searchQuery || users.filter(u => !classData.students.includes(u.id) && u.name?.toLowerCase().includes(searchQuery.toLowerCase())).length === 0) && (
+                                                    <p className="py-6 text-center text-sm text-muted-foreground">Nenhum aluno encontrado.</p>
+                                                )}
                                         </div>
                                     </div>
                                 </PopoverContent>
                             </Popover>
                         </CardHeader>
                         <CardContent className="space-y-6">
+                            <div className="relative">
+                                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder="Pesquisar nome do aluno..."
+                                    className="pl-10 h-10 rounded-xl"
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                />
+                            </div>
                             <ScrollArea className="h-[450px] w-full rounded-md border p-4">
                                 <div className="space-y-6">
                                     <div className="space-y-2">
@@ -452,7 +466,7 @@ function PedagogicalLogPageContent() {
                             <div className="space-y-4 pt-4 border-t">
                                 <Label className="text-[10px] uppercase font-black">Conteúdo Ministrado (Automático pela Ementa)</Label>
                                 <Textarea value={contentTaught} onChange={e => setContentTaught(e.target.value)} className="h-10 text-xs text-muted-foreground bg-muted/50" />
-                                
+
                                 <Label className="text-[10px] uppercase font-black mt-2 block">Observações da Aula</Label>
                                 <Textarea value={observations} onChange={e => setObservations(e.target.value)} placeholder="Ex: Aula de reposição para o João..." className="h-20" />
                                 <Button onClick={handleSaveLog} disabled={isSaving} className="w-full h-12 font-black shadow-lg mt-2">

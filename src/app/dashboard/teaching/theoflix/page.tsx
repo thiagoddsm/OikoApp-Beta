@@ -23,10 +23,11 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { theoflixDB, type Course, type Episode } from '@/lib/theoflix-data';
-import { Play, Info, Plus, Lock, Search, Clock, CheckCircle2, PlayCircle, Star, Heart, X, Settings, Loader2, ArrowLeft, CheckCircle, BookCheck } from 'lucide-react';
+import { Play, Info, Plus, Lock, Search, Clock, CheckCircle2, PlayCircle, Star, Heart, X, Settings, Loader2, ArrowLeft, CheckCircle, BookCheck, DatabaseZap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirebase, useCollection, useMemoFirebase, useDoc, updateDocumentNonBlocking } from '@/firebase';
 import { collection, query, doc, orderBy } from 'firebase/firestore';
@@ -70,7 +71,7 @@ declare global {
 
 function TheoFlixContent() {
   const { firestore, user } = useFirebase();
-  const { markAttendanceByTheoflix } = useVolunteering();
+  const { markAttendanceByTheoflix, classes, courses: physicalCourses } = useVolunteering();
   const { toast } = useToast();
   const { data: userData } = useDoc<any>(user ? `users/${user.uid}` : null);
   const isAdmin = userData?.hierarchy?.role === 'admin' || userData?.hierarchy?.role === 'pastor_senior';
@@ -86,9 +87,15 @@ function TheoFlixContent() {
   const [searchQuery, setSearchTerm] = useState('');
   const [myList, setMyList] = useState<string[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isManagerOpen, setManagerOpen] = useState(false);
-  const [isApiReady, setIsApiReady] = useState(false);
+  const [managerOpen, setManagerOpen] = useState(false);
   const [lessonNotes, setLessonNotes] = useState('');
+  
+  // Quiz states
+  const [isQuizOpen, setIsQuizOpen] = useState(false);
+  const [quizAnswers, setQuizAnswers] = useState<number[]>([]);
+  const [quizSubmitted, setQuizSubmitted] = useState(false);
+  const [quizScore, setQuizScore] = useState(0);
+  const { data: theoflixConfig } = useDoc<any>('config/theoflix');
 
   const playerRef = useRef<any>(null);
 
@@ -168,6 +175,7 @@ function TheoFlixContent() {
     return parts.join(' ');
   };
 
+  const [isApiReady, setIsApiReady] = useState(false);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!window.YT) {
@@ -204,6 +212,13 @@ function TheoFlixContent() {
   const handleMarkAsCompleted = () => {
     if (!user || !selectedCourse || !currentEpisode || !firestore) return;
     
+    // Check for quiz
+    if (currentEpisode.quiz?.enabled && currentEpisode.quiz.questions?.length > 0 && !quizSubmitted) {
+        setIsQuizOpen(true);
+        setQuizAnswers(new Array(currentEpisode.quiz.questions.length).fill(-1));
+        return;
+    }
+
     const episodeIndex = selectedCourse.episodes.findIndex(e => e.youtubeId === currentEpisode.youtubeId);
     const episodeKey = currentEpisode.youtubeId || currentEpisode.title.replace(/\s+/g, '_');
     
@@ -215,7 +230,28 @@ function TheoFlixContent() {
         markAttendanceByTheoflix(user.uid, selectedCourse.id, episodeIndex, lessonNotes);
     }
     setLessonNotes('');
+    setQuizSubmitted(false);
     toast({ title: "Aula Concluída! 🎉", description: "Seu progresso e anotações foram salvos com sucesso." });
+  };
+
+  const handleQuizSubmit = () => {
+      if (!currentEpisode?.quiz?.questions) return;
+      const questions = currentEpisode.quiz.questions;
+      let correct = 0;
+      questions.forEach((q, i) => {
+          if (quizAnswers[i] === q.correctIndex) correct++;
+      });
+      const score = Math.round((correct / questions.length) * 100);
+      const minScore = theoflixConfig?.quizMinScore || 70;
+
+      setQuizScore(score);
+      setQuizSubmitted(true);
+
+      if (score >= minScore) {
+          toast({ title: "Aprovado!", description: `Você acertou ${score}% do teste.` });
+      } else {
+          toast({ variant: 'destructive', title: "Tente novamente", description: `Sua nota (${score}%) foi abaixo do mínimo (${minScore}%).` });
+      }
   };
 
   const toggleMyList = (id: string) => {
@@ -237,7 +273,27 @@ function TheoFlixContent() {
     );
   }, [searchQuery, allCourses]);
 
+  const checkCourseAccess = (course: Course) => {
+    if (!course.requireEnrollment || isAdmin) return true;
+    const physicalCourseIds = physicalCourses
+        .filter(pc => pc.id === course.id || pc.linkedTheoflixId === course.id)
+        .map(pc => pc.id);
+    return classes.some(cls => 
+        physicalCourseIds.includes(cls.courseId) && 
+        cls.students?.includes(user?.uid || '')
+    );
+  };
+
   const handleCourseClick = (course: Course) => {
+    // Access check for hybrid/restricted courses
+    if (!checkCourseAccess(course)) {
+        toast({
+            variant: 'destructive',
+            title: "Acesso Restrito",
+            description: "Este curso é exclusivo para alunos matriculados na modalidade presencial."
+        });
+        return;
+    }
     setSelectedCourse(course);
     setCurrentEpisode(course.episodes[0] || null); 
     setLessonNotes('');
@@ -301,7 +357,10 @@ function TheoFlixContent() {
                 src={featuredCourse.image || 'https://picsum.photos/seed/placeholder/1200/800'} 
                 alt={featuredCourse.title} 
                 fill 
-                className="object-cover transition-transform duration-1000 group-hover:scale-110"
+                className={cn(
+                    "object-cover transition-transform duration-1000 group-hover:scale-110",
+                    !checkCourseAccess(featuredCourse) && "grayscale"
+                )}
                 priority
             />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
@@ -314,9 +373,29 @@ function TheoFlixContent() {
                     {featuredCourse.desc}
                 </p>
                 <div className="flex flex-wrap items-center gap-3 sm:gap-4 pt-2 sm:pt-4">
-                    <Button size="lg" className="h-10 sm:h-14 px-6 sm:px-10 font-black text-sm sm:text-lg" onClick={() => handleCourseClick(featuredCourse)}>
-                        <Play className="mr-2 size-4 sm:size-6 fill-current" /> Assistir
-                    </Button>
+                    {(() => {
+                        const isLocked = !checkCourseAccess(featuredCourse);
+                        return (
+                            <Button 
+                                size="lg" 
+                                className={cn(
+                                    "h-10 sm:h-14 px-6 sm:px-10 font-black text-sm sm:text-lg",
+                                    isLocked && "bg-slate-700 hover:bg-slate-700 cursor-not-allowed"
+                                )}
+                                onClick={() => handleCourseClick(featuredCourse)}
+                            >
+                                {isLocked ? (
+                                    <>
+                                        <Lock className="mr-2 size-4 sm:size-6" /> Acesso Restrito
+                                    </>
+                                ) : (
+                                    <>
+                                        <Play className="mr-2 size-4 sm:size-6 fill-current" /> Assistir
+                                    </>
+                                )}
+                            </Button>
+                        );
+                    })()}
                     <Button 
                         variant="outline" 
                         size="icon" 
@@ -350,36 +429,51 @@ function TheoFlixContent() {
                 
                 <Carousel opts={{ align: 'start' }} className="w-full">
                 <CarouselContent className="-ml-2 sm:-ml-4">
-                    {coursesForLevel.map((course) => (
-                    <CarouselItem key={course.id} className="basis-1/2 sm:basis-1/3 lg:basis-1/4 xl:basis-1/5 pl-2 sm:pl-4">
-                        <Card
-                            className="overflow-hidden cursor-pointer group transition-all duration-500 hover:scale-105 border-none shadow-xl"
-                            onClick={() => handleCourseClick(course)}
-                        >
-                        <CardContent className="p-0">
-                            <div className="relative w-full aspect-video">
-                                <Image src={course.image || 'https://picsum.photos/seed/placeholder/800/450'} alt={course.title} fill className="object-cover" />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center backdrop-blur-[2px]">
-                                    <PlayCircle className="text-white size-8 sm:size-12" />
-                                </div>
-                            </div>
-                            <div className="p-3 sm:p-5 space-y-1 sm:space-y-2 bg-card">
-                                <h3 className="text-xs sm:text-sm font-black text-slate-900 truncate uppercase tracking-tighter">
-                                    {course.title}
-                                </h3>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[8px] sm:text-[10px] font-bold text-muted-foreground uppercase">
-                                        <Clock className="size-2.5 sm:size-3 inline mr-1" /> {getCourseTotalDuration(course)}
-                                    </span>
-                                    <Badge variant="secondary" className="text-[7px] sm:text-[9px] h-3 sm:h-4 px-1 font-black">
-                                        {course.type}
-                                    </Badge>
-                                </div>
-                            </div>
-                        </CardContent>
-                        </Card>
-                    </CarouselItem>
-                    ))}
+                    {coursesForLevel.map((course) => {
+                        const isLocked = !checkCourseAccess(course);
+                        return (
+                            <CarouselItem key={course.id} className="basis-1/2 sm:basis-1/3 lg:basis-1/4 xl:basis-1/5 pl-2 sm:pl-4">
+                                <Card
+                                    className={cn(
+                                        "overflow-hidden cursor-pointer group transition-all duration-500 border-none shadow-xl",
+                                        isLocked ? "opacity-75 grayscale cursor-not-allowed" : "hover:scale-105"
+                                    )}
+                                    onClick={() => handleCourseClick(course)}
+                                >
+                                <CardContent className="p-0">
+                                    <div className="relative w-full aspect-video">
+                                        <Image src={course.image || 'https://picsum.photos/seed/placeholder/800/450'} alt={course.title} fill className="object-cover" />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center backdrop-blur-[2px]">
+                                            {isLocked ? (
+                                                <Lock className="text-white size-8 sm:size-12" />
+                                            ) : (
+                                                <PlayCircle className="text-white size-8 sm:size-12" />
+                                            )}
+                                        </div>
+                                        {isLocked && (
+                                            <div className="absolute top-2 right-2 bg-black/60 backdrop-blur-md p-1.5 rounded-full text-white">
+                                                <Lock className="size-3" />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="p-3 sm:p-5 space-y-1 sm:space-y-2 bg-card">
+                                        <h3 className="text-xs sm:text-sm font-black text-slate-900 truncate uppercase tracking-tighter">
+                                            {course.title}
+                                        </h3>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[8px] sm:text-[10px] font-bold text-muted-foreground uppercase">
+                                                <Clock className="size-2.5 sm:size-3 inline mr-1" /> {getCourseTotalDuration(course)}
+                                            </span>
+                                            <Badge variant="secondary" className="text-[7px] sm:text-[9px] h-3 sm:h-4 px-1 font-black">
+                                                {isLocked ? 'BLOQUEADO' : course.type}
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                                </Card>
+                            </CarouselItem>
+                        );
+                    })}
                 </CarouselContent>
                 <div className="hidden md:block">
                     <CarouselPrevious className="absolute -left-12 top-1/2 -translate-y-1/2" />
@@ -513,11 +607,110 @@ function TheoFlixContent() {
       </Dialog>
 
       <TheoflixManager 
-        open={isManagerOpen}
-        onOpenChange={setManagerOpen}
+        open={managerOpen} 
+        onOpenChange={setManagerOpen} 
         existingCourses={allCourses}
         existingLevels={levels}
       />
+
+      <Dialog open={isQuizOpen} onOpenChange={setIsQuizOpen}>
+          <DialogContent className="max-w-xl w-[95vw] sm:w-full rounded-[2rem] p-0 overflow-hidden border-none shadow-2xl">
+              <div className="bg-primary p-8 text-white text-center space-y-2">
+                  <DatabaseZap className="size-12 mx-auto mb-2 opacity-50" />
+                  <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter">Avaliação de Aula</DialogTitle>
+                  <DialogDescription className="text-white/70 text-xs">Responda as questões abaixo para validar seu conhecimento.</DialogDescription>
+              </div>
+
+              <ScrollArea className="max-h-[60vh] p-6">
+                  <div className="space-y-8 pb-4">
+                      {currentEpisode?.quiz?.questions?.map((q, idx) => (
+                          <div key={idx} className="space-y-4">
+                              <h4 className="font-bold text-slate-800 flex gap-3">
+                                  <span className="size-6 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center shrink-0">{idx + 1}</span>
+                                  {q.question}
+                              </h4>
+                              <div className="grid grid-cols-1 gap-2 pl-9">
+                                  {q.options.map((opt, optIdx) => (
+                                      <button
+                                          key={optIdx}
+                                          disabled={quizSubmitted}
+                                          onClick={() => {
+                                              const n = [...quizAnswers];
+                                              n[idx] = optIdx;
+                                              setQuizAnswers(n);
+                                          }}
+                                          className={cn(
+                                              "p-3 rounded-xl border-2 text-left text-sm transition-all font-medium",
+                                              quizAnswers[idx] === optIdx 
+                                                ? "border-primary bg-primary/5 text-primary" 
+                                                : "border-slate-100 hover:border-slate-200 text-slate-600",
+                                              quizSubmitted && optIdx === q.correctIndex && "bg-emerald-50 border-emerald-500 text-emerald-700",
+                                              quizSubmitted && quizAnswers[idx] === optIdx && optIdx !== q.correctIndex && "bg-rose-50 border-rose-500 text-rose-700"
+                                          )}
+                                      >
+                                          {opt}
+                                      </button>
+                                  ))}
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              </ScrollArea>
+
+              <div className="p-6 bg-slate-50 border-t flex flex-col gap-3">
+                  {!quizSubmitted ? (
+                      <Button 
+                          onClick={handleQuizSubmit} 
+                          disabled={quizAnswers.includes(-1)}
+                          className="w-full h-14 rounded-2xl font-black text-base uppercase tracking-widest"
+                      >
+                          Finalizar Teste
+                      </Button>
+                  ) : (
+                      <div className="space-y-4">
+                          <div className={cn(
+                              "p-4 rounded-2xl text-center border-2",
+                              quizScore >= (theoflixConfig?.quizMinScore || 70) 
+                                ? "bg-emerald-50 border-emerald-200 text-emerald-700" 
+                                : "bg-rose-50 border-rose-200 text-rose-700"
+                          )}>
+                              <p className="text-[10px] font-black uppercase tracking-widest mb-1">Resultado Final</p>
+                              <p className="text-3xl font-black">{quizScore}% de acerto</p>
+                              <p className="text-xs font-bold mt-1">
+                                  {quizScore >= (theoflixConfig?.quizMinScore || 70) 
+                                    ? "Parabéns! Você foi aprovado." 
+                                    : `Nota mínima: ${theoflixConfig?.quizMinScore || 70}%`}
+                              </p>
+                          </div>
+                          
+                          {quizScore >= (theoflixConfig?.quizMinScore || 70) ? (
+                              <Button 
+                                  onClick={() => {
+                                      setIsQuizOpen(false);
+                                      handleMarkAsCompleted();
+                                  }}
+                                  className="w-full h-14 rounded-2xl font-black text-base uppercase tracking-widest bg-emerald-600 hover:bg-emerald-700"
+                              >
+                                  Concluir e Salvar
+                              </Button>
+                          ) : (
+                              <Button 
+                                  onClick={() => {
+                                      setQuizSubmitted(false);
+                                      setQuizAnswers(new Array(currentEpisode?.quiz?.questions?.length || 0).fill(-1));
+                                  }}
+                                  variant="outline"
+                                  className="w-full h-14 rounded-2xl font-black text-base uppercase tracking-widest"
+                              >
+                                  Tentar Novamente
+                              </Button>
+                          )}
+                      </div>
+                  )}
+                  <Button variant="ghost" onClick={() => setIsQuizOpen(false)} className="text-xs font-bold text-muted-foreground uppercase">Responder depois</Button>
+              </div>
+          </DialogContent>
+      </Dialog>
     </div>
   );
 }

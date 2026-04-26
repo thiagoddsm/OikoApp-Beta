@@ -3,19 +3,16 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Calendar, Clock, DollarSign, Book, GraduationCap, CreditCard, User, MessageSquare, Loader2, PlayCircle, ExternalLink, ChevronRight } from 'lucide-react';
+import { Calendar, Clock, Book, GraduationCap, CreditCard, User, Loader2, PlayCircle, ExternalLink } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { useFirebase } from '@/firebase';
 import { useVolunteering, type Class } from '@/contexts/volunteering-context';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
 export function StudentDashboard() {
     const { user } = useFirebase();
-    const { classes, courses, users, wavePayments, disPayments, pedagogicalLogs, isLoading } = useVolunteering();
+    const { classes, courses, users, isLoading } = useVolunteering();
 
     // Turmas do aluno agrupadas por curso
     const groupedClasses = useMemo(() => {
@@ -35,26 +32,8 @@ export function StudentDashboard() {
         });
     }, [user, classes, courses]);
 
-    // Pagamentos Unificados
-    const allPayments = useMemo(() => {
-        if (!user) return [];
-        const wave = wavePayments.filter(p => p.userId === user.uid).map(p => ({...p, school: 'Wave'}));
-        const dis = disPayments.filter(p => p.userId === user.uid).map(p => ({...p, school: 'DIS'}));
-        return [...wave, ...dis].sort((a, b) => b.month.localeCompare(a.month));
-    }, [user, wavePayments, disPayments]);
-
     const courseMap = useMemo(() => new Map(courses.map(c => [c.id, c])), [courses]);
     const teacherMap = useMemo(() => new Map(users.map(u => [u.id, u])), [users]);
-
-    // Logs de aula (feedback)
-    const recentLogs = useMemo(() => {
-        if (!pedagogicalLogs || groupedClasses.length === 0) return [];
-        const studentClassIds = classes.filter(cls => cls.students?.includes(user?.uid || '')).map(c => c.id);
-        return pedagogicalLogs
-            .filter(log => studentClassIds.includes(log.classId))
-            .sort((a, b) => b.date.toMillis() - a.date.toMillis())
-            .slice(0, 3);
-    }, [pedagogicalLogs, groupedClasses, classes, user]);
 
     if (isLoading) {
         return (
@@ -149,83 +128,6 @@ export function StudentDashboard() {
                                         </div>
                                     )
                                 })}
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Feedback Recente */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-lg">
-                            <MessageSquare className="size-5 text-primary" />
-                            Feedbacks de Aula
-                        </CardTitle>
-                        <CardDescription>O que seus professores registraram recentemente.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {recentLogs.length === 0 ? (
-                            <p className="text-center py-10 text-sm text-muted-foreground border-2 border-dashed rounded-lg italic">
-                                Nenhum feedback disponível.
-                            </p>
-                        ) : (
-                            recentLogs.map(log => (
-                                <div key={log.id} className="p-4 bg-slate-50 rounded-xl border-l-4 border-primary shadow-sm">
-                                    <div className="flex justify-between items-center mb-2">
-                                        <p className="text-xs font-bold text-primary">{format(log.date.toDate(), 'dd/MM/yyyy', { locale: ptBR })}</p>
-                                        <div className="flex gap-0.5">
-                                            {[...Array(5)].map((_, i) => (
-                                                <div key={i} className={cn("size-2 rounded-full", i < log.student_performance ? "bg-yellow-400" : "bg-slate-200")} />
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <p className="text-sm font-bold text-slate-800">{log.content_taught}</p>
-                                    <p className="text-xs text-muted-foreground mt-2 italic border-t pt-2">"{log.observations}"</p>
-                                </div>
-                            ))
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Financeiro Unificado */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-lg">
-                            <DollarSign className="size-5 text-primary" />
-                            Minhas Mensalidades
-                        </CardTitle>
-                        <CardDescription>Acompanhamento de pagamentos Wave e DIS.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {allPayments.length === 0 ? (
-                            <p className="text-center py-10 text-sm text-muted-foreground border-2 border-dashed rounded-lg">
-                                Nenhum registro financeiro encontrado.
-                            </p>
-                        ) : (
-                            <div className="rounded-lg border overflow-hidden">
-                                <Table>
-                                    <TableBody>
-                                        {allPayments.map(p => (
-                                            <TableRow key={p.id}>
-                                                <TableCell>
-                                                    <p className="text-sm font-bold">{p.month}</p>
-                                                    <p className="text-[10px] text-muted-foreground uppercase">{p.school}</p>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <p className="text-sm font-medium">R$ {p.amount.toFixed(2).replace('.', ',')}</p>
-                                                    <Badge 
-                                                        variant={p.status === 'paid' ? 'default' : p.status === 'overdue' ? 'destructive' : 'outline'}
-                                                        className="mt-1 h-5 text-[9px] uppercase font-black"
-                                                    >
-                                                        {p.status === 'paid' ? 'Pago' : p.status === 'overdue' ? 'Atrasado' : 'Pendente'}
-                                                    </Badge>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
                             </div>
                         )}
                     </CardContent>

@@ -14,6 +14,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import { userRoles } from '@/lib/roles';
+import { StudentDashboard } from '@/components/teaching/student-dashboard';
+import { VolunteeringProvider } from '@/contexts/volunteering-context';
 
 // --- TIPOS ---
 type User = { id: string; name: string; avatar?: string; integrationStatus?: string; absenceCount?: number; };
@@ -151,17 +153,24 @@ const TrainingCard = () => (
 export default function DashboardPage() {
     const { firestore, user } = useFirebase();
     
-    const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
-    const registrosPresencaQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'registros_de_presenca')) : null, [firestore]);
+    const { data: userData, isLoading: loadingRole } = useDoc<{ hierarchy?: { role?: string }; }>(user ? `users/${user.uid}`: null);
+    const userRole = userData?.hierarchy?.role;
+    const isAdmin = userRole === 'admin' || userRole === 'pastor_senior';
+    const userRoleLabel = userRole ? userRoles[userRole] : 'Membro';
+
+    // Carrega o perfil de acesso para verificar permissão de área do aluno
+    const { data: accessProfile, isLoading: loadingProfile } = useDoc<{ permissions?: Record<string, Record<string, boolean>> }>(
+        userRole && !isAdmin ? `access_profiles/${userRole}` : null
+    );
+    const hasStudentArea = isAdmin || !!accessProfile?.permissions?.['teaching_courses']?.['view_student_area'];
+
+    const usersQuery = useMemoFirebase(() => (firestore && isAdmin) ? query(collection(firestore, 'users')) : null, [firestore, isAdmin]);
+    const registrosPresencaQuery = useMemoFirebase(() => (firestore && isAdmin) ? query(collection(firestore, 'registros_de_presenca')) : null, [firestore, isAdmin]);
 
     const { data: users, isLoading: loadingUsers } = useCollection<User>(usersQuery);
     const { data: allRegistrosPresenca, isLoading: loadingRegistros } = useCollection<CultoRegistro>(registrosPresencaQuery);
 
-    const { data: userData } = useDoc<{ hierarchy?: { role?: string }; }>(user ? `users/${user.uid}`: null);
-    const userRole = userData?.hierarchy?.role;
-    const userRoleLabel = userRole ? userRoles[userRole] : 'Membro';
-
-    const isLoading = loadingUsers || loadingRegistros;
+    const isLoading = loadingRole || loadingProfile || (isAdmin && (loadingUsers || loadingRegistros));
 
     const kpiData = useMemo(() => {
         const totalMembers = 1284;
@@ -188,12 +197,37 @@ export default function DashboardPage() {
         );
     }
 
+    if (!isAdmin) {
+        if (!hasStudentArea) {
+            return (
+                <div className="flex h-[calc(100vh-12rem)] items-center justify-center">
+                    <div className="text-center space-y-2">
+                        <GraduationCap className="mx-auto size-12 text-slate-300" />
+                        <h2 className="text-lg font-semibold text-slate-600">Área não disponível</h2>
+                        <p className="text-sm text-slate-400">Seu perfil de acesso não inclui a área do aluno.</p>
+                    </div>
+                </div>
+            );
+        }
+        return (
+            <VolunteeringProvider>
+                <div className="space-y-8">
+                    <header>
+                        <h1 className="text-3xl font-bold text-slate-800 italic uppercase tracking-tighter">Meu Painel</h1>
+                        <p className="text-slate-500 text-sm">Bem-vindo à sua jornada ministerial, {userName}.</p>
+                    </header>
+                    <StudentDashboard />
+                </div>
+            </VolunteeringProvider>
+        );
+    }
+
     return (
        <div className="space-y-8">
             <header className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-800">Bom dia, {userName}!</h1>
-                    <p className="text-slate-500">Aqui está o que está acontecendo hoje.</p>
+                    <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Bom dia, {userName}!</h1>
+                    <p className="text-slate-500 text-sm">Visão geral do sistema e indicadores principais.</p>
                 </div>
             </header>
 
