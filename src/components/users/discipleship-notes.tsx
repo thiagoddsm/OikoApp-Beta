@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, HelpCircle, CheckCircle, Send, GraduationCap, PlusCircle, ShieldCheck, UserCheck, AlertTriangle } from 'lucide-react';
+import { Loader2, HelpCircle, CheckCircle, Send, GraduationCap, PlusCircle, ShieldCheck, UserCheck, AlertTriangle, ClipboardList } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '../ui/checkbox';
 import { Label } from '../ui/label';
@@ -28,9 +28,16 @@ type DiscipleshipChecklist = {
     id: string;
     title: string;
     questions: ChecklistQuestion[];
+    linkedStageId?: string;
+};
+
+type JourneyPhaseRequirement = {
+    id: string;
     requiredCourseId?: string;
     requiresDisciplerApproval?: boolean;
     requiresSupervisorApproval?: boolean;
+    requiresBaptism?: boolean;
+    requiresActiveService?: boolean;
 };
 
 export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { memberId: string, memberName: string, currentStatusId: string }) {
@@ -43,7 +50,10 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
     const memberData = useMemo(() => users.find(u => u.id === memberId), [users, memberId]);
     
     const checklistsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'discipleship_checklists')) : null, [firestore]);
-    const { data: dbChecklists, isLoading: isLoadingChecklists } = useCollection<DiscipleshipChecklist>(checklistsQuery);
+    const { data: checklists, isLoading: isLoadingChecklists } = useCollection<DiscipleshipChecklist>(checklistsQuery);
+
+    const requirementsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'journey_phase_requirements')) : null, [firestore]);
+    const { data: requirements, isLoading: isLoadingRequirements } = useCollection<JourneyPhaseRequirement>(requirementsQuery);
     
     const stageProgress = memberData?.journey?.stageProgress || {};
 
@@ -104,41 +114,56 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         });
     }, [classes, courses, memberId, memberData]);
 
-    const finalChecklists = useMemo(() => {
-        if (dbChecklists && dbChecklists.length > 0) {
-            return [...dbChecklists].sort((a, b) => {
-                const indexA = journeyColumns.findIndex(col => col.id === a.id);
-                const indexB = journeyColumns.findIndex(col => col.id === b.id);
-                return indexA - indexB;
-            });
-        }
-        return journeyColumns.map(col => ({
-            id: col.id,
-            title: col.title,
-            questions: [],
-        } as DiscipleshipChecklist));
-    }, [dbChecklists]);
+    const activeChecklists = useMemo(() => {
+        if (!checklists) return [];
+        // Show checklists linked to current stage OR general ones
+        return checklists.filter(c => !c.linkedStageId || c.linkedStageId === currentStatusId || c.linkedStageId === 'none');
+    }, [checklists, currentStatusId]);
+
+    const currentRequirements = useMemo(() => {
+        const nextIndex = journeyColumns.findIndex(col => col.id === currentStatusId) + 1;
+        if (nextIndex >= journeyColumns.length) return null;
+        const nextStageId = journeyColumns[nextIndex].id;
+        return requirements?.find(r => r.id === nextStageId) || null;
+    }, [requirements, currentStatusId]);
 
     const validateTransition = (targetStageId: string): { valid: boolean; message?: string } => {
         if (!memberData) return { valid: false };
 
         const currentStageId = memberData.integrationStatus || 'nao_alcancado';
+        const reqs = requirements?.find(r => r.id === targetStageId);
         
+        // 1. Hardcoded Rules (Maintenance)
         if (targetStageId === 'novo_convertido' && currentStageId === 'nao_alcancado') {
             const hasDecision = memberData.decisao?.includes('Decisão por Cristo') || memberData.initialStatus === 'novo_convertido';
             if (!hasDecision) return { valid: false, message: "Este membro precisa registrar uma 'Decisão por Cristo' antes de se tornar Novo Convertido." };
         }
 
-        if (targetStageId === 'membro') {
-            const progress = memberData.journey?.memberCourseProgress || {};
-            const mandatoryModules = ['module1', 'module2', 'module3', 'module4'];
-            const completedMandatory = mandatoryModules.every(m => progress[m]);
-            
-            if (!completedMandatory) return { valid: false, message: "O membro precisa concluir os 4 primeiros módulos do Curso Pertencer (Membros) primeiro." };
+        // 2. Technical Validation: Baptism
+        if (reqs?.requiresBaptism && memberData.batizado !== 'sim') {
+            return { valid: false, message: "O membro precisa estar Batizado para avançar para esta fase." };
+        }
 
-            if (memberData.integrationStatus === 'novo_convertido' && memberData.batizado !== 'sim') {
-                return { valid: false, message: "Novos convertidos precisam do Batismo nas águas para se tornarem membros IBM." };
+        // 3. Technical Validation: Service
+        if (reqs?.requiresActiveService && memberData.serviceStatus !== 'serving') {
+            return { valid: false, message: "O membro precisa estar em Serviço Ativo para avançar para esta fase." };
+        }
+
+        // 4. Technical Validation: Courses
+        if (reqs?.requiredCourseId) {
+            const courseStatus = myCoursesStatus.find(c => c.id === reqs.requiredCourseId);
+            if (!courseStatus?.isCompleted) {
+                return { valid: false, message: `Necessário concluir o curso: ${courseStatus?.name || reqs.requiredCourseId}` };
             }
+        }
+
+        // 5. Human Validation: Approvals
+        const progress = stageProgress[targetStageId] || { approvals: {} };
+        if (reqs?.requiresDisciplerApproval && !progress.approvals?.discipler?.approved) {
+            return { valid: false, message: "Exige aprovação manual do Discipulador." };
+        }
+        if (reqs?.requiresSupervisorApproval && !progress.approvals?.supervisor?.approved) {
+            return { valid: false, message: "Exige aprovação manual do Supervisor." };
         }
 
         return { valid: true };
@@ -204,7 +229,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         }, 800);
     };
 
-    if (isLoadingChecklists) {
+    if (isLoadingChecklists || isLoadingRequirements) {
       return (
         <div className="flex items-center justify-center p-8 h-64">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -260,155 +285,219 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         </Card>
 
         <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><UserCheck className="size-5 text-primary" /> Validação Humana & Discipulado</CardTitle>
-                <CardDescription>Acompanhamento prático e validação ministerial do líder.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                 <Tabs defaultValue={currentStatusId || 'nao_alcancado'} className="w-full">
-                    <div className="overflow-x-auto pb-2">
-                        <TabsList className="flex h-auto justify-start bg-muted/50 p-1 mb-6 min-w-max border">
-                            {finalChecklists.map(checklist => (
-                                <TabsTrigger 
-                                    key={checklist.id} 
-                                    value={checklist.id}
-                                    className="data-[state=active]:bg-white whitespace-nowrap"
-                                >
-                                    {checklist.title}
-                                </TabsTrigger>
-                            ))}
-                        </TabsList>
+            <CardHeader className="border-b bg-slate-50/50">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <CardTitle className="flex items-center gap-2"><UserCheck className="size-5 text-primary" /> Progressão da Jornada</CardTitle>
+                        <CardDescription>Critérios oficiais para avanço de fase.</CardDescription>
                     </div>
-                    {finalChecklists.map(checklist => {
-                        const progress = stageProgress[checklist.id] || { answers: {}, approvals: {} };
-                        const validation = validateTransition(journeyColumns[journeyColumns.findIndex(c => c.id === checklist.id) + 1]?.id);
+                    <Badge variant="outline" className="font-black uppercase text-[10px] bg-primary/5 text-primary border-primary/20">
+                        Status Atual: {journeyColumns.find(c => c.id === currentStatusId)?.title || currentStatusId}
+                    </Badge>
+                </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div className="space-y-6">
+                        <div className="flex items-center justify-between">
+                            <h4 className="text-xs font-black uppercase text-muted-foreground tracking-widest">Trava de Segurança</h4>
+                            <Badge variant="secondary" className="text-[9px] font-bold">Automação IBM</Badge>
+                        </div>
+                        
+                        {!currentRequirements ? (
+                            <div className="p-8 border-2 border-dashed rounded-xl text-center text-muted-foreground text-sm">
+                                Jornada completa ou sem requisitos configurados para o próximo nível.
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {currentRequirements.requiresBaptism && (
+                                    <div className={cn("p-3 rounded-xl border flex items-center justify-between transition-all", memberData?.batizado === 'sim' ? "bg-emerald-50 border-emerald-100" : "bg-red-50 border-red-100")}>
+                                        <div className="flex items-center gap-3">
+                                            <div className={cn("p-1.5 rounded-lg", memberData?.batizado === 'sim' ? "bg-emerald-500 text-white" : "bg-red-500 text-white")}>
+                                                <span className="text-xs">💧</span>
+                                            </div>
+                                            <span className={cn("text-xs font-bold", memberData?.batizado === 'sim' ? "text-emerald-900" : "text-red-900")}>Batismo</span>
+                                        </div>
+                                        <Badge className={cn("text-[9px] font-black", memberData?.batizado === 'sim' ? "bg-emerald-500 hover:bg-emerald-600" : "bg-red-500 hover:bg-red-600")}>
+                                            {memberData?.batizado === 'sim' ? 'OK' : 'PENDENTE'}
+                                        </Badge>
+                                    </div>
+                                )}
 
-                        return (
-                        <TabsContent key={checklist.id} value={checklist.id} className="mt-0 space-y-8 animate-in fade-in-50">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                <div className="space-y-4">
-                                    <h4 className="text-xs font-black uppercase text-muted-foreground tracking-widest mb-4">Checklist da Etapa</h4>
-                                    {checklist.questions.length > 0 ? (
-                                        checklist.questions.map(q => {
-                                            const answer = progress.answers[q.id];
-                                            const label = q.label.replace('[nome]', memberName);
+                                {currentRequirements.requiresActiveService && (
+                                    <div className={cn("p-3 rounded-xl border flex items-center justify-between transition-all", memberData?.serviceStatus === 'serving' ? "bg-emerald-50 border-emerald-100" : "bg-red-50 border-red-100")}>
+                                        <div className="flex items-center gap-3">
+                                            <div className={cn("p-1.5 rounded-lg", memberData?.serviceStatus === 'serving' ? "bg-emerald-500 text-white" : "bg-red-500 text-white")}>
+                                                <span className="text-xs">🛠️</span>
+                                            </div>
+                                            <span className={cn("text-xs font-bold", memberData?.serviceStatus === 'serving' ? "text-emerald-900" : "text-red-900")}>Serviço Ativo</span>
+                                        </div>
+                                        <Badge className={cn("text-[9px] font-black", memberData?.serviceStatus === 'serving' ? "bg-emerald-500 hover:bg-emerald-600" : "bg-red-500 hover:bg-red-600")}>
+                                            {memberData?.serviceStatus === 'serving' ? 'OK' : 'PENDENTE'}
+                                        </Badge>
+                                    </div>
+                                )}
 
-                                            return (
-                                                <div key={q.id} className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex items-start gap-3">
-                                                    {q.type === 'checkbox' ? (
-                                                        <Checkbox
-                                                            id={`${checklist.id}-${q.id}`}
-                                                            checked={!!answer}
-                                                            onCheckedChange={(checked) => handleAnswerChange(checklist.id, q.id, !!checked)}
-                                                            className="mt-0.5"
-                                                        />
-                                                    ) : null}
-                                                    <div className="flex-1 space-y-1.5">
-                                                        <Label htmlFor={`${checklist.id}-${q.id}`} className="font-bold text-sm cursor-pointer">{label}</Label>
-                                                        {q.type !== 'checkbox' && (
-                                                            <Input
-                                                                id={`${checklist.id}-${q.id}`}
-                                                                type={q.type === 'date' ? 'date' : 'text'}
-                                                                value={typeof answer === 'string' ? answer : ''}
-                                                                onChange={(e) => handleAnswerChange(checklist.id, q.id, e.target.value)}
-                                                                className="h-8 text-xs bg-white"
+                                {currentRequirements.requiredCourseId && (
+                                    <div className={cn("p-3 rounded-xl border flex items-center justify-between transition-all", myCoursesStatus.find(c => c.id === currentRequirements.requiredCourseId)?.isCompleted ? "bg-emerald-50 border-emerald-100" : "bg-red-50 border-red-100")}>
+                                        <div className="flex items-center gap-3">
+                                            <div className={cn("p-1.5 rounded-lg", myCoursesStatus.find(c => c.id === currentRequirements.requiredCourseId)?.isCompleted ? "bg-emerald-500 text-white" : "bg-red-500 text-white")}>
+                                                <span className="text-xs">📚</span>
+                                            </div>
+                                            <span className={cn("text-xs font-bold", myCoursesStatus.find(c => c.id === currentRequirements.requiredCourseId)?.isCompleted ? "text-emerald-900" : "text-red-900")}>
+                                                {courses.find(c => c.id === currentRequirements.requiredCourseId)?.name || 'Curso'}
+                                            </span>
+                                        </div>
+                                        <Badge className={cn("text-[9px] font-black", myCoursesStatus.find(c => c.id === currentRequirements.requiredCourseId)?.isCompleted ? "bg-emerald-500 hover:bg-emerald-600" : "bg-red-500 hover:bg-red-600")}>
+                                            {myCoursesStatus.find(c => c.id === currentRequirements.requiredCourseId)?.isCompleted ? 'OK' : 'PENDENTE'}
+                                        </Badge>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="space-y-6">
+                        <h4 className="text-xs font-black uppercase text-muted-foreground tracking-widest">Validação Humana</h4>
+                        
+                        {!currentRequirements ? (
+                            <div className="p-8 border-2 border-dashed rounded-xl text-center text-muted-foreground text-sm">
+                                Nível concluído.
+                            </div>
+                        ) : (
+                            (() => {
+                                const techValid = (!currentRequirements.requiresBaptism || memberData?.batizado === 'sim') &&
+                                                 (!currentRequirements.requiresActiveService || memberData?.serviceStatus === 'serving');
+                                
+                                return (
+                                    <div className="space-y-4">
+                                        {!techValid ? (
+                                            <div className="p-6 bg-amber-50 border border-amber-100 rounded-xl flex flex-col items-center justify-center text-center">
+                                                <AlertTriangle className="text-amber-500 mb-2" />
+                                                <p className="text-xs font-bold text-amber-900">Sondagem de Caráter Bloqueada</p>
+                                                <p className="text-[10px] text-amber-800/70">Valide os requisitos de Batismo e Serviço primeiro.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-4">
+                                                {currentRequirements.requiresDisciplerApproval && (
+                                                    <div className={cn("p-4 rounded-xl border-2 transition-all", (stageProgress[journeyColumns[journeyColumns.findIndex(c => c.id === currentStatusId) + 1]?.id]?.approvals?.discipler?.approved) ? "bg-emerald-50 border-emerald-500" : "bg-slate-50 border-slate-200")}>
+                                                        <div className="flex items-center justify-between mb-3">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className={cn("p-1.5 rounded-lg", (stageProgress[journeyColumns[journeyColumns.findIndex(c => c.id === currentStatusId) + 1]?.id]?.approvals?.discipler?.approved) ? "bg-emerald-500 text-white" : "bg-slate-300 text-slate-500")}>
+                                                                    <ShieldCheck size={16} />
+                                                                </div>
+                                                                <Label className="font-black text-xs uppercase">Discipulador</Label>
+                                                            </div>
+                                                            <Checkbox
+                                                                checked={stageProgress[journeyColumns[journeyColumns.findIndex(c => c.id === currentStatusId) + 1]?.id]?.approvals?.discipler?.approved || false}
+                                                                onCheckedChange={(v) => handleApprovalChange(journeyColumns[journeyColumns.findIndex(c => c.id === currentStatusId) + 1]?.id, 'discipler', 'approved', !!v)}
                                                             />
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })
-                                    ) : (
-                                        <div className="p-8 border-2 border-dashed rounded-xl text-center text-muted-foreground text-sm">
-                                            Nenhum checklist configurado para esta fase.
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="space-y-6">
-                                    <h4 className="text-xs font-black uppercase text-muted-foreground tracking-widest mb-4">Aprovações de Líderes</h4>
-                                    
-                                    {(checklist.requiresDisciplerApproval || checklist.requiresSupervisorApproval) ? (
-                                        <div className="space-y-4">
-                                            {checklist.requiresDisciplerApproval && (
-                                                <div className={cn("p-4 rounded-xl border-2 transition-all", progress.approvals?.discipler?.approved ? "bg-emerald-50 border-emerald-500" : "bg-slate-50 border-slate-200")}>
-                                                    <div className="flex items-center justify-between mb-3">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className={cn("p-1.5 rounded-lg", progress.approvals?.discipler?.approved ? "bg-emerald-500 text-white" : "bg-slate-300 text-slate-500")}>
-                                                                <ShieldCheck size={16} />
-                                                            </div>
-                                                            <Label className="font-black text-xs uppercase">Discipulador</Label>
                                                         </div>
-                                                        <Checkbox
-                                                            checked={progress.approvals?.discipler?.approved || false}
-                                                            onCheckedChange={(v) => handleApprovalChange(checklist.id, 'discipler', 'approved', !!v)}
+                                                        <Textarea
+                                                            placeholder="Notas de validação..."
+                                                            className="text-xs bg-white min-h-[60px]"
+                                                            value={stageProgress[journeyColumns[journeyColumns.findIndex(c => c.id === currentStatusId) + 1]?.id]?.approvals?.discipler?.notes || ''}
+                                                            onChange={(e) => handleApprovalChange(journeyColumns[journeyColumns.findIndex(c => c.id === currentStatusId) + 1]?.id, 'discipler', 'notes', e.target.value)}
                                                         />
                                                     </div>
-                                                    <Textarea
-                                                        placeholder="Notas do discipulador..."
-                                                        className="text-xs bg-white min-h-[60px]"
-                                                        value={progress.approvals?.discipler?.notes || ''}
-                                                        onChange={(e) => handleApprovalChange(checklist.id, 'discipler', 'notes', e.target.value)}
-                                                    />
-                                                </div>
-                                            )}
+                                                )}
 
-                                            {checklist.requiresSupervisorApproval && (
-                                                <div className={cn("p-4 rounded-xl border-2 transition-all", progress.approvals?.supervisor?.approved ? "bg-indigo-50 border-indigo-500" : "bg-slate-50 border-slate-200")}>
-                                                    <div className="flex items-center justify-between mb-3">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className={cn("p-1.5 rounded-lg", progress.approvals?.supervisor?.approved ? "bg-indigo-500 text-white" : "bg-slate-300 text-slate-500")}>
-                                                                <ShieldCheck size={16} />
+                                                {currentRequirements.requiresSupervisorApproval && (
+                                                    <div className={cn("p-4 rounded-xl border-2 transition-all", (stageProgress[journeyColumns[journeyColumns.findIndex(c => c.id === currentStatusId) + 1]?.id]?.approvals?.supervisor?.approved) ? "bg-indigo-50 border-indigo-500" : "bg-slate-50 border-slate-200")}>
+                                                        <div className="flex items-center justify-between mb-3">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className={cn("p-1.5 rounded-lg", (stageProgress[journeyColumns[journeyColumns.findIndex(c => c.id === currentStatusId) + 1]?.id]?.approvals?.supervisor?.approved) ? "bg-indigo-500 text-white" : "bg-slate-300 text-slate-500")}>
+                                                                    <ShieldCheck size={16} />
+                                                                </div>
+                                                                <Label className="font-black text-xs uppercase">Supervisor</Label>
                                                             </div>
-                                                            <Label className="font-black text-xs uppercase">Supervisor</Label>
+                                                            <Checkbox
+                                                                checked={stageProgress[journeyColumns[journeyColumns.findIndex(c => c.id === currentStatusId) + 1]?.id]?.approvals?.supervisor?.approved || false}
+                                                                onCheckedChange={(v) => handleApprovalChange(journeyColumns[journeyColumns.findIndex(c => c.id === currentStatusId) + 1]?.id, 'supervisor', 'approved', !!v)}
+                                                            />
                                                         </div>
-                                                        <Checkbox
-                                                            checked={progress.approvals?.supervisor?.approved || false}
-                                                            onCheckedChange={(v) => handleApprovalChange(checklist.id, 'supervisor', 'approved', !!v)}
+                                                        <Textarea
+                                                            placeholder="Notas de validação..."
+                                                            className="text-xs bg-white min-h-[60px]"
+                                                            value={stageProgress[journeyColumns[journeyColumns.findIndex(c => c.id === currentStatusId) + 1]?.id]?.approvals?.supervisor?.notes || ''}
+                                                            onChange={(e) => handleApprovalChange(journeyColumns[journeyColumns.findIndex(c => c.id === currentStatusId) + 1]?.id, 'supervisor', 'notes', e.target.value)}
                                                         />
                                                     </div>
-                                                    <Textarea
-                                                        placeholder="Observações do supervisor..."
-                                                        className="text-xs bg-white min-h-[60px]"
-                                                        value={progress.approvals?.supervisor?.notes || ''}
-                                                        onChange={(e) => handleApprovalChange(checklist.id, 'supervisor', 'notes', e.target.value)}
-                                                    />
-                                                </div>
-                                            )}
+                                                )}
+                                            </div>
+                                        )}
+                                        
+                                        <div className="p-6 bg-slate-50 rounded-xl border-2 border-dashed flex flex-col items-center justify-center text-center space-y-4 mt-6">
+                                            <div className="size-12 rounded-full bg-white border shadow-sm flex items-center justify-center">
+                                                <CheckCircle className={cn("size-6", validateTransition(journeyColumns[journeyColumns.findIndex(c => c.id === currentStatusId) + 1]?.id).valid ? "text-emerald-500" : "text-slate-300")} />
+                                            </div>
+                                            <Button 
+                                                onClick={() => handleCompleteStage(currentStatusId)} 
+                                                disabled={!validateTransition(journeyColumns[journeyColumns.findIndex(c => c.id === currentStatusId) + 1]?.id).valid}
+                                                className="w-full font-bold shadow-lg shadow-primary/20"
+                                            >
+                                                Confirmar Avanço de Fase
+                                            </Button>
                                         </div>
-                                    ) : (
-                                        <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed rounded-xl text-muted-foreground italic">
-                                            <HelpCircle className="size-8 mb-2 opacity-20" />
-                                            <p className="text-center text-xs">Validação humana não obrigatória para esta fase.</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+                                    </div>
+                                );
+                            })()
+                        )}
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
 
-                            <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t">
-                                <div className="flex flex-col gap-1 items-end">
-                                    <Button 
-                                        variant="outline" 
-                                        size="lg" 
-                                        onClick={() => handleCompleteStage(checklist.id)} 
-                                        className={cn("font-bold", !validation.valid && "opacity-50 cursor-not-allowed")}
-                                    >
-                                        <CheckCircle className="mr-2 h-4 w-4 text-emerald-600" />
-                                        Avançar Status Oficial
+
+        <Card className="border-primary/20 shadow-sm">
+            <CardHeader className="bg-primary/5 border-b">
+                <CardTitle className="flex items-center gap-2 text-primary">
+                    <ClipboardList className="size-5" /> Apoio à Integração (Checklists)
+                </CardTitle>
+                <CardDescription>Ferramentas operacionais de acompanhamento (não afetam o status oficial).</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-6">
+                <Tabs defaultValue={activeChecklists[0]?.id} className="w-full">
+                    <TabsList className="flex h-auto justify-start bg-muted/50 p-1 mb-6 min-w-max border">
+                        {activeChecklists.map(checklist => (
+                            <TabsTrigger key={checklist.id} value={checklist.id} className="font-bold">{checklist.title}</TabsTrigger>
+                        ))}
+                    </TabsList>
+                    
+                    {activeChecklists.length === 0 ? (
+                        <div className="p-12 text-center text-muted-foreground italic border-2 border-dashed rounded-xl">
+                            Nenhum checklist operacional disponível para esta fase.
+                        </div>
+                    ) : (
+                        activeChecklists.map(checklist => (
+                            <TabsContent key={checklist.id} value={checklist.id} className="space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {(checklist.questions || []).map(q => {
+                                        const answer = stageProgress[checklist.id]?.answers?.[q.id];
+                                        return (
+                                            <div key={q.id} className="p-3 bg-white rounded-lg border shadow-sm flex items-start gap-3 hover:border-primary/30 transition-colors">
+                                                <Checkbox
+                                                    id={`${checklist.id}-${q.id}`}
+                                                    checked={!!answer}
+                                                    onCheckedChange={(checked) => handleAnswerChange(checklist.id, q.id, !!checked)}
+                                                    className="mt-1"
+                                                />
+                                                <div className="flex-1 space-y-1">
+                                                    <Label htmlFor={`${checklist.id}-${q.id}`} className="font-medium text-sm cursor-pointer">{q.label.replace('[nome]', memberName)}</Label>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div className="flex justify-end pt-4 border-t">
+                                    <Button size="sm" onClick={() => handleSaveStage(checklist)} disabled={isSaving === checklist.id} className="font-bold">
+                                        {isSaving === checklist.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                                        Salvar Progresso
                                     </Button>
-                                    {!validation.valid && (
-                                        <p className="text-[10px] text-destructive flex items-center gap-1 font-bold animate-pulse">
-                                            <AlertTriangle size={10} /> Critérios pendentes para próxima fase.
-                                        </p>
-                                    )}
                                 </div>
-                                <Button size="lg" onClick={() => handleSaveStage(checklist)} disabled={isSaving === checklist.id} className="min-w-[180px] font-bold">
-                                    {isSaving === checklist.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                                    Salvar Anotações
-                                </Button>
-                            </div>
-                        </TabsContent>
-                    )})}
+                            </TabsContent>
+                        ))
+                    )}
                 </Tabs>
             </CardContent>
         </Card>

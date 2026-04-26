@@ -61,6 +61,7 @@ type User = {
   contatoPreferencia?: string[];
   contatoTurno?: string[];
   observacoes?: string;
+  tags?: string[];
 };
 
 type Cell = {
@@ -121,6 +122,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
     role: '',
     celulaId: '',
     supervisorId: '',
+    tags: '',
   });
   
   const cellsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells')) : null, [firestore]);
@@ -168,6 +170,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         contatoPreferencia: user.contatoPreferencia || [],
         contatoTurno: user.contatoTurno || [],
         observacoes: user.observacoes || '',
+        tags: (user.tags || []).join(', '),
       });
     } else {
       setFormData({
@@ -200,6 +203,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         role: '',
         celulaId: '',
         supervisorId: '',
+        tags: '',
       });
     }
   }, [user, open]);
@@ -292,6 +296,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         contatoPreferencia: formData.contatoPreferencia,
         contatoTurno: formData.contatoTurno,
         observacoes: formData.observacoes,
+        tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '') : [],
     };
 
     try {
@@ -536,6 +541,15 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                           </SelectContent>
                       </Select>
                   </div>
+              </div>
+          </section>
+
+          <section className="space-y-4 p-4 border rounded-lg">
+              <h4 className="font-semibold text-primary border-b pb-2">Tags e Categorização</h4>
+              <div className="space-y-1.5">
+                  <Label htmlFor="tags">Tags (separadas por vírgula)</Label>
+                  <Input id="tags" name="tags" value={formData.tags} onChange={handleInputChange} placeholder="Ex: Músico, Jovens, Voluntário..." />
+                  <p className="text-[10px] text-muted-foreground italic">As tags ajudam a filtrar e agrupar membros rapidamente.</p>
               </div>
           </section>
 

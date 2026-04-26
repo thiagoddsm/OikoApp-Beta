@@ -9,9 +9,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Loader2, Plus, Users, Search, Footprints } from 'lucide-react';
+import { Loader2, Plus, Users, Search, Footprints, Tag } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { EditUserDialog } from '@/components/users/edit-user-dialog';
 import { journeyColumns } from '@/components/users/journey-status-config';
@@ -22,6 +23,7 @@ type User = {
   name: string;
   avatar?: string;
   integrationStatus?: string;
+  tags?: string[];
 };
 
 
@@ -54,6 +56,16 @@ function UserCard({ user }: { user: User }) {
                         </p>
                     </div>
                 </CardContent>
+                {user.tags && user.tags.length > 0 && (
+                    <div className="px-3 pb-3 flex flex-wrap gap-1">
+                        {user.tags.slice(0, 2).map(tag => (
+                            <Badge key={tag} variant="secondary" className="text-[8px] h-4 px-1.5 font-bold bg-primary/5 text-primary border-none">
+                                {tag}
+                            </Badge>
+                        ))}
+                        {user.tags.length > 2 && <span className="text-[8px] text-muted-foreground">+{(user.tags?.length || 0) - 2}</span>}
+                    </div>
+                )}
             </Card>
         </Link>
     );
@@ -63,12 +75,20 @@ export default function JourneyPage() {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
+    const [selectedTag, setSelectedTag] = useState<string>('all');
     const [draggedOverColumn, setDraggedOverColumn] = useState<string | null>(null);
     const [isFormOpen, setIsFormOpen] = useState(false);
 
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
     const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
     
+    const availableTags = useMemo(() => {
+        if (!users) return [];
+        const tags = new Set<string>();
+        users.forEach(u => u.tags?.forEach(t => tags.add(t)));
+        return Array.from(tags).sort();
+    }, [users]);
+
     const usersByStatus = useMemo(() => {
         const initialColumns: { [key: string]: User[] } = {};
         journeyColumns.forEach(col => initialColumns[col.id] = []);
@@ -81,11 +101,14 @@ export default function JourneyPage() {
                  acc[status] = []; // Should not happen with initialization, but for safety
             }
             if ((user.name || '').toLowerCase().includes(searchTerm.toLowerCase())) {
-                acc[status].push(user);
+                const matchesTag = selectedTag === 'all' || user.tags?.includes(selectedTag);
+                if (matchesTag) {
+                    acc[status].push(user);
+                }
             }
             return acc;
         }, initialColumns);
-    }, [users, searchTerm]);
+    }, [users, searchTerm, selectedTag]);
 
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>, columnId: string) => {
       e.preventDefault();
@@ -134,6 +157,19 @@ export default function JourneyPage() {
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
+                    </div>
+                    <div className="flex items-center gap-1 bg-white p-1 rounded-lg border shadow-sm h-10 px-2">
+                        <Tag className="size-3 text-muted-foreground" />
+                        <select 
+                            className="text-xs font-bold border-none bg-transparent focus:outline-none cursor-pointer"
+                            value={selectedTag}
+                            onChange={(e) => setSelectedTag(e.target.value)}
+                        >
+                            <option value="all">Todas as Tags</option>
+                            {availableTags.map(tag => (
+                                <option key={tag} value={tag}>{tag}</option>
+                            ))}
+                        </select>
                     </div>
                     <Button size="sm" onClick={() => setIsFormOpen(true)}>
                         <Plus className="mr-2 h-4 w-4" />
