@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from '@/components/ui/button';
@@ -168,7 +169,7 @@ function WhatsappChats() {
     );
 }
 
-function WhatsappSender() {
+function WhatsappSender({ config }: { config: any }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
@@ -191,7 +192,7 @@ function WhatsappSender() {
     const filteredUsers = useMemo(() => {
         if (!users || !searchTerm) return [];
         return users.filter(u => 
-            u.name.toLowerCase().includes(searchTerm.toLowerCase()) && 
+            u.name && u.name.toLowerCase().includes(searchTerm.toLowerCase()) && 
             !selectedUserIds.includes(u.id)
         ).slice(0, 5);
     }, [users, searchTerm, selectedUserIds]);
@@ -226,6 +227,8 @@ function WhatsappSender() {
             message,
             userIds: targetAudience === 'specific_members' ? selectedUserIds : undefined,
             type: msgType,
+            serverUrl: config?.serverUrl || config?.whatsappServerUrl,
+            instanceKey: config?.instanceKey || config?.whatsappApiKey,
         };
 
         if (msgType === 'button') {
@@ -351,17 +354,43 @@ function WhatsappSender() {
                         </div>
                     </div>
                 )}
+                
+                {msgType === 'survey' && (
+                    <div className="p-4 border-2 border-dashed rounded-xl bg-blue-50/50 space-y-4 animate-in slide-in-from-top-2">
+                        <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase text-blue-800">Pergunta da Enquete</Label>
+                            <Input placeholder="Ex: Você virá ao culto hoje?" value={surveyName} onChange={e => setSurveyName(e.target.value)} className="bg-white h-11" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase text-blue-800">Opções de Resposta</Label>
+                            {surveyOptions.map((opt, idx) => (
+                                <div key={idx} className="flex gap-2">
+                                    <Input value={opt} onChange={e => {
+                                        const n = [...surveyOptions];
+                                        n[idx] = e.target.value;
+                                        setSurveyOptions(n);
+                                    }} className="bg-white h-9" />
+                                    <Button type="button" variant="ghost" size="icon" onClick={() => setSurveyOptions(surveyOptions.filter((_, i) => i !== idx))}><Trash2 size={14}/></Button>
+                                </div>
+                            ))}
+                            <Button type="button" variant="outline" size="sm" onClick={() => setSurveyOptions([...surveyOptions, ''])} className="w-full text-xs">+ Adicionar Opção</Button>
+                        </div>
+                        <p className="text-[10px] text-blue-600 italic">As respostas aparecerão na aba "Respostas" assim que os membros votarem.</p>
+                    </div>
+                )}
 
-                <div className="space-y-2">
-                    <Label>Mensagem Principal</Label>
-                    <Textarea 
-                        placeholder="Olá {{nome}}, temos um convite..." 
-                        className="min-h-[120px]" 
-                        value={message} 
-                        onChange={(e) => setMessage(e.target.value)} 
-                        required 
-                    />
-                </div>
+                {msgType !== 'survey' && msgType !== 'button' && (
+                    <div className="space-y-2">
+                        <Label>Mensagem Principal</Label>
+                        <Textarea 
+                            placeholder="Olá {{nome}}, temos um convite..." 
+                            className="min-h-[120px]" 
+                            value={message} 
+                            onChange={(e) => setMessage(e.target.value)} 
+                            required 
+                        />
+                    </div>
+                )}
 
                 <Button type="submit" disabled={isLoading} className="w-full h-12 font-black shadow-xl">
                     {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Send className="mr-2 h-5 w-5" />}
@@ -678,24 +707,34 @@ function NotificationsConfig() {
 }
 
 export default function NotificationsPage() {
+  const { data: config } = useDoc<any>('config/notifications');
+
   return (
     <div className="space-y-6">
         <Tabs defaultValue="sender" className="w-full">
-            <div className="overflow-x-auto pb-2">
-                <TabsList className="flex h-auto justify-start bg-muted/50 p-1 rounded-xl w-fit min-w-max border-2">
-                    <TabsTrigger value="sender" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Disparador</TabsTrigger>
-                    <TabsTrigger value="chats" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Conversas</TabsTrigger>
-                    <TabsTrigger value="responses" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Respostas</TabsTrigger>
-                    <TabsTrigger value="history" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Histórico</TabsTrigger>
-                    <TabsTrigger value="config" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Configuração</TabsTrigger>
-                </TabsList>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4 mb-6">
+                <div className="overflow-x-auto">
+                    <TabsList className="flex h-auto justify-start bg-muted/50 p-1 rounded-xl w-fit min-w-max border-2">
+                        <TabsTrigger value="sender" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Disparador</TabsTrigger>
+                        <TabsTrigger value="chats" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Conversas</TabsTrigger>
+                        <TabsTrigger value="responses" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Respostas</TabsTrigger>
+                        <TabsTrigger value="history" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Histórico</TabsTrigger>
+                    </TabsList>
+                </div>
+                <Link href="/dashboard/settings/notifications">
+                    <Button variant="outline" size="sm" className="font-bold gap-2">
+                        <Settings className="size-4" />
+                        Configurar Gateway
+                    </Button>
+                </Link>
             </div>
             
-            <TabsContent value="sender" className="mt-6 animate-in fade-in-50 duration-300"><WhatsappSender /></TabsContent>
-            <TabsContent value="chats" className="mt-6 animate-in fade-in-50 duration-300"><WhatsappChats /></TabsContent>
-            <TabsContent value="responses" className="mt-6 animate-in fade-in-50 duration-300"><WhatsappResponses /></TabsContent>
-            <TabsContent value="history" className="mt-6 animate-in fade-in-50 duration-300"><NotificationsHistory /></TabsContent>
-            <TabsContent value="config" className="mt-6 animate-in fade-in-50 duration-300"><NotificationsConfig /></TabsContent>
+            <TabsContent value="sender" className="mt-0 animate-in fade-in-50 duration-300">
+                <WhatsappSender config={config} />
+            </TabsContent>
+            <TabsContent value="chats" className="mt-0 animate-in fade-in-50 duration-300"><WhatsappChats /></TabsContent>
+            <TabsContent value="responses" className="mt-0 animate-in fade-in-50 duration-300"><WhatsappResponses /></TabsContent>
+            <TabsContent value="history" className="mt-0 animate-in fade-in-50 duration-300"><NotificationsHistory /></TabsContent>
         </Tabs>
     </div>
   );

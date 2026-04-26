@@ -8,6 +8,17 @@ import { Input } from '@/components/ui/input';
 import { Loader2, UserPlus, Search, BookOpen, Layers, AlertTriangle, Mail, ArrowLeft, CheckCircle, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering } from '@/contexts/volunteering-context';
+import { useDoc } from '@/firebase';
+import { sendEnrollmentMessage } from '@/app/actions/whatsapp-actions';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { PlusCircle } from 'lucide-react';
 
 interface EnrollmentDialogProps {
   open: boolean;
@@ -18,9 +29,11 @@ interface EnrollmentDialogProps {
 
 export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initialCourseId }: EnrollmentDialogProps) {
   const { users, classes, courses, enrollStudent, addUser, isLoading } = useVolunteering();
+  const { data: config } = useDoc<any>('config/notifications');
   const { toast } = useToast();
 
-  const [step, setStep] = useState<'email' | 'details'>(initialStudentId ? 'details' : 'email');
+  const [step, setStep] = useState<'search' | 'details'>(initialStudentId ? 'details' : 'search');
+  const [searchTerm, setSearchTerm] = useState('');
   const [emailInput, setEmailInput] = useState('');
   const [studentId, setStudentId] = useState(initialStudentId || '');
   const [selectedCourseId, setSelectedCourseId] = useState('');
@@ -35,7 +48,8 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
 
   useEffect(() => {
     if (open) {
-      setStep(initialStudentId ? 'details' : 'email');
+      setStep(initialStudentId ? 'details' : 'search');
+      setSearchTerm('');
       setEmailInput('');
       setStudentId(initialStudentId || '');
       setSelectedCourseId(initialCourseId || '');
@@ -94,21 +108,20 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
     return classes.filter(cls => cls.courseId === selectedCourseId);
   }, [classes, selectedCourseId, isMemberCourse]);
 
-  const handleVerifyEmail = () => {
-    if (!emailInput.trim()) return;
-    
-    const found = users.find(u => u.email?.toLowerCase() === emailInput.toLowerCase());
-    
-    if (found) {
-        setStudentId(found.id);
-        setMode('existing');
-        toast({ title: "Usuário identificado", description: `Reconhecemos o cadastro de ${found.name}.` });
-    } else {
-        setStudentId('');
-        setMode('new');
-        toast({ title: "Novo Cadastro", description: "E-mail não encontrado. Por favor, preencha os dados para continuar." });
-    }
+  const handleSelectUser = (user: any) => {
+    setStudentId(user.id);
+    setMode('existing');
+    setEmailInput(user.email || '');
     setStep('details');
+    toast({ title: "Usuário selecionado", description: `${user.name} selecionado para matrícula.` });
+  };
+
+  const handleCreateNew = (name?: string) => {
+    setStudentId('');
+    setMode('new');
+    setNewName(name || searchTerm);
+    setStep('details');
+    toast({ title: "Novo Cadastro", description: "Preencha os dados do novo aluno." });
   };
 
   const handleSave = async () => {
@@ -153,6 +166,15 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
 
         await enrollStudent(finalStudentId, selectedCourseId, isMemberCourse ? undefined : classId);
         
+        // Notificação de matrícula
+        const targetName = mode === 'new' ? newName : selectedUser?.name;
+        const targetPhone = mode === 'new' ? newPhone : selectedUser?.phone;
+        const courseName = selectedCourse?.name || 'Curso';
+
+        if (targetName && targetPhone) {
+            sendEnrollmentMessage(targetName, String(targetPhone), courseName, config);
+        }
+
         toast({ title: 'Sucesso!', description: 'Matrícula realizada com sucesso.' });
         onOpenChange(false);
     } catch (error: any) {
@@ -169,43 +191,71 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
         <DialogHeader className="p-6 border-b bg-muted/20">
           <div className="flex items-center gap-2">
             {step === 'details' && !initialStudentId && (
-                <Button variant="ghost" size="icon" className="h-6 w-6 -ml-2" onClick={() => setStep('email')}>
+                <Button variant="ghost" size="icon" className="h-6 w-6 -ml-2" onClick={() => setStep('search')}>
                     <ArrowLeft className="size-4" />
                 </Button>
             )}
             <DialogTitle className="text-xl font-black italic tracking-tighter uppercase text-primary">Realizar Matrícula</DialogTitle>
           </div>
           <DialogDescription className="text-xs font-bold uppercase text-muted-foreground tracking-widest mt-1">
-            {step === 'email' ? 'Informe o e-mail do aluno para verificar o cadastro.' : 'Confirme os dados e selecione o curso/turma.'}
+            {step === 'search' ? 'Pesquise pelo nome do aluno no sistema.' : 'Confirme os dados e selecione o curso/turma.'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {step === 'email' ? (
+          {step === 'search' ? (
             <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                <div className="space-y-2">
-                    <Label htmlFor="email-verify" className="text-[10px] uppercase font-black text-muted-foreground">E-mail do Aluno</Label>
-                    <div className="flex gap-2">
-                        <div className="relative flex-1">
-                            <Mail className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                            <Input 
-                                id="email-verify" 
-                                type="email" 
-                                placeholder="aluno@exemplo.com" 
-                                className="pl-10 h-11"
-                                value={emailInput}
-                                onChange={e => setEmailInput(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handleVerifyEmail()}
-                            />
-                        </div>
-                        <Button onClick={handleVerifyEmail} className="h-11 px-6 font-bold" disabled={!emailInput.trim() || isLoading}>
-                            {isLoading ? <Loader2 className="animate-spin size-4" /> : 'Verificar'}
-                        </Button>
+                <div className="border rounded-xl shadow-sm overflow-hidden bg-white">
+                    <div className="flex items-center border-b px-3 bg-muted/5">
+                        <Search className="mr-2 h-4 w-4 shrink-0 opacity-50 text-primary" />
+                        <input 
+                            className="flex h-12 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground" 
+                            placeholder="Digite o nome do aluno..." 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            autoFocus
+                        />
+                    </div>
+                    <div className="max-h-[300px] overflow-y-auto p-1 custom-scrollbar">
+                        {users.filter(u => u.name?.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 ? (
+                            <div className="py-10 flex flex-col items-center gap-3 text-center">
+                                <p className="text-sm text-muted-foreground">Nenhum aluno encontrado com este nome.</p>
+                                <Button size="sm" variant="outline" onClick={() => handleCreateNew()}>
+                                    <PlusCircle className="mr-2 size-4" /> Cadastrar "{searchTerm}"
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="space-y-1">
+                                <p className="text-[10px] font-black uppercase text-muted-foreground px-3 py-2 tracking-widest">Sugestões do Sistema</p>
+                                {users
+                                    .filter(u => u.name?.toLowerCase().includes(searchTerm.toLowerCase()))
+                                    .slice(0, 15)
+                                    .map(user => (
+                                    <button 
+                                        key={user.id} 
+                                        onClick={() => handleSelectUser(user)}
+                                        className="flex items-center gap-3 w-full p-3 hover:bg-primary/5 rounded-lg transition-all text-left group border border-transparent hover:border-primary/10"
+                                    >
+                                        <div className="size-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs group-hover:bg-primary group-hover:text-white transition-colors">
+                                            {user.name?.charAt(0)}
+                                        </div>
+                                        <div className="flex flex-col flex-1 overflow-hidden">
+                                            <span className="font-bold text-sm text-slate-900 group-hover:text-primary transition-colors truncate">{user.name}</span>
+                                            <span className="text-[10px] text-muted-foreground italic truncate">{user.email || 'Sem e-mail'}</span>
+                                        </div>
+                                        <ArrowLeft className="size-4 opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0 rotate-180 text-primary" />
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
-                <p className="text-xs text-muted-foreground italic">
-                    O sistema verificará automaticamente se já existe um cadastro com este e-mail.
-                </p>
+                
+                <div className="flex items-center justify-center pt-2">
+                    <Button variant="ghost" className="text-xs font-bold uppercase tracking-widest text-muted-foreground hover:text-primary" onClick={() => handleCreateNew()}>
+                        <PlusCircle className="mr-2 size-4" /> Ou cadastre um novo aluno manualmente
+                    </Button>
+                </div>
             </div>
           ) : (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">

@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useMemo } from 'react';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { format, parseISO, isBefore, addWeeks, addMonths } from 'date-fns';
+import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, HelpCircle, CheckCircle, Send, GraduationCap, PlusCircle, ShieldCheck, UserCheck, AlertTriangle, ClipboardList } from 'lucide-react';
@@ -16,7 +17,13 @@ import { Textarea } from '../ui/textarea';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { journeyColumns } from './journey-status-config';
 import { EnrollmentDialog } from '../teaching/enrollment-dialog';
+import { sendJourneyAdvanceMessage } from '@/app/actions/whatsapp-actions';
 import { Badge } from '../ui/badge';
+
+const weekDayMap: Record<string, number> = {
+    "Domingo": 0, "Segunda-feira": 1, "Terça-feira": 2, "Quarta-feira": 3,
+    "Quinta-feira": 4, "Sexta-feira": 5, "Sábado": 6
+};
 
 type ChecklistQuestion = {
     id: string;
@@ -42,6 +49,7 @@ type JourneyPhaseRequirement = {
 
 export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { memberId: string, memberName: string, currentStatusId: string }) {
     const { firestore } = useFirebase();
+    const { data: config } = useDoc<any>('config/notifications');
     const { toast } = useToast();
     const { updateVolunteer, classes, courses, users } = useVolunteering();
     const [isSaving, setIsSaving] = useState<string | null>(null);
@@ -72,16 +80,53 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
             const isMembership = course?.name.toLowerCase().includes('membro') || course?.name.toLowerCase().includes('pertencer');
             
             if (isMembership) {
-                const modulesCompleted = new Set();
+                const modulesCompleted = new Set<number>();
+                
                 courseClasses.forEach(cls => {
-                    const hasAttended = cls.attendance?.some(att => 
-                        att.presentStudentIds.includes(memberId) || 
-                        att.onlineStudentIds?.includes(memberId)
-                    );
-                    if (hasAttended && cls.weekOfMonth) modulesCompleted.add(cls.weekOfMonth);
+                    // Pre-calculate occurrences for this class to map dates to modules
+                    const occurrences: string[] = [];
+                    if (cls.startDate) {
+                        const start = parseISO(cls.startDate);
+                        const end = cls.endDate ? parseISO(cls.endDate) : addMonths(start, 2);
+                        const targetDay = cls.dayOfWeek ? weekDayMap[cls.dayOfWeek] : -1;
+                        const holidays = new Set(cls.holidayDates || []);
+                        const extras = cls.extraDates || [];
+                        
+                        let current = start;
+                        let safe = 0;
+                        if (cls.frequency && cls.frequency !== 'pontual') {
+                            while (isBefore(current, end) || format(current, 'yyyy-MM-dd') === format(end, 'yyyy-MM-dd')) {
+                                if (safe++ > 150) break;
+                                let matches = false;
+                                if (cls.frequency === 'semanal') {
+                                    matches = targetDay === -1 || current.getDay() === targetDay;
+                                } else if (cls.frequency === 'quinzenal') {
+                                    const diffWeeks = Math.floor((current.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
+                                    matches = diffWeeks % 2 === 0 && (targetDay === -1 || current.getDay() === targetDay);
+                                }
+                                const dateStr = format(current, 'yyyy-MM-dd');
+                                if (matches && !holidays.has(dateStr)) occurrences.push(dateStr);
+                                current = addWeeks(current, 1);
+                            }
+                        } else if (cls.frequency === 'pontual') {
+                            occurrences.push(cls.startDate);
+                        }
+                        const allDates = Array.from(new Set([...occurrences, ...extras])).sort();
+
+                        // Check attendance against these dates
+                        cls.attendance?.forEach(att => {
+                            const isPresent = att.presentStudentIds?.includes(memberId) || att.onlineStudentIds?.includes(memberId);
+                            if (isPresent) {
+                                const modIndex = allDates.indexOf(att.date);
+                                if (modIndex !== -1) {
+                                    modulesCompleted.add(modIndex + 1); // Module 1, 2, 3...
+                                }
+                            }
+                        });
+                    }
                 });
                 
-                const mandatoryModules = ['1', '2', '3', '4'];
+                const mandatoryModules = [1, 2, 3, 4];
                 const isCompleted = mandatoryModules.every(m => modulesCompleted.has(m));
 
                 return {
@@ -90,17 +135,28 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                     ministry: course?.ministryName || 'Ensino',
                     isCompleted,
                     attendedCount: modulesCompleted.size,
-                    totalCount: 5,
+                    totalCount: 5, // Membership is usually 5 modules
                     isModular: true
                 };
             }
 
-            const attendedCount = courseClasses.filter(cls => 
-                cls.attendance?.some(att => att.presentStudentIds.includes(memberId))
-            ).length;
+            const allAttendanceDates = new Set<string>();
+            const studentAttendedDates = new Set<string>();
+
+            courseClasses.forEach(cls => {
+                cls.attendance?.forEach(att => {
+                    allAttendanceDates.add(`${cls.id}-${att.date}`);
+                    const isPresent = att.presentStudentIds.includes(memberId) || att.onlineStudentIds?.includes(memberId);
+                    if (isPresent) {
+                        studentAttendedDates.add(`${cls.id}-${att.date}`);
+                    }
+                });
+            });
             
-            const totalClasses = courseClasses.length;
-            const isCompleted = memberData?.journey?.courseStatus?.[courseId] === 'approved' || (totalClasses > 0 && attendedCount === totalClasses);
+            const totalCount = allAttendanceDates.size || courseClasses.length;
+            const attendedCount = studentAttendedDates.size;
+            
+            const isCompleted = memberData?.journey?.courseStatus?.[courseId] === 'approved' || (totalCount > 0 && attendedCount >= totalCount);
 
             return {
                 id: courseId,
@@ -108,7 +164,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                 ministry: course?.ministryName || 'Ensino',
                 isCompleted,
                 attendedCount,
-                totalCount: totalClasses,
+                totalCount,
                 isModular: false
             };
         });
@@ -191,6 +247,12 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         }
 
         updateVolunteer(memberId, { integrationStatus: nextStage.id });
+        
+        // Notificação de avanço de jornada
+        if (memberData?.phone && memberData?.name) {
+            sendJourneyAdvanceMessage(memberData.name, String(memberData.phone), nextStage.title, config);
+        }
+
         toast({
             title: "Status Atualizado!",
             description: `${memberName} avançou para "${nextStage.title}".`,

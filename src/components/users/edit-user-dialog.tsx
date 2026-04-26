@@ -23,6 +23,7 @@ import { useCollection } from '@/firebase/firestore/use-collection';
 import { collection, query, doc, Timestamp } from 'firebase/firestore';
 import { userRoles } from '@/lib/roles';
 import { journeyColumns } from '@/components/users/journey-status-config';
+import { sendWelcomeMessage } from '@/app/actions/whatsapp-actions';
 import { Textarea } from '../ui/textarea';
 
 type User = {
@@ -89,6 +90,7 @@ interface EditUserDialogProps {
 export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps) {
   const { toast } = useToast();
   const { firestore, user: currentUser } = useFirebase();
+  const { data: config } = useDoc<any>('config/notifications');
   const [isSaving, setIsSaving] = useState(false);
   const isEditing = !!user;
   
@@ -303,16 +305,18 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         if(isEditing && user) {
             const userDocRef = doc(firestore, 'users', user.id);
             updateDocumentNonBlocking(userDocRef, dataToSave);
-            toast({
-                title: 'Sucesso!',
-                description: 'O perfil do usuário será atualizado em breve.',
-            });
         } else {
             const usersCollection = collection(firestore, 'users');
             addDocumentNonBlocking(usersCollection, {
                 ...dataToSave,
                 createdAt: Timestamp.now()
             });
+            
+            // Disparo de boas-vindas automático
+            if (formData.phone) {
+                sendWelcomeMessage(formData.name, formData.phone, config);
+            }
+
              toast({
                 title: 'Sucesso!',
                 description: 'A nova pessoa foi adicionada à jornada.',

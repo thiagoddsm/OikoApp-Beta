@@ -1,9 +1,8 @@
 
 import { NextResponse } from 'next/server';
 import { initializeFirebase } from '@/firebase';
-import { collection, addDoc, Timestamp, doc, getDoc, getDocs, setDoc } from 'firebase/firestore';
+import { collection, addDoc, Timestamp, doc, getDoc, getDocs } from 'firebase/firestore';
 
-// Rota principal da API para enviar notificações
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -13,7 +12,8 @@ export async function POST(request: Request) {
         message, 
         userIds, 
         targetNumber, 
-        // Outras propriedades específicas do tipo de mensagem (buttons, media, etc.)
+        serverUrl: bodyServerUrl,
+        instanceKey: bodyInstanceKey,
         ...rest
     } = body;
 
@@ -23,30 +23,51 @@ export async function POST(request: Request) {
 
     const { firestore } = initializeFirebase();
     
-    // 1. Buscar a chave correta do Firestore
-    const configRef = doc(firestore, 'config', 'notifications');
-    const configSnap = await getDoc(configRef);
-    
-    if (!configSnap.exists()) {
-        console.error("Erro Crítico: Documento de configuração 'config/notifications' não encontrado.");
-        return NextResponse.json({ error: "Configuração de notificação não encontrada." }, { status: 500 });
+    // 1. Buscar a chave (prioridade para o que veio no body)
+    let apiKey = bodyInstanceKey;
+    let serverUrl = bodyServerUrl;
+
+    if (!apiKey || !serverUrl) {
+        const configRef = doc(firestore, 'config', 'notifications');
+        try {
+            const configSnap = await getDoc(configRef);
+            if (configSnap.exists()) {
+                const configData = configSnap.data();
+                apiKey = apiKey || configData?.instanceKey || configData?.whatsappApiKey;
+                serverUrl = serverUrl || configData?.serverUrl || 'https://us.api-wa.me';
+            }
+        } catch (e: any) {
+            // Se falhar e não tivermos chaves no body, aí sim retornamos erro
+            if (!apiKey) {
+                return NextResponse.json({ error: `Erro de permissão ao ler configurações e chaves não fornecidas: ${e.message}` }, { status: 403 });
+            }
+        }
     }
-    
-    // *** CORREÇÃO: Usando 'whatsappApiKey' em vez de 'apiToken' ***
-    const apiKey = configSnap.data()?.whatsappApiKey;
 
     if (!apiKey) {
-        console.error("Erro de Configuração: 'whatsappApiKey' não definido em 'config/notifications'.");
         return NextResponse.json({ error: "Gateway de WhatsApp não configurado. Token da API ausente." }, { status: 400 });
     }
+
+    const baseUrl = serverUrl.replace(/\/$/, '');
 
     // 2. Montar a lista de destinatários
     const targetUsers: any[] = [];
     if (targetNumber) {
         targetUsers.push({ id: 'custom', name: 'Destinatário Teste', phone: targetNumber.replace(/\D/g, '') });
     } else if (audience === 'specific_members' && userIds && userIds.length > 0) {
-        // Lógica para buscar usuários específicos (omitida para clareza, mantida da versão anterior)
-    } else if (audience === 'all_members') { // Corrigido de 'all' para 'all_members' para corresponder ao frontend
+        // Buscar usuários específicos por ID
+        const userPromises = userIds.map(id => getDoc(doc(firestore, 'users', id)));
+        const userSnaps = await Promise.all(userPromises);
+        
+        userSnaps.forEach(snap => {
+            if (snap.exists()) {
+                const data = snap.data();
+                if (data.phone) {
+                    targetUsers.push({ id: snap.id, name: data.name || 'Membro', phone: data.phone });
+                }
+            }
+        });
+    } else if (audience === 'all_members') {
          const usersSnap = await getDocs(collection(firestore, 'users'));
          usersSnap.forEach(d => {
             const data = d.data();
@@ -59,59 +80,72 @@ export async function POST(request: Request) {
     }
 
     // 3. Iterar e enviar mensagens
+    const { getWhatsAppClient, formatWhatsAppNumber } = await import('@/lib/whatsapp');
+    const whatsapp = await getWhatsAppClient({ server: serverUrl, key: apiKey });
+
     let sentCount = 0;
     let errorCount = 0;
     const errors: string[] = [];
 
     for (const user of targetUsers) {
-        const phoneDigits = user.phone.replace(/\D/g, '');
-        const formattedPhone = phoneDigits.length <= 11 ? `55${phoneDigits}` : phoneDigits;
         const personalizedBody = (message || '').replace('{{nome}}', user.name);
+        const formattedPhone = formatWhatsAppNumber(user.phone);
+        
+        // Preparar o body específico por tipo
+        let messageBody: any = { to: formattedPhone };
 
-        const endpoint = 'message/send-text';
-        const payload = { phone: formattedPhone, message: personalizedBody, isGroup: false };
-        
-        const requestOptions = {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        };
-        
+        if (rest.type === 'button') {
+            messageBody.title = rest.headerTitle || personalizedBody;
+            messageBody.footer = rest.footer || '';
+            messageBody.buttons = rest.buttons || [];
+        } else if (rest.type === 'survey') {
+            messageBody.name = rest.surveyName || 'Enquete';
+            messageBody.options = rest.options || [];
+        } else if (rest.type === 'media' || rest.type === 'image') {
+            messageBody.caption = personalizedBody;
+            messageBody.image = rest.mediaUrl;
+        } else {
+            messageBody.text = personalizedBody;
+        }
+
         try {
-            const response = await fetch(`https://us.api-wa.me/${apiKey}/${endpoint}`, requestOptions);
-            const responseText = await response.text();
+            const response = await whatsapp.sendMessage({
+                type: rest.type || 'text',
+                body: messageBody
+            });
 
-            if (response.ok) {
+            if (response.status === 'success' || response.key || response.id) {
                 sentCount++;
             } else {
                 errorCount++;
-                const errorMessage = responseText || `HTTP ${response.status}`;
-                console.error(`Erro API WhatsApp para ${user.phone}:`, errorMessage);
-                errors.push(`Falha para ${user.name}: ${errorMessage}`);
+                errors.push(`Falha para ${user.name}: ${JSON.stringify(response)}`);
             }
         } catch (e: any) { 
-            console.error("Erro de rede ao enviar para WhatsApp:", e);
             errorCount++;
-            errors.push(`Erro de rede para ${user.name}: ${e.message}`);
+            errors.push(`Erro para ${user.name}: ${e.message}`);
         }
     }
     
     // Registrar histórico
-    await addDoc(collection(firestore, "notifications_history"), {
-        sentAt: Timestamp.now(),
-        channel: 'whatsapp',
-        message: message,
-        recipientCount: targetUsers.length,
-        successCount: sentCount,
-        errorCount: errorCount,
-        status: errorCount > 0 ? (sentCount > 0 ? 'partial' : 'failed') : 'success',
-        type: rest.type || 'text',
-    });
+    try {
+        await addDoc(collection(firestore, "notifications_history"), {
+            sentAt: Timestamp.now(),
+            channel: 'whatsapp',
+            message: message,
+            recipientCount: targetUsers.length,
+            successCount: sentCount,
+            errorCount: errorCount,
+            status: errorCount > 0 ? (sentCount > 0 ? 'partial' : 'failed') : 'success',
+            type: rest.type || 'text',
+        });
+    } catch (e) {
+        console.warn("Falha ao registrar histórico de notificação:", e);
+    }
 
     return NextResponse.json({ success: true, sentCount, errorCount, errors });
 
   } catch (error: any) {
-    console.error("API Route Critical Error:", error.message, error.stack);
+    console.error("API Route Critical Error:", error.message);
     return NextResponse.json({ error: `Erro interno no servidor: ${error.message}` }, { status: 500 });
   }
 }
