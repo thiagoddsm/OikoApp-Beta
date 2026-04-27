@@ -1,7 +1,7 @@
 
 'use client';
 import React, { useState, useMemo } from 'react';
-import { useFirebase } from '@/firebase';
+import { useFirebase, addDocumentNonBlocking } from '@/firebase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,20 +11,21 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
+import { Timestamp } from 'firebase/firestore';
 
 export type Note = {
   id: string;
   authorId: string;
   type: 'user' | 'system';
   content: string;
-  createdAt: Date;
+  createdAt: any; // Can be Date or Timestamp
 };
 
 interface FollowUpTimelineProps {
     memberId: string;
     memberName: string;
     initialNotes: Note[];
-    onNoteAdded: (notes: React.SetStateAction<Note[]>) => void;
+    onNoteAdded?: () => void; // Now just a callback for refresh if needed
 }
 
 export function FollowUpTimeline({ memberId, memberName, initialNotes, onNoteAdded }: FollowUpTimelineProps) {
@@ -33,31 +34,41 @@ export function FollowUpTimeline({ memberId, memberName, initialNotes, onNoteAdd
     const [newNote, setNewNote] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
-    const handleAddNote = () => {
+    const handleAddNote = async () => {
         if (!newNote.trim() || !currentUser) return;
         setIsSaving(true);
         
-        setTimeout(() => {
-            const newNoteData: Note = {
-                id: (initialNotes.length + 1).toString(),
+        try {
+            await addDocumentNonBlocking(`users/${memberId}/notes`, {
                 authorId: currentUser.uid,
                 type: 'user',
                 content: newNote,
-                createdAt: new Date()
-            };
-            onNoteAdded(prev => [newNoteData, ...prev]);
+                createdAt: Timestamp.now()
+            });
+
             toast({ title: "Anotação salva!" });
             setNewNote('');
+            if (onNoteAdded) onNoteAdded();
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: "Erro ao salvar", description: "Tente novamente em instantes." });
+        } finally {
             setIsSaving(false);
-        }, 1000);
+        }
     };
     
+    // Convert Timestamps to Dates if necessary
+    const processedNotes = useMemo(() => {
+        return [...initialNotes].sort((a, b) => {
+            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : (a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt));
+            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : (b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt));
+            return dateB.getTime() - dateA.getTime();
+        });
+    }, [initialNotes]);
+
     const authorMap = useMemo(() => {
-        const map = new Map([
-            ['admin', { id: 'admin', name: 'Sistema', avatar: 'avatar-6' }],
-            ['leader1', { id: 'leader1', name: 'João Pereira', avatar: 'avatar-4' }],
-            ['leader2', { id: 'leader2', name: 'Beatriz Lima', avatar: 'avatar-5' }],
-        ]);
+        const map = new Map();
+        map.set('admin', { id: 'admin', name: 'Sistema Oiko', avatar: 'avatar-6' });
         if (currentUser) {
             map.set(currentUser.uid, { id: currentUser.uid, name: currentUser.displayName || 'Você', avatar: 'avatar-1' });
         }
@@ -104,8 +115,8 @@ export function FollowUpTimeline({ memberId, memberName, initialNotes, onNoteAdd
 
                     <div className="relative pl-8">
                         <div className="absolute left-4 top-4 bottom-4 w-px bg-border -translate-x-1/2"></div>
-                        {initialNotes.length > 0 ? (
-                            initialNotes.map(note => {
+                        {processedNotes.length > 0 ? (
+                            processedNotes.map(note => {
                                 const author = authorMap.get(note.authorId);
                                 const authorAvatar = PlaceHolderImages.find(p => p.id === (author?.avatar || 'avatar-1'));
                                 return (

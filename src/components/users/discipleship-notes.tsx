@@ -65,9 +65,8 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
     
     const stageProgress = memberData?.journey?.stageProgress || {};
 
-    const [timelineNotes, setTimelineNotes] = useState<Note[]>([
-        { id: '1', authorId: 'admin', type: 'system', content: `Perfil criado na base de dados.`, createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
-    ]);
+    const notesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, `users/${memberId}/notes`)) : null, [firestore, memberId]);
+    const { data: timelineNotes, isLoading: isLoadingNotes } = useCollection<Note>(notesQuery);
 
     // Integração: Validação Técnica vinda do Contexto de Cursos
     const myCoursesStatus = useMemo(() => {
@@ -291,7 +290,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         }, 800);
     };
 
-    if (isLoadingChecklists || isLoadingRequirements) {
+    if (isLoadingChecklists || isLoadingRequirements || isLoadingNotes) {
       return (
         <div className="flex items-center justify-center p-8 h-64">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -531,9 +530,28 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                             Nenhum checklist operacional disponível para esta fase.
                         </div>
                     ) : (
-                        activeChecklists.map(checklist => (
-                            <TabsContent key={checklist.id} value={checklist.id} className="space-y-6">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        activeChecklists.map(checklist => {
+                            const questions = checklist.questions || [];
+                            const answers = stageProgress[checklist.id]?.answers || {};
+                            const completedCount = questions.filter(q => !!answers[q.id]).length;
+                            const progressPercent = questions.length > 0 ? Math.round((completedCount / questions.length) * 100) : 0;
+                            
+                            return (
+                                <TabsContent key={checklist.id} value={checklist.id} className="space-y-6">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                                            Status: {progressPercent === 100 ? 'Concluído' : 'Em andamento'}
+                                        </div>
+                                        <span className="text-xs font-black text-primary">{progressPercent}%</span>
+                                    </div>
+                                    <div className="w-full bg-slate-100 rounded-full h-2 mb-6 overflow-hidden border">
+                                        <div 
+                                            className={cn("h-full transition-all duration-500", progressPercent === 100 ? "bg-emerald-500" : "bg-primary")} 
+                                            style={{ width: `${progressPercent}%` }} 
+                                        />
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {(checklist.questions || []).map(q => {
                                         const answer = stageProgress[checklist.id]?.answers?.[q.id];
                                         return (
@@ -564,7 +582,7 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
             </CardContent>
         </Card>
 
-        <FollowUpTimeline memberId={memberId} memberName={memberName} initialNotes={timelineNotes} onNoteAdded={setTimelineNotes} />
+        <FollowUpTimeline memberId={memberId} memberName={memberName} initialNotes={timelineNotes || []} />
         
         <EnrollmentDialog 
             open={isEnrollmentOpen} 
