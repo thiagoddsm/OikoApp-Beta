@@ -575,8 +575,9 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
                                         Salvar Progresso
                                     </Button>
                                 </div>
-                            </TabsContent>
-                        ))
+                                </TabsContent>
+                            );
+                        })
                     )}
                 </Tabs>
             </CardContent>
