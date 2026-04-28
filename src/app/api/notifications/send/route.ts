@@ -1,10 +1,27 @@
 
 import { NextResponse } from 'next/server';
-import { initializeFirebase } from '@/firebase';
-import { collection, addDoc, Timestamp, doc, getDoc, getDocs } from 'firebase/firestore';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+
+export const runtime = 'nodejs';
+
+if (!getApps().length) {
+  try {
+    if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+        initializeApp({ credential: cert(serviceAccount) });
+    } else {
+        // Fallback for Vercel / Firebase Hosting Application Default Credentials
+        initializeApp();
+    }
+  } catch (e) {
+    console.error('Firebase Admin initialization error', e);
+  }
+}
 
 export async function POST(request: Request) {
   try {
+    const db = getFirestore();
     const body = await request.json();
     const { 
         channel, 
@@ -20,18 +37,15 @@ export async function POST(request: Request) {
     if (channel !== 'whatsapp') {
         return NextResponse.json({ error: "Canal de notificação inválido." }, { status: 400 });
     }
-
-    const { firestore } = initializeFirebase();
     
     // 1. Buscar a chave (prioridade para o que veio no body)
     let apiKey = bodyInstanceKey;
     let serverUrl = bodyServerUrl;
 
     if (!apiKey || !serverUrl) {
-        const configRef = doc(firestore, 'config', 'notifications');
         try {
-            const configSnap = await getDoc(configRef);
-            if (configSnap.exists()) {
+            const configSnap = await db.collection('config').doc('notifications').get();
+            if (configSnap.exists) {
                 const configData = configSnap.data();
                 apiKey = apiKey || configData?.instanceKey || configData?.whatsappApiKey;
                 serverUrl = serverUrl || configData?.serverUrl || 'https://us.api-wa.me';
@@ -56,19 +70,19 @@ export async function POST(request: Request) {
         targetUsers.push({ id: 'custom', name: 'Destinatário Teste', phone: targetNumber.replace(/\D/g, '') });
     } else if (audience === 'specific_members' && userIds && userIds.length > 0) {
         // Buscar usuários específicos por ID
-        const userPromises = userIds.map(id => getDoc(doc(firestore, 'users', id)));
+        const userPromises = userIds.map((id: string) => db.collection('users').doc(id).get());
         const userSnaps = await Promise.all(userPromises);
         
         userSnaps.forEach(snap => {
-            if (snap.exists()) {
+            if (snap.exists) {
                 const data = snap.data();
-                if (data.phone) {
+                if (data?.phone) {
                     targetUsers.push({ id: snap.id, name: data.name || 'Membro', phone: data.phone });
                 }
             }
         });
     } else if (audience === 'all_members') {
-         const usersSnap = await getDocs(collection(firestore, 'users'));
+         const usersSnap = await db.collection('users').get();
          usersSnap.forEach(d => {
             const data = d.data();
             if (data.phone) targetUsers.push({ id: d.id, name: data.name || 'Membro', phone: data.phone });
@@ -136,10 +150,10 @@ export async function POST(request: Request) {
     
     // Registrar histórico
     try {
-        await addDoc(collection(firestore, "notifications_history"), {
+        await db.collection("notifications_history").add({
             sentAt: Timestamp.now(),
             channel: 'whatsapp',
-            message: message,
+            message: message || '',
             recipientCount: targetUsers.length,
             successCount: sentCount,
             errorCount: errorCount,

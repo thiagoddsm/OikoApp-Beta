@@ -8,13 +8,13 @@ export const runtime = 'nodejs'; // Garante execução em ambiente Node.js compl
 // START: Firebase Admin Initialization
 if (!getApps().length) {
   try {
-    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
-      ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
-      : undefined;
-
-    initializeApp({
-      credential: serviceAccount ? cert(serviceAccount) : undefined,
-    });
+    if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+        initializeApp({ credential: cert(serviceAccount) });
+    } else {
+        // Fallback for Vercel / Firebase Hosting Application Default Credentials
+        initializeApp();
+    }
   } catch (e) {
     console.error('Firebase Admin initialization error', e);
   }
