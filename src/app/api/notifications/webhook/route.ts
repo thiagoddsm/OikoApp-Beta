@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     if (msgContent.buttonsResponseMessage) {
         responseType = 'button';
         payload = {
-            buttonId: msgContent.buttonsResponseMessage.selectedButtonId,
+            buttonId: msgContent.buttonsResponseMessage.selectedButtonId || 'unknown_id',
             buttonText: msgContent.buttonsResponseMessage.selectedDisplayText || 'Botão clicado'
         };
     } 
@@ -55,17 +55,28 @@ export async function POST(request: Request) {
     else if (msgContent.listResponseMessage) {
         responseType = 'button';
         payload = {
-            buttonId: msgContent.listResponseMessage.singleSelectReply?.selectedRowId,
+            buttonId: msgContent.listResponseMessage.singleSelectReply?.selectedRowId || 'unknown_id',
             buttonText: msgContent.listResponseMessage.title || 'Item selecionado'
         };
     }
     // C. Poll Update (pollUpdateMessage)
     else if (msgContent.pollUpdateMessage || data.pollUpdates) {
         const poll = msgContent.pollUpdateMessage || data.pollUpdates || {};
+        
+        // Evolution API usually sends the vote inside 'vote.selectedOptions' or just 'selectedOptions'
+        let options = poll.vote?.selectedOptions || poll.selectedOptions || [];
+        if (!Array.isArray(options)) {
+            options = [options];
+        }
+        
+        // Sanitize options to avoid undefined in array
+        options = options.filter((o: any) => o !== undefined && o !== null);
+        if (options.length === 0) options = ['Voto registrado'];
+
         responseType = 'poll';
         payload = {
-            pollName: poll.name || data.pollName || 'Enquete',
-            selectedOptions: Array.isArray(poll.selectedOptions) ? poll.selectedOptions : [poll.selectedOptions]
+            pollName: poll.name || data.pollName || poll.pollCreationMessageKey?.id || 'Enquete',
+            selectedOptions: options
         };
     }
     // D. Common Text
@@ -91,10 +102,13 @@ export async function POST(request: Request) {
 
     // 3. Save Interactions
     if (responseType && payload) {
+        // Remove undefined fields strictly to prevent Firestore crash
+        const sanitizedPayload = JSON.parse(JSON.stringify(payload));
+        
         await db.collection('notifications_responses').add({
             from: fromPhone,
             type: responseType,
-            ...payload,
+            ...sanitizedPayload,
             receivedAt: Timestamp.now()
         });
     }
@@ -102,6 +116,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Webhook Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // Return 200 even on error so API-WA doesn't disable the webhook
+    return NextResponse.json({ success: false, error: error.message }, { status: 200 });
   }
 }
