@@ -15,7 +15,7 @@ export class OikoWhatsAppClient {
 
     async sendMessage(payload: { type: string, body: any }) {
         const { type, body } = payload;
-        let endpoint = 'message/send-text';
+        let endpoint = 'message/text';
         let data = body;
 
         // Map types to specific endpoints and payload structures
@@ -39,7 +39,7 @@ export class OikoWhatsAppClient {
                 // Payload: { to, caption, image }
                 break;
             default:
-                endpoint = 'message/send-text';
+                endpoint = 'message/text';
                 // Payload: { to, text }
         }
 
