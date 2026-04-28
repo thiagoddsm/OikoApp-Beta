@@ -185,6 +185,11 @@ function WhatsappSender({ config }: { config: any }) {
     const [surveyName, setSurveyName] = useState('');
     const [surveyOptions, setSurveyOptions] = useState(['Excelente', 'Bom', 'Pode melhorar']);
     const [mediaUrl, setMediaUrl] = useState('');
+    const [listButtonText, setListButtonText] = useState('Ver Opções');
+    const [listDescription, setListDescription] = useState('');
+    const [listSections, setListSections] = useState([
+        { title: 'Sessão 1', rows: [{ title: 'Opção 1', description: '', rowId: `row_${Date.now()}` }] }
+    ]);
 
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
     const { data: users } = useCollection<any>(usersQuery);
@@ -240,6 +245,12 @@ function WhatsappSender({ config }: { config: any }) {
             payload.options = surveyOptions;
         } else if (msgType === 'media') {
             payload.mediaUrl = mediaUrl;
+        } else if (msgType === 'list') {
+            payload.headerTitle = headerTitle;
+            payload.footer = msgFooter;
+            payload.buttonText = listButtonText;
+            payload.description = listDescription;
+            payload.sections = listSections;
         }
 
         try {
@@ -279,7 +290,8 @@ function WhatsappSender({ config }: { config: any }) {
                                 <SelectItem value="text">Texto Simples</SelectItem>
                                 <SelectItem value="button">Botões de Ação (Quick Reply)</SelectItem>
                                 <SelectItem value="survey">Enquete Nativa</SelectItem>
-                                <SelectItem value="media">Mídia (Imagem/Vídeo)</SelectItem>
+                                <SelectItem value="list">Menu Interativo (Lista)</SelectItem>
+                                <SelectItem value="media">Mídia (Documentos, Áudio, Imagem/Vídeo)</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -382,44 +394,55 @@ function WhatsappSender({ config }: { config: any }) {
                 {msgType === 'media' && (
                     <div className="p-4 border-2 border-dashed rounded-xl bg-orange-50/50 space-y-4 animate-in slide-in-from-top-2">
                         <div className="space-y-2">
-                            <Label className="text-[10px] font-black uppercase text-orange-800">Upload de Imagem</Label>
+                            <Label className="text-[10px] font-black uppercase text-orange-800">Upload de Arquivo (Imagem, Áudio, Vídeo ou Documento)</Label>
                             <Input 
                                 type="file" 
-                                accept="image/*"
+                                accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
                                 onChange={(e) => {
                                     const file = e.target.files?.[0];
                                     if (file) {
+                                        if (file.size > 3 * 1024 * 1024 && !file.type.startsWith('image/')) {
+                                            toast({ variant: 'destructive', title: "Arquivo muito grande", description: "O tamanho máximo para documentos, vídeos e áudios é 3MB." });
+                                            e.target.value = '';
+                                            return;
+                                        }
+
                                         const reader = new FileReader();
                                         reader.onload = (event) => {
-                                            const img = new Image();
-                                            img.onload = () => {
-                                                const canvas = document.createElement('canvas');
-                                                const MAX_WIDTH = 800;
-                                                const MAX_HEIGHT = 800;
-                                                let width = img.width;
-                                                let height = img.height;
-                                                
-                                                if (width > height) {
-                                                    if (width > MAX_WIDTH) {
-                                                        height *= MAX_WIDTH / width;
-                                                        width = MAX_WIDTH;
+                                            if (file.type.startsWith('image/')) {
+                                                const img = new Image();
+                                                img.onload = () => {
+                                                    const canvas = document.createElement('canvas');
+                                                    const MAX_WIDTH = 800;
+                                                    const MAX_HEIGHT = 800;
+                                                    let width = img.width;
+                                                    let height = img.height;
+                                                    
+                                                    if (width > height) {
+                                                        if (width > MAX_WIDTH) {
+                                                            height *= MAX_WIDTH / width;
+                                                            width = MAX_WIDTH;
+                                                        }
+                                                    } else {
+                                                        if (height > MAX_HEIGHT) {
+                                                            width *= MAX_HEIGHT / height;
+                                                            height = MAX_HEIGHT;
+                                                        }
                                                     }
-                                                } else {
-                                                    if (height > MAX_HEIGHT) {
-                                                        width *= MAX_HEIGHT / height;
-                                                        height = MAX_HEIGHT;
-                                                    }
+                                                    
+                                                    canvas.width = width;
+                                                    canvas.height = height;
+                                                    const ctx = canvas.getContext('2d');
+                                                    ctx?.drawImage(img, 0, 0, width, height);
+                                                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                                                    setMediaUrl(dataUrl);
+                                                };
+                                                if (event.target?.result) {
+                                                    img.src = event.target.result as string;
                                                 }
-                                                
-                                                canvas.width = width;
-                                                canvas.height = height;
-                                                const ctx = canvas.getContext('2d');
-                                                ctx?.drawImage(img, 0, 0, width, height);
-                                                const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                                                setMediaUrl(dataUrl);
-                                            };
-                                            if (event.target?.result) {
-                                                img.src = event.target.result as string;
+                                            } else {
+                                                // For non-images, just set the base64 string directly
+                                                setMediaUrl(event.target?.result as string);
                                             }
                                         };
                                         reader.readAsDataURL(file);
@@ -427,13 +450,78 @@ function WhatsappSender({ config }: { config: any }) {
                                 }} 
                                 className="bg-white" 
                             />
-                            {mediaUrl && mediaUrl.startsWith('data:image') && (
+                            {mediaUrl && (
                                 <div className="mt-2 relative inline-block">
-                                    <img src={mediaUrl} alt="Preview" className="h-20 rounded-md border shadow-sm" />
+                                    {mediaUrl.startsWith('data:image') ? (
+                                        <img src={mediaUrl} alt="Preview" className="h-20 rounded-md border shadow-sm" />
+                                    ) : (
+                                        <div className="h-20 w-32 bg-orange-100 flex items-center justify-center rounded-md border shadow-sm text-xs font-bold text-orange-800 text-center p-2">
+                                            Arquivo Anexado<br/>(Pronto p/ envio)
+                                        </div>
+                                    )}
                                     <Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 size-6 rounded-full" onClick={() => setMediaUrl('')}><X className="size-3" /></Button>
                                 </div>
                             )}
-                            <p className="text-[10px] text-orange-600 italic mt-1">A imagem será convertida e enviada diretamente junto com a mensagem.</p>
+                            <p className="text-[10px] text-orange-600 italic mt-1">Imagens são otimizadas automaticamente. Outros formatos limite de 3MB.</p>
+                        </div>
+                    </div>
+                )}
+
+                {msgType === 'list' && (
+                    <div className="p-4 border-2 border-dashed rounded-xl bg-fuchsia-50/50 space-y-4 animate-in slide-in-from-top-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase text-fuchsia-800">Título do Cabeçalho</Label>
+                                <Input value={headerTitle} onChange={e => setHeaderTitle(e.target.value)} className="bg-white h-9" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase text-fuchsia-800">Rodapé do Menu</Label>
+                                <Input value={msgFooter} onChange={e => setMsgFooter(e.target.value)} className="bg-white h-9" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase text-fuchsia-800">Texto do Botão Principal</Label>
+                                <Input value={listButtonText} onChange={e => setListButtonText(e.target.value)} className="bg-white h-9" placeholder="Ex: Ver Menu" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase text-fuchsia-800">Descrição do Menu</Label>
+                                <Input value={listDescription} onChange={e => setListDescription(e.target.value)} className="bg-white h-9" placeholder="Instruções para o usuário..." />
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 border-t pt-4">
+                            {listSections.map((sec, secIdx) => (
+                                <div key={secIdx} className="p-3 bg-white border rounded-lg space-y-3">
+                                    <div className="flex gap-2">
+                                        <Input placeholder="Título da Sessão (Ex: Ministérios)" value={sec.title} onChange={e => {
+                                            const n = [...listSections]; n[secIdx].title = e.target.value; setListSections(n);
+                                        }} className="font-bold border-fuchsia-200" />
+                                        <Button type="button" variant="destructive" size="icon" onClick={() => setListSections(listSections.filter((_, i) => i !== secIdx))}><Trash2 size={16}/></Button>
+                                    </div>
+                                    <div className="space-y-2 pl-4 border-l-2 border-fuchsia-100">
+                                        {sec.rows.map((row, rowIdx) => (
+                                            <div key={rowIdx} className="flex gap-2 items-start">
+                                                <div className="flex-1 space-y-2">
+                                                    <Input placeholder="Título do Item" value={row.title} onChange={e => {
+                                                        const n = [...listSections]; n[secIdx].rows[rowIdx].title = e.target.value; setListSections(n);
+                                                    }} className="h-8 text-sm" />
+                                                    <Input placeholder="Descrição (Opcional)" value={row.description} onChange={e => {
+                                                        const n = [...listSections]; n[secIdx].rows[rowIdx].description = e.target.value; setListSections(n);
+                                                    }} className="h-8 text-xs text-muted-foreground" />
+                                                </div>
+                                                <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                                                    const n = [...listSections]; n[secIdx].rows = n[secIdx].rows.filter((_, i) => i !== rowIdx); setListSections(n);
+                                                }}><X size={14}/></Button>
+                                            </div>
+                                        ))}
+                                        <Button type="button" variant="ghost" size="sm" onClick={() => {
+                                            const n = [...listSections]; n[secIdx].rows.push({ title: 'Novo Item', description: '', rowId: `row_${Date.now()}_${Math.random()}` }); setListSections(n);
+                                        }} className="w-full text-xs h-8 bg-fuchsia-50/50">+ Adicionar Item nesta Sessão</Button>
+                                    </div>
+                                </div>
+                            ))}
+                            <Button type="button" variant="outline" size="sm" onClick={() => {
+                                setListSections([...listSections, { title: 'Nova Sessão', rows: [{ title: 'Item 1', description: '', rowId: `row_${Date.now()}` }] }]);
+                            }} className="w-full font-bold">+ Criar Nova Sessão</Button>
                         </div>
                     </div>
                 )}
