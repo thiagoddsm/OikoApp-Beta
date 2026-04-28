@@ -62,9 +62,9 @@ export async function getWhatsAppConfig() {
 /**
  * Sends a welcome message to a new member.
  */
-export async function sendWelcomeMessage(userName: string, phone: string) {
+export async function sendWelcomeMessage(userName: string, phone: string, configOverride?: any) {
     try {
-        const config = await getWhatsAppConfig();
+        const config = configOverride || await getWhatsAppConfig();
         if (!config || !config.enabled || !config.notifyWelcome) {
             return { success: false, error: 'Automação de boas-vindas desativada.' };
         }
@@ -95,9 +95,9 @@ export async function sendWelcomeMessage(userName: string, phone: string) {
 /**
  * Sends a message when a student is enrolled in a class.
  */
-export async function sendEnrollmentMessage(userName: string, phone: string, className: string) {
+export async function sendEnrollmentMessage(userName: string, phone: string, className: string, configOverride?: any) {
     try {
-        const config = await getWhatsAppConfig();
+        const config = configOverride || await getWhatsAppConfig();
         if (!config || !config.enabled || !config.notifyEnrollment) return { success: false };
 
         const whatsapp = await getWhatsAppClient({
@@ -123,9 +123,9 @@ export async function sendEnrollmentMessage(userName: string, phone: string, cla
 /**
  * Sends a message when a member advances in the journey.
  */
-export async function sendJourneyAdvanceMessage(userName: string, phone: string, newStage: string) {
+export async function sendJourneyAdvanceMessage(userName: string, phone: string, newStage: string, configOverride?: any) {
     try {
-        const config = await getWhatsAppConfig();
+        const config = configOverride || await getWhatsAppConfig();
         if (!config || !config.enabled || !config.notifyJourney) return { success: false };
 
         const whatsapp = await getWhatsAppClient({
