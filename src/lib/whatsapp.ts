@@ -36,17 +36,46 @@ export class OikoWhatsAppClient {
                 break;
             case 'survey':
                 endpoint = 'message/survey';
-                // Payload: { to, name, options: [string] }
                 data = {
                     to: body.to,
-                    name: body.name || body.text, // API calls it 'name' for surveys
+                    name: body.name || body.text,
                     options: body.options
+                };
+                break;
+            case 'list':
+                endpoint = 'message/list';
+                data = {
+                    to: body.to,
+                    buttonText: body.buttonText || 'Ver Menu',
+                    text: body.text || 'Escolha uma opção',
+                    title: body.title || 'Opções',
+                    description: body.description || '',
+                    footer: body.footer || '',
+                    sections: body.sections || []
                 };
                 break;
             case 'image':
             case 'media':
-                endpoint = 'message/image';
-                // Payload: { to, caption, image }
+                if (body.url && body.url.startsWith('data:')) {
+                    const mimeType = body.url.substring(5, body.url.indexOf(';'));
+                    const base64Str = body.url.split(',')[1];
+                    if (mimeType.includes('audio')) {
+                        endpoint = 'message/base64/audio';
+                        data = { to: body.to, base64: base64Str };
+                    } else if (mimeType.includes('pdf') || mimeType.includes('application')) {
+                        endpoint = 'message/base64/document';
+                        data = { to: body.to, base64: base64Str, mimetype: mimeType, fileName: 'arquivo', caption: body.caption || ' ' };
+                    } else if (mimeType.includes('video')) {
+                        endpoint = 'message/base64/video';
+                        data = { to: body.to, base64: base64Str, caption: body.caption || ' ' };
+                    } else {
+                        endpoint = 'message/base64/image';
+                        data = { to: body.to, base64: base64Str, caption: body.caption || ' ' };
+                    }
+                } else {
+                    endpoint = 'message/image';
+                    data = { to: body.to, url: body.url, caption: body.caption || ' ' };
+                }
                 break;
             default:
                 endpoint = 'message/text';

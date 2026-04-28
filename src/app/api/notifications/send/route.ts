@@ -102,6 +102,13 @@ export async function POST(request: Request) {
         } else if (rest.type === 'survey') {
             messageBody.name = rest.surveyName || 'Enquete';
             messageBody.options = rest.options || [];
+        } else if (rest.type === 'list') {
+            messageBody.text = personalizedBody || 'Escolha uma opção';
+            messageBody.buttonText = rest.buttonText || 'Menu';
+            messageBody.title = rest.headerTitle || 'Opções';
+            messageBody.description = rest.description || '';
+            messageBody.footer = rest.footer || '';
+            messageBody.sections = rest.sections || [];
         } else if (rest.type === 'media' || rest.type === 'image') {
             messageBody.caption = personalizedBody || ' ';
             messageBody.url = rest.mediaUrl;
