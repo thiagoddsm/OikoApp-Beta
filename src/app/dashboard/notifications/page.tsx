@@ -379,7 +379,37 @@ function WhatsappSender({ config }: { config: any }) {
                     </div>
                 )}
 
-                {msgType !== 'survey' && msgType !== 'button' && (
+                {msgType === 'media' && (
+                    <div className="p-4 border-2 border-dashed rounded-xl bg-orange-50/50 space-y-4 animate-in slide-in-from-top-2">
+                        <div className="space-y-2">
+                            <Label className="text-[10px] font-black uppercase text-orange-800">Upload de Imagem</Label>
+                            <Input 
+                                type="file" 
+                                accept="image/*"
+                                onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                        const reader = new FileReader();
+                                        reader.onloadend = () => {
+                                            setMediaUrl(reader.result as string);
+                                        };
+                                        reader.readAsDataURL(file);
+                                    }
+                                }} 
+                                className="bg-white" 
+                            />
+                            {mediaUrl && mediaUrl.startsWith('data:image') && (
+                                <div className="mt-2 relative inline-block">
+                                    <img src={mediaUrl} alt="Preview" className="h-20 rounded-md border shadow-sm" />
+                                    <Button type="button" variant="destructive" size="icon" className="absolute -top-2 -right-2 size-6 rounded-full" onClick={() => setMediaUrl('')}><X className="size-3" /></Button>
+                                </div>
+                            )}
+                            <p className="text-[10px] text-orange-600 italic mt-1">A imagem será convertida e enviada diretamente junto com a mensagem.</p>
+                        </div>
+                    </div>
+                )}
+
+                {msgType !== 'survey' && (
                     <div className="space-y-2">
                         <Label>Mensagem Principal</Label>
                         <Textarea 

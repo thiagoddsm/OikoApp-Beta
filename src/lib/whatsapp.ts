@@ -21,8 +21,18 @@ export class OikoWhatsAppClient {
         // Map types to specific endpoints and payload structures
         switch (type) {
             case 'button':
-                endpoint = 'message/button';
-                // Payload: { to, title, footer, buttons: [{id, text}] }
+                endpoint = 'message/button_reply';
+                data = {
+                    to: body.to,
+                    text: body.text || ' ', 
+                    header: body.title ? { title: body.title } : undefined,
+                    footer: body.footer,
+                    buttons: (body.buttons || []).map((b: any) => ({
+                        type: 'quick_reply',
+                        id: b.id || Math.random().toString(36).substring(7),
+                        text: b.text
+                    }))
+                };
                 break;
             case 'survey':
                 endpoint = 'message/survey';

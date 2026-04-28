@@ -95,7 +95,8 @@ export async function POST(request: Request) {
         let messageBody: any = { to: formattedPhone };
 
         if (rest.type === 'button') {
-            messageBody.title = rest.headerTitle || personalizedBody;
+            messageBody.text = personalizedBody || ' ';
+            messageBody.title = rest.headerTitle || undefined;
             messageBody.footer = rest.footer || '';
             messageBody.buttons = rest.buttons || [];
         } else if (rest.type === 'survey') {
