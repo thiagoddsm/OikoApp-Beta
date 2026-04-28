@@ -1,9 +1,26 @@
 
 import { NextResponse } from 'next/server';
-import { initializeFirebase } from '@/firebase';
-import { collection, addDoc, query, where, getDocs, Timestamp, setDoc, doc } from 'firebase/firestore';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 
 export const runtime = 'nodejs'; // Garante execução em ambiente Node.js completo
+
+// START: Firebase Admin Initialization
+if (!getApps().length) {
+  try {
+    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
+      ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
+      : undefined;
+
+    initializeApp({
+      credential: serviceAccount ? cert(serviceAccount) : undefined,
+    });
+  } catch (e) {
+    console.error('Firebase Admin initialization error', e);
+  }
+}
+const db = getFirestore();
+// END: Firebase Admin Initialization
 
 /**
  * Robust Webhook for api-wa.me following data.msgContent pattern
@@ -18,7 +35,6 @@ export async function POST(request: Request) {
     const fromRaw = data.key?.remoteJid || data.from || data.participant || data.author;
     if (!fromRaw) return NextResponse.json({ success: true });
 
-    const { firestore } = initializeFirebase();
     const fromPhone = fromRaw.split('@')[0].replace(/\D/g, '');
 
     // 2. Identify Message Type and Payload
@@ -56,7 +72,7 @@ export async function POST(request: Request) {
     else if (msgContent.conversation || msgContent.extendedTextMessage?.text || data.text) {
         const messageText = msgContent.conversation || msgContent.extendedTextMessage?.text || data.text || '[Mídia]';
         
-        await addDoc(collection(firestore, 'notifications_messages'), {
+        await db.collection('notifications_messages').add({
           from: fromPhone,
           fromMe: data.fromMe || false,
           content: messageText,
@@ -64,7 +80,7 @@ export async function POST(request: Request) {
           receivedAt: Timestamp.now()
         });
 
-        await setDoc(doc(firestore, 'notifications_chats', fromPhone), {
+        await db.collection('notifications_chats').doc(fromPhone).set({
             lastMessage: messageText,
             lastMessageAt: Timestamp.now(),
             unreadCount: data.fromMe ? 0 : 1,
@@ -75,7 +91,7 @@ export async function POST(request: Request) {
 
     // 3. Save Interactions
     if (responseType && payload) {
-        await addDoc(collection(firestore, 'notifications_responses'), {
+        await db.collection('notifications_responses').add({
             from: fromPhone,
             type: responseType,
             ...payload,
