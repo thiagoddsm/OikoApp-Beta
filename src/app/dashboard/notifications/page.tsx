@@ -725,8 +725,8 @@ function NotificationsConfig() {
         if (config) {
             const key = config.whatsappApiKey || '';
             setWaKey(key);
-            const defaultWebhook = config.webhookUrl || `${window.location.origin}/api/notifications/webhook`;
-            setWebhookUrl(defaultWebhook);
+            const currentWebhook = typeof window !== 'undefined' ? `${window.location.origin}/api/notifications/webhook` : '';
+            setWebhookUrl(currentWebhook);
         }
     }, [config]);
 

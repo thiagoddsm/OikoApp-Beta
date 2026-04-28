@@ -98,8 +98,9 @@ export default function NotificationSettingsPage() {
                     const config = configSnap.data();
                     setServerUrl(config.serverUrl || 'https://us.api-wa.me');
                     setInstanceKey(config.instanceKey || '');
-                    const defaultWebhook = config.webhookUrl || (typeof window !== 'undefined' ? `${window.location.origin}/api/notifications/webhook` : '');
-                    setWebhookUrl(defaultWebhook);
+                    // Forçamos o webhook para o domínio atual para corrigir o problema de localhost salvo
+                    const currentWebhook = typeof window !== 'undefined' ? `${window.location.origin}/api/notifications/webhook` : '';
+                    setWebhookUrl(currentWebhook);
                     setEnabled(config.enabled !== false);
                     setNotifyWelcome(config.notifyWelcome !== false);
                     setNotifyEnrollment(config.notifyEnrollment !== false);
