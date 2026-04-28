@@ -58,11 +58,15 @@ export default function NotificationSettingsPage() {
             const data = await res.json();
             
             if (data.status === 'error' || data.error) {
-                 setInstanceStatus({ status: 'offline', message: data.message || data.error || 'Erro na API' });
+                 setInstanceStatus((prev: any) => ({ ...prev, status: 'offline', message: data.message || data.error || 'Erro na API' }));
             } else {
-                 // Enhanced QR detection: look for QR in different possible paths
-                 const qr = data.qr || data.instance?.qr || data.data?.qr;
-                 setInstanceStatus({ ...data, qr });
+                 setInstanceStatus((prev: any) => {
+                     // The GET instance route doesn't return the QR code, but POST does.
+                     // Preserve the previous QR code if we are still pairing.
+                     const parsedStatus = data.parsedStatus;
+                     const qr = parsedStatus === 'connected' ? null : (data.qr || data.instance?.qr || data.data?.qr || data.qrcode || prev?.qr);
+                     return { ...data, qr, parsedStatus };
+                 });
             }
         } catch (e) {
             setInstanceStatus({ status: 'offline', message: 'Erro de rede' });
@@ -162,8 +166,11 @@ export default function NotificationSettingsPage() {
             if (data.status === 'error' || data.error) {
                 toast({ variant: 'destructive', title: "Erro na API", description: data.message || data.error });
             } else {
-                setInstanceStatus(data);
-                toast({ title: "Comando Enviado", description: "O servidor está gerando a sessão." });
+                setInstanceStatus((prev: any) => {
+                    const qr = data.qr || data.qrcode || prev?.qr;
+                    return { ...data, qr, parsedStatus: data.parsedStatus || 'pairing' };
+                });
+                toast({ title: "Comando Enviado", description: "Escaneie o QR Code para conectar." });
             }
         } catch (e) {
             toast({ variant: 'destructive', title: "Erro ao conectar" });

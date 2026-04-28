@@ -93,7 +93,14 @@ export async function POST(request: Request) {
         }
 
         const data = await response.json();
-        return NextResponse.json(data);
+        
+        // Padroniza a resposta para o frontend
+        const parsedStatus = data.phoneConnected ? 'connected' : 'pairing';
+        return NextResponse.json({ 
+            ...data, 
+            qr: data.qrcode || data.qr, 
+            parsedStatus 
+        });
 
     } catch (error: any) {
         return NextResponse.json({ error: `Erro interno: ${error.message}` }, { status: 500 });
