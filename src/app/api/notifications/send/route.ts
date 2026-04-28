@@ -103,8 +103,8 @@ export async function POST(request: Request) {
             messageBody.name = rest.surveyName || 'Enquete';
             messageBody.options = rest.options || [];
         } else if (rest.type === 'media' || rest.type === 'image') {
-            messageBody.caption = personalizedBody;
-            messageBody.image = rest.mediaUrl;
+            messageBody.caption = personalizedBody || ' ';
+            messageBody.url = rest.mediaUrl;
         } else {
             messageBody.text = personalizedBody;
         }
