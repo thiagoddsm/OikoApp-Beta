@@ -113,7 +113,7 @@ const menuItems = [
             icon: GraduationCap,
             subItems: [
               { href: "/dashboard/teaching/courses", label: "Dashboard & Catálogo", icon: LayoutTemplate, permissionId: 'teaching_courses' },
-              { href: "/dashboard/teaching/theoflix", label: "TheoFlix", icon: BookOpen, permissionId: 'teaching_courses' },
+              { href: "/dashboard/teaching/theoflix", label: "TheoFlix", icon: BookOpen, permissionId: 'teaching_theoflix' },
               { href: "/dashboard/teaching/calendar", label: "Calendário Escolar", icon: CalendarDays, permissionId: 'teaching_courses' },
               { href: "/dashboard/teaching/teachers", label: "Professores", icon: UserCheckIcon, permissionId: 'teaching_courses' },
               { href: "/dashboard/teaching/students", label: "Alunos", icon: Users2, permissionId: 'teaching_courses' },

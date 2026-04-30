@@ -274,10 +274,20 @@ function TheoFlixContent() {
   }, [searchQuery, allCourses]);
 
   const checkCourseAccess = (course: Course) => {
-    if (!course.requireEnrollment || isAdmin) return true;
-    const physicalCourseIds = physicalCourses
-        .filter(pc => pc.id === course.id || pc.linkedTheoflixId === course.id)
-        .map(pc => pc.id);
+    if (isAdmin) return true;
+
+    // Verifica se existe algum curso presencial que esteja vinculado a este curso do TheoFlix
+    const linkedPhysicalCourses = physicalCourses.filter(pc => 
+        pc.linkedTheoflixId === course.id || pc.id === course.id
+    );
+
+    // Se NÃO for vinculado a nenhum curso presencial (100% online), fica habilitado para todos
+    if (linkedPhysicalCourses.length === 0) {
+        return true;
+    }
+
+    // Se FOR um curso híbrido (tem presencial), o aluno DEVE estar matriculado
+    const physicalCourseIds = linkedPhysicalCourses.map(pc => pc.id);
     return classes.some(cls => 
         physicalCourseIds.includes(cls.courseId) && 
         cls.students?.includes(user?.uid || '')

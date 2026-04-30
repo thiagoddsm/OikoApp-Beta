@@ -24,6 +24,10 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAuthenticated();
     }
+    match /theoflix_levels/{levelId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
 
     // Usuários: Leitura pública necessária para login/busca, escrita autenticada
     match /users/{userId} {
@@ -67,6 +71,12 @@ service cloud.firestore {
     match /finance_requests/{reqId} {
       allow create: if true;
       allow read, write: if isAuthenticated();
+    }
+
+    // Configurações públicas ou do sistema acessíveis a usuários autenticados
+    match /config/theoflix {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
     }
 
     // Regra Geral: Qualquer usuário autenticado pode ler e escrever o restante
