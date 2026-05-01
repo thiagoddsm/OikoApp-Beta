@@ -1,32 +1,15 @@
-
 import { NextResponse } from 'next/server';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { getAdminDb } from '@/lib/firebase-admin';
+import { Timestamp } from 'firebase-admin/firestore';
 
 export const runtime = 'nodejs'; // Garante execução em ambiente Node.js completo
-
-// START: Firebase Admin Initialization
-if (!getApps().length) {
-  try {
-    if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-        initializeApp({ credential: cert(serviceAccount) });
-    } else {
-        // Fallback for Vercel / Firebase Hosting Application Default Credentials
-        initializeApp();
-    }
-  } catch (e) {
-    console.error('Firebase Admin initialization error', e);
-  }
-}
-const db = getFirestore();
-// END: Firebase Admin Initialization
 
 /**
  * Robust Webhook for api-wa.me following data.msgContent pattern
  */
 export async function POST(request: Request) {
   try {
+    const db = getAdminDb();
     const raw = await request.json();
     const data = raw.data || raw;
     const msgContent = data.msgContent || data.message || {};

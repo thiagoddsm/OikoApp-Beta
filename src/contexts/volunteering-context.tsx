@@ -132,9 +132,17 @@ export type Class = {
   locationId?: string;
   holidayDates?: string[];
   extraDates?: string[];
+  registrationDeadline?: string;
   attendance?: { date: string; presentStudentIds: string[]; onlineStudentIds?: string[] }[];
   grades?: { studentId: string; assessmentName: string; grade: number }[];
   materials?: { title: string; url: string; description?: string }[];
+  scheduleOverrides?: Record<string, {
+    syllabusId?: string;
+    teacherId?: string;
+    isCancelled?: boolean;
+    notes?: string;
+    originalDate?: string;
+  }>;
 };
 
 export type EnrollmentRequest = {

@@ -6,24 +6,9 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { runUserProfileAnalysis } from '@/ai/flows/user-profile-analysis-flow';
 
 // START: Firebase Admin Initialization
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getAdminDb } from '@/lib/firebase-admin';
 
-if (!getApps().length) {
-  try {
-    const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY
-      ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
-      : undefined;
-
-    initializeApp({
-      credential: serviceAccount ? cert(serviceAccount) : undefined,
-    });
-  } catch (e) {
-    console.error('Firebase Admin initialization error', e);
-  }
-}
-
-const db = getFirestore();
+const db = getAdminDb();
 // END: Firebase Admin Initialization
 
 export async function updatePerson(person: Person) {

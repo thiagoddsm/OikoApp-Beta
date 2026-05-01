@@ -61,57 +61,94 @@ function PedagogicalLogPageContent() {
     const classData = useMemo(() => classes.find(c => c.id === classId), [classes, classId]);
     const courseData = useMemo(() => classData ? courses.find(c => c.id === classData.courseId) : null, [classData, courses]);
 
-    // Dynamic Module Names based on Course Syllabus
-    const moduleNames = useMemo(() => {
-        if (!courseData) return [];
-        if (courseData.syllabus && courseData.syllabus.length > 0) {
-            return courseData.syllabus.map(s => s.title);
-        }
-        // Fallback for member course if no syllabus is defined
-        if (courseData.name?.toLowerCase().includes('membro') || courseData.name?.toLowerCase().includes('pertencer')) {
-            return [
-                "História e Visão",
-                "DNA e Células",
-                "Mordomia e Finanças",
-                "Governança e Ética",
-                "Comissionamento"
-            ];
-        }
-        return [];
-    }, [courseData]);
 
-    const classOccurrences = useMemo(() => {
+
+    const resolvedSchedule = useMemo(() => {
         if (!classData || !classData.startDate) return [];
-        const occurrences: string[] = [];
+        
+        const items: any[] = [];
         const start = parseISO(classData.startDate);
-        const end = classData.endDate ? parseISO(classData.endDate) : addMonths(start, 1);
-        const targetDay = classData.dayOfWeek ? weekDayMap[classData.dayOfWeek] : -1;
-        const holidays = new Set(classData.holidayDates || []);
-        const extras = classData.extraDates || [];
+        const holidaySet = new Set(classData.holidayDates || []);
+        const overrides = classData.scheduleOverrides || {};
+        const syllabus = courseData?.syllabus || [];
 
-        let current = start;
-        let safe = 0;
+        // 1. Encontrar todas as datas de aula (recorrência)
+        let currentDate = start;
+        let syllabusIndex = 0;
+        let safeCounter = 0;
 
-        if (classData.frequency && classData.frequency !== 'pontual') {
-            while (isBefore(current, end) || format(current, 'yyyy-MM-dd') === format(end, 'yyyy-MM-dd')) {
-                if (safe++ > 150) break;
-                let matches = false;
-                if (classData.frequency === 'semanal') {
-                    matches = targetDay === -1 || current.getDay() === targetDay;
-                } else if (classData.frequency === 'quinzenal') {
-                    const diffWeeks = Math.floor((current.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
-                    matches = diffWeeks % 2 === 0 && (targetDay === -1 || current.getDay() === targetDay);
-                }
-                const dateStr = format(current, 'yyyy-MM-dd');
-                if (matches && !holidays.has(dateStr)) occurrences.push(dateStr);
-                current = addWeeks(current, 1);
+        const targetCount = syllabus.length > 0 ? syllabus.length : 12;
+
+        while (items.length < targetCount && safeCounter < 200) {
+            safeCounter++;
+            const dateStr = format(currentDate, 'yyyy-MM-dd');
+            
+            // Pular se for feriado e não houver override forçando
+            if (holidaySet.has(dateStr) && !overrides[dateStr]) {
+                currentDate = addWeeks(currentDate, classData.frequency === 'quinzenal' ? 2 : 1);
+                continue;
             }
-        } else if (classData.frequency === 'pontual') {
-            occurrences.push(classData.startDate);
+
+            const override = overrides[dateStr];
+            
+            if (override?.isCancelled) {
+                currentDate = addWeeks(currentDate, classData.frequency === 'quinzenal' ? 2 : 1);
+                continue;
+            }
+
+            const syllabusItem = override?.syllabusId 
+                ? syllabus.find(s => s.id === override.syllabusId) 
+                : syllabus[syllabusIndex];
+            
+            const originalIdx = override?.syllabusId
+                ? syllabus.findIndex(s => s.id === override.syllabusId)
+                : syllabusIndex;
+
+            items.push({
+                dateStr,
+                date: currentDate,
+                syllabusItem,
+                syllabusOriginalIndex: originalIdx,
+                isOverride: !!override
+            });
+
+            syllabusIndex++;
+            currentDate = addWeeks(currentDate, classData.frequency === 'quinzenal' ? 2 : 1);
         }
 
-        return Array.from(new Set([...occurrences, ...extras])).sort();
-    }, [classData]);
+        // 2. Adicionar overrides que caem em datas fora da recorrência
+        Object.entries(overrides).forEach(([dateStr, override]: [string, any]) => {
+            if (override.isCancelled) return;
+            if (items.find(i => i.dateStr === dateStr)) return;
+
+            const syllabusItem = override.syllabusId 
+                ? syllabus.find(s => s.id === override.syllabusId) 
+                : undefined;
+            
+            const originalIdx = override.syllabusId
+                ? syllabus.findIndex(s => s.id === override.syllabusId)
+                : -1;
+
+            items.push({
+                dateStr,
+                date: parseISO(dateStr),
+                syllabusItem,
+                syllabusOriginalIndex: originalIdx,
+                isOverride: true
+            });
+        });
+
+        return items.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+    }, [classData, courseData]);
+
+    const classOccurrences = useMemo(() => resolvedSchedule.map(i => i.dateStr), [resolvedSchedule]);
+    const moduleNames = useMemo(() => resolvedSchedule.map(i => i.syllabusItem?.title || ''), [resolvedSchedule]);
+
+    const currentResolvedItem = useMemo(() => resolvedSchedule.find(i => i.dateStr === selectedDate), [resolvedSchedule, selectedDate]);
+    const currentModuleKey = useMemo(() => {
+        if (!currentResolvedItem || currentResolvedItem.syllabusOriginalIndex === -1) return '';
+        return `module${currentResolvedItem.syllabusOriginalIndex + 1}`;
+    }, [currentResolvedItem]);
 
     useEffect(() => {
         if (classOccurrences.length > 0 && !selectedDate) {
@@ -122,7 +159,6 @@ function PedagogicalLogPageContent() {
     }, [classOccurrences, selectedDate]);
 
     const currentModuleIndex = useMemo(() => classOccurrences.indexOf(selectedDate), [classOccurrences, selectedDate]);
-    const currentModuleKey = `module${currentModuleIndex + 1}`;
 
     useEffect(() => {
         if (selectedDate && classData?.attendance) {
@@ -232,10 +268,20 @@ function PedagogicalLogPageContent() {
             const attendancePromise = updateClass(classId, { attendance: updatedAttendance });
 
             const progressPromises: Promise<any>[] = [];
-            if (isMemberCourse && firestore) {
+            if (isMemberCourse && firestore && currentModuleKey) {
+                // Alunos que estavam presentes e continuam presentes (ou novos)
                 presentStudents.forEach(studentId => {
                     const userRef = doc(firestore, 'users', studentId);
                     progressPromises.push(updateDocumentNonBlocking(userRef, { [`journey.memberCourseProgress.${currentModuleKey}`]: true }));
+                });
+
+                // Alunos que estavam presentes antes mas agora foram removidos (Faltaram/Desmarcado)
+                const previousAttendance = classData?.attendance?.find(a => a.date === selectedDate);
+                const removedStudents = (previousAttendance?.presentStudentIds || []).filter(id => !presentStudents.includes(id));
+                
+                removedStudents.forEach(studentId => {
+                    const userRef = doc(firestore, 'users', studentId);
+                    progressPromises.push(updateDocumentNonBlocking(userRef, { [`journey.memberCourseProgress.${currentModuleKey}`]: false }));
                 });
             }
 

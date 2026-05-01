@@ -1,0 +1,356 @@
+'use client';
+import React, { useMemo, useState } from 'react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { useVolunteering, type Class, type Course } from '@/contexts/volunteering-context';
+import { format, addWeeks, addDays, parseISO, isSameDay } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { Calendar as CalendarIcon, ArrowUpDown, Clock, User, BookOpen, AlertTriangle, CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Check, ChevronsUpDown, Search } from "lucide-react";
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
+
+interface ClassScheduleManagerProps {
+    classData: Class;
+}
+
+export function ClassScheduleManager({ classData }: ClassScheduleManagerProps) {
+    const { courses, users, updateClass } = useVolunteering();
+    const { toast } = useToast();
+    const course = useMemo(() => courses.find(c => c.id === classData.courseId), [courses, classData.courseId]);
+    const syllabus = course?.syllabus || [];
+    const teachers = useMemo(() => users.filter(u => u.isTeacher), [users]);
+
+    // Calcular as datas base do cronograma
+    const schedule = useMemo(() => {
+        if (!classData.startDate) return [];
+        
+        const items: any[] = [];
+        const start = parseISO(classData.startDate);
+        const holidaySet = new Set(classData.holidayDates || []);
+        const overrides = classData.scheduleOverrides || {};
+
+        // 1. Encontrar todas as datas de aula (recorrência)
+        let currentDate = start;
+        let syllabusIndex = 0;
+        let safeCounter = 0;
+
+        // Se tiver ementa, vamos gerar tantas datas quanto itens na ementa
+        // Caso contrário, usamos a data de término ou um limite padrão
+        const targetCount = syllabus.length > 0 ? syllabus.length : 12;
+
+        while (items.length < targetCount && safeCounter < 100) {
+            safeCounter++;
+            const dateStr = format(currentDate, 'yyyy-MM-dd');
+            
+            // Pular se for feriado e não houver override forçando
+            if (holidaySet.has(dateStr) && !overrides[dateStr]) {
+                currentDate = addWeeks(currentDate, classData.frequency === 'quinzenal' ? 2 : 1);
+                continue;
+            }
+
+            const override = overrides[dateStr];
+            const syllabusItem = override?.syllabusId 
+                ? syllabus.find(s => s.id === override.syllabusId) 
+                : syllabus[syllabusIndex];
+
+            const teacher = override?.teacherId
+                ? users.find(u => u.id === override.teacherId)
+                : users.find(u => u.id === classData.teacherId);
+
+            items.push({
+                date: currentDate,
+                dateStr,
+                syllabusItem,
+                teacher,
+                isOverride: !!override,
+                isCancelled: override?.isCancelled,
+                notes: override?.notes,
+                originalIndex: syllabusIndex
+            });
+
+            if (!override?.isCancelled) {
+                syllabusIndex++;
+            }
+            
+            currentDate = addWeeks(currentDate, classData.frequency === 'quinzenal' ? 2 : 1);
+        }
+
+        return items;
+    }, [classData, syllabus, users]);
+
+    const handleUpdateOverride = async (dateStr: string, data: any) => {
+        const newOverrides = { ...(classData.scheduleOverrides || {}) };
+        if (data === null) {
+            delete newOverrides[dateStr];
+        } else {
+            newOverrides[dateStr] = { ...(newOverrides[dateStr] || {}), ...data };
+        }
+
+        try {
+            await updateClass(classData.id, { scheduleOverrides: newOverrides });
+            toast({ title: "Cronograma atualizado", description: "As alterações foram salvas com sucesso." });
+        } catch (error) {
+            toast({ variant: "destructive", title: "Erro ao salvar", description: "Não foi possível atualizar o cronograma." });
+        }
+    };
+
+    const handleMoveDate = async (oldDateStr: string, newDateStr: string, item: any) => {
+        const newOverrides = { ...(classData.scheduleOverrides || {}) };
+        
+        // 1. Cancelar a data antiga (se ela for de recorrência)
+        newOverrides[oldDateStr] = { ...(newOverrides[oldDateStr] || {}), isCancelled: true };
+        
+        // 2. Definir a nova data com o conteúdo da antiga
+        newOverrides[newDateStr] = { 
+            ...(newOverrides[newDateStr] || {}), 
+            syllabusId: item.syllabusItem?.id, 
+            teacherId: item.teacher?.id,
+            isCancelled: false 
+        };
+
+        try {
+            await updateClass(classData.id, { scheduleOverrides: newOverrides });
+            toast({ title: "Aula reagendada", description: "A data foi alterada com sucesso." });
+        } catch (error) {
+            toast({ variant: "destructive", title: "Erro ao reagendar" });
+        }
+    };
+
+    const handleSwap = async (date1: string, date2: string) => {
+        const item1 = schedule.find(i => i.dateStr === date1);
+        const item2 = schedule.find(i => i.dateStr === date2);
+        
+        if (!item1 || !item2) return;
+
+        const newOverrides = { ...(classData.scheduleOverrides || {}) };
+        
+        // Trocar os syllabusIds e teacherIds
+        const s1 = item1.syllabusItem?.id;
+        const s2 = item2.syllabusItem?.id;
+        const t1 = item1.teacher?.id;
+        const t2 = item2.teacher?.id;
+
+        newOverrides[date1] = { ...(newOverrides[date1] || {}), syllabusId: s2, teacherId: t2 };
+        newOverrides[date2] = { ...(newOverrides[date2] || {}), syllabusId: s1, teacherId: t1 };
+
+        try {
+            await updateClass(classData.id, { scheduleOverrides: newOverrides });
+            toast({ title: "Permuta realizada", description: "As aulas foram trocadas com sucesso." });
+        } catch (error) {
+            toast({ variant: "destructive", title: "Erro na permuta" });
+        }
+    };
+
+    if (syllabus.length === 0) {
+        return (
+            <Card className="border-dashed border-2">
+                <CardContent className="pt-10 pb-10 text-center">
+                    <BookOpen className="mx-auto size-12 text-muted-foreground opacity-20 mb-4" />
+                    <h3 className="text-lg font-bold">Ementa não configurada</h3>
+                    <p className="text-sm text-muted-foreground max-w-xs mx-auto mt-2">
+                        Para gerenciar o cronograma detalhado, primeiro adicione os temas das aulas na ementa do curso.
+                    </p>
+                </CardContent>
+            </Card>
+        );
+    }
+
+    return (
+        <div className="space-y-6">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h3 className="text-lg font-black uppercase tracking-tighter text-primary flex items-center gap-2">
+                        <Clock className="size-5" /> Planejamento de Aulas
+                    </h3>
+                    <p className="text-xs text-muted-foreground font-medium">Ajuste datas, temas e professores conforme a necessidade.</p>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+                {schedule.map((item, index) => (
+                    <Card key={item.dateStr} className={cn(
+                        "relative overflow-hidden transition-all border-l-4",
+                        item.isCancelled ? "border-l-destructive bg-destructive/5 opacity-60" : 
+                        item.isOverride ? "border-l-amber-500 bg-amber-50/30" : "border-l-primary"
+                    )}>
+                        <CardContent className="p-4">
+                            <div className="flex flex-col md:flex-row md:items-center gap-4">
+                                {/* Coluna Data */}
+                                <div className="flex items-center gap-3 md:w-48 shrink-0">
+                                    <div className="size-10 rounded-xl bg-muted flex flex-col items-center justify-center text-muted-foreground shrink-0 border">
+                                        <span className="text-[10px] font-black uppercase leading-none">{format(item.date, 'MMM', { locale: ptBR })}</span>
+                                        <span className="text-lg font-black leading-none">{format(item.date, 'dd')}</span>
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-bold capitalize">{format(item.date, 'EEEE', { locale: ptBR })}</span>
+                                        <Popover modal={false}>
+                                            <PopoverTrigger asChild>
+                                                <button className="text-[10px] text-primary hover:underline font-black uppercase tracking-widest text-left">
+                                                    Alterar Data
+                                                </button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={item.date}
+                                                    onSelect={(d) => d && handleMoveDate(item.dateStr, format(d, 'yyyy-MM-dd'), item)}
+                                                    initialFocus
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+                                </div>
+
+                                {/* Coluna Conteúdo */}
+                                <div className="flex-1 space-y-1">
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="outline" className="text-[9px] uppercase font-black px-1.5 h-4 bg-white">Aula {index + 1}</Badge>
+                                        {item.isOverride && <Badge className="text-[9px] uppercase font-black px-1.5 h-4 bg-amber-500 hover:bg-amber-600">Alterado</Badge>}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Select 
+                                            value={item.syllabusItem?.id} 
+                                            onValueChange={(val) => handleUpdateOverride(item.dateStr, { syllabusId: val })}
+                                        >
+                                            <SelectTrigger className="h-auto p-0 border-none shadow-none bg-transparent hover:bg-muted/50 transition-colors focus:ring-0">
+                                                <SelectValue className="text-base font-black text-left" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {syllabus.map(s => (
+                                                    <SelectItem key={s.id} value={s.id} className="font-bold">{s.title}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground line-clamp-1 italic">{item.syllabusItem?.description || 'Sem descrição.'}</p>
+                                </div>
+
+                                {/* Coluna Professor */}
+                                <div className="flex items-center gap-3 md:w-56 shrink-0 pt-2 md:pt-0 md:border-l md:pl-4">
+                                    <User className="size-4 text-muted-foreground" />
+                                    <div className="flex-1">
+                                        <Popover modal={false}>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    role="combobox"
+                                                    className="h-7 w-full justify-between border-none shadow-none bg-transparent p-0 text-xs font-bold focus:ring-0 hover:bg-muted/50"
+                                                >
+                                                    <span className="truncate">
+                                                        {item.teacher?.name || "Sem professor"}
+                                                    </span>
+                                                    <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-[280px] p-0" align="start">
+                                                <div className="flex flex-col">
+                                                    <div className="flex items-center border-b px-3 bg-muted/5">
+                                                        <Search className="mr-2 h-3 w-3 shrink-0 opacity-50 text-primary" />
+                                                        <input 
+                                                            className="flex h-9 w-full rounded-md bg-transparent py-2 text-xs outline-none placeholder:text-muted-foreground" 
+                                                            placeholder="Buscar professor..." 
+                                                            onChange={(e) => {
+                                                                // Filtro local simples se necessário, mas o Popover já é pequeno
+                                                                const val = e.target.value.toLowerCase();
+                                                                const items = document.querySelectorAll(`[data-teacher-item="${item.dateStr}"]`);
+                                                                items.forEach((el: any) => {
+                                                                    const text = el.innerText.toLowerCase();
+                                                                    el.style.display = text.includes(val) ? 'flex' : 'none';
+                                                                });
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div className="max-h-[250px] overflow-y-auto p-1">
+                                                        <button
+                                                            onClick={() => handleUpdateOverride(item.dateStr, { teacherId: '' })}
+                                                            className="flex items-center gap-2 w-full p-2 hover:bg-primary/5 rounded-md transition-all text-left text-xs font-bold group"
+                                                        >
+                                                            <div className={cn("size-3 border rounded-full shrink-0", !item.teacher ? "bg-primary border-primary" : "border-muted-foreground/30")} />
+                                                            Nenhum (Remover)
+                                                        </button>
+                                                        {teachers.map((t) => (
+                                                            <button
+                                                                key={t.id}
+                                                                data-teacher-item={item.dateStr}
+                                                                onClick={() => handleUpdateOverride(item.dateStr, { teacherId: t.id })}
+                                                                className="flex items-center gap-2 w-full p-2 hover:bg-primary/5 rounded-md transition-all text-left text-xs font-bold group"
+                                                            >
+                                                                <div className={cn("size-3 border rounded-full shrink-0", item.teacher?.id === t.id ? "bg-primary border-primary" : "border-muted-foreground/30")} />
+                                                                {t.name}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+                                </div>
+
+                                {/* Ações Rápidas */}
+                                <div className="flex items-center gap-1 shrink-0 pt-2 md:pt-0">
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="size-8 hover:bg-primary/10">
+                                                <ArrowUpDown className="size-4" />
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-56 p-2 space-y-1">
+                                            <p className="text-[10px] font-black uppercase text-muted-foreground p-2 tracking-widest">Trocar ordem com:</p>
+                                            {schedule.filter(i => i.dateStr !== item.dateStr).map(i => (
+                                                <Button 
+                                                    key={i.dateStr}
+                                                    variant="ghost" 
+                                                    size="sm" 
+                                                    className="w-full justify-start text-xs font-bold h-8"
+                                                    onClick={() => handleSwap(item.dateStr, i.dateStr)}
+                                                >
+                                                    {format(i.date, 'dd/MM')} - {i.syllabusItem?.title || 'Sem título'}
+                                                </Button>
+                                            ))}
+                                        </PopoverContent>
+                                    </Popover>
+
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className={cn("size-8", item.isCancelled ? "text-emerald-600 hover:bg-emerald-50" : "text-destructive hover:bg-destructive/5")}
+                                        onClick={() => handleUpdateOverride(item.dateStr, { isCancelled: !item.isCancelled })}
+                                        title={item.isCancelled ? "Ativar Aula" : "Cancelar Aula"}
+                                    >
+                                        {item.isCancelled ? <RotateCcw className="size-4" /> : <XCircle className="size-4" />}
+                                    </Button>
+
+                                    {item.isOverride && !item.isCancelled && (
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="size-8 text-muted-foreground hover:text-primary"
+                                            onClick={() => handleUpdateOverride(item.dateStr, null)}
+                                            title="Restaurar padrão"
+                                        >
+                                            <RotateCcw className="size-4" />
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+            
+            <div className="flex justify-center pt-4">
+                <div className="flex items-center gap-8 text-[10px] uppercase font-black tracking-widest text-muted-foreground/60">
+                    <div className="flex items-center gap-1.5"><div className="size-2 rounded-full bg-primary" /> Padrão</div>
+                    <div className="flex items-center gap-1.5"><div className="size-2 rounded-full bg-amber-500" /> Alterado (Override)</div>
+                    <div className="flex items-center gap-1.5"><div className="size-2 rounded-full bg-destructive" /> Cancelado</div>
+                </div>
+            </div>
+        </div>
+    );
+}

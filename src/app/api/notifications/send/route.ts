@@ -1,27 +1,12 @@
-
 import { NextResponse } from 'next/server';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { getAdminDb } from '@/lib/firebase-admin';
+import { Timestamp } from 'firebase-admin/firestore';
 
 export const runtime = 'nodejs';
 
-if (!getApps().length) {
-  try {
-    if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
-        initializeApp({ credential: cert(serviceAccount) });
-    } else {
-        // Fallback for Vercel / Firebase Hosting Application Default Credentials
-        initializeApp();
-    }
-  } catch (e) {
-    console.error('Firebase Admin initialization error', e);
-  }
-}
-
 export async function POST(request: Request) {
   try {
-    const db = getFirestore();
+    const db = getAdminDb();
     const body = await request.json();
     const { 
         channel, 
@@ -66,30 +51,53 @@ export async function POST(request: Request) {
 
     // 2. Montar a lista de destinatários
     const targetUsers: any[] = [];
-    if (targetNumber) {
-        targetUsers.push({ id: 'custom', name: 'Destinatário Teste', phone: targetNumber.replace(/\D/g, '') });
+    const targetGroups: string[] = []; // IDs de grupos do WhatsApp
+
+    if (targetNumber || audience === 'individual') {
+        const phone = (targetNumber || body.individualPhone || '').replace(/\D/g, '');
+        if (phone) {
+            targetUsers.push({ id: 'custom', name: 'Destinatário Teste', phone });
+        }
+    } else if (audience === 'specific_groups' && body.groupIds && body.groupIds.length > 0) {
+        // Envio direto para grupos do WhatsApp (ID do grupo, ex: 12345@g.us)
+        body.groupIds.forEach((groupId: string) => targetGroups.push(groupId));
+    } else if (body.targets && Array.isArray(body.targets)) {
+        // NOVO: Alvos enviados diretamente pelo frontend (evita consulta ao Firestore se houver erro de credenciais)
+        body.targets.forEach((t: any) => {
+            if (t.phone) targetUsers.push({ id: t.id || 'direct', name: t.name || 'Membro', phone: t.phone });
+        });
     } else if (audience === 'specific_members' && userIds && userIds.length > 0) {
-        // Buscar usuários específicos por ID
-        const userPromises = userIds.map((id: string) => db.collection('users').doc(id).get());
-        const userSnaps = await Promise.all(userPromises);
-        
-        userSnaps.forEach(snap => {
-            if (snap.exists) {
-                const data = snap.data();
-                if (data?.phone) {
-                    targetUsers.push({ id: snap.id, name: data.name || 'Membro', phone: data.phone });
+        // Buscar usuários específicos por ID (Fallback se o admin estiver funcionando)
+        try {
+            const userPromises = userIds.map((id: string) => db.collection('users').doc(id).get());
+            const userSnaps = await Promise.all(userPromises);
+            
+            userSnaps.forEach(snap => {
+                if (snap.exists) {
+                    const data = snap.data();
+                    if (data?.phone) {
+                        targetUsers.push({ id: snap.id, name: data.name || 'Membro', phone: data.phone });
+                    }
                 }
-            }
-        });
+            });
+        } catch (e: any) {
+            return NextResponse.json({ 
+                error: `Erro ao acessar Firestore: ${e.message}. Tente selecionar os membros novamente ou verifique as credenciais do servidor.` 
+            }, { status: 500 });
+        }
     } else if (audience === 'all_members') {
-         const usersSnap = await db.collection('users').get();
-         usersSnap.forEach(d => {
-            const data = d.data();
-            if (data.phone) targetUsers.push({ id: d.id, name: data.name || 'Membro', phone: data.phone });
-        });
+         try {
+            const usersSnap = await db.collection('users').get();
+            usersSnap.forEach(d => {
+                const data = d.data();
+                if (data.phone) targetUsers.push({ id: d.id, name: data.name || 'Membro', phone: data.phone });
+            });
+         } catch (e: any) {
+            return NextResponse.json({ error: `Erro ao buscar todos os membros: ${e.message}` }, { status: 500 });
+         }
     }
 
-    if (targetUsers.length === 0) {
+    if (targetUsers.length === 0 && targetGroups.length === 0) {
         return NextResponse.json({ success: false, message: "Nenhum destinatário válido encontrado." });
     }
 
@@ -136,7 +144,8 @@ export async function POST(request: Request) {
                 body: messageBody
             });
 
-            if (response.status === 'success' || response.key || response.id) {
+            const isSuccess = response.status === 'success' || response.status === 200 || response.key || response.id || response.messageId || response.data?.id;
+            if (isSuccess) {
                 sentCount++;
             } else {
                 errorCount++;
@@ -145,6 +154,47 @@ export async function POST(request: Request) {
         } catch (e: any) { 
             errorCount++;
             errors.push(`Erro para ${user.name}: ${e.message}`);
+        }
+    }
+
+    // Enviar para grupos do WhatsApp
+    for (const groupId of targetGroups) {
+        let messageBody: any = { to: groupId };
+
+        if (rest.type === 'button') {
+            messageBody.text = message || ' ';
+            messageBody.title = rest.headerTitle || undefined;
+            messageBody.footer = rest.footer || '';
+            messageBody.buttons = rest.buttons || [];
+        } else if (rest.type === 'survey') {
+            messageBody.name = rest.surveyName || 'Enquete';
+            messageBody.options = rest.options || [];
+        } else if (rest.type === 'list') {
+            messageBody.text = message || 'Escolha uma opção';
+            messageBody.buttonText = rest.buttonText || 'Menu';
+            messageBody.title = rest.headerTitle || 'Opções';
+            messageBody.description = rest.description || '';
+            messageBody.footer = rest.footer || '';
+            messageBody.sections = rest.sections || [];
+        } else if (rest.type === 'media' || rest.type === 'image') {
+            messageBody.caption = message || ' ';
+            messageBody.url = rest.mediaUrl;
+        } else {
+            messageBody.text = message || '';
+        }
+
+        try {
+            const response = await whatsapp.sendMessage({ type: rest.type || 'text', body: messageBody });
+            const isSuccess = response.status === 'success' || response.status === 200 || response.key || response.id || response.messageId || response.data?.id;
+            if (isSuccess) {
+                sentCount++;
+            } else {
+                errorCount++;
+                errors.push(`Falha para grupo ${groupId}: ${JSON.stringify(response)}`);
+            }
+        } catch (e: any) {
+            errorCount++;
+            errors.push(`Erro para grupo ${groupId}: ${e.message}`);
         }
     }
     

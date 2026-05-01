@@ -13,11 +13,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { 
     Loader2, Send, Settings, Key, History, MessageSquare, 
     Users, CheckCircle2, Search, UserPlus, X, Info, RefreshCw, 
     Smartphone, MessageCircle, Trash2, CheckCircle, 
-    Copy, Globe, HeartHandshake, CalendarDays, MousePointer2, QrCode
+    Copy, Globe, HeartHandshake, CalendarDays, MousePointer2, QrCode,
+    Lock, Megaphone, UserCheck, ShieldCheck, ChevronRight
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useCollection, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
@@ -177,7 +179,38 @@ function WhatsappSender({ config }: { config: any }) {
     const [targetAudience, setTargetAudience] = useState('all_members');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
-    const [msgType, setMsgType] = useState<'text' | 'button' | 'survey' | 'media'>('text');
+    const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
+    const [individualPhone, setIndividualPhone] = useState('');
+    const [msgType, setMsgType] = useState<'text' | 'button' | 'survey' | 'media' | 'list'>('text');
+
+    // WA Contacts & Groups from API
+    const [waContacts, setWaContacts] = useState<any[]>([]);
+    const [waGroups, setWaGroups] = useState<any[]>([]);
+    const [isLoadingWaData, setIsLoadingWaData] = useState(false);
+
+    // Group detail sheet
+    const [groupDetail, setGroupDetail] = useState<any | null>(null);
+    const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+
+    const handleOpenGroupDetail = async (e: React.MouseEvent, g: any) => {
+        e.stopPropagation();
+        setGroupDetail({ ...g, _loading: true });
+        setIsLoadingDetail(true);
+        const apiKey = config?.instanceKey || config?.whatsappApiKey;
+        const serverUrl = config?.serverUrl || '';
+        const params = new URLSearchParams({ key: apiKey });
+        if (serverUrl) params.set('server', serverUrl);
+        try {
+            params.set('id', g.id);
+            const res = await fetch(`/api/notifications/groups?${params.toString()}`);
+            const data = await res.json();
+            setGroupDetail(data);
+        } catch {
+            setGroupDetail({ ...g, _error: true });
+        } finally {
+            setIsLoadingDetail(false);
+        }
+    };
 
     const [headerTitle, setHeaderTitle] = useState('Igreja Batista da Manhã');
     const [msgFooter, setMsgFooter] = useState('Escolha uma opção abaixo');
@@ -194,6 +227,35 @@ function WhatsappSender({ config }: { config: any }) {
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
     const { data: users } = useCollection<any>(usersQuery);
 
+    // Fetch WA contacts and groups from the API — only once config is loaded
+    useEffect(() => {
+        const apiKey = config?.instanceKey || config?.whatsappApiKey;
+        const serverUrl = config?.serverUrl || '';
+        if (!apiKey) return; // aguarda o config carregar
+
+        const fetchWaData = async () => {
+            setIsLoadingWaData(true);
+            const params = new URLSearchParams({ key: apiKey });
+            if (serverUrl) params.set('server', serverUrl);
+            const qs = params.toString();
+            try {
+                const [contactsRes, groupsRes] = await Promise.all([
+                    fetch(`/api/notifications/contacts?${qs}`),
+                    fetch(`/api/notifications/groups?${qs}`),
+                ]);
+                const contactsData = await contactsRes.json();
+                const groupsData = await groupsRes.json();
+                setWaContacts(contactsData.contacts || []);
+                setWaGroups(groupsData.groups || []);
+            } catch (e) {
+                console.warn('Failed to load WA contacts/groups', e);
+            } finally {
+                setIsLoadingWaData(false);
+            }
+        };
+        fetchWaData();
+    }, [config]);
+
     const filteredUsers = useMemo(() => {
         if (!users || !searchTerm) return [];
         return users.filter(u => 
@@ -202,14 +264,36 @@ function WhatsappSender({ config }: { config: any }) {
         ).slice(0, 5);
     }, [users, searchTerm, selectedUserIds]);
 
+    const filteredGroups = useMemo(() => {
+        if (!waGroups) return [];
+        if (!searchTerm) return waGroups;
+        return waGroups.filter(g =>
+            g.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+            !selectedGroupIds.includes(g.id)
+        );
+    }, [waGroups, searchTerm, selectedGroupIds]);
+
     const selectedUsersList = useMemo(() => {
         if (!users) return [];
         return users.filter(u => selectedUserIds.includes(u.id));
     }, [users, selectedUserIds]);
 
+    const selectedGroupsList = useMemo(() => {
+        return waGroups.filter(g => selectedGroupIds.includes(g.id));
+    }, [waGroups, selectedGroupIds]);
+
     const handleAddUser = (userId: string) => {
         setSelectedUserIds(prev => [...prev, userId]);
         setSearchTerm('');
+    };
+
+    const handleAddGroup = (groupId: string) => {
+        setSelectedGroupIds(prev => [...prev, groupId]);
+        setSearchTerm('');
+    };
+
+    const handleRemoveGroup = (groupId: string) => {
+        setSelectedGroupIds(prev => prev.filter(id => id !== groupId));
     };
 
     const handleRemoveUser = (userId: string) => {
@@ -219,8 +303,34 @@ function WhatsappSender({ config }: { config: any }) {
     const handleSend = async (e: React.FormEvent) => {
         e.preventDefault();
         
+        if (targetAudience === 'individual' && !individualPhone) {
+            toast({ variant: 'destructive', title: "Informe o número para teste." });
+            return;
+        }
+
         if (targetAudience === 'specific_members' && selectedUserIds.length === 0) {
             toast({ variant: 'destructive', title: "Selecione pelo menos uma pessoa." });
+            return;
+        }
+
+        if (targetAudience === 'specific_groups' && selectedGroupIds.length === 0) {
+            toast({ variant: 'destructive', title: "Selecione pelo menos um grupo." });
+            return;
+        }
+
+        // Claude Item 3: Validação manual de mensagem/enquete
+        if (msgType !== 'survey' && !message.trim()) {
+            toast({ variant: 'destructive', title: "Digite a mensagem principal." });
+            return;
+        }
+        if (msgType === 'survey' && !surveyName.trim()) {
+            toast({ variant: 'destructive', title: "Digite a pergunta da enquete." });
+            return;
+        }
+
+        // Claude Item 2: Guard para usuários carregando
+        if (targetAudience === 'specific_members' && selectedUsersList.length === 0) {
+            toast({ variant: 'destructive', title: "Usuários ainda carregando ou não selecionados." });
             return;
         }
 
@@ -231,6 +341,12 @@ function WhatsappSender({ config }: { config: any }) {
             audience: targetAudience,
             message,
             userIds: targetAudience === 'specific_members' ? selectedUserIds : undefined,
+            // Melhoria: Se for 'all_members', também manda como targets para evitar erro de credenciais no server local
+            targets: (targetAudience === 'specific_members' || targetAudience === 'all_members') 
+                ? (targetAudience === 'all_members' ? users : selectedUsersList)?.filter(u => u.phone).map(u => ({ id: u.id, name: u.name, phone: u.phone })) 
+                : undefined,
+            groupIds: targetAudience === 'specific_groups' ? selectedGroupIds : undefined,
+            individualPhone: targetAudience === 'individual' ? individualPhone : undefined,
             type: msgType,
             serverUrl: config?.serverUrl || config?.whatsappServerUrl,
             instanceKey: config?.instanceKey || config?.whatsappApiKey,
@@ -266,8 +382,13 @@ function WhatsappSender({ config }: { config: any }) {
                 toast({ title: "Envio Concluído!", description: `${result.sentCount || 0} mensagens enviadas.` });
                 setMessage('');
                 setSelectedUserIds([]);
+                setSelectedGroupIds([]); // Claude Item 7: Limpa grupos também
+                setIndividualPhone('');
+                setMediaUrl('');
             } else {
-                toast({ variant: 'destructive', title: "Falha no Envio", description: result.error || result.message || 'Erro ao enviar.' });
+                // Claude Item 9: Melhor feedback se sentCount for 0
+                const errorMsg = result.error || result.message || (result.sentCount === 0 ? "Nenhum destinatário com telefone válido encontrado." : "Erro ao enviar.");
+                toast({ variant: 'destructive', title: "Falha no Envio", description: errorMsg });
             }
         } catch(error) {
              toast({ variant: 'destructive', title: "Erro crítico", description: "Falha na conexão." });
@@ -298,17 +419,34 @@ function WhatsappSender({ config }: { config: any }) {
 
                     <div className="space-y-2">
                         <Label>Público Alvo</Label>
-                        <Select value={targetAudience} onValueChange={setTargetAudience}>
+                        <Select value={targetAudience} onValueChange={(v) => { setTargetAudience(v); setSearchTerm(''); }}>
                             <SelectTrigger className="h-11">
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
+                                <SelectItem value="individual">Individual (Teste)</SelectItem>
                                 <SelectItem value="all_members">Todos os Membros</SelectItem>
                                 <SelectItem value="specific_members">Membros Selecionados</SelectItem>
+                                <SelectItem value="specific_groups">Grupos do WhatsApp</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
                 </div>
+
+                {targetAudience === 'individual' && (
+                    <div className="space-y-2 p-4 border rounded-lg bg-indigo-50/30">
+                        <Label className="text-indigo-900 font-bold">Número para Teste</Label>
+                        <div className="flex gap-2">
+                            <Input 
+                                placeholder="Ex: 21999999999" 
+                                value={individualPhone} 
+                                onChange={(e) => setIndividualPhone(e.target.value)} 
+                                className="bg-white"
+                            />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground italic">Envie uma notificação rápida para conferir o layout.</p>
+                    </div>
+                )}
 
                 {targetAudience === 'specific_members' && (
                     <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
@@ -318,25 +456,204 @@ function WhatsappSender({ config }: { config: any }) {
                             <Input placeholder="Buscar por nome..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 h-11" />
                             {filteredUsers.length > 0 && (
                                 <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg overflow-hidden">
-                                    {filteredUsers.map(u => (
-                                        <button key={u.id} type="button" onClick={() => handleAddUser(u.id)} className="w-full px-4 py-3 text-left hover:bg-primary/10 flex justify-between border-b last:border-0">
-                                            <span className="font-medium">{u.name}</span>
-                                            <UserPlus size={14} className="text-primary" />
-                                        </button>
-                                    ))}
+                                    {filteredUsers.map(u => {
+                                        // Tenta encontrar o contato WA correspondente para mostrar o avatar
+                                        const waContact = waContacts.find(c => c.phone && (u.phone || '').replace(/\D/g,'').endsWith(c.phone.replace(/\D/g,'')));
+                                        return (
+                                            <button key={u.id} type="button" onClick={() => handleAddUser(u.id)} className="w-full px-4 py-3 text-left hover:bg-primary/10 flex items-center gap-3 border-b last:border-0">
+                                                <Avatar className="h-8 w-8 border shrink-0">
+                                                    {waContact?.profilePicture && <AvatarImage src={waContact.profilePicture} />}
+                                                    <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">{u.name?.charAt(0)}</AvatarFallback>
+                                                </Avatar>
+                                                <span className="font-medium flex-1">{u.name}</span>
+                                                <UserPlus size={14} className="text-primary shrink-0" />
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
                         <div className="flex flex-wrap gap-2">
-                            {selectedUsersList.map(u => (
-                                <Badge key={u.id} variant="secondary" className="gap-1 h-7 font-bold">
-                                    {u.name}
-                                    <button type="button" onClick={() => handleRemoveUser(u.id)}><X size={14} /></button>
-                                </Badge>
-                            ))}
+                            {selectedUsersList.map(u => {
+                                const waContact = waContacts.find(c => c.phone && (u.phone || '').replace(/\D/g,'').endsWith(c.phone.replace(/\D/g,'')));
+                                return (
+                                    <Badge key={u.id} variant="secondary" className="gap-1.5 h-8 font-bold pl-1 pr-2">
+                                        <Avatar className="h-5 w-5">
+                                            {waContact?.profilePicture && <AvatarImage src={waContact.profilePicture} />}
+                                            <AvatarFallback className="text-[9px]">{u.name?.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                        {u.name}
+                                        <button type="button" onClick={() => handleRemoveUser(u.id)}><X size={12} /></button>
+                                    </Badge>
+                                );
+                            })}
                         </div>
                     </div>
                 )}
+
+                {targetAudience === 'specific_groups' && (
+                    <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+                        <div className="flex items-center justify-between">
+                            <Label>Selecionar Grupos do WhatsApp</Label>
+                            {isLoadingWaData && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+                        </div>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-3 size-4 text-muted-foreground" />
+                            <Input placeholder="Buscar grupo..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 h-11" />
+                        </div>
+                        {waGroups.length === 0 && !isLoadingWaData && (
+                            <p className="text-xs text-muted-foreground italic text-center py-4">Nenhum grupo carregado. Verifique se a API Key está configurada e o gateway está ativo.</p>
+                        )}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-56 overflow-y-auto pr-1">
+                            {filteredGroups.map(g => {
+                                const isSelected = selectedGroupIds.includes(g.id);
+                                return (
+                                    <div
+                                        key={g.id}
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={() => isSelected ? handleRemoveGroup(g.id) : handleAddGroup(g.id)}
+                                        onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (isSelected ? handleRemoveGroup(g.id) : handleAddGroup(g.id))}
+                                        className={cn(
+                                            "flex items-center gap-3 p-3 rounded-lg border-2 text-left transition-all cursor-pointer select-none",
+                                            isSelected
+                                                ? "border-primary bg-primary/5 shadow-sm"
+                                                : "border-transparent bg-background hover:border-primary/30 hover:bg-primary/5"
+                                        )}
+                                    >
+                                        <Avatar className="h-10 w-10 border-2 border-white shadow shrink-0">
+                                            <AvatarFallback className="text-xs font-black bg-emerald-100 text-emerald-800">{g.name?.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="font-bold text-sm truncate">{g.name}</p>
+                                            <p className="text-[10px] text-muted-foreground">{g.participantCount} participantes</p>
+                                            {g.description && <p className="text-[10px] text-muted-foreground truncate italic mt-0.5">{g.description}</p>}
+                                        </div>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => handleOpenGroupDetail(e, g)}
+                                                className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                                                title="Ver detalhes do grupo"
+                                            >
+                                                <Info size={14} />
+                                            </button>
+                                            {isSelected && <CheckCircle2 className="size-5 text-primary" />}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        {selectedGroupsList.length > 0 && (
+                            <div className="pt-2 border-t flex flex-wrap gap-2">
+                                {selectedGroupsList.map(g => (
+                                    <Badge key={g.id} variant="secondary" className="gap-1.5 h-8 font-bold pl-1 pr-2 bg-emerald-50 text-emerald-900 border-emerald-200">
+                                        <Avatar className="h-5 w-5">
+                                            <AvatarFallback className="text-[9px] bg-emerald-200">{g.name?.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                        {g.name}
+                                        <button type="button" onClick={() => handleRemoveGroup(g.id)}><X size={12} /></button>
+                                    </Badge>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Group Detail Sheet */}
+                <Sheet open={!!groupDetail} onOpenChange={(open) => !open && setGroupDetail(null)}>
+                    <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+                        {/* SheetTitle always rendered for accessibility */}
+                        <SheetHeader className="mb-6">
+                            {(isLoadingDetail || groupDetail?._loading) ? (
+                                <SheetTitle className="text-muted-foreground">Carregando detalhes...</SheetTitle>
+                            ) : (
+                                <div className="flex items-center gap-3 mb-2">
+                                    <Avatar className="h-14 w-14 border-2 shadow">
+                                        <AvatarFallback className="text-lg font-black bg-emerald-100 text-emerald-800">{groupDetail?.name?.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                        <SheetTitle className="text-left">{groupDetail?.name}</SheetTitle>
+                                        <p className="text-xs text-muted-foreground">{groupDetail?.size || groupDetail?.participantCount} participantes</p>
+                                    </div>
+                                </div>
+                            )}
+                            {!isLoadingDetail && !groupDetail?._loading && groupDetail?.description && (
+                                <SheetDescription className="text-left text-sm text-foreground/80 whitespace-pre-line">
+                                    {groupDetail.description}
+                                </SheetDescription>
+                            )}
+                        </SheetHeader>
+
+                        {(isLoadingDetail || groupDetail?._loading) ? (
+                            <div className="flex items-center justify-center py-16">
+                                <Loader2 className="animate-spin size-8 text-primary opacity-40" />
+                            </div>
+                        ) : groupDetail && (
+
+                                <div className="space-y-4">
+                                    {/* Configurações do grupo */}
+                                    <div className="p-4 bg-muted/30 rounded-xl border space-y-3">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Configurações</p>
+                                        <div className="grid grid-cols-1 gap-2">
+                                            <div className={cn("flex items-center gap-3 p-2.5 rounded-lg", groupDetail.announce ? "bg-amber-50 border border-amber-200" : "bg-muted/20")}>
+                                                <Megaphone size={16} className={groupDetail.announce ? "text-amber-600" : "text-muted-foreground"} />
+                                                <div className="flex-1">
+                                                    <p className="text-xs font-bold">Somente Admins Enviam</p>
+                                                    <p className="text-[10px] text-muted-foreground">Apenas administradores podem enviar mensagens</p>
+                                                </div>
+                                                <Badge variant={groupDetail.announce ? "default" : "secondary"} className="text-[10px]">
+                                                    {groupDetail.announce ? 'Ativo' : 'Inativo'}
+                                                </Badge>
+                                            </div>
+                                            <div className={cn("flex items-center gap-3 p-2.5 rounded-lg", groupDetail.restrict ? "bg-red-50 border border-red-200" : "bg-muted/20")}>
+                                                <Lock size={16} className={groupDetail.restrict ? "text-red-600" : "text-muted-foreground"} />
+                                                <div className="flex-1">
+                                                    <p className="text-xs font-bold">Configurações Restritas</p>
+                                                    <p className="text-[10px] text-muted-foreground">Apenas admins podem editar info do grupo</p>
+                                                </div>
+                                                <Badge variant={groupDetail.restrict ? "destructive" : "secondary"} className="text-[10px]">
+                                                    {groupDetail.restrict ? 'Restrito' : 'Aberto'}
+                                                </Badge>
+                                            </div>
+                                            {groupDetail.isCommunity !== undefined && (
+                                                <div className={cn("flex items-center gap-3 p-2.5 rounded-lg", groupDetail.isCommunity || groupDetail.isCommunityAnnounce ? "bg-blue-50 border border-blue-200" : "bg-muted/20")}>
+                                                    <Users size={16} className={groupDetail.isCommunity || groupDetail.isCommunityAnnounce ? "text-blue-600" : "text-muted-foreground"} />
+                                                    <div className="flex-1">
+                                                        <p className="text-xs font-bold">Comunidade</p>
+                                                        <p className="text-[10px] text-muted-foreground">
+                                                            {groupDetail.isCommunity ? 'Grupo principal da comunidade' : groupDetail.isCommunityAnnounce ? 'Canal de anúncios da comunidade' : 'Grupo independente'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Admins */}
+                                    {groupDetail.admins && groupDetail.admins.length > 0 && (
+                                        <div className="p-4 bg-muted/30 rounded-xl border space-y-2">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Administradores ({groupDetail.admins.length})</p>
+                                            {groupDetail.admins.map((admin: any) => (
+                                                <div key={admin.id} className="flex items-center gap-2 py-1">
+                                                    <ShieldCheck size={14} className="text-primary shrink-0" />
+                                                    <span className="text-xs font-mono text-foreground/70">{admin.id}</span>
+                                                    <Badge variant="outline" className="text-[9px] ml-auto capitalize">{admin.role}</Badge>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Criado em */}
+                                    {groupDetail.createdAt && (
+                                        <p className="text-[10px] text-muted-foreground text-center">
+                                            Criado em {format(new Date(groupDetail.createdAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                                        </p>
+                                    )}
+                                </div>
+                        )}
+                    </SheetContent>
+                </Sheet>
 
                 {msgType === 'button' && (
                     <div className="p-4 border-2 border-dashed rounded-xl bg-indigo-50/50 space-y-4 animate-in slide-in-from-top-2">
@@ -704,7 +1021,11 @@ function NotificationsConfig() {
         }
         setIsRefreshing(true);
         try {
-            const res = await fetch('/api/notifications/instance', { cache: 'no-store' });
+            const serverUrl = config?.serverUrl || '';
+            const params = new URLSearchParams({ key: waKey });
+            if (serverUrl) params.set('server', serverUrl);
+            
+            const res = await fetch(`/api/notifications/instance?${params.toString()}`, { cache: 'no-store' });
             const data = await res.json();
             
             if (data.status === 'error' || data.error) {
@@ -730,14 +1051,13 @@ function NotificationsConfig() {
         }
     }, [config]);
 
-    // *** CORREÇÃO: Adicionado useEffect para verificar o status ao carregar a chave ***
+    // Verifica o status ao carregar o config
     useEffect(() => {
-        if (waKey) {
+        const savedKey = config?.whatsappApiKey || config?.instanceKey || '';
+        if (savedKey) {
             checkStatus();
         }
-        // A intenção é executar apenas quando waKey é carregado pela primeira vez.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [waKey]);
+    }, [config]); // Depende apenas do config para evitar loops enquanto o usuário digita na config manual
 
     const handleConnect = async () => {
         if (!waKey) return;
@@ -853,6 +1173,226 @@ function NotificationsConfig() {
     );
 }
 
+function WhatsappGroupsManager({ config }: { config: any }) {
+    const [groups, setGroups] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [search, setSearch] = useState('');
+    const [selectedGroup, setSelectedGroup] = useState<any | null>(null);
+    const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+
+    const fetchGroups = async () => {
+        const apiKey = config?.instanceKey || config?.whatsappApiKey;
+        if (!apiKey) return;
+        setIsLoading(true);
+        const params = new URLSearchParams({ key: apiKey });
+        if (config?.serverUrl) params.set('server', config.serverUrl);
+        try {
+            const res = await fetch(`/api/notifications/groups?${params.toString()}`);
+            const data = await res.json();
+            setGroups(data.groups || []);
+        } catch { /* silently fail */ }
+        finally { setIsLoading(false); }
+    };
+
+    const openGroupDetail = async (g: any) => {
+        const apiKey = config?.instanceKey || config?.whatsappApiKey;
+        if (!apiKey) return;
+        setSelectedGroup({ ...g, _loading: true });
+        setIsLoadingDetail(true);
+        const params = new URLSearchParams({ key: apiKey });
+        if (config?.serverUrl) params.set('server', config.serverUrl);
+        try {
+            params.set('id', g.id);
+            const res = await fetch(`/api/notifications/groups?${params.toString()}`);
+            const data = await res.json();
+            setSelectedGroup(data);
+        } catch { setSelectedGroup({ ...g, _error: true }); }
+        finally { setIsLoadingDetail(false); }
+    };
+
+    useEffect(() => { if (config) fetchGroups(); }, [config]);
+
+    const filteredGroups = useMemo(() =>
+        groups.filter(g => !search || g.name?.toLowerCase().includes(search.toLowerCase())),
+        [groups, search]
+    );
+
+    return (
+        <div className="space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-xl font-black">Gerenciar Grupos</h2>
+                    <p className="text-sm text-muted-foreground">Visualize e gerencie seus grupos do WhatsApp</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={fetchGroups} disabled={isLoading} className="gap-2 font-bold">
+                    <RefreshCw className={cn("size-4", isLoading && "animate-spin")} />
+                    Atualizar
+                </Button>
+            </div>
+
+            {/* Search */}
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input placeholder="Buscar grupo..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10 h-11" />
+            </div>
+
+            {/* Stats row */}
+            {groups.length > 0 && (
+                <div className="grid grid-cols-3 gap-4">
+                    <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-center">
+                        <p className="text-2xl font-black text-emerald-700">{groups.length}</p>
+                        <p className="text-[10px] font-bold uppercase text-emerald-600 tracking-wider">Total de Grupos</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-blue-50 border border-blue-200 text-center">
+                        <p className="text-2xl font-black text-blue-700">{groups.reduce((s, g) => s + (g.participantCount || 0), 0).toLocaleString('pt-BR')}</p>
+                        <p className="text-[10px] font-bold uppercase text-blue-600 tracking-wider">Total de Membros</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-center">
+                        <p className="text-2xl font-black text-amber-700">{groups[0]?.participantCount?.toLocaleString('pt-BR') || '—'}</p>
+                        <p className="text-[10px] font-bold uppercase text-amber-600 tracking-wider">Maior Grupo</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Groups Grid */}
+            {isLoading ? (
+                <div className="flex items-center justify-center py-16">
+                    <Loader2 className="animate-spin size-8 text-primary opacity-40" />
+                </div>
+            ) : filteredGroups.length === 0 ? (
+                <div className="text-center py-16 text-muted-foreground">
+                    <Users className="mx-auto size-10 opacity-30 mb-3" />
+                    <p className="text-sm font-bold">Nenhum grupo encontrado</p>
+                    <p className="text-xs">Verifique se a API Key está configurada e o gateway está ativo.</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {filteredGroups.map(g => (
+                        <div
+                            key={g.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => openGroupDetail(g)}
+                            onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && openGroupDetail(g)}
+                            className="p-4 rounded-xl border-2 border-transparent bg-card hover:border-primary/30 hover:shadow-md transition-all cursor-pointer select-none group"
+                        >
+                            <div className="flex items-start gap-3">
+                                <Avatar className="h-12 w-12 shrink-0 border-2 shadow-sm">
+                                    <AvatarFallback className="text-base font-black bg-emerald-100 text-emerald-800">{g.name?.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0 flex-1">
+                                    <p className="font-bold text-sm truncate group-hover:text-primary transition-colors">{g.name}</p>
+                                    <div className="flex items-center gap-1 mt-1">
+                                        <Users size={10} className="text-muted-foreground" />
+                                        <span className="text-[10px] text-muted-foreground">{(g.participantCount || 0).toLocaleString('pt-BR')} membros</span>
+                                    </div>
+                                    {g.description && (
+                                        <p className="text-[10px] text-muted-foreground truncate italic mt-1">{g.description}</p>
+                                    )}
+                                </div>
+                                <ChevronRight size={14} className="text-muted-foreground shrink-0 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Detail Sheet */}
+            <Sheet open={!!selectedGroup} onOpenChange={open => !open && setSelectedGroup(null)}>
+                <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+                    <SheetHeader className="mb-6">
+                        {isLoadingDetail || selectedGroup?._loading ? (
+                            <SheetTitle className="text-muted-foreground">Carregando...</SheetTitle>
+                        ) : (
+                            <>
+                                <div className="flex items-center gap-3 mb-2">
+                                    <Avatar className="h-14 w-14 border-2 shadow">
+                                        <AvatarFallback className="text-lg font-black bg-emerald-100 text-emerald-800">{selectedGroup?.name?.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                        <SheetTitle className="text-left">{selectedGroup?.name}</SheetTitle>
+                                        <p className="text-xs text-muted-foreground">{selectedGroup?.size || selectedGroup?.participantCount} participantes</p>
+                                    </div>
+                                </div>
+                                {selectedGroup?.description && (
+                                    <SheetDescription className="text-left text-sm text-foreground/80 whitespace-pre-line">
+                                        {selectedGroup.description}
+                                    </SheetDescription>
+                                )}
+                            </>
+                        )}
+                    </SheetHeader>
+
+                    {isLoadingDetail || selectedGroup?._loading ? (
+                        <div className="flex items-center justify-center py-16">
+                            <Loader2 className="animate-spin size-8 text-primary opacity-40" />
+                        </div>
+                    ) : selectedGroup && (
+                        <div className="space-y-4">
+                            <div className="p-4 bg-muted/30 rounded-xl border space-y-3">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Configurações</p>
+                                <div className="grid grid-cols-1 gap-2">
+                                    <div className={cn("flex items-center gap-3 p-2.5 rounded-lg", selectedGroup.announce ? "bg-amber-50 border border-amber-200" : "bg-muted/20")}>
+                                        <Megaphone size={16} className={selectedGroup.announce ? "text-amber-600" : "text-muted-foreground"} />
+                                        <div className="flex-1">
+                                            <p className="text-xs font-bold">Somente Admins Enviam</p>
+                                            <p className="text-[10px] text-muted-foreground">Apenas administradores podem enviar mensagens</p>
+                                        </div>
+                                        <Badge variant={selectedGroup.announce ? "default" : "secondary"} className="text-[10px]">
+                                            {selectedGroup.announce ? 'Ativo' : 'Inativo'}
+                                        </Badge>
+                                    </div>
+                                    <div className={cn("flex items-center gap-3 p-2.5 rounded-lg", selectedGroup.restrict ? "bg-red-50 border border-red-200" : "bg-muted/20")}>
+                                        <Lock size={16} className={selectedGroup.restrict ? "text-red-600" : "text-muted-foreground"} />
+                                        <div className="flex-1">
+                                            <p className="text-xs font-bold">Configurações Restritas</p>
+                                            <p className="text-[10px] text-muted-foreground">Apenas admins podem editar info do grupo</p>
+                                        </div>
+                                        <Badge variant={selectedGroup.restrict ? "destructive" : "secondary"} className="text-[10px]">
+                                            {selectedGroup.restrict ? 'Restrito' : 'Aberto'}
+                                        </Badge>
+                                    </div>
+                                    {selectedGroup.isCommunity !== undefined && (
+                                        <div className={cn("flex items-center gap-3 p-2.5 rounded-lg", selectedGroup.isCommunity || selectedGroup.isCommunityAnnounce ? "bg-blue-50 border border-blue-200" : "bg-muted/20")}>
+                                            <Users size={16} className={selectedGroup.isCommunity || selectedGroup.isCommunityAnnounce ? "text-blue-600" : "text-muted-foreground"} />
+                                            <div className="flex-1">
+                                                <p className="text-xs font-bold">Tipo</p>
+                                                <p className="text-[10px] text-muted-foreground">
+                                                    {selectedGroup.isCommunity ? 'Grupo principal da comunidade' : selectedGroup.isCommunityAnnounce ? 'Canal de anúncios da comunidade' : 'Grupo independente'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {selectedGroup.admins && selectedGroup.admins.length > 0 && (
+                                <div className="p-4 bg-muted/30 rounded-xl border space-y-2">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Administradores ({selectedGroup.admins.length})</p>
+                                    {selectedGroup.admins.map((admin: any) => (
+                                        <div key={admin.id} className="flex items-center gap-2 py-1">
+                                            <ShieldCheck size={14} className="text-primary shrink-0" />
+                                            <span className="text-xs font-mono text-foreground/70 truncate">{admin.id}</span>
+                                            <Badge variant="outline" className="text-[9px] ml-auto capitalize shrink-0">{admin.role}</Badge>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {selectedGroup.createdAt && (
+                                <p className="text-[10px] text-muted-foreground text-center">
+                                    Criado em {format(new Date(selectedGroup.createdAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                                </p>
+                            )}
+                        </div>
+                    )}
+                </SheetContent>
+            </Sheet>
+        </div>
+    );
+}
+
 export default function NotificationsPage() {
   const { data: config } = useDoc<any>('config/notifications');
 
@@ -863,6 +1403,7 @@ export default function NotificationsPage() {
                 <div className="overflow-x-auto">
                     <TabsList className="flex h-auto justify-start bg-muted/50 p-1 rounded-xl w-fit min-w-max border-2">
                         <TabsTrigger value="sender" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Disparador</TabsTrigger>
+                        <TabsTrigger value="groups" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Grupos</TabsTrigger>
                         <TabsTrigger value="chats" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Conversas</TabsTrigger>
                         <TabsTrigger value="responses" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Respostas</TabsTrigger>
                         <TabsTrigger value="history" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Histórico</TabsTrigger>
@@ -878,6 +1419,9 @@ export default function NotificationsPage() {
             
             <TabsContent value="sender" className="mt-0 animate-in fade-in-50 duration-300">
                 <WhatsappSender config={config} />
+            </TabsContent>
+            <TabsContent value="groups" className="mt-0 animate-in fade-in-50 duration-300">
+                <WhatsappGroupsManager config={config} />
             </TabsContent>
             <TabsContent value="chats" className="mt-0 animate-in fade-in-50 duration-300"><WhatsappChats /></TabsContent>
             <TabsContent value="responses" className="mt-0 animate-in fade-in-50 duration-300"><WhatsappResponses /></TabsContent>

@@ -14,6 +14,8 @@ import { ptBR } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Check, ChevronsUpDown, Search } from "lucide-react";
 
 type User = { id: string; name: string; isTeacher?: boolean; };
 const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
@@ -38,6 +40,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
   const [extraDates, setExtraDates] = useState<string[]>([]);
   
   const [locationType, setLocationType] = useState<'ibm' | 'the_school' | ''>('');
+  const [registrationDeadline, setRegistrationDeadline] = useState('');
   const [ibmRoomId, setIbmRoomId] = useState('');
 
 
@@ -59,6 +62,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
         setWeekOfMonth(existingClass.weekOfMonth || '');
         setHolidayDates(existingClass.holidayDates || []);
         setExtraDates(existingClass.extraDates || []);
+        setRegistrationDeadline(existingClass.registrationDeadline || '');
         
         if (existingClass.locationId === 'the_school') {
             setLocationType('the_school');
@@ -84,6 +88,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
         setWeekOfMonth('');
         setHolidayDates([]);
         setExtraDates([]);
+        setRegistrationDeadline('');
         setLocationType('');
         setIbmRoomId('');
       }
@@ -120,6 +125,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
         locationId: finalLocationId,
         holidayDates,
         extraDates,
+        registrationDeadline,
     };
 
     try {
@@ -175,13 +181,60 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
               </div>
               <div className="space-y-2">
                 <Label htmlFor="teacherId" className="text-[10px] uppercase font-black text-muted-foreground tracking-wider">Professor Responsável</Label>
-                <Select value={teacherId || 'null'} onValueChange={setTeacherId} disabled={isLoading}>
-                  <SelectTrigger id="teacherId" className="h-11"><SelectValue placeholder={isLoading ? "Carregando..." : "Selecione um professor"} /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="null">Nenhum</SelectItem>
-                    {teachers.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+                <Popover modal={false}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      disabled={isLoading}
+                      className="h-11 w-full justify-between"
+                    >
+                      {teacherId && teacherId !== 'null'
+                        ? teachers.find((t) => t.id === teacherId)?.name
+                        : "Selecione um professor"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-full p-0">
+                    <div className="flex flex-col">
+                        <div className="flex items-center border-b px-3 bg-muted/5">
+                            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50 text-primary" />
+                            <input 
+                                className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground" 
+                                placeholder="Buscar professor..." 
+                                onChange={(e) => {
+                                    const val = e.target.value.toLowerCase();
+                                    const items = document.querySelectorAll('[data-teacher-item-dialog]');
+                                    items.forEach((el: any) => {
+                                        const text = el.innerText.toLowerCase();
+                                        el.style.display = text.includes(val) ? 'flex' : 'none';
+                                    });
+                                }}
+                            />
+                        </div>
+                        <div className="max-h-[300px] overflow-y-auto p-1">
+                            <button
+                                onClick={() => setTeacherId('null')}
+                                className="flex items-center gap-2 w-full p-3 hover:bg-primary/5 rounded-md transition-all text-left text-sm font-bold group"
+                            >
+                                <div className={cn("size-4 border rounded-full shrink-0", teacherId === 'null' ? "bg-primary border-primary" : "border-muted-foreground/30")} />
+                                Nenhum (Remover)
+                            </button>
+                            {teachers.map((t) => (
+                                <button
+                                    key={t.id}
+                                    data-teacher-item-dialog
+                                    onClick={() => setTeacherId(t.id)}
+                                    className="flex items-center gap-2 w-full p-3 hover:bg-primary/5 rounded-md transition-all text-left text-sm font-bold group"
+                                >
+                                    <div className={cn("size-4 border rounded-full shrink-0", teacherId === t.id ? "bg-primary border-primary" : "border-muted-foreground/30")} />
+                                    {t.name}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="maxStudents" className="text-[10px] uppercase font-black text-muted-foreground tracking-wider flex items-center gap-2">
@@ -252,6 +305,20 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
                   <div className="space-y-2">
                     <Label htmlFor="endTime" className="text-[10px] uppercase font-black text-muted-foreground">Horário de Término</Label>
                     <Input id="endTime" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required className="h-11 font-mono"/>
+                  </div>
+                  
+                  <div className="md:col-span-2 space-y-2">
+                    <Label htmlFor="registrationDeadline" className="text-[10px] uppercase font-black text-primary tracking-widest flex items-center gap-2 italic">
+                        Data Limite de Inscrição (Opcional)
+                    </Label>
+                    <Input 
+                        id="registrationDeadline" 
+                        type="date" 
+                        value={registrationDeadline} 
+                        onChange={e => setRegistrationDeadline(e.target.value)} 
+                        className="h-11 font-bold border-primary/20 bg-primary/5" 
+                    />
+                    <p className="text-[10px] text-muted-foreground font-medium">Se definida, a turma não aparecerá para novas matrículas após esta data.</p>
                   </div>
                     <div className="md:col-span-2 space-y-2">
                         <Label htmlFor="locationType" className="text-[10px] uppercase font-black text-muted-foreground">Local das Aulas</Label>

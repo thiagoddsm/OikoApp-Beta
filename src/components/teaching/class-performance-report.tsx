@@ -28,21 +28,37 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
             .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
     }, [users, classData]);
 
-    const classOccurrences = useMemo(() => {
+    const resolvedSchedule = useMemo(() => {
         if (!classData || !classData.startDate) return [];
-        const occurrences: string[] = [];
+        
+        const items: any[] = [];
         const start = parseISO(classData.startDate);
-        const end = classData.endDate ? parseISO(classData.endDate) : addMonths(start, 2); // Default to 2 months if no end date
+        const end = classData.endDate ? parseISO(classData.endDate) : addMonths(start, 2);
         const targetDay = classData.dayOfWeek ? weekDayMap[classData.dayOfWeek] : -1;
         const holidays = new Set(classData.holidayDates || []);
-        const extras = classData.extraDates || [];
+        const overrides = classData.scheduleOverrides || {};
 
         let current = start;
         let safe = 0;
 
+        // 1. Recorrência base
         if (classData.frequency && classData.frequency !== 'pontual') {
             while (isBefore(current, end) || format(current, 'yyyy-MM-dd') === format(end, 'yyyy-MM-dd')) {
                 if (safe++ > 150) break;
+                const dStr = format(current, 'yyyy-MM-dd');
+                const override = overrides[dStr];
+
+                // Pular se for feriado sem override, ou se estiver explicitamente cancelado
+                if (override?.isCancelled) {
+                    current = addWeeks(current, classData.frequency === 'quinzenal' ? 2 : 1);
+                    continue;
+                }
+
+                if (holidays.has(dStr) && !override) {
+                    current = addWeeks(current, classData.frequency === 'quinzenal' ? 2 : 1);
+                    continue;
+                }
+
                 let matches = false;
                 if (classData.frequency === 'semanal') {
                     matches = targetDay === -1 || current.getDay() === targetDay;
@@ -50,16 +66,27 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
                     const diffWeeks = Math.floor((current.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
                     matches = diffWeeks % 2 === 0 && (targetDay === -1 || current.getDay() === targetDay);
                 }
-                const dateStr = format(current, 'yyyy-MM-dd');
-                if (matches && !holidays.has(dateStr)) occurrences.push(dateStr);
-                current = addWeeks(current, 1);
+
+                if (matches) items.push(dStr);
+                current = addWeeks(current, classData.frequency === 'quinzenal' ? 2 : 1);
             }
         } else if (classData.frequency === 'pontual') {
-            occurrences.push(classData.startDate);
+            if (!overrides[classData.startDate]?.isCancelled) {
+                items.push(classData.startDate);
+            }
         }
 
-        return Array.from(new Set([...occurrences, ...extras])).sort();
+        // 2. Adicionar overrides de fora da recorrência
+        Object.entries(overrides).forEach(([dateStr, override]: [string, any]) => {
+            if (override.isCancelled) return;
+            if (items.includes(dateStr)) return;
+            items.push(dateStr);
+        });
+
+        return items.sort();
     }, [classData]);
+
+    const classOccurrences = resolvedSchedule;
 
     const assessments = useMemo(() => {
         if (!classData.grades) return [];

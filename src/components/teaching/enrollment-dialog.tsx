@@ -104,9 +104,18 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
   const isEnrollmentBlocked = !!enrollmentError;
 
   const filteredClasses = useMemo(() => {
-    if (!selectedCourseId || isMemberCourse) return [];
-    return classes.filter(cls => cls.courseId === selectedCourseId);
-  }, [classes, selectedCourseId, isMemberCourse]);
+    if (!selectedCourseId) return [];
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    
+    return classes.filter(cls => {
+        if (cls.courseId !== selectedCourseId) return false;
+        // Se houver data limite e já passou de hoje, não exibe
+        if (cls.registrationDeadline && isAfter(parseISO(todayStr), parseISO(cls.registrationDeadline))) {
+            return false;
+        }
+        return true;
+    });
+  }, [classes, selectedCourseId]);
 
   const handleSelectUser = (user: any) => {
     setStudentId(user.id);
@@ -330,14 +339,6 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
                                     </p>
                                 </div>
                             </div>
-                        ) : isMemberCourse ? (
-                            <div className="mt-2 p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-start gap-3">
-                                <Layers className="size-5 text-primary shrink-0 mt-0.5" />
-                                <div className="space-y-1">
-                                    <p className="text-xs font-black uppercase text-primary">Ciclo Modular</p>
-                                    <p className="text-[11px] text-muted-foreground leading-tight">O aluno será inscrito em todas as aulas dominicais deste curso automaticamente.</p>
-                                </div>
-                            </div>
                         ) : (
                             <Select value={classId} onValueChange={setClassId} disabled={isLoading || !selectedCourseId}>
                                 <SelectTrigger id="class-id" className="mt-1 h-11">
@@ -345,7 +346,7 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
                                 </SelectTrigger>
                                 <SelectContent>
                                     {filteredClasses.length === 0 ? (
-                                        <SelectItem value="none" disabled>Nenhuma turma ativa</SelectItem>
+                                        <SelectItem value="none" disabled>Nenhuma turma com inscrições abertas</SelectItem>
                                     ) : (
                                         filteredClasses.map(cls => (
                                             <SelectItem key={cls.id} value={cls.id}>
@@ -353,6 +354,7 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
                                                     <span className="font-bold">{cls.name}</span>
                                                     <span className="text-[10px] opacity-70">
                                                         {cls.dayOfWeek || 'Sem dia'} às {cls.startTime}
+                                                        {cls.registrationDeadline && ` • Limite: ${format(parseISO(cls.registrationDeadline), 'dd/MM')}`}
                                                     </span>
                                                 </div>
                                             </SelectItem>

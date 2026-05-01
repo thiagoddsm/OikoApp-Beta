@@ -14,39 +14,60 @@ const weekDayMap: Record<string, number> = {
     "Quinta-feira": 4, "Sexta-feira": 5, "Sábado": 6
 };
 
-function getModuleIndexForDate(dateStr: string, classData: any): number {
+function getModuleIndexForDate(dateStr: string, classData: any, syllabus: any[] = []): number {
     if (!classData || !classData.startDate) return -1;
     
+    // 1. Verificar se existe override para esta data específica
+    const overrides = classData.scheduleOverrides || {};
+    if (overrides[dateStr]) {
+        const ov = overrides[dateStr];
+        if (ov.isCancelled) return -1;
+        if (ov.syllabusId) {
+            return syllabus.findIndex(s => s.id === ov.syllabusId);
+        }
+    }
+
+    // 2. Lógica de recorrência padrão
     const occurrences: string[] = [];
     const start = parseISO(classData.startDate);
-    const end = classData.endDate ? parseISO(classData.endDate) : addMonths(start, 1);
+    const end = classData.endDate ? parseISO(classData.endDate) : addMonths(start, 2); // Aumentar margem para busca
     const targetDay = classData.dayOfWeek ? weekDayMap[classData.dayOfWeek] : -1;
-    const holidays = new Set(classData.holidayDates || []);
-    const extras = classData.extraDates || [];
+    const holidaySet = new Set(classData.holidayDates || []);
 
     let current = start;
     let safe = 0;
+    let currentIndex = 0;
 
     if (classData.frequency && classData.frequency !== 'pontual') {
-        while (isBefore(current, end) || format(current, 'yyyy-MM-dd') === format(end, 'yyyy-MM-dd')) {
-            if (safe++ > 150) break;
-            let matches = false;
-            if (classData.frequency === 'semanal') {
-                matches = targetDay === -1 || current.getDay() === targetDay;
-            } else if (classData.frequency === 'quinzenal') {
-                const diffWeeks = Math.floor((current.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
-                matches = diffWeeks % 2 === 0 && (targetDay === -1 || current.getDay() === targetDay);
-            }
+        while (safe++ < 200) {
             const dStr = format(current, 'yyyy-MM-dd');
-            if (matches && !holidays.has(dStr)) occurrences.push(dStr);
-            current = addWeeks(current, 1);
+            
+            // Pular feriado sem override
+            if (holidaySet.has(dStr) && !overrides[dStr]) {
+                current = addWeeks(current, classData.frequency === 'quinzenal' ? 2 : 1);
+                continue;
+            }
+
+            // Se for a data procurada e não estiver cancelada por override
+            if (dStr === dateStr) {
+                const ov = overrides[dStr];
+                if (ov?.isCancelled) return -1;
+                return currentIndex;
+            }
+
+            // Incrementar índice do syllabus apenas para aulas válidas
+            if (!overrides[dStr]?.isCancelled) {
+                currentIndex++;
+            }
+
+            current = addWeeks(current, classData.frequency === 'quinzenal' ? 2 : 1);
+            if (isBefore(end, current) && dStr !== format(end, 'yyyy-MM-dd')) break;
         }
     } else if (classData.frequency === 'pontual') {
-        occurrences.push(classData.startDate);
+        return classData.startDate === dateStr ? 0 : -1;
     }
 
-    const allDates = Array.from(new Set([...occurrences, ...extras])).sort();
-    return allDates.indexOf(dateStr); 
+    return -1; 
 }
 
 export function MemberCourseProgress({ user }: { user: any }) {
@@ -83,26 +104,44 @@ export function MemberCourseProgress({ user }: { user: any }) {
     const attendanceProgress = useMemo(() => {
         if (!memberCourse || !classes) return {};
         
-        const progress: Record<string, boolean> = {};
+        const progress: Record<string, { completed: boolean, date?: string, method?: string }> = {};
         const relevantClasses = classes.filter(c => c.courseId === memberCourse.id);
 
         modules.forEach(mod => {
-            const isPresentInAnyCycle = relevantClasses.some(c => {
-                return c.attendance?.some(att => {
-                    const dateIndexInClass = getModuleIndexForDate(att.date, c);
-                    return dateIndexInClass === mod.index && (att.presentStudentIds.includes(user.id) || (att.onlineStudentIds && att.onlineStudentIds.includes(user.id)));
+            let foundDate: string | undefined;
+            let foundMethod: string | undefined;
+
+            relevantClasses.forEach(c => {
+                c.attendance?.forEach(att => {
+                    const dateIndexInClass = getModuleIndexForDate(att.date, c, memberCourse.syllabus || []);
+                    if (dateIndexInClass === mod.index) {
+                        const isPresent = att.presentStudentIds?.includes(user.id);
+                        const isOnline = att.onlineStudentIds && att.onlineStudentIds.includes(user.id);
+                        
+                        if (isPresent || isOnline) {
+                            foundDate = att.date;
+                            foundMethod = isPresent ? 'Presencial' : 'Theoflix';
+                        }
+                    }
                 });
             });
-            if (isPresentInAnyCycle) progress[mod.id] = true;
+
+            if (foundDate) {
+                progress[mod.id] = { completed: true, date: foundDate, method: foundMethod };
+            }
         });
 
         return progress;
     }, [memberCourse, classes, user.id, modules]);
 
     const mergedProgress = useMemo(() => {
-        const merged = { ...manualProgress };
+        const merged: Record<string, any> = { ...manualProgress };
         modules.forEach(mod => {
-            if (attendanceProgress[mod.id]) merged[mod.id] = true;
+            if (attendanceProgress[mod.id]) {
+                merged[mod.id] = true;
+                // Guardar metadados para exibição
+                merged[`${mod.id}_detail`] = attendanceProgress[mod.id];
+            }
         });
         return merged;
     }, [manualProgress, attendanceProgress, modules]);
@@ -177,6 +216,17 @@ export function MemberCourseProgress({ user }: { user: any }) {
                                 </div>
                                 <p className="text-[10px] font-black uppercase leading-tight mb-1 px-1 line-clamp-2">{mod.label}</p>
                                 <p className="text-[9px] text-muted-foreground">{mod.description}</p>
+                                
+                                {isCompleted && mergedProgress[`${mod.id}_detail`] && (
+                                    <div className="mt-2 pt-1 border-t border-emerald-200/50 w-full">
+                                        <p className="text-[8px] font-bold text-emerald-700 uppercase">
+                                            {mergedProgress[`${mod.id}_detail`].method}
+                                        </p>
+                                        <p className="text-[8px] text-emerald-600/80">
+                                            {format(parseISO(mergedProgress[`${mod.id}_detail`].date), 'dd/MM/yyyy')}
+                                        </p>
+                                    </div>
+                                )}
                                 {idx < modules.length - 1 && (
                                     <div className="hidden sm:block absolute -right-4 top-1/2 -translate-y-1/2 z-10"><ArrowRight size={12} className="text-slate-300" /></div>
                                 )}

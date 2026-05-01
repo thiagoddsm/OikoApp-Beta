@@ -1,7 +1,7 @@
-
 import { NextResponse } from 'next/server';
-import { initializeFirebase } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { getAdminDb } from '@/lib/firebase-admin';
+
+export const runtime = 'nodejs';
 
 export async function GET(request: Request) {
   try {
@@ -12,11 +12,10 @@ export async function GET(request: Request) {
     // Se não vier por parâmetro, tenta buscar no Firestore (legado/fallback)
     if (!apiKey || !serverUrl) {
         try {
-            const { firestore } = initializeFirebase();
-            const configRef = doc(firestore, 'config', 'notifications');
-            const configSnap = await getDoc(configRef);
+            const db = getAdminDb();
+            const configSnap = await db.collection('config').doc('notifications').get();
             
-            if (configSnap.exists()) {
+            if (configSnap.exists) {
                 const data = configSnap.data();
                 apiKey = apiKey || data?.instanceKey || data?.whatsappApiKey;
                 serverUrl = serverUrl || data?.serverUrl || 'https://us.api-wa.me';

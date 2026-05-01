@@ -22,39 +22,60 @@ const weekDayMap: Record<string, number> = {
     "Quinta-feira": 4, "Sexta-feira": 5, "Sábado": 6
 };
 
-function getModuleIndexForDate(dateStr: string, classData: any): number {
+function getModuleIndexForDate(dateStr: string, classData: any, syllabus: any[] = []): number {
     if (!classData || !classData.startDate) return -1;
     
+    // 1. Verificar se existe override para esta data específica
+    const overrides = classData.scheduleOverrides || {};
+    if (overrides[dateStr]) {
+        const ov = overrides[dateStr];
+        if (ov.isCancelled) return -1;
+        if (ov.syllabusId) {
+            return syllabus.findIndex(s => s.id === ov.syllabusId);
+        }
+    }
+
+    // 2. Lógica de recorrência padrão
     const occurrences: string[] = [];
     const start = parseISO(classData.startDate);
-    const end = classData.endDate ? parseISO(classData.endDate) : addMonths(start, 1);
+    const end = classData.endDate ? parseISO(classData.endDate) : addMonths(start, 2); 
     const targetDay = classData.dayOfWeek ? weekDayMap[classData.dayOfWeek] : -1;
-    const holidays = new Set(classData.holidayDates || []);
-    const extras = classData.extraDates || [];
+    const holidaySet = new Set(classData.holidayDates || []);
 
     let current = start;
     let safe = 0;
+    let currentIndex = 0;
 
     if (classData.frequency && classData.frequency !== 'pontual') {
-        while (isBefore(current, end) || format(current, 'yyyy-MM-dd') === format(end, 'yyyy-MM-dd')) {
-            if (safe++ > 150) break;
-            let matches = false;
-            if (classData.frequency === 'semanal') {
-                matches = targetDay === -1 || current.getDay() === targetDay;
-            } else if (classData.frequency === 'quinzenal') {
-                const diffWeeks = Math.floor((current.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
-                matches = diffWeeks % 2 === 0 && (targetDay === -1 || current.getDay() === targetDay);
-            }
+        while (safe++ < 200) {
             const dStr = format(current, 'yyyy-MM-dd');
-            if (matches && !holidays.has(dStr)) occurrences.push(dStr);
-            current = addWeeks(current, 1);
+            
+            // Pular feriado sem override
+            if (holidaySet.has(dStr) && !overrides[dStr]) {
+                current = addWeeks(current, classData.frequency === 'quinzenal' ? 2 : 1);
+                continue;
+            }
+
+            // Se for a data procurada e não estiver cancelada por override
+            if (dStr === dateStr) {
+                const ov = overrides[dStr];
+                if (ov?.isCancelled) return -1;
+                return currentIndex;
+            }
+
+            // Incrementar índice do syllabus apenas para aulas válidas
+            if (!overrides[dStr]?.isCancelled) {
+                currentIndex++;
+            }
+
+            current = addWeeks(current, classData.frequency === 'quinzenal' ? 2 : 1);
+            if (isBefore(end, current) && dStr !== format(end, 'yyyy-MM-dd')) break;
         }
     } else if (classData.frequency === 'pontual') {
-        occurrences.push(classData.startDate);
+        return classData.startDate === dateStr ? 0 : -1;
     }
 
-    const allDates = Array.from(new Set([...occurrences, ...extras])).sort();
-    return allDates.indexOf(dateStr); 
+    return -1; 
 }
 
 const Legend = () => (
@@ -140,7 +161,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
         courseClasses.forEach(c => {
             const isEnrolled = c.students?.includes(student.id);
             c.attendance?.forEach(att => {
-                if (getModuleIndexForDate(att.date, c) === modIndex) {
+                if (getModuleIndexForDate(att.date, c, course?.syllabus || []) === modIndex) {
                     const isPresent = att.presentStudentIds?.includes(student.id);
                     const isOnline = att.onlineStudentIds?.includes(student.id);
                     const isRepoRecord = att.repositions?.some(r => r.studentId === student.id);

@@ -1,44 +1,39 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useDoc } from '@/firebase';
+
 import { Loader2, ArrowLeft, BookOpen, Users, Folder, GraduationCap, Edit, FileSpreadsheet } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { VolunteeringProvider } from '@/contexts/volunteering-context';
+import { VolunteeringProvider, useVolunteering, type Class, type Course } from '@/contexts/volunteering-context';
 import { ClassStudentsManager } from '@/components/teaching/class-students-manager';
 import { ClassGradesManager } from '@/components/teaching/class-grades-manager';
 import { ClassMaterialsManager } from '@/components/teaching/class-materials-manager';
 import { ClassPerformanceReport } from '@/components/teaching/class-performance-report';
 import { ClassFormDialog } from '@/components/teaching/class-form-dialog';
+import { ClassNotificationsManager } from '@/components/teaching/class-notifications-manager';
+import { ClassScheduleManager } from '@/components/teaching/class-schedule-manager';
+import { Send, Calendar as CalendarIcon } from 'lucide-react';
 import Link from 'next/link';
 
-type Class = {
-  id: string;
-  name: string;
-  courseId: string;
-  [key: string]: any;
-};
 
-type Course = {
-    id: string;
-    name: string;
-}
 
 function ClassDetailPageContent() {
     const params = useParams();
     const router = useRouter();
     const classId = params.classId as string;
     
-    const { data: classData, isLoading: isLoadingClass } = useDoc<Class>(classId ? `classes/${classId}` : null);
-    const { data: courseData, isLoading: isLoadingCourse } = useDoc<Course>(classData ? `courses/${classData.courseId}` : null);
+    const { classes, courses, isLoading: isContextLoading } = useVolunteering();
+    
+    const classData = useMemo(() => classes.find(c => c.id === classId), [classes, classId]);
+    const courseData = useMemo(() => classData ? courses.find(c => c.id === classData.courseId) : null, [classData, courses]);
     
     const [isEditOpen, setEditOpen] = useState(false);
 
-    const isLoading = isLoadingClass || isLoadingCourse;
+    const isLoading = isContextLoading;
 
     if (isLoading) {
         return <div className="flex justify-center p-10"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>
@@ -75,16 +70,22 @@ function ClassDetailPageContent() {
                 </CardHeader>
                 <CardContent>
                     <Tabs defaultValue="students">
-                        <TabsList className="grid w-full grid-cols-5">
+                        <TabsList className="flex h-auto flex-wrap justify-start bg-muted/50 p-1 mb-2">
                             <TabsTrigger value="students"><Users className="mr-2 h-4 w-4"/>Alunos</TabsTrigger>
+                            <TabsTrigger value="schedule"><CalendarIcon className="mr-2 h-4 w-4"/>Cronograma</TabsTrigger>
                             <TabsTrigger value="grades"><GraduationCap className="mr-2 h-4 w-4"/>Notas</TabsTrigger>
                             <TabsTrigger value="report"><FileSpreadsheet className="mr-2 h-4 w-4"/>Relatório</TabsTrigger>
                             <TabsTrigger value="log"><BookOpen className="mr-2 h-4 w-4"/>Diário</TabsTrigger>
                             <TabsTrigger value="materials"><Folder className="mr-2 h-4 w-4"/>Materiais</TabsTrigger>
+                            <TabsTrigger value="notifications"><Send className="mr-2 h-4 w-4"/>Notificações</TabsTrigger>
                         </TabsList>
                         
                         <TabsContent value="students" className="mt-6">
                             <ClassStudentsManager classData={classData} />
+                        </TabsContent>
+
+                        <TabsContent value="schedule" className="mt-6">
+                            <ClassScheduleManager classData={classData} />
                         </TabsContent>
                         
                         <TabsContent value="grades" className="mt-6">
@@ -108,6 +109,10 @@ function ClassDetailPageContent() {
                         
                         <TabsContent value="materials" className="mt-6">
                              <ClassMaterialsManager classData={classData} />
+                        </TabsContent>
+
+                        <TabsContent value="notifications" className="mt-6">
+                             <ClassNotificationsManager classData={classData} courseData={courseData} />
                         </TabsContent>
                     </Tabs>
                 </CardContent>

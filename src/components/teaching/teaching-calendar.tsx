@@ -100,16 +100,26 @@ export function TeachingCalendar({ onEventClick, searchTerm = '' }: TeachingCale
                 }
 
                 const dateStr = current.format('yyyy-MM-dd');
-                if (shouldAdd && !holidaySet.has(dateStr)) {
+                const override = cls.scheduleOverrides?.[dateStr];
+                
+                if (shouldAdd && !holidaySet.has(dateStr) && !override?.isCancelled) {
                     const occStart = current.toDate();
                     const occEnd = new Date(occStart.getTime() + duration);
                     
+                    const currentCourse = courses.find(c => c.id === cls.courseId);
+                    const syllabusItem = (override?.syllabusId && currentCourse?.syllabus)
+                        ? currentCourse.syllabus.find(s => s.id === override.syllabusId)
+                        : undefined;
+
                     allOccurrences.push({
                         id: `${cls.id}_${occStart.getTime()}`,
-                        title: `Turma: ${cls.name} (${courseMap.get(cls.courseId) || 'Ensino'})`,
+                        title: syllabusItem 
+                            ? `Aula: ${syllabusItem.title} (${cls.name})` 
+                            : `Turma: ${cls.name} (${courseMap.get(cls.courseId) || 'Ensino'})`,
                         start: occStart,
                         end: occEnd,
                         resource: cls,
+                        isOverride: !!override
                     });
                 }
                 current.add(1, 'day'); 
@@ -126,9 +136,12 @@ export function TeachingCalendar({ onEventClick, searchTerm = '' }: TeachingCale
             }
         }
 
-        // --- ADIÇÃO DE DATAS EXTRAS ---
+        // --- ADIÇÃO DE DATAS EXTRAS E OVERRIDES DE DATA ---
+        const processedDates = new Set(allOccurrences.map(o => format(o.start, 'yyyy-MM-dd')));
+
         if (cls.extraDates && cls.extraDates.length > 0) {
             cls.extraDates.forEach(dateStr => {
+                if (processedDates.has(dateStr)) return;
                 const extraStart = new Date(`${dateStr}T${cls.startTime}`);
                 const extraEnd = new Date(extraStart.getTime() + duration);
                 
@@ -140,6 +153,35 @@ export function TeachingCalendar({ onEventClick, searchTerm = '' }: TeachingCale
                         end: extraEnd,
                         resource: cls,
                         isExtra: true
+                    });
+                    processedDates.add(dateStr);
+                }
+            });
+        }
+
+        // Overrides que caem em datas fora da recorrência padrão
+        if (cls.scheduleOverrides) {
+            Object.entries(cls.scheduleOverrides).forEach(([dateStr, override]: [string, any]) => {
+                if (processedDates.has(dateStr) || override.isCancelled) return;
+                
+                const overStart = new Date(`${dateStr}T${cls.startTime}`);
+                const overEnd = new Date(overStart.getTime() + duration);
+                
+                if (!isNaN(overStart.getTime())) {
+                    const currentCourse = courses.find(c => c.id === cls.courseId);
+                    const syllabusItem = (override.syllabusId && currentCourse?.syllabus)
+                        ? currentCourse.syllabus.find(s => s.id === override.syllabusId)
+                        : undefined;
+
+                    allOccurrences.push({
+                        id: `${cls.id}_override_${overStart.getTime()}`,
+                        title: syllabusItem 
+                            ? `Aula: ${syllabusItem.title} (${cls.name})` 
+                            : `Turma: ${cls.name} (Alterada)`,
+                        start: overStart,
+                        end: overEnd,
+                        resource: cls,
+                        isOverride: true
                     });
                 }
             });
@@ -156,7 +198,7 @@ export function TeachingCalendar({ onEventClick, searchTerm = '' }: TeachingCale
   const eventStyleGetter = (event: any) => {
     return {
         style: {
-            backgroundColor: event.isExtra ? '#10b981' : '#6366f1', // emerald-500 para extras, indigo-500 para normal
+            backgroundColor: event.isExtra ? '#10b981' : event.isOverride ? '#f59e0b' : '#6366f1', // amber-500 para overrides
             borderRadius: '6px',
             opacity: 0.9,
             color: 'white',
