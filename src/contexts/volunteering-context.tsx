@@ -145,6 +145,10 @@ export type Class = {
   }>;
 };
 
+export type Area = { id: string; nome: string; liderId: string; redeId: string; };
+export type Cell = { id: string; nome: string; liderId: string; areaId: string; redeId: string; membros: string[] };
+export type Rede = { id: string; nome: string; liderId: string; pastorId: string; };
+
 export type EnrollmentRequest = {
   id: string;
   courseId: string;
@@ -220,7 +224,7 @@ export type FinanceRequest = {
 
 interface VolunteeringContextType {
   users: User[];
-  areas: AreaOfService[];
+  serviceAreas: AreaOfService[];
   teams: Team[];
   events: VolunteeringEvent[];
   rooms: Room[];
@@ -238,6 +242,9 @@ interface VolunteeringContextType {
   financialTransactions: FinancialTransaction[];
   financeRequests: FinanceRequest[];
   savedSchedules: SavedSchedule[];
+  cells: Cell[];
+  areas: Area[];
+  redes: Rede[];
   isLoading: boolean;
   addArea: (data: Omit<AreaOfService, 'id'>) => Promise<void>;
   updateArea: (id: string, data: Partial<AreaOfService>) => Promise<void>;
@@ -304,7 +311,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
 
   // Queries sensíveis que exigem login e papel adequado (só rodam após papel ser conhecido)
   const usersQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'users')) : null, [firestore, user, roleResolved, isAdmin]);
-  const areasQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'areas_of_service')) : null, [firestore, user, roleResolved, isAdmin]);
+  const serviceAreasQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'areas_of_service')) : null, [firestore, user, roleResolved, isAdmin]);
   const teamsQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'teams')) : null, [firestore, user, roleResolved, isAdmin]);
   const eventsQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'volunteering_events')) : null, [firestore, user, roleResolved, isAdmin]);
   const reservationsQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'room_reservations')) : null, [firestore, user, roleResolved, isAdmin]);
@@ -329,13 +336,18 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   const savedSchedulesQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'saved_schedules')) : null, [firestore, user, roleResolved, isAdmin]);
   const roomsQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'rooms')) : null, [firestore, user, roleResolved, isAdmin]);
   const theoflixCoursesQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'theoflix_courses')) : null, [firestore, user]);
+  
+  // GC Hierarchy Queries
+  const cellsQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells')) : null, [firestore]);
+  const gcAreasQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'areas')) : null, [firestore]);
+  const redesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'redes')) : null, [firestore]);
 
   // Queries públicas necessárias para matrículas
   const coursesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
   const classesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'classes')) : null, [firestore]);
 
   const { data: users, isLoading: lu } = useCollection<User>(usersQ);
-  const { data: areas, isLoading: la } = useCollection<AreaOfService>(areasQ);
+  const { data: serviceAreas, isLoading: la } = useCollection<AreaOfService>(serviceAreasQ);
   const { data: teams, isLoading: lt } = useCollection<Team>(teamsQ);
   const { data: events, isLoading: le } = useCollection<VolunteeringEvent>(eventsQ);
   const { data: rooms, isLoading: lr } = useCollection<Room>(roomsQ);
@@ -353,12 +365,15 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   const { data: financialTransactions, isLoading: lft } = useCollection<FinancialTransaction>(financialTransactionsQ);
   const { data: financeRequests, isLoading: lfr } = useCollection<FinanceRequest>(financeRequestsQ);
   const { data: savedSchedules, isLoading: lss } = useCollection<SavedSchedule>(savedSchedulesQ);
+  const { data: cells, isLoading: lce } = useCollection<Cell>(cellsQ);
+  const { data: gcAreas, isLoading: lga } = useCollection<Area>(gcAreasQ);
+  const { data: redes, isLoading: lre } = useCollection<Rede>(redesQ);
 
-  const isLoading = loadingRole || (user ? lu : false) || la || lt || le || (user ? lr : false) || lres || lco || lcl || ler || lpl || lwp || ldp || lwpn || ldpn || lwe || (user ? ltc : false) || lft || lfr || lss;
+  const isLoading = loadingRole || (user ? lu : false) || la || lt || le || (user ? lr : false) || lres || lco || lcl || ler || lpl || lwp || ldp || lwpn || ldpn || lwe || (user ? ltc : false) || lft || lfr || lss || lce || lga || lre;
 
   const value = useMemo(() => ({
     users: users || [],
-    areas: areas || [],
+    serviceAreas: serviceAreas || [],
     teams: teams || [],
     events: events || [],
     rooms: rooms || [],
@@ -376,6 +391,9 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
     financialTransactions: financialTransactions || [],
     financeRequests: financeRequests || [],
     savedSchedules: savedSchedules || [],
+    cells: cells || [],
+    areas: gcAreas || [],
+    redes: redes || [],
     isLoading,
     addArea: async (data: any) => { await addDoc(collection(firestore!, 'areas_of_service'), data); },
     updateArea: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'areas_of_service', id), data); },
@@ -499,7 +517,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
       await setDocumentNonBlocking(doc(firestore!, 'saved_schedules', id), data);
     },
     deleteSchedule: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'saved_schedules', id)); },
-  }), [users, areas, teams, events, rooms, reservations, courses, classes, enrollmentRequests, pedagogicalLogs, wavePayments, disPayments, wavePlans, waveExpenses, theoflixCourses, financialTransactions, financeRequests, savedSchedules, isLoading, firestore]);
+  }), [users, serviceAreas, gcAreas, cells, redes, teams, events, rooms, reservations, courses, classes, enrollmentRequests, pedagogicalLogs, wavePayments, disPayments, wavePlans, disPlans, waveExpenses, theoflixCourses, financialTransactions, financeRequests, savedSchedules, isLoading, firestore]);
 
   return (
     <VolunteeringContext.Provider value={value}>

@@ -24,7 +24,7 @@ type RequiredAreaState = {
 }
 
 export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplicating }: CreateEventDialogProps) {
-  const { rooms, areas, addEvent, updateEvent } = useVolunteering();
+  const { rooms, serviceAreas: areas, addEvent, updateEvent } = useVolunteering();
   
   const [name, setName] = useState('');
   const [time, setTime] = useState('');

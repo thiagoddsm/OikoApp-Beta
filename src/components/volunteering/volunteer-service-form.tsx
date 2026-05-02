@@ -15,7 +15,7 @@ interface VolunteerServiceFormProps {
 }
 
 export function VolunteerServiceForm({ user }: VolunteerServiceFormProps) {
-  const { areas, teams, events, courses, isLoading, updateVolunteer } = useVolunteering();
+  const { serviceAreas: areas, teams, events, courses, isLoading, updateVolunteer } = useVolunteering();
 
   const handleStatusChange = (checked: boolean) => {
     const newStatus = checked ? 'serving' : 'not_serving';

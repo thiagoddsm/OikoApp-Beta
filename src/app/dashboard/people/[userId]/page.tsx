@@ -5,16 +5,17 @@ import { useParams, useRouter } from 'next/navigation';
 import { useDoc } from '@/firebase';
 import { 
   Loader2, ArrowLeft, Edit, Users, ShieldCheck, Network, Map, 
-  Footprints, User as UserIcon, Heart, HandHelping, Bot, GraduationCap, CheckCircle2
+  Footprints, User as UserIcon, Heart, HandHelping, Bot, GraduationCap, CheckCircle2, Camera
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { VolunteeringProvider, useVolunteering } from '@/contexts/volunteering-context';
 import { journeyColumns } from '@/components/users/journey-status-config';
+import { useToast } from '@/hooks/use-toast';
 
 // Sub-componentes do Perfil
 import { MemberDetails } from '@/components/users/member-details';
@@ -30,8 +31,22 @@ function PersonProfilePageContent() {
     const params = useParams();
     const router = useRouter();
     const userId = params.userId as string;
+    const { toast } = useToast();
     const { users, cells, areas, redes, courses, isLoading: isContextLoading } = useVolunteering();
     const [isEditOpen, setIsEditOpen] = useState(false);
+    const [isSyncingPhoto, setIsSyncingPhoto] = useState(false);
+    const [livePhotoUrl, setLivePhotoUrl] = useState<string | null>(null);
+
+    // Limpa a foto temporária ao trocar de usuário
+    React.useEffect(() => {
+        setLivePhotoUrl(null);
+    }, [userId]);
+
+    const normalizePhone = (p: string | number) => {
+        let phone = String(p || '').replace(/\D/g, '');
+        if (phone.length === 10 || phone.length === 11) return '55' + phone;
+        return phone;
+    };
 
     // Busca os dados da pessoa em tempo real
     const { data: person, isLoading: isPersonLoading } = useDoc<any>(userId ? `users/${userId}` : null);
@@ -53,24 +68,49 @@ function PersonProfilePageContent() {
         return journeyColumns[journeyIndex]?.title || 'Não definido';
     }, [journeyIndex]);
 
+    const handleSyncWhatsAppPhoto = async () => {
+        if (!person?.phone || isSyncingPhoto) return;
+        setIsSyncingPhoto(true);
+        try {
+            const phone = normalizePhone(person.phone);
+
+            // Verificar se existe foto via endpoint JSON
+            const res = await fetch(`/api/contacts/profile-picture?phone=${phone}&userId=${userId}&save=true`);
+            const data = await res.json();
+            
+            if (data.imageUrl) {
+                // Usar URL proxiada — pps.whatsapp.net bloqueia hotlink direto do browser
+                setLivePhotoUrl(`/api/contacts/profile-picture?phone=${phone}&proxy=true`);
+                toast({ title: "Foto Sincronizada", description: "A foto de perfil foi atualizada via WhatsApp." });
+            } else {
+                toast({ variant: "destructive", title: "Foto não encontrada", description: "Este contato não possui uma foto de perfil pública no WhatsApp." });
+            }
+        } catch (e) {
+            console.error('Erro ao buscar foto do WhatsApp:', e);
+            toast({ variant: "destructive", title: "Erro na Sincronização", description: "Não foi possível buscar a foto agora." });
+        } finally {
+            setIsSyncingPhoto(false);
+        }
+    };
+
     // Dados Relacionais para os Cards de KPI - Integração com GCs e Liderança
     const userCell = useMemo(() => {
-        if (!cells || !person?.hierarchy?.celulaId) return null;
+        if (!cells || !person || !person.hierarchy || !person.hierarchy.celulaId) return null;
         return cells.find(c => c.id === person.hierarchy.celulaId);
     }, [cells, person]);
 
     const userSupervisor = useMemo(() => {
-        if (!users || !person?.hierarchy?.supervisorId) return null;
+        if (!users || !person || !person.hierarchy || !person.hierarchy.supervisorId) return null;
         return users.find(u => u.id === person.hierarchy.supervisorId);
     }, [users, person]);
 
     const userArea = useMemo(() => {
-        if (!areas || !userCell?.areaId) return null;
+        if (!areas || !userCell || !userCell.areaId) return null;
         return areas.find(a => a.id === userCell.areaId);
     }, [areas, userCell]);
 
     const userRede = useMemo(() => {
-        if (!redes || !userArea?.redeId) return null;
+        if (!redes || !userArea || !userArea.redeId) return null;
         return redes.find(r => r.id === userArea.redeId);
     }, [redes, userArea]);
 
@@ -97,14 +137,32 @@ function PersonProfilePageContent() {
                 <CardContent className="p-6">
                     <div className="flex flex-col md:flex-row items-center justify-between gap-6">
                         <div className="flex items-center gap-6">
-                            <div className="relative">
+                            <div className="relative group">
                                 <Avatar className="h-24 w-24 ring-4 ring-primary/10">
-                                    <AvatarImage src={person.photoURL} />
+                                    <AvatarImage src={
+                                        livePhotoUrl || 
+                                        (person.profilePicture?.includes('pps.whatsapp.net') && person.phone 
+                                            ? `/api/contacts/profile-picture?phone=${normalizePhone(person.phone)}&proxy=true` 
+                                            : person.profilePicture || person.photoURL)
+                                    } />
                                     <AvatarFallback className="text-2xl font-bold">{person.name?.charAt(0)}</AvatarFallback>
                                 </Avatar>
                                 <div className="absolute -bottom-2 -right-2 size-8 bg-primary rounded-full border-4 border-white flex items-center justify-center text-white text-xs font-bold shadow-lg">
                                     {journeyIndex + 1}
                                 </div>
+                                {person?.phone && (
+                                    <button
+                                        onClick={handleSyncWhatsAppPhoto}
+                                        disabled={isSyncingPhoto}
+                                        title="Sincronizar foto do WhatsApp"
+                                        className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                                    >
+                                        {isSyncingPhoto
+                                            ? <Loader2 className="size-6 text-white animate-spin" />
+                                            : <Camera className="size-6 text-white" />
+                                        }
+                                    </button>
+                                )}
                             </div>
                             <div className="space-y-1 text-center md:text-left">
                                 <h1 className="text-2xl font-black text-slate-900 tracking-tight">{person.name}</h1>

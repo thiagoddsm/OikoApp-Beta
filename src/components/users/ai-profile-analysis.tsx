@@ -4,6 +4,7 @@ import React, { useState, useEffect, useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Send, User, Bot, Loader2, Sparkles } from 'lucide-react';

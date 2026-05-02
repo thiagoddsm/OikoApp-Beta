@@ -18,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
 export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, monthFilter: string }) {
-    const { users, areas, isLoading: isContextLoading, deleteSchedule } = useVolunteering();
+    const { users, serviceAreas: areas, isLoading: isContextLoading, deleteSchedule } = useVolunteering();
     const { toast } = useToast();
     const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
     

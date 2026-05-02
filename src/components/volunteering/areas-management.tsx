@@ -10,7 +10,7 @@ import { CreateAreaDialog } from './create-area-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 
 export function AreasManagement() {
-  const { areas, users, isLoading, deleteArea } = useVolunteering();
+  const { serviceAreas: areas, users, isLoading, deleteArea } = useVolunteering();
   const [isFormOpen, setFormOpen] = useState(false);
   const [isDeleteOpen, setDeleteOpen] = useState(false);
   const [selectedArea, setSelectedArea] = useState<AreaOfService | null>(null);

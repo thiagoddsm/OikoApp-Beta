@@ -60,7 +60,7 @@ function ImportEventsButton() {
 }
 
 function ImportAreasButton() {
-    const { addArea, areas } = useVolunteering();
+    const { addArea, serviceAreas: areas } = useVolunteering();
     const { toast } = useToast();
     const [isImporting, setIsImporting] = useState(false);
 
@@ -108,7 +108,7 @@ function ImportAreasButton() {
 }
 
 export function EventsManagement() {
-  const { events, areas, isLoading, deleteEvent } = useVolunteering();
+  const { events, serviceAreas: areas, isLoading, deleteEvent } = useVolunteering();
   const [isFormOpen, setFormOpen] = useState(false);
   const [isDeleteOpen, setDeleteOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<VolunteeringEvent | null>(null);

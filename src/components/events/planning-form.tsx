@@ -106,7 +106,7 @@ const designOptions = [
 
 export function EventPlanningForm({ existingEvent = null }: { existingEvent?: PlanningEvent | null }) {
   const { firestore } = useFirebase();
-  const { rooms, areas } = useVolunteering();
+  const { rooms, serviceAreas: areas } = useVolunteering();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);

@@ -9,7 +9,7 @@ import { Switch } from '../ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 export function VolunteersManagement() {
-  const { users, areas, teams, isLoading, updateVolunteer } = useVolunteering();
+  const { users, serviceAreas: areas, teams, isLoading, updateVolunteer } = useVolunteering();
 
   const handleStatusChange = (user: User, checked: boolean) => {
     const newStatus = checked ? 'serving' : 'not_serving';

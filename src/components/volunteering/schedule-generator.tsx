@@ -49,7 +49,7 @@ const getAllFifthWeeksOfYear = (year: number) => {
 }
 
 export function ScheduleGenerator() {
-  const { areas, teams, events, users, isLoading, saveSchedule } = useVolunteering();
+  const { serviceAreas: areas, teams, events, users, isLoading, saveSchedule } = useVolunteering();
   const { toast } = useToast();
   const [selectedAreaId, setSelectedAreaId] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());

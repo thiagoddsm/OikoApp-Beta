@@ -28,7 +28,60 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
-// ... (WhatsAppChats, WhatsappSender, WhatsappResponses permanecem os mesmos)
+function useContactEnrichment(chats: any[]) {
+    const { firestore } = useFirebase();
+    const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
+    const { data: users } = useCollection<any>(usersQuery);
+
+    const { data: waConfig } = useDoc<any>('config/notifications');
+
+    const [photoCache, setPhotoCache] = useState<Record<string, string>>({});
+
+    const enrichedChats = useMemo(() => {
+        if (!chats) return [];
+        return chats.map((chat: any) => {
+            const rawNumber = chat.id.replace('@s.whatsapp.net', '').replace(/\D/g, '');
+
+            const matchedUser = users?.find((u: any) => {
+                const userPhone = String(u.phone || '').replace(/\D/g, '');
+                return userPhone && (rawNumber.endsWith(userPhone) || userPhone.endsWith(rawNumber));
+            });
+
+            return {
+                ...chat,
+                userName: chat.userName || matchedUser?.name || rawNumber,
+                profilePicture: photoCache[rawNumber] || chat.profilePicture || matchedUser?.profilePicture || matchedUser?.photoURL || undefined,
+                _rawNumber: rawNumber,
+                _matchedUserId: matchedUser?.id,
+            };
+        });
+    }, [chats, users, photoCache]);
+
+    useEffect(() => {
+        const apiKey = waConfig?.instanceKey || waConfig?.whatsappApiKey;
+        if (!apiKey || !enrichedChats.length) return;
+
+        const needsPhoto = enrichedChats.filter(c => !photoCache[c._rawNumber] && !c.profilePicture && c._rawNumber);
+        if (needsPhoto.length === 0) return;
+
+        const fetchPhoto = async (number: string) => {
+            try {
+                // Verificar se existe foto usando o endpoint JSON
+                const res = await fetch(`/api/contacts/profile-picture?phone=${number}`);
+                const data = await res.json();
+                if (data.imageUrl) {
+                    // Usar URL proxiada — pps.whatsapp.net bloqueia hotlink direto do browser
+                    const proxiedUrl = `/api/contacts/profile-picture?phone=${number}&proxy=true`;
+                    setPhotoCache(prev => ({ ...prev, [number]: proxiedUrl }));
+                }
+            } catch {}
+        };
+
+        needsPhoto.slice(0, 5).forEach(c => fetchPhoto(c._rawNumber));
+    }, [enrichedChats.length, waConfig]);
+
+    return enrichedChats;
+}
 
 function WhatsappChats() {
     const { firestore } = useFirebase();
@@ -38,7 +91,9 @@ function WhatsappChats() {
     const chatsQuery = useMemoFirebase(() => 
         firestore ? query(collection(firestore, 'notifications_chats'), orderBy('lastMessageAt', 'desc')) : null,
     [firestore]);
-    const { data: chats, isLoading: isLoadingChats } = useCollection<any>(chatsQuery);
+    const { data: rawChats, isLoading: isLoadingChats } = useCollection<any>(chatsQuery);
+
+    const chats = useContactEnrichment(rawChats || []);
 
     const messagesQuery = useMemoFirebase(() => {
         if (!firestore || !selectedChat) return null;
@@ -56,6 +111,8 @@ function WhatsappChats() {
             scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
     }, [messages]);
+
+    const selectedChatData = chats.find(c => c.id === selectedChat);
 
     if (isLoadingChats) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
@@ -81,12 +138,13 @@ function WhatsappChats() {
                                         selectedChat === chat.id && "bg-primary/5 border-r-4 border-primary"
                                     )}
                                 >
-                                    <Avatar className="h-10 w-10 border">
+                                    <Avatar className="h-10 w-10 border shrink-0">
+                                        <AvatarImage src={chat.profilePicture} />
                                         <AvatarFallback className="bg-slate-100 text-slate-600 font-bold">{chat.userName?.charAt(0) || '?'}</AvatarFallback>
                                     </Avatar>
                                     <div className="min-w-0 flex-1">
                                         <div className="flex justify-between items-baseline mb-0.5">
-                                            <p className="font-bold text-sm truncate">{chat.userName || chat.id}</p>
+                                            <p className="font-bold text-sm truncate">{chat.userName}</p>
                                             <span className="text-[9px] text-muted-foreground font-medium">
                                                 {chat.lastMessageAt ? format(chat.lastMessageAt.toDate(), 'HH:mm') : ''}
                                             </span>
@@ -120,14 +178,15 @@ function WhatsappChats() {
                     <>
                         <CardHeader className="bg-white border-b py-3 px-6 flex flex-row items-center justify-between shrink-0">
                             <div className="flex items-center gap-3">
-                                <Avatar className="h-8 w-8 border">
+                                <Avatar className="h-9 w-9 border">
+                                    <AvatarImage src={selectedChatData?.profilePicture} />
                                     <AvatarFallback className="bg-primary/10 text-primary text-xs font-black">
-                                        {chats?.find(c => c.id === selectedChat)?.userName?.charAt(0) || '?'}
+                                        {selectedChatData?.userName?.charAt(0) || '?'}
                                     </AvatarFallback>
                                 </Avatar>
                                 <div>
                                     <p className="font-black text-sm uppercase tracking-tight">
-                                        {chats?.find(c => c.id === selectedChat)?.userName || selectedChat}
+                                        {selectedChatData?.userName || selectedChat}
                                     </p>
                                     <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest">Conectado</span>
                                 </div>
@@ -141,22 +200,33 @@ function WhatsappChats() {
                                     <div
                                         key={msg.id}
                                         className={cn(
-                                            "flex flex-col max-w-[85%] animate-in fade-in slide-in-from-bottom-1",
-                                            msg.fromMe ? "ml-auto items-end" : "mr-auto items-start"
+                                            "flex gap-2 animate-in fade-in slide-in-from-bottom-1",
+                                            msg.fromMe ? "flex-row-reverse" : "flex-row"
                                         )}
                                     >
+                                        {!msg.fromMe && (
+                                            <Avatar className="h-7 w-7 border shrink-0 self-end">
+                                                <AvatarImage src={selectedChatData?.profilePicture} />
+                                                <AvatarFallback className="text-[9px] font-bold bg-slate-200">{selectedChatData?.userName?.charAt(0)}</AvatarFallback>
+                                            </Avatar>
+                                        )}
                                         <div className={cn(
-                                            "p-3 rounded-2xl shadow-sm text-sm font-medium leading-relaxed",
-                                            msg.fromMe 
-                                                ? "bg-primary text-white rounded-tr-none" 
-                                                : "bg-white text-slate-800 rounded-tl-none border border-slate-200"
+                                            "flex flex-col max-w-[80%]",
+                                            msg.fromMe ? "items-end" : "items-start"
                                         )}>
-                                            {msg.content}
                                             <div className={cn(
-                                                "text-[9px] mt-1 text-right font-black uppercase opacity-60",
-                                                msg.fromMe ? "text-white" : "text-slate-400"
+                                                "p-3 rounded-2xl shadow-sm text-sm font-medium leading-relaxed",
+                                                msg.fromMe 
+                                                    ? "bg-primary text-white rounded-tr-none" 
+                                                    : "bg-white text-slate-800 rounded-tl-none border border-slate-200"
                                             )}>
-                                                {msg.receivedAt ? format(msg.receivedAt.toDate(), 'HH:mm') : ''}
+                                                {msg.content}
+                                                <div className={cn(
+                                                    "text-[9px] mt-1 text-right font-black uppercase opacity-60",
+                                                    msg.fromMe ? "text-white" : "text-slate-400"
+                                                )}>
+                                                    {msg.receivedAt ? format(msg.receivedAt.toDate(), 'HH:mm') : ''}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
