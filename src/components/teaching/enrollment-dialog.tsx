@@ -19,6 +19,7 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { PlusCircle } from 'lucide-react';
+import { format, parseISO, isAfter } from 'date-fns';
 
 interface EnrollmentDialogProps {
   open: boolean;
@@ -181,7 +182,12 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
         const courseName = selectedCourse?.name || 'Curso';
 
         if (targetName && targetPhone) {
-            sendEnrollmentMessage(targetName, String(targetPhone), courseName, config);
+            sendEnrollmentMessage(targetName, String(targetPhone), courseName, {
+                enabled: config?.enabled,
+                serverUrl: config?.serverUrl,
+                instanceKey: config?.instanceKey,
+                notifyEnrollment: config?.notifyEnrollment
+            });
         }
 
         toast({ title: 'Sucesso!', description: 'Matrícula realizada com sucesso.' });
@@ -294,9 +300,9 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
                                         <Label htmlFor="newPhone" className="text-xs font-bold">Telefone</Label>
                                         <Input id="newPhone" value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="(21) 9..." />
                                     </div>
-                                    <div className="space-y-1 opacity-50">
-                                        <Label className="text-xs font-bold">E-mail</Label>
-                                        <Input value={emailInput} disabled />
+                                    <div className="space-y-1">
+                                        <Label htmlFor="newEmail" className="text-xs font-bold">E-mail</Label>
+                                        <Input id="newEmail" value={emailInput} onChange={e => setEmailInput(e.target.value)} placeholder="email@exemplo.com" />
                                     </div>
                                 </div>
                             </div>

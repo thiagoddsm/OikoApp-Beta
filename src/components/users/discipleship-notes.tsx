@@ -249,7 +249,12 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
         
         // Notificação de avanço de jornada
         if (memberData?.phone && memberData?.name) {
-            sendJourneyAdvanceMessage(memberData.name, String(memberData.phone), nextStage.title, config);
+            sendJourneyAdvanceMessage(memberData.name, String(memberData.phone), nextStage.title, {
+                enabled: !!config?.enabled,
+                serverUrl: config?.serverUrl || '',
+                instanceKey: config?.instanceKey || '',
+                notifyJourney: !!config?.notifyJourney
+            });
         }
 
         toast({

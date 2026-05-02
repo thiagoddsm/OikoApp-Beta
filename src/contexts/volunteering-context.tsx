@@ -337,10 +337,10 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   const roomsQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'rooms')) : null, [firestore, user, roleResolved, isAdmin]);
   const theoflixCoursesQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'theoflix_courses')) : null, [firestore, user]);
   
-  // GC Hierarchy Queries
-  const cellsQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells')) : null, [firestore]);
-  const gcAreasQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'areas')) : null, [firestore]);
-  const redesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'redes')) : null, [firestore]);
+  // GC Hierarchy Queries (Exige login para respeitar as regras do Firestore)
+  const cellsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'cells')) : null, [firestore, user]);
+  const gcAreasQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'areas')) : null, [firestore, user]);
+  const redesQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'redes')) : null, [firestore, user]);
 
   // Queries públicas necessárias para matrículas
   const coursesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);

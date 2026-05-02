@@ -314,7 +314,12 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
             
             // Disparo de boas-vindas automático
             if (formData.phone) {
-                sendWelcomeMessage(formData.name, formData.phone, config);
+                sendWelcomeMessage(formData.name, formData.phone, {
+                    enabled: !!config?.enabled,
+                    serverUrl: config?.serverUrl || '',
+                    instanceKey: config?.instanceKey || '',
+                    notifyWelcome: !!config?.notifyWelcome
+                });
             }
 
              toast({
