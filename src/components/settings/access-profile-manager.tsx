@@ -42,11 +42,11 @@ const permissionsConfig = [
     id: 'servico',
     label: 'Serviço',
     subItems: [
-        { id: 'servico_areas', label: 'Áreas de Serviço', actions: ['view', 'edit', 'delete'] },
-        { id: 'servico_teams', label: 'Equipes', actions: ['view', 'edit', 'delete'] },
-        { id: 'servico_events', label: 'Gerenciar Eventos (Voluntariado)', actions: ['view', 'edit', 'delete'] },
-        { id: 'servico_schedule', label: 'Gerar Escala', actions: ['view', 'edit', 'delete'] },
-        { id: 'servico_saved', label: 'Escalas Salvas', actions: ['view', 'edit', 'delete'] },
+      { id: 'servico_areas', label: 'Áreas de Serviço', actions: ['view', 'edit', 'delete'] },
+      { id: 'servico_teams', label: 'Equipes', actions: ['view', 'edit', 'delete'] },
+      { id: 'servico_events', label: 'Gerenciar Eventos (Voluntariado)', actions: ['view', 'edit', 'delete'] },
+      { id: 'servico_schedule', label: 'Gerar Escala', actions: ['view', 'edit', 'delete'] },
+      { id: 'servico_saved', label: 'Escalas Salvas', actions: ['view', 'edit', 'delete'] },
     ]
   },
   {
@@ -58,10 +58,10 @@ const permissionsConfig = [
         id: 'ministerial_teaching',
         label: 'Ensino',
         subItems: [
-            { id: 'teaching_courses', label: 'Cursos e Turmas Gerais', actions: ['view', 'edit', 'delete', 'view_student_area'] },
+            { id: 'teaching_courses', label: 'Cursos e Turmas Gerais', actions: ['view', 'edit', 'delete', 'view_students', 'manage_attendance', 'manage_grades'] },
             { id: 'teaching_theoflix', label: 'TheoFlix', actions: ['view', 'edit', 'delete'] },
-            { id: 'teaching_wave', label: 'Wave - Escola de Música', actions: ['view_admin', 'view_finance', 'view_teacher_area', 'view_student_area'] },
-            { id: 'teaching_dis', label: 'DIS - Escola de Inclusão', actions: ['view_admin', 'view_finance', 'view_teacher_area', 'view_student_area'] },
+            { id: 'teaching_wave', label: 'Wave - Escola de Música', actions: ['view_admin', 'view_finance', 'view_teacher_area', 'view_student_area', 'manage_attendance', 'manage_grades'] },
+            { id: 'teaching_dis', label: 'DIS - Escola de Inclusão', actions: ['view_admin', 'view_finance', 'view_teacher_area', 'view_student_area', 'manage_attendance', 'manage_grades'] },
         ]
       },
       { id: 'ministerial_events', label: 'Protocolos de Evento', actions: ['view', 'edit', 'delete'] },
@@ -94,8 +94,12 @@ const actionLabels: Record<string, string> = {
   view_admin: 'Ver Admin',
   view_finance: 'Ver Financeiro',
   view_teacher_area: "Área do Professor",
-  view_student_area: "Área do Aluno"
+  view_student_area: "Área do Aluno",
+  view_students: "Ver Alunos/Matrículas",
+  manage_attendance: "Lançar Chamada",
+  manage_grades: "Lançar Notas"
 };
+
 
 interface EditProfileDialogProps {
     open: boolean;

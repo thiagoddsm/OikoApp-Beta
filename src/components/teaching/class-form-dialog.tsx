@@ -5,9 +5,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Calendar as CalendarIcon, X, PlusCircle, Users, Clock } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, X, PlusCircle, Users, Clock, GraduationCap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useVolunteering } from '@/contexts/volunteering-context';
+import { useVolunteering, Class, Course } from '@/contexts/volunteering-context';
 import { Calendar } from '@/components/ui/calendar';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -20,8 +20,15 @@ import { Check, ChevronsUpDown, Search } from "lucide-react";
 type User = { id: string; name: string; isTeacher?: boolean; };
 const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
-export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }) {
-  const { addClass, updateClass, users, rooms, isLoading: isLoadingContext } = useVolunteering();
+interface ClassFormDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  existingClass?: Class;
+  courseId: string;
+}
+
+export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }: ClassFormDialogProps) {
+  const { addClass, updateClass, users, rooms, courses, isLoading: isLoadingContext } = useVolunteering();
   const { toast } = useToast();
 
   const [name, setName] = useState('');
@@ -37,7 +44,9 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
   const [dayOfWeek, setDayOfWeek] = useState('');
   const [weekOfMonth, setWeekOfMonth] = useState('');
   const [holidayDates, setHolidayDates] = useState<string[]>([]);
-  const [extraDates, setExtraDates] = useState<string[]>([]);
+  const [extraDates, setExtraDates] = useState<string[]>([]); // Mantido para retrocompatibilidade
+  const [extraSessions, setExtraSessions] = useState<{ id: string; date: string; startTime: string; endTime: string; syllabusId?: string }[]>([]);
+  const [scheduleOverrides, setScheduleOverrides] = useState<Record<string, any>>({});
   
   const [locationType, setLocationType] = useState<'ibm' | 'the_school' | ''>('');
   const [registrationDeadline, setRegistrationDeadline] = useState('');
@@ -62,6 +71,8 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
         setWeekOfMonth(existingClass.weekOfMonth || '');
         setHolidayDates(existingClass.holidayDates || []);
         setExtraDates(existingClass.extraDates || []);
+        setExtraSessions(existingClass.extraSessions || []);
+        setScheduleOverrides(existingClass.scheduleOverrides || {});
         setRegistrationDeadline(existingClass.registrationDeadline || '');
         
         if (existingClass.locationId === 'the_school') {
@@ -125,6 +136,8 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
         locationId: finalLocationId,
         holidayDates,
         extraDates,
+        extraSessions,
+        scheduleOverrides,
         registrationDeadline,
     };
 
@@ -160,6 +173,27 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
   const removeExtraDate = (dateStr: string) => {
     setExtraDates(prev => prev.filter(d => d !== dateStr));
   };
+
+  const handleAddExtraSession = () => {
+    const newSession = {
+      id: Math.random().toString(36).substr(2, 9),
+      date: startDate || format(new Date(), 'yyyy-MM-dd'),
+      startTime: startTime || '09:00',
+      endTime: endTime || '10:00',
+    };
+    setExtraSessions([...extraSessions, newSession]);
+  };
+
+  const updateExtraSession = (id: string, field: string, value: any) => {
+    setExtraSessions(extraSessions.map(s => s.id === id ? { ...s, [field]: value } : s));
+  };
+
+  const removeExtraSession = (id: string) => {
+    setExtraSessions(extraSessions.filter(s => s.id !== id));
+  };
+
+  const selectedCourse = useMemo(() => courses.find(c => c.id === courseId), [courses, courseId]);
+  const syllabus = selectedCourse?.syllabus || [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -343,11 +377,61 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
                             </Select>
                         </div>
                     )}
-              </div>
-           </div>
+                </div>
+            </div>
 
-           <div className="pt-6 border-t grid grid-cols-1 md:grid-cols-2 gap-8 pb-8">
-                <div className="space-y-4">
+                {syllabus.length > 0 && (
+                    <div className="space-y-4 md:col-span-2 pt-6 border-t">
+                        <div className="space-y-1">
+                            <h3 className="font-black text-[10px] uppercase text-primary tracking-widest flex items-center gap-2">
+                                <GraduationCap className="size-3" /> Cronograma da Ementa (Opcional)
+                            </h3>
+                            <p className="text-[9px] text-muted-foreground font-medium italic">Vincule os módulos da ementa a datas específicas para que apareçam na aba de Frequência.</p>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {syllabus.map((mod, idx) => {
+                                const linkedDate = Object.keys(scheduleOverrides).find(date => scheduleOverrides[date]?.syllabusId === mod.id) || extraSessions.find(s => s.syllabusId === mod.id)?.date;
+                                return (
+                                    <div key={mod.id} className="flex items-center justify-between p-2.5 bg-muted/30 rounded-xl border border-dashed text-xs group hover:bg-white hover:border-primary/30 transition-all">
+                                        <div className="flex flex-col gap-0.5 truncate pr-2">
+                                            <span className="text-[8px] font-black uppercase text-primary/60">Módulo {idx + 1}</span>
+                                            <span className="font-bold text-slate-700 truncate" title={mod.title}>
+                                                {mod.title}
+                                            </span>
+                                        </div>
+                                        <Input 
+                                            type="date" 
+                                            value={linkedDate || ''} 
+                                            onChange={(e) => {
+                                                const newDate = e.target.value;
+                                                const newOverrides = { ...scheduleOverrides };
+                                                
+                                                // Limpar vínculos anteriores deste módulo
+                                                Object.keys(newOverrides).forEach(d => {
+                                                    if (newOverrides[d]?.syllabusId === mod.id) {
+                                                        const { syllabusId, ...rest } = newOverrides[d];
+                                                        if (Object.keys(rest).length === 0) delete newOverrides[d];
+                                                        else newOverrides[d] = rest;
+                                                    }
+                                                });
+
+                                                // Adicionar novo vínculo
+                                                if (newDate) {
+                                                    newOverrides[newDate] = { ...newOverrides[newDate], syllabusId: mod.id };
+                                                }
+                                                setScheduleOverrides(newOverrides);
+                                            }}
+                                            className="h-8 text-[10px] w-28 bg-white border-primary/10"
+                                        />
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                <div className="pt-6 border-t grid grid-cols-1 md:grid-cols-2 gap-8 pb-8">
+                    <div className="space-y-4">
                     <div className="flex items-center justify-between">
                         <h3 className="font-black text-[10px] uppercase text-destructive tracking-widest">Recessos (Feriados)</h3>
                         <Popover>
@@ -380,39 +464,70 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId })
                     </div>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-4 md:col-span-2">
                     <div className="flex items-center justify-between">
-                        <h3 className="font-black text-[10px] uppercase text-emerald-600 tracking-widest">Aulas Extras (Avulsas)</h3>
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button variant="outline" size="sm" className="h-7 text-[10px] uppercase font-black border-emerald-200 text-emerald-600 hover:bg-emerald-50">
-                                    <PlusCircle className="size-3 mr-1" /> Adicionar
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0" align="end">
-                                <Calendar
-                                    mode="multiple"
-                                    selected={extraDates.map(d => parseISO(d))}
-                                    onSelect={handleExtraDateSelect}
-                                    initialFocus
-                                />
-                            </PopoverContent>
-                        </Popover>
+                        <div className="space-y-1">
+                            <h3 className="font-black text-[10px] uppercase text-emerald-600 tracking-widest">Aulas Extras (Avulsas / Reposição)</h3>
+                            <p className="text-[9px] text-muted-foreground font-medium italic">Configure horários específicos e vincule tópicos da ementa.</p>
+                        </div>
+                        <Button type="button" variant="outline" size="sm" onClick={handleAddExtraSession} className="h-7 text-[10px] uppercase font-black border-emerald-200 text-emerald-600 hover:bg-emerald-50">
+                            <PlusCircle className="size-3 mr-1" /> Adicionar Aula
+                        </Button>
                     </div>
-                    <div className="flex flex-wrap gap-1.5 min-h-[40px] p-3 rounded-xl border-2 border-dashed">
-                        {extraDates.length === 0 ? (
-                            <p className="text-[9px] text-muted-foreground italic font-medium uppercase tracking-tighter self-center mx-auto">Nenhuma aula extra agendada.</p>
+                    
+                    <div className="space-y-3">
+                        {extraSessions.length === 0 ? (
+                            <div className="p-8 rounded-xl border-2 border-dashed flex flex-col items-center justify-center text-center bg-slate-50/50">
+                                <Clock className="size-6 text-slate-300 mb-2" />
+                                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-tighter">Nenhuma aula extra cadastrada.</p>
+                            </div>
                         ) : (
-                            extraDates.sort().map(date => (
-                                <Badge key={date} variant="secondary" className="pl-2 pr-1 h-6 gap-1 text-[10px] bg-emerald-50 text-emerald-700 border-emerald-100 font-bold">
-                                    {format(parseISO(date), 'dd/MM')}
-                                    <button onClick={() => removeExtraDate(date)} className="hover:text-emerald-600 p-0.5"><X className="size-2.5" /></button>
-                                </Badge>
+                            extraSessions.map((session) => (
+                                <div key={session.id} className="p-4 rounded-xl border bg-white shadow-sm flex flex-wrap gap-4 items-end relative group">
+                                    <button 
+                                        onClick={() => removeExtraSession(session.id)}
+                                        className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm border border-red-200"
+                                    >
+                                        <X className="size-3" />
+                                    </button>
+                                    
+                                    <div className="space-y-1.5 flex-1 min-w-[120px]">
+                                        <Label className="text-[9px] font-black uppercase text-muted-foreground">Data</Label>
+                                        <Input type="date" value={session.date} onChange={e => updateExtraSession(session.id, 'date', e.target.value)} className="h-9 text-xs" />
+                                    </div>
+                                    
+                                    <div className="space-y-1.5 w-24">
+                                        <Label className="text-[9px] font-black uppercase text-muted-foreground">Início</Label>
+                                        <Input type="time" value={session.startTime} onChange={e => updateExtraSession(session.id, 'startTime', e.target.value)} className="h-9 text-xs" />
+                                    </div>
+                                    
+                                    <div className="space-y-1.5 w-24">
+                                        <Label className="text-[9px] font-black uppercase text-muted-foreground">Fim</Label>
+                                        <Input type="time" value={session.endTime} onChange={e => updateExtraSession(session.id, 'endTime', e.target.value)} className="h-9 text-xs" />
+                                    </div>
+                                    
+                                    <div className="space-y-1.5 flex-[2] min-w-[200px]">
+                                        <Label className="text-[9px] font-black uppercase text-muted-foreground">Conteúdo da Ementa</Label>
+                                        <Select value={session.syllabusId || 'null'} onValueChange={val => updateExtraSession(session.id, 'syllabusId', val === 'null' ? undefined : val)}>
+                                            <SelectTrigger className="h-9 text-xs">
+                                                <SelectValue placeholder="Vincular módulo..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="null">Nenhum (Livre)</SelectItem>
+                                                {syllabus.map(s => (
+                                                    <SelectItem key={s.id} value={s.id} className="text-xs">
+                                                        {s.title}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                </div>
                             ))
                         )}
                     </div>
                 </div>
-           </div>
+            </div>
         </div>
 
         <DialogFooter className="p-6 border-t bg-muted/20 shrink-0">

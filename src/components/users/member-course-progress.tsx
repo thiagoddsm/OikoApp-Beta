@@ -4,71 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { CheckCircle2, Circle, GraduationCap, Lock, ArrowRight, AlertTriangle, RefreshCw, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '../ui/button';
-import { useVolunteering } from '@/contexts/volunteering-context';
+import { useVolunteering, getModuleIndexForDate, weekDayMap } from '@/contexts/volunteering-context';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '../ui/badge';
 import { format, parseISO, addWeeks, addMonths, isBefore } from 'date-fns';
 
-const weekDayMap: Record<string, number> = {
-    "Domingo": 0, "Segunda-feira": 1, "Terça-feira": 2, "Quarta-feira": 3,
-    "Quinta-feira": 4, "Sexta-feira": 5, "Sábado": 6
-};
 
-function getModuleIndexForDate(dateStr: string, classData: any, syllabus: any[] = []): number {
-    if (!classData || !classData.startDate) return -1;
-    
-    // 1. Verificar se existe override para esta data específica
-    const overrides = classData.scheduleOverrides || {};
-    if (overrides[dateStr]) {
-        const ov = overrides[dateStr];
-        if (ov.isCancelled) return -1;
-        if (ov.syllabusId) {
-            return syllabus.findIndex(s => s.id === ov.syllabusId);
-        }
-    }
-
-    // 2. Lógica de recorrência padrão
-    const occurrences: string[] = [];
-    const start = parseISO(classData.startDate);
-    const end = classData.endDate ? parseISO(classData.endDate) : addMonths(start, 2); // Aumentar margem para busca
-    const targetDay = classData.dayOfWeek ? weekDayMap[classData.dayOfWeek] : -1;
-    const holidaySet = new Set(classData.holidayDates || []);
-
-    let current = start;
-    let safe = 0;
-    let currentIndex = 0;
-
-    if (classData.frequency && classData.frequency !== 'pontual') {
-        while (safe++ < 200) {
-            const dStr = format(current, 'yyyy-MM-dd');
-            
-            // Pular feriado sem override
-            if (holidaySet.has(dStr) && !overrides[dStr]) {
-                current = addWeeks(current, classData.frequency === 'quinzenal' ? 2 : 1);
-                continue;
-            }
-
-            // Se for a data procurada e não estiver cancelada por override
-            if (dStr === dateStr) {
-                const ov = overrides[dStr];
-                if (ov?.isCancelled) return -1;
-                return currentIndex;
-            }
-
-            // Incrementar índice do syllabus apenas para aulas válidas
-            if (!overrides[dStr]?.isCancelled) {
-                currentIndex++;
-            }
-
-            current = addWeeks(current, classData.frequency === 'quinzenal' ? 2 : 1);
-            if (isBefore(end, current) && dStr !== format(end, 'yyyy-MM-dd')) break;
-        }
-    } else if (classData.frequency === 'pontual') {
-        return classData.startDate === dateStr ? 0 : -1;
-    }
-
-    return -1; 
-}
 
 export function MemberCourseProgress({ user }: { user: any }) {
     const { updateVolunteer, classes, courses } = useVolunteering();

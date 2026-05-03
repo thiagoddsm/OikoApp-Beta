@@ -1,7 +1,7 @@
 
 'use client';
 import React, { useMemo, useState } from 'react';
-import { useVolunteering } from '@/contexts/volunteering-context';
+import { useVolunteering, getModuleIndexForDate, weekDayMap, Course, Class } from '@/contexts/volunteering-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, Clock, Award, Loader2, Users, GraduationCap, ChevronRight, XCircle, Minus, Video, PlayCircle, Star, Filter, RefreshCw, Send, Info, ListFilter } from 'lucide-react';
@@ -17,66 +17,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
-const weekDayMap: Record<string, number> = {
-    "Domingo": 0, "Segunda-feira": 1, "Terça-feira": 2, "Quarta-feira": 3,
-    "Quinta-feira": 4, "Sexta-feira": 5, "Sábado": 6
-};
 
-function getModuleIndexForDate(dateStr: string, classData: any, syllabus: any[] = []): number {
-    if (!classData || !classData.startDate) return -1;
-    
-    // 1. Verificar se existe override para esta data específica
-    const overrides = classData.scheduleOverrides || {};
-    if (overrides[dateStr]) {
-        const ov = overrides[dateStr];
-        if (ov.isCancelled) return -1;
-        if (ov.syllabusId) {
-            return syllabus.findIndex(s => s.id === ov.syllabusId);
-        }
-    }
-
-    // 2. Lógica de recorrência padrão
-    const occurrences: string[] = [];
-    const start = parseISO(classData.startDate);
-    const end = classData.endDate ? parseISO(classData.endDate) : addMonths(start, 2); 
-    const targetDay = classData.dayOfWeek ? weekDayMap[classData.dayOfWeek] : -1;
-    const holidaySet = new Set(classData.holidayDates || []);
-
-    let current = start;
-    let safe = 0;
-    let currentIndex = 0;
-
-    if (classData.frequency && classData.frequency !== 'pontual') {
-        while (safe++ < 200) {
-            const dStr = format(current, 'yyyy-MM-dd');
-            
-            // Pular feriado sem override
-            if (holidaySet.has(dStr) && !overrides[dStr]) {
-                current = addWeeks(current, classData.frequency === 'quinzenal' ? 2 : 1);
-                continue;
-            }
-
-            // Se for a data procurada e não estiver cancelada por override
-            if (dStr === dateStr) {
-                const ov = overrides[dStr];
-                if (ov?.isCancelled) return -1;
-                return currentIndex;
-            }
-
-            // Incrementar índice do syllabus apenas para aulas válidas
-            if (!overrides[dStr]?.isCancelled) {
-                currentIndex++;
-            }
-
-            current = addWeeks(current, classData.frequency === 'quinzenal' ? 2 : 1);
-            if (isBefore(end, current) && dStr !== format(end, 'yyyy-MM-dd')) break;
-        }
-    } else if (classData.frequency === 'pontual') {
-        return classData.startDate === dateStr ? 0 : -1;
-    }
-
-    return -1; 
-}
 
 const Legend = () => (
     <div className="pt-4 mt-6 border-t">
@@ -129,7 +70,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                 title: s.title,
                 type: index === course.syllabus!.length - 1 && isMembership ? 'Eletivo' : 'Obrigatório',
                 week: (index + 1).toString(),
-                theoflixCourseId: s.theoflixCourseId
+                theoflixCourseId: (s as any).theoflixCourseId
             }));
         }
         if (isMembership) {
@@ -147,6 +88,35 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
     const allDates = useMemo(() => {
         const dates = new Set<string>();
         filteredClasses.forEach(cls => {
+            // Aulas regulares
+            if (cls.startDate) {
+                const start = parseISO(cls.startDate);
+                const end = cls.endDate ? parseISO(cls.endDate) : addMonths(start, 2);
+                const holidaySet = new Set(cls.holidayDates || []);
+                const overrides = cls.scheduleOverrides || {};
+                
+                if (cls.frequency === 'pontual') {
+                    dates.add(cls.startDate);
+                } else {
+                    let current = start;
+                    let safe = 0;
+                    while (safe++ < 200) {
+                        const dStr = format(current, 'yyyy-MM-dd');
+                        if (!holidaySet.has(dStr) || overrides[dStr]) {
+                            if (!overrides[dStr]?.isCancelled) dates.add(dStr);
+                        }
+                        current = addWeeks(current, cls.frequency === 'quinzenal' ? 2 : 1);
+                        if (isBefore(end, current) && dStr !== format(end, 'yyyy-MM-dd')) break;
+                    }
+                }
+            }
+            
+            // Aulas extras (novo modelo)
+            cls.extraSessions?.forEach(s => {
+                dates.add(`${s.date}T${s.startTime}`);
+            });
+
+            // Fallback para presenças marcadas sem calendário
             cls.attendance?.forEach(att => dates.add(att.date));
         });
         return Array.from(dates).sort();
@@ -354,11 +324,47 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                     ))
                                 ) : (
                                     allDates.map((date, index) => {
+                                        // Encontrar qual turma tem esta aula (para pegar o módulo certo)
+                                        const relevantClass = filteredClasses.find(c => getModuleIndexForDate(date, c, course?.syllabus || []) !== -1) || filteredClasses[0];
+                                        const modIndex = getModuleIndexForDate(date, relevantClass, course?.syllabus || []);
+                                        const mod = modIndex !== -1 ? course?.syllabus?.[modIndex] : null;
+                                        const isExtra = date.includes('T');
+                                        const displayDate = date.includes('T') ? parseISO(date) : parseISO(date);
+
                                         return (
-                                            <TableHead key={date} className="text-center min-w-[180px] px-2 py-4">
-                                                <div className="flex flex-col items-center gap-1.5">
-                                                    <span className="text-[9px] font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded uppercase">Aula {index + 1}</span>
-                                                    <span className="font-bold text-slate-900 leading-none">{format(parseISO(date), 'dd/MM')}</span>
+                                            <TableHead key={date} className="text-center min-w-[200px] px-2 py-4 group">
+                                                <div className="flex flex-col items-center gap-1">
+                                                    <div className="flex items-center gap-1">
+                                                        <span className={cn(
+                                                            "text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-tighter",
+                                                            isExtra ? "bg-amber-100 text-amber-600" : "bg-primary/10 text-primary"
+                                                        )}>
+                                                            {isExtra ? 'Reposição' : `Aula ${index + 1}`}
+                                                        </span>
+                                                        {mod && (
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <div className="cursor-help">
+                                                                        <Info className="size-3 text-slate-400 group-hover:text-primary transition-colors" />
+                                                                    </div>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent className="max-w-[250px] p-3 bg-slate-900 text-white border-none shadow-2xl">
+                                                                    <p className="text-[10px] font-black uppercase text-primary mb-1">Módulo Vinculado</p>
+                                                                    <p className="text-xs font-bold mb-1">{mod.title}</p>
+                                                                    <p className="text-[10px] opacity-70 leading-relaxed line-clamp-4">{mod.description}</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        )}
+                                                    </div>
+                                                    <span className="font-bold text-slate-900 leading-none">
+                                                        {format(displayDate, 'dd/MM')}
+                                                        {isExtra && <span className="text-[9px] opacity-50 ml-1">{format(displayDate, 'HH:mm')}</span>}
+                                                    </span>
+                                                    {mod && (
+                                                        <span className="text-[10px] font-medium text-slate-500 truncate w-full px-2" title={mod.title}>
+                                                            {mod.title}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             </TableHead>
                                         )
@@ -423,8 +429,14 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                                             const repoClass = courseClasses.find(c => c.attendance?.some(att => att.date === status.data?.date && att.repositions?.some(r => r.studentId === student.id)));
                                                             let originalDate = "Não definida";
                                                             if (studentClass) {
-                                                                const ownClassAtt = studentClass.attendance?.find(a => getModuleIndexForDate(a.date, studentClass) === (parseInt(mod.id) - 1));
-                                                                originalDate = ownClassAtt ? format(parseISO(ownClassAtt.date), 'dd/MM/yyyy') : "Pendente na Turma";
+                                                                const ownClassAtt = studentClass.attendance?.find(a => 
+                                                                    getModuleIndexForDate(a.date, studentClass, course?.syllabus || []) === (parseInt(mod.id) - 1)
+                                                                );
+                                                                if (ownClassAtt?.date) {
+                                                                    originalDate = format(parseISO(ownClassAtt.date), 'dd/MM/yyyy');
+                                                                } else {
+                                                                    originalDate = "Pendente na Turma";
+                                                                }
                                                             }
 
                                                             icon = (

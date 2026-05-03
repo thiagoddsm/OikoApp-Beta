@@ -174,7 +174,7 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
             });
         }
 
-        await enrollStudent(finalStudentId, selectedCourseId, isMemberCourse ? undefined : classId);
+        await enrollStudent(finalStudentId, selectedCourseId, classId || undefined);
         
         // Notificação de matrícula
         const targetName = mode === 'new' ? newName : selectedUser?.name;

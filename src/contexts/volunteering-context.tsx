@@ -2,6 +2,7 @@
 'use client';
 
 import React, { createContext, useContext, ReactNode, useMemo } from 'react';
+import { format, addWeeks, addMonths, parseISO } from 'date-fns';
 import { useFirebase, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, useDoc } from '@/firebase';
 import { collection, query, doc, Timestamp, addDoc, where } from 'firebase/firestore';
 
@@ -95,7 +96,7 @@ export type Course = {
   ebdTrack?: 'teologico' | 'biblico' | 'discipulado';
   linkedTheoflixId?: string;
   minAttendanceApproval?: number;
-  syllabus?: { id: string; title: string; description: string }[];
+  syllabus?: { id: string; title: string; description: string; theoflixCourseId?: string }[];
   requiresMemberStatus?: boolean;
   requiresBaptism?: boolean;
   prerequisiteCourseId?: string;
@@ -131,9 +132,21 @@ export type Class = {
   weekOfMonth?: '1' | '2' | '3' | '4' | 'last';
   locationId?: string;
   holidayDates?: string[];
-  extraDates?: string[];
+  extraDates?: string[]; // Mantido para retrocompatibilidade
+  extraSessions?: {
+    id: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    syllabusId?: string;
+  }[];
   registrationDeadline?: string;
-  attendance?: { date: string; presentStudentIds: string[]; onlineStudentIds?: string[] }[];
+  attendance?: { 
+    date: string; 
+    presentStudentIds: string[]; 
+    onlineStudentIds?: string[];
+    repositions?: { studentId: string; date: string }[];
+  }[];
   grades?: { studentId: string; assessmentName: string; grade: number }[];
   materials?: { title: string; url: string; description?: string }[];
   scheduleOverrides?: Record<string, {
@@ -148,6 +161,89 @@ export type Class = {
 export type Area = { id: string; nome: string; liderId: string; redeId: string; };
 export type Cell = { id: string; nome: string; liderId: string; areaId: string; redeId: string; membros: string[] };
 export type Rede = { id: string; nome: string; liderId: string; pastorId: string; };
+
+export const weekDayMap: Record<string, number> = {
+    'domingo': 0,
+    'segunda': 1,
+    'terca': 2,
+    'quarta': 3,
+    'quinta': 4,
+    'sexta': 5,
+    'sabado': 6
+};
+
+export function getModuleIndexForDate(dateStr: string, classData: any, syllabus: any[] = []): number {
+    if (!classData || !classData.startDate || !dateStr) return -1;
+    
+    // Normalizar dateStr para apenas YYYY-MM-DD para comparação de calendário regular
+    const dateOnly = dateStr.split('T')[0];
+
+    // 1. Verificar se é uma aula extra (novo modelo)
+    // Tentar match exato com data e hora primeiro
+    let extraSession = classData.extraSessions?.find((s: any) => `${s.date}T${s.startTime}` === dateStr);
+    
+    // Se não achou, tentar match apenas com a data
+    if (!extraSession) {
+        extraSession = classData.extraSessions?.find((s: any) => s.date === dateOnly);
+    }
+
+    if (extraSession?.syllabusId) {
+        return syllabus.findIndex((s: any) => s.id === extraSession.syllabusId);
+    }
+
+    // 2. Verificar se existe override para esta data específica
+    const overrides = classData.scheduleOverrides || {};
+    if (overrides[dateOnly]) {
+        const ov = overrides[dateOnly];
+        if (ov.isCancelled) return -1;
+        if (ov.syllabusId) {
+            return syllabus.findIndex((s: any) => s.id === ov.syllabusId);
+        }
+    }
+
+
+    // 3. Lógica de recorrência padrão
+    const start = parseISO(classData.startDate);
+    const end = classData.endDate ? parseISO(classData.endDate) : addMonths(start, 6); // Aumentado para 6 meses de busca
+    const holidaySet = new Set(classData.holidayDates || []);
+
+    let current = start;
+    let safe = 0;
+    let currentIndex = 0;
+
+    if (classData.frequency && classData.frequency !== 'pontual') {
+        while (safe++ < 300) { // Aumentado limite de segurança
+            const dStr = format(current, 'yyyy-MM-dd');
+            
+            // Pular feriado sem override
+            if (holidaySet.has(dStr) && !overrides[dStr]) {
+                current = addWeeks(current, classData.frequency === 'quinzenal' ? 2 : 1);
+                continue;
+            }
+
+            // Se for a data procurada e não estiver cancelada por override
+            if (dStr === dateOnly) {
+                const ov = overrides[dStr];
+                if (ov?.isCancelled) return -1;
+                return currentIndex;
+            }
+
+            // Incrementar índice do syllabus apenas para aulas válidas
+            if (!overrides[dStr]?.isCancelled) {
+                currentIndex++;
+            }
+
+            current = addWeeks(current, classData.frequency === 'quinzenal' ? 2 : 1);
+            if (current > end && dStr > dateOnly) break;
+        }
+    } else {
+        // Se for pontual, apenas a data de início conta
+        return format(start, 'yyyy-MM-dd') === dateOnly ? 0 : -1;
+    }
+
+    return -1;
+}
+
 
 export type EnrollmentRequest = {
   id: string;
@@ -308,33 +404,40 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   // isAdmin defaults to false while loading which causes query flip-flop → Firestore assertion crash.
   const roleResolved = !loadingRole && (userData !== undefined || !user);
   const isAdmin = roleResolved && (userData?.hierarchy?.role === 'admin' || userData?.hierarchy?.role === 'pastor_senior');
+  
+  const roleId = userData?.hierarchy?.role;
+  const { data: accessProfile, isLoading: loadingProfile } = useDoc<any>(user && roleId ? `access_profiles/${roleId}` : null);
+  const permissions = accessProfile?.permissions || {};
+
+  // Helper to check permission
+  const can = (permId: string, action = 'view') => isAdmin || !!permissions?.[permId]?.[action];
 
   // Queries sensíveis que exigem login e papel adequado (só rodam após papel ser conhecido)
-  const usersQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'users')) : null, [firestore, user, roleResolved, isAdmin]);
-  const serviceAreasQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'areas_of_service')) : null, [firestore, user, roleResolved, isAdmin]);
-  const teamsQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'teams')) : null, [firestore, user, roleResolved, isAdmin]);
-  const eventsQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'volunteering_events')) : null, [firestore, user, roleResolved, isAdmin]);
-  const reservationsQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'room_reservations')) : null, [firestore, user, roleResolved, isAdmin]);
-  const enrollmentRequestsQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'enrollment_requests')) : null, [firestore, user, roleResolved, isAdmin]);
+  const usersQ = useMemoFirebase(() => (firestore && user && roleResolved && (can('pessoas_list') || can('teaching_courses', 'view_students') || can('teaching_wave', 'view_teacher_area') || can('teaching_dis', 'view_teacher_area'))) ? query(collection(firestore, 'users')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
+  const serviceAreasQ = useMemoFirebase(() => (firestore && user && roleResolved && can('servico_areas')) ? query(collection(firestore, 'areas_of_service')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
+  const teamsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('servico_teams')) ? query(collection(firestore, 'teams')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
+  const eventsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('servico_events')) ? query(collection(firestore, 'volunteering_events')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
+  const reservationsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('ministerial_reservations')) ? query(collection(firestore, 'room_reservations')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
+  const enrollmentRequestsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('teaching_courses')) ? query(collection(firestore, 'enrollment_requests')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
 
   const pedagogicalLogsQ = useMemoFirebase(() => {
     if (!firestore || !user || !roleResolved) return null;
-    if (isAdmin) return query(collection(firestore, 'pedagogical_logs'));
+    if (can('teaching_courses')) return query(collection(firestore, 'pedagogical_logs'));
     return null;
-  }, [firestore, user, roleResolved, isAdmin]);
+  }, [firestore, user, roleResolved, isAdmin, permissions]);
 
   const wavePlansQ = useMemoFirebase(() => (firestore && user && roleResolved) ? query(collection(firestore, 'wave_plans')) : null, [firestore, user, roleResolved]);
   const disPlansQ = useMemoFirebase(() => (firestore && user && roleResolved) ? query(collection(firestore, 'dis_plans')) : null, [firestore, user, roleResolved]);
 
   // Pagamentos: apenas admins. Alunos buscam diretamente no StudentDashboard.
-  const wavePaymentsQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'wave_payments')) : null, [firestore, user, roleResolved, isAdmin]);
-  const disPaymentsQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'dis_payments')) : null, [firestore, user, roleResolved, isAdmin]);
+  const wavePaymentsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('teaching_wave', 'view_finance')) ? query(collection(firestore, 'wave_payments')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
+  const disPaymentsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('teaching_dis', 'view_finance')) ? query(collection(firestore, 'dis_payments')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
 
-  const waveExpensesQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'wave_expenses')) : null, [firestore, user, roleResolved, isAdmin]);
-  const financialTransactionsQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'financial_transactions')) : null, [firestore, user, roleResolved, isAdmin]);
-  const financeRequestsQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'finance_requests')) : null, [firestore, user, roleResolved, isAdmin]);
-  const savedSchedulesQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'saved_schedules')) : null, [firestore, user, roleResolved, isAdmin]);
-  const roomsQ = useMemoFirebase(() => (firestore && user && roleResolved && isAdmin) ? query(collection(firestore, 'rooms')) : null, [firestore, user, roleResolved, isAdmin]);
+  const waveExpensesQ = useMemoFirebase(() => (firestore && user && roleResolved && can('teaching_wave', 'view_finance')) ? query(collection(firestore, 'wave_expenses')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
+  const financialTransactionsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('ministerial_finance')) ? query(collection(firestore, 'financial_transactions')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
+  const financeRequestsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('ministerial_finance')) ? query(collection(firestore, 'finance_requests')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
+  const savedSchedulesQ = useMemoFirebase(() => (firestore && user && roleResolved && can('servico_schedule')) ? query(collection(firestore, 'saved_schedules')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
+  const roomsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('ministerial_reservations')) ? query(collection(firestore, 'rooms')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
   const theoflixCoursesQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'theoflix_courses')) : null, [firestore, user]);
   
   // GC Hierarchy Queries (Exige login para respeitar as regras do Firestore)
@@ -369,7 +472,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   const { data: gcAreas, isLoading: lga } = useCollection<Area>(gcAreasQ);
   const { data: redes, isLoading: lre } = useCollection<Rede>(redesQ);
 
-  const isLoading = loadingRole || (user ? lu : false) || la || lt || le || (user ? lr : false) || lres || lco || lcl || ler || lpl || lwp || ldp || lwpn || ldpn || lwe || (user ? ltc : false) || lft || lfr || lss || lce || lga || lre;
+  const isLoading = loadingRole || loadingProfile || (user ? lu : false) || la || lt || le || (user ? lr : false) || lres || lco || lcl || ler || lpl || lwp || ldp || lwpn || ldpn || lwe || (user ? ltc : false) || lft || lfr || lss || lce || lga || lre;
 
   const value = useMemo(() => ({
     users: users || [],
@@ -445,12 +548,15 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
           await updateDocumentNonBlocking(classRef, { students: [...cls.students, studentId] });
         }
       } else {
+        // Se não passou classId, tenta encontrar se há apenas UMA turma para este curso
         const relevantClasses = (classes || []).filter(c => c.courseId === courseId);
-        for (const cls of relevantClasses) {
-          if (!cls.students.includes(studentId)) {
-            await updateDocumentNonBlocking(doc(firestore!, 'classes', cls.id), { students: [...cls.students, studentId] });
-          }
+        if (relevantClasses.length === 1) {
+            const cls = relevantClasses[0];
+            if (!cls.students.includes(studentId)) {
+                await updateDocumentNonBlocking(doc(firestore!, 'classes', cls.id), { students: [...cls.students, studentId] });
+            }
         }
+        // Se houver mais de uma, não faz nada (o usuário deve selecionar no UI)
       }
     },
     addPedagogicalLog: async (data: any) => { await addDoc(collection(firestore!, 'pedagogical_logs'), data); },
@@ -496,10 +602,42 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
     deleteEnrollmentRequest: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id)); },
     markAttendanceByTheoflix: async (userId: string, courseId: string, episodeIndex: number) => {
       const relevantClasses = (classes || []).filter(c => c.courseId === courseId && c.students.includes(userId));
+      const targetCourse = (courses || []).find(c => c.id === courseId);
+      const syllabus = targetCourse?.syllabus || [];
+      
       for (const cls of relevantClasses) {
-        const today = new Date().toISOString().split('T')[0];
+        // Encontrar qual data de aula corresponde ao índice do episódio
+        // Usamos uma simplificação: calculamos as datas possíveis e vemos qual bate com o índice
+        let targetDate = '';
+        
+        // 1. Procurar em extraSessions
+        const extraMatch = cls.extraSessions?.find(s => {
+            const idx = syllabus.findIndex(mod => mod.id === s.syllabusId);
+            return idx === episodeIndex;
+        });
+        if (extraMatch) targetDate = `${extraMatch.date}T${extraMatch.startTime}`;
+
+        // 2. Se não achou em extra, procurar nas aulas regulares/overrides
+        if (!targetDate) {
+            // Aqui poderíamos calcular o calendário projetado, mas para simplificar,
+            // vamos usar o hoje se bater ou procurar no attendance existente que tenha o índice
+            const existingAtt = cls.attendance?.find(a => getModuleIndexForDate(a.date, cls, syllabus) === episodeIndex);
+            if (existingAtt) {
+                targetDate = existingAtt.date;
+            } else {
+                // Fallback: se não achou data futura/passada, usa hoje apenas se bater o índice
+                const today = new Date().toISOString().split('T')[0];
+                if (getModuleIndexForDate(today, cls, syllabus) === episodeIndex) {
+                    targetDate = today;
+                }
+            }
+        }
+
+        if (!targetDate) continue;
+
         const existingAttendance = cls.attendance || [];
-        const recordIdx = existingAttendance.findIndex(a => a.date === today);
+        const recordIdx = existingAttendance.findIndex(a => a.date === targetDate);
+        
         if (recordIdx > -1) {
           const record = existingAttendance[recordIdx];
           if (!record.onlineStudentIds?.includes(userId)) {
@@ -507,7 +645,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
             await updateDocumentNonBlocking(doc(firestore!, 'classes', cls.id), { attendance: existingAttendance });
           }
         } else {
-          existingAttendance.push({ date: today, presentStudentIds: [], onlineStudentIds: [userId] });
+          existingAttendance.push({ date: targetDate, presentStudentIds: [], onlineStudentIds: [userId] });
           await updateDocumentNonBlocking(doc(firestore!, 'classes', cls.id), { attendance: existingAttendance });
         }
       }
