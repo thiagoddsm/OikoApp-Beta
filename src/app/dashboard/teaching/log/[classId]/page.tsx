@@ -138,6 +138,29 @@ function PedagogicalLogPageContent() {
             });
         });
 
+        // 3. Adicionar aulas extras (extraSessions)
+        const extraSessions = classData.extraSessions || [];
+        extraSessions.forEach((session: any) => {
+            if (items.find(i => i.dateStr === session.date)) return;
+
+            const syllabusItem = session.syllabusId 
+                ? syllabus.find(s => s.id === session.syllabusId) 
+                : undefined;
+            
+            const originalIdx = session.syllabusId
+                ? syllabus.findIndex(s => s.id === session.syllabusId)
+                : -1;
+
+            items.push({
+                dateStr: session.date,
+                date: parseISO(session.date),
+                syllabusItem,
+                syllabusOriginalIndex: originalIdx,
+                isOverride: true,
+                isExtraSession: true
+            });
+        });
+
         return items.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
     }, [classData, courseData]);
 
@@ -314,10 +337,12 @@ function PedagogicalLogPageContent() {
                                 const attendance = classData.attendance?.find(a => a.date === date);
                                 const hasAttendance = attendance && (attendance.presentStudentIds.length > 0);
                                 const moduleName = moduleNames[idx] ? `- ${moduleNames[idx]}` : '';
+                                const isExtra = resolvedSchedule[idx]?.isExtraSession;
+                                const titlePrefix = isExtra ? 'Aula Extra' : `Aula ${idx + 1}`;
                                 return (
                                     <SelectItem key={date} value={date}>
                                         <div className="flex items-center justify-between w-full gap-2">
-                                            <span className="font-bold truncate">Aula {idx + 1} {moduleName}</span>
+                                            <span className="font-bold truncate">{titlePrefix} {moduleName}</span>
                                             {hasAttendance && <CheckCircle2 className="size-3 text-emerald-500 shrink-0" />}
                                         </div>
                                     </SelectItem>
@@ -537,13 +562,15 @@ function PedagogicalLogPageContent() {
                                     const attendance = classData.attendance?.find(a => a.date === date);
                                     const isSelected = selectedDate === date;
                                     const mName = moduleNames[idx] || '';
+                                    const isExtra = resolvedSchedule[idx]?.isExtraSession;
+                                    const titlePrefix = isExtra ? 'AULA EXTRA' : `AULA ${idx + 1}`;
                                     return (
                                         <button key={date} onClick={() => setSelectedDate(date)} className={cn(
                                             "w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between group",
                                             isSelected ? "border-primary bg-primary/5 ring-2 ring-primary/20 shadow-sm" : "bg-card hover:bg-muted/50"
                                         )}>
                                             <div className="min-w-0 pr-2">
-                                                <p className="text-xs font-black uppercase text-muted-foreground opacity-80 truncate">Aula {idx + 1} {mName ? `- ${mName}` : ''}</p>
+                                                <p className="text-xs font-black uppercase text-muted-foreground opacity-80 truncate">{titlePrefix} {mName ? `- ${mName}` : ''}</p>
                                                 <p className="text-sm font-bold">{format(parseISO(date), 'dd/MM/yyyy')}</p>
                                             </div>
                                             {attendance ? (
