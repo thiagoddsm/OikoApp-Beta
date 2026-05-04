@@ -17,3 +17,12 @@ export function formatPhone(phone: string | number | undefined): string {
     }
     return String(phone);
 }
+
+export function formatCPF(cpf: string | number | undefined): string {
+    if (!cpf) return '-';
+    const cleaned = String(cpf).replace(/\D/g, '');
+    if (cleaned.length === 11) {
+        return cleaned.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+    }
+    return String(cpf);
+}

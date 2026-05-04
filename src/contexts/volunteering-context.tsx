@@ -600,43 +600,97 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
     },
     updateEnrollmentRequest: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id), data); },
     deleteEnrollmentRequest: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id)); },
-    markAttendanceByTheoflix: async (userId: string, courseId: string, episodeIndex: number) => {
-      const relevantClasses = (classes || []).filter(c => c.courseId === courseId && c.students.includes(userId));
-      const targetCourse = (courses || []).find(c => c.id === courseId);
-      const syllabus = targetCourse?.syllabus || [];
-      
-      for (const cls of relevantClasses) {
-        // Encontrar qual data de aula corresponde ao índice do episódio
-        // Usamos uma simplificação: calculamos as datas possíveis e vemos qual bate com o índice
-        let targetDate = '';
-        
-        // 1. Procurar em extraSessions
-        const extraMatch = cls.extraSessions?.find(s => {
-            const idx = syllabus.findIndex(mod => mod.id === s.syllabusId);
-            return idx === episodeIndex;
-        });
-        if (extraMatch) targetDate = `${extraMatch.date}T${extraMatch.startTime}`;
+    markAttendanceByTheoflix: async (userId: string, theoflixCourseId: string, episodeIndex: number) => {
+      // Find physical courses linked to this theoflixCourseId
+      const linkedCourses = (courses || []).filter(c => 
+         c.id === theoflixCourseId || 
+         c.linkedTheoflixId === theoflixCourseId || 
+         c.syllabus?.some((s: any) => s.theoflixCourseId === theoflixCourseId)
+      );
+      const linkedCourseIds = linkedCourses.map(c => c.id);
 
-        // 2. Se não achou em extra, procurar nas aulas regulares/overrides
-        if (!targetDate) {
-            // Aqui poderíamos calcular o calendário projetado, mas para simplificar,
-            // vamos usar o hoje se bater ou procurar no attendance existente que tenha o índice
-            const existingAtt = cls.attendance?.find(a => getModuleIndexForDate(a.date, cls, syllabus) === episodeIndex);
-            if (existingAtt) {
-                targetDate = existingAtt.date;
-            } else {
-                // Fallback: se não achou data futura/passada, usa hoje apenas se bater o índice
-                const today = new Date().toISOString().split('T')[0];
-                if (getModuleIndexForDate(today, cls, syllabus) === episodeIndex) {
-                    targetDate = today;
-                }
-            }
+      // Find classes where user is enrolled for these physical courses
+      const relevantClasses = (classes || []).filter(c => 
+         linkedCourseIds.includes(c.courseId) && c.students?.includes(userId)
+      );
+
+      for (const cls of relevantClasses) {
+        const physicalCourse = linkedCourses.find(c => c.id === cls.courseId);
+        const syllabus = physicalCourse?.syllabus || [];
+        
+        // Find which syllabus module requires this episode
+        const episodeIdxStr = episodeIndex.toString();
+        let targetSyllabusIndex = -1;
+        
+        const hybridIndex = syllabus.findIndex((mod: any) => 
+            mod.theoflixCourseId === theoflixCourseId && 
+            mod.theoflixRequiredVideoIds?.includes(episodeIdxStr)
+        );
+
+        if (hybridIndex !== -1) {
+            targetSyllabusIndex = hybridIndex;
+        } else if (physicalCourse?.id === theoflixCourseId || physicalCourse?.linkedTheoflixId === theoflixCourseId) {
+            targetSyllabusIndex = episodeIndex;
         }
 
-        if (!targetDate) continue;
+        if (targetSyllabusIndex === -1) continue;
+        // Build the projected schedule to accurately find the date for this episode
+        const items: any[] = [];
+        if (cls && cls.startDate) {
+            const start = parseISO(cls.startDate);
+            const holidaySet = new Set(cls.holidayDates || []);
+            const overrides = cls.scheduleOverrides || {};
+            
+            let currentDate = start;
+            let syllabusIndex = 0;
+            let safeCounter = 0;
+            const targetCount = syllabus.length > 0 ? syllabus.length : 12;
 
+            while (items.length < targetCount && safeCounter < 200) {
+                safeCounter++;
+                const dateStr = format(currentDate, 'yyyy-MM-dd');
+                
+                if (holidaySet.has(dateStr) && !overrides[dateStr]) {
+                    currentDate = addWeeks(currentDate, cls.frequency === 'quinzenal' ? 2 : 1);
+                    continue;
+                }
+
+                const override = overrides[dateStr];
+                if (override?.isCancelled) {
+                    currentDate = addWeeks(currentDate, cls.frequency === 'quinzenal' ? 2 : 1);
+                    continue;
+                }
+
+                const originalIdx = override?.syllabusId ? syllabus.findIndex(s => s.id === override.syllabusId) : syllabusIndex;
+                items.push({ dateStr, syllabusOriginalIndex: originalIdx });
+                
+                syllabusIndex++;
+                currentDate = addWeeks(currentDate, cls.frequency === 'quinzenal' ? 2 : 1);
+            }
+
+            Object.entries(overrides).forEach(([dateStr, override]: [string, any]) => {
+                if (override.isCancelled) return;
+                if (items.find(i => i.dateStr === dateStr)) return;
+                const originalIdx = override.syllabusId ? syllabus.findIndex(s => s.id === override.syllabusId) : -1;
+                items.push({ dateStr, syllabusOriginalIndex: originalIdx });
+            });
+
+            const extraSessions = cls.extraSessions || [];
+            extraSessions.forEach((session: any) => {
+                if (items.find(i => i.dateStr === session.date)) return;
+                const originalIdx = session.syllabusId ? syllabus.findIndex(s => s.id === session.syllabusId) : -1;
+                items.push({ dateStr: session.date, syllabusOriginalIndex: originalIdx });
+            });
+            
+            items.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+        }
+        
+        const matchedItem = items.find((i: any) => i.syllabusOriginalIndex === targetSyllabusIndex);
+        if (!matchedItem) continue;
+        
+        const targetDate = matchedItem.dateStr;
         const existingAttendance = cls.attendance || [];
-        const recordIdx = existingAttendance.findIndex(a => a.date === targetDate);
+        const recordIdx = existingAttendance.findIndex((a: any) => a.date === targetDate);
         
         if (recordIdx > -1) {
           const record = existingAttendance[recordIdx];
