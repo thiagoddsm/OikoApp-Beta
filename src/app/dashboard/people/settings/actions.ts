@@ -1,10 +1,28 @@
 'use server';
 
 import { getAdminDb } from '@/lib/firebase-admin';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { revalidatePath } from 'next/cache';
 
 const db = getAdminDb();
+
+const convertToAdminTypes = (data: any): any => {
+    if (!data) return data;
+    if (Array.isArray(data)) {
+        return data.map(convertToAdminTypes);
+    }
+    if (typeof data === 'object' && data !== null) {
+        if (typeof data.seconds === 'number' && typeof data.nanoseconds === 'number') {
+            return new Timestamp(data.seconds, data.nanoseconds);
+        }
+        const newObj: { [key: string]: any } = {};
+        for (const key of Object.keys(data)) {
+            newObj[key] = convertToAdminTypes(data[key]);
+        }
+        return newObj;
+    }
+    return data;
+};
 
 export async function mergeUsersDeepAction(primaryId: string, secondaryIds: string[], mergedData: any) {
     if (!primaryId || !secondaryIds || secondaryIds.length === 0) {
@@ -15,8 +33,11 @@ export async function mergeUsersDeepAction(primaryId: string, secondaryIds: stri
         // 1. Atualizar o usuário principal com os dados mesclados
         const primaryRef = db.collection('users').doc(primaryId);
         
+        // Convert plain JSON objects back to Firestore Timestamps
+        const parsedData = convertToAdminTypes(mergedData);
+
         // Remove undefined values to avoid Firestore errors
-        const safeMergedData = Object.entries(mergedData).reduce((acc, [k, v]) => {
+        const safeMergedData = Object.entries(parsedData).reduce((acc, [k, v]) => {
             if (v !== undefined) acc[k] = v;
             return acc;
         }, {} as any);

@@ -9,22 +9,25 @@ import { Label } from "@/components/ui/label";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Logo } from "@/components/icons";
 import { useFirebase } from '@/firebase';
-import { GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs, query, limit } from 'firebase/firestore';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, AlertCircle, Mail, Key } from 'lucide-react';
+import { ArrowLeft, Loader2, AlertCircle, Mail, Key, CheckCircle2 } from 'lucide-react';
+import { useToast } from "@/hooks/use-toast";
   
 export default function LoginPage() {
   const loginImage = PlaceHolderImages.find(p => p.id === 'login-background');
   const router = useRouter();
   const { firestore, auth, user: loggedUser } = useFirebase();
+  const { toast } = useToast();
   
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
   const [isLoadingEmail, setIsLoadingEmail] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
   
   // Tabs for Email Auth
-  const [mode, setMode] = useState<'login' | 'register'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -86,6 +89,23 @@ export default function LoginPage() {
     e.preventDefault();
     if (!auth || !firestore) return;
     
+    if (mode === 'forgot') {
+        if (!email) { setErrorMsg('Informe seu e-mail.'); return; }
+        setIsLoadingEmail(true);
+        setErrorMsg('');
+        try {
+            await sendPasswordResetEmail(auth, email);
+            setSuccessMsg('E-mail de redefinição enviado! Verifique sua caixa de entrada.');
+            toast({ title: "Sucesso", description: "E-mail de redefinição enviado!" });
+        } catch (error: any) {
+            console.error(error);
+            setErrorMsg('Erro ao enviar e-mail. Verifique se o endereço está correto.');
+        } finally {
+            setIsLoadingEmail(false);
+        }
+        return;
+    }
+
     if (!email || !password || (mode === 'register' && !name)) {
         setErrorMsg('Preencha todos os campos obrigatórios.');
         return;
@@ -93,6 +113,7 @@ export default function LoginPage() {
 
     setIsLoadingEmail(true);
     setErrorMsg('');
+    setSuccessMsg('');
 
     try {
         if (mode === 'login') {
@@ -147,17 +168,24 @@ export default function LoginPage() {
                 </div>
             )}
 
+            {successMsg && (
+                <div className="p-3 bg-emerald-50 text-emerald-700 text-sm font-semibold rounded-md flex items-start gap-3 border border-emerald-200 text-left">
+                    <CheckCircle2 className="size-4 shrink-0 mt-0.5" />
+                    <p>{successMsg}</p>
+                </div>
+            )}
+
             {/* Email Form */}
             <div className="bg-muted/30 p-4 rounded-xl border">
                 <div className="flex gap-2 mb-4 p-1 bg-muted rounded-lg">
                     <button 
-                        onClick={() => { setMode('login'); setErrorMsg(''); }}
+                        onClick={() => { setMode('login'); setErrorMsg(''); setSuccessMsg(''); }}
                         className={`flex-1 text-xs font-bold py-2 rounded-md transition-colors ${mode === 'login' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                     >
                         Entrar
                     </button>
                     <button 
-                        onClick={() => { setMode('register'); setErrorMsg(''); }}
+                        onClick={() => { setMode('register'); setErrorMsg(''); setSuccessMsg(''); }}
                         className={`flex-1 text-xs font-bold py-2 rounded-md transition-colors ${mode === 'register' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                     >
                         Criar Conta
@@ -165,30 +193,65 @@ export default function LoginPage() {
                 </div>
 
                 <form onSubmit={handleEmailAuth} className="space-y-4">
-                    {mode === 'register' && (
-                        <div className="space-y-1">
-                            <Label className="text-xs font-bold text-muted-foreground uppercase">Nome Completo</Label>
-                            <Input placeholder="Seu nome" value={name} onChange={e => setName(e.target.value)} required />
+                    {mode === 'forgot' ? (
+                        <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
+                             <div className="space-y-1">
+                                <Label className="text-xs font-bold text-muted-foreground uppercase">E-mail de Recuperação</Label>
+                                <div className="relative">
+                                    <Mail className="absolute left-3 top-3 size-4 text-muted-foreground" />
+                                    <Input type="email" placeholder="seu@email.com" className="pl-9" value={email} onChange={e => setEmail(e.target.value)} required />
+                                </div>
+                            </div>
+                            <Button type="submit" disabled={isLoadingEmail} className="w-full font-bold">
+                                {isLoadingEmail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Enviar Link de Recuperação'}
+                            </Button>
+                            <button 
+                                type="button"
+                                onClick={() => setMode('login')}
+                                className="w-full text-center text-xs font-bold text-primary hover:underline"
+                            >
+                                Voltar para o Login
+                            </button>
                         </div>
+                    ) : (
+                        <>
+                            {mode === 'register' && (
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-bold text-muted-foreground uppercase">Nome Completo</Label>
+                                    <Input placeholder="Seu nome" value={name} onChange={e => setName(e.target.value)} required />
+                                </div>
+                            )}
+                            <div className="space-y-1">
+                                <Label className="text-xs font-bold text-muted-foreground uppercase">E-mail</Label>
+                                <div className="relative">
+                                    <Mail className="absolute left-3 top-3 size-4 text-muted-foreground" />
+                                    <Input type="email" placeholder="seu@email.com" className="pl-9" value={email} onChange={e => setEmail(e.target.value)} required />
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <div className="flex justify-between items-center">
+                                    <Label className="text-xs font-bold text-muted-foreground uppercase">Senha</Label>
+                                    {mode === 'login' && (
+                                        <button 
+                                            type="button" 
+                                            onClick={() => { setMode('forgot'); setErrorMsg(''); setSuccessMsg(''); }}
+                                            className="text-[10px] font-black text-primary hover:underline uppercase"
+                                        >
+                                            Esqueceu a senha?
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="relative">
+                                    <Key className="absolute left-3 top-3 size-4 text-muted-foreground" />
+                                    <Input type="password" placeholder="••••••••" className="pl-9" value={password} onChange={e => setPassword(e.target.value)} required={mode !== 'forgot'} minLength={6} />
+                                </div>
+                            </div>
+                            
+                            <Button type="submit" disabled={isLoadingEmail || isLoadingGoogle} className="w-full font-bold">
+                                {isLoadingEmail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (mode === 'login' ? 'Acessar' : 'Cadastrar')}
+                            </Button>
+                        </>
                     )}
-                    <div className="space-y-1">
-                        <Label className="text-xs font-bold text-muted-foreground uppercase">E-mail</Label>
-                        <div className="relative">
-                            <Mail className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                            <Input type="email" placeholder="seu@email.com" className="pl-9" value={email} onChange={e => setEmail(e.target.value)} required />
-                        </div>
-                    </div>
-                    <div className="space-y-1">
-                        <Label className="text-xs font-bold text-muted-foreground uppercase">Senha</Label>
-                        <div className="relative">
-                            <Key className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                            <Input type="password" placeholder="••••••••" className="pl-9" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
-                        </div>
-                    </div>
-                    
-                    <Button type="submit" disabled={isLoadingEmail || isLoadingGoogle} className="w-full font-bold">
-                        {isLoadingEmail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (mode === 'login' ? 'Acessar' : 'Cadastrar')}
-                    </Button>
                 </form>
             </div>
 

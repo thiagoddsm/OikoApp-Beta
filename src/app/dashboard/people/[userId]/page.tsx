@@ -26,6 +26,7 @@ import { FamilyManagement } from '@/components/users/family-management';
 import { VolunteerServiceForm } from '@/components/volunteering/volunteer-service-form';
 import { AIProfileAnalysis } from '@/components/users/ai-profile-analysis';
 import { EditUserDialog } from '@/components/users/edit-user-dialog';
+import { InviteUserButton } from '@/components/users/invite-user-button';
 
 function PersonProfilePageContent() {
     const params = useParams();
@@ -180,6 +181,7 @@ function PersonProfilePageContent() {
                             </div>
                         </div>
                         <div className="flex flex-col sm:flex-row gap-2">
+                            <InviteUserButton user={person} />
                             <Button className="font-bold h-10 px-6 rounded-xl shadow-lg shadow-primary/20" onClick={() => setIsEditOpen(true)}>
                                 <Edit className="size-4 mr-2" /> Editar Perfil
                             </Button>

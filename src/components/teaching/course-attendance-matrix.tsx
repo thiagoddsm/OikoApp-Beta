@@ -88,6 +88,8 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
     const allDates = useMemo(() => {
         const dates = new Set<string>();
         filteredClasses.forEach(cls => {
+            const validDatesForThisClass = new Set<string>();
+
             // Aulas regulares
             if (cls.startDate) {
                 const start = parseISO(cls.startDate);
@@ -97,27 +99,59 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                 
                 if (cls.frequency === 'pontual') {
                     dates.add(cls.startDate);
+                    validDatesForThisClass.add(cls.startDate);
                 } else {
                     let current = start;
                     let safe = 0;
                     while (safe++ < 200) {
                         const dStr = format(current, 'yyyy-MM-dd');
-                        if (!holidaySet.has(dStr) || overrides[dStr]) {
-                            if (!overrides[dStr]?.isCancelled) dates.add(dStr);
+                        if (!holidaySet.has(dStr) && !overrides[dStr]?.isCancelled) {
+                            dates.add(dStr);
+                            validDatesForThisClass.add(dStr);
+                        } else if (overrides[dStr] && !overrides[dStr]?.isCancelled) {
+                            dates.add(dStr);
+                            validDatesForThisClass.add(dStr);
                         }
                         current = addWeeks(current, cls.frequency === 'quinzenal' ? 2 : 1);
                         if (isBefore(end, current) && dStr !== format(end, 'yyyy-MM-dd')) break;
                     }
                 }
+
+                // Adicionar overrides que caem fora da recorrência (step 2 do log)
+                Object.keys(overrides).forEach(dStr => {
+                    if (!overrides[dStr]?.isCancelled) {
+                        dates.add(dStr);
+                        validDatesForThisClass.add(dStr);
+                    }
+                });
             }
             
+            const repoOnlyDates = new Set(cls.extraSessions?.filter(s => s.isRepositionOnly).map(s => `${s.date}T${s.startTime}`) || []);
+
             // Aulas extras (novo modelo)
+            const allExtraSessionDates = new Set(cls.extraSessions?.map(s => `${s.date}T${s.startTime}`) || []);
+            
             cls.extraSessions?.forEach(s => {
-                dates.add(`${s.date}T${s.startTime}`);
+                if (!s.isRepositionOnly) {
+                    dates.add(`${s.date}T${s.startTime}`);
+                    validDatesForThisClass.add(`${s.date}T${s.startTime}`);
+                }
             });
 
-            // Fallback para presenças marcadas sem calendário
-            cls.attendance?.forEach(att => dates.add(att.date));
+            // Fallback para presenças marcadas sem calendário (Legado)
+            cls.attendance?.forEach(att => {
+                // Ignorar reposições estritas
+                if (repoOnlyDates.has(att.date) || att.isRepositionOnly) return;
+                
+                // Se é uma data com horário (aula extra) e não está na lista atual, é resquício de exclusão
+                if (att.date.includes('T') && !allExtraSessionDates.has(att.date)) return;
+
+                // Se a turma TEM um cronograma estruturado, só renderiza a coluna de fallback se a data for validada no cronograma
+                // Isso evita "fantasmas" de dias normais onde o professor salvou chamada mas depois mudou a data ou excluiu o dia
+                if (cls.startDate && !validDatesForThisClass.has(att.date)) return;
+
+                dates.add(att.date);
+            });
         });
         return Array.from(dates).sort();
     }, [filteredClasses]);
@@ -472,14 +506,64 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                                     const attendanceRecord = filteredClasses.flatMap(c => c.attendance || []).find(att => att.date === date);
                                                     const isInPerson = attendanceRecord?.presentStudentIds?.includes(student.id);
                                                     const isOnlineLive = attendanceRecord?.onlineStudentIds?.includes(student.id);
-                                                    const isRepo = attendanceRecord?.repositions?.some(r => r.studentId === student.id);
+                                                    
+                                                    // Verifica reposições nativas ou via aula extra
+                                                    let isRepo = false;
+                                                    let repoDateStr: string | undefined;
+
+                                                    const nativeRepo = attendanceRecord?.repositions?.find(r => r.studentId === student.id);
+                                                    if (nativeRepo) {
+                                                        isRepo = true;
+                                                        repoDateStr = nativeRepo.dateStr;
+                                                    }
+                                                    
+                                                    // Verifica se houve uma aula extra de reposição para este módulo
+                                                    if (!isInPerson && !isOnlineLive && !isRepo) {
+                                                        const relevantClass = filteredClasses.find(c => getModuleIndexForDate(date, c, course?.syllabus || []) !== -1) || filteredClasses[0];
+                                                        const modIndex = getModuleIndexForDate(date, relevantClass, course?.syllabus || []);
+                                                        const mod = modIndex !== -1 ? course?.syllabus?.[modIndex] : null;
+                                                        
+                                                        if (mod) {
+                                                            const repositionSessions = relevantClass.extraSessions?.filter(s => s.isRepositionOnly && s.syllabusId === mod.id) || [];
+                                                            for (const session of repositionSessions) {
+                                                                const sessionDateStr = `${session.date}T${session.startTime}`;
+                                                                const attRecord = relevantClass.attendance?.find(a => a.date === sessionDateStr);
+                                                                if (attRecord?.presentStudentIds?.includes(student.id) || attRecord?.onlineStudentIds?.includes(student.id)) {
+                                                                    isRepo = true;
+                                                                    repoDateStr = sessionDateStr;
+                                                                    break;
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+
                                                     const isDone = isInPerson || isOnlineLive || isRepo;
                                                     if (isDone) completedCount++;
 
                                                     let icon = <Minus className="text-slate-300 size-5 mx-auto" />;
                                                     if (isInPerson) icon = <CheckCircle2 className="size-5 mx-auto text-emerald-500" />;
                                                     else if (isOnlineLive) icon = <PlayCircle className="size-5 mx-auto text-indigo-500" />;
-                                                    else if (isRepo) icon = <Badge className="bg-amber-100 text-amber-700 border-amber-200 h-5 w-5 p-0 flex items-center justify-center font-black mx-auto">R</Badge>;
+                                                    else if (isRepo) {
+                                                        icon = (
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <div className="cursor-help mx-auto w-fit">
+                                                                        <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-amber-200 h-5 w-5 p-0 flex items-center justify-center font-black">
+                                                                            R
+                                                                        </Badge>
+                                                                    </div>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent className="bg-slate-900 text-white border-none p-3 shadow-xl">
+                                                                    <div className="space-y-1 text-left">
+                                                                        <p className="text-[10px] font-black uppercase text-amber-400">Reposição Realizada</p>
+                                                                        <p className="text-xs">
+                                                                            Data da Reposição: {repoDateStr ? format(parseISO(repoDateStr), 'dd/MM/yyyy') : '-'}
+                                                                        </p>
+                                                                    </div>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        );
+                                                    }
 
                                                     return <TableCell key={date} className="text-center">{icon}</TableCell>;
                                                 })

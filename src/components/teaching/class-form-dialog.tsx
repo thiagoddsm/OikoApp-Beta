@@ -12,6 +12,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -380,55 +381,6 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }:
                 </div>
             </div>
 
-                {syllabus.length > 0 && (
-                    <div className="space-y-4 md:col-span-2 pt-6 border-t">
-                        <div className="space-y-1">
-                            <h3 className="font-black text-[10px] uppercase text-primary tracking-widest flex items-center gap-2">
-                                <GraduationCap className="size-3" /> Cronograma da Ementa (Opcional)
-                            </h3>
-                            <p className="text-[9px] text-muted-foreground font-medium italic">Vincule os módulos da ementa a datas específicas para que apareçam na aba de Frequência.</p>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                            {syllabus.map((mod, idx) => {
-                                const linkedDate = Object.keys(scheduleOverrides).find(date => scheduleOverrides[date]?.syllabusId === mod.id) || extraSessions.find(s => s.syllabusId === mod.id)?.date;
-                                return (
-                                    <div key={mod.id} className="flex items-center justify-between p-2.5 bg-muted/30 rounded-xl border border-dashed text-xs group hover:bg-white hover:border-primary/30 transition-all">
-                                        <div className="flex flex-col gap-0.5 truncate pr-2">
-                                            <span className="text-[8px] font-black uppercase text-primary/60">Módulo {idx + 1}</span>
-                                            <span className="font-bold text-slate-700 truncate" title={mod.title}>
-                                                {mod.title}
-                                            </span>
-                                        </div>
-                                        <Input 
-                                            type="date" 
-                                            value={linkedDate || ''} 
-                                            onChange={(e) => {
-                                                const newDate = e.target.value;
-                                                const newOverrides = { ...scheduleOverrides };
-                                                
-                                                // Limpar vínculos anteriores deste módulo
-                                                Object.keys(newOverrides).forEach(d => {
-                                                    if (newOverrides[d]?.syllabusId === mod.id) {
-                                                        const { syllabusId, ...rest } = newOverrides[d];
-                                                        if (Object.keys(rest).length === 0) delete newOverrides[d];
-                                                        else newOverrides[d] = rest;
-                                                    }
-                                                });
-
-                                                // Adicionar novo vínculo
-                                                if (newDate) {
-                                                    newOverrides[newDate] = { ...newOverrides[newDate], syllabusId: mod.id };
-                                                }
-                                                setScheduleOverrides(newOverrides);
-                                            }}
-                                            className="h-8 text-[10px] w-28 bg-white border-primary/10"
-                                        />
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
 
                 <div className="pt-6 border-t grid grid-cols-1 md:grid-cols-2 gap-8 pb-8">
                     <div className="space-y-4">
@@ -521,6 +473,20 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }:
                                                 ))}
                                             </SelectContent>
                                         </Select>
+                                        
+                                        <div className="flex items-center space-x-2 pt-2">
+                                            <Checkbox 
+                                                id={`repo-${session.id}`} 
+                                                checked={!!session.isRepositionOnly}
+                                                onCheckedChange={(checked) => updateExtraSession(session.id, 'isRepositionOnly', !!checked)}
+                                            />
+                                            <label 
+                                                htmlFor={`repo-${session.id}`} 
+                                                className="text-[10px] font-bold text-muted-foreground cursor-pointer leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                            >
+                                                Aula apenas para reposição de alunos (Não gera coluna)
+                                            </label>
+                                        </div>
                                     </div>
                                 </div>
                             ))

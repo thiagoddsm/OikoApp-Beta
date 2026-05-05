@@ -141,7 +141,10 @@ function PedagogicalLogPageContent() {
         // 3. Adicionar aulas extras (extraSessions)
         const extraSessions = classData.extraSessions || [];
         extraSessions.forEach((session: any) => {
-            if (items.find(i => i.dateStr === session.date)) return;
+            // Em vez de usar apenas a data, usamos a data + horário para garantir unicidade
+            const uniqueDateStr = session.startTime ? `${session.date}T${session.startTime}` : `${session.date}-extra`;
+
+            if (items.find(i => i.dateStr === uniqueDateStr)) return;
 
             const syllabusItem = session.syllabusId 
                 ? syllabus.find(s => s.id === session.syllabusId) 
@@ -152,12 +155,13 @@ function PedagogicalLogPageContent() {
                 : -1;
 
             items.push({
-                dateStr: session.date,
+                dateStr: uniqueDateStr,
                 date: parseISO(session.date),
                 syllabusItem,
                 syllabusOriginalIndex: originalIdx,
                 isOverride: true,
-                isExtraSession: true
+                isExtraSession: true,
+                startTime: session.startTime
             });
         });
 
@@ -185,13 +189,23 @@ function PedagogicalLogPageContent() {
 
     useEffect(() => {
         if (selectedDate && classData?.attendance) {
-            const record = classData.attendance.find(a => a.date === selectedDate);
+            const record = classData.attendance.find((a: any) => a.date === selectedDate);
             setPresentStudents(record?.presentStudentIds || []);
             setOnlineStudents(record?.onlineStudentIds || []);
 
+            const baseDateStr = selectedDate.split('T')[0];
+
             const log = pedagogicalLogs.find(l => {
+                // Se o log já tiver a string exata salva (novo formato), usa ela
+                if (l.dateStr && l.dateStr === selectedDate) return true;
+                
+                // Formato antigo (apenas verifica se caiu no mesmo dia)
                 const logDate = l.date?.toDate ? l.date.toDate() : (l.date instanceof Date ? l.date : null);
-                return l.classId === classId && logDate && format(logDate, 'yyyy-MM-dd') === selectedDate;
+                if (!logDate) return false;
+                
+                // Se for uma aula com horário específico e não bateu no dateStr exato acima, 
+                // e já existe um log para esse dia, ele vai puxar o primeiro log do dia (fallback)
+                return l.classId === classId && format(logDate, 'yyyy-MM-dd') === baseDateStr;
             });
 
             if (log) {
@@ -275,9 +289,15 @@ function PedagogicalLogPageContent() {
         if (!selectedDate) return;
         setIsSaving(true);
         try {
+            const baseDateStr = selectedDate.split('T')[0];
+            const timePart = selectedDate.includes('T') ? selectedDate.split('T')[1] : '12:00:00';
+            // Validar que o timePart é apenas a hora. O `selectedDate` vindo do `format` pode ter o timezone, mas garantimos localmente.
+            const dateStrWithTime = `${baseDateStr}T${timePart}`;
+
             const logPromise = addPedagogicalLog({
                 classId,
-                date: Timestamp.fromDate(new Date(`${selectedDate}T12:00:00`)),
+                date: Timestamp.fromDate(new Date(dateStrWithTime)),
+                dateStr: selectedDate, // <- Chave única para múltiplas aulas no mesmo dia
                 content_taught: contentTaught || "Aula realizada",
                 student_performance: performance,
                 observations,
@@ -285,7 +305,7 @@ function PedagogicalLogPageContent() {
 
             const existingAttendance = classData?.attendance || [];
             const updatedAttendance = [
-                ...existingAttendance.filter(a => a.date !== selectedDate),
+                ...existingAttendance.filter((a: any) => a.date !== selectedDate),
                 { date: selectedDate, presentStudentIds: presentStudents, onlineStudentIds: onlineStudents }
             ];
             const attendancePromise = updateClass(classId, { attendance: updatedAttendance });
@@ -333,21 +353,28 @@ function PedagogicalLogPageContent() {
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                            {classOccurrences.map((date, idx) => {
-                                const attendance = classData.attendance?.find(a => a.date === date);
-                                const hasAttendance = attendance && (attendance.presentStudentIds.length > 0);
-                                const moduleName = moduleNames[idx] ? `- ${moduleNames[idx]}` : '';
-                                const isExtra = resolvedSchedule[idx]?.isExtraSession;
-                                const titlePrefix = isExtra ? 'Aula Extra' : `Aula ${idx + 1}`;
-                                return (
-                                    <SelectItem key={date} value={date}>
-                                        <div className="flex items-center justify-between w-full gap-2">
-                                            <span className="font-bold truncate">{titlePrefix} {moduleName}</span>
-                                            {hasAttendance && <CheckCircle2 className="size-3 text-emerald-500 shrink-0" />}
-                                        </div>
-                                    </SelectItem>
-                                )
-                            })}
+                                {classOccurrences.map((date, idx) => {
+                                    const attendance = classData.attendance?.find((a: any) => a.date === date);
+                                    const hasAttendance = attendance && (attendance.presentStudentIds.length > 0);
+                                    const moduleName = moduleNames[idx] ? `- ${moduleNames[idx]}` : '';
+                                    const isExtra = resolvedSchedule[idx]?.isExtraSession;
+                                    const isRepoOnly = resolvedSchedule[idx]?.isRepositionOnly;
+                                    const startTime = resolvedSchedule[idx]?.startTime;
+                                    const titlePrefix = isExtra ? 'Aula Extra' : `Aula ${idx + 1}`;
+                                    const timeDisplay = startTime ? ` (${startTime})` : '';
+
+                                    return (
+                                        <SelectItem key={date} value={date}>
+                                            <div className="flex items-center justify-between w-full gap-2">
+                                                <span className="font-bold truncate text-xs">
+                                                    {titlePrefix}{timeDisplay} {moduleName}
+                                                    {isRepoOnly && <span className="text-[9px] uppercase font-black text-amber-500 ml-2">(Apenas Reposição)</span>}
+                                                </span>
+                                                {hasAttendance && <CheckCircle2 className="size-3 text-emerald-500 shrink-0" />}
+                                            </div>
+                                        </SelectItem>
+                                    )
+                                })}
                         </SelectContent>
                     </Select>
                 </div>
@@ -559,19 +586,30 @@ function PedagogicalLogPageContent() {
                         <CardContent>
                             <div className="space-y-3">
                                 {classOccurrences.map((date, idx) => {
-                                    const attendance = classData.attendance?.find(a => a.date === date);
+                                    const attendance = classData.attendance?.find((a: any) => a.date === date);
                                     const isSelected = selectedDate === date;
                                     const mName = moduleNames[idx] || '';
                                     const isExtra = resolvedSchedule[idx]?.isExtraSession;
+                                    const isRepoOnly = resolvedSchedule[idx]?.isRepositionOnly;
+                                    const startTime = resolvedSchedule[idx]?.startTime;
                                     const titlePrefix = isExtra ? 'AULA EXTRA' : `AULA ${idx + 1}`;
+                                    
+                                    const baseDateStr = date.split('T')[0];
+                                    const timeDisplay = startTime ? ` às ${startTime}` : '';
+
                                     return (
                                         <button key={date} onClick={() => setSelectedDate(date)} className={cn(
                                             "w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between group",
                                             isSelected ? "border-primary bg-primary/5 ring-2 ring-primary/20 shadow-sm" : "bg-card hover:bg-muted/50"
                                         )}>
                                             <div className="min-w-0 pr-2">
-                                                <p className="text-xs font-black uppercase text-muted-foreground opacity-80 truncate">{titlePrefix} {mName ? `- ${mName}` : ''}</p>
-                                                <p className="text-sm font-bold">{format(parseISO(date), 'dd/MM/yyyy')}</p>
+                                                <p className="text-xs font-black uppercase text-muted-foreground opacity-80 truncate">
+                                                    {titlePrefix} {mName ? `- ${mName}` : ''}
+                                                </p>
+                                                <p className="text-sm font-bold flex items-center gap-2">
+                                                    {format(parseISO(baseDateStr), 'dd/MM/yyyy')}{timeDisplay}
+                                                    {isRepoOnly && <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 text-[9px] h-4 px-1 py-0 uppercase">Reposição</Badge>}
+                                                </p>
                                             </div>
                                             {attendance ? (
                                                 <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 text-[10px] h-5 font-black shrink-0">

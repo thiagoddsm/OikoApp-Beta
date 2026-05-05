@@ -10,7 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { mergeUsersDeepAction } from '@/app/dashboard/people/settings/actions';
+import { writeBatch, collection, doc, getDocs } from 'firebase/firestore';
+import { useFirebase } from '@/firebase';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { formatPhone, formatCPF } from '@/lib/utils';
 
@@ -41,6 +42,7 @@ function normalizeNumber(num?: string | number) {
 
 export function MergeUsersManager() {
     const { users, isLoading } = useVolunteering();
+    const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isProcessing, setIsProcessing] = useState(false);
     const [selectedGroup, setSelectedGroup] = useState<DuplicateGroup | null>(null);
@@ -48,6 +50,7 @@ export function MergeUsersManager() {
     const [fieldSelections, setFieldSelections] = useState<Record<string, string>>({});
 
     const duplicateGroups = useMemo(() => {
+        // ... (resto do memo inalterado)
         if (!users) return [];
         const groups: DuplicateGroup[] = [];
         const processedIds = new Set<string>();
@@ -107,7 +110,7 @@ export function MergeUsersManager() {
     };
 
     const handleMergeConfirm = async () => {
-        if (!selectedGroup || !primaryId) return;
+        if (!selectedGroup || !primaryId || !firestore) return;
         setIsProcessing(true);
 
         const secondaryIds = selectedGroup.users.filter(u => u.id !== primaryId).map(u => u.id);
@@ -116,7 +119,7 @@ export function MergeUsersManager() {
         // Construir os dados mesclados finais
         const mergedData: any = { ...primaryUser };
         
-        // Aplicar as seleções manuais do usuário
+        // Aplicar as seleções manuais do usuário (apenas os 4 campos mostrados na tela)
         ['name', 'email', 'phone', 'cpf'].forEach(field => {
             const selectedUserId = fieldSelections[field];
             if (selectedUserId && selectedUserId !== primaryId) {
@@ -127,27 +130,144 @@ export function MergeUsersManager() {
             }
         });
 
-        // Tentar preencher automaticamente campos vazios do primary com os dados dos secundários
+        // PREENCHIMENTO AUTOMÁTICO DE DADOS FALTANTES:
+        // O que o primary não tiver, ele herda automaticamente dos perfis secundários!
         selectedGroup.users.forEach(secUser => {
             if (secUser.id === primaryId) return;
             Object.keys(secUser).forEach(key => {
+                // Não sobrescreve os campos que o usuário já escolheu manualmente ou IDs
                 if (!['id', 'name', 'email', 'phone', 'cpf'].includes(key)) {
-                    if (!mergedData[key] && secUser[key]) {
+                    // Se o mergedData tem o campo vazio/nulo, copiamos do perfil secundário
+                    const isMergedDataEmpty = mergedData[key] === undefined || mergedData[key] === null || mergedData[key] === '';
+                    if (isMergedDataEmpty && secUser[key] !== undefined && secUser[key] !== null) {
                         mergedData[key] = secUser[key];
                     }
                 }
             });
         });
 
+        // Remove undefined fields and ID
+        const finalDataToUpdate = { ...mergedData };
+        delete finalDataToUpdate.id;
+        Object.keys(finalDataToUpdate).forEach(key => finalDataToUpdate[key] === undefined && delete finalDataToUpdate[key]);
+
         try {
-            const result = await mergeUsersDeepAction(primaryId, secondaryIds, mergedData);
-            if (result.success) {
-                toast({ title: 'Sucesso!', description: result.message });
-                setSelectedGroup(null);
-            } else {
-                toast({ variant: 'destructive', title: 'Erro', description: result.message });
-            }
+            const batch = writeBatch(firestore);
+
+            // 1. Update Primary User
+            batch.set(doc(firestore, 'users', primaryId), finalDataToUpdate, { merge: true });
+
+            // 2. Update Classes
+            const classesSnap = await getDocs(collection(firestore, 'classes'));
+            classesSnap.docs.forEach(d => {
+                const data = d.data();
+                let needsUpdate = false;
+                const updates: any = {};
+
+                if (secondaryIds.includes(data.teacherId)) {
+                    updates.teacherId = primaryId;
+                    needsUpdate = true;
+                }
+
+                if (data.students && Array.isArray(data.students)) {
+                    const hasSecondary = data.students.some((id: string) => secondaryIds.includes(id));
+                    if (hasSecondary) {
+                        const newStudents = new Set(data.students.filter((id: string) => !secondaryIds.includes(id)));
+                        newStudents.add(primaryId);
+                        updates.students = Array.from(newStudents);
+                        needsUpdate = true;
+                    }
+                }
+
+                if (data.attendance && Array.isArray(data.attendance)) {
+                    let attendanceChanged = false;
+                    const newAttendance = data.attendance.map((record: any) => {
+                        let recordChanged = false;
+                        const newRecord = { ...record };
+
+                        if (record.presentStudentIds && Array.isArray(record.presentStudentIds)) {
+                            if (record.presentStudentIds.some((id: string) => secondaryIds.includes(id))) {
+                                const newPresent = new Set(record.presentStudentIds.filter((id: string) => !secondaryIds.includes(id)));
+                                newPresent.add(primaryId);
+                                newRecord.presentStudentIds = Array.from(newPresent);
+                                recordChanged = true;
+                            }
+                        }
+
+                        if (record.onlineStudentIds && Array.isArray(record.onlineStudentIds)) {
+                            if (record.onlineStudentIds.some((id: string) => secondaryIds.includes(id))) {
+                                const newOnline = new Set(record.onlineStudentIds.filter((id: string) => !secondaryIds.includes(id)));
+                                newOnline.add(primaryId);
+                                newRecord.onlineStudentIds = Array.from(newOnline);
+                                recordChanged = true;
+                            }
+                        }
+
+                        if (recordChanged) attendanceChanged = true;
+                        return newRecord;
+                    });
+
+                    if (attendanceChanged) {
+                        updates.attendance = newAttendance;
+                        needsUpdate = true;
+                    }
+                }
+
+                if (needsUpdate) {
+                    batch.update(d.ref, updates);
+                }
+            });
+
+            // 3. Update Cells
+            const cellsSnap = await getDocs(collection(firestore, 'cells'));
+            cellsSnap.docs.forEach(d => {
+                const data = d.data();
+                let needsUpdate = false;
+                const updates: any = {};
+
+                if (secondaryIds.includes(data.leaderId)) {
+                    updates.leaderId = primaryId;
+                    needsUpdate = true;
+                }
+                if (secondaryIds.includes(data.hostId)) {
+                    updates.hostId = primaryId;
+                    needsUpdate = true;
+                }
+                if (data.membros && Array.isArray(data.membros)) {
+                    const hasSecondary = data.membros.some((id: string) => secondaryIds.includes(id));
+                    if (hasSecondary) {
+                        const newMembers = new Set(data.membros.filter((id: string) => !secondaryIds.includes(id)));
+                        newMembers.add(primaryId);
+                        updates.membros = Array.from(newMembers);
+                        needsUpdate = true;
+                    }
+                }
+                if (data.members && Array.isArray(data.members)) {
+                    const hasSecondary = data.members.some((id: string) => secondaryIds.includes(id));
+                    if (hasSecondary) {
+                        const newMembers = new Set(data.members.filter((id: string) => !secondaryIds.includes(id)));
+                        newMembers.add(primaryId);
+                        updates.members = Array.from(newMembers);
+                        needsUpdate = true;
+                    }
+                }
+
+                if (needsUpdate) {
+                    batch.update(d.ref, updates);
+                }
+            });
+
+            // 4. Delete Secondary Accounts
+            secondaryIds.forEach(id => {
+                batch.delete(doc(firestore, 'users', id));
+            });
+
+            await batch.commit();
+
+            toast({ title: 'Sucesso!', description: 'Usuários unificados com sucesso.' });
+            setSelectedGroup(null);
         } catch (error) {
+            console.error(error);
             toast({ variant: 'destructive', title: 'Erro', description: 'Ocorreu um erro ao unificar os cadastros.' });
         } finally {
             setIsProcessing(false);
