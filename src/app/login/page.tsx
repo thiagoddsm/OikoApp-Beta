@@ -171,9 +171,13 @@ export default function LoginPage() {
 
         <div className="mx-auto grid w-full max-w-[350px] gap-6 mt-16 lg:mt-0">
           <div className="grid gap-4 text-center">
-            <div className="flex justify-center items-center gap-2 mb-2">
-              <Logo className="h-10 w-10 text-primary" />
-              <h1 className="text-3xl font-bold">OikoApp</h1>
+            <div className="flex justify-center items-center gap-3 mb-2">
+              <img 
+                src="https://firebasestorage.googleapis.com/v0/b/studio-1424813022-71754.firebasestorage.app/o/pwa%2Flogo_1772385880160.png?alt=media&token=9f992f3e-70cd-4a19-a67f-77d16369e81a" 
+                alt="OikoApp Logo" 
+                className="h-12 w-12 object-contain" 
+              />
+              <h1 className="text-3xl font-black tracking-tight">OikoApp</h1>
             </div>
             <h2 className="text-xl font-bold tracking-tight">Portal do Membro</h2>
             <p className="text-balance text-sm text-muted-foreground">

@@ -82,8 +82,12 @@ export default function GCPage() {
       <header className="fixed top-0 left-0 w-full z-50 border-b border-white/5 bg-slate-950/70 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-yellow-400/10 border border-yellow-400/20 flex items-center justify-center text-xl">
-              ✨
+            <div className="relative w-12 h-12 flex items-center justify-center">
+              <img 
+                src="https://firebasestorage.googleapis.com/v0/b/studio-1424813022-71754.firebasestorage.app/o/C%C3%B3pia%20de%20LOGO%20IBM%20BRANCO.PNG?alt=media&token=85d35afe-f7f6-40d6-a9cd-c138c6a326fa" 
+                alt="Logo IBM" 
+                className="w-full h-auto object-contain"
+              />
             </div>
             <div>
               <h1 className="font-black tracking-tight text-white text-lg">

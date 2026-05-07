@@ -1,6 +1,7 @@
 'use client';
 import React, { useMemo, useState } from 'react';
-import { useVolunteering, type Class, type User, type Course } from '@/contexts/volunteering-context';
+import { format, parseISO, addWeeks, addMonths, isBefore } from 'date-fns';
+import { useVolunteering, getModuleIndexForDate, type Class, type User, type Course } from '@/contexts/volunteering-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -28,69 +29,123 @@ export function ClassNotificationsManager({ classData, courseData }: ClassNotifi
     const [totalToSend, setTotalToSend] = useState(0);
 
     const minAttendanceApproval = courseData.minAttendanceApproval || 75;
+    // Uma aula é "Extra" se tem hora (T) OU se está marcada explicitamente como reposição
+    const isActuallyExtra = (record: any) => record.date.includes('T') || record.isRepositionOnly;
+
+    const sortedAttendance = useMemo(() => {
+        const attendance = classData.attendance || [];
+        if (!classData.startDate) return [...attendance].sort((a, b) => a.date.localeCompare(b.date));
+
+        // Replicar a lógica de datas válidas da Matriz para filtrar "fantasmas"
+        const validDates = new Set<string>();
+        const start = parseISO(classData.startDate);
+        const end = classData.endDate ? parseISO(classData.endDate) : addMonths(start, 6);
+        const holidaySet = new Set(classData.holidayDates || []);
+        const overrides = classData.scheduleOverrides || {};
+        
+        if (classData.frequency === 'pontual') {
+            validDates.add(classData.startDate);
+        } else {
+            let current = start;
+            let safe = 0;
+            while (safe++ < 200) {
+                const dStr = format(current, 'yyyy-MM-dd');
+                if (!holidaySet.has(dStr) && !overrides[dStr]?.isCancelled) {
+                    validDates.add(dStr);
+                } else if (overrides[dStr] && !overrides[dStr]?.isCancelled) {
+                    validDates.add(dStr);
+                }
+                current = addWeeks(current, classData.frequency === 'quinzenal' ? 2 : 1);
+                if (isBefore(end, current) && dStr !== format(end, 'yyyy-MM-dd')) break;
+            }
+        }
+
+        // Adicionar overrides e sessões extras
+        Object.keys(overrides).forEach(dStr => {
+            if (!overrides[dStr]?.isCancelled) validDates.add(dStr);
+        });
+        classData.extraSessions?.forEach(s => {
+            validDates.add(`${s.date}T${s.startTime}`);
+            validDates.add(s.date); // Também validar a data pura
+        });
+
+        return attendance
+            .filter(record => {
+                // Uma data só é válida se está no cronograma projetado ou nas sessões extras
+                return validDates.has(record.date);
+            })
+            .sort((a, b) => a.date.localeCompare(b.date));
+    }, [classData]);
 
     const studentStatuses = useMemo(() => {
         if (!users || !classData?.students) return [];
         const studentSet = new Set(classData.students);
         const students = users.filter(u => studentSet.has(u.id));
         
-        // Calcular faltas e presenças baseadas no ClassPerformanceReport
-        let totalClassesTaken = 0;
-        const occurrences = new Set<string>();
-        
-        // Pega as datas com aulas que já têm registro de presença
-        if (classData.attendance) {
-            classData.attendance.forEach(a => occurrences.add(a.date));
-        }
-        totalClassesTaken = occurrences.size;
+        const totalClassesTaken = sortedAttendance.filter(a => !isActuallyExtra(a)).length;
 
         const results = students.map(student => {
             let presentCount = 0;
-            const missedDates: string[] = [];
+            const missedLessons: string[] = [];
+            let lessonCounter = 0;
 
-            if (classData.attendance) {
-                classData.attendance.forEach(record => {
-                    const isPresent = record.presentStudentIds?.includes(student.id) || record.onlineStudentIds?.includes(student.id);
+            sortedAttendance.forEach((record) => {
+                const isExtra = isActuallyExtra(record);
+                const isPresent = record.presentStudentIds?.includes(student.id) || record.onlineStudentIds?.includes(student.id);
+                
+                if (!isExtra) {
+                    lessonCounter++;
                     if (isPresent) {
                         presentCount++;
                     } else {
-                        // Formata a data (YYYY-MM-DD para DD/MM)
-                        try {
-                            const [year, month, day] = record.date.split('-');
-                            missedDates.push(`${day}/${month}`);
-                        } catch(e) {
-                            missedDates.push(record.date);
-                        }
+                        missedLessons.push(`Aula ${lessonCounter}`);
                     }
-                });
-            }
+                } else {
+                    if (isPresent) presentCount++;
+                }
+            });
 
+            // A porcentagem de frequência no OikoApp geralmente é baseada nas aulas obrigatórias (não extras)
             const attendancePercent = totalClassesTaken > 0 ? (presentCount / totalClassesTaken) * 100 : 0;
-            
-            // Regra: Aprovado se frequência for >= mínimo
-            const isApproved = attendancePercent >= minAttendanceApproval;
+            const is100Percent = attendancePercent >= 100;
             
             return {
                 ...student,
                 attendancePercent,
-                isApproved,
+                isApproved: attendancePercent >= minAttendanceApproval,
+                is100Percent,
+                hasAbsence: missedLessons.length > 0,
                 hasPhone: !!student.phone,
-                missedDates
+                missedLessons
             };
         });
 
         results.sort((a, b) => a.name.localeCompare(b.name));
         return results;
-    }, [users, classData, minAttendanceApproval]);
+    }, [users, classData, minAttendanceApproval, sortedAttendance]);
+
+
 
     const filteredStudents = useMemo(() => {
         return studentStatuses.filter(s => {
             if (targetFilter === 'all') return true;
-            if (targetFilter === 'approved') return s.isApproved;
-            if (targetFilter === 'failed') return !s.isApproved;
-            return s.id === targetFilter; // Caso seja o ID de um aluno específico
+            if (targetFilter === 'perfect') return s.is100Percent;
+            if (targetFilter === 'absent') return s.hasAbsence;
+            
+            // Filtro por data específica (Aula X ou Reposição)
+            if (targetFilter.startsWith('date-absent-')) {
+                const targetDate = targetFilter.replace('date-absent-', '');
+                const record = classData.attendance?.find(a => a.date === targetDate);
+                if (!record) return false;
+                
+                // O aluno é faltante se NÃO está nas listas de presença
+                const isPresent = record.presentStudentIds?.includes(s.id) || record.onlineStudentIds?.includes(s.id);
+                return !isPresent;
+            }
+
+            return s.id === targetFilter; 
         });
-    }, [studentStatuses, targetFilter]);
+    }, [studentStatuses, targetFilter, classData.attendance]);
 
     const handleSendNotifications = async () => {
         const recipients = filteredStudents.filter(s => s.hasPhone);
@@ -121,8 +176,8 @@ export function ClassNotificationsManager({ classData, courseData }: ClassNotifi
                 
                 // Substituir a variável [Nome] e [Faltas]
                 const firstName = student.name.split(' ')[0];
-                const faltasText = student.missedDates.length > 0 
-                    ? student.missedDates.join(', ') 
+                const faltasText = student.missedLessons.length > 0 
+                    ? student.missedLessons.join(', ') 
                     : 'Nenhuma falta registrada';
 
                 let personalizedMessage = messageText
@@ -163,10 +218,10 @@ export function ClassNotificationsManager({ classData, courseData }: ClassNotifi
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-1 space-y-6">
-                <div className="space-y-4 bg-muted/30 p-4 rounded-xl border">
+                <div className="space-y-4 bg-muted/30 p-4 rounded-xl border-4 border-red-500">
                     <div>
-                        <h3 className="font-bold flex items-center gap-2 mb-2">
-                            <Filter className="size-4" /> Público-Alvo
+                        <h3 className="font-bold flex items-center gap-2 mb-2 text-red-600 uppercase tracking-widest">
+                            <Filter className="size-4" /> FILTRO (V4)
                         </h3>
                         <Select value={targetFilter} onValueChange={setTargetFilter} disabled={isSending}>
                             <SelectTrigger className="bg-white">
@@ -174,8 +229,36 @@ export function ClassNotificationsManager({ classData, courseData }: ClassNotifi
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">Todos os Alunos</SelectItem>
-                                <SelectItem value="approved">Apenas Aprovados (Freq. &gt;= {minAttendanceApproval}%)</SelectItem>
-                                <SelectItem value="failed">Apenas Reprovados (Freq. &lt; {minAttendanceApproval}%)</SelectItem>
+                                <SelectItem value="perfect">Alunos 100% de Presença</SelectItem>
+                                <SelectItem value="absent">Alunos com Faltas (Geral)</SelectItem>
+                                
+                                {sortedAttendance.length > 0 && (
+                                    <>
+                                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider bg-slate-50 mt-2 mb-1">
+                                            Faltantes por Data
+                                        </div>
+                                        {(() => {
+                                            let regularCounter = 0;
+                                            const isActuallyExtra = (record: any) => record.date.includes('T') || record.isRepositionOnly;
+                                            
+                                            return sortedAttendance.map((record) => {
+                                                const isExtra = isActuallyExtra(record);
+                                                if (!isExtra) regularCounter++;
+                                                const label = isExtra ? `Reposição` : `Aula ${regularCounter}`;
+                                                const dateLabel = record.date.includes('T') 
+                                                    ? record.date.split('T')[0].split('-').reverse().slice(0, 2).join('/')
+                                                    : record.date.split('-').reverse().slice(0, 2).join('/');
+                                                
+                                                return (
+                                                    <SelectItem key={record.date} value={`date-absent-${record.date}`}>
+                                                        {label} ({dateLabel})
+                                                    </SelectItem>
+                                                );
+                                            });
+                                        })()}
+                                    </>
+                                )}
+
                                 {studentStatuses.length > 0 && (
                                     <>
                                         <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider bg-slate-50 mt-2 mb-1">
@@ -207,7 +290,7 @@ export function ClassNotificationsManager({ classData, courseData }: ClassNotifi
                         <p className="text-xs text-muted-foreground mt-2 italic space-y-1">
                             <span>Dica: Use variáveis mágicas para personalizar sua mensagem:</span><br/>
                             <span className="font-semibold text-primary">[Nome]</span> - Nome do aluno.<br/>
-                            <span className="font-semibold text-primary">[Faltas]</span> - Lista de datas que o aluno faltou (ex: 05/03, 12/03).
+                            <span className="font-semibold text-primary">[Faltas]</span> - Lista das aulas que o aluno faltou (ex: Aula 1, Aula 3).
                         </p>
                     </div>
 
@@ -269,10 +352,10 @@ export function ClassNotificationsManager({ classData, courseData }: ClassNotifi
                                                 {student.attendancePercent.toFixed(0)}%
                                             </TableCell>
                                             <TableCell className="text-center">
-                                                {student.isApproved ? (
-                                                    <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-emerald-300">Aprovado</Badge>
+                                                {student.is100Percent ? (
+                                                    <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-emerald-300">100% Presença</Badge>
                                                 ) : (
-                                                    <Badge variant="outline" className="bg-red-50 text-red-800 border-red-200">Reprovado</Badge>
+                                                    <Badge variant="outline" className="bg-red-50 text-red-800 border-red-200">Possui Faltas</Badge>
                                                 )}
                                             </TableCell>
                                             <TableCell className="text-center">

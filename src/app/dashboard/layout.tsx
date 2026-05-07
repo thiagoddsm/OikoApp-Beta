@@ -274,10 +274,14 @@ function MobileMenu({ pathname, permissions, userRole, onLinkClick, children }) 
         <SheetDescription className="sr-only">Navegue pelas seções do painel.</SheetDescription>
         <SidebarHeader className="border-b border-slate-200">
           <div className="flex items-center gap-3 p-3">
-            <Logo className="size-8 text-primary" />
+            <img 
+              src="https://firebasestorage.googleapis.com/v0/b/studio-1424813022-71754.firebasestorage.app/o/pwa%2Flogo_1772385880160.png?alt=media&token=9f992f3e-70cd-4a19-a67f-77d16369e81a" 
+              alt="OikoApp Logo" 
+              className="size-10 object-contain" 
+            />
             <div>
-              <span className="text-lg font-bold text-slate-800">Oiko</span>
-              <span className="text-lg font-light text-slate-600">App</span>
+              <span className="text-xl font-bold text-slate-800 tracking-tight">Oiko</span>
+              <span className="text-xl font-light text-slate-500">App</span>
             </div>
           </div>
         </SidebarHeader>
@@ -335,8 +339,12 @@ export default function DashboardLayout({
   
   if (isLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <Logo className="h-12 w-12 animate-pulse text-primary" />
+      <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-white">
+        <img 
+          src="https://firebasestorage.googleapis.com/v0/b/studio-1424813022-71754.firebasestorage.app/o/pwa%2Flogo_1772385880160.png?alt=media&token=9f992f3e-70cd-4a19-a67f-77d16369e81a" 
+          alt="Carregando..." 
+          className="h-16 w-16 animate-pulse" 
+        />
       </div>
     );
   }
@@ -354,11 +362,15 @@ export default function DashboardLayout({
           {/* --- Desktop Sidebar --- */}
           <aside className="hidden lg:flex lg:flex-col lg:w-72 lg:border-r lg:border-slate-200 bg-white">
             <SidebarHeader className="border-b border-slate-200">
-              <div className="flex items-center gap-3 p-3">
-                <Logo className="size-8 text-primary" />
-                <div>
-                  <span className="text-lg font-bold text-slate-800">Oiko</span>
-                  <span className="text-lg font-light text-slate-600">App</span>
+              <div className="flex items-center gap-2 p-3">
+                <img 
+                  src="https://firebasestorage.googleapis.com/v0/b/studio-1424813022-71754.firebasestorage.app/o/pwa%2Flogo_1772385880160.png?alt=media&token=9f992f3e-70cd-4a19-a67f-77d16369e81a" 
+                  alt="OikoApp Logo" 
+                  className="size-10 object-contain" 
+                />
+                <div className="flex flex-col">
+                  <span className="text-lg font-black text-slate-800 leading-none tracking-tight">OikoApp</span>
+                  <span className="text-[10px] font-bold text-primary uppercase tracking-widest mt-1">Studio</span>
                 </div>
               </div>
             </SidebarHeader>
@@ -457,8 +469,12 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen w-full items-center justify-center">
-      <Logo className="h-12 w-12 animate-pulse text-primary" />
+    <div className="flex h-screen w-full items-center justify-center bg-white">
+      <img 
+        src="https://firebasestorage.googleapis.com/v0/b/studio-1424813022-71754.firebasestorage.app/o/pwa%2Flogo_1772385880160.png?alt=media&token=9f992f3e-70cd-4a19-a67f-77d16369e81a" 
+        alt="OikoApp" 
+        className="h-16 w-16 animate-pulse" 
+      />
     </div>
   );
 }

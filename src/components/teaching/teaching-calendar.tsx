@@ -99,7 +99,7 @@ export function TeachingCalendar({ onEventClick, searchTerm = '' }: TeachingCale
                     }
                 }
 
-                const dateStr = current.format('yyyy-MM-dd');
+                const dateStr = current.format('YYYY-MM-DD');
                 const override = cls.scheduleOverrides?.[dateStr];
                 
                 if (shouldAdd && !holidaySet.has(dateStr) && !override?.isCancelled) {
@@ -137,7 +137,7 @@ export function TeachingCalendar({ onEventClick, searchTerm = '' }: TeachingCale
         }
 
         // --- ADIÇÃO DE DATAS EXTRAS E OVERRIDES DE DATA ---
-        const processedDates = new Set(allOccurrences.map(o => format(o.start, 'yyyy-MM-dd')));
+        const processedDates = new Set(allOccurrences.map(o => moment(o.start).format('YYYY-MM-DD')));
 
         if (cls.extraDates && cls.extraDates.length > 0) {
             cls.extraDates.forEach(dateStr => {

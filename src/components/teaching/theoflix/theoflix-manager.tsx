@@ -227,6 +227,20 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
         setFormCourse(prev => ({ ...prev, episodes: [...(prev.episodes || []), { title: 'Nova Aula', youtubeId: '', duration: '45min' }] }));
     };
 
+    const moveEpisode = (index: number, direction: 'up' | 'down') => {
+        if (!formCourse.episodes) return;
+        const newEps = [...formCourse.episodes];
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        
+        if (targetIndex < 0 || targetIndex >= newEps.length) return;
+        
+        const temp = newEps[index];
+        newEps[index] = newEps[targetIndex];
+        newEps[targetIndex] = temp;
+        
+        setFormCourse(prev => ({ ...prev, episodes: newEps }));
+    };
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-6xl w-full h-[100dvh] sm:h-[90vh] flex flex-col p-0 overflow-hidden rounded-none sm:rounded-xl border-none">
@@ -375,7 +389,25 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                                                             <Input className="h-10 text-sm bg-white" value={ep.duration} onChange={e => { const n = [...formCourse.episodes!]; n[idx].duration = e.target.value; setFormCourse(p => ({...p, episodes: n})); }} placeholder="Ex: 45min" />
                                                         </div>
                                                     </div>
-                                                    <div className="absolute -top-3 -right-3 flex gap-2">
+                                                    <div className="absolute -top-3 -right-3 flex gap-1.5">
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            className="h-8 w-8 rounded-full bg-white shadow-xl text-primary border-2 hover:scale-110 active:scale-95 transition-transform disabled:opacity-30" 
+                                                            onClick={() => moveEpisode(idx, 'up')}
+                                                            disabled={idx === 0}
+                                                        >
+                                                            <ChevronUp size={16} />
+                                                        </Button>
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            className="h-8 w-8 rounded-full bg-white shadow-xl text-primary border-2 hover:scale-110 active:scale-95 transition-transform disabled:opacity-30" 
+                                                            onClick={() => moveEpisode(idx, 'down')}
+                                                            disabled={idx === (formCourse.episodes?.length || 0) - 1}
+                                                        >
+                                                            <ChevronDown size={16} />
+                                                        </Button>
                                                         <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-white shadow-xl text-destructive border-2 hover:scale-110 active:scale-95 transition-transform" onClick={() => setFormCourse(p => ({...p, episodes: p.episodes?.filter((_, i) => i !== idx)}))}>
                                                             <X size={16} />
                                                         </Button>
