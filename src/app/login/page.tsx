@@ -15,6 +15,8 @@ import Link from 'next/link';
 import { ArrowLeft, Loader2, AlertCircle, Mail, Key, CheckCircle2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
   
+import { registerOrLinkUser } from '@/app/actions/auth-actions';
+
 export default function LoginPage() {
   const loginImage = PlaceHolderImages.find(p => p.id === 'login-background');
   const router = useRouter();
@@ -120,8 +122,26 @@ export default function LoginPage() {
             const result = await signInWithEmailAndPassword(auth, email, password);
             await ensureUserDoc(result.user);
         } else {
-            const result = await createUserWithEmailAndPassword(auth, email, password);
-            await ensureUserDoc(result.user, name);
+            // Modo Register: Verifica se já existe na base para vincular
+            const serverResult = await registerOrLinkUser(email, password, name);
+            
+            if (serverResult.success === false && serverResult.code === 'auth/email-already-in-use') {
+                 // Força o erro para cair no catch abaixo
+                 throw { code: 'auth/email-already-in-use' };
+            } else if (serverResult.success === false) {
+                 throw new Error(serverResult.error || 'Erro no servidor.');
+            }
+
+            if (serverResult.linked) {
+                 // A conta Auth foi criada no servidor com o UID do Firestore!
+                 // Agora basta logar no client side.
+                 const result = await signInWithEmailAndPassword(auth, email, password);
+                 // Não precisa ensureUserDoc porque o doc já existe.
+            } else {
+                 // Não encontrou na base, cria normal no client side
+                 const result = await createUserWithEmailAndPassword(auth, email, password);
+                 await ensureUserDoc(result.user, name);
+            }
         }
         router.push('/dashboard');
     } catch (error: any) {
@@ -130,7 +150,8 @@ export default function LoginPage() {
         if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
              setErrorMsg('E-mail ou senha incorretos.');
         } else if (error.code === 'auth/email-already-in-use') {
-             setErrorMsg('Este e-mail já está em uso.');
+             setMode('forgot');
+             setErrorMsg('Este e-mail já possui uma senha/login cadastrado. Se não lembra, você pode redefinir sua senha abaixo.');
         } else if (error.code === 'auth/weak-password') {
              setErrorMsg('A senha deve ter pelo menos 6 caracteres.');
         } else {
@@ -162,14 +183,14 @@ export default function LoginPage() {
 
           <div className="grid gap-4">
             {errorMsg && (
-                <div className="p-3 bg-destructive/10 text-destructive text-sm font-semibold rounded-md flex items-start gap-3 border border-destructive/20 text-left">
+                <div className="p-3 bg-destructive/10 text-destructive text-sm font-semibold rounded-md flex items-start gap-3 border border-destructive/20 text-left animate-in slide-in-from-top-2">
                     <AlertCircle className="size-4 shrink-0 mt-0.5" />
                     <p>{errorMsg}</p>
                 </div>
             )}
 
             {successMsg && (
-                <div className="p-3 bg-emerald-50 text-emerald-700 text-sm font-semibold rounded-md flex items-start gap-3 border border-emerald-200 text-left">
+                <div className="p-3 bg-emerald-50 text-emerald-700 text-sm font-semibold rounded-md flex items-start gap-3 border border-emerald-200 text-left animate-in slide-in-from-top-2">
                     <CheckCircle2 className="size-4 shrink-0 mt-0.5" />
                     <p>{successMsg}</p>
                 </div>
@@ -188,7 +209,7 @@ export default function LoginPage() {
                         onClick={() => { setMode('register'); setErrorMsg(''); setSuccessMsg(''); }}
                         className={`flex-1 text-xs font-bold py-2 rounded-md transition-colors ${mode === 'register' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                     >
-                        Criar Conta
+                        Primeiro Acesso / Criar
                     </button>
                 </div>
 
@@ -216,9 +237,12 @@ export default function LoginPage() {
                     ) : (
                         <>
                             {mode === 'register' && (
-                                <div className="space-y-1">
+                                <div className="space-y-1 animate-in fade-in slide-in-from-top-2">
                                     <Label className="text-xs font-bold text-muted-foreground uppercase">Nome Completo</Label>
                                     <Input placeholder="Seu nome" value={name} onChange={e => setName(e.target.value)} required />
+                                    <p className="text-[10px] text-muted-foreground mt-1">
+                                      Se você já possui cadastro na igreja, use o mesmo e-mail para vincular sua conta.
+                                    </p>
                                 </div>
                             )}
                             <div className="space-y-1">
@@ -230,7 +254,9 @@ export default function LoginPage() {
                             </div>
                             <div className="space-y-1">
                                 <div className="flex justify-between items-center">
-                                    <Label className="text-xs font-bold text-muted-foreground uppercase">Senha</Label>
+                                    <Label className="text-xs font-bold text-muted-foreground uppercase">
+                                        {mode === 'register' ? 'Criar Senha' : 'Senha'}
+                                    </Label>
                                     {mode === 'login' && (
                                         <button 
                                             type="button" 

@@ -19,13 +19,19 @@ export function getAdminApp(): App {
 
   if (serviceAccountKey) {
     try {
-      const sa = JSON.parse(serviceAccountKey);
+      let cleanKey = serviceAccountKey.trim();
+      if (cleanKey.startsWith("'") && cleanKey.endsWith("'")) {
+        cleanKey = cleanKey.slice(1, -1);
+      }
+      const sa = JSON.parse(cleanKey);
       app = initializeApp({
         credential: cert(sa),
         projectId: sa.project_id || FALLBACK_PROJECT_ID
       }, appName);
     } catch (e) {
-      console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY", e);
+      console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY");
+      console.error("Error details:", e);
+      console.error("Key string starts with:", serviceAccountKey?.substring(0, 50));
       app = initializeApp({ projectId: FALLBACK_PROJECT_ID }, appName);
     }
   } else {
@@ -38,6 +44,12 @@ export function getAdminApp(): App {
   return app;
 }
 
+import { getAuth } from 'firebase-admin/auth';
+
 export function getAdminDb(): Firestore {
   return getFirestore(getAdminApp());
+}
+
+export function getAdminAuth() {
+  return getAuth(getAdminApp());
 }

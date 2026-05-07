@@ -36,15 +36,17 @@ export async function sendTestWhatsAppMessage(phone: string, message: string, co
     }
 }
 
+import { getAdminDb } from '@/lib/firebase-admin';
+
 /**
- * Fetches the current WhatsApp configuration from Firestore.
+ * Fetches the current WhatsApp configuration from Firestore using Admin SDK.
  */
 export async function getWhatsAppConfig() {
     try {
-        const { firestore } = initializeFirebase();
-        const configDoc = await getDoc(doc(firestore, 'config', 'notifications'));
+        const db = getAdminDb();
+        const configDoc = await db.collection('config').doc('notifications').get();
         
-        if (configDoc.exists()) {
+        if (configDoc.exists) {
             return configDoc.data();
         }
         
@@ -144,6 +146,50 @@ export async function sendJourneyAdvanceMessage(userName: string, phone: string,
         return { success: true, response };
     } catch (error: any) {
         console.error('Journey Advance Message Error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Sends a notification for finance request updates.
+ */
+export async function sendFinanceNotification(
+    requesterName: string, 
+    phone: string, 
+    amount: number, 
+    objective: 'reembolso' | 'pagamento' | 'prestacao_contas',
+    status: 'approved' | 'rejected' | 'paid',
+    configOverride?: any
+) {
+    try {
+        const config = configOverride || await getWhatsAppConfig();
+        if (config && config.enabled === false) return { success: false, error: 'Notificações desativadas.' };
+
+        const whatsapp = await getWhatsAppClient({
+            server: config?.serverUrl,
+            key: config?.instanceKey
+        });
+        const formattedPhone = formatWhatsAppNumber(phone);
+        
+        const objectiveLabels = { reembolso: 'Reembolso', pagamento: 'Pagamento', prestacao_contas: 'Prestação de Contas' };
+        
+        let messageText = '';
+        if (status === 'approved') {
+          messageText = `Olá ${requesterName}!\nSua solicitação financeira (${objectiveLabels[objective]}) de *R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}* foi *APROVADA* e está aguardando pagamento.`;
+        } else if (status === 'rejected') {
+          messageText = `Olá ${requesterName}!\nSua solicitação financeira (${objectiveLabels[objective]}) de *R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}* infelizmente foi *REJEITADA*. Por favor, entre em contato com a tesouraria para mais detalhes.`;
+        } else if (status === 'paid') {
+          messageText = `Olá ${requesterName}!\nO pagamento da sua solicitação financeira (${objectiveLabels[objective]}) de *R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}* acabou de ser *REALIZADO*!`;
+        }
+
+        const response = await whatsapp.sendMessage({
+            type: "TEXT",
+            body: { to: formattedPhone, text: messageText }
+        });
+
+        return { success: true, response };
+    } catch (error: any) {
+        console.error('Finance Notification Error:', error);
         return { success: false, error: error.message };
     }
 }
