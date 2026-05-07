@@ -218,10 +218,10 @@ export function ClassNotificationsManager({ classData, courseData }: ClassNotifi
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-1 space-y-6">
-                <div className="space-y-4 bg-muted/30 p-4 rounded-xl border-4 border-red-500">
+                <div className="space-y-4 bg-muted/30 p-4 rounded-xl border">
                     <div>
-                        <h3 className="font-bold flex items-center gap-2 mb-2 text-red-600 uppercase tracking-widest">
-                            <Filter className="size-4" /> FILTRO (V4)
+                        <h3 className="font-bold flex items-center gap-2 mb-2">
+                            <Filter className="size-4" /> Público-Alvo
                         </h3>
                         <Select value={targetFilter} onValueChange={setTargetFilter} disabled={isSending}>
                             <SelectTrigger className="bg-white">
