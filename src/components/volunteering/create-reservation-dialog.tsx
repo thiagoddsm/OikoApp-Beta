@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Timestamp, query, collection } from 'firebase/firestore';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -24,7 +24,7 @@ const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Q
 
 export function CreateReservationDialog({ open, onOpenChange, existingReservation }: CreateReservationDialogProps) {
   const { user, firestore } = useFirebase();
-  const { addReservation, updateReservation, users, rooms: availableRooms, reservationCategories, addReservationCategory, isLoading: isLoadingContext } = useVolunteering();
+  const { addReservation, updateReservation, deleteReservation, users, rooms: availableRooms, reservationCategories, addReservationCategory, isLoading: isLoadingContext } = useVolunteering();
   
   const patrimonioQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'patrimonio')) : null, [firestore]);
   const { data: patrimonioItems, isLoading: isLoadingPatrimonio } = useCollection(patrimonioQuery);
@@ -47,6 +47,8 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
   const [newCategoryName, setNewCategoryName] = useState('');
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   
   const isLoading = isLoadingContext || isLoadingPatrimonio;
 
@@ -105,6 +107,18 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
       }
     }
   }, [open, existingReservation, user]);
+
+  const handleDelete = async () => {
+    if (!existingReservation) return;
+    setIsDeleting(true);
+    try {
+      await deleteReservation(existingReservation.id);
+      onOpenChange(false);
+    } finally {
+      setIsDeleting(false);
+      setConfirmDelete(false);
+    }
+  };
 
 
   const handleSave = async () => {
@@ -363,14 +377,52 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
             </TabsContent>
           </Tabs>
         </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline">Cancelar</Button>
-          </DialogClose>
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {existingReservation ? "Salvar Alterações" : "Enviar Solicitação"}
-          </Button>
+        <DialogFooter className="flex-row items-center justify-between sm:justify-between gap-2">
+          {/* Botão de excluir — só aparece no modo edição */}
+          {existingReservation ? (
+            <div className="flex-1">
+              {confirmDelete ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-red-600 font-medium">Confirmar exclusão?</span>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                    className="h-8"
+                  >
+                    {isDeleting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                    Sim, excluir
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)} className="h-8">
+                    Não
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setConfirmDelete(true)}
+                  className="h-8 text-red-500 hover:text-red-700 hover:bg-red-50 gap-1.5"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Excluir
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="flex-1" />
+          )}
+
+          <div className="flex items-center gap-2">
+            <DialogClose asChild>
+              <Button variant="outline">Cancelar</Button>
+            </DialogClose>
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {existingReservation ? 'Salvar Alterações' : 'Enviar Solicitação'}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
