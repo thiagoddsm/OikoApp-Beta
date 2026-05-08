@@ -34,13 +34,19 @@ export async function GET(request: Request) {
             if (!contact.id) continue;
             
             const jid = contact.id;
+            const lid = contact.lid || null;
             const phone = jid.split('@')[0].split(':')[0].replace(/\D/g, '');
-            if (!phone || jid.includes('@lid')) continue;
+            
+            // Se não tiver telefone e for LID, usamos o ID do LID como chave de documento se necessário, 
+            // mas idealmente usamos o telefone como chave principal e salvamos o LID dentro.
+            const docId = phone || jid.split('@')[0];
+            if (!docId) continue;
 
-            const contactRef = db.collection('notifications_contacts').doc(phone);
+            const contactRef = db.collection('notifications_contacts').doc(docId);
             batch.set(contactRef, {
-                phoneNumber: phone,
+                phoneNumber: phone || null,
                 jid: jid,
+                lid: lid,
                 name: contact.name || contact.notify || contact.verifiedName || null,
                 pushName: contact.notify || contact.name || null,
                 updatedAt: new Date(),

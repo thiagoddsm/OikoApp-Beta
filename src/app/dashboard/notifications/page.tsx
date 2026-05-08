@@ -68,7 +68,12 @@ function useContactEnrichment(chats: any[]) {
             // Tenta encontrar nos contatos sincronizados do WhatsApp
             const matchedWA = waContacts?.find((c: any) => {
                 const cPhone = String(c.phoneNumber || '').replace(/\D/g, '');
-                return cPhone && (rawId.includes(cPhone) || cPhone.includes(rawId));
+                const cLid = String(c.lid || '').split('@')[0];
+                const cJid = String(c.jid || '').split('@')[0];
+                
+                return (cPhone && (rawId.includes(cPhone) || cPhone.includes(rawId))) || 
+                       (cLid && rawId === cLid) || 
+                       (cJid && rawId === cJid);
             });
 
             // Lógica de Nome: 1. Usuário do Sistema, 2. Contato Sincronizado do WA, 3. Nome vindo da mensagem, 4. Formatação do número
@@ -1015,7 +1020,12 @@ function WhatsappResponses() {
         // 2. Tenta match nos contatos sincronizados
         const matchedWA = waContacts?.find((c: any) => {
             const cPhone = String(c.phoneNumber || '').replace(/\D/g, '');
-            return cPhone && (rawId.includes(cPhone) || cPhone.includes(rawId));
+            const cLid = String(c.lid || '').split('@')[0];
+            const cJid = String(c.jid || '').split('@')[0];
+
+            return (cPhone && (rawId.includes(cPhone) || cPhone.includes(rawId))) || 
+                   (cLid && rawId === cLid) || 
+                   (cJid && rawId === cJid);
         });
         if (matchedWA) return matchedWA.name;
 

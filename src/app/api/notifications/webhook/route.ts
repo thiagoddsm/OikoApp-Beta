@@ -46,22 +46,25 @@ export async function POST(request: Request) {
         };
     }
     // C. Poll Update (pollUpdateMessage)
-    else if (msgContent.pollUpdateMessage || data.pollUpdates) {
-        const poll = msgContent.pollUpdateMessage || data.pollUpdates || {};
+    else if (msgContent.pollUpdateMessage || data.pollUpdates || data.pollUpdate) {
+        const pollData = msgContent.pollUpdateMessage || data.pollUpdates || data.pollUpdate || {};
         
-        // Evolution API usually sends the vote inside 'vote.selectedOptions' or just 'selectedOptions'
-        let options = poll.vote?.selectedOptions || poll.selectedOptions || [];
-        if (!Array.isArray(options)) {
-            options = [options];
-        }
+        // Algumas APIs enviam um array de updates
+        const pollUpdate = Array.isArray(pollData) ? pollData[0] : pollData;
         
-        // Sanitize options to avoid undefined in array
-        options = options.filter((o: any) => o !== undefined && o !== null);
+        let options = pollUpdate.vote?.selectedOptions || pollUpdate.selectedOptions || data.selectedOptions || [];
+        if (!Array.isArray(options)) options = [options].filter(Boolean);
+        
+        // Tentar capturar o nome da enquete de vários lugares possíveis
+        const pollName = data.pollName || pollUpdate.name || pollUpdate.pollName || msgContent.pollCreationMessage?.name || pollUpdate.pollCreationMessageKey?.id || 'Enquete';
+
+        // Sanitizar opções
+        options = options.map((o: any) => typeof o === 'string' ? o : o.label || o.text || o.name).filter(Boolean);
         if (options.length === 0) options = ['Voto registrado'];
 
         responseType = 'poll';
         payload = {
-            pollName: poll.name || data.pollName || poll.pollCreationMessageKey?.id || 'Enquete',
+            pollName,
             selectedOptions: options
         };
     }
