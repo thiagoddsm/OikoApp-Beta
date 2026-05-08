@@ -988,6 +988,9 @@ function WhatsappResponses() {
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
     const { data: users } = useCollection<any>(usersQuery);
 
+    const waContactsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'notifications_contacts')) : null, [firestore]);
+    const { data: waContacts } = useCollection<any>(waContactsQuery);
+
     const responsesQuery = useMemoFirebase(() => 
         firestore ? query(collection(firestore, 'notifications_responses'), orderBy('receivedAt', 'desc'), limit(200)) : null,
     [firestore]);
@@ -995,12 +998,35 @@ function WhatsappResponses() {
     const { data: responses, isLoading } = useCollection<any>(responsesQuery);
 
     const resolveUser = (phone: string) => {
-        const cleaned = phone.replace(/\D/g, '');
-        const found = users?.find((u: any) => {
-            const up = String(u.phone || '').replace(/\D/g, '');
-            return up && (cleaned.endsWith(up) || up.endsWith(cleaned));
+        const rawId = String(phone || '').split('@')[0];
+        
+        // 1. Tenta match no sistema
+        const matchedUser = users?.find((u: any) => {
+            const uPhone = String(u.phone || '').replace(/\D/g, '');
+            if (!uPhone || uPhone.length < 8) return false;
+            const uPhoneNoCountry = uPhone.startsWith('55') ? uPhone.substring(2) : uPhone;
+            const uPhoneNo9 = uPhoneNoCountry.length === 11 ? uPhoneNoCountry.slice(0, 2) + uPhoneNoCountry.slice(3) : null;
+            const uPhoneLast8 = uPhoneNoCountry.slice(-8);
+            const idDigits = rawId.replace(/\D/g, '');
+            return idDigits.includes(uPhoneNoCountry) || (uPhoneNo9 && idDigits.includes(uPhoneNo9)) || (uPhoneLast8.length === 8 && idDigits.includes(uPhoneLast8));
         });
-        return found ? found.name : `+${phone}`;
+        if (matchedUser) return matchedUser.name;
+
+        // 2. Tenta match nos contatos sincronizados
+        const matchedWA = waContacts?.find((c: any) => {
+            const cPhone = String(c.phoneNumber || '').replace(/\D/g, '');
+            return cPhone && (rawId.includes(cPhone) || cPhone.includes(rawId));
+        });
+        if (matchedWA) return matchedWA.name;
+
+        // 3. Fallback para formatação do número
+        const digits = rawId.replace(/\D/g, '');
+        if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) {
+            const ddd = digits.substring(2, 4);
+            const num = digits.substring(4);
+            return `(${ddd}) ${num.length === 9 ? num.slice(0, 5) + '-' + num.slice(5) : num.slice(0, 4) + '-' + num.slice(4)}`;
+        }
+        return `+${digits}`;
     };
 
     const { pollStats, buttonStats } = useMemo(() => {
