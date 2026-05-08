@@ -43,6 +43,7 @@ export default function NotificationSettingsPage() {
     const [instanceStatus, setInstanceStatus] = useState<any>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const [isSyncingContacts, setIsSyncingContacts] = useState(false);
 
     const isConnected = instanceStatus?.parsedStatus === 'connected';
 
@@ -312,14 +313,37 @@ export default function NotificationSettingsPage() {
                                 <Switch checked={enabled} onCheckedChange={setEnabled} />
                             </div>
 
-                            <div className="flex justify-end pt-2">
+                            <div className="flex gap-3 pt-2">
                                 <Button 
                                     onClick={handleSaveConfig} 
                                     disabled={isSaving}
-                                    className="px-8 font-bold"
+                                    className="flex-1 font-bold h-11"
                                 >
                                     {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
                                     Salvar Alterações
+                                </Button>
+                                <Button 
+                                    variant="outline" 
+                                    onClick={async () => {
+                                        if (!instanceKey) return;
+                                        setIsSyncingContacts(true);
+                                        try {
+                                            const res = await fetch(`/api/notifications/contacts?key=${instanceKey}&server=${encodeURIComponent(serverUrl)}`);
+                                            const data = await res.json();
+                                            if (data.success) {
+                                                toast({ title: "Sincronização Concluída", description: `${data.count} contatos importados.` });
+                                            } else {
+                                                toast({ variant: 'destructive', title: "Erro na Sincronização", description: data.error });
+                                            }
+                                        } catch (e) {
+                                            toast({ variant: 'destructive', title: "Erro ao sincronizar" });
+                                        } finally { setIsSyncingContacts(false); }
+                                    }} 
+                                    disabled={isSyncingContacts || !instanceKey} 
+                                    className="gap-2 h-11 font-bold"
+                                >
+                                    <RefreshCw className={cn("size-4", isSyncingContacts && "animate-spin")} />
+                                    {isSyncingContacts ? 'Sincronizando...' : 'Sincronizar Contatos'}
                                 </Button>
                             </div>
                         </CardContent>
