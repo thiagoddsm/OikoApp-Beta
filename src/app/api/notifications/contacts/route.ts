@@ -3,75 +3,60 @@ import { getAdminDb } from '@/lib/firebase-admin';
 
 export const runtime = 'nodejs';
 
-/**
- * API Route to fetch WhatsApp contacts using api-wa.me
- */
 export async function GET(request: Request) {
-  try {
-    const { searchParams } = new URL(request.url);
-    let waKey: string | null = searchParams.get('key');
-    let serverUrl = searchParams.get('server') || 'https://us.api-wa.me';
+    try {
+        const { searchParams } = new URL(request.url);
+        const apiKey = searchParams.get('key');
+        const serverUrl = searchParams.get('server') || 'https://us.api-wa.me';
 
-    // Se não vier por parâmetro, tenta buscar no Firestore Admin (fallback)
-    if (!waKey) {
-      try {
-          const db = getAdminDb();
-          const configSnap = await db.collection('config').doc('notifications').get();
-          if (configSnap.exists) {
-              const data = configSnap.data();
-              waKey = data?.instanceKey || data?.whatsappApiKey || null;
-              serverUrl = data?.serverUrl || serverUrl;
-          }
-      } catch (e: any) {
-          console.warn('Falha ao ler config de notificações (Admin):', e.message);
-      }
+        if (!apiKey) {
+            return NextResponse.json({ error: 'Chave da instância não fornecida.' }, { status: 400 });
+        }
+
+        const baseUrl = serverUrl.replace(/\/$/, '');
+        const response = await fetch(`${baseUrl}/${apiKey}/contacts`, {
+            method: 'GET',
+            headers: { 'accept': '*/*' },
+        });
+
+        const data = await response.json();
+        
+        if (data.status !== 200) {
+            return NextResponse.json({ error: data.message || 'Erro ao buscar contatos' }, { status: data.status || 500 });
+        }
+
+        const contacts = data.contacts || [];
+        const db = getAdminDb();
+        const batch = db.batch();
+        let count = 0;
+
+        for (const contact of contacts) {
+            if (!contact.id) continue;
+            
+            const jid = contact.id;
+            const phone = jid.split('@')[0].split(':')[0].replace(/\D/g, '');
+            if (!phone || jid.includes('@lid')) continue;
+
+            const contactRef = db.collection('notifications_contacts').doc(phone);
+            batch.set(contactRef, {
+                phoneNumber: phone,
+                jid: jid,
+                name: contact.name || contact.notify || contact.verifiedName || null,
+                pushName: contact.notify || contact.name || null,
+                updatedAt: new Date(),
+            }, { merge: true });
+            
+            count++;
+            if (count >= 400) break; // Limite de segurança para o batch do Firestore (500 é o max)
+        }
+
+        if (count > 0) {
+            await batch.commit();
+        }
+
+        return NextResponse.json({ success: true, count, totalFetched: contacts.length });
+    } catch (error: any) {
+        console.error('Sync Contacts Error:', error);
+        return NextResponse.json({ error: `Erro interno: ${error.message}` }, { status: 500 });
     }
-
-    if (!waKey) {
-        return NextResponse.json({ contacts: [], warning: 'API Key não configurada.' });
-    }
-
-    const baseUrl = serverUrl.replace(/\/$/, '');
-    const response = await fetch(`${baseUrl}/${waKey}/contacts`, {
-        method: 'GET',
-        headers: { 'accept': '*/*' },
-        cache: 'no-store',
-    });
-
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-        return NextResponse.json({ 
-            contacts: [],
-            error: data.message || `API retornou erro ${response.status}`
-        }, { status: response.status });
-    }
-
-    let rawContacts: any[] = [];
-    if (Array.isArray(data)) {
-        rawContacts = data;
-    } else if (data.contacts && Array.isArray(data.contacts)) {
-        rawContacts = data.contacts;
-    } else if (data.data && Array.isArray(data.data)) {
-        rawContacts = data.data;
-    }
-
-    const normalizedContacts = rawContacts
-        .filter((c: any) => {
-            const id = c.id || c.jid || '';
-            return !id.includes('@g.us') && !id.includes('@broadcast') && (c.name || c.pushname || c.notify);
-        })
-        .map((c: any) => ({
-            id: c.id || c.jid || '',
-            name: c.name || c.pushname || c.notify || 'Sem Nome',
-            phone: (c.id || c.jid || '').replace('@s.whatsapp.net', '').replace('@c.us', ''),
-            profilePicture: c.profilePictureUrl || c.imgUrl || c.profilePicUrl || null,
-        }))
-        .sort((a: any, b: any) => a.name.localeCompare(b.name, 'pt-BR'));
-
-    return NextResponse.json({ contacts: normalizedContacts });
-
-  } catch (error: any) {
-    return NextResponse.json({ error: `Erro interno: ${error.message}`, contacts: [] }, { status: 500 });
-  }
 }

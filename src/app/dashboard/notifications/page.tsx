@@ -33,6 +33,9 @@ function useContactEnrichment(chats: any[]) {
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
     const { data: users } = useCollection<any>(usersQuery);
 
+    const waContactsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'notifications_contacts')) : null, [firestore]);
+    const { data: waContacts } = useCollection<any>(waContactsQuery);
+
     const { data: waConfig } = useDoc<any>('config/notifications');
 
     const [photoCache, setPhotoCache] = useState<Record<string, string>>({});
@@ -59,13 +62,17 @@ function useContactEnrichment(chats: any[]) {
 
                 const idDigits = rawId.replace(/\D/g, '');
                 
-                return idDigits.includes(uPhoneNoCountry) || 
-                       (uPhoneNo9 && idDigits.includes(uPhoneNo9)) ||
-                       (uPhoneLast8.length === 8 && idDigits.includes(uPhoneLast8));
+                return rawId.includes(uPhoneNoCountry) || (uPhoneNo9 && rawId.includes(uPhoneNo9)) || (uPhoneLast8.length === 8 && rawId.includes(uPhoneLast8));
             });
 
-            // Lógica de Nome: 1. Sistema, 2. Nome vindo do WhatsApp (pushName), 3. Formatação do número
-            let displayName = matchedUser?.name || chat.userName;
+            // Tenta encontrar nos contatos sincronizados do WhatsApp
+            const matchedWA = waContacts?.find((c: any) => {
+                const cPhone = String(c.phoneNumber || '').replace(/\D/g, '');
+                return cPhone && (rawId.includes(cPhone) || cPhone.includes(rawId));
+            });
+
+            // Lógica de Nome: 1. Usuário do Sistema, 2. Contato Sincronizado do WA, 3. Nome vindo da mensagem, 4. Formatação do número
+            let displayName = matchedUser?.name || matchedWA?.name || chat.userName;
             
             if (!displayName) {
                 if (chat.isGroup) {
@@ -1188,6 +1195,7 @@ function NotificationsConfig() {
     const [isSaving, setIsSaving] = useState(false);
     const [instanceStatus, setInstanceStatus] = useState<any>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [isSyncingContacts, setIsSyncingContacts] = useState(false);
 
     const checkStatus = async () => {
         if (!waKey) {
@@ -1299,7 +1307,33 @@ function NotificationsConfig() {
                                 <Info size={10} /> Copie esta URL e cole nos campos de Webhook do portal api-wa.me para capturar respostas.
                             </p>
                         </div>
-                        <Button onClick={handleSaveKey} disabled={isSaving} className="w-full font-bold h-11">Salvar Credenciais</Button>
+                        <div className="flex gap-3 pt-4 border-t">
+                            <Button onClick={handleSaveKey} disabled={isSaving} className="flex-1 font-bold h-11">Salvar Credenciais</Button>
+                            <Button 
+                                variant="outline" 
+                                onClick={async () => {
+                                    if (!waKey) return;
+                                    setIsSyncingContacts(true);
+                                    try {
+                                        const serverUrl = config?.serverUrl || 'https://us.api-wa.me';
+                                        const res = await fetch(`/api/notifications/contacts?key=${waKey}&server=${encodeURIComponent(serverUrl)}`);
+                                        const data = await res.json();
+                                        if (data.success) {
+                                            toast({ title: "Sincronização Concluída", description: `${data.count} contatos importados.` });
+                                        } else {
+                                            toast({ variant: 'destructive', title: "Erro na Sincronização", description: data.error });
+                                        }
+                                    } catch (e) {
+                                        toast({ variant: 'destructive', title: "Erro ao sincronizar" });
+                                    } finally { setIsSyncingContacts(false); }
+                                }} 
+                                disabled={isSyncingContacts || !waKey} 
+                                className="gap-2 h-11 font-bold"
+                            >
+                                <RefreshCw className={cn("size-4", isSyncingContacts && "animate-spin")} />
+                                {isSyncingContacts ? 'Sincronizando...' : 'Sincronizar Contatos'}
+                            </Button>
+                        </div>
                     </CardContent>
                 </Card>
 
