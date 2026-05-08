@@ -65,6 +65,7 @@ export async function POST(request: Request) {
     // D. Common Text
     else if (msgContent.conversation || msgContent.extendedTextMessage?.text || data.text) {
         const messageText = msgContent.conversation || msgContent.extendedTextMessage?.text || data.text || '[Mídia]';
+        const senderPushName = data.pushName || data.senderName || data.verifiedName || null;
         
         await db.collection('notifications_messages').add({
           from: fromPhone,
@@ -79,6 +80,7 @@ export async function POST(request: Request) {
             lastMessageAt: Timestamp.now(),
             unreadCount: data.fromMe ? 0 : 1,
             phoneNumber: fromPhone,
+            userName: senderPushName, // Salva o nome vindo do WhatsApp como fallback
             isGroup: fromRaw.includes('@g.us')
         }, { merge: true });
     }

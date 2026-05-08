@@ -10,8 +10,7 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+// Removendo date-fns para evitar conflito de timezone/locale com o moment usado no calendário
 
 moment.locale('pt-br');
 const localizer = momentLocalizer(moment);
@@ -40,40 +39,54 @@ interface ReservationsCalendarProps {
 }
 
 // ─── Componente de visualização em Lista ────────────────────────────────────
-function EventListView({ events, onEventClick, reservationCategories }: { events: any[], onEventClick?: (res: RoomReservation) => void, reservationCategories: any[] }) {
+function EventListView({ 
+    events, 
+    onEventClick, 
+    reservationCategories,
+    currentDate,
+    onNavigate
+}: { 
+    events: any[], 
+    onEventClick?: (res: RoomReservation) => void, 
+    reservationCategories: any[],
+    currentDate: Date,
+    onNavigate: (d: Date) => void
+}) {
     const categoryMap = useMemo(() => new Map(reservationCategories.map(c => [c.id, c.name])), [reservationCategories]);
 
-    // Extrair todos os meses disponíveis nos eventos
+    const monthLabel = useMemo(() => moment(currentDate).format('MMMM YYYY'), [currentDate]);
+    const selectedMonthKey = useMemo(() => moment(currentDate).format('YYYY-MM'), [currentDate]);
+
+    // Extrair todos os meses disponíveis nos eventos para saber se pode navegar
     const availableMonths = useMemo(() => {
         const keys = new Set<string>();
-        events.forEach(ev => keys.add(format(ev.start, 'yyyy-MM')));
+        events.forEach(ev => keys.add(moment(ev.start).format('YYYY-MM')));
         return Array.from(keys).sort();
     }, [events]);
 
-    // Mês selecionado — padrão = mês atual (ou primeiro disponível)
-    const currentMonthKey = format(new Date(), 'yyyy-MM');
-    const defaultMonth = availableMonths.includes(currentMonthKey)
-        ? currentMonthKey
-        : availableMonths[0] || currentMonthKey;
-    const [selectedMonth, setSelectedMonth] = useState(defaultMonth);
-
-    const currentIdx = availableMonths.indexOf(selectedMonth);
+    const currentIdx = availableMonths.indexOf(selectedMonthKey);
     const hasPrev = currentIdx > 0;
     const hasNext = currentIdx < availableMonths.length - 1;
 
-    const goToPrev = () => { if (hasPrev) setSelectedMonth(availableMonths[currentIdx - 1]); };
-    const goToNext = () => { if (hasNext) setSelectedMonth(availableMonths[currentIdx + 1]); };
+    const goToPrev = () => { 
+        if (hasPrev) {
+            const prevMonth = moment(currentDate).subtract(1, 'month').toDate();
+            onNavigate(prevMonth);
+        } 
+    };
+    const goToNext = () => { 
+        if (hasNext) {
+            const nextMonth = moment(currentDate).add(1, 'month').toDate();
+            onNavigate(nextMonth);
+        } 
+    };
 
     // Eventos filtrados pelo mês selecionado
     const filteredEvents = useMemo(() => {
         return [...events]
-            .filter(ev => format(ev.start, 'yyyy-MM') === selectedMonth)
-            .sort((a, b) => a.start - b.start);
-    }, [events, selectedMonth]);
-
-    const monthLabel = selectedMonth
-        ? format(new Date(`${selectedMonth}-01`), 'MMMM yyyy', { locale: ptBR })
-        : '';
+            .filter(ev => moment(ev.start).format('YYYY-MM') === selectedMonthKey)
+            .sort((a, b) => a.start.getTime() - b.start.getTime());
+    }, [events, selectedMonthKey]);
 
     if (availableMonths.length === 0) {
         return (
@@ -142,8 +155,8 @@ function EventListView({ events, onEventClick, reservationCategories }: { events
                                     "flex flex-col items-center justify-center px-4 py-3 min-w-[60px] text-white font-black",
                                     isApproved ? "bg-emerald-500" : "bg-amber-500"
                                 )}>
-                                    <span className="text-2xl leading-none">{format(ev.start, 'dd')}</span>
-                                    <span className="text-[10px] uppercase tracking-wider opacity-80">{format(ev.start, 'EEE', { locale: ptBR })}</span>
+                                    <span className="text-2xl leading-none">{moment(ev.start).format('DD')}</span>
+                                    <span className="text-[10px] uppercase tracking-wider opacity-80">{moment(ev.start).format('ddd')}</span>
                                 </div>
 
                                 {/* Conteúdo */}
@@ -159,7 +172,7 @@ function EventListView({ events, onEventClick, reservationCategories }: { events
                                                     {res.rooms.join(', ')}
                                                 </span>
                                             )}
-                                            {format(ev.start, 'HH:mm')} – {format(ev.end, 'HH:mm')}
+                                            {moment(ev.start).format('HH:mm')} – {moment(ev.end).format('HH:mm')}
                                         </div>
                                     </div>
 
@@ -417,6 +430,8 @@ export function ReservationsCalendar({
                     events={events}
                     onEventClick={onEventClick}
                     reservationCategories={reservationCategories}
+                    currentDate={date}
+                    onNavigate={setDate}
                 />
             </div>
         )}

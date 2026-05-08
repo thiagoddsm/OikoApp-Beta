@@ -40,18 +40,52 @@ function useContactEnrichment(chats: any[]) {
     const enrichedChats = useMemo(() => {
         if (!chats) return [];
         return chats.map((chat: any) => {
-            const rawNumber = chat.id.replace('@s.whatsapp.net', '').replace(/\D/g, '');
-
+            // O ID pode vir do webhook como "5521999999999" ou "5521999999999-123456"
+            const rawId = (chat.phoneNumber || chat.id || '').split('@')[0];
+            
+            // Tenta encontrar o usuário no sistema
             const matchedUser = users?.find((u: any) => {
-                const userPhone = String(u.phone || '').replace(/\D/g, '');
-                return userPhone && (rawNumber.endsWith(userPhone) || userPhone.endsWith(rawNumber));
+                const uPhone = String(u.phone || '').replace(/\D/g, '');
+                if (!uPhone || uPhone.length < 8) return false;
+
+                // Remove 55 se houver no telefone do sistema
+                const uPhoneNoCountry = uPhone.startsWith('55') ? uPhone.substring(2) : uPhone;
+                
+                // Match se o telefone do sistema (DDD + Número) está contido no ID do WhatsApp
+                // Ex: o ID "5521988887777-12345" contém "21988887777"
+                // Também remove o '9' extra se necessário para match de sistemas antigos
+                const uPhoneNo9 = uPhoneNoCountry.length === 11 ? uPhoneNoCountry.slice(0, 2) + uPhoneNoCountry.slice(3) : null;
+
+                return rawId.includes(uPhoneNoCountry) || (uPhoneNo9 && rawId.includes(uPhoneNo9));
             });
+
+            // Lógica de Nome: 1. Sistema, 2. Nome vindo do WhatsApp (pushName), 3. Formatação do número
+            let displayName = matchedUser?.name || chat.userName;
+            
+            if (!displayName) {
+                if (chat.isGroup) {
+                    // Para grupos sem nome, mostra o número/ID do criador (antes do hífen)
+                    displayName = `Grupo: ${rawId.split('-')[0]}`;
+                } else {
+                    // Formatação amigável para números individuais brasileiros
+                    const digits = rawId.replace(/\D/g, '');
+                    if (digits.startsWith('55') && (digits.length === 12 || digits.length === 13)) {
+                        const ddd = digits.substring(2, 4);
+                        const num = digits.substring(4);
+                        displayName = `(${ddd}) ${num.length === 9 ? num.slice(0, 5) + '-' + num.slice(5) : num.slice(0, 4) + '-' + num.slice(4)}`;
+                    } else if (digits.length >= 10 && digits.length <= 15) {
+                        displayName = `+${digits}`;
+                    } else {
+                        displayName = rawId; // Fallback se for algo estranho
+                    }
+                }
+            }
 
             return {
                 ...chat,
-                userName: chat.userName || matchedUser?.name || rawNumber,
-                profilePicture: photoCache[rawNumber] || chat.profilePicture || matchedUser?.profilePicture || matchedUser?.photoURL || undefined,
-                _rawNumber: rawNumber,
+                userName: displayName,
+                profilePicture: photoCache[rawId] || chat.profilePicture || matchedUser?.profilePicture || matchedUser?.photoURL || undefined,
+                _rawNumber: rawId,
                 _matchedUserId: matchedUser?.id,
             };
         });
