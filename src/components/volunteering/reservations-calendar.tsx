@@ -5,7 +5,7 @@ import moment from 'moment';
 import 'moment/locale/pt-br';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useVolunteering, type RoomReservation } from '@/contexts/volunteering-context';
-import { Loader2, CalendarDays, List, CheckCircle2, Clock, RefreshCw, MapPin, Tag } from 'lucide-react';
+import { Loader2, CalendarDays, List, CheckCircle2, Clock, RefreshCw, MapPin, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -43,19 +43,39 @@ interface ReservationsCalendarProps {
 function EventListView({ events, onEventClick, reservationCategories }: { events: any[], onEventClick?: (res: RoomReservation) => void, reservationCategories: any[] }) {
     const categoryMap = useMemo(() => new Map(reservationCategories.map(c => [c.id, c.name])), [reservationCategories]);
 
-    // Agrupar por mês
-    const grouped = useMemo(() => {
-        const map = new Map<string, any[]>();
-        const sorted = [...events].sort((a, b) => a.start - b.start);
-        sorted.forEach(ev => {
-            const key = format(ev.start, 'MMMM yyyy', { locale: ptBR });
-            if (!map.has(key)) map.set(key, []);
-            map.get(key)!.push(ev);
-        });
-        return Array.from(map.entries());
+    // Extrair todos os meses disponíveis nos eventos
+    const availableMonths = useMemo(() => {
+        const keys = new Set<string>();
+        events.forEach(ev => keys.add(format(ev.start, 'yyyy-MM')));
+        return Array.from(keys).sort();
     }, [events]);
 
-    if (grouped.length === 0) {
+    // Mês selecionado — padrão = mês atual (ou primeiro disponível)
+    const currentMonthKey = format(new Date(), 'yyyy-MM');
+    const defaultMonth = availableMonths.includes(currentMonthKey)
+        ? currentMonthKey
+        : availableMonths[0] || currentMonthKey;
+    const [selectedMonth, setSelectedMonth] = useState(defaultMonth);
+
+    const currentIdx = availableMonths.indexOf(selectedMonth);
+    const hasPrev = currentIdx > 0;
+    const hasNext = currentIdx < availableMonths.length - 1;
+
+    const goToPrev = () => { if (hasPrev) setSelectedMonth(availableMonths[currentIdx - 1]); };
+    const goToNext = () => { if (hasNext) setSelectedMonth(availableMonths[currentIdx + 1]); };
+
+    // Eventos filtrados pelo mês selecionado
+    const filteredEvents = useMemo(() => {
+        return [...events]
+            .filter(ev => format(ev.start, 'yyyy-MM') === selectedMonth)
+            .sort((a, b) => a.start - b.start);
+    }, [events, selectedMonth]);
+
+    const monthLabel = selectedMonth
+        ? format(new Date(`${selectedMonth}-01`), 'MMMM yyyy', { locale: ptBR })
+        : '';
+
+    if (availableMonths.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-3">
                 <CalendarDays className="size-12 opacity-20" />
@@ -65,97 +85,118 @@ function EventListView({ events, onEventClick, reservationCategories }: { events
     }
 
     return (
-        <div className="space-y-8">
-            {grouped.map(([month, evts]) => (
-                <div key={month}>
-                    {/* Cabeçalho do mês */}
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="h-px flex-1 bg-border" />
-                        <span className="text-xs font-black uppercase tracking-widest text-muted-foreground px-2 capitalize">
-                            {month}
-                        </span>
-                        <div className="h-px flex-1 bg-border" />
-                    </div>
-
-                    {/* Eventos do mês */}
-                    <div className="space-y-2">
-                        {evts.map((ev, idx) => {
-                            const res: RoomReservation = ev.resource;
-                            const isApproved = res.status === 'approved';
-                            const isRecurring = res.frequency && res.frequency !== 'pontual';
-                            const categoryName = res.categoryId ? categoryMap.get(res.categoryId) : null;
-
-                            return (
-                                <button
-                                    key={`${ev.id}_${idx}`}
-                                    onClick={() => onEventClick?.(res)}
-                                    className={cn(
-                                        "w-full text-left flex items-stretch gap-0 rounded-xl border overflow-hidden",
-                                        "hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 group",
-                                        isApproved ? "border-emerald-200 bg-emerald-50/40" : "border-amber-200 bg-amber-50/30"
-                                    )}
-                                >
-                                    {/* Coluna de data */}
-                                    <div className={cn(
-                                        "flex flex-col items-center justify-center px-4 py-3 min-w-[60px] text-white font-black",
-                                        isApproved ? "bg-emerald-500" : "bg-amber-500"
-                                    )}>
-                                        <span className="text-2xl leading-none">{format(ev.start, 'dd')}</span>
-                                        <span className="text-[10px] uppercase tracking-wider opacity-80">{format(ev.start, 'EEE', { locale: ptBR })}</span>
-                                    </div>
-
-                                    {/* Conteúdo */}
-                                    <div className="flex-1 px-4 py-3 flex items-center justify-between gap-4">
-                                        <div className="flex flex-col gap-1">
-                                            <span className="font-bold text-slate-800 text-sm group-hover:text-primary transition-colors">
-                                                {res.eventName}
-                                            </span>
-                                            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                                {res.rooms && res.rooms.length > 0 && (
-                                                    <span className="flex items-center gap-1">
-                                                        <MapPin className="size-3" />
-                                                        {res.rooms.join(', ')}
-                                                    </span>
-                                                )}
-                                                {format(ev.start, 'HH:mm')} – {format(ev.end, 'HH:mm')}
-                                            </div>
-                                        </div>
-
-                                        <div className="flex flex-col items-end gap-1.5 shrink-0">
-                                            <Badge
-                                                variant="outline"
-                                                className={cn(
-                                                    "text-[10px] h-5 border",
-                                                    isApproved
-                                                        ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-                                                        : "bg-amber-100 text-amber-700 border-amber-200"
-                                                )}
-                                            >
-                                                {isApproved ? <CheckCircle2 className="size-3 mr-1" /> : <Clock className="size-3 mr-1" />}
-                                                {isApproved ? 'Confirmado' : 'Pendente'}
-                                            </Badge>
-                                            <div className="flex items-center gap-1">
-                                                {categoryName && (
-                                                    <Badge variant="outline" className="text-[10px] h-5 bg-slate-100 text-slate-600 border-slate-200">
-                                                        <Tag className="size-2.5 mr-1" />
-                                                        {categoryName}
-                                                    </Badge>
-                                                )}
-                                                {isRecurring && (
-                                                    <Badge variant="outline" className="text-[10px] h-5 bg-blue-50 text-blue-600 border-blue-200">
-                                                        <RefreshCw className="size-2.5 mr-1" />
-                                                        {res.frequency}
-                                                    </Badge>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </button>
-                            );
-                        })}
-                    </div>
+        <div className="space-y-4">
+            {/* Navegação de mês */}
+            <div className="flex items-center justify-between bg-muted/40 border rounded-xl px-4 py-2.5">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={goToPrev}
+                    disabled={!hasPrev}
+                    className="h-8 w-8"
+                >
+                    <ChevronLeft className="size-4" />
+                </Button>
+                <div className="text-center">
+                    <p className="font-black text-slate-800 capitalize text-sm">{monthLabel}</p>
+                    <p className="text-xs text-muted-foreground">{filteredEvents.length} evento(s)</p>
                 </div>
-            ))}
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={goToNext}
+                    disabled={!hasNext}
+                    className="h-8 w-8"
+                >
+                    <ChevronRight className="size-4" />
+                </Button>
+            </div>
+
+            {/* Lista de eventos do mês */}
+            {filteredEvents.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-40 text-muted-foreground gap-2">
+                    <CalendarDays className="size-10 opacity-20" />
+                    <p className="text-sm">Nenhum evento neste mês.</p>
+                </div>
+            ) : (
+                <div className="space-y-2">
+
+                    {filteredEvents.map((ev, idx) => {
+                        const res: RoomReservation = ev.resource;
+                        const isApproved = res.status === 'approved';
+                        const isRecurring = res.frequency && res.frequency !== 'pontual';
+                        const categoryName = res.categoryId ? categoryMap.get(res.categoryId) : null;
+
+                        return (
+                            <button
+                                key={`${ev.id}_${idx}`}
+                                onClick={() => onEventClick?.(res)}
+                                className={cn(
+                                    "w-full text-left flex items-stretch gap-0 rounded-xl border overflow-hidden",
+                                    "hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 group",
+                                    isApproved ? "border-emerald-200 bg-emerald-50/40" : "border-amber-200 bg-amber-50/30"
+                                )}
+                            >
+                                {/* Coluna de data */}
+                                <div className={cn(
+                                    "flex flex-col items-center justify-center px-4 py-3 min-w-[60px] text-white font-black",
+                                    isApproved ? "bg-emerald-500" : "bg-amber-500"
+                                )}>
+                                    <span className="text-2xl leading-none">{format(ev.start, 'dd')}</span>
+                                    <span className="text-[10px] uppercase tracking-wider opacity-80">{format(ev.start, 'EEE', { locale: ptBR })}</span>
+                                </div>
+
+                                {/* Conteúdo */}
+                                <div className="flex-1 px-4 py-3 flex items-center justify-between gap-4">
+                                    <div className="flex flex-col gap-1">
+                                        <span className="font-bold text-slate-800 text-sm group-hover:text-primary transition-colors">
+                                            {res.eventName}
+                                        </span>
+                                        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                            {res.rooms && res.rooms.length > 0 && (
+                                                <span className="flex items-center gap-1">
+                                                    <MapPin className="size-3" />
+                                                    {res.rooms.join(', ')}
+                                                </span>
+                                            )}
+                                            {format(ev.start, 'HH:mm')} – {format(ev.end, 'HH:mm')}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                        <Badge
+                                            variant="outline"
+                                            className={cn(
+                                                "text-[10px] h-5 border",
+                                                isApproved
+                                                    ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                                                    : "bg-amber-100 text-amber-700 border-amber-200"
+                                            )}
+                                        >
+                                            {isApproved ? <CheckCircle2 className="size-3 mr-1" /> : <Clock className="size-3 mr-1" />}
+                                            {isApproved ? 'Confirmado' : 'Pendente'}
+                                        </Badge>
+                                        <div className="flex items-center gap-1">
+                                            {categoryName && (
+                                                <Badge variant="outline" className="text-[10px] h-5 bg-slate-100 text-slate-600 border-slate-200">
+                                                    <Tag className="size-2.5 mr-1" />
+                                                    {categoryName}
+                                                </Badge>
+                                            )}
+                                            {isRecurring && (
+                                                <Badge variant="outline" className="text-[10px] h-5 bg-blue-50 text-blue-600 border-blue-200">
+                                                    <RefreshCw className="size-2.5 mr-1" />
+                                                    {res.frequency}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 }
