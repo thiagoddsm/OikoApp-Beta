@@ -67,20 +67,21 @@ export async function GET(request: Request) {
         
         let resolvedCount = 0;
         for (const user of systemUsers) {
-            const rawPhone = (user as any).phone || (user as any).phoneNumber;
-            if (!rawPhone) continue;
-            
-            const phone = rawPhone.replace(/\D/g, '');
-            if (phone.length < 8) continue;
-            
-            // Garante o formato brasileiro com ou sem 55
-            const queryPhone = phone.startsWith('55') ? phone : `55${phone}`;
-
             try {
+                const rawPhone = (user as any).phone || (user as any).phoneNumber;
+                if (!rawPhone) continue;
+                
+                // Força cast para string caso o valor no banco seja um número
+                const phone = String(rawPhone).replace(/\D/g, '');
+                if (phone.length < 8) continue;
+                
+                // Garante o formato brasileiro com ou sem 55
+                const queryPhone = phone.startsWith('55') ? phone : `55${phone}`;
+
                 const regRes = await fetch(`${baseUrl}/${apiKey}/actions/registered?number=${queryPhone}`);
                 const regData = await regRes.json();
                 
-                const waInfo = regData["0"] || regData; // Algumas APIs retornam direto, outras em "0"
+                const waInfo = regData["0"] || regData;
                 if (waInfo && waInfo.exists) {
                     const contactRef = db.collection('notifications_contacts').doc(phone);
                     await contactRef.set({
@@ -94,12 +95,12 @@ export async function GET(request: Request) {
                     resolvedCount++;
                 }
             } catch (e) {
-                console.error(`Erro ao resolver ${phone}:`, e);
+                console.error(`Erro ao resolver usuário ${user.id}:`, e);
             }
             
             // Pausa curta para evitar rate limit na API
-            if (resolvedCount % 10 === 0) await new Promise(r => setTimeout(r, 500));
-            if (resolvedCount >= 100) break; // Limite por execução para não dar timeout no Vercel
+            if (resolvedCount > 0 && resolvedCount % 10 === 0) await new Promise(r => setTimeout(r, 500));
+            if (resolvedCount >= 100) break; 
         }
 
         return NextResponse.json({ 
