@@ -60,7 +60,7 @@ function ReservationsPageContent() {
                     <div>
                         <CardTitle className="flex items-center gap-3">
                             <CalendarClock className="size-6 text-primary"/>
-                            Reserva de Salas
+                            Calendário Geral
                         </CardTitle>
                         <CardDescription>
                             Gerencie as solicitações, o calendário e os ambientes disponíveis para reserva.

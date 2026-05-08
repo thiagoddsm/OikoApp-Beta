@@ -173,7 +173,7 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>{existingReservation ? 'Editar Reserva' : 'Solicitar Nova Reserva de Sala'}</DialogTitle>
+          <DialogTitle>{existingReservation ? 'Editar Reserva' : 'Solicitar Nova Entrada no Calendário Geral'}</DialogTitle>
           <DialogDescription>
             Preencha os detalhes abaixo. A sua solicitação será enviada para aprovação.
           </DialogDescription>

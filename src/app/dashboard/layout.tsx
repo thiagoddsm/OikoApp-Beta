@@ -125,7 +125,7 @@ const menuItems = [
             subItems: [
               { href: "/dashboard/events", label: "Protocolos de Evento", icon: CalendarCheck, permissionId: 'ministerial_events' },
               { href: "/dashboard/briefing-pro", label: "Briefing Pro", icon: FileText, permissionId: 'ministerial_briefing' },
-              { href: "/dashboard/events/reservations", label: "Reservas de Sala", icon: CalendarClock, permissionId: 'ministerial_reservations' },
+              { href: "/dashboard/events/reservations", label: "Calendário Geral", icon: CalendarClock, permissionId: 'ministerial_reservations' },
             ]
         },
         { href: "/dashboard/finance", label: "Financeiro", icon: Briefcase, permissionId: 'ministerial_finance' },

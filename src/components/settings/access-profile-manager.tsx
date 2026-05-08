@@ -66,7 +66,7 @@ const permissionsConfig = [
       },
       { id: 'ministerial_events', label: 'Protocolos de Evento', actions: ['view', 'edit', 'delete'] },
       { id: 'ministerial_briefing', label: 'Briefing Pro', actions: ['view', 'edit'] },
-      { id: 'ministerial_reservations', label: 'Reservas de Sala', actions: ['view', 'approve', 'delete'] },
+      { id: 'ministerial_reservations', label: 'Calendário Geral', actions: ['view', 'approve', 'delete'] },
       { id: 'ministerial_finance', label: 'Financeiro', actions: ['view', 'edit'] },
       { id: 'ministerial_patrimony', label: 'Patrimônio', actions: ['view', 'edit', 'delete'] },
       { id: 'ministerial_social', label: 'Ação Social', actions: ['view', 'edit', 'delete'] },

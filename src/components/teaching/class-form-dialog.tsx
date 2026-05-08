@@ -368,7 +368,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }:
 
                     {locationType === 'ibm' && (
                         <div className="md:col-span-2 space-y-2 animate-in slide-in-from-top-2">
-                            <Label htmlFor="ibmRoomId" className="text-[10px] uppercase font-black text-primary">Ambiente Interno (Reserva de Sala)</Label>
+                            <Label htmlFor="ibmRoomId" className="text-[10px] uppercase font-black text-primary">Ambiente Interno (Calendário Geral)</Label>
                             <Select value={ibmRoomId || 'null'} onValueChange={setIbmRoomId} disabled={isLoading}>
                                 <SelectTrigger id="ibmRoomId" className="h-11"><SelectValue placeholder={isLoading ? "Carregando..." : "Selecione o ambiente"} /></SelectTrigger>
                                 <SelectContent>
