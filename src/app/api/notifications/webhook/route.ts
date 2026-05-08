@@ -29,20 +29,23 @@ export async function POST(request: Request) {
     let responseType: 'button' | 'poll' | 'text' | null = null;
     let payload: any = null;
 
-    // A. Button Response (buttonsResponseMessage)
-    if (msgContent.buttonsResponseMessage) {
+    // B. Button / List / Interactive Response
+    if (
+        msgContent.buttonsResponseMessage || 
+        msgContent.templateButtonReplyMessage || 
+        msgContent.listResponseMessage ||
+        data.buttonsResponseMessage ||
+        data.templateButtonReplyMessage ||
+        data.listResponseMessage
+    ) {
+        const btn = msgContent.buttonsResponseMessage || data.buttonsResponseMessage || {};
+        const tmpl = msgContent.templateButtonReplyMessage || data.templateButtonReplyMessage || {};
+        const list = msgContent.listResponseMessage || data.listResponseMessage || {};
+        
         responseType = 'button';
         payload = {
-            buttonId: msgContent.buttonsResponseMessage.selectedButtonId || 'unknown_id',
-            buttonText: msgContent.buttonsResponseMessage.selectedDisplayText || 'Botão clicado'
-        };
-    } 
-    // B. List Response (listResponseMessage)
-    else if (msgContent.listResponseMessage) {
-        responseType = 'button';
-        payload = {
-            buttonId: msgContent.listResponseMessage.singleSelectReply?.selectedRowId || 'unknown_id',
-            buttonText: msgContent.listResponseMessage.title || 'Item selecionado'
+            buttonId: btn.selectedButtonId || tmpl.selectedId || list.singleSelectReply?.selectedRowId || 'click',
+            buttonText: btn.selectedDisplayText || tmpl.selectedDisplayText || list.title || 'Botão clicado'
         };
     }
     // C. Poll Update (pollUpdateMessage)
