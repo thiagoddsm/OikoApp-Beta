@@ -5,16 +5,21 @@ import moment from 'moment';
 import 'moment/locale/pt-br';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useVolunteering, type RoomReservation } from '@/contexts/volunteering-context';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CalendarDays, List, CheckCircle2, Clock, RefreshCw, MapPin, Tag } from 'lucide-react';
 import { Card } from '../ui/card';
+import { Button } from '../ui/button';
+import { Badge } from '../ui/badge';
+import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 moment.locale('pt-br');
 const localizer = momentLocalizer(moment);
 
 const statusColors = {
-    approved: '#10B981', // green-500
-    pending: '#F59E0B',  // amber-500
-    rejected: '#EF4444', // red-500
+    approved: '#10B981',
+    pending: '#F59E0B',
+    rejected: '#EF4444',
 };
 
 const weekDayMap: Record<string, number> = {
@@ -34,30 +39,146 @@ interface ReservationsCalendarProps {
     categoryFilter?: string;
 }
 
-export function ReservationsCalendar({ 
-    onEventClick, 
-    searchTerm = '', 
-    roomFilter = 'all', 
-    categoryFilter = 'all' 
+// ─── Componente de visualização em Lista ────────────────────────────────────
+function EventListView({ events, onEventClick, reservationCategories }: { events: any[], onEventClick?: (res: RoomReservation) => void, reservationCategories: any[] }) {
+    const categoryMap = useMemo(() => new Map(reservationCategories.map(c => [c.id, c.name])), [reservationCategories]);
+
+    // Agrupar por mês
+    const grouped = useMemo(() => {
+        const map = new Map<string, any[]>();
+        const sorted = [...events].sort((a, b) => a.start - b.start);
+        sorted.forEach(ev => {
+            const key = format(ev.start, 'MMMM yyyy', { locale: ptBR });
+            if (!map.has(key)) map.set(key, []);
+            map.get(key)!.push(ev);
+        });
+        return Array.from(map.entries());
+    }, [events]);
+
+    if (grouped.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-3">
+                <CalendarDays className="size-12 opacity-20" />
+                <p className="text-sm font-medium">Nenhum evento encontrado para os filtros aplicados.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-8">
+            {grouped.map(([month, evts]) => (
+                <div key={month}>
+                    {/* Cabeçalho do mês */}
+                    <div className="flex items-center gap-3 mb-3">
+                        <div className="h-px flex-1 bg-border" />
+                        <span className="text-xs font-black uppercase tracking-widest text-muted-foreground px-2 capitalize">
+                            {month}
+                        </span>
+                        <div className="h-px flex-1 bg-border" />
+                    </div>
+
+                    {/* Eventos do mês */}
+                    <div className="space-y-2">
+                        {evts.map((ev, idx) => {
+                            const res: RoomReservation = ev.resource;
+                            const isApproved = res.status === 'approved';
+                            const isRecurring = res.frequency && res.frequency !== 'pontual';
+                            const categoryName = res.categoryId ? categoryMap.get(res.categoryId) : null;
+
+                            return (
+                                <button
+                                    key={`${ev.id}_${idx}`}
+                                    onClick={() => onEventClick?.(res)}
+                                    className={cn(
+                                        "w-full text-left flex items-stretch gap-0 rounded-xl border overflow-hidden",
+                                        "hover:shadow-md transition-all duration-200 hover:-translate-y-0.5 group",
+                                        isApproved ? "border-emerald-200 bg-emerald-50/40" : "border-amber-200 bg-amber-50/30"
+                                    )}
+                                >
+                                    {/* Coluna de data */}
+                                    <div className={cn(
+                                        "flex flex-col items-center justify-center px-4 py-3 min-w-[60px] text-white font-black",
+                                        isApproved ? "bg-emerald-500" : "bg-amber-500"
+                                    )}>
+                                        <span className="text-2xl leading-none">{format(ev.start, 'dd')}</span>
+                                        <span className="text-[10px] uppercase tracking-wider opacity-80">{format(ev.start, 'EEE', { locale: ptBR })}</span>
+                                    </div>
+
+                                    {/* Conteúdo */}
+                                    <div className="flex-1 px-4 py-3 flex items-center justify-between gap-4">
+                                        <div className="flex flex-col gap-1">
+                                            <span className="font-bold text-slate-800 text-sm group-hover:text-primary transition-colors">
+                                                {res.eventName}
+                                            </span>
+                                            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                                {res.rooms && res.rooms.length > 0 && (
+                                                    <span className="flex items-center gap-1">
+                                                        <MapPin className="size-3" />
+                                                        {res.rooms.join(', ')}
+                                                    </span>
+                                                )}
+                                                {format(ev.start, 'HH:mm')} – {format(ev.end, 'HH:mm')}
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                            <Badge
+                                                variant="outline"
+                                                className={cn(
+                                                    "text-[10px] h-5 border",
+                                                    isApproved
+                                                        ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                                                        : "bg-amber-100 text-amber-700 border-amber-200"
+                                                )}
+                                            >
+                                                {isApproved ? <CheckCircle2 className="size-3 mr-1" /> : <Clock className="size-3 mr-1" />}
+                                                {isApproved ? 'Confirmado' : 'Pendente'}
+                                            </Badge>
+                                            <div className="flex items-center gap-1">
+                                                {categoryName && (
+                                                    <Badge variant="outline" className="text-[10px] h-5 bg-slate-100 text-slate-600 border-slate-200">
+                                                        <Tag className="size-2.5 mr-1" />
+                                                        {categoryName}
+                                                    </Badge>
+                                                )}
+                                                {isRecurring && (
+                                                    <Badge variant="outline" className="text-[10px] h-5 bg-blue-50 text-blue-600 border-blue-200">
+                                                        <RefreshCw className="size-2.5 mr-1" />
+                                                        {res.frequency}
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+// ─── Componente principal ────────────────────────────────────────────────────
+export function ReservationsCalendar({
+    onEventClick,
+    searchTerm = '',
+    roomFilter = 'all',
+    categoryFilter = 'all'
 }: ReservationsCalendarProps) {
   const { reservations, reservationCategories, isLoading } = useVolunteering();
   const [date, setDate] = useState(new Date());
-  const [view, setView] = useState<View>(Views.MONTH);
+  const [calView, setCalView] = useState<View>(Views.MONTH);
+  const [displayMode, setDisplayMode] = useState<'calendar' | 'list'>('calendar');
 
   const events = useMemo(() => {
     if (!reservations || !Array.isArray(reservations)) return [];
-    
-    // Aplicar filtros básicos antes da expansão
+
     const filteredBase = reservations.filter(res => {
-        // Filtro de Categoria
         if (categoryFilter !== 'all' && res.categoryId !== categoryFilter) return false;
-
-        // Filtro de Ambiente
         if (roomFilter !== 'all' && !res.rooms?.includes(roomFilter)) return false;
-
-        // Filtro de Busca
         if (searchTerm && !res.eventName.toLowerCase().includes(searchTerm.toLowerCase())) return false;
-
         return true;
     });
 
@@ -65,19 +186,19 @@ export function ReservationsCalendar({
 
     filteredBase.forEach(res => {
       try {
-        const baseStart = res.startDateTime?.toDate ? res.startDateTime.toDate() : 
+        const baseStart = res.startDateTime?.toDate ? res.startDateTime.toDate() :
                          (res.startDateTime instanceof Date ? res.startDateTime : null);
-        const baseEnd = res.endDateTime?.toDate ? res.endDateTime.toDate() : 
+        const baseEnd = res.endDateTime?.toDate ? res.endDateTime.toDate() :
                        (res.endDateTime instanceof Date ? res.endDateTime : null);
 
         if (!baseStart || !baseEnd || isNaN(baseStart.getTime())) return;
 
         const duration = baseEnd.getTime() - baseStart.getTime();
         const limitDate = moment().add(24, 'months');
-        
-        let recurrenceStop = res.recurrenceEndDate?.toDate ? res.recurrenceEndDate.toDate() : 
+
+        let recurrenceStop = res.recurrenceEndDate?.toDate ? res.recurrenceEndDate.toDate() :
                             (res.recurrenceEndDate instanceof Date ? res.recurrenceEndDate : limitDate.toDate());
-        
+
         if (moment(recurrenceStop).isAfter(limitDate)) {
             recurrenceStop = limitDate.toDate();
         }
@@ -120,7 +241,7 @@ export function ReservationsCalendar({
             if (shouldAdd) {
                 const occStart = current.toDate();
                 const occEnd = new Date(occStart.getTime() + duration);
-                
+
                 allOccurrences.push({
                     id: `${res.id}_${occStart.getTime()}`,
                     title: `${res.eventName} (${res.rooms?.join(', ') || 'N/A'})`,
@@ -129,7 +250,7 @@ export function ReservationsCalendar({
                     resource: res,
                 });
             }
-            current.add(1, 'day'); 
+            current.add(1, 'day');
         }
       } catch (e) {
         console.error("Erro ao expandir recorrência no calendário global:", e, res);
@@ -138,7 +259,7 @@ export function ReservationsCalendar({
 
     return allOccurrences;
   }, [reservations, searchTerm, roomFilter, categoryFilter]);
-  
+
   const eventStyleGetter = (event: any) => {
     const status = event.resource?.status || 'pending';
     return {
@@ -156,12 +277,12 @@ export function ReservationsCalendar({
         }
     };
   };
-  
+
   const components = useMemo(() => ({
     event: ({ event }: any) => {
       const isClass = event.id?.toString().includes('class_res_');
       const isRecurring = event.resource?.frequency && event.resource?.frequency !== 'pontual';
-      
+
       return (
         <div className="overflow-hidden h-full">
           <div className="font-bold flex items-center gap-1 truncate">
@@ -186,35 +307,78 @@ export function ReservationsCalendar({
   }
 
   return (
-    <Card className="p-4 h-[75vh] w-full overflow-hidden shadow-inner bg-slate-50/30">
-        <Calendar
-            localizer={localizer}
-            events={events}
-            startAccessor="start"
-            endAccessor="end"
-            style={{ height: '100%' }}
-            date={date}
-            view={view}
-            onNavigate={setDate}
-            onView={setView}
-            onSelectEvent={(event) => onEventClick?.(event.resource)}
-            eventPropGetter={eventStyleGetter}
-            messages={{
-                next: "Próximo",
-                previous: "Anterior",
-                today: "Hoje",
-                month: "Mês",
-                week: "Semana",
-                day: "Dia",
-                agenda: "Agenda",
-                date: "Data",
-                time: "Hora",
-                event: "Evento",
-                noEventsInRange: "Não há eventos neste período.",
-                showMore: (total) => `+ Ver mais (${total})`
-            }}
-            components={components}
-        />
-    </Card>
+    <div className="space-y-4">
+        {/* Toggle de visualização */}
+        <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">
+                <span className="font-bold text-slate-700">{events.length}</span> ocorrência(s) encontrada(s)
+            </p>
+            <div className="flex items-center gap-1 bg-muted p-1 rounded-lg">
+                <Button
+                    variant={displayMode === 'calendar' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setDisplayMode('calendar')}
+                    className="h-8 gap-2"
+                >
+                    <CalendarDays className="size-4" />
+                    <span className="hidden sm:inline">Calendário</span>
+                </Button>
+                <Button
+                    variant={displayMode === 'list' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setDisplayMode('list')}
+                    className="h-8 gap-2"
+                >
+                    <List className="size-4" />
+                    <span className="hidden sm:inline">Lista</span>
+                </Button>
+            </div>
+        </div>
+
+        {/* Visualização de Calendário */}
+        {displayMode === 'calendar' && (
+            <Card className="p-4 h-[72vh] w-full overflow-hidden shadow-inner bg-slate-50/30">
+                <Calendar
+                    localizer={localizer}
+                    events={events}
+                    startAccessor="start"
+                    endAccessor="end"
+                    style={{ height: '100%' }}
+                    date={date}
+                    view={calView}
+                    onNavigate={setDate}
+                    onView={setCalView}
+                    onSelectEvent={(event) => onEventClick?.(event.resource)}
+                    eventPropGetter={eventStyleGetter}
+                    messages={{
+                        next: "Próximo",
+                        previous: "Anterior",
+                        today: "Hoje",
+                        month: "Mês",
+                        week: "Semana",
+                        day: "Dia",
+                        agenda: "Agenda",
+                        date: "Data",
+                        time: "Hora",
+                        event: "Evento",
+                        noEventsInRange: "Não há eventos neste período.",
+                        showMore: (total) => `+ Ver mais (${total})`
+                    }}
+                    components={components}
+                />
+            </Card>
+        )}
+
+        {/* Visualização de Lista */}
+        {displayMode === 'list' && (
+            <div className="min-h-[40vh]">
+                <EventListView
+                    events={events}
+                    onEventClick={onEventClick}
+                    reservationCategories={reservationCategories}
+                />
+            </div>
+        )}
+    </div>
   );
 }
