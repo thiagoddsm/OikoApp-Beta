@@ -60,7 +60,55 @@ export async function GET(request: Request) {
             await batch.commit();
         }
 
-        return NextResponse.json({ success: true, count, totalFetched: contacts.length });
+        // 2. BUSCA USUÁRIOS DO SISTEMA E RESOLVE JID/LID NA API
+        // Esta é a parte mais importante: vinculamos o telefone do cadastro ao ID do WhatsApp
+        const usersSnap = await db.collection('users').get();
+        const systemUsers = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        let resolvedCount = 0;
+        for (const user of systemUsers) {
+            const rawPhone = (user as any).phone || (user as any).phoneNumber;
+            if (!rawPhone) continue;
+            
+            const phone = rawPhone.replace(/\D/g, '');
+            if (phone.length < 8) continue;
+            
+            // Garante o formato brasileiro com ou sem 55
+            const queryPhone = phone.startsWith('55') ? phone : `55${phone}`;
+
+            try {
+                const regRes = await fetch(`${baseUrl}/${apiKey}/actions/registered?number=${queryPhone}`);
+                const regData = await regRes.json();
+                
+                const waInfo = regData["0"] || regData; // Algumas APIs retornam direto, outras em "0"
+                if (waInfo && waInfo.exists) {
+                    const contactRef = db.collection('notifications_contacts').doc(phone);
+                    await contactRef.set({
+                        phoneNumber: phone,
+                        jid: waInfo.jid,
+                        lid: waInfo.lid || null,
+                        name: (user as any).name || null,
+                        systemUserId: user.id,
+                        updatedAt: new Date(),
+                    }, { merge: true });
+                    resolvedCount++;
+                }
+            } catch (e) {
+                console.error(`Erro ao resolver ${phone}:`, e);
+            }
+            
+            // Pausa curta para evitar rate limit na API
+            if (resolvedCount % 10 === 0) await new Promise(r => setTimeout(r, 500));
+            if (resolvedCount >= 100) break; // Limite por execução para não dar timeout no Vercel
+        }
+
+        return NextResponse.json({ 
+            success: true, 
+            count, 
+            resolvedCount,
+            totalFetched: contacts.length,
+            message: "Sincronização concluída com mapeamento de usuários do sistema."
+        });
     } catch (error: any) {
         console.error('Sync Contacts Error:', error);
         return NextResponse.json({ error: `Erro interno: ${error.message}` }, { status: 500 });
