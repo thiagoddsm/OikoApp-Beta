@@ -1,90 +1,197 @@
 'use client';
-import React, { useMemo, useState } from 'react';
-import { format, parseISO, addWeeks, addMonths, isBefore } from 'date-fns';
+import React, { useMemo, useState, useRef } from 'react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { parseISO, addWeeks, addMonths, isBefore } from 'date-fns';
 import { useVolunteering, getModuleIndexForDate, type Class, type User, type Course } from '@/contexts/volunteering-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { Loader2, Send, Filter, CheckCircle2, XCircle, AlertCircle, Clock } from 'lucide-react';
+import { Loader2, Send, Filter, CheckCircle2, XCircle, AlertCircle, Clock, Rocket, History, Pause, Play, Ban } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { getWhatsAppClient, formatWhatsAppNumber, TypeMessage } from '@/lib/whatsapp';
+import {
+    createCampaign,
+    processCampaign,
+    pauseCampaign,
+    cancelCampaign,
+    type NotificationCampaign,
+} from '@/lib/notification-campaigns';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, orderBy } from 'firebase/firestore';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 
 interface ClassNotificationsManagerProps {
     classData: Class;
     courseData: Course;
 }
 
+// ─── Painel de Campanhas ─────────────────────────────────────────────────────
+function CampaignsPanel({ classId, onResume }: { classId: string; onResume: (campaignId: string) => void }) {
+    const { firestore } = useFirebase();
+    const campaignsQuery = useMemoFirebase(() =>
+        firestore ? query(
+            collection(firestore, 'notification_campaigns'),
+            where('classId', '==', classId),
+            orderBy('createdAt', 'desc')
+        ) : null,
+        [firestore, classId]
+    );
+    const { data: campaigns = [], isLoading } = useCollection<NotificationCampaign>(campaignsQuery);
+
+    if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>;
+
+    if (campaigns.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center h-40 text-muted-foreground gap-2 border-2 border-dashed rounded-xl">
+                <History className="size-8 opacity-30" />
+                <p className="text-sm">Nenhuma campanha enviada para esta turma.</p>
+            </div>
+        );
+    }
+
+    const statusConfig: Record<string, { label: string; color: string }> = {
+        pending:   { label: 'Aguardando', color: 'bg-slate-100 text-slate-700 border-slate-200' },
+        running:   { label: 'Enviando...', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+        paused:    { label: 'Pausado', color: 'bg-amber-100 text-amber-700 border-amber-200' },
+        done:      { label: 'Concluído', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
+        cancelled: { label: 'Cancelado', color: 'bg-red-100 text-red-700 border-red-200' },
+        error:     { label: 'Erro', color: 'bg-red-100 text-red-700 border-red-200' },
+    };
+
+    return (
+        <div className="space-y-4">
+            {campaigns.map(c => {
+                const cfg = statusConfig[c.status] || statusConfig.pending;
+                const pct = c.totalCount > 0 ? Math.round(((c.sentCount + c.failedCount) / c.totalCount) * 100) : 0;
+                const canResume = c.status === 'paused' || c.status === 'pending';
+
+                return (
+                    <div key={c.id} className="border rounded-xl p-4 space-y-3 bg-card shadow-sm">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <Badge variant="outline" className={cn("text-[10px] h-5", cfg.color)}>
+                                        {cfg.label}
+                                    </Badge>
+                                    <span className="text-xs text-muted-foreground">
+                                        {c.createdAt?.toDate
+                                            ? format(c.createdAt.toDate(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+                                            : '—'}
+                                    </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-1 italic line-clamp-2">
+                                    {c.messageTemplate}
+                                </p>
+                            </div>
+                            <div className="flex gap-2 shrink-0">
+                                {canResume && (
+                                    <Button size="sm" variant="outline" onClick={() => onResume(c.id)} className="h-8 gap-1.5 text-emerald-600 border-emerald-300 hover:bg-emerald-50">
+                                        <Play className="size-3" /> Retomar
+                                    </Button>
+                                )}
+                                {c.status === 'running' && (
+                                    <Button size="sm" variant="outline" onClick={() => pauseCampaign(c.id)} className="h-8 gap-1.5 text-amber-600 border-amber-300 hover:bg-amber-50">
+                                        <Pause className="size-3" /> Pausar
+                                    </Button>
+                                )}
+                                {(c.status === 'running' || c.status === 'paused') && (
+                                    <Button size="sm" variant="outline" onClick={() => cancelCampaign(c.id)} className="h-8 gap-1.5 text-red-600 border-red-300 hover:bg-red-50">
+                                        <Ban className="size-3" />
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Barra de progresso */}
+                        <div className="space-y-1">
+                            <Progress value={pct} className="h-2" />
+                            <div className="flex justify-between text-[10px] text-muted-foreground">
+                                <span>
+                                    <span className="text-emerald-600 font-bold">{c.sentCount}</span> enviadas ·{' '}
+                                    <span className="text-red-500 font-bold">{c.failedCount}</span> falhas ·{' '}
+                                    {c.totalCount - c.sentCount - c.failedCount} pendentes
+                                </span>
+                                <span className="font-bold">{pct}%</span>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
 export function ClassNotificationsManager({ classData, courseData }: ClassNotificationsManagerProps) {
     const { users, isLoading } = useVolunteering();
     const { toast } = useToast();
-    
+
     const [targetFilter, setTargetFilter] = useState('all');
     const [messageText, setMessageText] = useState('Olá [Nome],\n\nPassando para informar que...');
-    const [isSending, setIsSending] = useState(false);
-    const [sentCount, setSentCount] = useState(0);
-    const [totalToSend, setTotalToSend] = useState(0);
+    const [isCreating, setIsCreating] = useState(false);
+    const [activeTab, setActiveTab] = useState<'compose' | 'campaigns'>('compose');
+
+    // Estado de progresso da campanha em execução
+    const [runningCampaignId, setRunningCampaignId] = useState<string | null>(null);
+    const [progress, setProgress] = useState({ sent: 0, total: 0 });
+    const isRunning = !!runningCampaignId;
 
     const minAttendanceApproval = courseData.minAttendanceApproval || 75;
-    // Uma aula é "Extra" se tem hora (T) OU se está marcada explicitamente como reposição
     const isActuallyExtra = (record: any) => record.date.includes('T') || record.isRepositionOnly;
 
     const sortedAttendance = useMemo(() => {
         const attendance = classData.attendance || [];
         if (!classData.startDate) return [...attendance].sort((a, b) => a.date.localeCompare(b.date));
 
-        // Replicar a lógica de datas válidas da Matriz para filtrar "fantasmas"
         const validDates = new Set<string>();
         const start = parseISO(classData.startDate);
         const end = classData.endDate ? parseISO(classData.endDate) : addMonths(start, 6);
         const holidaySet = new Set(classData.holidayDates || []);
         const overrides = classData.scheduleOverrides || {};
-        
-        if (classData.frequency === 'pontual') {
-            validDates.add(classData.startDate);
-        } else {
+
+        if (classData.frequency && classData.frequency !== 'pontual') {
             let current = start;
             let safe = 0;
-            while (safe++ < 200) {
-                const dStr = format(current, 'yyyy-MM-dd');
-                if (!holidaySet.has(dStr) && !overrides[dStr]?.isCancelled) {
-                    validDates.add(dStr);
-                } else if (overrides[dStr] && !overrides[dStr]?.isCancelled) {
-                    validDates.add(dStr);
+            while (isBefore(current, end) && safe++ < 300) {
+                const dateStr = format(current, 'yyyy-MM-dd');
+                if (!holidaySet.has(dateStr) || overrides[dateStr]) {
+                    if (!overrides[dateStr]?.isCancelled) {
+                        validDates.add(dateStr);
+                    }
                 }
                 current = addWeeks(current, classData.frequency === 'quinzenal' ? 2 : 1);
-                if (isBefore(end, current) && dStr !== format(end, 'yyyy-MM-dd')) break;
             }
+        } else {
+            validDates.add(format(start, 'yyyy-MM-dd'));
         }
 
-        // Adicionar overrides e sessões extras
-        Object.keys(overrides).forEach(dStr => {
-            if (!overrides[dStr]?.isCancelled) validDates.add(dStr);
-        });
-        classData.extraSessions?.forEach(s => {
-            validDates.add(`${s.date}T${s.startTime}`);
-            validDates.add(s.date); // Também validar a data pura
+        (classData.extraSessions || []).forEach((s: any) => { if (s.date) validDates.add(s.date); });
+        Object.entries(overrides).forEach(([dateStr, ov]: [string, any]) => {
+            if (!ov.isCancelled) validDates.add(dateStr);
         });
 
-        return attendance
-            .filter(record => {
-                // Uma data só é válida se está no cronograma projetado ou nas sessões extras
-                return validDates.has(record.date);
+        return [...attendance]
+            .filter(r => {
+                if (isActuallyExtra(r)) return true;
+                const dateOnly = r.date.split('T')[0];
+                return validDates.has(dateOnly);
             })
             .sort((a, b) => a.date.localeCompare(b.date));
     }, [classData]);
 
     const studentStatuses = useMemo(() => {
-        if (!users || !classData?.students) return [];
-        const studentSet = new Set(classData.students);
-        const students = users.filter(u => studentSet.has(u.id));
-        
+        const students = (classData.students || [])
+            .map(id => users.find(u => u.id === id))
+            .filter(Boolean) as User[];
         const totalClassesTaken = sortedAttendance.filter(a => !isActuallyExtra(a)).length;
 
-        const results = students.map(student => {
+        return students.map(student => {
             let presentCount = 0;
             const missedLessons: string[] = [];
             let lessonCounter = 0;
@@ -92,287 +199,307 @@ export function ClassNotificationsManager({ classData, courseData }: ClassNotifi
             sortedAttendance.forEach((record) => {
                 const isExtra = isActuallyExtra(record);
                 const isPresent = record.presentStudentIds?.includes(student.id) || record.onlineStudentIds?.includes(student.id);
-                
                 if (!isExtra) {
                     lessonCounter++;
-                    if (isPresent) {
-                        presentCount++;
-                    } else {
-                        missedLessons.push(`Aula ${lessonCounter}`);
-                    }
-                } else {
                     if (isPresent) presentCount++;
+                    else missedLessons.push(`Aula ${lessonCounter}`);
                 }
             });
 
-            // A porcentagem de frequência no OikoApp geralmente é baseada nas aulas obrigatórias (não extras)
-            const attendancePercent = totalClassesTaken > 0 ? (presentCount / totalClassesTaken) * 100 : 0;
-            const is100Percent = attendancePercent >= 100;
-            
+            const attendancePercent = totalClassesTaken > 0 ? (presentCount / totalClassesTaken) * 100 : 100;
+
             return {
-                ...student,
-                attendancePercent,
-                isApproved: attendancePercent >= minAttendanceApproval,
-                is100Percent,
-                hasAbsence: missedLessons.length > 0,
+                id: student.id,
+                name: student.name,
+                email: student.email,
+                phone: student.phone || '',
                 hasPhone: !!student.phone,
-                missedLessons
+                attendancePercent,
+                is100Percent: attendancePercent >= 100,
+                missedLessons,
             };
         });
-
-        results.sort((a, b) => a.name.localeCompare(b.name));
-        return results;
-    }, [users, classData, minAttendanceApproval, sortedAttendance]);
-
-
+    }, [users, classData, sortedAttendance]);
 
     const filteredStudents = useMemo(() => {
-        return studentStatuses.filter(s => {
-            if (targetFilter === 'all') return true;
-            if (targetFilter === 'perfect') return s.is100Percent;
-            if (targetFilter === 'absent') return s.hasAbsence;
-            
-            // Filtro por data específica (Aula X ou Reposição)
-            if (targetFilter.startsWith('date-absent-')) {
-                const targetDate = targetFilter.replace('date-absent-', '');
-                const record = classData.attendance?.find(a => a.date === targetDate);
-                if (!record) return false;
-                
-                // O aluno é faltante se NÃO está nas listas de presença
-                const isPresent = record.presentStudentIds?.includes(s.id) || record.onlineStudentIds?.includes(s.id);
-                return !isPresent;
-            }
+        if (targetFilter === 'all') return studentStatuses;
+        if (targetFilter === 'perfect') return studentStatuses.filter(s => s.is100Percent);
+        if (targetFilter === 'absent') return studentStatuses.filter(s => !s.is100Percent);
+        if (targetFilter.startsWith('date-absent-')) {
+            const targetDate = targetFilter.replace('date-absent-', '');
+            const record = sortedAttendance.find(r => r.date === targetDate);
+            if (!record) return [];
+            return studentStatuses.filter(s => !record.presentStudentIds?.includes(s.id) && !record.onlineStudentIds?.includes(s.id));
+        }
+        return studentStatuses.filter(s => s.id === targetFilter);
+    }, [targetFilter, studentStatuses, sortedAttendance]);
 
-            return s.id === targetFilter; 
-        });
-    }, [studentStatuses, targetFilter, classData.attendance]);
-
-    const handleSendNotifications = async () => {
+    const handleCreateCampaign = async () => {
         const recipients = filteredStudents.filter(s => s.hasPhone);
         if (recipients.length === 0) {
-            toast({ variant: 'destructive', title: 'Nenhum destinatário válido', description: 'Nenhum aluno no filtro selecionado possui número de telefone cadastrado.' });
+            toast({ variant: 'destructive', title: 'Nenhum destinatário válido', description: 'Nenhum aluno no filtro selecionado possui número de telefone.' });
             return;
         }
-
         if (!messageText.trim()) {
-            toast({ variant: 'destructive', title: 'Mensagem Vazia', description: 'Por favor, escreva uma mensagem antes de enviar.' });
+            toast({ variant: 'destructive', title: 'Mensagem vazia', description: 'Por favor, escreva uma mensagem antes de continuar.' });
             return;
         }
+        if (!confirm(`Criar campanha e enviar para ${recipients.length} aluno(s) em lotes de 8? O envio será gradual e pode ser pausado.`)) return;
 
-        if (!confirm(`Você está prestes a enviar uma mensagem no WhatsApp para ${recipients.length} aluno(s). Deseja continuar?`)) {
-            return;
-        }
-
-        setIsSending(true);
-        setTotalToSend(recipients.length);
-        setSentCount(0);
-
+        setIsCreating(true);
         try {
-            const waClient = await getWhatsAppClient();
+            const campaignRecipients = recipients.map(s => {
+                const firstName = s.name.split(' ')[0];
+                const faltasText = s.missedLessons.length > 0 ? s.missedLessons.join(', ') : 'Nenhuma falta';
+                return {
+                    userId: s.id,
+                    name: s.name,
+                    phone: s.phone,
+                    personalizedMessage: messageText
+                        .replace(/\[Nome\]/gi, firstName)
+                        .replace(/\[Faltas\]/gi, faltasText),
+                };
+            });
 
-            for (let i = 0; i < recipients.length; i++) {
-                const student = recipients[i];
-                const formattedPhone = formatWhatsAppNumber(student.phone);
-                
-                // Substituir a variável [Nome] e [Faltas]
-                const firstName = student.name.split(' ')[0];
-                const faltasText = student.missedLessons.length > 0 
-                    ? student.missedLessons.join(', ') 
-                    : 'Nenhuma falta registrada';
+            const campaignId = await createCampaign({
+                classId: classData.id,
+                className: classData.name || 'Turma',
+                messageTemplate: messageText,
+                targetFilter,
+                recipients: campaignRecipients,
+            });
 
-                let personalizedMessage = messageText
-                    .replace(/\[Nome\]/gi, firstName)
-                    .replace(/\[Faltas\]/gi, faltasText);
+            toast({ title: 'Campanha criada!', description: 'O envio começará automaticamente. Acompanhe na aba "Campanhas".' });
+            setActiveTab('campaigns');
+            setRunningCampaignId(campaignId);
+            setProgress({ sent: 0, total: recipients.length });
 
-                await waClient.sendMessage({
-                    type: TypeMessage.TEXT,
-                    body: {
-                        to: formattedPhone,
-                        text: personalizedMessage
-                    }
-                });
+            // Processar em segundo plano
+            processCampaign(campaignId, (sent, total) => {
+                setProgress({ sent, total });
+            }).then(() => {
+                setRunningCampaignId(null);
+                toast({ title: '✅ Campanha concluída!', description: `Mensagens enviadas com sucesso.` });
+            }).catch(err => {
+                setRunningCampaignId(null);
+                console.error('Erro na campanha:', err);
+                toast({ variant: 'destructive', title: 'Erro na campanha', description: 'Verifique os logs e retome na aba Campanhas.' });
+            });
 
-                setSentCount(prev => prev + 1);
-                
-                // Pequeno delay para evitar bloqueio por spam (rate limit)
-                if (i < recipients.length - 1) {
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                }
-            }
-
-            toast({ title: 'Notificações Enviadas!', description: `Mensagem enviada com sucesso para ${recipients.length} aluno(s).` });
-            setMessageText('Olá [Nome],\n\nPassando para informar que...');
-        } catch (error) {
-            console.error('Erro ao enviar mensagens em lote:', error);
-            toast({ variant: 'destructive', title: 'Erro de Envio', description: 'Ocorreu um erro ao disparar algumas das mensagens. Verifique os logs.' });
+        } catch (err) {
+            console.error(err);
+            toast({ variant: 'destructive', title: 'Erro ao criar campanha', description: 'Tente novamente.' });
         } finally {
-            setIsSending(false);
-            setTotalToSend(0);
+            setIsCreating(false);
         }
     };
 
-    if (isLoading) {
-        return <div className="flex justify-center p-4"><Loader2 className="animate-spin" /></div>;
-    }
+    const handleResumeCampaign = async (campaignId: string) => {
+        if (isRunning) {
+            toast({ variant: 'destructive', title: 'Já há uma campanha em execução' });
+            return;
+        }
+        setRunningCampaignId(campaignId);
+        processCampaign(campaignId, (sent, total) => {
+            setProgress({ sent, total });
+        }).then(() => {
+            setRunningCampaignId(null);
+            toast({ title: '✅ Campanha concluída!' });
+        }).catch(() => {
+            setRunningCampaignId(null);
+        });
+    };
+
+    if (isLoading) return <div className="flex justify-center p-4"><Loader2 className="animate-spin" /></div>;
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-1 space-y-6">
-                <div className="space-y-4 bg-muted/30 p-4 rounded-xl border">
-                    <div>
-                        <h3 className="font-bold flex items-center gap-2 mb-2">
-                            <Filter className="size-4" /> Público-Alvo
-                        </h3>
-                        <Select value={targetFilter} onValueChange={setTargetFilter} disabled={isSending}>
-                            <SelectTrigger className="bg-white">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todos os Alunos</SelectItem>
-                                <SelectItem value="perfect">Alunos 100% de Presença</SelectItem>
-                                <SelectItem value="absent">Alunos com Faltas (Geral)</SelectItem>
-                                
-                                {sortedAttendance.length > 0 && (
-                                    <>
-                                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider bg-slate-50 mt-2 mb-1">
-                                            Faltantes por Data
-                                        </div>
-                                        {(() => {
-                                            let regularCounter = 0;
-                                            const isActuallyExtra = (record: any) => record.date.includes('T') || record.isRepositionOnly;
-                                            
-                                            return sortedAttendance.map((record) => {
-                                                const isExtra = isActuallyExtra(record);
-                                                if (!isExtra) regularCounter++;
-                                                const label = isExtra ? `Reposição` : `Aula ${regularCounter}`;
-                                                const dateLabel = record.date.includes('T') 
-                                                    ? record.date.split('T')[0].split('-').reverse().slice(0, 2).join('/')
-                                                    : record.date.split('-').reverse().slice(0, 2).join('/');
-                                                
-                                                return (
-                                                    <SelectItem key={record.date} value={`date-absent-${record.date}`}>
-                                                        {label} ({dateLabel})
-                                                    </SelectItem>
-                                                );
-                                            });
-                                        })()}
-                                    </>
-                                )}
-
-                                {studentStatuses.length > 0 && (
-                                    <>
-                                        <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider bg-slate-50 mt-2 mb-1">
-                                            Envio Individual
-                                        </div>
-                                        {studentStatuses.map(student => (
-                                            <SelectItem key={student.id} value={student.id}>
-                                                {student.name}
-                                            </SelectItem>
-                                        ))}
-                                    </>
-                                )}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="pt-2">
-                        <h3 className="font-bold flex items-center gap-2 mb-2">
-                            <Send className="size-4" /> Mensagem
-                        </h3>
-                        <Textarea 
-                            rows={8} 
-                            value={messageText} 
-                            onChange={e => setMessageText(e.target.value)}
-                            disabled={isSending}
-                            className="bg-white resize-none text-sm"
-                            placeholder="Escreva sua mensagem aqui..."
-                        />
-                        <p className="text-xs text-muted-foreground mt-2 italic space-y-1">
-                            <span>Dica: Use variáveis mágicas para personalizar sua mensagem:</span><br/>
-                            <span className="font-semibold text-primary">[Nome]</span> - Nome do aluno.<br/>
-                            <span className="font-semibold text-primary">[Faltas]</span> - Lista das aulas que o aluno faltou (ex: Aula 1, Aula 3).
-                        </p>
-                    </div>
-
-                    <Button 
-                        onClick={handleSendNotifications} 
-                        disabled={isSending || filteredStudents.length === 0} 
-                        className="w-full bg-emerald-600 hover:bg-emerald-700"
-                    >
-                        {isSending ? (
-                            <><Loader2 className="mr-2 size-4 animate-spin" /> Enviando ({sentCount}/{totalToSend})...</>
-                        ) : (
-                            <><Send className="mr-2 size-4" /> Disparar para {filteredStudents.filter(s => s.hasPhone).length} aluno(s)</>
+        <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)}>
+            <div className="flex items-center justify-between mb-4">
+                <TabsList>
+                    <TabsTrigger value="compose"><Send className="size-4 mr-2" />Compor</TabsTrigger>
+                    <TabsTrigger value="campaigns">
+                        <History className="size-4 mr-2" />Campanhas
+                        {isRunning && (
+                            <span className="ml-2 inline-flex items-center gap-1 text-xs text-blue-600 font-bold">
+                                <Loader2 className="size-3 animate-spin" />
+                                {progress.sent}/{progress.total}
+                            </span>
                         )}
-                    </Button>
-                </div>
+                    </TabsTrigger>
+                </TabsList>
+                {isRunning && (
+                    <div className="text-xs text-muted-foreground flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
+                        <Loader2 className="size-3 animate-spin text-blue-500" />
+                        Enviando em lotes... {progress.sent}/{progress.total}
+                    </div>
+                )}
             </div>
 
-            <div className="md:col-span-2">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold">Resumo de Destinatários ({filteredStudents.length})</h3>
-                    <Badge variant="outline" className="bg-slate-50">
-                        {filteredStudents.filter(s => !s.hasPhone).length} sem WhatsApp
-                    </Badge>
-                </div>
-                
-                <div className="rounded-md border bg-card overflow-hidden">
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="bg-muted/50">
-                                <TableHead>Aluno</TableHead>
-                                <TableHead className="text-center">Frequência</TableHead>
-                                <TableHead className="text-center">Status</TableHead>
-                                <TableHead className="text-center">WhatsApp</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {filteredStudents.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">Nenhum aluno atende a este filtro.</TableCell>
-                                </TableRow>
-                            ) : (
-                                filteredStudents.map((student) => {
-                                    const avatar = PlaceHolderImages.find(p => p.id === 'avatar-1');
-                                    return (
-                                        <TableRow key={student.id}>
-                                            <TableCell>
-                                                <div className="flex items-center gap-3">
-                                                    <Avatar className="h-8 w-8">
-                                                        {avatar && <AvatarImage src={avatar.imageUrl} alt={student.name} />}
-                                                        <AvatarFallback>{student.name.charAt(0)}</AvatarFallback>
-                                                    </Avatar>
-                                                    <div className="flex flex-col">
-                                                        <span className="font-medium text-sm">{student.name}</span>
-                                                        <span className="text-xs text-muted-foreground">{student.email || '-'}</span>
-                                                    </div>
+            {/* ABA: COMPOR */}
+            <TabsContent value="compose">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="md:col-span-1 space-y-6">
+                        <div className="space-y-4 bg-muted/30 p-4 rounded-xl border">
+                            <div>
+                                <h3 className="font-bold flex items-center gap-2 mb-2">
+                                    <Filter className="size-4" /> Público-Alvo
+                                </h3>
+                                <Select value={targetFilter} onValueChange={setTargetFilter} disabled={isCreating || isRunning}>
+                                    <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Todos os Alunos</SelectItem>
+                                        <SelectItem value="perfect">Alunos 100% de Presença</SelectItem>
+                                        <SelectItem value="absent">Alunos com Faltas (Geral)</SelectItem>
+
+                                        {sortedAttendance.length > 0 && (
+                                            <>
+                                                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider bg-slate-50 mt-2 mb-1">
+                                                    Faltantes por Data
                                                 </div>
-                                            </TableCell>
-                                            <TableCell className="text-center font-bold">
-                                                {student.attendancePercent.toFixed(0)}%
-                                            </TableCell>
-                                            <TableCell className="text-center">
-                                                {student.is100Percent ? (
-                                                    <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-emerald-300">100% Presença</Badge>
-                                                ) : (
-                                                    <Badge variant="outline" className="bg-red-50 text-red-800 border-red-200">Possui Faltas</Badge>
-                                                )}
-                                            </TableCell>
-                                            <TableCell className="text-center">
-                                                {student.hasPhone ? (
-                                                    <CheckCircle2 className="size-4 text-emerald-500 mx-auto" />
-                                                ) : (
-                                                    <AlertCircle className="size-4 text-amber-500 mx-auto" title="Sem telefone" />
-                                                )}
-                                            </TableCell>
+                                                {(() => {
+                                                    let regularCounter = 0;
+                                                    const isActuallyExtra = (record: any) => record.date.includes('T') || record.isRepositionOnly;
+                                                    return sortedAttendance.map((record) => {
+                                                        const isExtra = isActuallyExtra(record);
+                                                        if (!isExtra) regularCounter++;
+                                                        const label = isExtra ? `Reposição` : `Aula ${regularCounter}`;
+                                                        const dateLabel = record.date.includes('T')
+                                                            ? record.date.split('T')[0].split('-').reverse().slice(0, 2).join('/')
+                                                            : record.date.split('-').reverse().slice(0, 2).join('/');
+                                                        return (
+                                                            <SelectItem key={record.date} value={`date-absent-${record.date}`}>
+                                                                {label} ({dateLabel})
+                                                            </SelectItem>
+                                                        );
+                                                    });
+                                                })()}
+                                            </>
+                                        )}
+
+                                        {studentStatuses.length > 0 && (
+                                            <>
+                                                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider bg-slate-50 mt-2 mb-1">
+                                                    Envio Individual
+                                                </div>
+                                                {studentStatuses.map(student => (
+                                                    <SelectItem key={student.id} value={student.id}>{student.name}</SelectItem>
+                                                ))}
+                                            </>
+                                        )}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="pt-2">
+                                <h3 className="font-bold flex items-center gap-2 mb-2">
+                                    <Send className="size-4" /> Mensagem
+                                </h3>
+                                <Textarea
+                                    rows={8}
+                                    value={messageText}
+                                    onChange={e => setMessageText(e.target.value)}
+                                    disabled={isCreating || isRunning}
+                                    className="bg-white resize-none text-sm"
+                                    placeholder="Escreva sua mensagem aqui..."
+                                />
+                                <p className="text-xs text-muted-foreground mt-2 italic space-y-1">
+                                    <span>Variáveis disponíveis:</span><br />
+                                    <span className="font-semibold text-primary">[Nome]</span> - Nome do aluno.<br />
+                                    <span className="font-semibold text-primary">[Faltas]</span> - Aulas que o aluno faltou.
+                                </p>
+                            </div>
+
+                            {/* Informativo de lotes */}
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700 space-y-1">
+                                <p className="font-bold flex items-center gap-1.5"><Rocket className="size-3.5" /> Envio em Lotes Inteligente</p>
+                                <p>Enviará <strong>8 mensagens por lote</strong> com <strong>18s de pausa</strong> entre lotes. Você pode fechar a tela, pausar ou cancelar a qualquer momento pela aba Campanhas.</p>
+                            </div>
+
+                            <Button
+                                onClick={handleCreateCampaign}
+                                disabled={isCreating || isRunning || filteredStudents.filter(s => s.hasPhone).length === 0}
+                                className="w-full bg-emerald-600 hover:bg-emerald-700"
+                            >
+                                {isCreating ? (
+                                    <><Loader2 className="mr-2 size-4 animate-spin" /> Criando Campanha...</>
+                                ) : (
+                                    <><Rocket className="mr-2 size-4" /> Criar Campanha ({filteredStudents.filter(s => s.hasPhone).length} aluno(s))</>
+                                )}
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* Tabela de destinatários */}
+                    <div className="md:col-span-2">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold">Resumo de Destinatários ({filteredStudents.length})</h3>
+                            <Badge variant="outline" className="bg-slate-50">
+                                {filteredStudents.filter(s => !s.hasPhone).length} sem WhatsApp
+                            </Badge>
+                        </div>
+
+                        <div className="rounded-md border bg-card overflow-hidden">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="bg-muted/50">
+                                        <TableHead>Aluno</TableHead>
+                                        <TableHead className="text-center">Frequência</TableHead>
+                                        <TableHead className="text-center">Status</TableHead>
+                                        <TableHead className="text-center">WhatsApp</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {filteredStudents.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">Nenhum aluno atende a este filtro.</TableCell>
                                         </TableRow>
-                                    )
-                                })
-                            )}
-                        </TableBody>
-                    </Table>
+                                    ) : (
+                                        filteredStudents.map((student) => {
+                                            const avatar = PlaceHolderImages.find(p => p.id === 'avatar-1');
+                                            return (
+                                                <TableRow key={student.id}>
+                                                    <TableCell>
+                                                        <div className="flex items-center gap-3">
+                                                            <Avatar className="h-8 w-8">
+                                                                {avatar && <AvatarImage src={avatar.imageUrl} alt={student.name} />}
+                                                                <AvatarFallback>{student.name.charAt(0)}</AvatarFallback>
+                                                            </Avatar>
+                                                            <div className="flex flex-col">
+                                                                <span className="font-medium text-sm">{student.name}</span>
+                                                                <span className="text-xs text-muted-foreground">{student.email || '-'}</span>
+                                                            </div>
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-center font-bold">{student.attendancePercent.toFixed(0)}%</TableCell>
+                                                    <TableCell className="text-center">
+                                                        {student.is100Percent ? (
+                                                            <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border-emerald-300">100% Presença</Badge>
+                                                        ) : (
+                                                            <Badge variant="outline" className="bg-red-50 text-red-800 border-red-200">Possui Faltas</Badge>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        {student.hasPhone ? (
+                                                            <CheckCircle2 className="size-4 text-emerald-500 mx-auto" />
+                                                        ) : (
+                                                            <AlertCircle className="size-4 text-amber-500 mx-auto" title="Sem telefone" />
+                                                        )}
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </div>
+            </TabsContent>
+
+            {/* ABA: CAMPANHAS */}
+            <TabsContent value="campaigns">
+                <CampaignsPanel classId={classData.id} onResume={handleResumeCampaign} />
+            </TabsContent>
+        </Tabs>
     );
 }
