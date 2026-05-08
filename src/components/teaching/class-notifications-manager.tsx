@@ -154,38 +154,64 @@ export function ClassNotificationsManager({ classData, courseData }: ClassNotifi
         const attendance = classData.attendance || [];
         if (!classData.startDate) return [...attendance].sort((a, b) => a.date.localeCompare(b.date));
 
-        const validDates = new Set<string>();
+        const validDatesForThisClass = new Set<string>();
+        const repoOnlyDates = new Set<string>(
+            (classData.extraSessions || []).filter((s: any) => s.isRepositionOnly).map((s: any) => `${s.date}T${s.startTime}`)
+        );
+        const allExtraSessionDates = new Set<string>(
+            (classData.extraSessions || []).map((s: any) => `${s.date}T${s.startTime}`)
+        );
+
         const start = parseISO(classData.startDate);
         const end = classData.endDate ? parseISO(classData.endDate) : addMonths(start, 6);
-        const holidaySet = new Set(classData.holidayDates || []);
+        const holidaySet = new Set<string>(classData.holidayDates || []);
         const overrides = classData.scheduleOverrides || {};
 
-        if (classData.frequency && classData.frequency !== 'pontual') {
+        // 1. Gerar datas regulares pelo cronograma
+        if (classData.frequency === 'pontual') {
+            validDatesForThisClass.add(classData.startDate);
+        } else if (classData.frequency) {
             let current = start;
             let safe = 0;
-            while (isBefore(current, end) && safe++ < 300) {
-                const dateStr = format(current, 'yyyy-MM-dd');
-                if (!holidaySet.has(dateStr) || overrides[dateStr]) {
-                    if (!overrides[dateStr]?.isCancelled) {
-                        validDates.add(dateStr);
-                    }
+            while (safe++ < 200) {
+                const dStr = format(current, 'yyyy-MM-dd');
+                if (!holidaySet.has(dStr) && !overrides[dStr]?.isCancelled) {
+                    validDatesForThisClass.add(dStr);
+                } else if (overrides[dStr] && !overrides[dStr]?.isCancelled) {
+                    validDatesForThisClass.add(dStr);
                 }
                 current = addWeeks(current, classData.frequency === 'quinzenal' ? 2 : 1);
+                if (isBefore(end, current)) break;
             }
-        } else {
-            validDates.add(format(start, 'yyyy-MM-dd'));
         }
 
-        (classData.extraSessions || []).forEach((s: any) => { if (s.date) validDates.add(s.date); });
-        Object.entries(overrides).forEach(([dateStr, ov]: [string, any]) => {
-            if (!ov.isCancelled) validDates.add(dateStr);
+        // 2. Overrides que caem fora da recorrência normal
+        Object.keys(overrides).forEach(dStr => {
+            if (!overrides[dStr]?.isCancelled) {
+                validDatesForThisClass.add(dStr);
+            }
         });
 
+        // 3. Sessões extras (aulas adicionais, NÃO reposições)
+        (classData.extraSessions || []).forEach((s: any) => {
+            if (!s.isRepositionOnly) {
+                validDatesForThisClass.add(`${s.date}T${s.startTime}`);
+            }
+        });
+
+        // 4. Filtrar attendance da mesma forma que o cronograma
         return [...attendance]
             .filter(r => {
-                if (isActuallyExtra(r)) return true;
-                const dateOnly = r.date.split('T')[0];
-                return validDates.has(dateOnly);
+                // Ignorar reposições estritas (não contam como aula regular)
+                if (repoOnlyDates.has(r.date) || r.isRepositionOnly) return false;
+
+                // Se é uma data com horário (aula extra) e não está na lista de extras atual → fantasma
+                if (r.date.includes('T') && !allExtraSessionDates.has(r.date)) return false;
+
+                // Se a turma tem cronograma e a data não está no conjunto válido → fantasma
+                if (classData.startDate && !validDatesForThisClass.has(r.date)) return false;
+
+                return true;
             })
             .sort((a, b) => a.date.localeCompare(b.date));
     }, [classData]);
