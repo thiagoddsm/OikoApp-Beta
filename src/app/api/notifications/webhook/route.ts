@@ -18,7 +18,10 @@ export async function POST(request: Request) {
     const fromRaw = data.key?.remoteJid || data.from || data.participant || data.author;
     if (!fromRaw) return NextResponse.json({ success: true });
 
-    const fromPhone = fromRaw.split('@')[0].replace(/\D/g, '');
+    // Extrair o número real, lidando com JIDs multi-device (ex: 5521999998888:1@s.whatsapp.net)
+    // Pegamos a parte antes do @ e se houver :, pegamos a parte antes do :
+    const fromParts = fromRaw.split('@')[0].split(':');
+    const fromPhone = fromParts[0].replace(/\D/g, '');
 
     // 2. Identify Message Type and Payload
     let userId = 'unknown';

@@ -55,8 +55,13 @@ function useContactEnrichment(chats: any[]) {
                 // Ex: o ID "5521988887777-12345" contém "21988887777"
                 // Também remove o '9' extra se necessário para match de sistemas antigos
                 const uPhoneNo9 = uPhoneNoCountry.length === 11 ? uPhoneNoCountry.slice(0, 2) + uPhoneNoCountry.slice(3) : null;
+                const uPhoneLast8 = uPhoneNoCountry.slice(-8);
 
-                return rawId.includes(uPhoneNoCountry) || (uPhoneNo9 && rawId.includes(uPhoneNo9));
+                const idDigits = rawId.replace(/\D/g, '');
+                
+                return idDigits.includes(uPhoneNoCountry) || 
+                       (uPhoneNo9 && idDigits.includes(uPhoneNo9)) ||
+                       (uPhoneLast8.length === 8 && idDigits.includes(uPhoneLast8));
             });
 
             // Lógica de Nome: 1. Sistema, 2. Nome vindo do WhatsApp (pushName), 3. Formatação do número
