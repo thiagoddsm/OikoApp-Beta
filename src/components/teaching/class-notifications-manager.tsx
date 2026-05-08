@@ -22,7 +22,7 @@ import {
     type NotificationCampaign,
 } from '@/lib/notification-campaigns';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 
@@ -37,12 +37,17 @@ function CampaignsPanel({ classId, onResume }: { classId: string; onResume: (cam
     const campaignsQuery = useMemoFirebase(() =>
         firestore ? query(
             collection(firestore, 'notification_campaigns'),
-            where('classId', '==', classId),
-            orderBy('createdAt', 'desc')
+            where('classId', '==', classId)
         ) : null,
         [firestore, classId]
     );
-    const { data: campaigns = [], isLoading } = useCollection<NotificationCampaign>(campaignsQuery);
+    const { data: rawCampaigns = [], isLoading } = useCollection<NotificationCampaign>(campaignsQuery);
+
+    // Ordenar no cliente para evitar índice composto no Firestore
+    const campaigns = useMemo(
+        () => [...rawCampaigns].sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0)),
+        [rawCampaigns]
+    );
 
     if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>;
 

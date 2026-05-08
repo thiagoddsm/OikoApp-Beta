@@ -79,6 +79,11 @@ service cloud.firestore {
       allow write: if isAuthenticated();
     }
 
+    // Campanhas de Notificação
+    match /notification_campaigns/{campaignId} {
+      allow read, write: if isAuthenticated();
+    }
+
     // Regra Geral: Qualquer usuário autenticado pode ler e escrever o restante
     // (Admins e membros com permissão usam o controle de acesso da aplicação)
     match /{document=**} {
