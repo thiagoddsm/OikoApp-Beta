@@ -12,6 +12,7 @@ import dynamic from 'next/dynamic';
 import { Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CategoryManagement } from '@/components/volunteering/category-management';
 
 const ReservationsCalendar = dynamic(
     () => import('@/components/volunteering/reservations-calendar').then(mod => mod.ReservationsCalendar),
@@ -26,7 +27,7 @@ const ReservationsCalendar = dynamic(
 );
 
 function ReservationsPageContent() {
-    const { rooms } = useVolunteering();
+    const { rooms, reservationCategories } = useVolunteering();
     const [isDialogOpen, setDialogOpen] = useState(false);
     const [selectedReservation, setSelectedReservation] = useState<any>(null);
     
@@ -110,8 +111,9 @@ function ReservationsPageContent() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todas Categorias</SelectItem>
-                                    <SelectItem value="ensino">Ensino / Cursos</SelectItem>
-                                    <SelectItem value="geral">Geral / Eventos</SelectItem>
+                                    {reservationCategories.map(cat => (
+                                        <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -128,6 +130,7 @@ function ReservationsPageContent() {
                             <TabsTrigger value="calendar">Calendário</TabsTrigger>
                             <TabsTrigger value="list">Lista de Solicitações</TabsTrigger>
                             <TabsTrigger value="rooms">Ambientes</TabsTrigger>
+                            <TabsTrigger value="categories">Categorias</TabsTrigger>
                         </TabsList>
                         
                         <TabsContent value="calendar" className="mt-4">
@@ -149,6 +152,10 @@ function ReservationsPageContent() {
                         
                         <TabsContent value="rooms" className="mt-4">
                             <RoomsManagement />
+                        </TabsContent>
+                        
+                        <TabsContent value="categories" className="mt-4">
+                            <CategoryManagement />
                         </TabsContent>
                     </Tabs>
                 </CardContent>

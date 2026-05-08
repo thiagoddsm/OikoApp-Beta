@@ -40,7 +40,7 @@ export function ReservationsCalendar({
     roomFilter = 'all', 
     categoryFilter = 'all' 
 }: ReservationsCalendarProps) {
-  const { reservations, isLoading } = useVolunteering();
+  const { reservations, reservationCategories, isLoading } = useVolunteering();
   const [date, setDate] = useState(new Date());
   const [view, setView] = useState<View>(Views.MONTH);
 
@@ -50,9 +50,7 @@ export function ReservationsCalendar({
     // Aplicar filtros básicos antes da expansão
     const filteredBase = reservations.filter(res => {
         // Filtro de Categoria
-        const isEnsino = res.id.startsWith('class_res_');
-        if (categoryFilter === 'ensino' && !isEnsino) return false;
-        if (categoryFilter === 'geral' && isEnsino) return false;
+        if (categoryFilter !== 'all' && res.categoryId !== categoryFilter) return false;
 
         // Filtro de Ambiente
         if (roomFilter !== 'all' && !res.rooms?.includes(roomFilter)) return false;

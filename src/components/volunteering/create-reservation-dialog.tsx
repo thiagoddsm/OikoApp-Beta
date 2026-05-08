@@ -24,7 +24,7 @@ const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Q
 
 export function CreateReservationDialog({ open, onOpenChange, existingReservation }: CreateReservationDialogProps) {
   const { user, firestore } = useFirebase();
-  const { addReservation, updateReservation, users, rooms: availableRooms, isLoading: isLoadingContext } = useVolunteering();
+  const { addReservation, updateReservation, users, rooms: availableRooms, reservationCategories, addReservationCategory, isLoading: isLoadingContext } = useVolunteering();
   
   const patrimonioQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'patrimonio')) : null, [firestore]);
   const { data: patrimonioItems, isLoading: isLoadingPatrimonio } = useCollection(patrimonioQuery);
@@ -43,6 +43,9 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
   const [frequency, setFrequency] = useState<'pontual' | 'semanal' | 'quinzenal' | 'mensal'>('pontual');
   const [dayOfWeek, setDayOfWeek] = useState('');
   const [weekOfMonth, setWeekOfMonth] = useState<'1' | '2' | '3' | '4' | 'last'>('1');
+  const [categoryId, setCategoryId] = useState('');
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
   const isLoading = isLoadingContext || isLoadingPatrimonio;
@@ -60,6 +63,9 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
         setFrequency(existingReservation.frequency || 'pontual');
         setDayOfWeek(existingReservation.dayOfWeek || '');
         setWeekOfMonth(existingReservation.weekOfMonth || '1');
+        setCategoryId(existingReservation.categoryId || '');
+        setIsCreatingCategory(false);
+        setNewCategoryName('');
 
         const start = existingReservation.startDateTime?.toDate();
         const end = existingReservation.endDateTime?.toDate();
@@ -93,6 +99,9 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
         setStartTime(now.toTimeString().split(' ')[0].substring(0, 5));
         setEndDate(now.toISOString().split('T')[0]);
         setEndTime(new Date(now.getTime() + 60 * 60 * 1000).toTimeString().split(' ')[0].substring(0, 5));
+        setCategoryId('');
+        setIsCreatingCategory(false);
+        setNewCategoryName('');
       }
     }
   }, [open, existingReservation, user]);
@@ -105,6 +114,13 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
     }
     setIsSaving(true);
     
+    let finalCategoryId = categoryId;
+    if (isCreatingCategory && newCategoryName.trim()) {
+      // Create new category
+      const newCat = await addReservationCategory({ name: newCategoryName.trim() });
+      finalCategoryId = (newCat as any)?.id || '';
+    }
+
     // Para reservas recorrentes, o endDateTime deve ser no mesmo dia do startDate, usando o endTime.
     // O campo recurrenceEndDate guardará o limite final da recorrência.
     const startDateTime = Timestamp.fromDate(new Date(`${startDate}T${startTime}`));
@@ -132,6 +148,7 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
       status: existingReservation?.status || 'pending',
       frequency,
       dayOfWeek: ['semanal', 'quinzenal', 'mensal'].includes(frequency) ? dayOfWeek : '',
+      categoryId: finalCategoryId,
     };
     
     if (frequency === 'mensal') {
@@ -197,6 +214,28 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
                       {users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <Label htmlFor="categoryId">Categoria</Label>
+                {isCreatingCategory ? (
+                  <div className="flex gap-2">
+                    <Input 
+                      placeholder="Nome da nova categoria..." 
+                      value={newCategoryName} 
+                      onChange={e => setNewCategoryName(e.target.value)}
+                      autoFocus
+                    />
+                    <Button variant="outline" size="sm" onClick={() => { setIsCreatingCategory(false); setNewCategoryName(''); }}>Cancelar</Button>
+                  </div>
+                ) : (
+                  <Select value={categoryId} onValueChange={(v) => { if (v === 'new') { setIsCreatingCategory(true); } else { setCategoryId(v); } }}>
+                    <SelectTrigger id="categoryId"><SelectValue placeholder="Selecione uma categoria" /></SelectTrigger>
+                    <SelectContent>
+                        {reservationCategories.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}
+                        <SelectItem value="new" className="text-primary font-bold">+ Criar Nova Categoria...</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               <div>
                   <Label>Salas/Ambientes</Label>

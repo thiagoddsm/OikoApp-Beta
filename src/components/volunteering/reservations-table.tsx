@@ -22,21 +22,20 @@ export function ReservationsTable({
     roomFilter = 'all', 
     categoryFilter = 'all' 
 }: ReservationsTableProps) {
-    const { reservations, users, updateReservation, deleteReservation, isLoading } = useVolunteering();
+    const { reservations, users, reservationCategories, updateReservation, deleteReservation, isLoading } = useVolunteering();
     const [isFormOpen, setFormOpen] = useState(false);
     const [isDeleteOpen, setDeleteOpen] = useState(false);
     const [selectedReservation, setSelectedReservation] = useState<RoomReservation | null>(null);
 
     const userMap = useMemo(() => new Map(users.map(u => [u.id, u.name])), [users]);
+    const categoryMap = useMemo(() => new Map(reservationCategories.map(c => [c.id, c.name])), [reservationCategories]);
     
     const filteredReservations = useMemo(() => {
         if (!reservations) return [];
         
         return [...reservations].filter(res => {
             // Filtro de Categoria
-            const isEnsino = res.id.startsWith('class_res_');
-            if (categoryFilter === 'ensino' && !isEnsino) return false;
-            if (categoryFilter === 'geral' && isEnsino) return false;
+            if (categoryFilter !== 'all' && res.categoryId !== categoryFilter) return false;
 
             // Filtro de Ambiente
             if (roomFilter !== 'all' && !res.rooms?.includes(roomFilter)) return false;
@@ -144,6 +143,11 @@ export function ReservationsTable({
                                                 {isFromClass && (
                                                     <Badge variant="outline" className="w-fit text-[9px] mt-1 h-4 bg-indigo-50 text-indigo-700 border-indigo-200">
                                                         <GraduationCap className="size-2.5 mr-1" /> ENSINO / TURMA
+                                                    </Badge>
+                                                )}
+                                                {res.categoryId && !isFromClass && (
+                                                    <Badge variant="outline" className="w-fit text-[9px] mt-1 h-4 bg-slate-100 text-slate-700 border-slate-200">
+                                                        {categoryMap.get(res.categoryId)}
                                                     </Badge>
                                                 )}
                                             </div>

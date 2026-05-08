@@ -62,6 +62,11 @@ export type VolunteeringEvent = {
   room?: string;
 };
 
+export type ReservationCategory = {
+  id: string;
+  name: string;
+};
+
 export type Room = {
   id: string;
   name: string;
@@ -84,6 +89,7 @@ export type RoomReservation = {
   dayOfWeek?: string;
   weekOfMonth?: '1' | '2' | '3' | '4' | 'last';
   createdAt?: Timestamp;
+  categoryId?: string;
 };
 
 export type Course = {
@@ -338,6 +344,7 @@ interface VolunteeringContextType {
   financialTransactions: FinancialTransaction[];
   financeRequests: FinanceRequest[];
   savedSchedules: SavedSchedule[];
+  reservationCategories: ReservationCategory[];
   cells: Cell[];
   areas: Area[];
   redes: Rede[];
@@ -353,6 +360,8 @@ interface VolunteeringContextType {
   deleteEvent: (id: string) => Promise<void>;
   addRoom: (data: Omit<Room, 'id'>) => Promise<void>;
   deleteRoom: (id: string) => Promise<void>;
+  addReservationCategory: (data: Omit<ReservationCategory, 'id'>) => Promise<void>;
+  deleteReservationCategory: (id: string) => Promise<void>;
   addReservation: (data: Omit<RoomReservation, 'id'>) => Promise<void>;
   updateReservation: (id: string, data: Partial<RoomReservation>) => Promise<void>;
   deleteReservation: (id: string) => Promise<void>;
@@ -439,6 +448,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   const savedSchedulesQ = useMemoFirebase(() => (firestore && user && roleResolved && can('servico_schedule')) ? query(collection(firestore, 'saved_schedules')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
   const roomsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('ministerial_reservations')) ? query(collection(firestore, 'rooms')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
   const theoflixCoursesQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'theoflix_courses')) : null, [firestore, user]);
+  const reservationCategoriesQ = useMemoFirebase(() => (firestore && user && roleResolved && can('ministerial_reservations')) ? query(collection(firestore, 'reservation_categories')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
   
   // GC Hierarchy Queries (Exige login para respeitar as regras do Firestore)
   const cellsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'cells')) : null, [firestore, user]);
@@ -464,7 +474,8 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   const { data: wavePlans, isLoading: lwpn } = useCollection<WavePlan>(wavePlansQ);
   const { data: disPlans, isLoading: ldpn } = useCollection<DisPlan>(disPlansQ);
   const { data: waveExpenses, isLoading: lwe } = useCollection<WaveExpense>(waveExpensesQ);
-  const { data: theoflixCourses, isLoading: ltc } = useCollection<any>(theoflixCoursesQ);
+  const { data: reservationCategories = [], isLoading: loadingCategories } = useCollection<ReservationCategory>(reservationCategoriesQ);
+  const { data: theoflixCourses = [], isLoading: loadingTheoflix } = useCollection<any>(theoflixCoursesQ);
   const { data: financialTransactions, isLoading: lft } = useCollection<FinancialTransaction>(financialTransactionsQ);
   const { data: financeRequests, isLoading: lfr } = useCollection<FinanceRequest>(financeRequestsQ);
   const { data: savedSchedules, isLoading: lss } = useCollection<SavedSchedule>(savedSchedulesQ);
@@ -472,7 +483,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   const { data: gcAreas, isLoading: lga } = useCollection<Area>(gcAreasQ);
   const { data: redes, isLoading: lre } = useCollection<Rede>(redesQ);
 
-  const isLoading = loadingRole || loadingProfile || (user ? lu : false) || la || lt || le || (user ? lr : false) || lres || lco || lcl || ler || lpl || lwp || ldp || lwpn || ldpn || lwe || (user ? ltc : false) || lft || lfr || lss || lce || lga || lre;
+  const isLoading = loadingRole || loadingProfile || loadingRooms || loadingCategories || loadingTheoflix || (user ? lu : false) || la || lt || le || (user ? lr : false) || lres || lco || lcl || ler || lpl || lwp || ldp || lwpn || ldpn || lwe || (user ? ltc : false) || lft || lfr || lss || lce || lga || lre;
 
   const value = useMemo(() => ({
     users: users || [],
@@ -494,6 +505,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
     financialTransactions: financialTransactions || [],
     financeRequests: financeRequests || [],
     savedSchedules: savedSchedules || [],
+    reservationCategories: reservationCategories || [],
     cells: cells || [],
     areas: gcAreas || [],
     redes: redes || [],
@@ -509,6 +521,8 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
     deleteEvent: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'volunteering_events', id)); },
     addRoom: async (data: any) => { await addDoc(collection(firestore!, 'rooms'), data); },
     deleteRoom: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'rooms', id)); },
+    addReservationCategory: async (data: any) => { await addDoc(collection(firestore!, 'reservation_categories'), data); },
+    deleteReservationCategory: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'reservation_categories', id)); },
     addReservation: async (data: any) => { await addDoc(collection(firestore!, 'room_reservations'), data); },
     updateReservation: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'room_reservations', id), data); },
     deleteReservation: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'room_reservations', id)); },
@@ -709,7 +723,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
       await setDocumentNonBlocking(doc(firestore!, 'saved_schedules', id), data);
     },
     deleteSchedule: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'saved_schedules', id)); },
-  }), [users, serviceAreas, gcAreas, cells, redes, teams, events, rooms, reservations, courses, classes, enrollmentRequests, pedagogicalLogs, wavePayments, disPayments, wavePlans, disPlans, waveExpenses, theoflixCourses, financialTransactions, financeRequests, savedSchedules, isLoading, firestore]);
+  }), [users, serviceAreas, gcAreas, cells, redes, teams, events, rooms, reservations, reservationCategories, courses, classes, enrollmentRequests, pedagogicalLogs, wavePayments, disPayments, wavePlans, disPlans, waveExpenses, theoflixCourses, financialTransactions, financeRequests, savedSchedules, isLoading, firestore]);
 
   return (
     <VolunteeringContext.Provider value={value}>
