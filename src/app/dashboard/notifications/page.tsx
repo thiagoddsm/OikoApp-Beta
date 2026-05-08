@@ -49,20 +49,18 @@ function useContactEnrichment(chats: any[]) {
             // Tenta encontrar o usuário no sistema
             const matchedUser = users?.find((u: any) => {
                 const uPhone = String(u.phone || '').replace(/\D/g, '');
-                if (!uPhone || uPhone.length < 8) return false;
-
-                // Remove 55 se houver no telefone do sistema
-                const uPhoneNoCountry = uPhone.startsWith('55') ? uPhone.substring(2) : uPhone;
+                const uLid = String(u.lid || '').split('@')[0];
+                const uJid = String(u.jid || '').split('@')[0];
                 
-                // Match se o telefone do sistema (DDD + Número) está contido no ID do WhatsApp
-                // Ex: o ID "5521988887777-12345" contém "21988887777"
-                // Também remove o '9' extra se necessário para match de sistemas antigos
-                const uPhoneNo9 = uPhoneNoCountry.length === 11 ? uPhoneNoCountry.slice(0, 2) + uPhoneNoCountry.slice(3) : null;
-                const uPhoneLast8 = uPhoneNoCountry.slice(-8);
+                if (uPhone && uPhone.length >= 8) {
+                    const uPhoneNoCountry = uPhone.startsWith('55') ? uPhone.substring(2) : uPhone;
+                    const uPhoneNo9 = uPhoneNoCountry.length === 11 ? uPhoneNoCountry.slice(0, 2) + uPhoneNoCountry.slice(3) : null;
+                    const uPhoneLast8 = uPhoneNoCountry.slice(-8);
+                    const idDigits = rawId.replace(/\D/g, '');
+                    if (idDigits.includes(uPhoneNoCountry) || (uPhoneNo9 && idDigits.includes(uPhoneNo9)) || (uPhoneLast8.length === 8 && idDigits.includes(uPhoneLast8))) return true;
+                }
 
-                const idDigits = rawId.replace(/\D/g, '');
-                
-                return rawId.includes(uPhoneNoCountry) || (uPhoneNo9 && rawId.includes(uPhoneNo9)) || (uPhoneLast8.length === 8 && rawId.includes(uPhoneLast8));
+                return (uLid && rawId === uLid) || (uJid && rawId === uJid);
             });
 
             // Tenta encontrar nos contatos sincronizados do WhatsApp
@@ -1005,15 +1003,21 @@ function WhatsappResponses() {
     const resolveUser = (phone: string) => {
         const rawId = String(phone || '').split('@')[0];
         
-        // 1. Tenta match no sistema
+        // 1. Tenta match no sistema (por telefone ou IDs vinculados)
         const matchedUser = users?.find((u: any) => {
             const uPhone = String(u.phone || '').replace(/\D/g, '');
-            if (!uPhone || uPhone.length < 8) return false;
-            const uPhoneNoCountry = uPhone.startsWith('55') ? uPhone.substring(2) : uPhone;
-            const uPhoneNo9 = uPhoneNoCountry.length === 11 ? uPhoneNoCountry.slice(0, 2) + uPhoneNoCountry.slice(3) : null;
-            const uPhoneLast8 = uPhoneNoCountry.slice(-8);
-            const idDigits = rawId.replace(/\D/g, '');
-            return idDigits.includes(uPhoneNoCountry) || (uPhoneNo9 && idDigits.includes(uPhoneNo9)) || (uPhoneLast8.length === 8 && idDigits.includes(uPhoneLast8));
+            const uLid = String(u.lid || '').split('@')[0];
+            const uJid = String(u.jid || '').split('@')[0];
+
+            if (uPhone && uPhone.length >= 8) {
+                const uPhoneNoCountry = uPhone.startsWith('55') ? uPhone.substring(2) : uPhone;
+                const uPhoneNo9 = uPhoneNoCountry.length === 11 ? uPhoneNoCountry.slice(0, 2) + uPhoneNoCountry.slice(3) : null;
+                const uPhoneLast8 = uPhoneNoCountry.slice(-8);
+                const idDigits = rawId.replace(/\D/g, '');
+                if (idDigits.includes(uPhoneNoCountry) || (uPhoneNo9 && idDigits.includes(uPhoneNo9)) || (uPhoneLast8.length === 8 && idDigits.includes(uPhoneLast8))) return true;
+            }
+
+            return (uLid && rawId === uLid) || (uJid && rawId === uJid);
         });
         if (matchedUser) return matchedUser.name;
 
