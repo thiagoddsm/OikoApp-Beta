@@ -483,7 +483,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   const { data: gcAreas, isLoading: lga } = useCollection<Area>(gcAreasQ);
   const { data: redes, isLoading: lre } = useCollection<Rede>(redesQ);
 
-  const isLoading = loadingRole || loadingProfile || loadingRooms || loadingCategories || loadingTheoflix || (user ? lu : false) || la || lt || le || (user ? lr : false) || lres || lco || lcl || ler || lpl || lwp || ldp || lwpn || ldpn || lwe || (user ? ltc : false) || lft || lfr || lss || lce || lga || lre;
+  const isLoading = loadingRole || loadingProfile || (user ? lu : false) || la || lt || le || (user ? lr : false) || lres || lco || lcl || ler || lpl || lwp || ldp || lwpn || ldpn || lwe || loadingCategories || (user ? loadingTheoflix : false) || lft || lfr || lss || lce || lga || lre;
 
   const value = useMemo(() => ({
     users: users || [],
