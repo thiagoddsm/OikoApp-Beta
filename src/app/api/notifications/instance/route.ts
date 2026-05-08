@@ -57,6 +57,44 @@ export async function GET(request: Request) {
   }
 }
 
+export async function DELETE(request: Request) {
+    try {
+        const { searchParams } = new URL(request.url);
+        let apiKey = searchParams.get('key');
+        let serverUrl = searchParams.get('server');
+
+        if (!apiKey || !serverUrl) {
+            try {
+                const db = getAdminDb();
+                const configSnap = await db.collection('config').doc('notifications').get();
+                if (configSnap.exists) {
+                    const data = configSnap.data();
+                    apiKey = apiKey || data?.instanceKey || data?.whatsappApiKey;
+                    serverUrl = serverUrl || data?.serverUrl || 'https://us.api-wa.me';
+                }
+            } catch (e) {}
+        }
+
+        if (!apiKey) {
+            return NextResponse.json({ error: 'Chave da instância não fornecida.' }, { status: 400 });
+        }
+
+        const baseUrl = (serverUrl || 'https://us.api-wa.me').replace(/\/$/, '');
+        const response = await fetch(`${baseUrl}/${apiKey}/instance`, {
+            method: 'DELETE',
+            headers: { 'accept': '*/*' },
+        });
+
+        const text = await response.text();
+        let result: any = {};
+        try { result = JSON.parse(text); } catch { result = { raw: text }; }
+
+        return NextResponse.json({ success: true, ...result });
+    } catch (error: any) {
+        return NextResponse.json({ error: `Erro interno: ${error.message}` }, { status: 500 });
+    }
+}
+
 export async function POST(request: Request) {
     try {
         const body = await request.json().catch(() => ({}));

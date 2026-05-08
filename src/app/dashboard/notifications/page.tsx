@@ -937,91 +937,157 @@ function WhatsappSender({ config }: { config: any }) {
 
 function WhatsappResponses() {
     const { firestore } = useFirebase();
+    const [expandedPoll, setExpandedPoll] = useState<string | null>(null);
+
+    const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
+    const { data: users } = useCollection<any>(usersQuery);
+
     const responsesQuery = useMemoFirebase(() => 
-        firestore ? query(collection(firestore, 'notifications_responses'), orderBy('receivedAt', 'desc'), limit(100)) : null,
+        firestore ? query(collection(firestore, 'notifications_responses'), orderBy('receivedAt', 'desc'), limit(200)) : null,
     [firestore]);
     
     const { data: responses, isLoading } = useCollection<any>(responsesQuery);
 
-    const pollStats = useMemo(() => {
-        if (!responses) return {};
-        const stats: Record<string, Record<string, number>> = {};
+    const resolveUser = (phone: string) => {
+        const cleaned = phone.replace(/\D/g, '');
+        const found = users?.find((u: any) => {
+            const up = String(u.phone || '').replace(/\D/g, '');
+            return up && (cleaned.endsWith(up) || up.endsWith(cleaned));
+        });
+        return found ? found.name : `+${phone}`;
+    };
+
+    const { pollStats, buttonStats } = useMemo(() => {
+        if (!responses) return { pollStats: {}, buttonStats: {} };
+
+        const lastVoteByPerson: Record<string, any> = {};
         responses.filter(r => r.type === 'poll').forEach(r => {
+            const key = `${r.pollName || 'Enquete'}__${r.from}`;
+            if (!lastVoteByPerson[key]) lastVoteByPerson[key] = r;
+        });
+
+        const pollStats: Record<string, Record<string, string[]>> = {};
+        Object.values(lastVoteByPerson).forEach((r: any) => {
             const pollName = r.pollName || 'Enquete';
-            if (!stats[pollName]) stats[pollName] = {};
-            r.selectedOptions?.forEach((opt: any) => {
-                const label = typeof opt === 'string' ? opt : opt.label || opt.text || 'Opção';
-                stats[pollName][label] = (stats[pollName][label] || 0) + 1;
+            if (!pollStats[pollName]) pollStats[pollName] = {};
+            const opts = Array.isArray(r.selectedOptions) ? r.selectedOptions : [r.selectedOptions].filter(Boolean);
+            opts.forEach((opt: any) => {
+                const label = typeof opt === 'string' ? opt : opt?.label || opt?.text || 'Opção';
+                if (!pollStats[pollName][label]) pollStats[pollName][label] = [];
+                pollStats[pollName][label].push(r.from);
             });
         });
-        return stats;
+
+        const lastButtonByPerson: Record<string, any> = {};
+        responses.filter(r => r.type === 'button').forEach(r => {
+            const key = `${r.buttonId || r.buttonText}__${r.from}`;
+            if (!lastButtonByPerson[key]) lastButtonByPerson[key] = r;
+        });
+        const buttonStats: Record<string, string[]> = {};
+        Object.values(lastButtonByPerson).forEach((r: any) => {
+            const label = r.buttonText || r.buttonId || 'Botão';
+            if (!buttonStats[label]) buttonStats[label] = [];
+            buttonStats[label].push(r.from);
+        });
+
+        return { pollStats, buttonStats };
     }, [responses]);
 
     if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
+    const hasData = Object.keys(pollStats).length > 0 || Object.keys(buttonStats).length > 0;
+
     return (
         <div className="space-y-6 text-slate-900">
-            {pollStats && Object.keys(pollStats).length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {Object.entries(pollStats).map(([name, votes]) => (
-                        <Card key={name} className="border-blue-100 bg-blue-50/30 shadow-sm border-2">
-                            <CardHeader className="py-3">
-                                <CardTitle className="text-xs font-black uppercase text-blue-800 flex items-center gap-2">
-                                    <CheckCircle2 className="size-4" /> {name}
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-2">
-                                {Object.entries(votes as any).map(([opt, count]) => (
-                                    <div key={opt} className="flex justify-between items-center text-xs bg-white/50 p-2 rounded-lg">
-                                        <span className="font-bold text-slate-700">{opt}</span>
-                                        <Badge className="bg-blue-600 text-white font-black">{count as number} votos</Badge>
-                                    </div>
-                                ))}
-                            </CardContent>
-                        </Card>
-                    ))}
+            {!hasData && (
+                <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-3 border-2 border-dashed rounded-xl">
+                    <MousePointer2 className="size-8 opacity-20" />
+                    <p className="text-xs italic text-center">Nenhuma resposta recebida ainda.<br />Configure o Webhook no portal api-wa.me para capturar interações.</p>
                 </div>
             )}
 
-            <div className="rounded-xl border-2 bg-card overflow-hidden shadow-sm">
-                <Table>
-                    <TableHeader className="bg-muted/50">
-                        <TableRow>
-                            <TableHead>Remetente</TableHead>
-                            <TableHead>Interação</TableHead>
-                            <TableHead>Resposta</TableHead>
-                            <TableHead className="text-right">Data/Hora</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {responses?.length === 0 ? (
-                            <TableRow><TableCell colSpan={4} className="h-32 text-center text-muted-foreground italic text-xs">Aguardando interações via Webhook...</TableCell></TableRow>
-                        ) : (
-                            responses?.map((res: any) => (
-                                <TableRow key={res.id} className="hover:bg-muted/30">
-                                    <TableCell>
-                                        <div className="font-bold text-sm">+{res.from}</div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline" className="text-[10px] uppercase font-black border-none">
-                                            {res.type === 'poll' ? <CheckCircle2 className="size-3 mr-1 text-blue-500" /> : <MousePointer2 className="size-3 mr-1 text-emerald-500" />}
-                                            {res.type}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline" className="font-black text-[10px] border-emerald-200 bg-emerald-50 text-emerald-800 h-6">
-                                            {res.type === 'poll' ? (Array.isArray(res.selectedOptions) ? res.selectedOptions.join(', ') : res.selectedOptions) : (res.buttonText || res.buttonId)}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-right text-[10px] text-muted-foreground font-bold">
-                                        {res.receivedAt ? format(res.receivedAt.toDate(), 'dd/MM HH:mm') : '-'}
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        )}
-                    </TableBody>
-                </Table>
-            </div>
+            {Object.entries(pollStats).map(([pollName, optionVoters]) => {
+                const totalVoters = new Set(Object.values(optionVoters).flat()).size;
+                const isExpanded = expandedPoll === pollName;
+                return (
+                    <Card key={pollName} className="border-2 border-blue-100 bg-blue-50/20 shadow-sm overflow-hidden">
+                        <CardHeader className="py-3 px-5 bg-blue-50/50 border-b border-blue-100">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-sm font-black text-blue-900 flex items-center gap-2">
+                                    <CheckCircle2 className="size-4 text-blue-500" />
+                                    {pollName}
+                                </CardTitle>
+                                <div className="flex items-center gap-2">
+                                    <Badge className="bg-blue-600 text-white font-black text-xs">{totalVoters} voto{totalVoters !== 1 ? 's' : ''}</Badge>
+                                    <Button size="sm" variant="ghost" className="h-7 text-[10px] font-black text-blue-700" onClick={() => setExpandedPoll(isExpanded ? null : pollName)}>
+                                        {isExpanded ? 'Recolher' : 'Ver quem votou'}
+                                    </Button>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="pt-4 pb-3 space-y-3">
+                            {Object.entries(optionVoters).map(([opt, phones]) => {
+                                const pct = totalVoters > 0 ? Math.round((phones.length / totalVoters) * 100) : 0;
+                                return (
+                                    <div key={opt} className="space-y-1.5">
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="font-bold text-slate-700">{opt}</span>
+                                            <span className="font-black text-blue-700">{phones.length} ({pct}%)</span>
+                                        </div>
+                                        <div className="h-2 bg-blue-100 rounded-full overflow-hidden">
+                                            <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                                        </div>
+                                        {isExpanded && (
+                                            <div className="flex flex-wrap gap-1 pt-1">
+                                                {phones.map(phone => (
+                                                    <Badge key={phone} variant="outline" className="text-[10px] font-medium border-blue-200 bg-white">
+                                                        {resolveUser(phone)}
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </CardContent>
+                    </Card>
+                );
+            })}
+
+            {Object.keys(buttonStats).length > 0 && (
+                <Card className="border-2 border-emerald-100 bg-emerald-50/20 shadow-sm overflow-hidden">
+                    <CardHeader className="py-3 px-5 bg-emerald-50/50 border-b border-emerald-100">
+                        <CardTitle className="text-sm font-black text-emerald-900 flex items-center gap-2">
+                            <MousePointer2 className="size-4 text-emerald-500" />
+                            Respostas de Botão
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-4 pb-3 space-y-3">
+                        {Object.entries(buttonStats).map(([label, phones]) => {
+                            const total = Object.values(buttonStats).flat().length;
+                            const pct = total > 0 ? Math.round((phones.length / total) * 100) : 0;
+                            return (
+                                <div key={label} className="space-y-1.5">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="font-bold text-slate-700">{label}</span>
+                                        <span className="font-black text-emerald-700">{phones.length} ({pct}%)</span>
+                                    </div>
+                                    <div className="h-2 bg-emerald-100 rounded-full overflow-hidden">
+                                        <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                                    </div>
+                                    <div className="flex flex-wrap gap-1 pt-1">
+                                        {phones.map(phone => (
+                                            <Badge key={phone} variant="outline" className="text-[10px] font-medium border-emerald-200 bg-white">
+                                                {resolveUser(phone)}
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </CardContent>
+                </Card>
+            )}
         </div>
     );
 }

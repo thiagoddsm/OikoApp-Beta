@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { 
     Loader2, MessageSquare, ShieldCheck, Send, Settings2, 
     RefreshCw, CheckCircle2, XCircle, Zap, Copy, Info, 
-    Smartphone, QrCode, CheckCircle
+    Smartphone, QrCode, CheckCircle, LogOut
 } from 'lucide-react';
 import { useFirebase, setDocumentNonBlocking } from '@/firebase';
 import { doc, Timestamp, getDoc } from 'firebase/firestore';
@@ -42,6 +42,7 @@ export default function NotificationSettingsPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [instanceStatus, setInstanceStatus] = useState<any>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
 
     const isConnected = instanceStatus?.parsedStatus === 'connected';
 
@@ -202,6 +203,27 @@ export default function NotificationSettingsPage() {
     const handleCopyWebhook = () => {
         navigator.clipboard.writeText(webhookUrl);
         toast({ title: "Copiado!", description: "Cole esta URL no portal api-wa.me" });
+    };
+
+    const handleLogout = async () => {
+        if (!confirm('Desconectar o WhatsApp desta instância? Você precisará escanear o QR Code novamente para reconectar.')) return;
+        setIsLoggingOut(true);
+        try {
+            const params = new URLSearchParams({ key: instanceKey });
+            if (serverUrl) params.set('server', serverUrl);
+            const res = await fetch(`/api/notifications/instance?${params.toString()}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.error) {
+                toast({ variant: 'destructive', title: 'Erro ao desconectar', description: data.error });
+            } else {
+                toast({ title: 'Desconectado!', description: 'A sessão do WhatsApp foi encerrada.' });
+                setInstanceStatus(null);
+            }
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Erro ao desconectar' });
+        } finally {
+            setIsLoggingOut(false);
+        }
     };
 
     if (isLoading) {
@@ -372,7 +394,23 @@ export default function NotificationSettingsPage() {
                                         <h4 className="font-black text-emerald-900 uppercase">Gateway Conectado</h4>
                                         <p className="text-[10px] text-emerald-700 font-bold mt-1">Sua instância está pronta para uso.</p>
                                     </div>
-                                    <Button size="sm" variant="ghost" onClick={checkStatus} className="mt-4 text-[10px] font-black uppercase tracking-widest text-emerald-800"><RefreshCw className="size-3 mr-2" /> Sincronizar</Button>
+                                    <div className="flex gap-2 justify-center">
+                                        <Button size="sm" variant="ghost" onClick={checkStatus} className="text-[10px] font-black uppercase tracking-widest text-emerald-800">
+                                            <RefreshCw className="size-3 mr-2" /> Sincronizar
+                                        </Button>
+                                        <Button 
+                                            size="sm" 
+                                            variant="ghost" 
+                                            onClick={handleLogout} 
+                                            disabled={isLoggingOut}
+                                            className="text-[10px] font-black uppercase tracking-widest text-red-600 hover:text-red-700 hover:bg-red-50"
+                                        >
+                                            {isLoggingOut 
+                                                ? <Loader2 className="size-3 mr-2 animate-spin" /> 
+                                                : <LogOut className="size-3 mr-2" />} 
+                                            Desconectar
+                                        </Button>
+                                    </div>
                                 </div>
                             ) : instanceStatus?.parsedStatus === 'pairing' && instanceStatus?.qr ? (
                                 <div className="space-y-4">

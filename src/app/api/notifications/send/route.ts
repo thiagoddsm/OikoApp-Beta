@@ -198,17 +198,19 @@ export async function POST(request: Request) {
         }
     }
     
-    // Registrar histórico
+    // Registrar histórico resumido
     try {
+        const summary = message || (rest.surveyName ? `[Enquete] ${rest.surveyName}` : rest.type === 'media' ? '[Mídia]' : '[Mensagem]');
         await db.collection("notifications_history").add({
             sentAt: Timestamp.now(),
             channel: 'whatsapp',
-            message: message || '',
-            recipientCount: targetUsers.length,
+            message: summary,
+            recipientCount: targetUsers.length + targetGroups.length,
             successCount: sentCount,
             errorCount: errorCount,
             status: errorCount > 0 ? (sentCount > 0 ? 'partial' : 'failed') : 'success',
             type: rest.type || 'text',
+            targetLabel: rest.audience || audience || 'custom',
         });
     } catch (e) {
         console.warn("Falha ao registrar histórico de notificação:", e);
