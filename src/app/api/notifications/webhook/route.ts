@@ -21,7 +21,55 @@ export async function POST(request: Request) {
     // Extrair o número real, lidando com JIDs multi-device (ex: 5521999998888:1@s.whatsapp.net)
     // Pegamos a parte antes do @ e se houver :, pegamos a parte antes do :
     const fromParts = fromRaw.split('@')[0].split(':');
-    const fromPhone = fromParts[0].replace(/\D/g, '');
+    let fromPhone = fromParts[0].replace(/\D/g, '');
+
+    // CRITICAL: WhatsApp multi-device pode enviar respostas com LID (ex: 43817323462720@lid)
+    // em vez do número real de telefone. Precisamos resolver LID -> telefone para vincular à campanha.
+    const isLid = fromRaw.includes('@lid') || (fromPhone.length > 0 && !fromPhone.startsWith('55') && fromPhone.length < 13 && fromPhone.length > 8);
+    
+    if (isLid) {
+        // ESTRATÉGIA 1: Usar campos do payload que já contêm o número real
+        // A API api-wa.me envia 'phoneNumber' e 'jid' com o número real mesmo quando 'from' é LID
+        const rawPhoneNumber = String(data.phoneNumber || '').replace(/\D/g, '');
+        const rawJid = String(data.jid || '').split('@')[0].split(':')[0].replace(/\D/g, '');
+        
+        if (rawPhoneNumber.length >= 10) {
+            fromPhone = rawPhoneNumber.startsWith('55') ? rawPhoneNumber : `55${rawPhoneNumber}`;
+        } else if (rawJid.length >= 10 && rawJid.startsWith('55')) {
+            fromPhone = rawJid;
+        } else if (rawJid.length >= 10) {
+            fromPhone = `55${rawJid}`;
+        } else {
+            // ESTRATÉGIA 2: Resolver via Firestore (mais lento mas robusto)
+            const lidValue = fromParts[0];
+            
+            const userByLidSnap = await db.collection('users')
+                .where('lid', '==', `${lidValue}@lid`)
+                .limit(1)
+                .get();
+            
+            if (!userByLidSnap.empty) {
+                const userData = userByLidSnap.docs[0].data();
+                const resolvedPhone = String(userData.phone || '').replace(/\D/g, '');
+                if (resolvedPhone.length >= 10) {
+                    fromPhone = resolvedPhone.startsWith('55') ? resolvedPhone : `55${resolvedPhone}`;
+                }
+            } else {
+                const contactByLidSnap = await db.collection('notifications_contacts')
+                    .where('lid', '==', `${lidValue}@lid`)
+                    .limit(1)
+                    .get();
+                
+                if (!contactByLidSnap.empty) {
+                    const contactData = contactByLidSnap.docs[0].data();
+                    const resolvedPhone = String(contactData.phoneNumber || '').replace(/\D/g, '');
+                    if (resolvedPhone.length >= 10) {
+                        fromPhone = resolvedPhone;
+                    }
+                }
+            }
+        }
+    }
 
     // Pegamos o ID da mensagem que está sendo respondida (se houver)
     let stanzaId = msgContent.contextInfo?.stanzaId || data.contextInfo?.stanzaId || data.stanzaId || null;
