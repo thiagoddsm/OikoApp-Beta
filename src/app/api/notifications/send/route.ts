@@ -108,7 +108,7 @@ export async function POST(request: Request) {
     let sentCount = 0;
     let errorCount = 0;
     const errors: string[] = [];
-    const sentMessages: { messageId: string, recipient: string }[] = [];
+    const sentMessages: { messageId: string, recipient: string, name?: string }[] = [];
 
     for (const user of targetUsers) {
         const personalizedBody = (message || '').replace('{{nome}}', user.name);
@@ -149,7 +149,7 @@ export async function POST(request: Request) {
             if (isSuccess) {
                 sentCount++;
                 const mId = response.messageId || response.id || response.key?.id || response.data?.id || (response.data && response.data[0]?.id);
-                if (mId) sentMessages.push({ messageId: mId, recipient: formattedPhone });
+                if (mId) sentMessages.push({ messageId: mId, recipient: formattedPhone, name: user.name });
             } else {
                 errorCount++;
                 errors.push(`Falha para ${user.name}: ${JSON.stringify(response)}`);
@@ -192,7 +192,7 @@ export async function POST(request: Request) {
             if (isSuccess) {
                 sentCount++;
                 const mId = response.messageId || response.id || response.key?.id || response.data?.id || (response.data && response.data[0]?.id);
-                if (mId) sentMessages.push({ messageId: mId, recipient: groupId });
+                if (mId) sentMessages.push({ messageId: mId, recipient: groupId, name: 'Grupo' });
             } else {
                 errorCount++;
                 errors.push(`Falha para grupo ${groupId}: ${JSON.stringify(response)}`);
@@ -224,7 +224,6 @@ export async function POST(request: Request) {
     }
 
     // 4. Registrar IDs de mensagens para rastreamento de respostas
-    // Fazemos isso em um lote separado para não atrasar o envio principal
     if (broadcastId && sentMessages.length > 0) {
         try {
             const msgBatch = db.batch();
@@ -236,6 +235,20 @@ export async function POST(request: Request) {
                     recipient: m.recipient,
                     sentAt: Timestamp.now()
                 });
+
+                // Se temos um nome para esse contato (importado ou do sistema), garantimos que ele esteja no banco de contatos
+                // para que as respostas apareçam com nome no dashboard
+                if (m.name) {
+                    const phone = m.recipient.split('@')[0].split(':')[0].replace(/\D/g, '');
+                    if (phone) {
+                        const contactRef = db.collection('notifications_contacts').doc(phone);
+                        msgBatch.set(contactRef, {
+                            phoneNumber: phone,
+                            name: m.name,
+                            updatedAt: Timestamp.now()
+                        }, { merge: true });
+                    }
+                }
             });
             await msgBatch.commit();
         } catch (e) {

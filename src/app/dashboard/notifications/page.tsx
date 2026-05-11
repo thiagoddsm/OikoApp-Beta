@@ -19,7 +19,7 @@ import {
     Users, CheckCircle2, Search, UserPlus, X, Info, RefreshCw, 
     Smartphone, MessageCircle, Trash2, CheckCircle, 
     Copy, Globe, HeartHandshake, CalendarDays, MousePointer2, QrCode,
-    Lock, Megaphone, UserCheck, ShieldCheck, ChevronRight
+    Lock, Megaphone, UserCheck, ShieldCheck, ChevronRight, FileSpreadsheet
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useCollection, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
@@ -300,6 +300,19 @@ function WhatsappSender({ config }: { config: any }) {
     const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
     const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([]);
     const [individualPhone, setIndividualPhone] = useState('');
+    const [spreadsheetData, setSpreadsheetData] = useState('');
+    const [importedContacts, setImportedContacts] = useState<{name: string, phone: string}[]>([]);
+
+    const parseSpreadsheet = (text: string) => {
+        const lines = text.split('\n').filter(line => line.trim());
+        const contacts = lines.map(line => {
+            const parts = line.split(/[,;\t]/);
+            const name = parts[0]?.trim() || 'Importado';
+            const phone = (parts[1] || parts[0])?.replace(/\D/g, '').trim();
+            return { name, phone };
+        }).filter(c => c.phone.length >= 8);
+        setImportedContacts(contacts);
+    };
     const [msgType, setMsgType] = useState<'text' | 'button' | 'survey' | 'media' | 'list'>('text');
 
     // WA Contacts & Groups from API
@@ -427,6 +440,11 @@ function WhatsappSender({ config }: { config: any }) {
             return;
         }
 
+        if (targetAudience === 'import_spreadsheet' && importedContacts.length === 0) {
+            toast({ variant: 'destructive', title: "Importe pelo menos um contato da planilha." });
+            return;
+        }
+
         if (targetAudience === 'specific_members' && selectedUserIds.length === 0) {
             toast({ variant: 'destructive', title: "Selecione pelo menos uma pessoa." });
             return;
@@ -461,8 +479,12 @@ function WhatsappSender({ config }: { config: any }) {
             message,
             userIds: targetAudience === 'specific_members' ? selectedUserIds : undefined,
             // Melhoria: Se for 'all_members', também manda como targets para evitar erro de credenciais no server local
-            targets: (targetAudience === 'specific_members' || targetAudience === 'all_members') 
-                ? (targetAudience === 'all_members' ? users : selectedUsersList)?.filter(u => u.phone).map(u => ({ id: u.id, name: u.name, phone: u.phone })) 
+            targets: (targetAudience === 'specific_members' || targetAudience === 'all_members' || targetAudience === 'import_spreadsheet') 
+                ? (
+                    targetAudience === 'import_spreadsheet' 
+                        ? importedContacts 
+                        : (targetAudience === 'all_members' ? users : selectedUsersList)?.filter(u => u.phone).map(u => ({ id: u.id, name: u.name, phone: u.phone }))
+                  )
                 : undefined,
             groupIds: targetAudience === 'specific_groups' ? selectedGroupIds : undefined,
             individualPhone: targetAudience === 'individual' ? individualPhone : undefined,
@@ -547,10 +569,39 @@ function WhatsappSender({ config }: { config: any }) {
                                 <SelectItem value="all_members">Todos os Membros</SelectItem>
                                 <SelectItem value="specific_members">Membros Selecionados</SelectItem>
                                 <SelectItem value="specific_groups">Grupos do WhatsApp</SelectItem>
+                                <SelectItem value="import_spreadsheet">Importar Planilha (CSV/Texto)</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
                 </div>
+
+                {targetAudience === 'import_spreadsheet' && (
+                    <div className="space-y-4 p-4 border rounded-lg bg-emerald-50/30">
+                        <div className="flex items-center justify-between">
+                            <Label className="text-emerald-900 font-bold flex items-center gap-2">
+                                <FileSpreadsheet size={16} />
+                                Importar Contatos
+                            </Label>
+                            {importedContacts.length > 0 && (
+                                <Badge variant="outline" className="bg-emerald-500 text-white border-none font-black text-[10px]">
+                                    {importedContacts.length} CONTATOS VÁLIDOS
+                                </Badge>
+                            )}
+                        </div>
+                        <Textarea 
+                            placeholder="Cole aqui no formato: Nome, Telefone (ou apenas telefones em linhas separadas)"
+                            value={spreadsheetData}
+                            onChange={(e) => {
+                                setSpreadsheetData(e.target.value);
+                                parseSpreadsheet(e.target.value);
+                            }}
+                            className="min-h-[120px] bg-white font-mono text-xs"
+                        />
+                        <p className="text-[10px] text-muted-foreground italic">
+                            Dica: Você pode copiar colunas de Nome e Telefone do Excel e colar aqui. O sistema limpará os números automaticamente.
+                        </p>
+                    </div>
+                )}
 
                 {targetAudience === 'individual' && (
                     <div className="space-y-2 p-4 border rounded-lg bg-indigo-50/30">
@@ -999,6 +1050,38 @@ function WhatsappResponses() {
     [firestore]);
     
     const { data: responses, isLoading } = useCollection<any>(responsesQuery);
+    
+    // Estados para filtro por campanha
+    const [broadcasts, setBroadcasts] = useState<any[]>([]);
+    const [selectedBroadcastId, setSelectedBroadcastId] = useState<string>('all');
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+    useEffect(() => {
+        const fetchHistory = async () => {
+            setIsLoadingHistory(true);
+            try {
+                const res = await fetch('/api/notifications/history');
+                const data = await res.json();
+                if (data.broadcasts) setBroadcasts(data.broadcasts);
+            } catch (e) {
+                console.error("Erro ao buscar histórico:", e);
+            } finally {
+                setIsLoadingHistory(false);
+            }
+        };
+        fetchHistory();
+    }, []);
+
+    // Filtrar respostas pela campanha selecionada
+    const filteredResponses = useMemo(() => {
+        if (!responses) return [];
+        if (selectedBroadcastId === 'all') return responses;
+        return responses.filter((r: any) => r.broadcastId === selectedBroadcastId);
+    }, [responses, selectedBroadcastId]);
+
+    const selectedBroadcastInfo = useMemo(() => {
+        return broadcasts.find(b => b.id === selectedBroadcastId);
+    }, [broadcasts, selectedBroadcastId]);
 
     const resolveUser = (phone: string) => {
         const rawId = String(phone || '').split('@')[0];
@@ -1044,7 +1127,7 @@ function WhatsappResponses() {
     };
 
     const { pollStats, buttonStats } = useMemo(() => {
-        if (!responses) return { pollStats: {}, buttonStats: {} };
+        if (!filteredResponses) return { pollStats: {}, buttonStats: {} };
 
         // Grouping polls: (Poll Name + Broadcast ID) -> { Option -> [Phones] }
         const pollStats: Record<string, { name: string, broadcastId?: string, options: Record<string, string[]> }> = {};
@@ -1054,7 +1137,7 @@ function WhatsappResponses() {
 
         // Track last vote per person per specific campaign instance
         const lastVoteByPerson: Record<string, any> = {};
-        responses.filter(r => r.type === 'poll').forEach(r => {
+        filteredResponses.filter(r => r.type === 'poll').forEach(r => {
             const key = `${r.pollName || 'Enquete'}__${r.broadcastId || 'general'}__${r.from}`;
             if (!lastVoteByPerson[key]) lastVoteByPerson[key] = r;
         });
@@ -1078,7 +1161,7 @@ function WhatsappResponses() {
 
         // Track last button click per person per specific campaign instance
         const lastButtonByPerson: Record<string, any> = {};
-        responses.filter(r => r.type === 'button').forEach(r => {
+        filteredResponses.filter(r => r.type === 'button').forEach(r => {
             const key = `${r.buttonText || r.buttonId}__${r.broadcastId || 'general'}__${r.from}`;
             if (!lastButtonByPerson[key]) lastButtonByPerson[key] = r;
         });
@@ -1103,6 +1186,50 @@ function WhatsappResponses() {
 
     return (
         <div className="space-y-6 text-slate-900">
+            {/* Seletor de Campanhas */}
+            <div className="flex flex-col md:flex-row gap-4 items-start md:items-end justify-between bg-white p-4 rounded-xl border-2 border-slate-100 shadow-sm">
+                <div className="space-y-1.5 flex-1">
+                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
+                        <History size={12} />
+                        Histórico de Disparos
+                    </Label>
+                    <Select value={selectedBroadcastId} onValueChange={setSelectedBroadcastId}>
+                        <SelectTrigger className="h-10 w-full md:w-[350px] font-bold">
+                            <SelectValue placeholder="Selecione um disparo..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todas as Campanhas</SelectItem>
+                            {broadcasts.map(b => (
+                                <SelectItem key={b.id} value={b.id} className="text-xs">
+                                    {format(new Date(b.sentAt), "dd/MM HH:mm")} - {b.message?.slice(0, 30)}...
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                {selectedBroadcastInfo && (
+                    <div className="flex gap-4">
+                        <div className="px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-100">
+                            <p className="text-[9px] font-black uppercase text-slate-400">Enviados</p>
+                            <p className="text-sm font-black text-slate-700">{selectedBroadcastInfo.recipientCount}</p>
+                        </div>
+                        <div className="px-3 py-1.5 bg-emerald-50 rounded-lg border border-emerald-100">
+                            <p className="text-[9px] font-black uppercase text-emerald-400">Respostas</p>
+                            <p className="text-sm font-black text-emerald-700">{filteredResponses.length}</p>
+                        </div>
+                        <div className="px-3 py-1.5 bg-blue-50 rounded-lg border border-blue-100">
+                            <p className="text-[9px] font-black uppercase text-blue-400">Engajamento</p>
+                            <p className="text-sm font-black text-blue-700">
+                                {selectedBroadcastInfo.recipientCount > 0 
+                                    ? Math.round((filteredResponses.length / selectedBroadcastInfo.recipientCount) * 100) 
+                                    : 0}%
+                            </p>
+                        </div>
+                    </div>
+                )}
+            </div>
+
             {!hasData && (
                 <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-3 border-2 border-dashed rounded-xl">
                     <MousePointer2 className="size-8 opacity-20" />
