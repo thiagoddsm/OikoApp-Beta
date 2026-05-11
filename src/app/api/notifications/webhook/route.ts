@@ -24,7 +24,14 @@ export async function POST(request: Request) {
     const fromPhone = fromParts[0].replace(/\D/g, '');
 
     // Pegamos o ID da mensagem que está sendo respondida (se houver)
-    const stanzaId = msgContent.contextInfo?.stanzaId || data.contextInfo?.stanzaId || data.stanzaId || null;
+    let stanzaId = msgContent.contextInfo?.stanzaId || data.contextInfo?.stanzaId || data.stanzaId || null;
+    
+    // Para enquetes, o ID da mensagem original costuma estar em pollCreationMessageKey.id
+    if (!stanzaId) {
+        const pollData = msgContent.pollUpdateMessage || data.pollUpdates || data.pollUpdate || data.pollUpdateMessage || {};
+        const pollUpdate = Array.isArray(pollData) ? pollData[0] : pollData;
+        stanzaId = pollUpdate.pollCreationMessageKey?.id || data.pollCreationMessageKey?.id || null;
+    }
 
     // 2. Identify Message Type and Payload
     let responseType: 'button' | 'poll' | 'text' | null = null;
@@ -129,6 +136,8 @@ export async function POST(request: Request) {
         try {
             // Tentar vincular com um broadcastId via stanzaId
             let broadcastId = null;
+            
+            // Estratégia 1: Buscar pelo stanzaId exato (ideal para botões que referenciam a msg original)
             if (stanzaId) {
                 const sentMsgSnap = await db.collection('notifications_sent_messages')
                     .where('messageId', '==', stanzaId)
@@ -137,6 +146,37 @@ export async function POST(request: Request) {
                 
                 if (!sentMsgSnap.empty) {
                     broadcastId = sentMsgSnap.docs[0].data().broadcastId;
+                }
+            }
+
+            // Estratégia 2: Se não encontrou pelo stanzaId, buscar a última mensagem enviada para esse telefone
+            // Isso cobre os casos em que o WhatsApp retorna um ID diferente do que armazenamos
+            if (!broadcastId && fromPhone) {
+                // Buscar todas as mensagens enviadas para este número e pegar a mais recente
+                const byRecipientSnap = await db.collection('notifications_sent_messages')
+                    .where('recipient', '==', fromPhone)
+                    .limit(10)
+                    .get();
+                
+                if (!byRecipientSnap.empty) {
+                    // Pegar a mais recente por sentAt
+                    let latest: any = null;
+                    byRecipientSnap.docs.forEach(d => {
+                        const data = d.data();
+                        if (!latest || (data.sentAt && data.sentAt.toMillis() > latest.sentAt.toMillis())) {
+                            latest = data;
+                        }
+                    });
+                    if (latest) broadcastId = latest.broadcastId;
+                }
+            }
+
+            // Enriquecer com nome real da enquete se possível
+            if (responseType === 'poll' && broadcastId && (!sanitizedPayload.pollName || sanitizedPayload.pollName === 'Enquete' || sanitizedPayload.pollName.length > 20)) {
+                const broadcastDoc = await db.collection('notifications_history').doc(broadcastId).get();
+                if (broadcastDoc.exists) {
+                    const bData = broadcastDoc.data();
+                    sanitizedPayload.pollName = bData?.surveyName || bData?.message?.slice(0, 50) || sanitizedPayload.pollName;
                 }
             }
 

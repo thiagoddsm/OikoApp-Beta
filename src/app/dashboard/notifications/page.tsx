@@ -1178,7 +1178,7 @@ function WhatsappResponses() {
         });
 
         return { pollStats, buttonStats };
-    }, [responses]);
+    }, [filteredResponses]);
 
     if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
@@ -1187,50 +1187,82 @@ function WhatsappResponses() {
     return (
         <div className="space-y-6 text-slate-900">
             {/* Seletor de Campanhas */}
-            <div className="flex flex-col md:flex-row gap-4 items-start md:items-end justify-between bg-white p-4 rounded-xl border-2 border-slate-100 shadow-sm">
-                <div className="space-y-1.5 flex-1">
-                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
-                        <History size={12} />
-                        Histórico de Disparos
-                    </Label>
-                    <Select value={selectedBroadcastId} onValueChange={setSelectedBroadcastId}>
-                        <SelectTrigger className="h-10 w-full md:w-[350px] font-bold">
-                            <SelectValue placeholder="Selecione um disparo..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Todas as Campanhas</SelectItem>
-                            {broadcasts.map(b => (
-                                <SelectItem key={b.id} value={b.id} className="text-xs">
-                                    {format(new Date(b.sentAt), "dd/MM HH:mm")} - {b.message?.slice(0, 30)}...
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+            <div className="bg-white p-6 rounded-2xl border-2 border-slate-100 shadow-sm space-y-6">
+                <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between border-b border-slate-50 pb-6">
+                    <div className="space-y-1.5 flex-1 w-full md:w-auto">
+                        <Label className="text-[10px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
+                            <History size={12} />
+                            Filtro por Disparo
+                        </Label>
+                        <div className="flex gap-2">
+                            <Select value={selectedBroadcastId} onValueChange={setSelectedBroadcastId}>
+                                <SelectTrigger className="h-11 w-full md:w-[450px] font-bold border-2 focus:ring-primary/20">
+                                    <SelectValue placeholder="Selecione um disparo..." />
+                                </SelectTrigger>
+                                <SelectContent className="max-w-[450px]">
+                                    <SelectItem value="all">Todas as Campanhas (Geral)</SelectItem>
+                                    {broadcasts.map(b => (
+                                        <SelectItem key={b.id} value={b.id} className="text-xs">
+                                            {format(new Date(b.sentAt), "dd/MM HH:mm", { locale: ptBR })} - {b.surveyName || b.message?.slice(0, 45)}...
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <Button 
+                                variant="outline" 
+                                size="icon" 
+                                onClick={() => {
+                                    const fetchHistory = async () => {
+                                        setIsLoadingHistory(true);
+                                        try {
+                                            const res = await fetch('/api/notifications/history');
+                                            const data = await res.json();
+                                            if (data.broadcasts) setBroadcasts(data.broadcasts);
+                                        } catch {} finally { setIsLoadingHistory(false); }
+                                    };
+                                    fetchHistory();
+                                }}
+                                disabled={isLoadingHistory}
+                            >
+                                <RefreshCw className={cn("size-4", isLoadingHistory && "animate-spin")} />
+                            </Button>
+                        </div>
+                    </div>
+
+                    {selectedBroadcastInfo && (
+                        <div className="flex flex-wrap gap-3 w-full md:w-auto">
+                            <div className="flex-1 md:flex-none px-4 py-2 bg-slate-50 rounded-xl border border-slate-100 min-w-[100px]">
+                                <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Enviados</p>
+                                <p className="text-lg font-black text-slate-700">{selectedBroadcastInfo.recipientCount}</p>
+                            </div>
+                            <div className="flex-1 md:flex-none px-4 py-2 bg-emerald-50 rounded-xl border border-emerald-100 min-w-[100px]">
+                                <p className="text-[9px] font-black uppercase text-emerald-400 tracking-wider">Respostas</p>
+                                <p className="text-lg font-black text-emerald-700">{filteredResponses.length}</p>
+                            </div>
+                            <div className="flex-1 md:flex-none px-4 py-2 bg-blue-50 rounded-xl border border-blue-100 min-w-[100px]">
+                                <p className="text-[9px] font-black uppercase text-blue-400 tracking-wider">Engajamento</p>
+                                <p className="text-lg font-black text-blue-700">
+                                    {selectedBroadcastInfo.recipientCount > 0 
+                                        ? Math.round((filteredResponses.length / selectedBroadcastInfo.recipientCount) * 100) 
+                                        : 0}%
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                {selectedBroadcastInfo && (
-                    <div className="flex gap-4">
-                        <div className="px-3 py-1.5 bg-slate-50 rounded-lg border border-slate-100">
-                            <p className="text-[9px] font-black uppercase text-slate-400">Enviados</p>
-                            <p className="text-sm font-black text-slate-700">{selectedBroadcastInfo.recipientCount}</p>
-                        </div>
-                        <div className="px-3 py-1.5 bg-emerald-50 rounded-lg border border-emerald-100">
-                            <p className="text-[9px] font-black uppercase text-emerald-400">Respostas</p>
-                            <p className="text-sm font-black text-emerald-700">{filteredResponses.length}</p>
-                        </div>
-                        <div className="px-3 py-1.5 bg-blue-50 rounded-lg border border-blue-100">
-                            <p className="text-[9px] font-black uppercase text-blue-400">Engajamento</p>
-                            <p className="text-sm font-black text-blue-700">
-                                {selectedBroadcastInfo.recipientCount > 0 
-                                    ? Math.round((filteredResponses.length / selectedBroadcastInfo.recipientCount) * 100) 
-                                    : 0}%
-                            </p>
+                {selectedBroadcastId !== 'all' && filteredResponses.length === 0 && (
+                    <div className="py-12 text-center space-y-3 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                        <Info className="size-8 mx-auto text-slate-300" />
+                        <div className="space-y-1">
+                            <h4 className="font-bold text-slate-500">Nenhuma resposta capturada para este disparo ainda</h4>
+                            <p className="text-xs text-slate-400">As respostas aparecerão aqui automaticamente assim que os membros interagirem.</p>
                         </div>
                     </div>
                 )}
             </div>
 
-            {!hasData && (
+            {!hasData && selectedBroadcastId === 'all' && (
                 <div className="flex flex-col items-center justify-center h-48 text-muted-foreground gap-3 border-2 border-dashed rounded-xl">
                     <MousePointer2 className="size-8 opacity-20" />
                     <p className="text-xs italic text-center">Nenhuma resposta recebida ainda.<br />Configure o Webhook no portal api-wa.me para capturar interações.</p>

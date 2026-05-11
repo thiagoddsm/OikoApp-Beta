@@ -211,6 +211,7 @@ export async function POST(request: Request) {
             sentAt: Timestamp.now(),
             channel: 'whatsapp',
             message: summary,
+            surveyName: rest.surveyName || null,
             recipientCount: targetUsers.length + targetGroups.length,
             successCount: sentCount,
             errorCount: errorCount,
