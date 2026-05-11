@@ -68,6 +68,13 @@ export async function createFollowUpTasks(prevState: State, formData: FormData):
       return { message: saveResult.error };
   }
 
+  // Sincronizar identidade do WhatsApp se houver telefone (em segundo plano)
+  if (validatedFields.data.leaderPhoneNumber && saveResult.docId) {
+      import('@/app/actions/wa-resolution').then(({ syncUserWAIdentity }) => {
+          syncUserWAIdentity(saveResult.docId!, validatedFields.data.leaderPhoneNumber).catch(e => console.warn("WA Sync Error:", e));
+      });
+  }
+
   try {
     const result = await generateNewMemberFollowUpTasks({
         visitorName: validatedFields.data.visitorName,

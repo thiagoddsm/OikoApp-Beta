@@ -92,6 +92,14 @@ export async function GET(request: Request) {
                         systemUserId: user.id,
                         updatedAt: new Date(),
                     }, { merge: true });
+
+                    // Também atualizar o documento do usuário principal para acesso rápido
+                    await db.collection('users').doc(user.id).update({
+                        jid: waInfo.jid,
+                        lid: waInfo.lid || null,
+                        waSyncedAt: new Date()
+                    });
+
                     resolvedCount++;
                 }
             } catch (e) {
@@ -99,8 +107,8 @@ export async function GET(request: Request) {
             }
             
             // Pausa curta para evitar rate limit na API
-            if (resolvedCount > 0 && resolvedCount % 10 === 0) await new Promise(r => setTimeout(r, 500));
-            if (resolvedCount >= 100) break; 
+            if (resolvedCount > 0 && resolvedCount % 5 === 0) await new Promise(r => setTimeout(r, 300));
+            if (resolvedCount >= 200) break; 
         }
 
         return NextResponse.json({ 

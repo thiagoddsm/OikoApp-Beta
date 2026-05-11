@@ -108,6 +108,7 @@ export async function POST(request: Request) {
     let sentCount = 0;
     let errorCount = 0;
     const errors: string[] = [];
+    const sentMessages: { messageId: string, recipient: string }[] = [];
 
     for (const user of targetUsers) {
         const personalizedBody = (message || '').replace('{{nome}}', user.name);
@@ -147,6 +148,8 @@ export async function POST(request: Request) {
             const isSuccess = response.status === 'success' || response.status === 200 || response.key || response.id || response.messageId || response.data?.id;
             if (isSuccess) {
                 sentCount++;
+                const mId = response.messageId || response.id || response.key?.id || response.data?.id || (response.data && response.data[0]?.id);
+                if (mId) sentMessages.push({ messageId: mId, recipient: formattedPhone });
             } else {
                 errorCount++;
                 errors.push(`Falha para ${user.name}: ${JSON.stringify(response)}`);
@@ -188,6 +191,8 @@ export async function POST(request: Request) {
             const isSuccess = response.status === 'success' || response.status === 200 || response.key || response.id || response.messageId || response.data?.id;
             if (isSuccess) {
                 sentCount++;
+                const mId = response.messageId || response.id || response.key?.id || response.data?.id || (response.data && response.data[0]?.id);
+                if (mId) sentMessages.push({ messageId: mId, recipient: groupId });
             } else {
                 errorCount++;
                 errors.push(`Falha para grupo ${groupId}: ${JSON.stringify(response)}`);
@@ -199,9 +204,10 @@ export async function POST(request: Request) {
     }
     
     // Registrar histórico resumido
+    let broadcastId = null;
     try {
         const summary = message || (rest.surveyName ? `[Enquete] ${rest.surveyName}` : rest.type === 'media' ? '[Mídia]' : '[Mensagem]');
-        await db.collection("notifications_history").add({
+        const historyRef = await db.collection("notifications_history").add({
             sentAt: Timestamp.now(),
             channel: 'whatsapp',
             message: summary,
@@ -212,11 +218,32 @@ export async function POST(request: Request) {
             type: rest.type || 'text',
             targetLabel: rest.audience || audience || 'custom',
         });
+        broadcastId = historyRef.id;
     } catch (e) {
         console.warn("Falha ao registrar histórico de notificação:", e);
     }
 
-    return NextResponse.json({ success: true, sentCount, errorCount, errors });
+    // 4. Registrar IDs de mensagens para rastreamento de respostas
+    // Fazemos isso em um lote separado para não atrasar o envio principal
+    if (broadcastId && sentMessages.length > 0) {
+        try {
+            const msgBatch = db.batch();
+            sentMessages.forEach(m => {
+                const msgRef = db.collection('notifications_sent_messages').doc(m.messageId);
+                msgBatch.set(msgRef, {
+                    messageId: m.messageId,
+                    broadcastId: broadcastId,
+                    recipient: m.recipient,
+                    sentAt: Timestamp.now()
+                });
+            });
+            await msgBatch.commit();
+        } catch (e) {
+            console.error("Erro ao registrar mensagens enviadas:", e);
+        }
+    }
+
+    return NextResponse.json({ success: true, sentCount, errorCount, errors, broadcastId });
 
   } catch (error: any) {
     console.error("API Route Critical Error:", error.message);

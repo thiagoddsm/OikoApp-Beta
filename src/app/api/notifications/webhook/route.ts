@@ -23,9 +23,10 @@ export async function POST(request: Request) {
     const fromParts = fromRaw.split('@')[0].split(':');
     const fromPhone = fromParts[0].replace(/\D/g, '');
 
+    // Pegamos o ID da mensagem que está sendo respondida (se houver)
+    const stanzaId = msgContent.contextInfo?.stanzaId || data.contextInfo?.stanzaId || data.stanzaId || null;
+
     // 2. Identify Message Type and Payload
-    let userId = 'unknown';
-    let userName = 'Desconhecido';
     let responseType: 'button' | 'poll' | 'text' | null = null;
     let payload: any = null;
 
@@ -36,32 +37,41 @@ export async function POST(request: Request) {
         msgContent.listResponseMessage ||
         data.buttonsResponseMessage ||
         data.templateButtonReplyMessage ||
-        data.listResponseMessage
+        data.listResponseMessage ||
+        msgContent.interactiveResponseMessage
     ) {
         const btn = msgContent.buttonsResponseMessage || data.buttonsResponseMessage || {};
         const tmpl = msgContent.templateButtonReplyMessage || data.templateButtonReplyMessage || {};
         const list = msgContent.listResponseMessage || data.listResponseMessage || {};
+        const interactive = msgContent.interactiveResponseMessage || data.interactiveResponseMessage || {};
         
+        let buttonId = btn.selectedButtonId || tmpl.selectedId || list.singleSelectReply?.selectedRowId;
+        let buttonText = btn.selectedDisplayText || tmpl.selectedDisplayText || list.title;
+
+        // Suporte para Interactive Messages do Evolution/Baileys
+        if (!buttonId && interactive.nativeFlowResponseMessage) {
+            const params = JSON.parse(interactive.nativeFlowResponseMessage.paramsJson || '{}');
+            buttonId = params.id;
+            buttonText = params.text || 'Botão clicado';
+        }
+
         responseType = 'button';
         payload = {
-            buttonId: btn.selectedButtonId || tmpl.selectedId || list.singleSelectReply?.selectedRowId || 'click',
-            buttonText: btn.selectedDisplayText || tmpl.selectedDisplayText || list.title || 'Botão clicado'
+            buttonId: buttonId || 'click',
+            buttonText: buttonText || 'Opção selecionada'
         };
     }
     // C. Poll Update (pollUpdateMessage)
-    else if (msgContent.pollUpdateMessage || data.pollUpdates || data.pollUpdate) {
-        const pollData = msgContent.pollUpdateMessage || data.pollUpdates || data.pollUpdate || {};
+    else if (msgContent.pollUpdateMessage || data.pollUpdates || data.pollUpdate || data.pollUpdateMessage) {
+        const pollData = msgContent.pollUpdateMessage || data.pollUpdates || data.pollUpdate || data.pollUpdateMessage || {};
         
-        // Algumas APIs enviam um array de updates
         const pollUpdate = Array.isArray(pollData) ? pollData[0] : pollData;
         
         let options = pollUpdate.vote?.selectedOptions || pollUpdate.selectedOptions || data.selectedOptions || [];
         if (!Array.isArray(options)) options = [options].filter(Boolean);
         
-        // Tentar capturar o nome da enquete de vários lugares possíveis
         const pollName = data.pollName || pollUpdate.name || pollUpdate.pollName || msgContent.pollCreationMessage?.name || pollUpdate.pollCreationMessageKey?.id || 'Enquete';
 
-        // Sanitizar opções
         options = options.map((o: any) => typeof o === 'string' ? o : o.label || o.text || o.name).filter(Boolean);
         if (options.length === 0) options = ['Voto registrado'];
 
@@ -94,17 +104,54 @@ export async function POST(request: Request) {
         }, { merge: true });
     }
 
+    // LOG: Salvar log bruto para depuração se não for apenas texto comum ou se o usuário pediu
+    if (responseType && responseType !== 'text') {
+        try {
+            await db.collection('notifications_logs').add({
+                receivedAt: Timestamp.now(),
+                from: fromRaw,
+                phone: fromPhone,
+                type: responseType,
+                payload: payload,
+                stanzaId: stanzaId,
+                raw: data // Payload completo para análise
+            });
+        } catch (e) {
+            console.error("Erro ao salvar log de notificação:", e);
+        }
+    }
+
     // 3. Save Interactions
     if (responseType && payload) {
         // Remove undefined fields strictly to prevent Firestore crash
         const sanitizedPayload = JSON.parse(JSON.stringify(payload));
         
-        await db.collection('notifications_responses').add({
-            from: fromPhone,
-            type: responseType,
-            ...sanitizedPayload,
-            receivedAt: Timestamp.now()
-        });
+        try {
+            // Tentar vincular com um broadcastId via stanzaId
+            let broadcastId = null;
+            if (stanzaId) {
+                const sentMsgSnap = await db.collection('notifications_sent_messages')
+                    .where('messageId', '==', stanzaId)
+                    .limit(1)
+                    .get();
+                
+                if (!sentMsgSnap.empty) {
+                    broadcastId = sentMsgSnap.docs[0].data().broadcastId;
+                }
+            }
+
+            await db.collection('notifications_responses').add({
+                ...sanitizedPayload,
+                type: responseType,
+                from: fromPhone,
+                fromRaw: fromRaw,
+                stanzaId: stanzaId,
+                broadcastId: broadcastId,
+                receivedAt: Timestamp.now(),
+            });
+        } catch (error: any) {
+            console.error('Firestore Response Error:', error);
+        }
     }
 
     return NextResponse.json({ success: true });

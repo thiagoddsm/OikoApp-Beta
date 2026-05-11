@@ -756,7 +756,7 @@ function WhatsappSender({ config }: { config: any }) {
                                             {groupDetail.admins.map((admin: any) => (
                                                 <div key={admin.id} className="flex items-center gap-2 py-1">
                                                     <ShieldCheck size={14} className="text-primary shrink-0" />
-                                                    <span className="text-xs font-mono text-foreground/70">{admin.id}</span>
+                                                    <span className="text-xs font-bold text-foreground/80">{resolveUser(admin.id)}</span>
                                                     <Badge variant="outline" className="text-[9px] ml-auto capitalize">{admin.role}</Badge>
                                                 </div>
                                             ))}
@@ -1046,34 +1046,52 @@ function WhatsappResponses() {
     const { pollStats, buttonStats } = useMemo(() => {
         if (!responses) return { pollStats: {}, buttonStats: {} };
 
+        // Grouping polls: (Poll Name + Broadcast ID) -> { Option -> [Phones] }
+        const pollStats: Record<string, { name: string, broadcastId?: string, options: Record<string, string[]> }> = {};
+        
+        // Grouping buttons: (Button Text + Broadcast ID) -> { label: string, phones: [Phones] }
+        const buttonStats: Record<string, { label: string, broadcastId?: string, phones: string[] }> = {};
+
+        // Track last vote per person per specific campaign instance
         const lastVoteByPerson: Record<string, any> = {};
         responses.filter(r => r.type === 'poll').forEach(r => {
-            const key = `${r.pollName || 'Enquete'}__${r.from}`;
+            const key = `${r.pollName || 'Enquete'}__${r.broadcastId || 'general'}__${r.from}`;
             if (!lastVoteByPerson[key]) lastVoteByPerson[key] = r;
         });
 
-        const pollStats: Record<string, Record<string, string[]>> = {};
         Object.values(lastVoteByPerson).forEach((r: any) => {
             const pollName = r.pollName || 'Enquete';
-            if (!pollStats[pollName]) pollStats[pollName] = {};
+            const bId = r.broadcastId || 'general';
+            const groupKey = `${pollName}:::${bId}`;
+
+            if (!pollStats[groupKey]) {
+                pollStats[groupKey] = { name: pollName, broadcastId: r.broadcastId, options: {} };
+            }
+            
             const opts = Array.isArray(r.selectedOptions) ? r.selectedOptions : [r.selectedOptions].filter(Boolean);
             opts.forEach((opt: any) => {
                 const label = typeof opt === 'string' ? opt : opt?.label || opt?.text || 'Opção';
-                if (!pollStats[pollName][label]) pollStats[pollName][label] = [];
-                pollStats[pollName][label].push(r.from);
+                if (!pollStats[groupKey].options[label]) pollStats[groupKey].options[label] = [];
+                pollStats[groupKey].options[label].push(r.from);
             });
         });
 
+        // Track last button click per person per specific campaign instance
         const lastButtonByPerson: Record<string, any> = {};
         responses.filter(r => r.type === 'button').forEach(r => {
-            const key = `${r.buttonId || r.buttonText}__${r.from}`;
+            const key = `${r.buttonText || r.buttonId}__${r.broadcastId || 'general'}__${r.from}`;
             if (!lastButtonByPerson[key]) lastButtonByPerson[key] = r;
         });
-        const buttonStats: Record<string, string[]> = {};
+
         Object.values(lastButtonByPerson).forEach((r: any) => {
             const label = r.buttonText || r.buttonId || 'Botão';
-            if (!buttonStats[label]) buttonStats[label] = [];
-            buttonStats[label].push(r.from);
+            const bId = r.broadcastId || 'general';
+            const groupKey = `${label}:::${bId}`;
+
+            if (!buttonStats[groupKey]) {
+                buttonStats[groupKey] = { label, broadcastId: r.broadcastId, phones: [] };
+            }
+            buttonStats[groupKey].phones.push(r.from);
         });
 
         return { pollStats, buttonStats };
@@ -1092,27 +1110,35 @@ function WhatsappResponses() {
                 </div>
             )}
 
-            {Object.entries(pollStats).map(([pollName, optionVoters]) => {
-                const totalVoters = new Set(Object.values(optionVoters).flat()).size;
-                const isExpanded = expandedPoll === pollName;
+            {Object.entries(pollStats).map(([groupKey, pollGroup]) => {
+                const totalVoters = new Set(Object.values(pollGroup.options).flat()).size;
+                const isExpanded = expandedPoll === groupKey;
                 return (
-                    <Card key={pollName} className="border-2 border-blue-100 bg-blue-50/20 shadow-sm overflow-hidden">
+                    <Card key={groupKey} className="border-2 border-blue-100 bg-blue-50/20 shadow-sm overflow-hidden">
                         <CardHeader className="py-3 px-5 bg-blue-50/50 border-b border-blue-100">
                             <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-black text-blue-900 flex items-center gap-2">
-                                    <CheckCircle2 className="size-4 text-blue-500" />
-                                    {pollName}
-                                </CardTitle>
+                                <div className="space-y-0.5">
+                                    <CardTitle className="text-sm font-black text-blue-900 flex items-center gap-2">
+                                        <CheckCircle2 className="size-4 text-blue-500" />
+                                        {pollGroup.name}
+                                    </CardTitle>
+                                    {pollGroup.broadcastId && (
+                                        <div className="flex items-center gap-1.5 opacity-60">
+                                            <Send size={10} className="text-blue-700" />
+                                            <span className="text-[9px] font-bold text-blue-800 uppercase tracking-tight">Disparo: {pollGroup.broadcastId}</span>
+                                        </div>
+                                    )}
+                                </div>
                                 <div className="flex items-center gap-2">
                                     <Badge className="bg-blue-600 text-white font-black text-xs">{totalVoters} voto{totalVoters !== 1 ? 's' : ''}</Badge>
-                                    <Button size="sm" variant="ghost" className="h-7 text-[10px] font-black text-blue-700" onClick={() => setExpandedPoll(isExpanded ? null : pollName)}>
+                                    <Button size="sm" variant="ghost" className="h-7 text-[10px] font-black text-blue-700" onClick={() => setExpandedPoll(isExpanded ? null : groupKey)}>
                                         {isExpanded ? 'Recolher' : 'Ver quem votou'}
                                     </Button>
                                 </div>
                             </div>
                         </CardHeader>
                         <CardContent className="pt-4 pb-3 space-y-3">
-                            {Object.entries(optionVoters).map(([opt, phones]) => {
+                            {Object.entries(pollGroup.options).map(([opt, phones]) => {
                                 const pct = totalVoters > 0 ? Math.round((phones.length / totalVoters) * 100) : 0;
                                 return (
                                     <div key={opt} className="space-y-1.5">
@@ -1149,20 +1175,25 @@ function WhatsappResponses() {
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="pt-4 pb-3 space-y-3">
-                        {Object.entries(buttonStats).map(([label, phones]) => {
-                            const total = Object.values(buttonStats).flat().length;
-                            const pct = total > 0 ? Math.round((phones.length / total) * 100) : 0;
+                        {Object.entries(buttonStats).map(([groupKey, btnGroup]) => {
+                            const total = Object.values(buttonStats).reduce((acc, curr) => acc + curr.phones.length, 0);
+                            const pct = total > 0 ? Math.round((btnGroup.phones.length / total) * 100) : 0;
                             return (
-                                <div key={label} className="space-y-1.5">
+                                <div key={groupKey} className="space-y-1.5">
                                     <div className="flex items-center justify-between text-xs">
-                                        <span className="font-bold text-slate-700">{label}</span>
-                                        <span className="font-black text-emerald-700">{phones.length} ({pct}%)</span>
+                                        <div className="flex flex-col">
+                                            <span className="font-bold text-slate-700">{btnGroup.label}</span>
+                                            {btnGroup.broadcastId && (
+                                                <span className="text-[8px] font-medium text-emerald-600 uppercase tracking-tight">Disparo: {btnGroup.broadcastId}</span>
+                                            )}
+                                        </div>
+                                        <span className="font-black text-emerald-700">{btnGroup.phones.length} ({pct}%)</span>
                                     </div>
                                     <div className="h-2 bg-emerald-100 rounded-full overflow-hidden">
                                         <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
                                     </div>
                                     <div className="flex flex-wrap gap-1 pt-1">
-                                        {phones.map(phone => (
+                                        {btnGroup.phones.map(phone => (
                                             <Badge key={phone} variant="outline" className="text-[10px] font-medium border-emerald-200 bg-white">
                                                 {resolveUser(phone)}
                                             </Badge>

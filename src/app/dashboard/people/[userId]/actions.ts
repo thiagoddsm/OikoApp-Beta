@@ -41,6 +41,14 @@ export async function updatePerson(person: Person) {
   try {
     const personRef = db.collection('users').doc(id);
     await personRef.update(personToUpdate);
+
+    // Sincronizar identidade do WhatsApp se houver telefone (em segundo plano)
+    if (personToUpdate.phone) {
+        import('@/app/actions/wa-resolution').then(({ syncUserWAIdentity }) => {
+            syncUserWAIdentity(id, personToUpdate.phone).catch(e => console.warn("WA Sync Error:", e));
+        });
+    }
+
     revalidatePath(`/dashboard/people/${id}`);
     return { success: true, message: 'Pessoa atualizada com sucesso.' };
   } catch (error) {
