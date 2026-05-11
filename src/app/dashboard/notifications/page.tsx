@@ -1055,6 +1055,7 @@ function WhatsappResponses() {
     const [broadcasts, setBroadcasts] = useState<any[]>([]);
     const [selectedBroadcastId, setSelectedBroadcastId] = useState<string>('all');
     const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+    const [campaignRecipients, setCampaignRecipients] = useState<string[]>([]);
 
     useEffect(() => {
         const fetchHistory = async () => {
@@ -1072,12 +1073,78 @@ function WhatsappResponses() {
         fetchHistory();
     }, []);
 
+    // Quando uma campanha é selecionada, buscar os destinatários enviados (pelo telefone)
+    useEffect(() => {
+        if (selectedBroadcastId === 'all') {
+            setCampaignRecipients([]);
+            return;
+        }
+        const fetchRecipients = async () => {
+            try {
+                const res = await fetch(`/api/notifications/history?broadcastId=${selectedBroadcastId}`);
+                const data = await res.json();
+                if (data.recipients) setCampaignRecipients(data.recipients);
+            } catch {}
+        };
+        fetchRecipients();
+    }, [selectedBroadcastId]);
+
+    // Helper: resolver LID de uma resposta para telefone usando users/contacts do sistema
+    const resolveResponsePhone = (response: any): string => {
+        const rawFrom = String(response.from || '').replace(/\D/g, '');
+        // Se já é um telefone brasileiro (55+DDD+número), retornar direto
+        if (rawFrom.startsWith('55') && rawFrom.length >= 12) return rawFrom;
+        
+        // É um LID — tentar resolver
+        const matchedUser = users?.find((u: any) => {
+            const uLid = String(u.lid || '').split('@')[0];
+            const uJid = String(u.jid || '').split('@')[0];
+            return (uLid && rawFrom === uLid) || (uJid && rawFrom === uJid);
+        });
+        if (matchedUser) {
+            const phone = String(matchedUser.phone || '').replace(/\D/g, '');
+            return phone.startsWith('55') ? phone : `55${phone}`;
+        }
+
+        const matchedWA = waContacts?.find((c: any) => {
+            const cLid = String(c.lid || '').split('@')[0];
+            const cJid = String(c.jid || '').split('@')[0];
+            return (cLid && rawFrom === cLid) || (cJid && rawFrom === cJid);
+        });
+        if (matchedWA) {
+            const phone = String(matchedWA.phoneNumber || '').replace(/\D/g, '');
+            return phone.startsWith('55') ? phone : `55${phone}`;
+        }
+        
+        return rawFrom; // Fallback
+    };
+
     // Filtrar respostas pela campanha selecionada
     const filteredResponses = useMemo(() => {
         if (!responses) return [];
         if (selectedBroadcastId === 'all') return responses;
-        return responses.filter((r: any) => r.broadcastId === selectedBroadcastId);
-    }, [responses, selectedBroadcastId]);
+
+        // Estratégia 1: filtrar por broadcastId direto (respostas que já foram vinculadas pelo webhook)
+        const byBroadcast = responses.filter((r: any) => r.broadcastId === selectedBroadcastId);
+        if (byBroadcast.length > 0) return byBroadcast;
+
+        // Estratégia 2: filtrar por telefone dos destinatários da campanha
+        // (para respostas antigas que têm LID como 'from' e broadcastId null)
+        if (campaignRecipients.length > 0) {
+            return responses.filter((r: any) => {
+                if (r.broadcastId && r.broadcastId !== selectedBroadcastId) return false;
+                const resolvedPhone = resolveResponsePhone(r);
+                return campaignRecipients.some(recipientPhone => {
+                    const cleaned = recipientPhone.replace(/\D/g, '');
+                    return cleaned === resolvedPhone || 
+                           resolvedPhone.endsWith(cleaned.slice(-8)) || 
+                           cleaned.endsWith(resolvedPhone.slice(-8));
+                });
+            });
+        }
+
+        return byBroadcast;
+    }, [responses, selectedBroadcastId, campaignRecipients, users, waContacts]);
 
     const selectedBroadcastInfo = useMemo(() => {
         return broadcasts.find(b => b.id === selectedBroadcastId);
