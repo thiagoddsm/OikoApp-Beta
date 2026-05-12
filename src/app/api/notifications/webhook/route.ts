@@ -74,6 +74,19 @@ export async function POST(request: Request) {
     // Pegamos o ID da mensagem que está sendo respondida (se houver)
     let stanzaId = msgContent.contextInfo?.stanzaId || data.contextInfo?.stanzaId || data.stanzaId || null;
     
+    if (!stanzaId && msgContent.interactiveResponseMessage?.contextInfo?.stanzaId) {
+        stanzaId = msgContent.interactiveResponseMessage.contextInfo.stanzaId;
+    }
+    if (!stanzaId && msgContent.buttonsResponseMessage?.contextInfo?.stanzaId) {
+        stanzaId = msgContent.buttonsResponseMessage.contextInfo.stanzaId;
+    }
+    if (!stanzaId && msgContent.templateButtonReplyMessage?.contextInfo?.stanzaId) {
+        stanzaId = msgContent.templateButtonReplyMessage.contextInfo.stanzaId;
+    }
+    if (!stanzaId && msgContent.listResponseMessage?.contextInfo?.stanzaId) {
+        stanzaId = msgContent.listResponseMessage.contextInfo.stanzaId;
+    }
+
     // Para enquetes, o ID da mensagem original costuma estar em pollCreationMessageKey.id
     if (!stanzaId) {
         const pollData = msgContent.pollUpdateMessage || data.pollUpdates || data.pollUpdate || data.pollUpdateMessage || {};

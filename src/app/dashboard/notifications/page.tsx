@@ -519,15 +519,17 @@ function WhatsappSender({ config }: { config: any }) {
             
             const result = await response.json();
             
-            if (response.ok && result.sentCount > 0) {
-                toast({ title: "Envio Concluído!", description: `${result.sentCount || 0} mensagens enviadas.` });
+            if (response.ok && (result.sentCount > 0 || result.background)) {
+                const desc = result.background 
+                    ? result.message || `Disparo iniciado para ${result.totalRecipients} destinatário(s). Acompanhe na aba Histórico.`
+                    : `${result.sentCount || 0} mensagens enviadas.`;
+                toast({ title: "✅ Disparo Iniciado!", description: desc });
                 setMessage('');
                 setSelectedUserIds([]);
-                setSelectedGroupIds([]); // Claude Item 7: Limpa grupos também
+                setSelectedGroupIds([]);
                 setIndividualPhone('');
                 setMediaUrl('');
             } else {
-                // Claude Item 9: Melhor feedback se sentCount for 0
                 const errorMsg = result.error || result.message || (result.sentCount === 0 ? "Nenhum destinatário com telefone válido encontrado." : "Erro ao enviar.");
                 toast({ variant: 'destructive', title: "Falha no Envio", description: errorMsg });
             }
