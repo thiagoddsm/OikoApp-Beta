@@ -1126,15 +1126,17 @@ function WhatsappResponses() {
         if (!responses) return [];
         if (selectedBroadcastId === 'all') return responses;
 
-        // Estratégia 1: filtrar por broadcastId direto (respostas que já foram vinculadas pelo webhook)
+        // Passo 1: Respostas vinculadas diretamente a ESTA campanha pelo broadcastId
         const byBroadcast = responses.filter((r: any) => r.broadcastId === selectedBroadcastId);
-        if (byBroadcast.length > 0) return byBroadcast;
 
-        // Estratégia 2: filtrar por telefone dos destinatários da campanha
-        // (para respostas antigas que têm LID como 'from' e broadcastId null)
+        // Passo 2: Respostas com broadcastId NULO cujo telefone bate com um destinatário da campanha
+        // IMPORTANTE: Só incluir se broadcastId é null/undefined (não se pertence a OUTRA campanha)
+        let byPhone: any[] = [];
         if (campaignRecipients.length > 0) {
-            return responses.filter((r: any) => {
-                if (r.broadcastId && r.broadcastId !== selectedBroadcastId) return false;
+            byPhone = responses.filter((r: any) => {
+                // Se já tem broadcastId, não usar fallback por telefone
+                if (r.broadcastId) return false;
+                
                 const resolvedPhone = resolveResponsePhone(r);
                 return campaignRecipients.some(recipientPhone => {
                     const cleaned = recipientPhone.replace(/\D/g, '');
@@ -1145,7 +1147,14 @@ function WhatsappResponses() {
             });
         }
 
-        return byBroadcast;
+        // Combinar sem duplicatas
+        const combined = [...byBroadcast];
+        const existingIds = new Set(byBroadcast.map((r: any) => r.id));
+        byPhone.forEach(r => {
+            if (!existingIds.has(r.id)) combined.push(r);
+        });
+
+        return combined;
     }, [responses, selectedBroadcastId, campaignRecipients, users, waContacts]);
 
     const selectedBroadcastInfo = useMemo(() => {
