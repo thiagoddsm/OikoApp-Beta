@@ -101,121 +101,26 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, message: "Nenhum destinatário válido encontrado." });
     }
 
-    // 3. Iterar e enviar mensagens
-    const { getWhatsAppClient, formatWhatsAppNumber } = await import('@/lib/whatsapp');
-    const whatsapp = await getWhatsAppClient({ server: serverUrl, key: apiKey });
+    // 3. Helper: delay aleatório entre min e max milissegundos
+    const delay = (minMs: number, maxMs: number) => 
+        new Promise(resolve => setTimeout(resolve, minMs + Math.random() * (maxMs - minMs)));
 
-    let sentCount = 0;
-    let errorCount = 0;
-    const errors: string[] = [];
-    const sentMessages: { messageId: string, recipient: string, name?: string }[] = [];
+    // 4. Registrar broadcast no Firestore ANTES de começar a enviar
+    const summary = message || (rest.surveyName ? `[Enquete] ${rest.surveyName}` : rest.type === 'media' ? '[Mídia]' : '[Mensagem]');
+    const totalRecipients = targetUsers.length + targetGroups.length;
 
-    for (const user of targetUsers) {
-        const personalizedBody = (message || '').replace('{{nome}}', user.name);
-        const formattedPhone = formatWhatsAppNumber(user.phone);
-        
-        // Preparar o body específico por tipo
-        let messageBody: any = { to: formattedPhone };
-
-        if (rest.type === 'button') {
-            messageBody.text = personalizedBody || ' ';
-            messageBody.title = rest.headerTitle || undefined;
-            messageBody.footer = rest.footer || '';
-            messageBody.buttons = rest.buttons || [];
-        } else if (rest.type === 'survey') {
-            messageBody.name = rest.surveyName || 'Enquete';
-            messageBody.options = rest.options || [];
-        } else if (rest.type === 'list') {
-            messageBody.text = personalizedBody || 'Escolha uma opção';
-            messageBody.buttonText = rest.buttonText || 'Menu';
-            messageBody.title = rest.headerTitle || 'Opções';
-            messageBody.description = rest.description || '';
-            messageBody.footer = rest.footer || '';
-            messageBody.sections = rest.sections || [];
-        } else if (rest.type === 'media' || rest.type === 'image') {
-            messageBody.caption = personalizedBody || ' ';
-            messageBody.url = rest.mediaUrl;
-        } else {
-            messageBody.text = personalizedBody;
-        }
-
-        try {
-            const response = await whatsapp.sendMessage({
-                type: rest.type || 'text',
-                body: messageBody
-            });
-
-            const isSuccess = response.status === 'success' || response.status === 200 || response.key || response.id || response.messageId || response.data?.id;
-            if (isSuccess) {
-                sentCount++;
-                const mId = response.messageId || response.id || response.key?.id || response.data?.id || (response.data && response.data[0]?.id);
-                if (mId) sentMessages.push({ messageId: mId, recipient: formattedPhone, name: user.name });
-            } else {
-                errorCount++;
-                errors.push(`Falha para ${user.name}: ${JSON.stringify(response)}`);
-            }
-        } catch (e: any) { 
-            errorCount++;
-            errors.push(`Erro para ${user.name}: ${e.message}`);
-        }
-    }
-
-    // Enviar para grupos do WhatsApp
-    for (const groupId of targetGroups) {
-        let messageBody: any = { to: groupId };
-
-        if (rest.type === 'button') {
-            messageBody.text = message || ' ';
-            messageBody.title = rest.headerTitle || undefined;
-            messageBody.footer = rest.footer || '';
-            messageBody.buttons = rest.buttons || [];
-        } else if (rest.type === 'survey') {
-            messageBody.name = rest.surveyName || 'Enquete';
-            messageBody.options = rest.options || [];
-        } else if (rest.type === 'list') {
-            messageBody.text = message || 'Escolha uma opção';
-            messageBody.buttonText = rest.buttonText || 'Menu';
-            messageBody.title = rest.headerTitle || 'Opções';
-            messageBody.description = rest.description || '';
-            messageBody.footer = rest.footer || '';
-            messageBody.sections = rest.sections || [];
-        } else if (rest.type === 'media' || rest.type === 'image') {
-            messageBody.caption = message || ' ';
-            messageBody.url = rest.mediaUrl;
-        } else {
-            messageBody.text = message || '';
-        }
-
-        try {
-            const response = await whatsapp.sendMessage({ type: rest.type || 'text', body: messageBody });
-            const isSuccess = response.status === 'success' || response.status === 200 || response.key || response.id || response.messageId || response.data?.id;
-            if (isSuccess) {
-                sentCount++;
-                const mId = response.messageId || response.id || response.key?.id || response.data?.id || (response.data && response.data[0]?.id);
-                if (mId) sentMessages.push({ messageId: mId, recipient: groupId, name: 'Grupo' });
-            } else {
-                errorCount++;
-                errors.push(`Falha para grupo ${groupId}: ${JSON.stringify(response)}`);
-            }
-        } catch (e: any) {
-            errorCount++;
-            errors.push(`Erro para grupo ${groupId}: ${e.message}`);
-        }
-    }
-    
-    // Registrar histórico resumido
-    let broadcastId = null;
+    let broadcastId: string | null = null;
     try {
-        const summary = message || (rest.surveyName ? `[Enquete] ${rest.surveyName}` : rest.type === 'media' ? '[Mídia]' : '[Mensagem]');
         const historyRef = await db.collection("notifications_history").add({
             sentAt: Timestamp.now(),
             channel: 'whatsapp',
             message: summary,
             surveyName: rest.surveyName || null,
-            recipientCount: targetUsers.length + targetGroups.length,
-            successCount: sentCount,
-            errorCount: errorCount,
-            status: errorCount > 0 ? (sentCount > 0 ? 'partial' : 'failed') : 'success',
+            recipientCount: totalRecipients,
+            successCount: 0,
+            errorCount: 0,
+            status: 'sending', // Novo status: em andamento
+            progress: 0,
             type: rest.type || 'text',
             targetLabel: rest.audience || audience || 'custom',
         });
@@ -224,40 +129,194 @@ export async function POST(request: Request) {
         console.warn("Falha ao registrar histórico de notificação:", e);
     }
 
-    // 4. Registrar IDs de mensagens para rastreamento de respostas
-    if (broadcastId && sentMessages.length > 0) {
-        try {
-            const msgBatch = db.batch();
-            sentMessages.forEach(m => {
-                const msgRef = db.collection('notifications_sent_messages').doc(m.messageId);
-                msgBatch.set(msgRef, {
-                    messageId: m.messageId,
-                    broadcastId: broadcastId,
-                    recipient: m.recipient,
-                    sentAt: Timestamp.now()
+    // 5. RATE-LIMITED BACKGROUND PROCESSING
+    // Retorna imediatamente para o navegador. Processamento continua no servidor.
+    const processInBackground = async () => {
+        const { getWhatsAppClient, formatWhatsAppNumber } = await import('@/lib/whatsapp');
+        const whatsapp = await getWhatsAppClient({ server: serverUrl, key: apiKey });
+
+        let sentCount = 0;
+        let errorCount = 0;
+        const errors: string[] = [];
+        const sentMessages: { messageId: string, recipient: string, name?: string }[] = [];
+        let messageIndex = 0;
+
+        // Helper: preparar body da mensagem
+        const buildMessageBody = (to: string, personalizedBody: string) => {
+            let messageBody: any = { to };
+
+            if (rest.type === 'button') {
+                messageBody.text = personalizedBody || ' ';
+                messageBody.title = rest.headerTitle || undefined;
+                messageBody.footer = rest.footer || '';
+                messageBody.buttons = rest.buttons || [];
+            } else if (rest.type === 'survey') {
+                messageBody.name = rest.surveyName || 'Enquete';
+                messageBody.options = rest.options || [];
+            } else if (rest.type === 'list') {
+                messageBody.text = personalizedBody || 'Escolha uma opção';
+                messageBody.buttonText = rest.buttonText || 'Menu';
+                messageBody.title = rest.headerTitle || 'Opções';
+                messageBody.description = rest.description || '';
+                messageBody.footer = rest.footer || '';
+                messageBody.sections = rest.sections || [];
+            } else if (rest.type === 'media' || rest.type === 'image') {
+                messageBody.caption = personalizedBody || ' ';
+                messageBody.url = rest.mediaUrl;
+            } else {
+                messageBody.text = personalizedBody;
+            }
+            return messageBody;
+        };
+
+        // Helper: enviar uma mensagem e registrar resultado
+        const sendOne = async (to: string, name: string, personalizedBody: string) => {
+            const messageBody = buildMessageBody(to, personalizedBody);
+            try {
+                const response = await whatsapp.sendMessage({
+                    type: rest.type || 'text',
+                    body: messageBody
                 });
 
-                // Se temos um nome para esse contato (importado ou do sistema), garantimos que ele esteja no banco de contatos
-                // para que as respostas apareçam com nome no dashboard
-                if (m.name) {
-                    const phone = m.recipient.split('@')[0].split(':')[0].replace(/\D/g, '');
-                    if (phone) {
-                        const contactRef = db.collection('notifications_contacts').doc(phone);
-                        msgBatch.set(contactRef, {
-                            phoneNumber: phone,
-                            name: m.name,
-                            updatedAt: Timestamp.now()
-                        }, { merge: true });
-                    }
+                const isSuccess = response.status === 'success' || response.status === 200 || response.key || response.id || response.messageId || response.data?.id;
+                if (isSuccess) {
+                    sentCount++;
+                    const mId = response.messageId || response.id || response.key?.id || response.data?.id || (response.data && response.data[0]?.id);
+                    if (mId) sentMessages.push({ messageId: mId, recipient: to, name });
+                } else {
+                    errorCount++;
+                    errors.push(`Falha para ${name}: ${JSON.stringify(response)}`);
                 }
-            });
-            await msgBatch.commit();
-        } catch (e) {
-            console.error("Erro ao registrar mensagens enviadas:", e);
-        }
-    }
+            } catch (e: any) {
+                errorCount++;
+                errors.push(`Erro para ${name}: ${e.message}`);
+            }
+        };
 
-    return NextResponse.json({ success: true, sentCount, errorCount, errors, broadcastId });
+        // Helper: atualizar progresso no Firestore
+        const updateProgress = async () => {
+            if (!broadcastId) return;
+            try {
+                await db.collection('notifications_history').doc(broadcastId).update({
+                    successCount: sentCount,
+                    errorCount: errorCount,
+                    progress: Math.round(((sentCount + errorCount) / totalRecipients) * 100),
+                    status: 'sending',
+                });
+            } catch {}
+        };
+
+        // ===== ENVIAR PARA USUÁRIOS COM RATE LIMITING =====
+        for (const user of targetUsers) {
+            messageIndex++;
+            const personalizedBody = (message || '').replace('{{nome}}', user.name);
+            const formattedPhone = formatWhatsAppNumber(user.phone);
+
+            await sendOne(formattedPhone, user.name, personalizedBody);
+
+            // Rate limiting conservador:
+            // - Delay de 3-5 segundos entre cada mensagem
+            // - Pausa de 30 segundos a cada 10 mensagens
+            if (messageIndex % 10 === 0) {
+                await updateProgress();
+                console.log(`[Rate Limit] Pausa de 30s após ${messageIndex} mensagens...`);
+                await delay(28000, 35000); // 28-35 segundos
+            } else {
+                await delay(3000, 5000); // 3-5 segundos
+            }
+        }
+
+        // ===== ENVIAR PARA GRUPOS COM RATE LIMITING =====
+        for (const groupId of targetGroups) {
+            messageIndex++;
+            await sendOne(groupId, `Grupo ${groupId.split('@')[0]}`, message || '');
+
+            if (messageIndex % 10 === 0) {
+                await updateProgress();
+                console.log(`[Rate Limit] Pausa de 30s após ${messageIndex} mensagens...`);
+                await delay(28000, 35000);
+            } else {
+                await delay(3000, 5000);
+            }
+        }
+
+        // ===== FINALIZAR: atualizar status final =====
+        if (broadcastId) {
+            try {
+                await db.collection('notifications_history').doc(broadcastId).update({
+                    successCount: sentCount,
+                    errorCount: errorCount,
+                    progress: 100,
+                    status: errorCount > 0 ? (sentCount > 0 ? 'partial' : 'failed') : 'success',
+                    completedAt: Timestamp.now(),
+                });
+            } catch (e) {
+                console.error("Erro ao atualizar status final:", e);
+            }
+
+            // Registrar IDs de mensagens para rastreamento de respostas
+            if (sentMessages.length > 0) {
+                try {
+                    // Firestore batch limit é 500, chunkar se necessário
+                    const chunks = [];
+                    for (let i = 0; i < sentMessages.length; i += 400) {
+                        chunks.push(sentMessages.slice(i, i + 400));
+                    }
+                    for (const chunk of chunks) {
+                        const msgBatch = db.batch();
+                        chunk.forEach(m => {
+                            const msgRef = db.collection('notifications_sent_messages').doc(m.messageId);
+                            msgBatch.set(msgRef, {
+                                messageId: m.messageId,
+                                broadcastId: broadcastId,
+                                recipient: m.recipient,
+                                sentAt: Timestamp.now()
+                            });
+                            if (m.name) {
+                                const phone = m.recipient.split('@')[0].split(':')[0].replace(/\D/g, '');
+                                if (phone) {
+                                    const contactRef = db.collection('notifications_contacts').doc(phone);
+                                    msgBatch.set(contactRef, {
+                                        phoneNumber: phone,
+                                        name: m.name,
+                                        updatedAt: Timestamp.now()
+                                    }, { merge: true });
+                                }
+                            }
+                        });
+                        await msgBatch.commit();
+                    }
+                } catch (e) {
+                    console.error("Erro ao registrar mensagens enviadas:", e);
+                }
+            }
+        }
+
+        console.log(`[Broadcast ${broadcastId}] Concluído: ${sentCount} enviados, ${errorCount} erros`);
+    };
+
+    // Disparar processamento em background (fire-and-forget)
+    processInBackground().catch(e => {
+        console.error('[Background Send] Fatal error:', e);
+        if (broadcastId) {
+            db.collection('notifications_history').doc(broadcastId).update({
+                status: 'failed',
+                progress: 100,
+                errorMessage: e.message,
+                completedAt: Timestamp.now(),
+            }).catch(() => {});
+        }
+    });
+
+    // Retorna IMEDIATAMENTE para o navegador
+    return NextResponse.json({ 
+        success: true, 
+        sentCount: 0, // Será atualizado em background
+        totalRecipients,
+        broadcastId,
+        message: `Disparo iniciado para ${totalRecipients} destinatário(s). Acompanhe o progresso na aba Histórico.`,
+        background: true // Sinaliza para o frontend que é processamento assíncrono
+    });
 
   } catch (error: any) {
     console.error("API Route Critical Error:", error.message);
