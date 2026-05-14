@@ -1204,26 +1204,57 @@ function WhatsappResponses() {
         return `+${digits}`;
     };
 
+    // Helper: detectar se um pollName parece ser um message ID hex (ex: 3EB08140259CF4F5B410B1)
+    const isHexId = (name: string) => /^[0-9A-F]{16,}$/i.test(name);
+
+    // Helper: normalizar pollName — se for um ID hex, trocar por nome legível
+    const normalizePollName = (pollName: string, broadcastId?: string) => {
+        if (!pollName || isHexId(pollName)) {
+            // Tentar pegar o nome da campanha
+            if (broadcastId) {
+                const bc = broadcasts.find(b => b.id === broadcastId);
+                if (bc?.surveyName) return bc.surveyName;
+                if (bc?.message) return bc.message.slice(0, 50);
+            }
+            return 'Enquete';
+        }
+        return pollName;
+    };
+
     const { pollStats, buttonStats } = useMemo(() => {
         if (!filteredResponses) return { pollStats: {}, buttonStats: {} };
 
-        // Grouping polls: (Poll Name + Broadcast ID) -> { Option -> [Phones] }
+        const isFiltered = selectedBroadcastId !== 'all';
+
+        // Grouping polls: (Normalized Poll Name) -> { Option -> [Phones] }
         const pollStats: Record<string, { name: string, broadcastId?: string, options: Record<string, string[]> }> = {};
         
-        // Grouping buttons: (Button Text + Broadcast ID) -> { label: string, phones: [Phones] }
+        // Grouping buttons: normalized label -> { label, phones[] }
         const buttonStats: Record<string, { label: string, broadcastId?: string, phones: string[] }> = {};
 
-        // Track last vote per person per specific campaign instance
+        // === POLLS: Manter apenas o ÚLTIMO voto de cada pessoa ===
         const lastVoteByPerson: Record<string, any> = {};
-        filteredResponses.filter(r => r.type === 'poll').forEach(r => {
-            const key = `${r.pollName || 'Enquete'}__${r.broadcastId || 'general'}__${r.from}`;
-            if (!lastVoteByPerson[key]) lastVoteByPerson[key] = r;
+        // Ordenar por receivedAt para garantir que o forEach substitua pelo mais recente
+        const sortedPolls = filteredResponses
+            .filter((r: any) => r.type === 'poll')
+            .sort((a: any, b: any) => {
+                const aTime = a.receivedAt?.toMillis?.() || a.receivedAt?.seconds * 1000 || 0;
+                const bTime = b.receivedAt?.toMillis?.() || b.receivedAt?.seconds * 1000 || 0;
+                return aTime - bTime; // Ascendente — o último forEach sobrescreve
+            });
+
+        sortedPolls.forEach((r: any) => {
+            // Quando uma campanha está selecionada, ignorar broadcastId na chave de dedup
+            // (todos os resultados JÁ estão filtrados para essa campanha)
+            const dedupBroadcast = isFiltered ? 'filtered' : (r.broadcastId || 'general');
+            const key = `${r.from}__${dedupBroadcast}`;
+            lastVoteByPerson[key] = r; // Sobrescreve = mantém o último
         });
 
         Object.values(lastVoteByPerson).forEach((r: any) => {
-            const pollName = r.pollName || 'Enquete';
-            const bId = r.broadcastId || 'general';
-            const groupKey = `${pollName}:::${bId}`;
+            const pollName = normalizePollName(r.pollName, r.broadcastId);
+            const groupBroadcast = isFiltered ? selectedBroadcastId : (r.broadcastId || 'general');
+            const groupKey = `${pollName}:::${groupBroadcast}`;
 
             if (!pollStats[groupKey]) {
                 pollStats[groupKey] = { name: pollName, broadcastId: r.broadcastId, options: {} };
@@ -1233,30 +1264,45 @@ function WhatsappResponses() {
             opts.forEach((opt: any) => {
                 const label = typeof opt === 'string' ? opt : opt?.label || opt?.text || 'Opção';
                 if (!pollStats[groupKey].options[label]) pollStats[groupKey].options[label] = [];
-                pollStats[groupKey].options[label].push(r.from);
+                // Evitar duplicar a mesma pessoa na mesma opção
+                if (!pollStats[groupKey].options[label].includes(r.from)) {
+                    pollStats[groupKey].options[label].push(r.from);
+                }
             });
         });
 
-        // Track last button click per person per specific campaign instance
+        // === BUTTONS: Manter apenas o ÚLTIMO clique de cada pessoa ===
         const lastButtonByPerson: Record<string, any> = {};
-        filteredResponses.filter(r => r.type === 'button').forEach(r => {
-            const key = `${r.buttonText || r.buttonId}__${r.broadcastId || 'general'}__${r.from}`;
-            if (!lastButtonByPerson[key]) lastButtonByPerson[key] = r;
+        const sortedButtons = filteredResponses
+            .filter((r: any) => r.type === 'button')
+            .sort((a: any, b: any) => {
+                const aTime = a.receivedAt?.toMillis?.() || a.receivedAt?.seconds * 1000 || 0;
+                const bTime = b.receivedAt?.toMillis?.() || b.receivedAt?.seconds * 1000 || 0;
+                return aTime - bTime;
+            });
+
+        sortedButtons.forEach((r: any) => {
+            // Dedup por pessoa — quando campanha está selecionada, conta apenas o último clique
+            const dedupBroadcast = isFiltered ? 'filtered' : (r.broadcastId || 'general');
+            const key = `${r.from}__${dedupBroadcast}`;
+            lastButtonByPerson[key] = r; // Sobrescreve = mantém o último
         });
 
         Object.values(lastButtonByPerson).forEach((r: any) => {
             const label = r.buttonText || r.buttonId || 'Botão';
-            const bId = r.broadcastId || 'general';
-            const groupKey = `${label}:::${bId}`;
+            const groupBroadcast = isFiltered ? selectedBroadcastId : (r.broadcastId || 'general');
+            const groupKey = `${label}:::${groupBroadcast}`;
 
             if (!buttonStats[groupKey]) {
                 buttonStats[groupKey] = { label, broadcastId: r.broadcastId, phones: [] };
             }
-            buttonStats[groupKey].phones.push(r.from);
+            if (!buttonStats[groupKey].phones.includes(r.from)) {
+                buttonStats[groupKey].phones.push(r.from);
+            }
         });
 
         return { pollStats, buttonStats };
-    }, [filteredResponses]);
+    }, [filteredResponses, selectedBroadcastId, broadcasts]);
 
     if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
@@ -1325,6 +1371,73 @@ function WhatsappResponses() {
                                         : 0}%
                                 </p>
                             </div>
+                        </div>
+                    )}
+
+                    {/* Botões de limpeza de dados */}
+                    {selectedBroadcastId !== 'all' && (
+                        <div className="flex gap-2 items-center">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-[10px] font-bold text-red-600 border-red-200 hover:bg-red-50"
+                                onClick={async () => {
+                                    if (!confirm(`Limpar todas as respostas deste disparo?\nIsso removerá ${filteredResponses.length} resposta(s) do servidor.`)) return;
+                                    try {
+                                        const res = await fetch(`/api/notifications/cleanup?broadcastId=${selectedBroadcastId}`, { method: 'DELETE' });
+                                        const data = await res.json();
+                                        if (data.success) {
+                                            alert(`${data.deletedCount} resposta(s) removida(s).\nRecarregue a página para ver as mudanças.`);
+                                            window.location.reload();
+                                        } else {
+                                            alert('Erro: ' + (data.error || 'Falha desconhecida'));
+                                        }
+                                    } catch (e: any) { alert('Erro: ' + e.message); }
+                                }}
+                            >
+                                <Trash2 className="size-3 mr-1" /> Limpar Respostas deste Disparo
+                            </Button>
+                        </div>
+                    )}
+                    {selectedBroadcastId === 'all' && filteredResponses.length > 0 && (
+                        <div className="flex gap-2 items-center">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-[10px] font-bold text-orange-600 border-orange-200 hover:bg-orange-50"
+                                onClick={async () => {
+                                    if (!confirm('Limpar respostas órfãs (sem campanha vinculada)?')) return;
+                                    try {
+                                        const res = await fetch('/api/notifications/cleanup?type=orphan_responses', { method: 'DELETE' });
+                                        const data = await res.json();
+                                        if (data.success) {
+                                            alert(`${data.deletedCount} resposta(s) órfã(s) removida(s).`);
+                                            window.location.reload();
+                                        }
+                                    } catch (e: any) { alert('Erro: ' + e.message); }
+                                }}
+                            >
+                                <Trash2 className="size-3 mr-1" /> Limpar Órfãs
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-[10px] font-bold text-red-600 border-red-200 hover:bg-red-50"
+                                onClick={async () => {
+                                    if (!confirm('⚠️ ATENÇÃO: Isso removerá TODAS as respostas de TODOS os disparos.\nTem certeza?')) return;
+                                    if (!confirm('Confirmação final: esta ação é IRREVERSÍVEL. Continuar?')) return;
+                                    try {
+                                        const res = await fetch('/api/notifications/cleanup?type=all_responses', { method: 'DELETE' });
+                                        const data = await res.json();
+                                        if (data.success) {
+                                            alert(`${data.deletedCount} resposta(s) removida(s).`);
+                                            window.location.reload();
+                                        }
+                                    } catch (e: any) { alert('Erro: ' + e.message); }
+                                }}
+                            >
+                                <Trash2 className="size-3 mr-1" /> Limpar Tudo
+                            </Button>
                         </div>
                     )}
                 </div>

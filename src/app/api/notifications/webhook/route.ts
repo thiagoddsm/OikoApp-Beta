@@ -219,23 +219,48 @@ export async function POST(request: Request) {
             // Estratégia 2: Se não encontrou pelo stanzaId, buscar a última mensagem enviada para esse telefone
             // IMPORTANTE: Só considerar mensagens das últimas 24h para evitar vincular a campanhas antigas
             if (!broadcastId && fromPhone) {
-                const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
-                const cutoffTimestamp = Timestamp.fromDate(cutoff24h);
-                
-                const byRecipientSnap = await db.collection('notifications_sent_messages')
-                    .where('recipient', '==', fromPhone)
-                    .where('sentAt', '>=', cutoffTimestamp)
-                    .orderBy('sentAt', 'desc')
-                    .limit(1)
-                    .get();
-                
-                if (!byRecipientSnap.empty) {
-                    broadcastId = byRecipientSnap.docs[0].data().broadcastId;
+                try {
+                    const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                    const cutoffTimestamp = Timestamp.fromDate(cutoff24h);
+                    
+                    const byRecipientSnap = await db.collection('notifications_sent_messages')
+                        .where('recipient', '==', fromPhone)
+                        .where('sentAt', '>=', cutoffTimestamp)
+                        .orderBy('sentAt', 'desc')
+                        .limit(1)
+                        .get();
+                    
+                    if (!byRecipientSnap.empty) {
+                        broadcastId = byRecipientSnap.docs[0].data().broadcastId;
+                    }
+                } catch (indexError: any) {
+                    // Fallback: se o índice composto não existe, buscar apenas por recipient
+                    console.warn('Índice composto não encontrado, usando fallback simples:', indexError.message);
+                    const fallbackSnap = await db.collection('notifications_sent_messages')
+                        .where('recipient', '==', fromPhone)
+                        .limit(5)
+                        .get();
+                    
+                    if (!fallbackSnap.empty) {
+                        // Filtrar manualmente por tempo e pegar a mais recente
+                        const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+                        let latest: any = null;
+                        fallbackSnap.docs.forEach(d => {
+                            const data = d.data();
+                            const sentAtMs = data.sentAt?.toMillis?.() || 0;
+                            if (sentAtMs >= cutoff && (!latest || sentAtMs > (latest.sentAt?.toMillis?.() || 0))) {
+                                latest = data;
+                            }
+                        });
+                        if (latest) broadcastId = latest.broadcastId;
+                    }
                 }
             }
 
             // Enriquecer com nome real da enquete se possível
-            if (responseType === 'poll' && broadcastId && (!sanitizedPayload.pollName || sanitizedPayload.pollName === 'Enquete' || sanitizedPayload.pollName.length > 20)) {
+            // Detectar pollNames que são IDs hex (ex: 3EB08140259CF4F5B410B1)
+            const isHexPollName = sanitizedPayload.pollName && /^[0-9A-F]{16,}$/i.test(sanitizedPayload.pollName);
+            if (responseType === 'poll' && broadcastId && (!sanitizedPayload.pollName || sanitizedPayload.pollName === 'Enquete' || isHexPollName || sanitizedPayload.pollName.length > 50)) {
                 const broadcastDoc = await db.collection('notifications_history').doc(broadcastId).get();
                 if (broadcastDoc.exists) {
                     const bData = broadcastDoc.data();
