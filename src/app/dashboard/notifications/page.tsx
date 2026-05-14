@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -358,6 +358,42 @@ function WhatsappSender({ config }: { config: any }) {
 
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
     const { data: users } = useCollection<any>(usersQuery);
+
+    const resolveUser = useCallback((phone: string) => {
+        const rawId = String(phone || '').split('@')[0];
+        
+        const matchedUser = users?.find((u: any) => {
+            const uPhone = String(u.phone || '').replace(/\D/g, '');
+            const uLid = String(u.lid || '').split('@')[0];
+            const uJid = String(u.jid || '').split('@')[0];
+
+            if (uPhone && uPhone.length >= 8) {
+                const uPhoneNoCountry = uPhone.startsWith('55') ? uPhone.substring(2) : uPhone;
+                const uPhoneNo9 = uPhoneNoCountry.length === 11 ? uPhoneNoCountry.slice(0, 2) + uPhoneNoCountry.slice(3) : null;
+                const uPhoneLast8 = uPhoneNoCountry.slice(-8);
+                const idDigits = rawId.replace(/\D/g, '');
+                if (idDigits.includes(uPhoneNoCountry) || (uPhoneNo9 && idDigits.includes(uPhoneNo9)) || (uPhoneLast8.length === 8 && idDigits.includes(uPhoneLast8))) return true;
+            }
+
+            return (uLid && rawId === uLid) || (uJid && rawId === uJid);
+        });
+        if (matchedUser) return matchedUser.name;
+
+        const matchedWA = waContacts?.find((c: any) => {
+            const cPhone = String(c.phoneNumber || '').replace(/\D/g, '');
+            const cLid = String(c.lid || '').split('@')[0];
+            const cJid = String(c.jid || '').split('@')[0];
+
+            if (cPhone && cPhone.length >= 8) {
+                const idDigits = rawId.replace(/\D/g, '');
+                if (idDigits.includes(cPhone.slice(-8))) return true;
+            }
+            return (cLid && rawId === cLid) || (cJid && rawId === cJid);
+        });
+        if (matchedWA) return matchedWA.name || matchedWA.pushName || matchedWA.notify || phone;
+
+        return phone;
+    }, [users, waContacts]);
 
     // Fetch WA contacts and groups from the API — only once config is loaded
     useEffect(() => {
@@ -1353,7 +1389,9 @@ function WhatsappResponses() {
                         </div>
                     </div>
 
-                    {selectedBroadcastInfo && (
+                    {selectedBroadcastInfo && (() => {
+                        const uniqueRespondents = new Set(filteredResponses.map((r: any) => r.from)).size;
+                        return (
                         <div className="flex flex-wrap gap-3 w-full md:w-auto">
                             <div className="flex-1 md:flex-none px-4 py-2 bg-slate-50 rounded-xl border border-slate-100 min-w-[100px]">
                                 <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Enviados</p>
@@ -1361,18 +1399,19 @@ function WhatsappResponses() {
                             </div>
                             <div className="flex-1 md:flex-none px-4 py-2 bg-emerald-50 rounded-xl border border-emerald-100 min-w-[100px]">
                                 <p className="text-[9px] font-black uppercase text-emerald-400 tracking-wider">Respostas</p>
-                                <p className="text-lg font-black text-emerald-700">{filteredResponses.length}</p>
+                                <p className="text-lg font-black text-emerald-700">{uniqueRespondents}</p>
                             </div>
                             <div className="flex-1 md:flex-none px-4 py-2 bg-blue-50 rounded-xl border border-blue-100 min-w-[100px]">
                                 <p className="text-[9px] font-black uppercase text-blue-400 tracking-wider">Engajamento</p>
                                 <p className="text-lg font-black text-blue-700">
                                     {selectedBroadcastInfo.recipientCount > 0 
-                                        ? Math.round((filteredResponses.length / selectedBroadcastInfo.recipientCount) * 100) 
+                                        ? Math.round((uniqueRespondents / selectedBroadcastInfo.recipientCount) * 100) 
                                         : 0}%
                                 </p>
                             </div>
                         </div>
-                    )}
+                        );
+                    })()}
 
                     {/* Botões de limpeza de dados */}
                     {selectedBroadcastId !== 'all' && (
