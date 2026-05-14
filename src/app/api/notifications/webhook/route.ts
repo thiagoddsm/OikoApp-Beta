@@ -94,6 +94,11 @@ export async function POST(request: Request) {
         stanzaId = pollUpdate.pollCreationMessageKey?.id || data.pollCreationMessageKey?.id || null;
     }
 
+    // Também tentar extrair stanzaId do key.id (para mensagens interativas respondidas)
+    if (!stanzaId && data.key?.id) {
+        // Não usar key.id como stanzaId se for a própria mensagem; só usar se houver contexto
+    }
+
     // 2. Identify Message Type and Payload
     let responseType: 'button' | 'poll' | 'text' | null = null;
     let payload: any = null;
@@ -138,7 +143,8 @@ export async function POST(request: Request) {
         let options = pollUpdate.vote?.selectedOptions || pollUpdate.selectedOptions || data.selectedOptions || [];
         if (!Array.isArray(options)) options = [options].filter(Boolean);
         
-        const pollName = data.pollName || pollUpdate.name || pollUpdate.pollName || msgContent.pollCreationMessage?.name || pollUpdate.pollCreationMessageKey?.id || 'Enquete';
+        // IMPORTANTE: NÃO usar pollCreationMessageKey.id como pollName — é um message ID, não um nome legível!
+        const pollName = data.pollName || pollUpdate.name || pollUpdate.pollName || msgContent.pollCreationMessage?.name || 'Enquete';
 
         options = options.map((o: any) => typeof o === 'string' ? o : o.label || o.text || o.name).filter(Boolean);
         if (options.length === 0) options = ['Voto registrado'];
@@ -211,24 +217,20 @@ export async function POST(request: Request) {
             }
 
             // Estratégia 2: Se não encontrou pelo stanzaId, buscar a última mensagem enviada para esse telefone
-            // Isso cobre os casos em que o WhatsApp retorna um ID diferente do que armazenamos
+            // IMPORTANTE: Só considerar mensagens das últimas 24h para evitar vincular a campanhas antigas
             if (!broadcastId && fromPhone) {
-                // Buscar todas as mensagens enviadas para este número e pegar a mais recente
+                const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                const cutoffTimestamp = Timestamp.fromDate(cutoff24h);
+                
                 const byRecipientSnap = await db.collection('notifications_sent_messages')
                     .where('recipient', '==', fromPhone)
-                    .limit(10)
+                    .where('sentAt', '>=', cutoffTimestamp)
+                    .orderBy('sentAt', 'desc')
+                    .limit(1)
                     .get();
                 
                 if (!byRecipientSnap.empty) {
-                    // Pegar a mais recente por sentAt
-                    let latest: any = null;
-                    byRecipientSnap.docs.forEach(d => {
-                        const data = d.data();
-                        if (!latest || (data.sentAt && data.sentAt.toMillis() > latest.sentAt.toMillis())) {
-                            latest = data;
-                        }
-                    });
-                    if (latest) broadcastId = latest.broadcastId;
+                    broadcastId = byRecipientSnap.docs[0].data().broadcastId;
                 }
             }
 
