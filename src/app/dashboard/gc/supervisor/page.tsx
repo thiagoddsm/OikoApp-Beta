@@ -212,25 +212,6 @@ export default function SupervisorPage() {
   const { data: logsAll, isLoading: l1 } = useCollection<ReuniaoLog>(logsQuery);
   const { data: presencas, isLoading: l2 } = useCollection<PresencaDoc>(presencasQuery);
 
-  // Células filtradas na Visão Geral
-  const filteredCellIds = useMemo(() => {
-    if (!allCells) return new Set<string>();
-    const cellsFiltered = allCells.filter(c => {
-      if (filterRedeId && c.redeId !== filterRedeId) return false;
-      if (filterAreaId && c.areaId !== filterAreaId) return false;
-      if (filterCellId && c.id !== filterCellId) return false;
-      return true;
-    });
-    return new Set(cellsFiltered.map(c => c.id));
-  }, [allCells, filterRedeId, filterAreaId, filterCellId]);
-
-  // Logs filtrados pelo período da Visão Geral e pelos filtros de rede/área/célula
-  const logs = useMemo(() => {
-    const base = (logsAll || []).filter(l => l.date >= overviewRange.start && l.date <= overviewRange.end);
-    if (!filterRedeId && !filterAreaId && !filterCellId) return base;
-    return base.filter(l => filteredCellIds.has(l.cellId));
-  }, [logsAll, overviewRange, filterRedeId, filterAreaId, filterCellId, filteredCellIds]);
-
   // Todas as células (para aba de relatórios e filtros)
   const allCellsQuery = useMemoFirebase(() =>
     firestore ? query(collection(firestore, 'cells'), orderBy('nome')) : null,
@@ -249,6 +230,25 @@ export default function SupervisorPage() {
   );
   const { data: areas } = useCollection<Area>(areasQuery);
   const { data: redes } = useCollection<Rede>(redesQuery);
+
+  // Células filtradas na Visão Geral
+  const filteredCellIds = useMemo(() => {
+    if (!allCells) return new Set<string>();
+    const cellsFiltered = allCells.filter(c => {
+      if (filterRedeId && c.redeId !== filterRedeId) return false;
+      if (filterAreaId && c.areaId !== filterAreaId) return false;
+      if (filterCellId && c.id !== filterCellId) return false;
+      return true;
+    });
+    return new Set(cellsFiltered.map(c => c.id));
+  }, [allCells, filterRedeId, filterAreaId, filterCellId]);
+
+  // Logs filtrados pelo período da Visão Geral e pelos filtros de rede/área/célula
+  const logs = useMemo(() => {
+    const base = (logsAll || []).filter(l => l.date >= overviewRange.start && l.date <= overviewRange.end);
+    if (!filterRedeId && !filterAreaId && !filterCellId) return base;
+    return base.filter(l => filteredCellIds.has(l.cellId));
+  }, [logsAll, overviewRange, filterRedeId, filterAreaId, filterCellId, filteredCellIds]);
 
   // Logs da semana selecionada nos relatórios
   const reportWeekStart = toDateStr(getWeekStart(reportWeekOffset));
