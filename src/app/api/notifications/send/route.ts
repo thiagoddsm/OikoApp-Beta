@@ -123,6 +123,7 @@ export async function POST(request: Request) {
             progress: 0,
             type: rest.type || 'text',
             targetLabel: rest.audience || audience || 'custom',
+            retryPayload: { message, ...rest }, // Payload original para tentar novamente
         });
         broadcastId = historyRef.id;
     } catch (e) {
@@ -138,8 +139,22 @@ export async function POST(request: Request) {
         let sentCount = 0;
         let errorCount = 0;
         const errors: string[] = [];
+        const failedTargets: any[] = [];
         const sentMessages: { messageId: string, recipient: string, name?: string }[] = [];
         let messageIndex = 0;
+
+        // Helper: processar texto com Spintax
+        const parseSpintax = (text: string): string => {
+            const spintaxRegex = /\{([^{}]+)\}/g;
+            let result = text;
+            while (spintaxRegex.test(result)) {
+                result = result.replace(spintaxRegex, (match, options) => {
+                    const choices = options.split('|');
+                    return choices[Math.floor(Math.random() * choices.length)];
+                });
+            }
+            return result;
+        };
 
         // Helper: preparar body da mensagem
         const buildMessageBody = (to: string, personalizedBody: string) => {
@@ -170,7 +185,18 @@ export async function POST(request: Request) {
         };
 
         // Helper: enviar uma mensagem e registrar resultado
-        const sendOne = async (to: string, name: string, personalizedBody: string) => {
+        const sendOne = async (to: string, name: string, personalizedBody: string, originalTarget: any) => {
+            // 1. Simular digitação (Chat State)
+            try {
+                await whatsapp.sendMessage({
+                    type: 'text' as any, // fallback se a tipagem estrita não tiver presence
+                    body: { to, status: 'composing' } as any
+                });
+                await delay(2000, 5000); // 2 a 5 segundos de "digitação"
+            } catch (e) {
+                // Ignorar erro de presença para não quebrar o envio principal
+            }
+
             const messageBody = buildMessageBody(to, personalizedBody);
             try {
                 const response = await whatsapp.sendMessage({
@@ -186,10 +212,12 @@ export async function POST(request: Request) {
                 } else {
                     errorCount++;
                     errors.push(`Falha para ${name}: ${JSON.stringify(response)}`);
+                    failedTargets.push(originalTarget);
                 }
             } catch (e: any) {
                 errorCount++;
                 errors.push(`Erro para ${name}: ${e.message}`);
+                failedTargets.push(originalTarget);
             }
         };
 
@@ -208,35 +236,44 @@ export async function POST(request: Request) {
 
         // ===== ENVIAR PARA USUÁRIOS COM RATE LIMITING =====
         for (const user of targetUsers) {
-            messageIndex++;
-            const personalizedBody = (message || '').replace('{{nome}}', user.name);
+            const personalizedBody = parseSpintax(message || '').replace('{{nome}}', user.name);
             const formattedPhone = formatWhatsAppNumber(user.phone);
 
-            await sendOne(formattedPhone, user.name, personalizedBody);
+            await sendOne(formattedPhone, user.name, personalizedBody, user);
+            messageIndex++;
 
-            // Rate limiting conservador:
-            // - Delay de 3-5 segundos entre cada mensagem
-            // - Pausa de 30 segundos a cada 10 mensagens
-            if (messageIndex % 10 === 0) {
-                await updateProgress();
-                console.log(`[Rate Limit] Pausa de 30s após ${messageIndex} mensagens...`);
-                await delay(28000, 35000); // 28-35 segundos
-            } else {
-                await delay(3000, 5000); // 3-5 segundos
+            if (messageIndex > 0) {
+                if (messageIndex % 20 === 0) {
+                    await updateProgress();
+                    console.log(`[Rate Limit] Pausa de 3-5min após ${messageIndex} mensagens...`);
+                    await delay(180000, 300000); 
+                } else if (messageIndex % 5 === 0) {
+                    await updateProgress();
+                    console.log(`[Rate Limit] Pausa de 30-50s após ${messageIndex} mensagens...`);
+                    await delay(30000, 50000); 
+                } else {
+                    await delay(20000, 45000); 
+                }
             }
         }
 
         // ===== ENVIAR PARA GRUPOS COM RATE LIMITING =====
         for (const groupId of targetGroups) {
+            await sendOne(groupId, `Grupo ${groupId.split('@')[0]}`, parseSpintax(message || ''), groupId);
             messageIndex++;
-            await sendOne(groupId, `Grupo ${groupId.split('@')[0]}`, message || '');
 
-            if (messageIndex % 10 === 0) {
-                await updateProgress();
-                console.log(`[Rate Limit] Pausa de 30s após ${messageIndex} mensagens...`);
-                await delay(28000, 35000);
-            } else {
-                await delay(3000, 5000);
+            if (messageIndex > 0) {
+                if (messageIndex % 20 === 0) {
+                    await updateProgress();
+                    console.log(`[Rate Limit] Pausa de 3-5min após ${messageIndex} mensagens (Grupos)...`);
+                    await delay(180000, 300000);
+                } else if (messageIndex % 5 === 0) {
+                    await updateProgress();
+                    console.log(`[Rate Limit] Pausa de 30-50s após ${messageIndex} mensagens (Grupos)...`);
+                    await delay(30000, 50000);
+                } else {
+                    await delay(20000, 45000);
+                }
             }
         }
 
@@ -249,6 +286,8 @@ export async function POST(request: Request) {
                     progress: 100,
                     status: errorCount > 0 ? (sentCount > 0 ? 'partial' : 'failed') : 'success',
                     completedAt: Timestamp.now(),
+                    errors: errors,
+                    failedTargets: failedTargets,
                 });
             } catch (e) {
                 console.error("Erro ao atualizar status final:", e);

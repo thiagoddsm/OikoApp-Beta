@@ -14,13 +14,13 @@ import { DeleteConfirmationDialog } from '@/components/structure/delete-confirma
 interface ReservationsTableProps {
     searchTerm?: string;
     roomFilter?: string;
-    categoryFilter?: string;
+    categoryFilter?: string[];
 }
 
 export function ReservationsTable({ 
     searchTerm = '', 
     roomFilter = 'all', 
-    categoryFilter = 'all' 
+    categoryFilter = [] 
 }: ReservationsTableProps) {
     const { reservations, users, reservationCategories, updateReservation, deleteReservation, isLoading } = useVolunteering();
     const [isFormOpen, setFormOpen] = useState(false);
@@ -35,7 +35,7 @@ export function ReservationsTable({
         
         return [...reservations].filter(res => {
             // Filtro de Categoria
-            if (categoryFilter !== 'all' && res.categoryId !== categoryFilter) return false;
+            if (categoryFilter.length > 0 && !categoryFilter.includes(res.categoryId)) return false;
 
             // Filtro de Ambiente
             if (roomFilter !== 'all' && !res.rooms?.includes(roomFilter)) return false;

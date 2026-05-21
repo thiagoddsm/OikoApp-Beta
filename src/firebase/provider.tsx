@@ -2,10 +2,14 @@
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore } from 'firebase/firestore';
+import { Firestore, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseStorage } from 'firebase/storage';
-import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
+import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
+import { useInactivityLogout } from '@/hooks/use-inactivity-logout';
+
+// Horas de inatividade antes do logout automático
+const INACTIVITY_HOURS = 8;
 
 interface FirebaseProviderProps {
   children: ReactNode;
@@ -68,6 +72,9 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     userError: null,
   });
 
+  // Hook de logout automático por inatividade
+  useInactivityLogout(userAuthState.user ? auth : null, INACTIVITY_HOURS);
+
   useEffect(() => {
     if (!auth) {
       setUserAuthState({ user: null, isUserLoading: false, userError: new Error("Auth service not provided.") });
@@ -80,6 +87,15 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       auth,
       (firebaseUser) => {
         setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null });
+
+        // Atualiza lastLoginAt no Firestore quando o usuário faz (ou retoma) login
+        if (firebaseUser && firestore) {
+          setDoc(
+            doc(firestore, 'users', firebaseUser.uid),
+            { lastLoginAt: serverTimestamp() },
+            { merge: true }
+          ).catch(e => console.warn('[FirebaseProvider] Não foi possível atualizar lastLoginAt:', e));
+        }
       },
       (error) => {
         console.error("FirebaseProvider: onAuthStateChanged error:", error);
@@ -87,7 +103,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       }
     );
     return () => unsubscribe();
-  }, [auth]);
+  }, [auth, firestore]);
 
   const contextValue = useMemo((): FirebaseContextState => {
     const servicesAvailable = !!(firebaseApp && firestore && auth && storage); // Added storage to check

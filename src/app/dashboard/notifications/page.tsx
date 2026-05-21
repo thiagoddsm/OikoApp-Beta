@@ -1600,11 +1600,45 @@ function WhatsappResponses() {
 
 function NotificationsHistory() {
     const { firestore } = useFirebase();
+    const { toast } = useToast();
     const historyQuery = useMemoFirebase(() => 
         firestore ? query(collection(firestore, 'notifications_history'), orderBy('sentAt', 'desc'), limit(50)) : null,
     [firestore]);
     
     const { data: history, isLoading } = useCollection<any>(historyQuery);
+
+    const [selectedErrorItem, setSelectedErrorItem] = useState<any>(null);
+    const [isRetrying, setIsRetrying] = useState(false);
+
+    const handleRetry = async () => {
+        if (!selectedErrorItem || !selectedErrorItem.retryPayload || !selectedErrorItem.failedTargets) return;
+        setIsRetrying(true);
+        try {
+            const payload = {
+                ...selectedErrorItem.retryPayload,
+                audience: 'specific_members', // Forçamos enviar apenas para os selecionados
+                targets: selectedErrorItem.failedTargets
+            };
+
+            const response = await fetch('/api/notifications/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const result = await response.json();
+            
+            if (response.ok && (result.sentCount > 0 || result.background)) {
+                toast({ title: "Reenvio Iniciado!", description: "Acompanhe no histórico um novo registro para esta tentativa." });
+                setSelectedErrorItem(null);
+            } else {
+                toast({ variant: 'destructive', title: "Falha no Reenvio", description: result.error || "Erro ao reenviar." });
+            }
+        } catch (error) {
+            toast({ variant: 'destructive', title: "Erro de conexão", description: "Não foi possível comunicar com o servidor." });
+        } finally {
+            setIsRetrying(false);
+        }
+    };
 
     if (isLoading) return <div className="flex justify-center p-8"><Loader2 className="animate-spin text-primary" /></div>;
 
@@ -1623,8 +1657,14 @@ function NotificationsHistory() {
                     {history?.length === 0 ? (
                         <TableRow><TableCell colSpan={4} className="h-32 text-center text-muted-foreground italic text-xs">Nenhum disparo registrado.</TableCell></TableRow>
                     ) : (
-                        history?.map((item: any) => (
-                            <TableRow key={item.id}>
+                        history?.map((item: any) => {
+                            const isError = item.status === 'partial' || item.status === 'failed';
+                            return (
+                            <TableRow 
+                                key={item.id} 
+                                className={cn(isError && "cursor-pointer hover:bg-red-50/50 transition-colors")}
+                                onClick={() => isError && setSelectedErrorItem(item)}
+                            >
                                 <TableCell className="text-[10px] font-bold">
                                     {item.sentAt ? format(item.sentAt.toDate(), 'dd/MM HH:mm') : '-'}
                                 </TableCell>
@@ -1634,13 +1674,72 @@ function NotificationsHistory() {
                                 </TableCell>
                                 <TableCell className="text-xs font-black">{item.successCount} / {item.recipientCount}</TableCell>
                                 <TableCell className="text-right">
-                                    <Badge variant="outline" className={cn("text-[10px] font-black uppercase border-none", item.status === 'success' ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800")}>{item.status}</Badge>
+                                    <Badge variant="outline" className={cn("text-[10px] font-black uppercase border-none", item.status === 'success' ? "bg-emerald-100 text-emerald-800" : (item.status === 'sending' ? "bg-blue-100 text-blue-800" : "bg-amber-100 text-amber-800"))}>
+                                        {item.status}
+                                    </Badge>
                                 </TableCell>
                             </TableRow>
-                        ))
+                            );
+                        })
                     )}
                 </TableBody>
             </Table>
+
+            <Sheet open={!!selectedErrorItem} onOpenChange={(open) => !open && setSelectedErrorItem(null)}>
+                <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+                    <SheetHeader className="mb-6">
+                        <SheetTitle className="text-amber-600 flex items-center gap-2">
+                            <Info className="size-5" /> 
+                            Detalhes das Falhas
+                        </SheetTitle>
+                        <SheetDescription>
+                            Resumo do disparo efetuado em {selectedErrorItem?.sentAt ? format(selectedErrorItem.sentAt.toDate(), 'dd/MM HH:mm') : ''}.
+                        </SheetDescription>
+                    </SheetHeader>
+                    
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-3">
+                                <p className="text-[10px] uppercase font-black text-emerald-600">Sucesso</p>
+                                <p className="text-2xl font-black text-emerald-800">{selectedErrorItem?.successCount}</p>
+                            </div>
+                            <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+                                <p className="text-[10px] uppercase font-black text-amber-600">Falhas</p>
+                                <p className="text-2xl font-black text-amber-800">{selectedErrorItem?.errorCount}</p>
+                            </div>
+                        </div>
+
+                        {selectedErrorItem?.errors && selectedErrorItem.errors.length > 0 && (
+                            <div className="space-y-2">
+                                <h4 className="font-bold text-sm">Registro de Erros</h4>
+                                <ScrollArea className="h-48 border rounded-md bg-muted/30 p-2 text-xs">
+                                    <ul className="space-y-2">
+                                        {selectedErrorItem.errors.map((err: string, i: number) => (
+                                            <li key={i} className="text-red-600 font-mono text-[10px] border-b pb-1 last:border-0">{err}</li>
+                                        ))}
+                                    </ul>
+                                </ScrollArea>
+                            </div>
+                        )}
+
+                        {selectedErrorItem?.failedTargets && selectedErrorItem.failedTargets.length > 0 && (
+                            <Button 
+                                onClick={handleRetry} 
+                                disabled={isRetrying} 
+                                className="w-full font-bold h-12 bg-amber-500 hover:bg-amber-600 text-white"
+                            >
+                                {isRetrying ? <Loader2 className="animate-spin mr-2 size-4" /> : <RefreshCw className="mr-2 size-4" />}
+                                Tentar Novamente para Falhas ({selectedErrorItem.failedTargets.length})
+                            </Button>
+                        )}
+                        {selectedErrorItem?.errorCount > 0 && (!selectedErrorItem?.failedTargets || selectedErrorItem.failedTargets.length === 0) && (
+                            <p className="text-xs text-muted-foreground italic text-center">
+                                Os destinatários falhos deste envio não foram salvos no servidor para permitir o reenvio automático.
+                            </p>
+                        )}
+                    </div>
+                </SheetContent>
+            </Sheet>
         </div>
     );
 }

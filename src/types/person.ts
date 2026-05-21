@@ -62,6 +62,7 @@ export interface Person {
     registrationDate?: Timestamp | null; // DATA CADASTRO
     lastUpdate?: Timestamp | null; // ULTIMA ALTERACAO
     membershipRoll?: string; // ARROLAMENTO
+    baptismDate?: Timestamp | null; // DATA DO BATISMO — preenchida indica batizado
     smallGroup?: string; // PG (Pequeno Grupo)
     integrationStatus?: string;
     interests?: string[];

@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { VolunteeringProvider, useVolunteering } from '@/contexts/volunteering-context';
-import { CalendarClock, PlusCircle, Search, Filter, X } from 'lucide-react';
+import { CalendarClock, PlusCircle, Search, X, ChevronDown, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CreateReservationDialog } from '@/components/volunteering/create-reservation-dialog';
 import { ReservationsTable } from '@/components/volunteering/reservations-table';
@@ -13,6 +13,10 @@ import { Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CategoryManagement } from '@/components/volunteering/category-management';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 const ReservationsCalendar = dynamic(
     () => import('@/components/volunteering/reservations-calendar').then(mod => mod.ReservationsCalendar),
@@ -34,7 +38,7 @@ function ReservationsPageContent() {
     // Estados de Filtro
     const [searchTerm, setSearchTerm] = useState('');
     const [roomFilter, setRoomFilter] = useState('all');
-    const [categoryFilter, setCategoryFilter] = useState('all');
+    const [categoryFilter, setCategoryFilter] = useState<string[]>([]); // [] = todas
 
     const handleNewReservation = () => {
         setSelectedReservation(null);
@@ -49,10 +53,22 @@ function ReservationsPageContent() {
     const handleClearFilters = () => {
         setSearchTerm('');
         setRoomFilter('all');
-        setCategoryFilter('all');
+        setCategoryFilter([]);
     };
 
-    const hasActiveFilters = searchTerm !== '' || roomFilter !== 'all' || categoryFilter !== 'all';
+    const toggleCategory = (catId: string) => {
+        setCategoryFilter(prev =>
+            prev.includes(catId) ? prev.filter(id => id !== catId) : [...prev, catId]
+        );
+    };
+
+    const hasActiveFilters = searchTerm !== '' || roomFilter !== 'all' || categoryFilter.length > 0;
+
+    const categoryLabel = categoryFilter.length === 0
+        ? 'Todas Categorias'
+        : categoryFilter.length === 1
+            ? reservationCategories.find(c => c.id === categoryFilter[0])?.name ?? '1 categoria'
+            : `${categoryFilter.length} categorias`;
 
     return (
         <div className="space-y-6">
@@ -103,19 +119,69 @@ function ReservationsPageContent() {
                             </Select>
                         </div>
 
-                        <div className="w-[180px] space-y-1.5">
-                            <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Categoria</label>
-                            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                                <SelectTrigger className="bg-background">
-                                    <SelectValue placeholder="Todas Categorias" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">Todas Categorias</SelectItem>
-                                    {reservationCategories.map(cat => (
-                                        <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                        {/* Filtro de Categorias — Multi-select com checkboxes */}
+                        <div className="space-y-1.5">
+                            <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Categorias</label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className={cn(
+                                            "bg-background min-w-[180px] justify-between font-normal",
+                                            categoryFilter.length > 0 && "border-primary text-primary"
+                                        )}
+                                    >
+                                        <span className="truncate">{categoryLabel}</span>
+                                        <div className="flex items-center gap-1 ml-2 shrink-0">
+                                            {categoryFilter.length > 0 && (
+                                                <Badge className="h-5 px-1.5 text-[10px] font-black">
+                                                    {categoryFilter.length}
+                                                </Badge>
+                                            )}
+                                            <ChevronDown className="h-4 w-4 opacity-50" />
+                                        </div>
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-56 p-2" align="start">
+                                    <div className="space-y-1">
+                                        {/* Opção "Todas" */}
+                                        <button
+                                            type="button"
+                                            onClick={() => setCategoryFilter([])}
+                                            className={cn(
+                                                "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm hover:bg-muted transition-colors",
+                                                categoryFilter.length === 0 && "font-bold text-primary bg-primary/5"
+                                            )}
+                                        >
+                                            <Check className={cn("h-4 w-4", categoryFilter.length !== 0 && "opacity-0")} />
+                                            Todas as Categorias
+                                        </button>
+
+                                        <div className="border-t my-1" />
+
+                                        {/* Categorias individuais */}
+                                        {reservationCategories.map(cat => (
+                                            <label
+                                                key={cat.id}
+                                                className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer transition-colors"
+                                            >
+                                                <Checkbox
+                                                    checked={categoryFilter.includes(cat.id)}
+                                                    onCheckedChange={() => toggleCategory(cat.id)}
+                                                    id={`cat-${cat.id}`}
+                                                />
+                                                <span className="text-sm">{cat.name}</span>
+                                                {cat.color && (
+                                                    <span
+                                                        className="ml-auto h-3 w-3 rounded-full shrink-0"
+                                                        style={{ backgroundColor: cat.color }}
+                                                    />
+                                                )}
+                                            </label>
+                                        ))}
+                                    </div>
+                                </PopoverContent>
+                            </Popover>
                         </div>
 
                         {hasActiveFilters && (
@@ -124,6 +190,7 @@ function ReservationsPageContent() {
                             </Button>
                         )}
                     </div>
+
 
                     <Tabs defaultValue="calendar">
                         <TabsList className="grid w-full grid-cols-3">

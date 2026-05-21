@@ -320,6 +320,7 @@ export type FinanceRequest = {
   dueDate?: string;
   purchaseLink?: string;
   status: 'pending' | 'approved' | 'paid' | 'rejected';
+  rejectionReason?: string;
   createdAt: Timestamp;
   attachmentUrl?: string;
 };
@@ -397,7 +398,7 @@ interface VolunteeringContextType {
   approveEnrollmentRequest: (requestId: string, classId: string) => Promise<void>;
   updateEnrollmentRequest: (requestId: string, data: any) => Promise<void>;
   deleteEnrollmentRequest: (requestId: string) => Promise<void>;
-  markAttendanceByTheoflix: (userId: string, courseId: string, episodeIndex: number) => Promise<void>;
+  markAttendanceByTheoflix: (userId: string, courseId: string, episodeIndex: number, lessonNotes?: string) => Promise<void>;
   saveSchedule: (data: any) => Promise<void>;
   deleteSchedule: (id: string) => Promise<void>;
 }
@@ -614,7 +615,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
     },
     updateEnrollmentRequest: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id), data); },
     deleteEnrollmentRequest: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id)); },
-    markAttendanceByTheoflix: async (userId: string, theoflixCourseId: string, episodeIndex: number) => {
+    markAttendanceByTheoflix: async (userId: string, theoflixCourseId: string, episodeIndex: number, lessonNotes?: string) => {
       // Find physical courses linked to this theoflixCourseId
       const linkedCourses = (courses || []).filter(c => 
          c.id === theoflixCourseId || 
@@ -705,15 +706,28 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
         const targetDate = matchedItem.dateStr;
         const existingAttendance = cls.attendance || [];
         const recordIdx = existingAttendance.findIndex((a: any) => a.date === targetDate);
-        
+        const notes = lessonNotes?.trim();
+
         if (recordIdx > -1) {
           const record = existingAttendance[recordIdx];
+          let changed = false;
+          // Adiciona userId à lista online se ainda não estiver
           if (!record.onlineStudentIds?.includes(userId)) {
             record.onlineStudentIds = [...(record.onlineStudentIds || []), userId];
+            changed = true;
+          }
+          // Salva/atualiza as anotações (sempre, para permitir edição)
+          if (notes) {
+            record.lessonNotes = { ...(record.lessonNotes || {}), [userId]: notes };
+            changed = true;
+          }
+          if (changed) {
             await updateDocumentNonBlocking(doc(firestore!, 'classes', cls.id), { attendance: existingAttendance });
           }
         } else {
-          existingAttendance.push({ date: targetDate, presentStudentIds: [], onlineStudentIds: [userId] });
+          const newRecord: any = { date: targetDate, presentStudentIds: [], onlineStudentIds: [userId] };
+          if (notes) newRecord.lessonNotes = { [userId]: notes };
+          existingAttendance.push(newRecord);
           await updateDocumentNonBlocking(doc(firestore!, 'classes', cls.id), { attendance: existingAttendance });
         }
       }

@@ -35,7 +35,7 @@ interface ReservationsCalendarProps {
     onEventClick?: (res: RoomReservation) => void;
     searchTerm?: string;
     roomFilter?: string;
-    categoryFilter?: string;
+    categoryFilter?: string[];
 }
 
 // ─── Componente de visualização em Lista ────────────────────────────────────
@@ -57,28 +57,18 @@ function EventListView({
     const monthLabel = useMemo(() => moment(currentDate).format('MMMM YYYY'), [currentDate]);
     const selectedMonthKey = useMemo(() => moment(currentDate).format('YYYY-MM'), [currentDate]);
 
-    // Extrair todos os meses disponíveis nos eventos para saber se pode navegar
-    const availableMonths = useMemo(() => {
-        const keys = new Set<string>();
-        events.forEach(ev => keys.add(moment(ev.start).format('YYYY-MM')));
-        return Array.from(keys).sort();
-    }, [events]);
+    // Navegar livremente — limites: 12 meses atrás e 24 meses à frente do mês atual
+    const minMonth = useMemo(() => moment().subtract(12, 'months').startOf('month'), []);
+    const maxMonth = useMemo(() => moment().add(24, 'months').startOf('month'), []);
 
-    const currentIdx = availableMonths.indexOf(selectedMonthKey);
-    const hasPrev = currentIdx > 0;
-    const hasNext = currentIdx < availableMonths.length - 1;
+    const hasPrev = moment(currentDate).startOf('month').isAfter(minMonth);
+    const hasNext = moment(currentDate).startOf('month').isBefore(maxMonth);
 
-    const goToPrev = () => { 
-        if (hasPrev) {
-            const prevMonth = moment(currentDate).subtract(1, 'month').toDate();
-            onNavigate(prevMonth);
-        } 
+    const goToPrev = () => {
+        if (hasPrev) onNavigate(moment(currentDate).subtract(1, 'month').toDate());
     };
-    const goToNext = () => { 
-        if (hasNext) {
-            const nextMonth = moment(currentDate).add(1, 'month').toDate();
-            onNavigate(nextMonth);
-        } 
+    const goToNext = () => {
+        if (hasNext) onNavigate(moment(currentDate).add(1, 'month').toDate());
     };
 
     // Eventos filtrados pelo mês selecionado
@@ -88,7 +78,7 @@ function EventListView({
             .sort((a, b) => a.start.getTime() - b.start.getTime());
     }, [events, selectedMonthKey]);
 
-    if (availableMonths.length === 0) {
+    if (events.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center h-64 text-muted-foreground gap-3">
                 <CalendarDays className="size-12 opacity-20" />
@@ -219,7 +209,7 @@ export function ReservationsCalendar({
     onEventClick,
     searchTerm = '',
     roomFilter = 'all',
-    categoryFilter = 'all'
+    categoryFilter = []
 }: ReservationsCalendarProps) {
   const { reservations, reservationCategories, isLoading } = useVolunteering();
   const [date, setDate] = useState(new Date());
@@ -230,7 +220,7 @@ export function ReservationsCalendar({
     if (!reservations || !Array.isArray(reservations)) return [];
 
     const filteredBase = reservations.filter(res => {
-        if (categoryFilter !== 'all' && res.categoryId !== categoryFilter) return false;
+        if (categoryFilter.length > 0 && !categoryFilter.includes(res.categoryId)) return false;
         if (roomFilter !== 'all' && !res.rooms?.includes(roomFilter)) return false;
         if (searchTerm && !res.eventName.toLowerCase().includes(searchTerm.toLowerCase())) return false;
         return true;

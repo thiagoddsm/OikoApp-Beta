@@ -38,6 +38,7 @@ import {
   Save,
   LayoutTemplate,
   Menu,
+  BarChart2,
   Search,
   Bell,
   Moon
@@ -88,7 +89,9 @@ const menuItems = [
       icon: HeartHandshake,
       subItems: [
         { href: "/dashboard/gc/structure", label: "Estrutura", icon: Network, permissionId: 'gcs_structure' },
+        { href: "/dashboard/gc/cells", label: "Células", icon: Users2, permissionId: 'gcs_cells' },
         { href: "/dashboard/gc/report", label: "Relatório de Célula", icon: ClipboardList, permissionId: 'gcs_report' },
+        { href: "/dashboard/gc/supervisor", label: "Supervisor", icon: BarChart2, permissionId: 'gcs_supervisor' },
         { href: "/dashboard/gc/map", label: "Mapa", icon: Map, permissionId: 'gcs_map' },
       ]
     },
@@ -145,9 +148,18 @@ const settingsMenuItems = [
     { href: "/dashboard/settings/notifications", label: "Notificações", icon: Send, permissionId: 'settings' },
 ];
 
-function MenuItems({ pathname, permissions, userRole, onLinkClick }) {
+type MenuPermissions = Record<string, Record<string, boolean>> | undefined;
+
+interface MenuItemsProps {
+  pathname: string;
+  permissions: MenuPermissions;
+  userRole: string | undefined;
+  onLinkClick: () => void;
+}
+
+function MenuItems({ pathname, permissions, userRole, onLinkClick }: MenuItemsProps) {
   // IDs acessíveis por padrão para qualquer membro autenticado (sem perfil de acesso específico)
-  const DEFAULT_MEMBER_PERMISSIONS = new Set(['dashboard', 'teaching_courses']);
+  const DEFAULT_MEMBER_PERMISSIONS = new Set(['dashboard', 'teaching_courses', 'gcs_report']);
 
   const hasPermission = (permissionId: string | undefined, action: string = 'view') => {
     if (!permissionId) return true;
@@ -256,7 +268,11 @@ function MenuItems({ pathname, permissions, userRole, onLinkClick }) {
   );
 }
 
-function MobileMenu({ pathname, permissions, userRole, onLinkClick, children }) {
+interface MobileMenuProps extends MenuItemsProps {
+  children: React.ReactNode;
+}
+
+function MobileMenu({ pathname, permissions, userRole, onLinkClick, children }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const handleLinkClick = () => {

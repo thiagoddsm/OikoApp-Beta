@@ -1,240 +1,610 @@
-
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { useFirebase, addDocumentNonBlocking, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, Timestamp } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, query, where, doc, writeBatch, Timestamp, serverTimestamp } from 'firebase/firestore';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Textarea } from '@/components/ui/textarea';
-import { Loader2, FileText, Users, UserPlus, HeartHandshake, BookOpen, CircleDollarSign, AlertTriangle, Send } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  Loader2, Send, Users, Heart, BarChart2, MessageSquare,
+  ChevronRight, ChevronLeft, CheckCircle2, AlertTriangle,
+  Flame, HandHeart, UserX, UserCheck
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { cn } from '@/lib/utils';
+import { Progress } from '@/components/ui/progress';
 
-type Cell = { id: string; nome: string; membros: string[] };
-type UserProfile = { id: string; name: string; avatar?: string };
+// ─── Types ───────────────────────────────────────────────────────────────────
+type PresenceStatus = 'presente' | 'ausente_justificado' | 'ausente_sem_justificativa' | 'visitante';
 
-const getAppId = () => (typeof window !== 'undefined' && (window as any).__app_id) ? (window as any).__app_id : 'default-app-id';
+type MemberAttendance = {
+  membroId: string;
+  membroNome: string;
+  status: PresenceStatus;
+  termometro: number | null;
+  pedidoOracao: string;
+  observacaoCuidado: string;
+};
 
-function CellReportForm({ cell, members, leaderId }: { cell: Cell; members: UserProfile[], leaderId: string }) {
-    const { firestore } = useFirebase();
-    const { toast } = useToast();
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [presentMembers, setPresentMembers] = useState<string[]>([]);
-    const [visitantes, setVisitantes] = useState('');
-    const [conversoes, setConversoes] = useState(0);
-    const [licaoMinistrada, setLicaoMinistrada] = useState('');
-    const [observacoes, setObservacoes] = useState('');
-    const [oferta, setOferta] = useState(0);
+type Cell = {
+  id: string;
+  nome: string;
+  liderId: string;
+  coLiderIds?: string[];
+  secretariaId?: string;
+  supervisorId?: string;
+  meetingDay?: string;
+  membros: string[];
+};
 
-    const handleMemberToggle = (memberId: string) => {
-        setPresentMembers(prev =>
-            prev.includes(memberId) ? prev.filter(id => id !== memberId) : [...prev, memberId]
-        );
-    };
+// ─── Utilitário: última data de reunião ────────────────────────────────────────
+const DAY_MAP: Record<string, number> = {
+  'Domingo': 0, 'Segunda-feira': 1, 'Terça-feira': 2, 'Quarta-feira': 3,
+  'Quinta-feira': 4, 'Sexta-feira': 5, 'Sábado': 6,
+};
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsSubmitting(true);
-
-        const reportCollection = collection(firestore, `attendance_reports`);
-
-        try {
-            await addDocumentNonBlocking(reportCollection, {
-                cellId: cell.id,
-                date: Timestamp.now(),
-                presentMembers,
-                visitantes,
-                conversoes,
-                qualitative: {
-                    licaoMinistrada,
-                    decisoes: '', // Campo do schema, pode ser usado no futuro
-                    obs: observacoes
-                },
-                financials: { // Mapeando para um futuro schema de finanças
-                    oferta: oferta
-                },
-                leaderId: leaderId,
-                kidsSecurity: {}, // Placeholder
-                createdAt: Timestamp.now()
-            });
-
-            toast({
-                title: "Relatório Enviado!",
-                description: "Obrigado por sua dedicação, líder!",
-            });
-            // Reset form
-            setPresentMembers([]);
-            setVisitantes('');
-            setConversoes(0);
-            setLicaoMinistrada('');
-            setObservacoes('');
-            setOferta(0);
-
-        } catch (error) {
-            console.error("Error submitting report: ", error);
-            toast({
-                variant: 'destructive',
-                title: "Erro ao Enviar",
-                description: "Não foi possível salvar o relatório. Tente novamente.",
-            });
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    return (
-        <form onSubmit={handleSubmit} className="space-y-8">
-            {/* 1. Presença */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Users className="size-5 text-primary" />Presença</CardTitle>
-                    <CardDescription>Marque os usuários que estiveram presentes na reunião.</CardDescription>
-                </CardHeader>
-                <CardContent className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                    {members.map(member => {
-                        const avatar = PlaceHolderImages.find(p => p.id === (member.avatar || 'avatar-1'));
-                        return (
-                            <div key={member.id} className="flex flex-col items-center gap-2">
-                                <label htmlFor={`member-${member.id}`} className="cursor-pointer">
-                                    <Avatar className={`h-16 w-16 border-2 transition-all ${presentMembers.includes(member.id) ? 'border-primary' : 'border-transparent'}`}>
-                                        {avatar && <AvatarImage src={avatar.imageUrl} alt={avatar.description} />}
-                                        <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
-                                    </Avatar>
-                                </label>
-                                <div className="flex items-center gap-2">
-                                    <Checkbox id={`member-${member.id}`} checked={presentMembers.includes(member.id)} onCheckedChange={() => handleMemberToggle(member.id)} />
-                                    <span className="text-sm font-medium text-center">{member.name}</span>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </CardContent>
-            </Card>
-
-            {/* 2. Visitantes */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><UserPlus className="size-5 text-primary" />Visitantes</CardTitle>
-                    <CardDescription>Adicione os nomes dos visitantes, separados por vírgula.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Textarea placeholder="Ex: Maria, José, Ana" value={visitantes} onChange={(e) => setVisitantes(e.target.value)} />
-                </CardContent>
-            </Card>
-            
-            {/* 3. Conversões */}
-             <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><HeartHandshake className="size-5 text-primary" />Conversões</CardTitle>
-                    <CardDescription>Quantas pessoas tomaram uma decisão por Cristo?</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Input type="number" min="0" value={conversoes} onChange={(e) => setConversoes(Number(e.target.value))} placeholder="0" />
-                </CardContent>
-            </Card>
-
-            {/* 4. Resumo */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><BookOpen className="size-5 text-primary" />Resumo da Reunião</CardTitle>
-                    <CardDescription>Compartilhe o que foi ministrado e outras observações.</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                     <div>
-                        <Label htmlFor="licao">Lição Ministrada</Label>
-                        <Input id="licao" value={licaoMinistrada} onChange={(e) => setLicaoMinistrada(e.target.value)} placeholder="Ex: Lição 5 - Oração" />
-                    </div>
-                    <div>
-                        <Label htmlFor="obs">Observações Importantes</Label>
-                        <Textarea id="obs" value={observacoes} onChange={(e) => setObservacoes(e.target.value)} placeholder="Pedidos de oração, testemunhos, dificuldades, etc." />
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* 5. Oferta */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><CircleDollarSign className="size-5 text-primary" />Oferta da Célula</CardTitle>
-                    <CardDescription>Registre o valor total da oferta recolhida na célula (R$).</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Input type="number" min="0" step="0.01" value={oferta} onChange={(e) => setOferta(Number(e.target.value))} placeholder="0.00" />
-                </CardContent>
-            </Card>
-
-            <div className="text-center">
-                <Button type="submit" size="lg" disabled={isSubmitting}>
-                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    <Send className="mr-2 h-4 w-4" />
-                    Enviar Relatório Semanal
-                </Button>
-            </div>
-        </form>
-    );
+function getLastMeetingDate(meetingDay?: string): string {
+  if (!meetingDay || DAY_MAP[meetingDay] === undefined)
+    return new Date().toISOString().split('T')[0];
+  const targetDay = DAY_MAP[meetingDay];
+  const today = new Date();
+  const daysBack = (today.getDay() - targetDay + 7) % 7;
+  const date = new Date(today);
+  date.setDate(today.getDate() - daysBack);
+  return date.toISOString().split('T')[0];
 }
 
+type UserProfile = {
+  id: string;
+  name: string;
+  photoURL?: string;
+};
 
-export default function CellReportPage() {
-    const { user, isUserLoading, firestore } = useFirebase();
-    
-    // Encontrar a célula liderada pelo usuário logado
-    const cellsQuery = useMemoFirebase(() => {
-        if (!firestore || !user) return null;
-        return query(collection(firestore, 'cells'), where('liderId', '==', user.uid));
-    }, [firestore, user]);
-    const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>(cellsQuery);
-    const cell = cells?.[0];
+// ─── Status config ────────────────────────────────────────────────────────────
+const STATUS_OPTIONS: { value: PresenceStatus; label: string; icon: React.ReactNode; activeClass: string }[] = [
+  { value: 'presente',                  label: 'Presente',   icon: <UserCheck className="h-4 w-4" />, activeClass: 'bg-emerald-500 text-white border-emerald-500' },
+  { value: 'ausente_justificado',       label: 'Justificado', icon: <AlertTriangle className="h-4 w-4" />, activeClass: 'bg-amber-500 text-white border-amber-500' },
+  { value: 'ausente_sem_justificativa', label: 'Faltou',     icon: <UserX className="h-4 w-4" />, activeClass: 'bg-red-500 text-white border-red-500' },
+];
 
-    // Buscar os detalhes dos membros da célula encontrada
-    const membersQuery = useMemoFirebase(() => {
-        if (!firestore || !cell || cell.membros.length === 0) return null;
-        return query(collection(firestore, 'users'), where('__name__', 'in', cell.membros));
-    }, [firestore, cell]);
-    const { data: members, isLoading: isLoadingMembers } = useCollection<UserProfile>(membersQuery);
+// ─── Steps ───────────────────────────────────────────────────────────────────
+const STEPS = [
+  { id: 1, label: 'Chamada',    icon: <Users className="h-4 w-4" /> },
+  { id: 2, label: 'Cuidado',   icon: <Heart className="h-4 w-4" /> },
+  { id: 3, label: 'Métricas',  icon: <BarChart2 className="h-4 w-4" /> },
+  { id: 4, label: 'Feedback',  icon: <MessageSquare className="h-4 w-4" /> },
+];
 
-    const isLoading = isUserLoading || isLoadingCells || isLoadingMembers;
+// ─── Termômetro ───────────────────────────────────────────────────────────────
+const THERMOMETER = [
+  { value: 1, label: 'Precisa de cuidado', emoji: '😔', color: 'bg-red-100 border-red-400 text-red-700' },
+  { value: 2, label: 'Desanimado',         emoji: '😕', color: 'bg-orange-100 border-orange-400 text-orange-700' },
+  { value: 3, label: 'Estável',            emoji: '😊', color: 'bg-yellow-100 border-yellow-400 text-yellow-700' },
+  { value: 4, label: 'Bem',                emoji: '😄', color: 'bg-lime-100 border-lime-400 text-lime-700' },
+  { value: 5, label: 'Radiante',           emoji: '🔥', color: 'bg-emerald-100 border-emerald-500 text-emerald-700' },
+];
 
-    if (isLoading) {
+// ─── Step 1: Chamada ──────────────────────────────────────────────────────────
+function StepChamada({ members, attendance, onChange }: {
+  members: UserProfile[];
+  attendance: MemberAttendance[];
+  onChange: (id: string, field: keyof MemberAttendance, value: any) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      {members.map(member => {
+        const att = attendance.find(a => a.membroId === member.id);
+        if (!att) return null; // ainda inicializando
+
+        const isAbsent = att.status === 'ausente_justificado' || att.status === 'ausente_sem_justificativa';
+
         return (
-            <div className="flex items-center justify-center h-full">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                <p className="ml-4 text-muted-foreground">Carregando dados da sua célula...</p>
+          <div key={member.id} className="rounded-xl border bg-card p-3 space-y-2">
+            {/* Nome + botões */}
+            <div className="flex items-center gap-3">
+              <Avatar className="h-9 w-9 border flex-shrink-0">
+                {member.photoURL && <img src={member.photoURL} className="h-full w-full object-cover rounded-full" alt={member.name} />}
+                <AvatarFallback className="text-xs font-bold">{member.name.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <span className="font-semibold text-sm flex-1 truncate">{member.name}</span>
+              <div className="flex gap-1 flex-shrink-0">
+                {STATUS_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => onChange(member.id, 'status', opt.value)}
+                    className={cn(
+                      'flex items-center gap-1 px-2.5 py-2 rounded-lg border text-xs font-semibold transition-all min-h-[44px]',
+                      att.status === opt.value ? opt.activeClass : 'border-border text-muted-foreground hover:bg-muted'
+                    )}
+                    title={opt.label}
+                  >
+                    {opt.icon}
+                    <span className="hidden sm:inline">{opt.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-        );
-    }
-    
-    if (!cell) {
-        return (
-             <Card className="w-full max-w-lg mx-auto">
-                 <CardHeader className="text-center">
-                    <AlertTriangle className="mx-auto h-12 w-12 text-destructive" />
-                    <CardTitle className="mt-4">Nenhuma Célula Encontrada</CardTitle>
-                 </CardHeader>
-                <CardContent>
-                    <p className="text-center text-muted-foreground">
-                        Você não está registrado como líder de nenhuma célula. Por favor, entre em contato com seu supervisor para ser adicionado como líder de uma célula no sistema.
-                    </p>
-                </CardContent>
-            </Card>
-        );
-    }
 
+            {/* Campo de observação — só aparece se ausente */}
+            {isAbsent && (
+              <div className="pl-12">
+                <Input
+                  placeholder="Observação de cuidado (opcional)..."
+                  value={att.observacaoCuidado}
+                  onChange={e => onChange(member.id, 'observacaoCuidado', e.target.value)}
+                  className="text-sm h-9"
+                />
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Step 2: Termômetro & Oração ─────────────────────────────────────────────
+function StepCuidado({ members, attendance, onChange }: {
+  members: UserProfile[];
+  attendance: MemberAttendance[];
+  onChange: (id: string, field: keyof MemberAttendance, value: any) => void;
+}) {
+  const presentMembers = members.filter(m =>
+    attendance.find(a => a.membroId === m.id)?.status === 'presente'
+  );
+  const [expanded, setExpanded] = useState<string[]>([]);
+
+  if (presentMembers.length === 0) {
     return (
-        <div className="max-w-4xl mx-auto">
-            <Card className="mb-8 bg-primary/5 border-primary/20">
-                <CardHeader>
-                    <CardTitle>Relatório da Célula: {cell.nome}</CardTitle>
-                    <CardDescription>
-                        Líder, preencha o relatório da reunião desta semana. Sua dedicação é fundamental para o cuidado e crescimento do rebanho!
-                    </CardDescription>
-                </CardHeader>
-            </Card>
-            {members && user && <CellReportForm cell={cell} members={members} leaderId={user.uid} />}
-        </div>
+      <div className="text-center py-12 text-muted-foreground">
+        <Heart className="h-10 w-10 mx-auto mb-3 opacity-30" />
+        <p>Nenhum membro marcado como presente.</p>
+      </div>
     );
+  }
+
+  return (
+    <div className="space-y-4">
+      {presentMembers.map(member => {
+        const att = attendance.find(a => a.membroId === member.id)!;
+        const isExpanded = expanded.includes(member.id);
+
+        return (
+          <div key={member.id} className="rounded-xl border bg-card p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Avatar className="h-8 w-8 border flex-shrink-0">
+                {member.photoURL && <img src={member.photoURL} className="h-full w-full object-cover rounded-full" alt={member.name} />}
+                <AvatarFallback className="text-xs font-bold">{member.name.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <span className="font-semibold text-sm">{member.name}</span>
+            </div>
+
+            {/* Termômetro */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-2 font-medium">Como estava espiritualmente/emocionalmente?</p>
+              <div className="flex gap-2 flex-wrap">
+                {THERMOMETER.map(t => (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => onChange(member.id, 'termometro', att.termometro === t.value ? null : t.value)}
+                    className={cn(
+                      'flex flex-col items-center gap-1 px-3 py-2 rounded-xl border-2 transition-all min-h-[52px] min-w-[52px]',
+                      att.termometro === t.value ? t.color + ' font-bold' : 'border-border hover:bg-muted'
+                    )}
+                    title={t.label}
+                  >
+                    <span className="text-lg leading-none">{t.emoji}</span>
+                    <span className="text-[10px] leading-none hidden sm:block">{t.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Pedido de oração — expansível */}
+            <div>
+              <button
+                type="button"
+                onClick={() => setExpanded(prev => isExpanded ? prev.filter(id => id !== member.id) : [...prev, member.id])}
+                className="flex items-center gap-1 text-xs text-primary font-semibold hover:underline"
+              >
+                <HandHeart className="h-3.5 w-3.5" />
+                {isExpanded ? 'Ocultar pedido de oração' : att.pedidoOracao ? '✅ Pedido registrado — editar' : 'Registrar pedido de oração'}
+              </button>
+              {isExpanded && (
+                <Textarea
+                  className="mt-2 text-sm"
+                  rows={2}
+                  placeholder="Anote o pedido de oração desta pessoa..."
+                  value={att.pedidoOracao}
+                  onChange={e => onChange(member.id, 'pedidoOracao', e.target.value)}
+                />
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Step 3: Métricas ─────────────────────────────────────────────────────────
+function StepMetricas({ data, onChange, reportDate, onDateChange }: {
+  data: { visitantes: string; conversoes: number; licao: string };
+  onChange: (field: string, value: any) => void;
+  reportDate: string;
+  onDateChange: (d: string) => void;
+}) {
+  const visitantesCount = data.visitantes
+    .split(',')
+    .map(v => v.trim())
+    .filter(v => v.length > 0).length;
+  return (
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <Label htmlFor="reportDate">Data da Reunião</Label>
+        <input
+          id="reportDate"
+          type="date"
+          value={reportDate}
+          onChange={e => onDateChange(e.target.value)}
+          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+        <p className="text-[11px] text-muted-foreground">Data calculada automaticamente com base no dia de reunião da célula. Ajuste se necessário.</p>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="licao">Lição / Tema da Reunião</Label>
+        <Input id="licao" value={data.licao} onChange={e => onChange('licao', e.target.value)} placeholder="Ex: Lição 5 – O Poder da Oração" />
+      </div>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="visitantes">Visitantes (nomes, separados por vírgula)</Label>
+          {visitantesCount > 0 && (
+            <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+              {visitantesCount} visitante{visitantesCount > 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+        <Textarea id="visitantes" value={data.visitantes} onChange={e => onChange('visitantes', e.target.value)} placeholder="Ex: Maria, José, Ana" rows={2} />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="conversoes">Conversões</Label>
+        <Input id="conversoes" type="number" min={0} value={data.conversoes} onChange={e => onChange('conversoes', Number(e.target.value))} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Step 4: Feedback ─────────────────────────────────────────────────────────
+function StepFeedback({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        Esta mensagem será lida pelo seu supervisor. Seja honesto — ele está aqui para te apoiar! 💪
+      </p>
+      <Textarea
+        rows={5}
+        placeholder="Como você se sentiu liderando esta semana? Precisa de ajuda com algo? Tem algo que quer compartilhar com seu supervisor?"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="text-sm resize-none"
+      />
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+export default function CellReportPage() {
+  const { user, isUserLoading, firestore } = useFirebase();
+  const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const preselectedCellId = searchParams.get('cellId');
+  const [step, setStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  // Role do usuário logado
+  const { data: userData } = useDoc<{ hierarchy?: { role?: string } }>(
+    user ? `users/${user.uid}` : null
+  );
+  const userRole = userData?.hierarchy?.role;
+  const isSupervisor = ['lider_area', 'lider_rede', 'pastor_senior', 'admin'].includes(userRole || '');
+
+  // Células onde o usuário é líder, co-líder ou secretaria
+  const cellsQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'cells'), where('liderId', '==', user.uid));
+  }, [firestore, user]);
+
+  const coLiderQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'cells'), where('coLiderIds', 'array-contains', user.uid));
+  }, [firestore, user]);
+
+  const secretariaQuery = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    return query(collection(firestore, 'cells'), where('secretariaId', '==', user.uid));
+  }, [firestore, user]);
+
+  // Supervisores veem todas as células
+  const allCellsQuery = useMemoFirebase(() => {
+    if (!firestore || !isSupervisor) return null;
+    return query(collection(firestore, 'cells'));
+  }, [firestore, isSupervisor]);
+
+  const { data: leaderCells, isLoading: l1 } = useCollection<Cell>(cellsQuery);
+  const { data: coLiderCells, isLoading: l2 } = useCollection<Cell>(coLiderQuery);
+  const { data: secretariaCells, isLoading: l3 } = useCollection<Cell>(secretariaQuery);
+  const { data: allCellsDocs, isLoading: lSuper } = useCollection<Cell>(allCellsQuery);
+
+  const allCells = useMemo(() => {
+    if (isSupervisor && allCellsDocs?.length) return allCellsDocs;
+    const seen = new Set<string>();
+    return [...(leaderCells || []), ...(coLiderCells || []), ...(secretariaCells || [])].filter(c => {
+      if (seen.has(c.id)) return false;
+      seen.add(c.id);
+      return true;
+    });
+  }, [isSupervisor, allCellsDocs, leaderCells, coLiderCells, secretariaCells]);
+
+  const [selectedCellId, setSelectedCellId] = useState<string>('');
+  const cell = useMemo(() => {
+    if (preselectedCellId) return allCells.find(c => c.id === preselectedCellId) || allCells[0];
+    return allCells.find(c => c.id === selectedCellId) || allCells[0];
+  }, [allCells, selectedCellId, preselectedCellId]);
+
+  // Data da reunião — calculada automaticamente pelo dia do GC
+  const [reportDate, setReportDate] = useState('');
+  useEffect(() => {
+    setReportDate(getLastMeetingDate(cell?.meetingDay));
+  }, [cell?.id, cell?.meetingDay]);
+
+  // Membros da célula selecionada
+  const membersQuery = useMemoFirebase(() => {
+    if (!firestore || !cell || !cell.membros?.length) return null;
+    return query(collection(firestore, 'users'), where('__name__', 'in', cell.membros.slice(0, 30)));
+  }, [firestore, cell]);
+  const { data: members, isLoading: l4 } = useCollection<UserProfile>(membersQuery);
+
+  // Estado da chamada
+  const [attendance, setAttendance] = useState<MemberAttendance[]>([]);
+
+  // Inicializa attendance quando membros carregam
+  React.useEffect(() => {
+    if (members) {
+      setAttendance(members.map(m => ({
+        membroId: m.id,
+        membroNome: m.name,
+        status: 'presente',
+        termometro: null,
+        pedidoOracao: '',
+        observacaoCuidado: '',
+      })));
+    }
+  }, [members]);
+
+  // Estado das métricas
+  const [metricas, setMetricas] = useState({ visitantes: '', conversoes: 0, licao: '' });
+  const [feedback, setFeedback] = useState('');
+
+  const handleAttendanceChange = (id: string, field: keyof MemberAttendance, value: any) => {
+    setAttendance(prev => prev.map(a => a.membroId === id ? { ...a, [field]: value } : a));
+  };
+
+  const handleMetricasChange = (field: string, value: any) => {
+    setMetricas(prev => ({ ...prev, [field]: value }));
+  };
+
+  const presentes = attendance.filter(a => a.status === 'presente').length;
+  const ausentesJust = attendance.filter(a => a.status === 'ausente_justificado').length;
+  const ausentesSemJust = attendance.filter(a => a.status === 'ausente_sem_justificativa').length;
+  const visitantesCount = metricas.visitantes.split(',').filter(v => v.trim()).length;
+
+  const handleSubmit = async () => {
+    if (!firestore || !cell || !user) return;
+    setIsSubmitting(true);
+
+    try {
+      const batch = writeBatch(firestore);
+      const now = Timestamp.now();
+      const dateStr = reportDate || new Date().toISOString().split('T')[0];
+
+      // Documento principal da reunião
+      const logRef = doc(collection(firestore, 'reuniao_logs'));
+      batch.set(logRef, {
+        cellId: cell.id,
+        cellNome: cell.nome,
+        date: dateStr,
+        liderId: user.uid,
+        supervisorId: cell.supervisorId || null,
+        metricas: {
+          totalMembrosAtivos: members?.length || 0,
+          presentes,
+          ausentesJustificados: ausentesJust,
+          ausentesSemJustificativa: ausentesSemJust,
+          visitantes: visitantesCount,
+          conversoes: metricas.conversoes,
+        },
+        licaoMinistrada: metricas.licao,
+        visitantesNomes: metricas.visitantes,
+        feedbackAoSupervisor: feedback,
+        createdAt: now,
+      });
+
+      // Um documento por membro em presencas_historico
+      attendance.forEach(att => {
+        const presRef = doc(collection(firestore, 'presencas_historico'));
+        batch.set(presRef, {
+          reuniaoLogId: logRef.id,
+          cellId: cell.id,
+          membroId: att.membroId,
+          membroNome: att.membroNome,
+          date: dateStr,
+          status: att.status,
+          termometro: att.termometro,
+          pedidoOracao: att.pedidoOracao || null,
+          observacaoCuidado: att.observacaoCuidado || null,
+          createdAt: now,
+        });
+      });
+
+      await batch.commit();
+      setSubmitted(true);
+      toast({ title: '✅ Relatório enviado!', description: 'Obrigado pela sua dedicação, líder!' });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Erro ao enviar', description: err.message });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const isLoading = isUserLoading || l1 || l2 || l3 || l4 || lSuper;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-3 text-muted-foreground">Carregando dados da célula...</p>
+      </div>
+    );
+  }
+
+  if (allCells.length === 0) {
+    return (
+      <Card className="max-w-lg mx-auto mt-8">
+        <CardHeader className="text-center">
+          <AlertTriangle className="mx-auto h-12 w-12 text-amber-500 mb-2" />
+          <CardTitle>Nenhuma Célula Vinculada</CardTitle>
+          <CardDescription>
+            Você não está registrado como líder ou co-líder de nenhuma célula. Entre em contato com seu supervisor.
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  if (submitted) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
+        <div className="h-20 w-20 rounded-full bg-emerald-100 flex items-center justify-center">
+          <CheckCircle2 className="h-10 w-10 text-emerald-600" />
+        </div>
+        <h2 className="text-2xl font-black text-foreground">Relatório Enviado!</h2>
+        <p className="text-muted-foreground max-w-sm">
+          Seu relatório da célula <strong>{cell?.nome}</strong> foi salvo com sucesso. Que Deus abençoe sua dedicação! 🙏
+        </p>
+        <Button onClick={() => { setSubmitted(false); setStep(1); setFeedback(''); setMetricas({ visitantes: '', conversoes: 0, licao: '' }); }}>
+          Enviar outro relatório
+        </Button>
+      </div>
+    );
+  }
+
+  const progress = ((step - 1) / (STEPS.length - 1)) * 100;
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-black text-foreground">Relatório Semanal</h1>
+        {allCells.length > 1 ? (
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-sm text-muted-foreground">Célula:</span>
+            <select
+              className="text-sm font-semibold text-primary bg-transparent border-b border-primary outline-none cursor-pointer"
+              value={cell?.id}
+              onChange={e => setSelectedCellId(e.target.value)}
+            >
+              {allCells.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground mt-1">Célula: <strong>{cell?.nome}</strong></p>
+        )}
+      </div>
+
+      {/* Barra de progresso */}
+      <div className="space-y-2">
+        <div className="flex justify-between">
+          {STEPS.map(s => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => step > s.id && setStep(s.id)}
+              className={cn(
+                'flex flex-col items-center gap-1 text-xs font-semibold transition-colors',
+                step >= s.id ? 'text-primary' : 'text-muted-foreground'
+              )}
+            >
+              <div className={cn(
+                'h-8 w-8 rounded-full border-2 flex items-center justify-center transition-all',
+                step > s.id ? 'bg-primary border-primary text-white' :
+                step === s.id ? 'border-primary text-primary bg-primary/10' : 'border-border'
+              )}>
+                {step > s.id ? <CheckCircle2 className="h-4 w-4" /> : s.icon}
+              </div>
+              <span className="hidden sm:block">{s.label}</span>
+            </button>
+          ))}
+        </div>
+        <Progress value={progress} className="h-1.5" />
+      </div>
+
+      {/* Conteúdo do step */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            {STEPS[step - 1].icon}
+            {STEPS[step - 1].label}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {step === 1 && (
+            <StepChamada members={members || []} attendance={attendance} onChange={handleAttendanceChange} />
+          )}
+          {step === 2 && (
+            <StepCuidado members={members || []} attendance={attendance} onChange={handleAttendanceChange} />
+          )}
+          {step === 3 && (
+            <StepMetricas data={metricas} onChange={handleMetricasChange} reportDate={reportDate} onDateChange={setReportDate} />
+          )}
+          {step === 4 && (
+            <StepFeedback value={feedback} onChange={setFeedback} />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Resumo rápido (visível na etapa 1) */}
+      {step === 1 && attendance.length > 0 && (
+        <div className="flex items-center justify-center gap-6 text-sm">
+          <span className="flex items-center gap-1 text-emerald-600 font-bold"><UserCheck className="h-4 w-4" />{presentes} presentes</span>
+          <span className="flex items-center gap-1 text-amber-600 font-bold"><AlertTriangle className="h-4 w-4" />{ausentesJust} just.</span>
+          <span className="flex items-center gap-1 text-red-600 font-bold"><UserX className="h-4 w-4" />{ausentesSemJust} faltaram</span>
+        </div>
+      )}
+
+      {/* Navegação */}
+      <div className="flex justify-between pb-8">
+        <Button variant="outline" onClick={() => setStep(s => s - 1)} disabled={step === 1}>
+          <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
+        </Button>
+        {step < 4 ? (
+          <Button onClick={() => setStep(s => s + 1)}>
+            Próximo <ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
+        ) : (
+          <Button onClick={handleSubmit} disabled={isSubmitting} className="gap-2">
+            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            Enviar Relatório
+          </Button>
+        )}
+      </div>
+    </div>
+  );
 }
