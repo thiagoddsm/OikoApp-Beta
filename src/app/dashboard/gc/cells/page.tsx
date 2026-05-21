@@ -672,25 +672,22 @@ export default function CellsPage() {
                   <TableHead>Status</TableHead>
                   <TableHead>Líder</TableHead>
                   <TableHead>Área / Rede</TableHead>
-                  <TableHead>Reunião</TableHead>
                   <TableHead className="text-center">Membros</TableHead>
-                  <TableHead className="text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <Droplets className="h-3.5 w-3.5 text-amber-500" />
-                      Não Batizados
-                    </div>
-                  </TableHead>
+                  <TableHead className="text-center">Não Batizados</TableHead>
+                  <TableHead className="text-center">Co-Líderes</TableHead>
+                  <TableHead className="text-center">Anfitrião Elegível?</TableHead>
                   <TableHead className="text-right pr-6">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredCells.length === 0 && (
-                  <TableRow><TableCell colSpan={8} className="h-32 text-center text-muted-foreground italic text-sm">
+                  <TableRow><TableCell colSpan={9} className="h-32 text-center text-muted-foreground italic text-sm">
                     {hasActiveFilters ? 'Nenhum GC encontrado com esses filtros.' : 'Nenhuma célula cadastrada.'}
                   </TableCell></TableRow>
                 )}
                 {filteredCells.map((cell) => {
                   const leader = userMap.get(cell.liderId);
+                  const spouse = cell.liderCasalId ? userMap.get(cell.liderCasalId) : null;
                   const area = areaMap.get(cell.areaId);
                   const rede = redeMap.get(cell.redeId);
                   const statusCfg = cellStatusConfig[cell.status || 'active'];
@@ -701,8 +698,17 @@ export default function CellsPage() {
                   const previewMembers = memberUsers.slice(0, 4);
                   const extraCount = memberUsers.length - previewMembers.length;
 
+                  // Co-líderes
+                  const coLideresCount = cell.coLideres?.length || 0;
+                  const coLideresCasaisCount = cell.coLideres?.filter(c => c.casalId)?.length || 0;
+
+                  // Anfitrião Elegível
+                  const hasEligibleHost = cell.anfitriaoElegiveiIds && cell.anfitriaoElegiveiIds.length > 0;
+                  const elegiveisCount = cell.anfitriaoElegiveiIds?.length || 0;
+
                   return (
                     <TableRow key={cell.id} className="hover:bg-muted/30 transition-colors">
+                      {/* Célula */}
                       <TableCell className="pl-6">
                         <Link href={`/dashboard/gc/cells/${cell.id}`} className="font-bold text-foreground hover:text-primary hover:underline flex items-center gap-1 group">
                           {cell.nome}
@@ -712,64 +718,87 @@ export default function CellsPage() {
                           <p className="text-[10px] text-muted-foreground mt-0.5 truncate max-w-[200px]">{cell.address.street}</p>
                         )}
                       </TableCell>
+
+                      {/* Status */}
                       <TableCell>
                         <Badge variant="outline" className={cn("text-[10px] font-bold border", statusCfg.className)}>
                           {statusCfg.label}
                         </Badge>
                       </TableCell>
+
+                      {/* Líder */}
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-7 w-7 border">
-                            {leader?.photoURL && <img src={leader.photoURL} alt={leader.name} className="h-full w-full object-cover rounded-full" />}
-                            <AvatarFallback className="text-[10px] font-bold">{leader?.name?.charAt(0) || 'L'}</AvatarFallback>
-                          </Avatar>
-                          <span className="text-sm">{leader?.name || 'Não definido'}</span>
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-7 w-7 border">
+                              {leader?.photoURL && <img src={leader.photoURL} alt={leader.name} className="h-full w-full object-cover rounded-full" />}
+                              <AvatarFallback className="text-[10px] font-bold">{leader?.name?.charAt(0) || 'L'}</AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm font-semibold">{leader?.name || 'Não definido'}</span>
+                          </div>
+                          {spouse && (
+                            <div className="flex items-center gap-2 mt-1 pl-1">
+                              <div className="w-5 flex justify-center"><span className="text-xs text-muted-foreground">&amp;</span></div>
+                              <Avatar className="h-6 w-6 border">
+                                {spouse?.photoURL && <img src={spouse.photoURL} alt={spouse.name} className="h-full w-full object-cover rounded-full" />}
+                                <AvatarFallback className="text-[9px] font-bold">{spouse?.name?.charAt(0) || 'C'}</AvatarFallback>
+                              </Avatar>
+                              <span className="text-xs font-medium text-muted-foreground">{spouse?.name}</span>
+                              <Badge className="text-[8px] bg-primary/10 text-primary border-primary/20 px-1 py-0 h-4 font-black">CASAL</Badge>
+                            </div>
+                          )}
                         </div>
                       </TableCell>
+
+                      {/* Área / Rede */}
                       <TableCell>
                         <p className="text-sm font-medium">{area?.nome || '—'}</p>
                         <p className="text-[10px] text-muted-foreground">{rede?.nome || '—'}</p>
                       </TableCell>
-                      <TableCell>
-                        {cell.meetingDay ? (
-                          <div>
-                            <p className="text-sm">{cell.meetingDay}</p>
-                            <p className="text-[10px] text-muted-foreground">{cell.meetingTime || ''}</p>
-                          </div>
-                        ) : <span className="text-muted-foreground text-sm">—</span>}
-                      </TableCell>
+
+                      {/* Quantos membros no GC */}
                       <TableCell className="text-center">
-                        <div className="flex items-center justify-center">
-                          {previewMembers.length > 0 ? (
-                            <div className="flex -space-x-2">
-                              {previewMembers.map(u => (
-                                <Avatar key={u.id} className="h-7 w-7 border-2 border-background">
-                                  {u.photoURL && <img src={u.photoURL} className="h-full w-full object-cover rounded-full" />}
-                                  <AvatarFallback className="text-[9px] font-bold bg-muted">{u.name?.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                              ))}
-                              {extraCount > 0 && (
-                                <div className="h-7 w-7 rounded-full border-2 border-background bg-muted flex items-center justify-center text-[9px] font-bold text-muted-foreground">
-                                  +{extraCount}
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground text-xs">0</span>
-                          )}
+                        <div className="flex flex-col items-center justify-center">
+                          <span className="text-sm font-bold text-slate-800">{memberUsers.length}</span>
+                          <span className="text-[10px] text-muted-foreground">membros</span>
                         </div>
-                        <p className="text-[9px] text-muted-foreground mt-1">{memberUsers.length} total</p>
                       </TableCell>
+
+                      {/* Não Batizados */}
                       <TableCell className="text-center">
                         {memberUsers.length > 0 ? (
-                          <div>
-                            <p className={cn("font-bold text-sm", naoBatizadosCount > 0 ? "text-amber-600" : "text-emerald-600")}>{naoBatizadosCount}</p>
-                            <p className="text-[9px] text-muted-foreground">de {memberUsers.length}</p>
+                          <div className="inline-flex flex-col items-center">
+                            <Badge variant="outline" className={cn("font-black text-sm px-2 py-0.5", naoBatizadosCount > 0 ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-emerald-50 text-emerald-700 border-emerald-200")}>
+                              {naoBatizadosCount}
+                            </Badge>
                           </div>
                         ) : (
                           <span className="text-muted-foreground text-xs">—</span>
                         )}
                       </TableCell>
+
+                      {/* Número de co-líderes */}
+                      <TableCell className="text-center">
+                        <span className="text-sm font-bold text-slate-700">{coLideresCount}</span>
+                        {coLideresCasaisCount > 0 && (
+                          <span className="text-[10px] text-primary block font-semibold">({coLideresCasaisCount} casal/casais)</span>
+                        )}
+                      </TableCell>
+
+                      {/* Tem anfitrião elegível? */}
+                      <TableCell className="text-center font-bold">
+                        {hasEligibleHost ? (
+                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 font-bold text-xs gap-1">
+                            Sim ({elegiveisCount})
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-slate-400 border-slate-200 font-normal text-xs">
+                            Não
+                          </Badge>
+                        )}
+                      </TableCell>
+
+                      {/* Ações */}
                       <TableCell className="text-right pr-6">
                         <div className="flex items-center justify-end gap-1">
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingCell(cell); setDialogOpen(true); }}>

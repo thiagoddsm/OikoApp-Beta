@@ -1,16 +1,21 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, deleteDoc, doc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Users, TrendingUp, AlertTriangle, MessageSquare, HeartHandshake, BarChart2, ClipboardList, CheckCircle2, Clock } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Separator } from '@/components/ui/separator';
+import { Loader2, Users, TrendingUp, AlertTriangle, MessageSquare, HeartHandshake, BarChart2, ClipboardList, CheckCircle2, Clock, Eye, Pencil, CalendarDays, UserPlus, DollarSign, Star, FileText, Trash2, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip as RechartsTooltip, CartesianGrid } from 'recharts';
 
 type PresencaDoc = {
   id: string;
@@ -36,7 +41,11 @@ type ReuniaoLog = {
     conversoes: number;
     oferta: number;
   };
+  visitantesNomes?: string[];   // lista de nomes dos visitantes
+  conversoesNomes?: string[];   // lista de nomes dos novos convertidos
+  observacoes?: string;         // observações gerais
   feedbackAoSupervisor?: string;
+  termometroEspiritual?: number; // 1-5
 };
 
 // Taxa de retenção: média de presença nas reuniões do mês
@@ -63,7 +72,9 @@ function RmBar({ value }: { value: number }) {
   );
 }
 
-type Cell = { id: string; nome: string; meetingDay?: string; liderId: string; };
+type Cell = { id: string; nome: string; meetingDay?: string; liderId: string; areaId?: string; redeId?: string; };
+type Area = { id: string; nome: string; liderId: string; redeId: string; };
+type Rede = { id: string; nome: string; liderId: string; pastorId: string; };
 
 const DAY_MAP: Record<string, number> = {
   'Domingo': 0, 'Segunda-feira': 1, 'Terça-feira': 2, 'Quarta-feira': 3,
@@ -80,15 +91,117 @@ function getLastMeetingDate(meetingDay?: string): string {
   return date.toISOString().split('T')[0];
 }
 
+// ── Helpers de período ────────────────────────────────────────────────────
+function getWeekStart(offsetWeeks = 0): Date {
+  const d = new Date();
+  d.setDate(d.getDate() - d.getDay() - offsetWeeks * 7); // domingo
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+function getWeekEnd(offsetWeeks = 0): Date {
+  const d = getWeekStart(offsetWeeks);
+  d.setDate(d.getDate() + 6);
+  return d;
+}
+function toDateStr(d: Date) { return d.toISOString().split('T')[0]; }
+function getMeetingDateInWeek(meetingDay?: string, weekOffset = 0): string {
+  if (!meetingDay || DAY_MAP[meetingDay] === undefined) return toDateStr(getWeekEnd(weekOffset));
+  const weekSunday = getWeekStart(weekOffset);
+  const d = new Date(weekSunday);
+  d.setDate(d.getDate() + DAY_MAP[meetingDay]);
+  return toDateStr(d);
+}
+
 export default function SupervisorPage() {
   const { firestore, user } = useFirebase();
+  const { toast } = useToast();
+  const [selectedLog, setSelectedLog] = useState<ReuniaoLog | null>(null);
+  const [isDeletingLog, setIsDeletingLog] = useState(false);
 
-  // Mês atual
-  const currentMonth = new Date().toISOString().slice(0, 7); // "2026-05"
+  const handleDeleteLog = async (logId: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir permanentemente este relatório? Esta ação não pode ser desfeita.')) {
+      return;
+    }
+    setIsDeletingLog(true);
+    try {
+      if (firestore) {
+        await deleteDoc(doc(firestore, 'reuniao_logs', logId));
+        toast({
+          title: 'Relatório excluído',
+          description: 'O relatório foi excluído com sucesso.',
+        });
+        setSelectedLog(null);
+      }
+    } catch (error) {
+      console.error('Erro ao excluir relatório:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao excluir',
+        description: 'Não foi possível excluir o relatório. Tente novamente.',
+      });
+    } finally {
+      setIsDeletingLog(false);
+    }
+  };
 
+  // Filtro Visão Geral: 'week' | 'month' | 'year' | 'all'
+  const [overviewPeriod, setOverviewPeriod] = useState<'week' | 'month' | 'year' | 'all'>('month');
+  const [overviewWeekOffset, setOverviewWeekOffset] = useState(0);
+  const [overviewMonthOffset, setOverviewMonthOffset] = useState(0);
+
+  // Filtro Relatórios: semana
+  const [reportWeekOffset, setReportWeekOffset] = useState(0);
+
+  // Filtros de Rede, Área e Célula na Visão Geral
+  const [filterRedeId, setFilterRedeId] = useState('');
+  const [filterAreaId, setFilterAreaId] = useState('');
+  const [filterCellId, setFilterCellId] = useState('');
+
+  // Período da Visão Geral
+  const overviewRange = useMemo(() => {
+    if (overviewPeriod === 'week') {
+      return { start: toDateStr(getWeekStart(overviewWeekOffset)), end: toDateStr(getWeekEnd(overviewWeekOffset)) };
+    }
+    if (overviewPeriod === 'month') {
+      const d = new Date();
+      d.setMonth(d.getMonth() - overviewMonthOffset);
+      const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0');
+      const lastDay = new Date(y, d.getMonth() + 1, 0).getDate();
+      return { start: `${y}-${m}-01`, end: `${y}-${m}-${lastDay}` };
+    }
+    if (overviewPeriod === 'year') {
+      const y = new Date().getFullYear();
+      return { start: `${y}-01-01`, end: `${y}-12-31` };
+    }
+    return { start: '2020-01-01', end: toDateStr(new Date()) };
+  }, [overviewPeriod, overviewWeekOffset, overviewMonthOffset]);
+
+  const overviewLabel = useMemo(() => {
+    if (overviewPeriod === 'week') {
+      const s = getWeekStart(overviewWeekOffset);
+      const e = getWeekEnd(overviewWeekOffset);
+      return `${s.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} – ${e.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}`;
+    }
+    if (overviewPeriod === 'month') {
+      const d = new Date(); d.setMonth(d.getMonth() - overviewMonthOffset);
+      return d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    }
+    if (overviewPeriod === 'year') return `${new Date().getFullYear()}`;
+    return 'Todo o período';
+  }, [overviewPeriod, overviewWeekOffset, overviewMonthOffset]);
+
+  const reportWeekLabel = useMemo(() => {
+    const s = getWeekStart(reportWeekOffset);
+    const e = getWeekEnd(reportWeekOffset);
+    return `${s.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })} – ${e.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}`;
+  }, [reportWeekOffset]);
+
+  const currentMonth = new Date().toISOString().slice(0, 7); // fallback
+
+  // Query ampla: 1 ano de logs (filtramos por período no client)
   const logsQuery = useMemoFirebase(() =>
-    firestore ? query(collection(firestore, 'reuniao_logs'), where('date', '>=', `${currentMonth}-01`), orderBy('date', 'desc'), limit(500)) : null,
-    [firestore, currentMonth]
+    firestore ? query(collection(firestore, 'reuniao_logs'), where('date', '>=', `${new Date().getFullYear()}-01-01`), orderBy('date', 'desc'), limit(2000)) : null,
+    [firestore]
   );
 
   const presencasQuery = useMemoFirebase(() =>
@@ -96,35 +209,66 @@ export default function SupervisorPage() {
     [firestore, currentMonth]
   );
 
-  const { data: logs, isLoading: l1 } = useCollection<ReuniaoLog>(logsQuery);
+  const { data: logsAll, isLoading: l1 } = useCollection<ReuniaoLog>(logsQuery);
   const { data: presencas, isLoading: l2 } = useCollection<PresencaDoc>(presencasQuery);
 
-  // Todas as células (para aba de relatórios)
+  // Células filtradas na Visão Geral
+  const filteredCellIds = useMemo(() => {
+    if (!allCells) return new Set<string>();
+    const cellsFiltered = allCells.filter(c => {
+      if (filterRedeId && c.redeId !== filterRedeId) return false;
+      if (filterAreaId && c.areaId !== filterAreaId) return false;
+      if (filterCellId && c.id !== filterCellId) return false;
+      return true;
+    });
+    return new Set(cellsFiltered.map(c => c.id));
+  }, [allCells, filterRedeId, filterAreaId, filterCellId]);
+
+  // Logs filtrados pelo período da Visão Geral e pelos filtros de rede/área/célula
+  const logs = useMemo(() => {
+    const base = (logsAll || []).filter(l => l.date >= overviewRange.start && l.date <= overviewRange.end);
+    if (!filterRedeId && !filterAreaId && !filterCellId) return base;
+    return base.filter(l => filteredCellIds.has(l.cellId));
+  }, [logsAll, overviewRange, filterRedeId, filterAreaId, filterCellId, filteredCellIds]);
+
+  // Todas as células (para aba de relatórios e filtros)
   const allCellsQuery = useMemoFirebase(() =>
     firestore ? query(collection(firestore, 'cells'), orderBy('nome')) : null,
     [firestore]
   );
   const { data: allCells } = useCollection<Cell>(allCellsQuery);
 
-  // Logs das últimas 2 semanas (para verificar se relatório foi enviado)
-  const twoWeeksAgo = new Date();
-  twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-  const recentLogsQuery = useMemoFirebase(() =>
-    firestore ? query(collection(firestore, 'reuniao_logs'), where('date', '>=', twoWeeksAgo.toISOString().split('T')[0]), orderBy('date', 'desc'), limit(300)) : null,
+  // Carrega todas as Áreas e Redes para os filtros
+  const areasQuery = useMemoFirebase(() =>
+    firestore ? query(collection(firestore, 'areas'), orderBy('nome')) : null,
     [firestore]
+  );
+  const redesQuery = useMemoFirebase(() =>
+    firestore ? query(collection(firestore, 'redes'), orderBy('nome')) : null,
+    [firestore]
+  );
+  const { data: areas } = useCollection<Area>(areasQuery);
+  const { data: redes } = useCollection<Rede>(redesQuery);
+
+  // Logs da semana selecionada nos relatórios
+  const reportWeekStart = toDateStr(getWeekStart(reportWeekOffset));
+  const reportWeekEnd = toDateStr(getWeekEnd(reportWeekOffset));
+  const recentLogsQuery = useMemoFirebase(() =>
+    firestore ? query(collection(firestore, 'reuniao_logs'), where('date', '>=', reportWeekStart), where('date', '<=', reportWeekEnd), orderBy('date', 'desc'), limit(300)) : null,
+    [firestore, reportWeekStart, reportWeekEnd]
   );
   const { data: recentLogs } = useCollection<ReuniaoLog>(recentLogsQuery);
 
-  // Status de relatório por célula (com base na data da última reunião esperada)
+  // Status de relatório por célula (com base na semana selecionada)
   const cellReportStatus = useMemo(() => {
-    const status: Record<string, { sent: boolean; date: string }> = {};
+    const status: Record<string, { sent: boolean; date: string; log?: ReuniaoLog }> = {};
     allCells?.forEach(cell => {
-      const lastDate = getLastMeetingDate(cell.meetingDay);
-      const log = recentLogs?.find(l => l.cellId === cell.id && l.date === lastDate);
-      status[cell.id] = { sent: !!log, date: lastDate };
+      const meetingDate = getMeetingDateInWeek(cell.meetingDay, reportWeekOffset);
+      const log = recentLogs?.find(l => l.cellId === cell.id && l.date === meetingDate);
+      status[cell.id] = { sent: !!log, date: meetingDate, log };
     });
     return status;
-  }, [allCells, recentLogs]);
+  }, [allCells, recentLogs, reportWeekOffset]);
 
   // Alertas Luz Vermelha — busca histórico de 30 dias para calcular faltas consecutivas
   const alertasQuery = useMemoFirebase(() => {
@@ -170,8 +314,13 @@ export default function SupervisorPage() {
   // Alertas Luz Vermelha (membros com 2+ faltas sem justificativa consecutivas)
   const luzVermelhaAlertas = useMemo(() => {
     if (!presencasAlerta) return [];
+
+    const filteredPresences = !filterRedeId && !filterAreaId && !filterCellId
+      ? presencasAlerta
+      : presencasAlerta.filter(p => filteredCellIds.has(p.cellId));
+
     const byMembro: Record<string, PresencaDoc[]> = {};
-    presencasAlerta.forEach(p => {
+    filteredPresences.forEach(p => {
       if (!byMembro[p.membroId]) byMembro[p.membroId] = [];
       byMembro[p.membroId].push(p);
     });
@@ -200,13 +349,52 @@ export default function SupervisorPage() {
     });
 
     return alertas.sort((a, b) => b.faltasConsecutivas - a.faltasConsecutivas);
-  }, [presencasAlerta]);
+  }, [presencasAlerta, filterRedeId, filterAreaId, filterCellId, filteredCellIds]);
 
   // Feed de feedbacks dos líderes
   const feedbacks = useMemo(() =>
     (logs || []).filter(l => l.feedbackAoSupervisor?.trim()).slice(0, 20),
     [logs]
   );
+
+  const chartData = useMemo(() => {
+    const groups: Record<string, { key: string; label: string; presentes: number; visitantes: number; conversoes: number }> = {};
+    
+    const sortedLogs = [...(logs || [])].sort((a, b) => a.date.localeCompare(b.date));
+    
+    sortedLogs.forEach(log => {
+      let key = log.date;
+      let label = log.date;
+      
+      const parts = log.date.split('-');
+      if (parts.length === 3) {
+        const year = parts[0];
+        const monthIdx = parseInt(parts[1]) - 1;
+        const day = parts[2];
+        const months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+        
+        if (overviewPeriod === 'year' || overviewPeriod === 'all') {
+          // Group by month
+          key = `${year}-${parts[1]}`;
+          label = `${months[monthIdx]}/${year.slice(2)}`;
+        } else {
+          // Group by date
+          key = log.date;
+          label = `${day}/${months[monthIdx]}`;
+        }
+      }
+      
+      if (!groups[key]) {
+        groups[key] = { key, label, presentes: 0, visitantes: 0, conversoes: 0 };
+      }
+      
+      groups[key].presentes += log.metricas?.presentes || 0;
+      groups[key].visitantes += log.metricas?.visitantes || 0;
+      groups[key].conversoes += log.metricas?.conversoes || 0;
+    });
+    
+    return Object.values(groups).sort((a, b) => a.key.localeCompare(b.key));
+  }, [logs, overviewPeriod]);
 
   if (!user) {
     return (
@@ -221,13 +409,13 @@ export default function SupervisorPage() {
   const isLoading = l1 || l2;
 
   return (
+    <>
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-black">Painel do Supervisor</h1>
-        <p className="text-sm text-muted-foreground">
-          Visão estratégica do mês de{' '}
-          <strong>{new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</strong>
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-black">Painel do Supervisor</h1>
+          <p className="text-sm text-muted-foreground">Visão estratégica · <strong>{overviewLabel}</strong></p>
+        </div>
       </div>
 
       {isLoading ? (
@@ -238,11 +426,119 @@ export default function SupervisorPage() {
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList>
             <TabsTrigger value="overview" className="gap-2"><BarChart2 className="h-4 w-4" />Visão Geral</TabsTrigger>
-            <TabsTrigger value="reports" className="gap-2"><ClipboardList className="h-4 w-4" />Relatórios da Semana</TabsTrigger>
+            <TabsTrigger value="reports" className="gap-2"><ClipboardList className="h-4 w-4" />Relatórios</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-        <>
+          <>
+          {/* Filtro de período */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            {(['week','month','year','all'] as const).map(p => (
+              <button key={p} onClick={() => { setOverviewPeriod(p); setOverviewWeekOffset(0); setOverviewMonthOffset(0); }}
+                className={cn('px-3 py-1 rounded-full text-xs font-bold border transition-colors',
+                  overviewPeriod === p ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-muted-foreground hover:bg-muted')}>
+                {{ week: 'Semana', month: 'Mês', year: 'Ano', all: 'Tudo' }[p]}
+              </button>
+            ))}
+            {/* Navegador */}
+            {overviewPeriod === 'week' && (
+              <div className="flex items-center gap-1 ml-2 border rounded-lg">
+                <button onClick={() => setOverviewWeekOffset(w => w + 1)} className="p-1 hover:bg-muted rounded-l-lg"><ChevronLeft className="h-4 w-4" /></button>
+                <span className="text-xs font-semibold px-2 min-w-[140px] text-center">{overviewLabel}</span>
+                <button onClick={() => setOverviewWeekOffset(w => Math.max(0, w - 1))} disabled={overviewWeekOffset === 0} className="p-1 hover:bg-muted rounded-r-lg disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
+              </div>
+            )}
+            {overviewPeriod === 'month' && (
+              <div className="flex items-center gap-1 ml-2 border rounded-lg">
+                <button onClick={() => setOverviewMonthOffset(m => m + 1)} className="p-1 hover:bg-muted rounded-l-lg"><ChevronLeft className="h-4 w-4" /></button>
+                <span className="text-xs font-semibold px-2 min-w-[140px] text-center capitalize">{overviewLabel}</span>
+                <button onClick={() => setOverviewMonthOffset(m => Math.max(0, m - 1))} disabled={overviewMonthOffset === 0} className="p-1 hover:bg-muted rounded-r-lg disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
+              </div>
+            )}
+          </div>
+
+          {/* Filtros Estratégicos */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-muted/30 p-3 rounded-lg border border-border/60">
+            {/* Filtro de Rede */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Rede</label>
+              <Select 
+                value={filterRedeId || 'all-redes'} 
+                onValueChange={(val) => { 
+                  const cleaned = val === 'all-redes' ? '' : val;
+                  setFilterRedeId(cleaned); 
+                  setFilterAreaId(''); 
+                  setFilterCellId(''); 
+                }}
+              >
+                <SelectTrigger className="h-9 bg-background text-xs font-semibold">
+                  <SelectValue placeholder="Todas as Redes" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all-redes" className="text-xs font-semibold">Todas as Redes</SelectItem>
+                  {redes?.map(r => (
+                    <SelectItem key={r.id} value={r.id} className="text-xs">{r.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Filtro de Área */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">Área</label>
+              <Select 
+                value={filterAreaId || 'all-areas'} 
+                onValueChange={(val) => { 
+                  const cleaned = val === 'all-areas' ? '' : val;
+                  setFilterAreaId(cleaned); 
+                  setFilterCellId(''); 
+                }}
+                disabled={!filterRedeId}
+              >
+                <SelectTrigger className="h-9 bg-background text-xs font-semibold">
+                  <SelectValue placeholder="Todas as Áreas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all-areas" className="text-xs font-semibold">Todas as Áreas</SelectItem>
+                  {areas
+                    ?.filter(a => a.redeId === filterRedeId)
+                    ?.map(a => (
+                      <SelectItem key={a.id} value={a.id} className="text-xs">{a.nome}</SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Filtro de GC */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">GC (Célula)</label>
+              <Select 
+                value={filterCellId || 'all-cells'} 
+                onValueChange={(val) => {
+                  const cleaned = val === 'all-cells' ? '' : val;
+                  setFilterCellId(cleaned);
+                }}
+              >
+                <SelectTrigger className="h-9 bg-background text-xs font-semibold">
+                  <SelectValue placeholder="Todas as Células" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all-cells" className="text-xs font-semibold">Todas as Células</SelectItem>
+                  {allCells
+                    ?.filter(c => {
+                      if (filterAreaId) return c.areaId === filterAreaId;
+                      if (filterRedeId) return c.redeId === filterRedeId;
+                      return true;
+                    })
+                    ?.map(c => (
+                      <SelectItem key={c.id} value={c.id} className="text-xs">{c.nome}</SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           {/* Cards de métricas */}
           {metricas && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -262,6 +558,84 @@ export default function SupervisorPage() {
               ))}
             </div>
           )}
+
+          {/* Gráfico de Evolução */}
+          {chartData.length > 0 && (
+            <Card>
+              <CardHeader className="pb-4">
+                <CardTitle className="text-base font-black flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-primary" /> Evolução de Frequência e Crescimento
+                </CardTitle>
+                <CardDescription>Visualização temporal de presenças, novos visitantes e conversões</CardDescription>
+              </CardHeader>
+              <CardContent className="h-[260px] w-full pt-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorPresentes" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorVisitantes" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.2}/>
+                        <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorConversoes" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#a855f7" stopOpacity={0.2}/>
+                        <stop offset="95%" stopColor="#a855f7" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                    <XAxis 
+                      dataKey="label" 
+                      stroke="#888888" 
+                      fontSize={11} 
+                      tickLine={false} 
+                      axisLine={false} 
+                    />
+                    <YAxis 
+                      stroke="#888888" 
+                      fontSize={11} 
+                      tickLine={false} 
+                      axisLine={false} 
+                    />
+                    <RechartsTooltip 
+                      contentStyle={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px' }}
+                      labelClassName="font-black text-slate-800"
+                    />
+                    <Area 
+                      type="monotone" 
+                      name="Presenças"
+                      dataKey="presentes" 
+                      stroke="#10b981" 
+                      strokeWidth={2.5}
+                      fillOpacity={1} 
+                      fill="url(#colorPresentes)" 
+                    />
+                    <Area 
+                      type="monotone" 
+                      name="Novos Visitantes"
+                      dataKey="visitantes" 
+                      stroke="#0ea5e9" 
+                      strokeWidth={2.5}
+                      fillOpacity={1} 
+                      fill="url(#colorVisitantes)" 
+                    />
+                    <Area 
+                      type="monotone" 
+                      name="Conversões"
+                      dataKey="conversoes" 
+                      stroke="#a855f7" 
+                      strokeWidth={2.5}
+                      fillOpacity={1} 
+                      fill="url(#colorConversoes)" 
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Ranking de células */}
@@ -359,6 +733,15 @@ export default function SupervisorPage() {
 
           {/* ===== ABA RELATÓRIOS ===== */}
           <TabsContent value="reports">
+            {/* Navegador de semana */}
+            <div className="flex items-center gap-2 mb-4">
+              <button onClick={() => setReportWeekOffset(w => w + 1)} className="p-1.5 border rounded-lg hover:bg-muted"><ChevronLeft className="h-4 w-4" /></button>
+              <div className="flex-1 text-center">
+                <span className="text-sm font-bold">{reportWeekLabel}</span>
+                {reportWeekOffset === 0 && <span className="ml-2 text-[11px] text-primary font-semibold">Esta semana</span>}
+              </div>
+              <button onClick={() => setReportWeekOffset(w => Math.max(0, w - 1))} disabled={reportWeekOffset === 0} className="p-1.5 border rounded-lg hover:bg-muted disabled:opacity-40"><ChevronRight className="h-4 w-4" /></button>
+            </div>
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-black flex items-center gap-2">
@@ -391,9 +774,18 @@ export default function SupervisorPage() {
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             {st?.sent ? (
-                              <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 font-bold text-[11px] gap-1">
-                                <CheckCircle2 className="h-3 w-3" /> Enviado
-                              </Badge>
+                              <>
+                                <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 font-bold text-[11px] gap-1">
+                                  <CheckCircle2 className="h-3 w-3" /> Enviado
+                                </Badge>
+                                <Button size="sm" variant="outline" className="h-7 text-[11px] font-bold gap-1"
+                                  onClick={() => setSelectedLog(st.log || null)}>
+                                  <Eye className="h-3 w-3" /> Ver
+                                </Button>
+                                <Button size="sm" variant="ghost" className="h-7 text-[11px] gap-1" asChild>
+                                  <Link href={`/dashboard/gc/report?cellId=${cell.id}`}><Pencil className="h-3 w-3" /></Link>
+                                </Button>
+                              </>
                             ) : (
                               <>
                                 <Badge variant="outline" className="text-amber-700 border-amber-300 font-bold text-[11px] gap-1">
@@ -416,5 +808,152 @@ export default function SupervisorPage() {
         </Tabs>
       )}
     </div>
+
+    {/* ── DRAWER DE VISUALIZAÇÃO DO RELATÓRIO ───────────────────────────── */}
+    <Sheet open={!!selectedLog} onOpenChange={open => { if (!open) setSelectedLog(null); }}>
+      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+        {selectedLog && (
+          <>
+            <SheetHeader className="pb-4">
+              <SheetTitle className="text-lg font-black">{selectedLog.cellNome}</SheetTitle>
+              <SheetDescription className="flex items-center gap-1">
+                <CalendarDays className="h-3.5 w-3.5" />
+                Relatório de{' '}
+                {new Date(selectedLog.date + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+              </SheetDescription>
+            </SheetHeader>
+            <Separator />
+
+            {/* MÉTRICAS */}
+            <div className="grid grid-cols-2 gap-3 py-4">
+              {[
+                { icon: Users, label: 'Presentes', value: selectedLog.metricas?.presentes ?? '—', color: 'text-emerald-600' },
+                { icon: UserPlus, label: 'Visitantes', value: selectedLog.metricas?.visitantes ?? '—', color: 'text-sky-600' },
+                { icon: HeartHandshake, label: 'Conversões', value: selectedLog.metricas?.conversoes ?? '—', color: 'text-purple-600' },
+                { icon: DollarSign, label: 'Oferta (R$)', value: selectedLog.metricas?.oferta != null ? `R$ ${selectedLog.metricas.oferta.toFixed(2)}` : '—', color: 'text-amber-600' },
+              ].map(({ icon: Icon, label, value, color }) => (
+                <div key={label} className="rounded-xl border bg-muted/20 p-3 space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <Icon className={cn('h-3.5 w-3.5', color)} />
+                    <span className="text-[11px] text-muted-foreground font-semibold uppercase tracking-wide">{label}</span>
+                  </div>
+                  <p className={cn('text-xl font-black', color)}>{value}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* TERMÔMETRO ESPIRITUAL */}
+            {selectedLog.termometroEspiritual != null && (
+              <>
+                <Separator />
+                <div className="py-4 space-y-1">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <Star className="h-3.5 w-3.5 text-amber-500" />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Termômetro Espiritual</span>
+                  </div>
+                  <div className="flex gap-1">
+                    {[1,2,3,4,5].map(n => (
+                      <div key={n} className={cn('h-3 flex-1 rounded-full', n <= selectedLog.termometroEspiritual! ? 'bg-amber-400' : 'bg-muted')} />
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{selectedLog.termometroEspiritual}/5</p>
+                </div>
+              </>
+            )}
+
+            {/* VISITANTES */}
+            {(() => {
+              const raw = selectedLog.visitantesNomes;
+              const nomes = Array.isArray(raw) ? raw : (typeof raw === 'string' && raw.trim() ? raw.split(',').map(s => s.trim()) : []);
+              return nomes.length > 0 ? (
+                <>
+                  <Separator />
+                  <div className="py-4 space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <UserPlus className="h-3.5 w-3.5 text-sky-500" />
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Visitantes</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {nomes.map((nome, i) => <Badge key={i} variant="secondary" className="text-xs">{nome}</Badge>)}
+                    </div>
+                  </div>
+                </>
+              ) : null;
+            })()}
+
+            {/* CONVERSÕES */}
+            {(() => {
+              const raw = selectedLog.conversoesNomes;
+              const nomes = Array.isArray(raw) ? raw : (typeof raw === 'string' && raw.trim() ? raw.split(',').map(s => s.trim()) : []);
+              return nomes.length > 0 ? (
+                <>
+                  <Separator />
+                  <div className="py-4 space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <HeartHandshake className="h-3.5 w-3.5 text-purple-500" />
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Conversões</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {nomes.map((nome, i) => <Badge key={i} className="text-xs bg-purple-100 text-purple-700">{nome}</Badge>)}
+                    </div>
+                  </div>
+                </>
+              ) : null;
+            })()}
+
+            {/* OBSERVAÇÕES */}
+            {selectedLog.observacoes?.trim() && (
+              <>
+                <Separator />
+                <div className="py-4 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Observações</span>
+                  </div>
+                  <p className="text-sm text-foreground/80 bg-muted/30 rounded-lg p-3">{selectedLog.observacoes}</p>
+                </div>
+              </>
+            )}
+
+            {/* FEEDBACK AO SUPERVISOR */}
+            {selectedLog.feedbackAoSupervisor?.trim() && (
+              <>
+                <Separator />
+                <div className="py-4 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <MessageSquare className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Feedback ao Supervisor</span>
+                  </div>
+                  <p className="text-sm text-foreground/80 bg-primary/5 border border-primary/20 rounded-lg p-3 italic">"{selectedLog.feedbackAoSupervisor}"</p>
+                </div>
+              </>
+            )}
+
+            <Separator />
+            <div className="pt-4 flex flex-col gap-2">
+              <Button variant="outline" className="w-full gap-2" asChild>
+                <Link href={`/dashboard/gc/report?cellId=${selectedLog.cellId}`}>
+                  <Pencil className="h-4 w-4" /> Editar Relatório
+                </Link>
+              </Button>
+              <Button
+                variant="destructive"
+                className="w-full gap-2 bg-red-600 hover:bg-red-700 text-white"
+                onClick={() => handleDeleteLog(selectedLog.id)}
+                disabled={isDeletingLog}
+              >
+                {isDeletingLog ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+                Excluir Relatório
+              </Button>
+            </div>
+          </>
+        )}
+      </SheetContent>
+    </Sheet>
+  </>
   );
 }
