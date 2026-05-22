@@ -1,22 +1,15 @@
 'use client';
 
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import React, { useState } from 'react';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { Logo } from "@/components/icons";
 import { useFirebase } from '@/firebase';
 import { GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, AlertCircle, Mail, Key, CheckCircle2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { registerOrLinkUser, resolveUserProfile } from '@/app/actions/auth-actions';
 
 export default function LoginPage() {
-  const loginImage = PlaceHolderImages.find(p => p.id === 'login-background');
   const router = useRouter();
   const { auth, user: loggedUser } = useFirebase();
   const { toast } = useToast();
@@ -31,6 +24,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   // Redirect if already logged in
   React.useEffect(() => {
@@ -39,9 +33,6 @@ export default function LoginPage() {
     }
   }, [loggedUser, router]);
 
-  // resolveUserProfile é chamado via Server Action após qualquer login
-  // — ele localiza perfis pré-existentes por e-mail e migra os dados para users/{uid}
-  
   const handleGoogleLogin = React.useCallback(async () => {
     if (!auth) return;
     setIsLoadingGoogle(true);
@@ -79,6 +70,13 @@ export default function LoginPage() {
       setErrorMsg("Ocorreu um erro ao tentar fazer login com Google.");
     }
   }, [auth, router, toast]);
+
+  const handleAppleLogin = () => {
+    toast({
+      title: ' Login com Apple',
+      description: 'Esta opção estará disponível em breve.',
+    });
+  };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,7 +133,6 @@ export default function LoginPage() {
             const serverResult = await registerOrLinkUser(email, password, name);
             
             if (serverResult.success === false && serverResult.code === 'auth/email-already-in-use') {
-                 // Força o erro para cair no catch abaixo
                  throw { code: 'auth/email-already-in-use' };
             } else if (serverResult.success === false) {
                  throw new Error(serverResult.error || 'Erro no servidor.');
@@ -177,163 +174,347 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2">
-      <div className="flex flex-col items-center justify-center py-12 px-4 relative overflow-y-auto min-h-screen">
-        <Button variant="ghost" asChild className="absolute top-4 left-4 lg:top-8 lg:left-8">
-            <Link href="/">
-                <ArrowLeft className="mr-2 size-4"/> Voltar
-            </Link>
-        </Button>
+    <>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Hanken+Grotesk:wght@600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
 
-        <div className="mx-auto grid w-full max-w-[350px] gap-6 mt-16 lg:mt-0">
-          <div className="grid gap-4 text-center">
-            <div className="flex justify-center items-center gap-3 mb-2">
-              <img 
-                src="https://firebasestorage.googleapis.com/v0/b/studio-1424813022-71754.firebasestorage.app/o/pwa%2Flogo_1772385880160.png?alt=media&token=9f992f3e-70cd-4a19-a67f-77d16369e81a" 
-                alt="OikoApp Logo" 
-                className="h-12 w-12 object-contain" 
-              />
-              <h1 className="text-3xl font-black tracking-tight">OikoApp</h1>
-            </div>
-            <h2 className="text-xl font-bold tracking-tight">Portal do Membro</h2>
-            <p className="text-balance text-sm text-muted-foreground">
-              Acesse sua jornada ministerial.
-            </p>
-          </div>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+            font-feature-settings: 'liga';
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+        .premium-shadow {
+            box-shadow: 
+                0 4px 6px -1px rgba(0, 0, 0, 0.02),
+                0 10px 15px -3px rgba(0, 0, 0, 0.03),
+                0 20px 25px -5px rgba(0, 0, 0, 0.03),
+                0 30px 50px -12px rgba(0, 0, 0, 0.05);
+        }
+        .bg-mesh {
+            background: 
+                radial-gradient(circle at 0% 0%, rgba(242, 101, 34, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 100% 100%, rgba(166, 59, 0, 0.05) 0%, transparent 50%),
+                #fcf9f8;
+        }
+        .floating-element {
+            animation: float 20s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-20px) scale(1.02); }
+        }
+        .btn-premium-hover {
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .btn-premium-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px -8px rgba(242, 101, 34, 0.5);
+        }
+        
+        .font-body-md { font-family: 'Inter', sans-serif; font-size: 16px; line-height: 1.5; font-weight: 400; }
+        .font-label-sm { font-family: 'Inter', sans-serif; font-size: 12px; line-height: 1; font-weight: 600; }
+        .font-label-md { font-family: 'Inter', sans-serif; font-size: 14px; line-height: 1; letter-spacing: 0.01em; font-weight: 500; }
+        .font-headline-md { font-family: 'Hanken Grotesk', sans-serif; font-size: 32px; line-height: 1.2; letter-spacing: -0.01em; font-weight: 600; }
+        .font-headline-sm { font-family: 'Hanken Grotesk', sans-serif; font-size: 24px; line-height: 1.3; font-weight: 600; }
 
-          <div className="grid gap-4">
-            {errorMsg && (
-                <div className="p-3 bg-destructive/10 text-destructive text-sm font-semibold rounded-md flex items-start gap-3 border border-destructive/20 text-left animate-in slide-in-from-top-2">
-                    <AlertCircle className="size-4 shrink-0 mt-0.5" />
-                    <p>{errorMsg}</p>
-                </div>
-            )}
+        .text-on-surface { color: #1c1b1b; }
+        .text-on-surface-variant { color: #594138; }
+        .text-on-surface-variant-80 { color: rgba(89, 65, 56, 0.8); }
+        .text-on-surface-variant-70 { color: rgba(89, 65, 56, 0.7); }
+        .text-on-surface-variant-40 { color: rgba(89, 65, 56, 0.4); }
+        .text-on-surface-variant-10 { color: rgba(89, 65, 56, 0.1); }
+        .text-on-surface-70 { color: rgba(28, 27, 27, 0.7); }
+        .text-primary-container { color: #f26522; }
+        .text-primary-container-80 { color: rgba(242, 101, 34, 0.8); }
+        .text-primary { color: #a63b00; }
+        .text-outline-50 { color: rgba(141, 113, 102, 0.5); }
+        .text-outline-40 { color: rgba(141, 113, 102, 0.4); }
+        
+        .focus-ring-primary-container-20:focus {
+          outline: none;
+          box-shadow: 0 0 0 1px rgba(242, 101, 34, 0.2);
+        }
+        .focus-border-primary-container-30:focus {
+          border-color: rgba(242, 101, 34, 0.3);
+        }
+        .placeholder-text-outline-variant-60::placeholder { color: rgba(225, 191, 179, 0.6); }
+        .bg-primary-container { background-color: #f26522; }
+        .bg-surface-container-low-50 { background-color: rgba(246, 243, 242, 0.5); }
+        .shadow-primary-container-10 { --tw-shadow-color: rgba(242, 101, 34, 0.1); }
+        .border-on-surface-variant-10 { border-color: rgba(89, 65, 56, 0.1); }
+        .border-on-surface-variant-20 { border-color: rgba(89, 65, 56, 0.2); }
+        
+        .py-4\\.5 {
+          padding-top: 1.125rem;
+          padding-bottom: 1.125rem;
+        }
+      ` }} />
 
-            {successMsg && (
-                <div className="p-3 bg-emerald-50 text-emerald-700 text-sm font-semibold rounded-md flex items-start gap-3 border border-emerald-200 text-left animate-in slide-in-from-top-2">
-                    <CheckCircle2 className="size-4 shrink-0 mt-0.5" />
-                    <p>{successMsg}</p>
-                </div>
-            )}
-
-            {/* Email Form */}
-            <div className="bg-muted/30 p-4 rounded-xl border">
-                <div className="flex gap-2 mb-4 p-1 bg-muted rounded-lg">
-                    <button 
-                        onClick={() => { setMode('login'); setErrorMsg(''); setSuccessMsg(''); }}
-                        className={`flex-1 text-xs font-bold py-2 rounded-md transition-colors ${mode === 'login' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                    >
-                        Entrar
-                    </button>
-                    <button 
-                        onClick={() => { setMode('register'); setErrorMsg(''); setSuccessMsg(''); }}
-                        className={`flex-1 text-xs font-bold py-2 rounded-md transition-colors ${mode === 'register' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-                    >
-                        Primeiro Acesso / Criar
-                    </button>
-                </div>
-
-                <form onSubmit={handleEmailAuth} className="space-y-4">
-                    {mode === 'forgot' ? (
-                        <div className="space-y-4 animate-in fade-in zoom-in-95 duration-200">
-                             <div className="space-y-1">
-                                <Label className="text-xs font-bold text-muted-foreground uppercase">E-mail de Recuperação</Label>
-                                <div className="relative">
-                                    <Mail className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                                    <Input type="email" placeholder="seu@email.com" className="pl-9" value={email} onChange={e => setEmail(e.target.value)} required />
-                                </div>
-                            </div>
-                            <Button type="submit" disabled={isLoadingEmail} className="w-full font-bold">
-                                {isLoadingEmail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Enviar Link de Recuperação'}
-                            </Button>
-                            <button 
-                                type="button"
-                                onClick={() => setMode('login')}
-                                className="w-full text-center text-xs font-bold text-primary hover:underline"
-                            >
-                                Voltar para o Login
-                            </button>
-                        </div>
-                    ) : (
-                        <>
-                            {mode === 'register' && (
-                                <div className="space-y-1 animate-in fade-in slide-in-from-top-2">
-                                    <Label className="text-xs font-bold text-muted-foreground uppercase">Nome Completo</Label>
-                                    <Input placeholder="Seu nome" value={name} onChange={e => setName(e.target.value)} required />
-                                    <p className="text-[10px] text-muted-foreground mt-1">
-                                      Se você já possui cadastro na igreja, use o mesmo e-mail para vincular sua conta.
-                                    </p>
-                                </div>
-                            )}
-                            <div className="space-y-1">
-                                <Label className="text-xs font-bold text-muted-foreground uppercase">E-mail</Label>
-                                <div className="relative">
-                                    <Mail className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                                    <Input type="email" placeholder="seu@email.com" className="pl-9" value={email} onChange={e => setEmail(e.target.value)} required />
-                                </div>
-                            </div>
-                            <div className="space-y-1">
-                                <div className="flex justify-between items-center">
-                                    <Label className="text-xs font-bold text-muted-foreground uppercase">
-                                        {mode === 'register' ? 'Criar Senha' : 'Senha'}
-                                    </Label>
-                                    {mode === 'login' && (
-                                        <button 
-                                            type="button" 
-                                            onClick={() => { setMode('forgot'); setErrorMsg(''); setSuccessMsg(''); }}
-                                            className="text-[10px] font-black text-primary hover:underline uppercase"
-                                        >
-                                            Esqueceu a senha?
-                                        </button>
-                                    )}
-                                </div>
-                                <div className="relative">
-                                    <Key className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                                    <Input type="password" placeholder="••••••••" className="pl-9" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
-                                </div>
-                            </div>
-                            
-                            <Button type="submit" disabled={isLoadingEmail || isLoadingGoogle} className="w-full font-bold">
-                                {isLoadingEmail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (mode === 'login' ? 'Acessar' : 'Cadastrar')}
-                            </Button>
-                        </>
-                    )}
-                </form>
-            </div>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-              <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">Ou continue com</span></div>
-            </div>
-
-            <Button onClick={handleGoogleLogin} variant="outline" disabled={isLoadingGoogle || isLoadingEmail} className="w-full font-bold bg-white hover:bg-slate-50 border-slate-200 text-slate-700">
-              {isLoadingGoogle ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : (
-                  <>
-                    <svg className="mr-2 size-4" viewBox="0 0 24 24">
-                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-                    </svg>
-                    Google
-                  </>
-              )}
-            </Button>
-          </div>
-        </div>
-      </div>
-      <div className="hidden bg-muted lg:block">
-        {loginImage && (
-          <Image
-            src={loginImage.imageUrl}
-            alt={loginImage.description}
-            width="1200"
-            height="800"
-            data-ai-hint={loginImage.imageHint}
-            className="h-full w-full object-cover dark:brightness-[0.3]"
+      <div className="bg-mesh font-body-md text-on-surface min-h-screen flex flex-col relative overflow-x-hidden">
+        {/* Backdrop Image Animation */}
+        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+          <img 
+            alt="Network Visualization" 
+            className="absolute -right-20 top-1/4 w-[800px] h-auto opacity-[0.07] floating-element" 
+            src="https://lh3.googleusercontent.com/aida/ADBb0uhFsG9mPizji2zDOeKHRksX34r0dzDSqAOJ5hvLmHnDKFkeJwcTEhHltnOheGDmCMhUMZEfWpUgOwN-VO3W9ly_wacSJeNLk5ITXu-nKq3qi9ilkONYS20fSE4Q6fPqB4qgpdH_z_UUbDQi682MFuJVDaTo7i29X0j2ekhbCODaGj_bLurNqfjXFMg2ak3GmX2hKL3-8RFTNa0DvZ3bOiV457tGPtuYOX-cUb-NyE1WkUvZntxCpHXZncQM" 
           />
-        )}
+          <img 
+            alt="Network Visualization" 
+            className="absolute -left-40 -bottom-20 w-[600px] h-auto opacity-[0.04] floating-element" 
+            src="https://lh3.googleusercontent.com/aida/ADBb0uhFsG9mPizji2zDOeKHRksX34r0dzDSqAOJ5hvLmHnDKFkeJwcTEhHltnOheGDmCMhUMZEfWpUgOwN-VO3W9ly_wacSJeNLk5ITXu-nKq3qi9ilkONYS20fSE4Q6fPqB4qgpdH_z_UUbDQi682MFuJVDaTo7i29X0j2ekhbCODaGj_bLurNqfjXFMg2ak3GmX2hKL3-8RFTNa0DvZ3bOiV457tGPtuYOX-cUb-NyE1WkUvZntxCpHXZncQM" 
+            style={{ animationDelay: '-5s' }} 
+          />
+        </div>
+
+        <header className="fixed top-0 w-full z-50 flex justify-between items-center px-8 md:px-12 py-8">
+          <Link 
+            href="/"
+            className="flex items-center gap-2 group backdrop-blur-sm px-4 py-2 rounded-full border border-white/20 hover:bg-white/40 transition-all cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-on-surface-variant text-xl transition-transform group-hover:-translate-x-1">arrow_back</span>
+            <span className="font-label-md text-on-surface-variant group-hover:text-primary transition-colors">Voltar</span>
+          </Link>
+        </header>
+
+        <main className="flex-grow flex flex-col items-center justify-center relative px-8 md:px-12 py-24 z-10">
+          <div className="w-full max-w-md space-y-10">
+            {/* Logo Sizing */}
+            <div className="flex flex-col items-center gap-6">
+              <img 
+                alt="Logo" 
+                className="h-24 w-auto object-contain transition-transform duration-700 hover:scale-105" 
+                src="https://firebasestorage.googleapis.com/v0/b/studio-1424813022-71754.firebasestorage.app/o/pwa%2FChatGPT%20Image%207%20de%20mai.%20de%202026%2C%2016_45_54.png?alt=media&token=c8100c94-fb27-4b1f-87b8-74bd1f8d3fe5" 
+              />
+              <div className="text-center space-y-2">
+                <h1 className="font-headline-md text-on-surface">Portal do Membro</h1>
+                <p className="font-body-md text-on-surface-variant-80">Acesse sua jornada ministerial.</p>
+              </div>
+            </div>
+
+            <div className="glass-card rounded-3xl premium-shadow p-8 md:p-12">
+              {/* Error and Success alerts */}
+              {errorMsg && (
+                <div className="mb-6 p-4 bg-red-50 text-red-700 text-sm font-semibold rounded-2xl flex items-start gap-3 border border-red-200 text-left animate-in slide-in-from-top-2">
+                  <span className="material-symbols-outlined text-red-500 text-xl shrink-0 mt-0.5">error</span>
+                  <p>{errorMsg}</p>
+                </div>
+              )}
+
+              {successMsg && (
+                <div className="mb-6 p-4 bg-emerald-50 text-emerald-700 text-sm font-semibold rounded-2xl flex items-start gap-3 border border-emerald-200 text-left animate-in slide-in-from-top-2">
+                  <span className="material-symbols-outlined text-emerald-600 text-xl shrink-0 mt-0.5">check_circle</span>
+                  <p>{successMsg}</p>
+                </div>
+              )}
+
+              {/* Tab Switching Navigation */}
+              {mode !== 'forgot' && (
+                <div className="flex p-1.5 bg-surface-container-low-50 rounded-2xl mb-10 border border-white/20">
+                  <button 
+                    onClick={() => { setMode('login'); setErrorMsg(''); setSuccessMsg(''); }}
+                    className={`flex-1 py-3 text-center rounded-xl font-label-md transition-all duration-500 ${mode === 'login' ? 'bg-white shadow-sm text-primary-container font-bold' : 'text-on-surface-variant hover:text-on-surface'}`}
+                    id="tab-login"
+                  >
+                    Entrar
+                  </button>
+                  <button 
+                    onClick={() => { setMode('register'); setErrorMsg(''); setSuccessMsg(''); }}
+                    className={`flex-1 py-3 text-center rounded-xl font-label-md transition-all duration-500 ${mode === 'register' ? 'bg-white shadow-sm text-primary-container font-bold' : 'text-on-surface-variant hover:text-on-surface'}`}
+                    id="tab-register"
+                  >
+                    Primeiro Acesso
+                  </button>
+                </div>
+              )}
+
+              <form onSubmit={handleEmailAuth} className="space-y-8">
+                {mode === 'forgot' ? (
+                  <div className="space-y-8 animate-in fade-in zoom-in-95 duration-200">
+                    <div className="text-center space-y-2">
+                      <h2 className="font-headline-sm text-on-surface">Recuperar Acesso</h2>
+                      <p className="font-body-md text-on-surface-variant-80">Informe seu e-mail para receber as instruções de recuperação de senha.</p>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      <label className="font-label-sm text-on-surface-variant-70 uppercase tracking-[0.1em] ml-1 block">E-mail</label>
+                      <div className="relative group">
+                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline-50 text-xl transition-colors group-focus-within:text-primary-container">mail</span>
+                        <input 
+                          className="w-full pl-12 pr-4 py-4 bg-white/40 border border-transparent rounded-xl focus:ring-1 focus-ring-primary-container-20 focus-border-primary-container-30 focus:bg-white transition-all placeholder-text-outline-variant-60 font-body-md text-on-surface outline-none" 
+                          placeholder="seu@email.com" 
+                          type="email"
+                          value={email}
+                          onChange={e => setEmail(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <button 
+                      className="w-full bg-primary-container text-white py-4.5 rounded-full font-label-md font-bold uppercase tracking-[0.15em] shadow-xl shadow-primary-container-10 btn-premium-hover flex items-center justify-center min-h-[56px] disabled:opacity-50" 
+                      type="submit"
+                      disabled={isLoadingEmail}
+                    >
+                      {isLoadingEmail ? <Loader2 className="animate-spin size-5" /> : 'ENVIAR LINK'}
+                    </button>
+
+                    <button 
+                      type="button"
+                      onClick={() => { setMode('login'); setErrorMsg(''); setSuccessMsg(''); }}
+                      className="w-full text-center font-label-sm text-primary-container-80 uppercase tracking-widest hover:text-primary-container transition-colors"
+                    >
+                      Voltar para o Login
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {mode === 'register' && (
+                      <div className="space-y-2.5 animate-in fade-in slide-in-from-top-2">
+                        <label className="font-label-sm text-on-surface-variant-70 uppercase tracking-[0.1em] ml-1 block">Nome Completo</label>
+                        <div className="relative group">
+                          <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline-50 text-xl transition-colors group-focus-within:text-primary-container">person</span>
+                          <input 
+                            className="w-full pl-12 pr-4 py-4 bg-white/40 border border-transparent rounded-xl focus:ring-1 focus-ring-primary-container-20 focus-border-primary-container-30 focus:bg-white transition-all placeholder-text-outline-variant-60 font-body-md text-on-surface outline-none" 
+                            placeholder="Seu nome completo" 
+                            type="text"
+                            value={name}
+                            onChange={e => setName(e.target.value)}
+                            required
+                          />
+                        </div>
+                        <p className="text-[11px] text-on-surface-variant-70 mt-1.5 ml-1">
+                          Se você já possui cadastro na igreja, use o mesmo e-mail para vincular sua conta automaticamente.
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="space-y-2.5">
+                      <label className="font-label-sm text-on-surface-variant-70 uppercase tracking-[0.1em] ml-1 block">E-mail</label>
+                      <div className="relative group">
+                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline-50 text-xl transition-colors group-focus-within:text-primary-container">mail</span>
+                        <input 
+                          className="w-full pl-12 pr-4 py-4 bg-white/40 border border-transparent rounded-xl focus:ring-1 focus-ring-primary-container-20 focus-border-primary-container-30 focus:bg-white transition-all placeholder-text-outline-variant-60 font-body-md text-on-surface outline-none" 
+                          placeholder="seu@email.com" 
+                          type="email"
+                          value={email}
+                          onChange={e => setEmail(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      <div className="flex justify-between items-center ml-1">
+                        <label className="font-label-sm text-on-surface-variant-70 uppercase tracking-[0.1em] block">
+                          {mode === 'register' ? 'Criar Senha' : 'Senha'}
+                        </label>
+                        {mode === 'login' && (
+                          <button 
+                            type="button" 
+                            onClick={() => { setMode('forgot'); setErrorMsg(''); setSuccessMsg(''); }}
+                            className="font-label-sm text-primary-container-80 uppercase tracking-wider hover:text-primary-container transition-colors"
+                          >
+                            Esqueceu a senha?
+                          </button>
+                        )}
+                      </div>
+                      <div className="relative group">
+                        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline-50 text-xl transition-colors group-focus-within:text-primary-container">key</span>
+                        <input 
+                          className="w-full pl-12 pr-12 py-4 bg-white/40 border border-transparent rounded-xl focus:ring-1 focus-ring-primary-container-20 focus-border-primary-container-30 focus:bg-white transition-all placeholder-text-outline-variant-60 font-body-md text-on-surface outline-none" 
+                          placeholder="••••••••" 
+                          type={showPassword ? 'text' : 'password'}
+                          value={password}
+                          onChange={e => setPassword(e.target.value)}
+                          required
+                          minLength={6}
+                        />
+                        <button 
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-outline-40 hover:text-on-surface transition-colors cursor-pointer" 
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                        >
+                          <span className="material-symbols-outlined">{showPassword ? 'visibility_off' : 'visibility'}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <button 
+                      className="w-full bg-primary-container text-white py-4.5 rounded-full font-label-md font-bold uppercase tracking-[0.15em] shadow-xl shadow-primary-container-10 btn-premium-hover flex items-center justify-center min-h-[56px] disabled:opacity-50" 
+                      type="submit"
+                      disabled={isLoadingEmail || isLoadingGoogle}
+                    >
+                      {isLoadingEmail ? <Loader2 className="animate-spin size-5" /> : (mode === 'login' ? 'ACESSAR' : 'CADASTRAR')}
+                    </button>
+                  </>
+                )}
+              </form>
+
+              {/* Or continue with divider and buttons */}
+              {mode !== 'forgot' && (
+                <div className="mt-10">
+                  <div className="relative flex items-center mb-8">
+                    <div className="flex-grow border-t border-on-surface-variant-10"></div>
+                    <span className="flex-shrink mx-4 font-label-sm text-[10px] text-on-surface-variant-40 uppercase tracking-[0.2em]">Ou continue com</span>
+                    <div className="flex-grow border-t border-on-surface-variant-10"></div>
+                  </div>
+
+                  <div className="w-full">
+                    <button 
+                      onClick={handleGoogleLogin}
+                      disabled={isLoadingGoogle || isLoadingEmail}
+                      className="w-full flex items-center justify-center gap-3 py-3.5 border border-on-surface-variant-10 rounded-xl hover:bg-white hover:border-on-surface-variant-20 hover:shadow-sm transition-all duration-300 cursor-pointer disabled:opacity-50 min-h-[52px]"
+                    >
+                      {isLoadingGoogle ? (
+                        <Loader2 className="animate-spin size-5 text-on-surface-variant" />
+                      ) : (
+                        <>
+                          <svg className="w-5 h-5" viewBox="0 0 24 24">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"></path>
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"></path>
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"></path>
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"></path>
+                          </svg>
+                          <span className="font-label-md text-on-surface-70">Google</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <footer className="text-center space-y-4">
+              <p className="font-label-sm text-[11px] text-on-surface-variant-40 uppercase tracking-[0.1em]">
+                © 2024 Igreja Batista da Manhã. Transforming the city through discipleship.
+              </p>
+            </footer>
+          </div>
+        </main>
+
+
       </div>
-    </div>
+    </>
   );
 }

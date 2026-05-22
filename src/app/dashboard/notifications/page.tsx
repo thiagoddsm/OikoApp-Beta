@@ -310,7 +310,7 @@ function WhatsappSender({ config }: { config: any }) {
     const blacklistedSet = useMemo(() => {
         const set = new Set<string>();
         blacklist?.forEach((b: any) => {
-            const num = (b.phoneNumber || b.id || '').replace(/\D/g, '');
+            const num = String(b.phoneNumber || b.id || '').replace(/\D/g, '');
             if (num) set.add(num);
         });
         return set;
@@ -478,7 +478,7 @@ function WhatsappSender({ config }: { config: any }) {
         let blacklistedCount = 0;
 
         if (targetAudience === 'individual') {
-            const cleaned = individualPhone.replace(/\D/g, '');
+            const cleaned = String(individualPhone || '').replace(/\D/g, '');
             if (cleaned) {
                 if (blacklistedSet.has(cleaned)) {
                     blacklistedCount = 1;
@@ -489,7 +489,7 @@ function WhatsappSender({ config }: { config: any }) {
         } else if (targetAudience === 'all_members') {
             users?.forEach((u: any) => {
                 if (u.phone) {
-                    const cleaned = u.phone.replace(/\D/g, '');
+                    const cleaned = String(u.phone).replace(/\D/g, '');
                     if (blacklistedSet.has(cleaned)) {
                         blacklistedCount++;
                     } else {
@@ -500,7 +500,7 @@ function WhatsappSender({ config }: { config: any }) {
         } else if (targetAudience === 'specific_members') {
             selectedUsersList?.forEach((u: any) => {
                 if (u.phone) {
-                    const cleaned = u.phone.replace(/\D/g, '');
+                    const cleaned = String(u.phone).replace(/\D/g, '');
                     if (blacklistedSet.has(cleaned)) {
                         blacklistedCount++;
                     } else {
@@ -511,7 +511,7 @@ function WhatsappSender({ config }: { config: any }) {
         } else if (targetAudience === 'import_spreadsheet') {
             importedContacts?.forEach((c: any) => {
                 if (c.phone) {
-                    const cleaned = c.phone.replace(/\D/g, '');
+                    const cleaned = String(c.phone).replace(/\D/g, '');
                     if (blacklistedSet.has(cleaned)) {
                         blacklistedCount++;
                     } else {
@@ -770,7 +770,7 @@ function WhatsappSender({ config }: { config: any }) {
                                 <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg overflow-hidden">
                                     {filteredUsers.map(u => {
                                         // Tenta encontrar o contato WA correspondente para mostrar o avatar
-                                        const waContact = waContacts.find(c => c.phone && (u.phone || '').replace(/\D/g,'').endsWith(c.phone.replace(/\D/g,'')));
+                                        const waContact = waContacts.find(c => c.phone && String(u.phone || '').replace(/\D/g,'').endsWith(String(c.phone || '').replace(/\D/g,'')));
                                         return (
                                             <button key={u.id} type="button" onClick={() => handleAddUser(u.id)} className="w-full px-4 py-3 text-left hover:bg-primary/10 flex items-center gap-3 border-b last:border-0">
                                                 <Avatar className="h-8 w-8 border shrink-0">
@@ -787,7 +787,7 @@ function WhatsappSender({ config }: { config: any }) {
                         </div>
                         <div className="flex flex-wrap gap-2">
                             {selectedUsersList.map(u => {
-                                const waContact = waContacts.find(c => c.phone && (u.phone || '').replace(/\D/g,'').endsWith(c.phone.replace(/\D/g,'')));
+                                const waContact = waContacts.find(c => c.phone && String(u.phone || '').replace(/\D/g,'').endsWith(String(c.phone || '').replace(/\D/g,'')));
                                 return (
                                     <Badge key={u.id} variant="secondary" className="gap-1.5 h-8 font-bold pl-1 pr-2">
                                         <Avatar className="h-5 w-5">
@@ -1315,7 +1315,7 @@ function WhatsappResponses() {
                 
                 const resolvedPhone = resolveResponsePhone(r);
                 return campaignRecipients.some(recipientPhone => {
-                    const cleaned = recipientPhone.replace(/\D/g, '');
+                    const cleaned = String(recipientPhone || '').replace(/\D/g, '');
                     return cleaned === resolvedPhone || 
                            resolvedPhone.endsWith(cleaned.slice(-8)) || 
                            cleaned.endsWith(resolvedPhone.slice(-8));

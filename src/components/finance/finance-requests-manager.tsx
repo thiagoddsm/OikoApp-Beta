@@ -22,7 +22,6 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { getWhatsAppClient, formatWhatsAppNumber, TypeMessage } from '@/lib/whatsapp';
 
 export function FinanceRequestsManager() {
   const { financeRequests, addFinanceRequest, updateFinanceRequest, deleteFinanceRequest, isLoading } = useVolunteering();
@@ -173,40 +172,52 @@ export function FinanceRequestsManager() {
 
   const objectiveLabels = { reembolso: 'Reembolso', pagamento: 'Pagamento', prestacao_contas: 'Prestação de Contas' };
 
-  const handleStatusChange = async (req: FinanceRequest, newStatus: FinanceRequest['status']) => {
-    await updateFinanceRequest(req.id, { status: newStatus });
-    toast({ title: "Status Atualizado" });
-
-    if (req.phone && (newStatus === 'approved' || newStatus === 'rejected' || newStatus === 'paid')) {
-      try {
-        const waClient = await getWhatsAppClient();
-        const formattedPhone = formatWhatsAppNumber(req.phone);
-        
-        let messageText = '';
-        if (newStatus === 'approved') {
-          messageText = `Olá ${req.requesterName}!\nSua solicitação financeira (${objectiveLabels[req.objective]}) de *R$ ${req.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}* foi *APROVADA* e está aguardando pagamento.`;
-        } else if (newStatus === 'rejected') {
-          messageText = `Olá ${req.requesterName}!\nSua solicitação financeira (${objectiveLabels[req.objective]}) de *R$ ${req.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}* infelizmente foi *REJEITADA*. Por favor, entre em contato com a tesouraria para mais detalhes.`;
-        } else if (newStatus === 'paid') {
-          messageText = `Olá ${req.requesterName}!\nO pagamento da sua solicitação financeira (${objectiveLabels[req.objective]}) de *R$ ${req.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}* acabou de ser *REALIZADO*!`;
-        }
-
-        await waClient.sendMessage({
-          type: TypeMessage.TEXT,
-          body: {
-            to: formattedPhone,
-            text: messageText
-          }
-        });
-        toast({ title: "Notificação Enviada", description: "O solicitante foi avisado pelo WhatsApp." });
-      } catch (error) {
-        console.error("Erro ao enviar WhatsApp:", error);
-        toast({ variant: 'destructive', title: "Erro na Notificação", description: "Não foi possível avisar o solicitante via WhatsApp." });
+  const handleStatusChange = async (req: FinanceRequest, newStatus: FinanceRequest['status'], rejectionReason?: string) => {
+    try {
+      const updateData: any = { status: newStatus };
+      if (newStatus === 'rejected' && rejectionReason) {
+        updateData.rejectionReason = rejectionReason;
       }
-    } else if (!req.phone && (newStatus === 'approved' || newStatus === 'rejected' || newStatus === 'paid')) {
+      await updateFinanceRequest(req.id, updateData);
+      toast({ title: "Status Atualizado" });
+
+      if (req.phone && (newStatus === 'approved' || newStatus === 'rejected' || newStatus === 'paid')) {
+        try {
+          const response = await fetch('/api/finance/notify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              requesterName: req.requesterName,
+              phone: req.phone,
+              amount: req.amount,
+              objective: req.objective,
+              newStatus: newStatus,
+              rejectionReason: rejectionReason
+            }),
+          });
+
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({ error: 'Erro de comunicação com o servidor' }));
+            throw new Error(errData.error || `HTTP ${response.status}`);
+          }
+
+          toast({ title: "Notificação Enviada", description: "O solicitante foi avisado pelo WhatsApp." });
+        } catch (error: any) {
+          console.error("Erro ao enviar WhatsApp:", error);
+          toast({ variant: 'destructive', title: "Erro na Notificação", description: `Não foi possível avisar o solicitante via WhatsApp: ${error.message}` });
+        }
+      } else if (!req.phone && (newStatus === 'approved' || newStatus === 'rejected' || newStatus === 'paid')) {
         toast({ title: "Aviso", description: "Solicitante sem telefone. Notificação não enviada." });
+      }
+    } catch (dbError: any) {
+      console.error("Erro ao atualizar status no banco:", dbError);
+      toast({ variant: 'destructive', title: "Erro ao Atualizar", description: "Não foi possível atualizar o status no banco de dados." });
     }
   };
+
+
   const statusConfig = {
     pending: { label: 'Pendente', color: 'bg-yellow-100 text-yellow-800', icon: Clock },
     approved: { label: 'Aprovado', color: 'bg-blue-100 text-blue-800', icon: CheckCircle },
@@ -301,7 +312,20 @@ export function FinanceRequestsManager() {
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => setViewRequest(req)} title="Ver Detalhes"><Eye className="size-4" /></Button>
-                        {req.status === 'pending' && <><Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-600" onClick={() => handleStatusChange(req, 'approved')} title="Aprovar"><CheckCircle className="size-4" /></Button><Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => handleStatusChange(req, 'rejected')} title="Rejeitar"><XCircle className="size-4" /></Button></>}
+                        {req.status === 'pending' && (
+                          <>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-600" onClick={() => handleStatusChange(req, 'approved')} title="Aprovar">
+                              <CheckCircle className="size-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => {
+                              const reason = prompt("Informe o motivo da rejeição (opcional):");
+                              if (reason === null) return;
+                              handleStatusChange(req, 'rejected', reason || undefined);
+                            }} title="Rejeitar">
+                              <XCircle className="size-4" />
+                            </Button>
+                          </>
+                        )}
                         {req.status === 'approved' && <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-600" onClick={() => handleStatusChange(req, 'paid')} title="Marcar como Pago"><DollarSign className="size-4" /></Button>}
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={() => deleteFinanceRequest(req.id)} title="Excluir"><Trash2 className="size-4" /></Button>
                       </div>

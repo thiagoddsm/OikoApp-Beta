@@ -46,6 +46,16 @@ const nextConfig: NextConfig = {
 
   experimental: {
     // Propriedades experimentais permitidas
+  },
+
+  async redirects() {
+    return [
+      {
+        source: '/enrollment',
+        destination: '/public/enrollment',
+        permanent: true,
+      },
+    ];
   }
 };
 

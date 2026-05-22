@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, limit, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, where, orderBy, limit, deleteDoc, doc, getDocs } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +26,8 @@ type PresencaDoc = {
   status: string;
   pedidoOracao?: string;
   termometro?: number;
+  observacaoCuidado?: string;
+  reuniaoLogId?: string;
 };
 
 type ReuniaoLog = {
@@ -46,6 +48,7 @@ type ReuniaoLog = {
   observacoes?: string;         // observações gerais
   feedbackAoSupervisor?: string;
   termometroEspiritual?: number; // 1-5
+  licaoMinistrada?: string;
 };
 
 // Taxa de retenção: média de presença nas reuniões do mês
@@ -91,6 +94,14 @@ function getLastMeetingDate(meetingDay?: string): string {
   return date.toISOString().split('T')[0];
 }
 
+const THERMOMETER = [
+  { value: 1, label: 'Precisa de cuidado', emoji: '😔' },
+  { value: 2, label: 'Desanimado',         emoji: '😕' },
+  { value: 3, label: 'Estável',            emoji: '😊' },
+  { value: 4, label: 'Bem',                emoji: '😄' },
+  { value: 5, label: 'Radiante',           emoji: '🔥' },
+];
+
 // ── Helpers de período ────────────────────────────────────────────────────
 function getWeekStart(offsetWeeks = 0): Date {
   const d = new Date();
@@ -117,6 +128,37 @@ export default function SupervisorPage() {
   const { toast } = useToast();
   const [selectedLog, setSelectedLog] = useState<ReuniaoLog | null>(null);
   const [isDeletingLog, setIsDeletingLog] = useState(false);
+  const [selectedLogPresencias, setSelectedLogPresencias] = useState<PresencaDoc[]>([]);
+  const [isLoadingPresencias, setIsLoadingPresencias] = useState(false);
+
+  useEffect(() => {
+    if (!selectedLog || !firestore) {
+      setSelectedLogPresencias([]);
+      return;
+    }
+
+    const fetchPresencias = async () => {
+      setIsLoadingPresencias(true);
+      try {
+        const q = query(
+          collection(firestore, 'presencas_historico'),
+          where('reuniaoLogId', '==', selectedLog.id)
+        );
+        const snapshot = await getDocs(q);
+        const docsList: PresencaDoc[] = [];
+        snapshot.forEach(doc => {
+          docsList.push({ id: doc.id, ...doc.data() } as PresencaDoc);
+        });
+        setSelectedLogPresencias(docsList);
+      } catch (err) {
+        console.error("Error fetching presence logs:", err);
+      } finally {
+        setIsLoadingPresencias(false);
+      }
+    };
+
+    fetchPresencias();
+  }, [selectedLog, firestore]);
 
   const handleDeleteLog = async (logId: string) => {
     if (!window.confirm('Tem certeza que deseja excluir permanentemente este relatório? Esta ação não pode ser desfeita.')) {
@@ -126,6 +168,19 @@ export default function SupervisorPage() {
     try {
       if (firestore) {
         await deleteDoc(doc(firestore, 'reuniao_logs', logId));
+
+        // Delete associated presence records
+        const q = query(
+          collection(firestore, 'presencas_historico'),
+          where('reuniaoLogId', '==', logId)
+        );
+        const snapshot = await getDocs(q);
+        const deletePromises: Promise<void>[] = [];
+        snapshot.forEach(d => {
+          deletePromises.push(deleteDoc(d.ref));
+        });
+        await Promise.all(deletePromises);
+
         toast({
           title: 'Relatório excluído',
           description: 'O relatório foi excluído com sucesso.',
@@ -842,6 +897,22 @@ export default function SupervisorPage() {
               ))}
             </div>
 
+            {/* LIÇÃO MINISTRADA */}
+            {selectedLog.licaoMinistrada?.trim() && (
+              <>
+                <Separator />
+                <div className="py-4 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <ClipboardList className="h-3.5 w-3.5 text-indigo-500" />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Lição / Tema da Reunião</span>
+                  </div>
+                  <p className="text-sm font-bold text-foreground bg-indigo-50/30 border border-indigo-100 rounded-lg p-3">
+                    {selectedLog.licaoMinistrada}
+                  </p>
+                </div>
+              </>
+            )}
+
             {/* TERMÔMETRO ESPIRITUAL */}
             {selectedLog.termometroEspiritual != null && (
               <>
@@ -928,6 +999,67 @@ export default function SupervisorPage() {
                 </div>
               </>
             )}
+
+            {/* PRESENÇA DOS MEMBROS */}
+            <Separator />
+            <div className="py-4 space-y-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Users className="h-3.5 w-3.5 text-primary" />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Presença dos Membros</span>
+              </div>
+              
+              {isLoadingPresencias ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  <span className="text-xs text-muted-foreground ml-2">Carregando presenças...</span>
+                </div>
+              ) : selectedLogPresencias.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">Nenhum registro de presença encontrado.</p>
+              ) : (
+                <div className="space-y-2">
+                  {selectedLogPresencias.map(p => {
+                    const statusText = p.status === 'presente' ? 'Presente' : p.status === 'ausente_justificado' ? 'Justificado' : 'Faltou';
+                    const statusColor = p.status === 'presente' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : p.status === 'ausente_justificado' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-red-50 text-red-700 border-red-200';
+                    
+                    const thermo = THERMOMETER.find(t => t.value === p.termometro);
+
+                    return (
+                      <div key={p.id} className="rounded-xl border bg-card p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-sm">{p.membroNome}</span>
+                          <span className={cn("text-[10px] font-bold px-2.5 py-0.5 rounded-full border", statusColor)}>
+                            {statusText}
+                          </span>
+                        </div>
+                        
+                        {(thermo || p.pedidoOracao || p.observacaoCuidado) && (
+                          <div className="pl-2 border-l-2 border-muted text-xs space-y-1.5 mt-1">
+                            {thermo && (
+                              <div className="flex items-center gap-1">
+                                <span className="text-muted-foreground">Termômetro:</span>
+                                <span>{thermo.emoji} {thermo.label}</span>
+                              </div>
+                            )}
+                            {p.pedidoOracao && (
+                              <div>
+                                <span className="text-muted-foreground block font-medium">Pedido de Oração:</span>
+                                <span className="text-foreground/80 italic">"{p.pedidoOracao}"</span>
+                              </div>
+                            )}
+                            {p.observacaoCuidado && (
+                              <div>
+                                <span className="text-muted-foreground block font-medium">Observação de Cuidado:</span>
+                                <span className="text-foreground/80">"{p.observacaoCuidado}"</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             <Separator />
             <div className="pt-4 flex flex-col gap-2">

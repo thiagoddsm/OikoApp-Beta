@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PersonSearchInput } from '@/components/common/person-search-input';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
@@ -32,6 +32,7 @@ export function CreateRedeDialog({ open, onOpenChange, users, existingRede }: Cr
   const [nome, setNome] = useState('');
   const [liderId, setLiderId] = useState('');
   const [pastorId, setPastorId] = useState('');
+  const [cor, setCor] = useState('#6366F1');
   const [isSaving, setIsSaving] = useState(false);
 
   // Filter users who can be pastors
@@ -53,10 +54,12 @@ export function CreateRedeDialog({ open, onOpenChange, users, existingRede }: Cr
       setNome(existingRede.nome || '');
       setLiderId(existingRede.liderId || '');
       setPastorId(existingRede.pastorId || '');
+      setCor(existingRede.cor || '#6366F1');
     } else {
       setNome('');
       setLiderId('');
       setPastorId('');
+      setCor('#6366F1');
     }
   }, [existingRede, open]);
 
@@ -75,6 +78,7 @@ export function CreateRedeDialog({ open, onOpenChange, users, existingRede }: Cr
       nome,
       liderId,
       pastorId,
+      cor,
     };
 
     try {
@@ -95,6 +99,19 @@ export function CreateRedeDialog({ open, onOpenChange, users, existingRede }: Cr
     }
   };
 
+  const presetColors = [
+    '#6366F1', // Indigo
+    '#8B5CF6', // Violet
+    '#3B82F6', // Blue
+    '#06B6D4', // Cyan
+    '#14B8A6', // Teal
+    '#10B981', // Emerald
+    '#F59E0B', // Amber
+    '#F97316', // Orange
+    '#EF4444', // Red
+    '#EC4899', // Pink
+  ];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
@@ -111,29 +128,60 @@ export function CreateRedeDialog({ open, onOpenChange, users, existingRede }: Cr
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="leader" className="text-right">Líder (Rede)</Label>
-            <Select value={liderId} onValueChange={setLiderId}>
-                <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Selecione um líder de rede" />
-                </SelectTrigger>
-                <SelectContent>
-                    {networkLeaders.map((user: any) => (
-                        <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
+            <div className="col-span-3">
+              <PersonSearchInput
+                value={liderId}
+                onChange={setLiderId}
+                users={users}
+                suggestions={networkLeaders}
+                placeholder="Selecione ou busque pelo nome..."
+              />
+            </div>
           </div>
-           <div className="grid grid-cols-4 items-center gap-4">
+          <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="pastor" className="text-right">Pastor</Label>
-            <Select value={pastorId} onValueChange={setPastorId}>
-                <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Selecione um pastor" />
-                </SelectTrigger>
-                <SelectContent>
-                    {pastors.map((user: any) => (
-                        <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
+            <div className="col-span-3">
+              <PersonSearchInput
+                value={pastorId}
+                onChange={setPastorId}
+                users={users}
+                suggestions={pastors}
+                placeholder="Selecione ou busque pelo nome..."
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-4 items-start gap-4">
+            <Label className="text-right pt-2">Cor da Rede</Label>
+            <div className="col-span-3 space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {presetColors.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    className={`w-6 h-6 rounded-full border transition-all duration-200 ${
+                      cor === color ? 'ring-2 ring-primary scale-110 border-white' : 'border-transparent hover:scale-105'
+                    }`}
+                    style={{ backgroundColor: color }}
+                    onClick={() => setCor(color)}
+                    title={color}
+                  />
+                ))}
+                <div className="relative w-6 h-6 rounded-full overflow-hidden border border-slate-200 cursor-pointer flex items-center justify-center bg-slate-100 hover:scale-105 transition-transform">
+                  <input
+                    type="color"
+                    value={cor}
+                    onChange={(e) => setCor(e.target.value)}
+                    className="absolute inset-0 w-full h-full p-0 border-0 cursor-pointer scale-150"
+                    title="Cor Personalizada"
+                  />
+                  <span className="text-[10px] pointer-events-none text-slate-500">🎨</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono bg-muted px-2.5 py-1 rounded-md w-fit">
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: cor }} />
+                {cor.toUpperCase()}
+              </div>
+            </div>
           </div>
         </div>
         <DialogFooter>

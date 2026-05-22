@@ -13,6 +13,7 @@ type Cell = {
   id: string;
   nome: string;
   liderId: string;
+  redeId?: string;
   address?: {
       street: string;
       lat?: number;
@@ -25,6 +26,12 @@ type User = {
   name: string;
 };
 
+type Rede = {
+  id: string;
+  nome: string;
+  cor?: string;
+};
+
 // Acessa a API key do ambiente, que é segura para ser usada no lado do cliente pois foi prefixada com NEXT_PUBLIC_
 const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
@@ -33,11 +40,13 @@ export default function MapPage() {
 
   const cellsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells')) : null, [firestore]);
   const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
+  const redesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'redes')) : null, [firestore]);
 
   const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>(cellsQuery);
   const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
+  const { data: redes, isLoading: isLoadingRedes } = useCollection<Rede>(redesQuery);
 
-  const isLoading = isLoadingCells || isLoadingUsers;
+  const isLoading = isLoadingCells || isLoadingUsers || isLoadingRedes;
 
   return (
     <Card>
@@ -58,7 +67,7 @@ export default function MapPage() {
           </div>
         ) : (
           <div className="h-[600px] w-full rounded-lg overflow-hidden border">
-             <MapView cells={cells || []} users={users || []} apiKey={apiKey} />
+             <MapView cells={cells || []} users={users || []} redes={redes || []} apiKey={apiKey} />
           </div>
         )}
       </CardContent>

@@ -56,9 +56,9 @@ export default function ChatPage() {
     </div>
 
       {/* 
-        Scripts da Zaia 
-        Nota: O script da Zaia tem um bug onde, se rodar em 'localhost', ele tenta puxar o CSS de 'localhost:5173'.
-        Para corrigir isso, injetamos o CSS oficial da Zaia manualmente aqui.
+        Scripts do Neemias (Zaia)
+        Nota: O script tem um bug onde, se rodar em 'localhost', ele tenta puxar o CSS de 'localhost:5173'.
+        Para corrigir isso, injetamos o CSS oficial manualmente aqui.
       */}
       <link rel="stylesheet" href="https://widget.endless.zaia.app/script/style.css" />
       
@@ -67,7 +67,7 @@ export default function ChatPage() {
           // Adicionamos um identificador único para forçar o chat a entender que é uma nova sessão
           const sessionId = "sessao_" + Math.random().toString(36).substring(7) + "_" + Date.now();
           window.ZV2Widget = {
-            ChannelURL: "https://widget.endless.zaia.app/widget/channel/9e61f275-3905-4ef1-a3d8-663410d54649?theme=dark&context=" + encodeURIComponent(sessionId),
+            ChannelURL: "https://widget.endless.zaia.app/widget/channel/d6aff9b1-6d05-42c6-8f16-20a13ee7d7c0?theme=dark&locale=pt-BR&context=" + encodeURIComponent(sessionId),
           };
 
           // Tenta limpar qualquer contexto anterior assim que a janela carregar

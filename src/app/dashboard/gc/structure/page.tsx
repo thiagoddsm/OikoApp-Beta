@@ -9,6 +9,7 @@ import { Loader2, Users, ChevronDown, Pencil, Trash2, Network, AreaChart, Buildi
 import { Button } from '@/components/ui/button';
 import { CreateRedeDialog } from '@/components/structure/create-rede-dialog';
 import { CreateAreaDialog } from '@/components/structure/create-area-dialog';
+import { EditPastorDialog } from '@/components/structure/edit-pastor-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -16,7 +17,7 @@ import { cn } from '@/lib/utils';
 type User = { id: string; name: string; hierarchy?: { role?: string; } };
 type Cell = { id: string; nome: string; liderId: string; areaId: string; redeId: string; membros: string[] };
 type Area = { id: string; nome: string; liderId: string; redeId: string; };
-type Rede = { id: string; nome: string; liderId: string; pastorId: string; };
+type Rede = { id: string; nome: string; liderId: string; pastorId: string; cor?: string; };
 
 interface HierarchyNode {
     id: string;
@@ -28,6 +29,10 @@ interface HierarchyNode {
         participantes: number;
     };
     children: HierarchyNode[];
+    liderId?: string;
+    pastorId?: string;
+    redeId?: string;
+    cor?: string;
 }
 
 const nodeIcons = {
@@ -141,6 +146,7 @@ const buildHierarchy = (users: User[], redes: Rede[], areas: Area[], cells: Cell
             nome: area.nome,
             type: 'area' as const,
             redeId: area.redeId,
+            liderId: area.liderId,
             liderName: userMap.get(area.liderId)?.name || 'N/A',
             stats: {
                 directChildren: areaCells.length,
@@ -158,7 +164,9 @@ const buildHierarchy = (users: User[], redes: Rede[], areas: Area[], cells: Cell
             nome: rede.nome,
             type: 'rede' as const,
             pastorId: rede.pastorId,
+            liderId: rede.liderId,
             liderName: userMap.get(rede.liderId)?.name || 'N/A',
+            cor: rede.cor,
             stats: {
                 directChildren: redeAreas.length,
                 participantes: participantes,
@@ -200,7 +208,7 @@ const RenderNode = ({ node, onEditNode, onDeleteNode, isRoot = false }: RenderNo
                 isExpanded={isExpanded}
                 hasChildren={hasChildren}
                 onToggle={() => setIsExpanded(!isExpanded)}
-                onEdit={node.type === 'rede' || node.type === 'area' ? onEditNode : undefined}
+                onEdit={node.type === 'rede' || node.type === 'area' || node.type === 'pastor' ? onEditNode : undefined}
                 onDelete={node.type === 'rede' || node.type === 'area' ? onDeleteNode : undefined}
                 isRoot={isRoot}
             >
@@ -229,6 +237,7 @@ export default function StructurePage() {
     const { toast } = useToast();
     const [isRedeDialogOpen, setRedeDialogOpen] = useState(false);
     const [isAreaDialogOpen, setAreaDialogOpen] = useState(false);
+    const [isPastorDialogOpen, setPastorDialogOpen] = useState(false);
     const [editingNode, setEditingNode] = useState<HierarchyNode | null>(null);
     const [nodeToDelete, setNodeToDelete] = useState<HierarchyNode | null>(null);
     const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -256,6 +265,8 @@ export default function StructurePage() {
             setRedeDialogOpen(true);
         } else if (node.type === 'area') {
             setAreaDialogOpen(true);
+        } else if (node.type === 'pastor') {
+            setPastorDialogOpen(true);
         }
     };
     
@@ -311,6 +322,7 @@ export default function StructurePage() {
         setEditingNode(null);
         setRedeDialogOpen(false);
         setAreaDialogOpen(false);
+        setPastorDialogOpen(false);
     };
 
     return (
@@ -372,6 +384,15 @@ export default function StructurePage() {
                 />
             )}
             
+            {users && (
+                <EditPastorDialog
+                    open={isPastorDialogOpen}
+                    onOpenChange={handleCloseDialogs}
+                    users={users}
+                    currentPastorId={editingNode?.type === 'pastor' ? editingNode.id : ''}
+                />
+            )}
+
             {nodeToDelete && (
                 <DeleteConfirmationDialog
                     open={isDeleteDialogOpen}

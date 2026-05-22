@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PersonSearchInput } from '@/components/common/person-search-input';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
@@ -118,16 +119,15 @@ export function CreateAreaDialog({ open, onOpenChange, users, redes, existingAre
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="leader" className="text-right">Líder (Área)</Label>
-            <Select value={liderId} onValueChange={setLiderId}>
-                <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Selecione um líder de área" />
-                </SelectTrigger>
-                <SelectContent>
-                    {areaLeaders.map((user: any) => (
-                        <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
+            <div className="col-span-3">
+              <PersonSearchInput
+                value={liderId}
+                onChange={setLiderId}
+                users={users}
+                suggestions={areaLeaders}
+                placeholder="Selecione ou busque pelo nome..."
+              />
+            </div>
           </div>
         </div>
         <DialogFooter>

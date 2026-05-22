@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
+import { PersonSearchInput } from '@/components/common/person-search-input';
 
 
 type UserType = {
@@ -65,67 +66,6 @@ const cellStatusConfig = {
   growing:  { label: 'Em Crescimento', className: 'bg-sky-100 text-sky-800 border-sky-200' },
   inactive: { label: 'Inativa',        className: 'bg-slate-100 text-slate-500 border-slate-200' },
 };
-
-// ─── PersonSearchInput ────────────────────────────────────────────────────────
-function PersonSearchInput({
-  value, onChange, users, excludeIds = [], placeholder = 'Buscar...', optional = false,
-}: {
-  value: string; onChange: (id: string) => void; users: UserType[];
-  excludeIds?: string[]; placeholder?: string; optional?: boolean;
-}) {
-  const [search, setSearch] = useState('');
-  const selected = users.find(u => u.id === value);
-
-  const results = useMemo(() => {
-    if (!search.trim()) return [];
-    const term = search.toLowerCase();
-    return users.filter(u => !excludeIds.includes(u.id) && u.name?.toLowerCase().includes(term)).slice(0, 10);
-  }, [search, users, excludeIds]);
-
-  if (selected) {
-    return (
-      <div className="flex items-center gap-2 px-3 py-2 rounded-lg border bg-muted/30">
-        <Avatar className="h-6 w-6 flex-shrink-0">
-          {selected.photoURL && <img src={selected.photoURL} className="h-full w-full object-cover rounded-full" />}
-          <AvatarFallback className="text-[10px] font-bold">{selected.name?.charAt(0)}</AvatarFallback>
-        </Avatar>
-        <span className="text-sm font-semibold flex-1 truncate">{selected.name}</span>
-        <button type="button" onClick={() => { onChange(''); setSearch(''); }} className="text-muted-foreground hover:text-destructive ml-1 text-xs font-bold">✕</button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative">
-      <Input
-        placeholder={placeholder}
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-        className="h-9"
-      />
-      {search.trim() && results.length > 0 && (
-        <div className="absolute left-0 right-0 top-full mt-1 z-50 border rounded-lg bg-background shadow-lg overflow-hidden">
-          {results.map(u => (
-            <button key={u.id} type="button"
-              onClick={() => { onChange(u.id); setSearch(''); }}
-              className="flex items-center gap-2 w-full px-3 py-2 hover:bg-muted text-left text-sm"
-            >
-              <Avatar className="h-5 w-5 flex-shrink-0">
-                {u.photoURL && <img src={u.photoURL} className="h-full w-full object-cover rounded-full" />}
-                <AvatarFallback className="text-[10px] font-bold">{u.name?.charAt(0)}</AvatarFallback>
-              </Avatar>
-              <span className="truncate">{u.name}</span>
-            </button>
-          ))}
-        </div>
-      )}
-      {search.trim() && results.length === 0 && (
-        <p className="text-xs text-muted-foreground mt-1 px-1">Nenhum resultado para "{search}"</p>
-      )}
-      {!search.trim() && <p className="text-[11px] text-muted-foreground mt-1 px-1">Digite para buscar{optional ? ' (opcional)' : ''}</p>}
-    </div>
-  );
-}
 
 function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas, redes, existingCell }) {
   const { firestore } = useFirebase();

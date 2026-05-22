@@ -9,6 +9,7 @@ type Cell = {
   id: string;
   nome: string;
   liderId: string;
+  redeId?: string;
   address?: {
     street: string;
     lat?: number;
@@ -21,10 +22,53 @@ type User = {
   name: string;
 };
 
+type Rede = {
+  id: string;
+  nome: string;
+  cor?: string;
+};
+
 interface MapViewProps {
   cells: Cell[];
   users: User[];
+  redes?: Rede[];
   apiKey?: string;
+}
+
+function getDeterministicColor(str: string, name?: string): string {
+  if (name) {
+    const normalized = name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (normalized.includes('vermelh')) return '#EF4444'; // Red
+    if (normalized.includes('verd')) return '#10B981'; // Green
+    if (normalized.includes('laranj')) return '#F97316'; // Orange
+    if (normalized.includes('amarel')) return '#F59E0B'; // Yellow
+    if (normalized.includes('azul')) return '#3B82F6'; // Blue
+    if (normalized.includes('rosa')) return '#EC4899'; // Pink
+    if (normalized.includes('rox') || normalized.includes('violet') || normalized.includes('indig')) return '#8B5CF6'; // Purple/Violet/Indigo
+    if (normalized.includes('cian') || normalized.includes('turquesa')) return '#06B6D4'; // Cyan
+    if (normalized.includes('marrom') || normalized.includes('castanh')) return '#78350F'; // Brown
+    if (normalized.includes('cinz') || normalized.includes('grafit')) return '#6B7280'; // Gray
+    if (normalized.includes('pret')) return '#0F172A'; // Black/Slate
+  }
+
+  const presets = [
+    '#6366F1', // Indigo
+    '#8B5CF6', // Violet
+    '#3B82F6', // Blue
+    '#06B6D4', // Cyan
+    '#14B8A6', // Teal
+    '#10B981', // Emerald
+    '#F59E0B', // Amber
+    '#F97316', // Orange
+    '#EF4444', // Red
+    '#EC4899', // Pink
+  ];
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % presets.length;
+  return presets[index];
 }
 
 declare global {
@@ -88,7 +132,7 @@ async function geocodeAddress(address: string, apiKey: string): Promise<{ lat: n
   }
 }
 
-export function MapView({ cells, users, apiKey }: MapViewProps) {
+export function MapView({ cells, users, redes, apiKey }: MapViewProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const { firestore } = useFirebase();
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -97,6 +141,7 @@ export function MapView({ cells, users, apiKey }: MapViewProps) {
   const [geocodingTotal, setGeocodingTotal] = useState(0);
 
   const userMap = useMemo(() => new Map(users.map(u => [u.id, u])), [users]);
+  const redeMap = useMemo(() => new Map((redes || []).map(r => [r.id, r])), [redes]);
   const cellsWithCoords = useMemo(() => cells.filter(c => c.address?.lat && c.address?.lng), [cells]);
   const cellsNeedingGeocode = useMemo(() => cells.filter(c => c.address?.street && !c.address?.lat), [cells]);
 
@@ -157,6 +202,9 @@ export function MapView({ cells, users, apiKey }: MapViewProps) {
       const pos = { lat: cell.address.lat, lng: cell.address.lng };
       bounds.extend(pos);
 
+      const cellRede = cell.redeId ? redeMap.get(cell.redeId) : undefined;
+      const redeColor = cellRede?.cor || (cell.redeId ? getDeterministicColor(cell.redeId, cellRede?.nome) : '#7C3AED');
+
       const marker = new g.Marker({
         map,
         position: pos,
@@ -164,24 +212,24 @@ export function MapView({ cells, users, apiKey }: MapViewProps) {
         icon: {
           path: g.SymbolPath.CIRCLE,
           scale: 10,
-          fillColor: '#7C3AED',
+          fillColor: redeColor,
           fillOpacity: 1,
           strokeColor: '#ffffff',
           strokeWeight: 2,
-        },
-        label: {
-          text: '⛪',
-          fontSize: '12px',
         },
       });
 
       marker.addListener('click', () => {
         const leader = userMap.get(cell.liderId);
         infoWindow.setContent(`
-          <div style="font-family:system-ui,sans-serif;padding:10px 12px;min-width:180px">
-            <p style="margin:0 0 6px;font-weight:800;color:#7C3AED;font-size:15px">${cell.nome}</p>
-            <p style="margin:2px 0;font-size:12px;color:#444">👤 <b>Líder:</b> ${leader?.name || '—'}</p>
-            <p style="margin:2px 0;font-size:11px;color:#888">📍 ${cell.address?.street || ''}</p>
+          <div style="font-family:system-ui,sans-serif;padding:12px 14px;min-width:200px">
+            <p style="margin:0 0 6px;font-weight:800;color:${redeColor};font-size:15px;display:flex;align-items:center;gap:6px">
+              <span style="width:10px;height:10px;border-radius:50%;background-color:${redeColor};display:inline-block"></span>
+              ${cell.nome}
+            </p>
+            <p style="margin:4px 0;font-size:12px;color:#444">👤 <b>Líder:</b> ${leader?.name || '—'}</p>
+            ${cellRede ? `<p style="margin:4px 0;font-size:12px;color:#444">🌐 <b>Rede:</b> ${cellRede.nome}</p>` : ''}
+            <p style="margin:4px 0;font-size:11px;color:#888;border-top:1px solid #eee;padding-top:6px;margin-top:6px">📍 ${cell.address?.street || ''}</p>
           </div>
         `);
         infoWindow.open(map, marker);
@@ -192,7 +240,7 @@ export function MapView({ cells, users, apiKey }: MapViewProps) {
     setStatus('ready');
     setGeocodingTotal(0);
     setGeocodingCount(0);
-  }, [apiKey, cellsWithCoords, cellsNeedingGeocode, userMap, firestore]);
+  }, [apiKey, cellsWithCoords, cellsNeedingGeocode, userMap, redeMap, firestore]);
 
   useEffect(() => {
     setStatus('loading');
@@ -210,7 +258,7 @@ export function MapView({ cells, users, apiKey }: MapViewProps) {
   }
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full font-sans">
       {/* Overlay de loading / geocodificação */}
       {status === 'loading' && (
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-50/80 backdrop-blur-sm gap-3">
@@ -252,7 +300,28 @@ export function MapView({ cells, users, apiKey }: MapViewProps) {
       {/* O mapa em si */}
       <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
 
-      {/* Legenda */}
+      {/* Legenda de Redes */}
+      {status === 'ready' && redes && redes.length > 0 && (
+        <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm rounded-2xl shadow-lg p-4 text-xs font-semibold text-slate-700 border border-slate-100 max-w-[200px] max-h-60 overflow-y-auto z-10 space-y-2">
+          <h4 className="font-bold text-xs uppercase tracking-wider text-slate-400">Redes</h4>
+          <div className="space-y-2">
+            {redes.map(rede => {
+              const color = rede.cor || getDeterministicColor(rede.id, rede.nome);
+              return (
+                <div key={rede.id} className="flex items-center gap-2.5">
+                  <span 
+                    className="w-3 h-3 rounded-full border border-white shadow-sm inline-block shrink-0" 
+                    style={{ backgroundColor: color }}
+                  />
+                  <span className="truncate text-slate-800 font-semibold">{rede.nome}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Legenda de Células */}
       {status === 'ready' && (
         <div className="absolute bottom-6 left-4 bg-white/95 backdrop-blur-sm rounded-xl shadow-md px-4 py-2 text-xs font-medium text-slate-700 border">
           <span className="font-black text-primary">{cellsWithCoords.length + cellsNeedingGeocode.length}</span>
