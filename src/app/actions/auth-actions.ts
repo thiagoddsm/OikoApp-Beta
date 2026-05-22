@@ -160,3 +160,78 @@ export async function registerOrLinkUser(email: string, password: string, name: 
         return { success: false, error: error.message };
     }
 }
+
+/**
+ * Corrige perfis duplicados: mescla o documento antigo (com dados completos)
+ * no documento novo (criado pelo Auth UID), preservando todos os dados do perfil original.
+ *
+ * Use para corrigir casos onde o login via Google criou um doc novo antes do bug ser corrigido.
+ *
+ * @param authUid  - UID do Firebase Auth (ID do doc novo/incompleto, ex: "QpjG...")
+ * @param oldDocId - ID do doc antigo com os dados completos (ex: "VNhi...")
+ */
+export async function mergeUserProfiles(authUid: string, oldDocId: string): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  try {
+    if (!authUid || !oldDocId) {
+      return { success: false, message: 'authUid e oldDocId são obrigatórios.' };
+    }
+    if (authUid === oldDocId) {
+      return { success: false, message: 'Os IDs não podem ser iguais.' };
+    }
+
+    const db = getAdminDb();
+    const newRef = db.collection('users').doc(authUid);
+    const oldRef = db.collection('users').doc(oldDocId);
+
+    const [newSnap, oldSnap] = await Promise.all([newRef.get(), oldRef.get()]);
+
+    if (!newSnap.exists) {
+      return { success: false, message: `Documento users/${authUid} não encontrado.` };
+    }
+    if (!oldSnap.exists) {
+      return { success: false, message: `Documento users/${oldDocId} não encontrado.` };
+    }
+
+    const oldData = oldSnap.data()!;
+    const newData = newSnap.data()!;
+
+    // Mescla: dados do doc antigo têm prioridade (preserva role, célula, jornada etc.)
+    // Mantém apenas lastLoginAt do doc novo (mais recente)
+    const mergedData = {
+      ...newData,        // base: dados do doc novo (email, name do Auth, lastLoginAt)
+      ...oldData,        // sobrescreve com dados completos do perfil antigo
+      email: oldData.email || newData.email || '',
+      name: oldData.name || newData.name || '',
+      lastLoginAt: newData.lastLoginAt || oldData.lastLoginAt || FieldValue.serverTimestamp(),
+      authUid: authUid,
+      linkedFrom: oldDocId,
+      linkedAt: FieldValue.serverTimestamp(),
+      mergedByAdmin: true,
+    };
+
+    // Remove campos de migração se o doc antigo já era um migrado
+    delete mergedData.migratedToUid;
+    delete mergedData.migratedAt;
+
+    await newRef.set(mergedData);
+
+    // Marca doc antigo como migrado
+    await oldRef.update({
+      migratedToUid: authUid,
+      migratedAt: FieldValue.serverTimestamp(),
+      mergedByAdmin: true,
+    });
+
+    console.log(`[mergeUserProfiles] Perfis mesclados: ${oldDocId} → users/${authUid}`);
+    return {
+      success: true,
+      message: `Perfil mesclado com sucesso. Dados de "${oldDocId}" foram copiados para "users/${authUid}".`,
+    };
+  } catch (error: any) {
+    console.error('[mergeUserProfiles] Erro:', error);
+    return { success: false, message: error.message || 'Erro ao mesclar perfis.' };
+  }
+}

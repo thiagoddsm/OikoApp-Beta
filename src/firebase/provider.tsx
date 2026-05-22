@@ -2,7 +2,7 @@
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { Firestore, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseStorage } from 'firebase/storage';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
@@ -88,20 +88,26 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       (firebaseUser) => {
         setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null });
 
-        // Atualiza lastLoginAt (e sincroniza email/displayName do Auth) no Firestore
+        // Sincroniza lastLoginAt, email e displayName no Firestore quando o usuário retoma sessão.
+        // IMPORTANTE: usa updateDoc (não setDoc/merge) para NÃO criar o documento caso ele
+        // ainda não exista — a criação/migração é responsabilidade de resolveUserProfile().
         if (firebaseUser && firestore) {
           const updatePayload: Record<string, any> = {
             lastLoginAt: serverTimestamp(),
           };
-          // Sincroniza e-mail e nome caso tenham sido atualizados no Auth
           if (firebaseUser.email) updatePayload.email = firebaseUser.email;
           if (firebaseUser.displayName) updatePayload.name = firebaseUser.displayName;
 
-          setDoc(
+          updateDoc(
             doc(firestore, 'users', firebaseUser.uid),
-            updatePayload,
-            { merge: true }
-          ).catch(e => console.warn('[FirebaseProvider] Não foi possível atualizar lastLoginAt:', e));
+            updatePayload
+          ).catch(e => {
+            // Falha silenciosa esperada no PRIMEIRO login (doc ainda não existe)
+            // resolveUserProfile() cuidará da criação/migração.
+            if (e?.code !== 'not-found' && !e?.message?.includes('No document to update')) {
+              console.warn('[FirebaseProvider] Não foi possível atualizar lastLoginAt:', e);
+            }
+          });
         }
       },
       (error) => {
