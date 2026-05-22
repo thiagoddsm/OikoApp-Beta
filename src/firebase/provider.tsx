@@ -88,11 +88,18 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       (firebaseUser) => {
         setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null });
 
-        // Atualiza lastLoginAt no Firestore quando o usuário faz (ou retoma) login
+        // Atualiza lastLoginAt (e sincroniza email/displayName do Auth) no Firestore
         if (firebaseUser && firestore) {
+          const updatePayload: Record<string, any> = {
+            lastLoginAt: serverTimestamp(),
+          };
+          // Sincroniza e-mail e nome caso tenham sido atualizados no Auth
+          if (firebaseUser.email) updatePayload.email = firebaseUser.email;
+          if (firebaseUser.displayName) updatePayload.name = firebaseUser.displayName;
+
           setDoc(
             doc(firestore, 'users', firebaseUser.uid),
-            { lastLoginAt: serverTimestamp() },
+            updatePayload,
             { merge: true }
           ).catch(e => console.warn('[FirebaseProvider] Não foi possível atualizar lastLoginAt:', e));
         }

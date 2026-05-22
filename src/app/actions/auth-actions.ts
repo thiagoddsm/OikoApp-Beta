@@ -1,6 +1,120 @@
 'use server';
 
 import { getAdminDb, getAdminAuth } from '@/lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
+
+/**
+ * Resolve o perfil do usuário no Firestore após qualquer autenticação.
+ *
+ * Estratégia (Opção A — Migração para users/{uid}):
+ * 1. Se users/{uid} já existe → apenas atualiza lastLoginAt.
+ * 2. Busca por e-mail na coleção users → se encontrar doc com ID diferente:
+ *    → Cria users/{uid} com os dados do doc encontrado (preserva role, célula, etc.)
+ *    → Marca o doc antigo como migrado: { migratedToUid, migratedAt }
+ * 3. Se não encontrar nenhum perfil → cria users/{uid} mínimo (aguarda aprovação admin).
+ */
+export async function resolveUserProfile(params: {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  provider: 'google' | 'email' | 'unknown';
+}): Promise<{
+  action: 'existing' | 'linked' | 'created';
+  linkedFromDocId?: string;
+}> {
+  const { uid, email, displayName, provider } = params;
+
+  try {
+    const db = getAdminDb();
+    const userRef = db.collection('users').doc(uid);
+    const userSnap = await userRef.get();
+
+    // 1. Documento com o UID já existe — apenas atualiza lastLoginAt
+    if (userSnap.exists) {
+      await userRef.update({
+        lastLoginAt: FieldValue.serverTimestamp(),
+        // Sincroniza dados do Auth caso tenham mudado
+        ...(email ? { email } : {}),
+        ...(displayName ? { name: displayName } : {}),
+      });
+      return { action: 'existing' };
+    }
+
+    // 2. Busca por e-mail para encontrar perfil pré-existente com outro ID
+    if (email) {
+      const byEmailSnap = await db
+        .collection('users')
+        .where('email', '==', email)
+        .limit(1)
+        .get();
+
+      if (!byEmailSnap.empty) {
+        const oldDoc = byEmailSnap.docs[0];
+        const oldDocId = oldDoc.id;
+
+        // Não migrar se já é o próprio UID (situação improvável mas defensiva)
+        if (oldDocId !== uid) {
+          const oldData = oldDoc.data();
+
+          // Cria users/{uid} com os dados do perfil pré-existente
+          await userRef.set({
+            ...oldData,
+            // Garante que e-mail e nome do Auth estejam atualizados
+            email: email || oldData.email || '',
+            name: displayName || oldData.name || 'Sem nome',
+            authUid: uid,
+            linkedFrom: oldDocId,
+            linkedAt: FieldValue.serverTimestamp(),
+            lastLoginAt: FieldValue.serverTimestamp(),
+          });
+
+          // Marca o documento antigo como migrado (não deleta para preservar histórico)
+          await db.collection('users').doc(oldDocId).update({
+            migratedToUid: uid,
+            migratedAt: FieldValue.serverTimestamp(),
+          });
+
+          console.log(
+            `[resolveUserProfile] Perfil migrado: ${oldDocId} → users/${uid} (${provider})`
+          );
+          return { action: 'linked', linkedFromDocId: oldDocId };
+        }
+      }
+    }
+
+    // 3. Nenhum perfil encontrado — cria documento mínimo
+    const usersCountSnap = await db.collection('users').limit(1).get();
+    const isFirstUser = usersCountSnap.empty;
+
+    await userRef.set({
+      name: displayName || 'Novo Usuário',
+      email: email || '',
+      phone: '',
+      hierarchy: {
+        role: isFirstUser ? 'admin' : '',
+      },
+      integrationStatus: 'nao_alcancado',
+      authUid: uid,
+      createdAt: FieldValue.serverTimestamp(),
+      lastLoginAt: FieldValue.serverTimestamp(),
+    });
+
+    console.log(`[resolveUserProfile] Novo perfil criado: users/${uid} (${provider})`);
+    return { action: 'created' };
+  } catch (error: any) {
+    console.error('[resolveUserProfile] Erro:', error);
+    // Em caso de erro, não bloquear o login — o provider.tsx atualizará lastLoginAt
+    throw new Error(error.message || 'Erro ao resolver perfil do usuário.');
+  }
+}
+
+/**
+ * @deprecated Use resolveUserProfile no lugar.
+ * Mantido para compatibilidade com o fluxo "Primeiro Acesso" por email/senha.
+ *
+ * Verifica se o e-mail já existe no Firestore e, se sim, cria o usuário no Auth
+ * com o mesmo UID do documento (vinculando Auth ao perfil pré-existente).
+ */
 
 export async function registerOrLinkUser(email: string, password: string, name: string) {
     try {

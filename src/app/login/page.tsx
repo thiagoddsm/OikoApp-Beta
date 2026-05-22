@@ -10,17 +10,15 @@ import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Logo } from "@/components/icons";
 import { useFirebase } from '@/firebase';
 import { GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp, collection, getDocs, query, limit } from 'firebase/firestore';
 import Link from 'next/link';
 import { ArrowLeft, Loader2, AlertCircle, Mail, Key, CheckCircle2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
-  
-import { registerOrLinkUser } from '@/app/actions/auth-actions';
+import { registerOrLinkUser, resolveUserProfile } from '@/app/actions/auth-actions';
 
 export default function LoginPage() {
   const loginImage = PlaceHolderImages.find(p => p.id === 'login-background');
   const router = useRouter();
-  const { firestore, auth, user: loggedUser } = useFirebase();
+  const { auth, user: loggedUser } = useFirebase();
   const { toast } = useToast();
   
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
@@ -41,39 +39,34 @@ export default function LoginPage() {
     }
   }, [loggedUser, router]);
 
-  const ensureUserDoc = async (user: any, providedName?: string) => {
-      const userDocRef = doc(firestore!, 'users', user.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (!userDoc.exists()) {
-        const usersCollectionQuery = query(collection(firestore!, 'users'), limit(1));
-        const usersSnapshot = await getDocs(usersCollectionQuery);
-        const isFirstUser = usersSnapshot.empty;
-        
-        const userRole = isFirstUser ? 'admin' : '';
-
-        await setDoc(userDocRef, {
-          name: user.displayName || providedName || 'Novo Usuário',
-          email: user.email || '',
-          phone: user.phoneNumber || '',
-          hierarchy: {
-            role: userRole
-          },
-          integrationStatus: 'nao_alcancado',
-          createdAt: serverTimestamp(),
-        });
-      }
-  };
+  // resolveUserProfile é chamado via Server Action após qualquer login
+  // — ele localiza perfis pré-existentes por e-mail e migra os dados para users/{uid}
   
   const handleGoogleLogin = React.useCallback(async () => {
-    if (!auth || !firestore) return;
+    if (!auth) return;
     setIsLoadingGoogle(true);
     setErrorMsg('');
 
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-      await ensureUserDoc(result.user);
+      const { user } = result;
+
+      // Resolve/vincula o perfil no Firestore via Server Action (Admin SDK)
+      const resolved = await resolveUserProfile({
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        provider: 'google',
+      });
+
+      if (resolved.action === 'linked') {
+        toast({
+          title: '🔗 Perfil vinculado!',
+          description: 'Seu cadastro foi encontrado e vinculado automaticamente ao seu acesso Google.',
+        });
+      }
+
       router.push('/dashboard');
     } catch (error: any) {
       setIsLoadingGoogle(false);
@@ -85,11 +78,11 @@ export default function LoginPage() {
       console.error("Google sign-in failed", error);
       setErrorMsg("Ocorreu um erro ao tentar fazer login com Google.");
     }
-  }, [auth, firestore, router]);
+  }, [auth, router, toast]);
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth || !firestore) return;
+    if (!auth) return;
     
     if (mode === 'forgot') {
         if (!email) { setErrorMsg('Informe seu e-mail.'); return; }
@@ -119,10 +112,26 @@ export default function LoginPage() {
 
     try {
         if (mode === 'login') {
+            // Login com e-mail/senha existente
             const result = await signInWithEmailAndPassword(auth, email, password);
-            await ensureUserDoc(result.user);
+            const { user } = result;
+
+            // Resolve/vincula o perfil no Firestore via Server Action
+            const resolved = await resolveUserProfile({
+              uid: user.uid,
+              email: user.email,
+              displayName: user.displayName,
+              provider: 'email',
+            });
+
+            if (resolved.action === 'linked') {
+              toast({
+                title: '🔗 Perfil vinculado!',
+                description: 'Seu cadastro foi encontrado e vinculado automaticamente ao seu e-mail.',
+              });
+            }
         } else {
-            // Modo Register: Verifica se já existe na base para vincular
+            // Modo "Primeiro Acesso": Verifica se já existe na base para vincular
             const serverResult = await registerOrLinkUser(email, password, name);
             
             if (serverResult.success === false && serverResult.code === 'auth/email-already-in-use') {
@@ -133,14 +142,21 @@ export default function LoginPage() {
             }
 
             if (serverResult.linked) {
-                 // A conta Auth foi criada no servidor com o UID do Firestore!
-                 // Agora basta logar no client side.
-                 const result = await signInWithEmailAndPassword(auth, email, password);
-                 // Não precisa ensureUserDoc porque o doc já existe.
+                 // Auth criado no servidor com o UID do Firestore — faz login normal
+                 await signInWithEmailAndPassword(auth, email, password);
+                 toast({
+                   title: '🔗 Perfil vinculado!',
+                   description: 'Seu cadastro existente foi vinculado ao seu acesso. Bem-vindo!',
+                 });
             } else {
-                 // Não encontrou na base, cria normal no client side
+                 // Não encontrou na base — cria conta e resolve perfil
                  const result = await createUserWithEmailAndPassword(auth, email, password);
-                 await ensureUserDoc(result.user, name);
+                 await resolveUserProfile({
+                   uid: result.user.uid,
+                   email: result.user.email,
+                   displayName: name || result.user.displayName,
+                   provider: 'email',
+                 });
             }
         }
         router.push('/dashboard');
@@ -273,7 +289,7 @@ export default function LoginPage() {
                                 </div>
                                 <div className="relative">
                                     <Key className="absolute left-3 top-3 size-4 text-muted-foreground" />
-                                    <Input type="password" placeholder="••••••••" className="pl-9" value={password} onChange={e => setPassword(e.target.value)} required={mode !== 'forgot'} minLength={6} />
+                                    <Input type="password" placeholder="••••••••" className="pl-9" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
                                 </div>
                             </div>
                             
