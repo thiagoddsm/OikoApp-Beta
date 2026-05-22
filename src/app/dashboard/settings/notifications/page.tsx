@@ -32,6 +32,16 @@ export default function NotificationSettingsPage() {
     const [notifyEnrollment, setNotifyEnrollment] = useState(true);
     const [notifyJourney, setNotifyJourney] = useState(true);
 
+    // Safety / Anti-Ban States
+    const [delayMin, setDelayMin] = useState(20);
+    const [delayMax, setDelayMax] = useState(45);
+    const [microPauseFrequency, setMicroPauseFrequency] = useState(5);
+    const [microPauseMin, setMicroPauseMin] = useState(30);
+    const [microPauseMax, setMicroPauseMax] = useState(50);
+    const [deepSleepFrequency, setDeepSleepFrequency] = useState(20);
+    const [deepSleepMin, setDeepSleepMin] = useState(180);
+    const [deepSleepMax, setDeepSleepMax] = useState(300);
+
     // Test States
     const [testPhone, setTestPhone] = useState('');
     const [testMessage, setTestMessage] = useState('Olá! Este é um teste do sistema Oiko Studio. 🚀');
@@ -107,6 +117,16 @@ export default function NotificationSettingsPage() {
                     setNotifyWelcome(config.notifyWelcome !== false);
                     setNotifyEnrollment(config.notifyEnrollment !== false);
                     setNotifyJourney(config.notifyJourney !== false);
+                    
+                    // Anti-ban settings
+                    setDelayMin(config.delayMin !== undefined ? Number(config.delayMin) : 20);
+                    setDelayMax(config.delayMax !== undefined ? Number(config.delayMax) : 45);
+                    setMicroPauseFrequency(config.microPauseFrequency !== undefined ? Number(config.microPauseFrequency) : 5);
+                    setMicroPauseMin(config.microPauseMin !== undefined ? Number(config.microPauseMin) : 30);
+                    setMicroPauseMax(config.microPauseMax !== undefined ? Number(config.microPauseMax) : 50);
+                    setDeepSleepFrequency(config.deepSleepFrequency !== undefined ? Number(config.deepSleepFrequency) : 20);
+                    setDeepSleepMin(config.deepSleepMin !== undefined ? Number(config.deepSleepMin) : 180);
+                    setDeepSleepMax(config.deepSleepMax !== undefined ? Number(config.deepSleepMax) : 300);
                 } else {
                     // Default values if no config exists yet
                     setServerUrl('https://us.api-wa.me');
@@ -141,6 +161,14 @@ export default function NotificationSettingsPage() {
                 notifyWelcome,
                 notifyEnrollment,
                 notifyJourney,
+                delayMin,
+                delayMax,
+                microPauseFrequency,
+                microPauseMin,
+                microPauseMax,
+                deepSleepFrequency,
+                deepSleepMin,
+                deepSleepMax,
                 updatedAt: Timestamp.now()
             }, { merge: true });
 
@@ -345,6 +373,126 @@ export default function NotificationSettingsPage() {
                                     <RefreshCw className={cn("size-4", isSyncingContacts && "animate-spin")} />
                                     {isSyncingContacts ? 'Sincronizando...' : 'Sincronizar Contatos'}
                                 </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Anti-Ban Safety Parameters */}
+                    <Card className="border-2 shadow-md">
+                        <CardHeader className="bg-slate-50/50">
+                            <div className="flex items-center gap-2 text-primary">
+                                <ShieldCheck className="size-5" />
+                                <CardTitle>Parâmetros de Segurança Anti-Ban</CardTitle>
+                            </div>
+                            <CardDescription>
+                                Ajuste os intervalos de envio de mensagens para simular o comportamento humano e mitigar riscos de bloqueio.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-6 space-y-6 text-slate-900">
+                            <div className="space-y-4">
+                                <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">1. Atraso Base entre Mensagens</h4>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="delayMin" className="text-[10px] font-black uppercase text-muted-foreground">Mínimo (segundos)</Label>
+                                        <Input 
+                                            id="delayMin" 
+                                            type="number" 
+                                            min={5} 
+                                            value={delayMin} 
+                                            onChange={(e) => setDelayMin(Number(e.target.value))} 
+                                            className="h-10 font-bold"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="delayMax" className="text-[10px] font-black uppercase text-muted-foreground">Máximo (segundos)</Label>
+                                        <Input 
+                                            id="delayMax" 
+                                            type="number" 
+                                            min={5} 
+                                            value={delayMax} 
+                                            onChange={(e) => setDelayMax(Number(e.target.value))} 
+                                            className="h-10 font-bold"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4 border-t pt-4">
+                                <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">2. Micro-Pausas (Cooldown Curto)</h4>
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="microPauseFrequency" className="text-[10px] font-black uppercase text-muted-foreground">Frequência (mensagens)</Label>
+                                        <Input 
+                                            id="microPauseFrequency" 
+                                            type="number" 
+                                            min={1} 
+                                            value={microPauseFrequency} 
+                                            onChange={(e) => setMicroPauseFrequency(Number(e.target.value))} 
+                                            className="h-10 font-bold"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="microPauseMin" className="text-[10px] font-black uppercase text-muted-foreground">Pausa Mín (segundos)</Label>
+                                        <Input 
+                                            id="microPauseMin" 
+                                            type="number" 
+                                            min={5} 
+                                            value={microPauseMin} 
+                                            onChange={(e) => setMicroPauseMin(Number(e.target.value))} 
+                                            className="h-10 font-bold"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="microPauseMax" className="text-[10px] font-black uppercase text-muted-foreground">Pausa Máx (segundos)</Label>
+                                        <Input 
+                                            id="microPauseMax" 
+                                            type="number" 
+                                            min={5} 
+                                            value={microPauseMax} 
+                                            onChange={(e) => setMicroPauseMax(Number(e.target.value))} 
+                                            className="h-10 font-bold"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-4 border-t pt-4">
+                                <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">3. Deep Sleep (Cooldown Longo)</h4>
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="deepSleepFrequency" className="text-[10px] font-black uppercase text-muted-foreground">Frequência (mensagens)</Label>
+                                        <Input 
+                                            id="deepSleepFrequency" 
+                                            type="number" 
+                                            min={1} 
+                                            value={deepSleepFrequency} 
+                                            onChange={(e) => setDeepSleepFrequency(Number(e.target.value))} 
+                                            className="h-10 font-bold"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="deepSleepMin" className="text-[10px] font-black uppercase text-muted-foreground">Pausa Mín (segundos)</Label>
+                                        <Input 
+                                            id="deepSleepMin" 
+                                            type="number" 
+                                            min={10} 
+                                            value={deepSleepMin} 
+                                            onChange={(e) => setDeepSleepMin(Number(e.target.value))} 
+                                            className="h-10 font-bold"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="deepSleepMax" className="text-[10px] font-black uppercase text-muted-foreground">Pausa Máx (segundos)</Label>
+                                        <Input 
+                                            id="deepSleepMax" 
+                                            type="number" 
+                                            min={10} 
+                                            value={deepSleepMax} 
+                                            onChange={(e) => setDeepSleepMax(Number(e.target.value))} 
+                                            className="h-10 font-bold"
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>

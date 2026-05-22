@@ -23,23 +23,21 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Canal de notificação inválido." }, { status: 400 });
     }
     
-    // 1. Buscar a chave (prioridade para o que veio no body)
+    // 1. Buscar as configurações de notificação (chaves e parâmetros anti-ban)
     let apiKey = bodyInstanceKey;
     let serverUrl = bodyServerUrl;
+    let configData: any = null;
 
-    if (!apiKey || !serverUrl) {
-        try {
-            const configSnap = await db.collection('config').doc('notifications').get();
-            if (configSnap.exists) {
-                const configData = configSnap.data();
-                apiKey = apiKey || configData?.instanceKey || configData?.whatsappApiKey;
-                serverUrl = serverUrl || configData?.serverUrl || 'https://us.api-wa.me';
-            }
-        } catch (e: any) {
-            // Se falhar e não tivermos chaves no body, aí sim retornamos erro
-            if (!apiKey) {
-                return NextResponse.json({ error: `Erro de permissão ao ler configurações e chaves não fornecidas: ${e.message}` }, { status: 403 });
-            }
+    try {
+        const configSnap = await db.collection('config').doc('notifications').get();
+        if (configSnap.exists) {
+            configData = configSnap.data();
+            apiKey = apiKey || configData?.instanceKey || configData?.whatsappApiKey;
+            serverUrl = serverUrl || configData?.serverUrl || 'https://us.api-wa.me';
+        }
+    } catch (e: any) {
+        if (!apiKey) {
+            return NextResponse.json({ error: `Erro de permissão ao ler configurações e chaves não fornecidas: ${e.message}` }, { status: 403 });
         }
     }
 
@@ -47,7 +45,30 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Gateway de WhatsApp não configurado. Token da API ausente." }, { status: 400 });
     }
 
+    const delayMin = configData?.delayMin !== undefined ? Number(configData.delayMin) : 20;
+    const delayMax = configData?.delayMax !== undefined ? Number(configData.delayMax) : 45;
+    const microPauseFrequency = configData?.microPauseFrequency !== undefined ? Number(configData.microPauseFrequency) : 5;
+    const microPauseMin = configData?.microPauseMin !== undefined ? Number(configData.microPauseMin) : 30;
+    const microPauseMax = configData?.microPauseMax !== undefined ? Number(configData.microPauseMax) : 50;
+    const deepSleepFrequency = configData?.deepSleepFrequency !== undefined ? Number(configData.deepSleepFrequency) : 20;
+    const deepSleepMin = configData?.deepSleepMin !== undefined ? Number(configData.deepSleepMin) : 180;
+    const deepSleepMax = configData?.deepSleepMax !== undefined ? Number(configData.deepSleepMax) : 300;
+
     const baseUrl = serverUrl.replace(/\/$/, '');
+
+    // Buscar todos os números cadastrados na blacklist
+    const blacklistedNumbers = new Set<string>();
+    try {
+        const blacklistSnap = await db.collection('notifications_blacklist').get();
+        blacklistSnap.forEach((doc: any) => {
+            const phone = doc.id.replace(/\D/g, '');
+            if (phone) {
+                blacklistedNumbers.add(phone);
+            }
+        });
+    } catch (e: any) {
+        console.warn("Falha ao ler notifications_blacklist:", e.message);
+    }
 
     // 2. Montar a lista de destinatários
     const targetUsers: any[] = [];
@@ -97,8 +118,13 @@ export async function POST(request: Request) {
          }
     }
 
-    if (targetUsers.length === 0 && targetGroups.length === 0) {
-        return NextResponse.json({ success: false, message: "Nenhum destinatário válido encontrado." });
+    const filteredTargetUsers = targetUsers.filter(user => {
+        const cleaned = user.phone.replace(/\D/g, '');
+        return !blacklistedNumbers.has(cleaned);
+    });
+
+    if (filteredTargetUsers.length === 0 && targetGroups.length === 0) {
+        return NextResponse.json({ success: false, message: "Nenhum destinatário válido encontrado (ou todos estão descadastrados)." });
     }
 
     // 3. Helper: delay aleatório entre min e max milissegundos
@@ -107,7 +133,7 @@ export async function POST(request: Request) {
 
     // 4. Registrar broadcast no Firestore ANTES de começar a enviar
     const summary = message || (rest.surveyName ? `[Enquete] ${rest.surveyName}` : rest.type === 'media' ? '[Mídia]' : '[Mensagem]');
-    const totalRecipients = targetUsers.length + targetGroups.length;
+    const totalRecipients = filteredTargetUsers.length + targetGroups.length;
 
     let broadcastId: string | null = null;
     try {
@@ -235,7 +261,7 @@ export async function POST(request: Request) {
         };
 
         // ===== ENVIAR PARA USUÁRIOS COM RATE LIMITING =====
-        for (const user of targetUsers) {
+        for (const user of filteredTargetUsers) {
             const personalizedBody = parseSpintax(message || '').replace('{{nome}}', user.name);
             const formattedPhone = formatWhatsAppNumber(user.phone);
 
@@ -243,16 +269,16 @@ export async function POST(request: Request) {
             messageIndex++;
 
             if (messageIndex > 0) {
-                if (messageIndex % 20 === 0) {
+                if (deepSleepFrequency > 0 && messageIndex % deepSleepFrequency === 0) {
                     await updateProgress();
-                    console.log(`[Rate Limit] Pausa de 3-5min após ${messageIndex} mensagens...`);
-                    await delay(180000, 300000); 
-                } else if (messageIndex % 5 === 0) {
+                    console.log(`[Rate Limit] Pausa de Deep Sleep após ${messageIndex} mensagens...`);
+                    await delay(deepSleepMin * 1000, deepSleepMax * 1000);
+                } else if (microPauseFrequency > 0 && messageIndex % microPauseFrequency === 0) {
                     await updateProgress();
-                    console.log(`[Rate Limit] Pausa de 30-50s após ${messageIndex} mensagens...`);
-                    await delay(30000, 50000); 
+                    console.log(`[Rate Limit] Pausa de Micro-pausa após ${messageIndex} mensagens...`);
+                    await delay(microPauseMin * 1000, microPauseMax * 1000);
                 } else {
-                    await delay(20000, 45000); 
+                    await delay(delayMin * 1000, delayMax * 1000);
                 }
             }
         }
@@ -263,16 +289,16 @@ export async function POST(request: Request) {
             messageIndex++;
 
             if (messageIndex > 0) {
-                if (messageIndex % 20 === 0) {
+                if (deepSleepFrequency > 0 && messageIndex % deepSleepFrequency === 0) {
                     await updateProgress();
-                    console.log(`[Rate Limit] Pausa de 3-5min após ${messageIndex} mensagens (Grupos)...`);
-                    await delay(180000, 300000);
-                } else if (messageIndex % 5 === 0) {
+                    console.log(`[Rate Limit] Pausa de Deep Sleep após ${messageIndex} mensagens (Grupos)...`);
+                    await delay(deepSleepMin * 1000, deepSleepMax * 1000);
+                } else if (microPauseFrequency > 0 && messageIndex % microPauseFrequency === 0) {
                     await updateProgress();
-                    console.log(`[Rate Limit] Pausa de 30-50s após ${messageIndex} mensagens (Grupos)...`);
-                    await delay(30000, 50000);
+                    console.log(`[Rate Limit] Pausa de Micro-pausa após ${messageIndex} mensagens (Grupos)...`);
+                    await delay(microPauseMin * 1000, microPauseMax * 1000);
                 } else {
-                    await delay(20000, 45000);
+                    await delay(delayMin * 1000, delayMax * 1000);
                 }
             }
         }

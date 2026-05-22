@@ -176,6 +176,75 @@ export async function POST(request: Request) {
             userName: senderPushName, // Salva o nome vindo do WhatsApp como fallback
             isGroup: fromRaw.includes('@g.us')
         }, { merge: true });
+
+        // Detecção de Opt-Out / Opt-In (somente mensagens individuais recebidas)
+        if (!data.fromMe && !fromRaw.includes('@g.us')) {
+            const normalizedText = messageText.trim().toLowerCase();
+            const optOutKeywords = ['sair', 'parar', 'cancelar', 'descadastrar', 'unsubscribe', 'remover'];
+            const optInKeywords = ['iniciar', 'começar', 'voltar', 'subscribe', 'ativar'];
+
+            if (optOutKeywords.includes(normalizedText)) {
+                // Adiciona na blacklist do Firestore
+                await db.collection('notifications_blacklist').doc(fromPhone).set({
+                    phoneNumber: fromPhone,
+                    blacklistedAt: Timestamp.now(),
+                    reason: `Palavra-chave recebida: ${messageText}`
+                });
+
+                // Envia confirmação de remoção de volta ao usuário
+                try {
+                    const configSnap = await db.collection('config').doc('notifications').get();
+                    if (configSnap.exists) {
+                        const config = configSnap.data();
+                        const apiKey = config?.instanceKey || config?.whatsappApiKey;
+                        const serverUrl = config?.serverUrl || 'https://us.api-wa.me';
+                        if (apiKey) {
+                            const { getWhatsAppClient } = await import('@/lib/whatsapp');
+                            const whatsapp = await getWhatsAppClient({ server: serverUrl, key: apiKey });
+                            await whatsapp.sendMessage({
+                                type: 'text',
+                                body: {
+                                    to: fromRaw,
+                                    text: 'Seu número foi removido da nossa lista de envios. Você não receberá novas mensagens de transmissão. Se quiser voltar a receber, envie COMEÇAR. 🛑'
+                                }
+                            });
+                        }
+                    }
+                } catch (sendErr: any) {
+                    console.error('Falha ao enviar mensagem de confirmação de opt-out:', sendErr.message);
+                }
+            } else if (optInKeywords.includes(normalizedText)) {
+                // Remove da blacklist se constar lá
+                const blacklistRef = db.collection('notifications_blacklist').doc(fromPhone);
+                const blacklistDoc = await blacklistRef.get();
+                if (blacklistDoc.exists) {
+                    await blacklistRef.delete();
+
+                    // Envia confirmação de reativação de volta ao usuário
+                    try {
+                        const configSnap = await db.collection('config').doc('notifications').get();
+                        if (configSnap.exists) {
+                            const config = configSnap.data();
+                            const apiKey = config?.instanceKey || config?.whatsappApiKey;
+                            const serverUrl = config?.serverUrl || 'https://us.api-wa.me';
+                            if (apiKey) {
+                                const { getWhatsAppClient } = await import('@/lib/whatsapp');
+                                const whatsapp = await getWhatsAppClient({ server: serverUrl, key: apiKey });
+                                await whatsapp.sendMessage({
+                                    type: 'text',
+                                    body: {
+                                        to: fromRaw,
+                                        text: 'Seu número foi reativado! Você voltou a fazer parte da nossa lista de envios. 👍'
+                                    }
+                                });
+                            }
+                        }
+                    } catch (sendErr: any) {
+                        console.error('Falha ao enviar mensagem de confirmação de opt-in:', sendErr.message);
+                    }
+                }
+            }
+        }
     }
 
     // LOG: Salvar log bruto para depuração se não for apenas texto comum ou se o usuário pediu

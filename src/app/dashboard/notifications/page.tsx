@@ -17,7 +17,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '
 import { 
     Loader2, Send, Settings, Key, History, MessageSquare, 
     Users, CheckCircle2, Search, UserPlus, X, Info, RefreshCw, 
-    Smartphone, MessageCircle, Trash2, CheckCircle, 
+    Smartphone, MessageCircle, Trash2, CheckCircle, XCircle,
     Copy, Globe, HeartHandshake, CalendarDays, MousePointer2, QrCode,
     Lock, Megaphone, UserCheck, ShieldCheck, ChevronRight, FileSpreadsheet
 } from 'lucide-react';
@@ -303,6 +303,19 @@ function WhatsappSender({ config }: { config: any }) {
     const [spreadsheetData, setSpreadsheetData] = useState('');
     const [importedContacts, setImportedContacts] = useState<{name: string, phone: string}[]>([]);
 
+    // Blacklist configuration for estimation
+    const blacklistQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'notifications_blacklist')) : null, [firestore]);
+    const { data: blacklist } = useCollection<any>(blacklistQuery);
+
+    const blacklistedSet = useMemo(() => {
+        const set = new Set<string>();
+        blacklist?.forEach((b: any) => {
+            const num = (b.phoneNumber || b.id || '').replace(/\D/g, '');
+            if (num) set.add(num);
+        });
+        return set;
+    }, [blacklist]);
+
     const parseSpreadsheet = (text: string) => {
         const lines = text.split('\n').filter(line => line.trim());
         const contacts = lines.map(line => {
@@ -449,6 +462,97 @@ function WhatsappSender({ config }: { config: any }) {
     const selectedGroupsList = useMemo(() => {
         return waGroups.filter(g => selectedGroupIds.includes(g.id));
     }, [waGroups, selectedGroupIds]);
+
+    // Anti-ban estimation logic
+    const estimation = useMemo(() => {
+        const delayMin = config?.delayMin !== undefined ? Number(config.delayMin) : 20;
+        const delayMax = config?.delayMax !== undefined ? Number(config.delayMax) : 45;
+        const microPauseFrequency = config?.microPauseFrequency !== undefined ? Number(config.microPauseFrequency) : 5;
+        const microPauseMin = config?.microPauseMin !== undefined ? Number(config.microPauseMin) : 30;
+        const microPauseMax = config?.microPauseMax !== undefined ? Number(config.microPauseMax) : 50;
+        const deepSleepFrequency = config?.deepSleepFrequency !== undefined ? Number(config.deepSleepFrequency) : 20;
+        const deepSleepMin = config?.deepSleepMin !== undefined ? Number(config.deepSleepMin) : 180;
+        const deepSleepMax = config?.deepSleepMax !== undefined ? Number(config.deepSleepMax) : 300;
+
+        let targetCount = 0;
+        let blacklistedCount = 0;
+
+        if (targetAudience === 'individual') {
+            const cleaned = individualPhone.replace(/\D/g, '');
+            if (cleaned) {
+                if (blacklistedSet.has(cleaned)) {
+                    blacklistedCount = 1;
+                } else {
+                    targetCount = 1;
+                }
+            }
+        } else if (targetAudience === 'all_members') {
+            users?.forEach((u: any) => {
+                if (u.phone) {
+                    const cleaned = u.phone.replace(/\D/g, '');
+                    if (blacklistedSet.has(cleaned)) {
+                        blacklistedCount++;
+                    } else {
+                        targetCount++;
+                    }
+                }
+            });
+        } else if (targetAudience === 'specific_members') {
+            selectedUsersList?.forEach((u: any) => {
+                if (u.phone) {
+                    const cleaned = u.phone.replace(/\D/g, '');
+                    if (blacklistedSet.has(cleaned)) {
+                        blacklistedCount++;
+                    } else {
+                        targetCount++;
+                    }
+                }
+            });
+        } else if (targetAudience === 'import_spreadsheet') {
+            importedContacts?.forEach((c: any) => {
+                if (c.phone) {
+                    const cleaned = c.phone.replace(/\D/g, '');
+                    if (blacklistedSet.has(cleaned)) {
+                        blacklistedCount++;
+                    } else {
+                        targetCount++;
+                    }
+                }
+            });
+        } else if (targetAudience === 'specific_groups') {
+            targetCount = selectedGroupIds.length;
+        }
+
+        let totalSeconds = 0;
+        const avgTypingDelay = 3.5;
+        const avgBaseDelay = (delayMin + delayMax) / 2;
+        const avgMicroPause = (microPauseMin + microPauseMax) / 2;
+        const avgDeepSleep = (deepSleepMin + deepSleepMax) / 2;
+
+        for (let i = 1; i <= targetCount; i++) {
+            totalSeconds += avgTypingDelay;
+            if (deepSleepFrequency > 0 && i % deepSleepFrequency === 0) {
+                totalSeconds += avgDeepSleep;
+            } else if (microPauseFrequency > 0 && i % microPauseFrequency === 0) {
+                totalSeconds += avgMicroPause;
+            } else {
+                totalSeconds += avgBaseDelay;
+            }
+        }
+
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = Math.round(totalSeconds % 60);
+
+        return {
+            totalSeconds,
+            hours,
+            minutes,
+            seconds,
+            targetCount,
+            blacklistedCount
+        };
+    }, [targetAudience, individualPhone, users, selectedUsersList, importedContacts, selectedGroupIds, blacklistedSet, config]);
 
     const handleAddUser = (userId: string) => {
         setSelectedUserIds(prev => [...prev, userId]);
@@ -1061,6 +1165,42 @@ function WhatsappSender({ config }: { config: any }) {
                             onChange={(e) => setMessage(e.target.value)} 
                             required 
                         />
+                    </div>
+                )}
+
+                {estimation.targetCount > 0 && (
+                    <div className="p-4 rounded-xl border-2 border-primary/10 bg-primary/5 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="flex items-center gap-2 text-primary">
+                            <ShieldCheck className="size-5 shrink-0" />
+                            <h4 className="font-black text-xs uppercase tracking-wider">Estimativa de Envio Seguro (Anti-Ban)</h4>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                            Este disparo para <span className="font-bold text-foreground">{estimation.targetCount} destinatário(s)</span> levará aproximadamente{" "}
+                            <span className="font-bold text-primary">
+                                {estimation.hours > 0 ? `${estimation.hours}h ` : ""}
+                                {estimation.minutes > 0 ? `${estimation.minutes}min ` : ""}
+                                {estimation.hours === 0 && estimation.minutes === 0 ? `${estimation.seconds}s` : ""}
+                            </span>{" "}
+                            para ser concluído com segurança.
+                        </p>
+                        {estimation.blacklistedCount > 0 && (
+                            <div className="flex items-center gap-1.5 text-[10px] text-amber-600 font-bold bg-amber-50 border border-amber-200/50 px-2 py-1 rounded-md mt-1 w-fit">
+                                <Info size={12} className="shrink-0" />
+                                <span>{estimation.blacklistedCount} contato(s) da blacklist/opt-out serão ignorados.</span>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {estimation.targetCount === 0 && estimation.blacklistedCount > 0 && (
+                    <div className="p-4 rounded-xl border-2 border-red-200 bg-red-50 space-y-2 animate-in fade-in duration-300">
+                        <div className="flex items-center gap-2 text-red-700">
+                            <XCircle className="size-5 shrink-0" />
+                            <h4 className="font-black text-xs uppercase tracking-wider">Todos os Destinatários Blacklisted</h4>
+                        </div>
+                        <p className="text-xs text-red-600 font-medium">
+                            Todos os {estimation.blacklistedCount} contato(s) selecionados solicitaram a remoção (Opt-Out) e não receberão a mensagem.
+                        </p>
                     </div>
                 )}
 
