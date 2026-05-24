@@ -220,7 +220,7 @@ export function ReservationsCalendar({
     if (!reservations || !Array.isArray(reservations)) return [];
 
     const filteredBase = reservations.filter(res => {
-        if (categoryFilter.length > 0 && !categoryFilter.includes(res.categoryId)) return false;
+        if (categoryFilter.length > 0 && (!res.categoryId || !categoryFilter.includes(res.categoryId))) return false;
         if (roomFilter !== 'all' && !res.rooms?.includes(roomFilter)) return false;
         if (searchTerm && !res.eventName.toLowerCase().includes(searchTerm.toLowerCase())) return false;
         return true;

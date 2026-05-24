@@ -168,7 +168,7 @@ export default function CoordenadorPage() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-6 bg-slate-50 p-6 rounded-lg border border-slate-100 text-slate-900">
-                    {Object.entries(obsDepartamentos).map(([k, v]) => v && (
+                    {(Object.entries(obsDepartamentos || {}) as [string, any][]).map(([k, v]) => v && (
                         <div key={k} className="text-xs">
                             <strong className="uppercase text-slate-400 mb-1 block text-[10px] tracking-widest">{k}</strong>
                             <p className="text-slate-600 whitespace-pre-line leading-relaxed">{String(v)}</p>

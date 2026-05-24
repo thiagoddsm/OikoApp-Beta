@@ -7,13 +7,13 @@ import { getStorage } from 'firebase/storage';
 
 // Hardcoded config to ensure the storageBucket is read.
 const firebaseConfig = {
-  "projectId": "studio-1424813022-71754",
-  "appId": "1:989586605112:web:66250f4d31e88166a212cd",
-  "storageBucket": "studio-1424813022-71754.firebasestorage.app",
-  "apiKey": "AIzaSyAOSAJ0WPPXAxbSMtiq7UZxkjzE6vizVq8",
-  "authDomain": "studio-1424813022-71754.firebaseapp.com",
+  "projectId": "studio-8044285263-a0cc3",
+  "appId": "1:430562702363:web:862e7ab0e02fc9301434be",
+  "storageBucket": "studio-8044285263-a0cc3.firebasestorage.app",
+  "apiKey": "AIzaSyD4Tom0uDpf6tM_FAhRduGzEQGhSrjwitY",
+  "authDomain": "studio-8044285263-a0cc3.firebaseapp.com",
   "measurementId": "",
-  "messagingSenderId": "989586605112"
+  "messagingSenderId": "430562702363"
 };
 
 function getSdks(firebaseApp: FirebaseApp) {

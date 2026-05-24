@@ -4,13 +4,17 @@
 import React, { createContext, useContext, ReactNode, useMemo } from 'react';
 import { format, addWeeks, addMonths, parseISO } from 'date-fns';
 import { useFirebase, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, useDoc } from '@/firebase';
-import { collection, query, doc, Timestamp, addDoc, where } from 'firebase/firestore';
+import { collection, query, doc, Timestamp, addDoc, where, writeBatch } from 'firebase/firestore';
+import { GCProvider, useGC } from './GCContext';
+import { VolunteerProvider, useVolunteer } from './VolunteerContext';
+import { TeachingProvider, useTeaching } from './TeachingContext';
 
 export type User = {
   id: string;
   name: string;
   email?: string;
   phone?: string;
+  cpf?: string;
   avatar?: string;
   integrationStatus?: string;
   serviceStatus?: 'serving' | 'not_serving';
@@ -36,6 +40,13 @@ export type User = {
     memberCourseProgress?: Record<string, boolean>;
     theoflixProgress?: Record<string, Record<string, boolean>>;
     courseStatus?: Record<string, 'pending' | 'approved' | 'rejected'>;
+  };
+  hierarchy?: {
+    role: string;
+    celulaId?: string;
+    supervisorId?: string;
+    redeId?: string;
+    areaId?: string;
   };
 };
 
@@ -65,6 +76,7 @@ export type VolunteeringEvent = {
 export type ReservationCategory = {
   id: string;
   name: string;
+  color?: string;
 };
 
 export type Room = {
@@ -145,6 +157,7 @@ export type Class = {
     startTime: string;
     endTime: string;
     syllabusId?: string;
+    isRepositionOnly?: boolean;
   }[];
   registrationDeadline?: string;
   attendance?: { 
@@ -152,6 +165,7 @@ export type Class = {
     presentStudentIds: string[]; 
     onlineStudentIds?: string[];
     repositions?: { studentId: string; date: string }[];
+    isRepositionOnly?: boolean;
   }[];
   grades?: { studentId: string; assessmentName: string; grade: number }[];
   materials?: { title: string; url: string; description?: string }[];
@@ -269,6 +283,7 @@ export type PedagogicalLog = {
   content_taught: string;
   student_performance: number;
   observations: string;
+  dateStr?: string;
 };
 
 export type WavePayment = {
@@ -395,6 +410,7 @@ interface VolunteeringContextType {
   addFinanceRequest: (data: any) => Promise<void>;
   updateFinanceRequest: (id: string, data: any) => Promise<void>;
   deleteFinanceRequest: (id: string) => Promise<void>;
+  addEnrollmentRequest: (data: any) => Promise<void>;
   approveEnrollmentRequest: (requestId: string, classId: string) => Promise<void>;
   updateEnrollmentRequest: (requestId: string, data: any) => Promise<void>;
   deleteEnrollmentRequest: (requestId: string) => Promise<void>;
@@ -406,338 +422,227 @@ interface VolunteeringContextType {
 const VolunteeringContext = createContext<VolunteeringContextType | undefined>(undefined);
 
 export function VolunteeringProvider({ children }: { children: ReactNode }) {
+  return (
+    <GCProvider>
+      <VolunteerProvider>
+        <TeachingProvider>
+          <VolunteeringInnerProvider>
+            {children}
+          </VolunteeringInnerProvider>
+        </TeachingProvider>
+      </VolunteerProvider>
+    </GCProvider>
+  );
+}
+
+function VolunteeringInnerProvider({ children }: { children: ReactNode }) {
   const { firestore, user } = useFirebase();
 
-  const { data: userData, isLoading: loadingRole } = useDoc<{ hierarchy?: { role?: string }; }>(user ? `users/${user.uid}` : null);
+  // Consumindo sub-contextos especializados
+  const gc = useGC();
+  const volunteer = useVolunteer();
+  const teaching = useTeaching();
 
-  // Wait until we actually know the role before running role-sensitive queries.
-  // isAdmin defaults to false while loading which causes query flip-flop → Firestore assertion crash.
-  const roleResolved = !loadingRole && (userData !== undefined || !user);
-  const isAdmin = roleResolved && (userData?.hierarchy?.role === 'admin' || userData?.hierarchy?.role === 'pastor_senior');
-  
-  const roleId = userData?.hierarchy?.role;
-  const { data: accessProfile, isLoading: loadingProfile } = useDoc<any>(user && roleId ? `access_profiles/${roleId}` : null);
+  // Resolvendo Tenant do Usuário
+  const { data: userTenant, isLoading: loadingRole } = useDoc<any>(user ? `userTenants/${user.uid}` : null);
+  const tenantId = userTenant?.tenantId || 'ibm';
+  const role = userTenant?.role || 'member';
+  const isAdmin = role === 'admin' || role === 'pastor_senior';
+
+  const { data: accessProfile, isLoading: loadingProfile } = useDoc<any>(user && role ? `access_profiles/${role}` : null);
   const permissions = accessProfile?.permissions || {};
-
-  // Helper to check permission
   const can = (permId: string, action = 'view') => isAdmin || !!permissions?.[permId]?.[action];
+  const roleResolved = !!userTenant;
 
-  // Queries sensíveis que exigem login e papel adequado (só rodam após papel ser conhecido)
+  // Consultas específicas não-especializadas
   const usersQ = useMemoFirebase(() => (firestore && user && roleResolved && (can('pessoas_list') || can('teaching_courses', 'view_students') || can('teaching_wave', 'view_teacher_area') || can('teaching_dis', 'view_teacher_area'))) ? query(collection(firestore, 'users')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-  const serviceAreasQ = useMemoFirebase(() => (firestore && user && roleResolved && can('servico_areas')) ? query(collection(firestore, 'areas_of_service')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-  const teamsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('servico_teams')) ? query(collection(firestore, 'teams')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-  const eventsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('servico_events')) ? query(collection(firestore, 'volunteering_events')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-  const reservationsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('ministerial_reservations')) ? query(collection(firestore, 'room_reservations')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-  const enrollmentRequestsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('teaching_courses')) ? query(collection(firestore, 'enrollment_requests')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-
-  const pedagogicalLogsQ = useMemoFirebase(() => {
-    if (!firestore || !user || !roleResolved) return null;
-    if (can('teaching_courses')) return query(collection(firestore, 'pedagogical_logs'));
-    return null;
-  }, [firestore, user, roleResolved, isAdmin, permissions]);
-
-  const wavePlansQ = useMemoFirebase(() => (firestore && user && roleResolved) ? query(collection(firestore, 'wave_plans')) : null, [firestore, user, roleResolved]);
-  const disPlansQ = useMemoFirebase(() => (firestore && user && roleResolved) ? query(collection(firestore, 'dis_plans')) : null, [firestore, user, roleResolved]);
-
-  // Pagamentos: apenas admins. Alunos buscam diretamente no StudentDashboard.
-  const wavePaymentsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('teaching_wave', 'view_finance')) ? query(collection(firestore, 'wave_payments')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-  const disPaymentsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('teaching_dis', 'view_finance')) ? query(collection(firestore, 'dis_payments')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-
-  const waveExpensesQ = useMemoFirebase(() => (firestore && user && roleResolved && can('teaching_wave', 'view_finance')) ? query(collection(firestore, 'wave_expenses')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
   const financialTransactionsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('ministerial_finance')) ? query(collection(firestore, 'financial_transactions')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
   const financeRequestsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('ministerial_finance')) ? query(collection(firestore, 'finance_requests')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-  const savedSchedulesQ = useMemoFirebase(() => (firestore && user && roleResolved && can('servico_schedule')) ? query(collection(firestore, 'saved_schedules')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-  const roomsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('ministerial_reservations')) ? query(collection(firestore, 'rooms')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-  const theoflixCoursesQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'theoflix_courses')) : null, [firestore, user]);
-  const reservationCategoriesQ = useMemoFirebase(() => (firestore && user && roleResolved && can('ministerial_reservations')) ? query(collection(firestore, 'reservation_categories')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-  
-  // GC Hierarchy Queries (Exige login para respeitar as regras do Firestore)
-  const cellsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'cells')) : null, [firestore, user]);
-  const gcAreasQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'areas')) : null, [firestore, user]);
-  const redesQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'redes')) : null, [firestore, user]);
-
-  // Queries públicas necessárias para matrículas
-  const coursesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
-  const classesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'classes')) : null, [firestore]);
 
   const { data: users, isLoading: lu } = useCollection<User>(usersQ);
-  const { data: serviceAreas, isLoading: la } = useCollection<AreaOfService>(serviceAreasQ);
-  const { data: teams, isLoading: lt } = useCollection<Team>(teamsQ);
-  const { data: events, isLoading: le } = useCollection<VolunteeringEvent>(eventsQ);
-  const { data: rooms, isLoading: lr } = useCollection<Room>(roomsQ);
-  const { data: reservations, isLoading: lres } = useCollection<RoomReservation>(reservationsQ);
-  const { data: courses, isLoading: lco } = useCollection<Course>(coursesQ);
-  const { data: classes, isLoading: lcl } = useCollection<Class>(classesQ);
-  const { data: enrollmentRequests, isLoading: ler } = useCollection<EnrollmentRequest>(enrollmentRequestsQ);
-  const { data: pedagogicalLogs, isLoading: lpl } = useCollection<PedagogicalLog>(pedagogicalLogsQ);
-  const { data: wavePayments, isLoading: lwp } = useCollection<WavePayment>(wavePaymentsQ);
-  const { data: disPayments, isLoading: ldp } = useCollection<DisPayment>(disPaymentsQ);
-  const { data: wavePlans, isLoading: lwpn } = useCollection<WavePlan>(wavePlansQ);
-  const { data: disPlans, isLoading: ldpn } = useCollection<DisPlan>(disPlansQ);
-  const { data: waveExpenses, isLoading: lwe } = useCollection<WaveExpense>(waveExpensesQ);
-  const { data: reservationCategories = [], isLoading: loadingCategories } = useCollection<ReservationCategory>(reservationCategoriesQ);
-  const { data: theoflixCourses = [], isLoading: loadingTheoflix } = useCollection<any>(theoflixCoursesQ);
   const { data: financialTransactions, isLoading: lft } = useCollection<FinancialTransaction>(financialTransactionsQ);
   const { data: financeRequests, isLoading: lfr } = useCollection<FinanceRequest>(financeRequestsQ);
-  const { data: savedSchedules, isLoading: lss } = useCollection<SavedSchedule>(savedSchedulesQ);
-  const { data: cells, isLoading: lce } = useCollection<Cell>(cellsQ);
-  const { data: gcAreas, isLoading: lga } = useCollection<Area>(gcAreasQ);
-  const { data: redes, isLoading: lre } = useCollection<Rede>(redesQ);
 
-  const isLoading = loadingRole || loadingProfile || (user ? lu : false) || la || lt || le || (user ? lr : false) || lres || lco || lcl || ler || lpl || lwp || ldp || lwpn || ldpn || lwe || loadingCategories || (user ? loadingTheoflix : false) || lft || lfr || lss || lce || lga || lre;
+  const isLoading = gc.isLoading || volunteer.isLoading || teaching.isLoading || loadingRole || loadingProfile || (user ? lu : false) || lft || lfr;
 
   const value = useMemo(() => ({
     users: users || [],
-    serviceAreas: serviceAreas || [],
-    teams: teams || [],
-    events: events || [],
-    rooms: rooms || [],
-    reservations: reservations || [],
-    courses: courses || [],
-    classes: classes || [],
-    enrollmentRequests: enrollmentRequests || [],
-    pedagogicalLogs: pedagogicalLogs || [],
-    wavePayments: wavePayments || [],
-    disPayments: disPayments || [],
-    wavePlans: wavePlans || [],
-    disPlans: disPlans || [],
-    waveExpenses: waveExpenses || [],
-    theoflixCourses: theoflixCourses || [],
     financialTransactions: financialTransactions || [],
     financeRequests: financeRequests || [],
-    savedSchedules: savedSchedules || [],
-    reservationCategories: reservationCategories || [],
-    cells: cells || [],
-    areas: gcAreas || [],
-    redes: redes || [],
+    
+    // Sub-context GC
+    cells: gc.cells,
+    areas: gc.areas,
+    redes: gc.redes,
+
+    // Sub-context Volunteer
+    serviceAreas: volunteer.serviceAreas,
+    teams: volunteer.teams,
+    events: volunteer.events,
+    rooms: volunteer.rooms,
+    reservations: volunteer.reservations,
+    reservationCategories: volunteer.reservationCategories,
+    savedSchedules: volunteer.savedSchedules,
+
+    // Sub-context Teaching
+    courses: teaching.courses,
+    classes: teaching.classes,
+    enrollmentRequests: teaching.enrollmentRequests,
+    pedagogicalLogs: teaching.pedagogicalLogs,
+    wavePayments: teaching.wavePayments,
+    disPayments: teaching.disPayments,
+    wavePlans: teaching.wavePlans,
+    disPlans: teaching.disPlans,
+    waveExpenses: teaching.waveExpenses,
+    theoflixCourses: teaching.theoflixCourses,
+
     isLoading,
-    addArea: async (data: any) => { await addDoc(collection(firestore!, 'areas_of_service'), data); },
-    updateArea: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'areas_of_service', id), data); },
-    deleteArea: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'areas_of_service', id)); },
-    addTeam: async (data: any) => { await addDoc(collection(firestore!, 'teams'), data); },
-    updateTeam: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'teams', id), data); },
-    deleteTeam: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'teams', id)); },
-    addEvent: async (data: any) => { await addDoc(collection(firestore!, 'volunteering_events'), data); },
-    updateEvent: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'volunteering_events', id), data); },
-    deleteEvent: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'volunteering_events', id)); },
-    addRoom: async (data: any) => { await addDoc(collection(firestore!, 'rooms'), data); },
-    deleteRoom: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'rooms', id)); },
-    addReservationCategory: async (data: any) => { await addDoc(collection(firestore!, 'reservation_categories'), data); },
-    deleteReservationCategory: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'reservation_categories', id)); },
-    addReservation: async (data: any) => { await addDoc(collection(firestore!, 'room_reservations'), data); },
-    updateReservation: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'room_reservations', id), data); },
-    deleteReservation: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'room_reservations', id)); },
-    updateVolunteer: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'users', id), data); },
-    addUser: async (data: any) => {
-      const res = await addDoc(collection(firestore!, 'users'), { ...data, createdAt: Timestamp.now() });
-      return res.id;
-    },
-    addCourse: async (data: any) => { await addDoc(collection(firestore!, 'courses'), data); },
-    addClass: async (data: any) => {
-      const res = await addDoc(collection(firestore!, 'classes'), data);
-      if (data.locationId && data.locationId !== 'the_school' && data.locationId !== 'null') {
-        const roomObj = (rooms || []).find(r => r.id === data.locationId);
-        await addDoc(collection(firestore!, 'room_reservations'), {
-          eventName: `Aulas: ${data.name}`,
-          rooms: [roomObj?.name || 'Sala'],
-          startDateTime: Timestamp.fromDate(new Date(`${data.startDate}T${data.startTime}`)),
-          endDateTime: Timestamp.fromDate(new Date(`${data.startDate}T${data.endTime}`)),
-          recurrenceEndDate: data.endDate ? Timestamp.fromDate(new Date(`${data.endDate}T23:59:59`)) : null,
-          frequency: data.frequency,
-          dayOfWeek: data.dayOfWeek,
-          weekOfMonth: data.weekOfMonth,
-          status: 'approved',
-          requesterId: 'system',
-          id: `class_res_${res.id}`,
-          createdAt: Timestamp.now()
-        });
-      }
-    },
-    updateClass: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'classes', id), data); },
-    deleteClass: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'classes', id)); },
-    enrollStudent: async (studentId: string, courseId: string, classId?: string) => {
-      if (classId) {
-        const classRef = doc(firestore!, 'classes', classId);
-        const cls = (classes || []).find(c => c.id === classId);
-        if (cls && !cls.students.includes(studentId)) {
-          await updateDocumentNonBlocking(classRef, { students: [...cls.students, studentId] });
-        }
-      } else {
-        // Se não passou classId, tenta encontrar se há apenas UMA turma para este curso
-        const relevantClasses = (classes || []).filter(c => c.courseId === courseId);
-        if (relevantClasses.length === 1) {
-            const cls = relevantClasses[0];
-            if (!cls.students.includes(studentId)) {
-                await updateDocumentNonBlocking(doc(firestore!, 'classes', cls.id), { students: [...cls.students, studentId] });
-            }
-        }
-        // Se houver mais de uma, não faz nada (o usuário deve selecionar no UI)
-      }
-    },
-    addPedagogicalLog: async (data: any) => { await addDoc(collection(firestore!, 'pedagogical_logs'), data); },
-    addWavePayment: async (data: any) => { await addDoc(collection(firestore!, 'wave_payments'), data); },
-    updateWavePayment: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'wave_payments', id), data); },
-    deleteWavePayment: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'wave_payments', id)); },
-    addDisPayment: async (data: any) => { await addDoc(collection(firestore!, 'dis_payments'), data); },
-    updateDisPayment: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'dis_payments', id), data); },
-    deleteDisPayment: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'dis_payments', id)); },
-    addWavePlan: async (data: any) => { await addDoc(collection(firestore!, 'wave_plans'), data); },
-    updateWavePlan: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'wave_plans', id), data); },
-    deleteWavePlan: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'wave_plans', id)); },
-    addDisPlan: async (data: any) => { await addDoc(collection(firestore!, 'dis_plans'), data); },
-    updateDisPlan: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'dis_plans', id), data); },
-    deleteDisPlan: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'dis_plans', id)); },
-    addWaveExpense: async (data: any) => { await addDoc(collection(firestore!, 'wave_expenses'), data); },
-    updateWaveExpense: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'wave_expenses', id), data); },
-    deleteWaveExpense: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'wave_expenses', id)); },
+
+    // Actions delegadas
+    addArea: volunteer.addArea,
+    updateArea: volunteer.updateArea,
+    deleteArea: volunteer.deleteArea,
+    addTeam: volunteer.addTeam,
+    updateTeam: volunteer.updateTeam,
+    deleteTeam: volunteer.deleteTeam,
+    addEvent: volunteer.addEvent,
+    updateEvent: volunteer.updateEvent,
+    deleteEvent: volunteer.deleteEvent,
+    addRoom: volunteer.addRoom,
+    deleteRoom: volunteer.deleteRoom,
+    addReservationCategory: volunteer.addReservationCategory,
+    deleteReservationCategory: volunteer.deleteReservationCategory,
+    addReservation: volunteer.addReservation,
+    updateReservation: volunteer.updateReservation,
+    deleteReservation: volunteer.deleteReservation,
+    saveSchedule: volunteer.saveSchedule,
+    deleteSchedule: volunteer.deleteSchedule,
+
+    addCourse: teaching.addCourse,
+    addClass: teaching.addClass,
+    updateClass: teaching.updateClass,
+    deleteClass: teaching.deleteClass,
+    enrollStudent: teaching.enrollStudent,
+    addPedagogicalLog: teaching.addPedagogicalLog,
+    addWavePayment: teaching.addWavePayment,
+    updateWavePayment: teaching.updateWavePayment,
+    deleteWavePayment: teaching.deleteWavePayment,
+    addDisPayment: teaching.addDisPayment,
+    updateDisPayment: teaching.updateDisPayment,
+    deleteDisPayment: teaching.deleteDisPayment,
+    addWavePlan: teaching.addWavePlan,
+    updateWavePlan: teaching.updateWavePlan,
+    deleteWavePlan: teaching.deleteWavePlan,
+    addDisPlan: teaching.addDisPlan,
+    updateDisPlan: teaching.updateDisPlan,
+    deleteDisPlan: teaching.deleteDisPlan,
+    addWaveExpense: teaching.addWaveExpense,
+    updateWaveExpense: teaching.updateWaveExpense,
+    deleteWaveExpense: teaching.deleteWaveExpense,
+    addEnrollmentRequest: teaching.addEnrollmentRequest,
+    approveEnrollmentRequest: teaching.approveEnrollmentRequest,
+    updateEnrollmentRequest: teaching.updateEnrollmentRequest,
+    deleteEnrollmentRequest: teaching.deleteEnrollmentRequest,
+    markAttendanceByTheoflix: teaching.markAttendanceByTheoflix,
+
     addFinancialTransaction: async (data: any) => { await addDoc(collection(firestore!, 'financial_transactions'), data); },
     updateFinancialTransaction: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'financial_transactions', id), data); },
     deleteFinancialTransaction: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'financial_transactions', id)); },
     addFinanceRequest: async (data: any) => { await addDoc(collection(firestore!, 'finance_requests'), data); },
     updateFinanceRequest: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'finance_requests', id), data); },
     deleteFinanceRequest: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'finance_requests', id)); },
-    approveEnrollmentRequest: async (requestId: string, classId: string) => {
-      const req = (enrollmentRequests || []).find(r => r.id === requestId);
-      if (!req) return;
-      const targetClass = (classes || []).find(c => c.id === classId);
-      if (!targetClass) return;
 
-      let studentId = (users || []).find(u => u.email === req.email || u.phone === req.phone)?.id;
-      if (!studentId) {
-        const newUser = await addDoc(collection(firestore!, 'users'), {
-          name: req.name, email: req.email, phone: req.phone, integrationStatus: 'nao_alcancado', createdAt: Timestamp.now()
-        });
-        studentId = newUser.id;
+    updateVolunteer: async (id: string, data: any) => { 
+      await updateDocumentNonBlocking(doc(firestore!, 'users', id), data); 
+      
+      const memberRef = doc(firestore!, 'tenants', tenantId, 'members', id);
+      const updates: any = {};
+      if (data.name !== undefined) {
+        const parts = data.name.trim().split(/\s+/);
+        updates['basic.firstName'] = parts[0];
+        updates['basic.lastName'] = parts.slice(1).join(' ') || '';
       }
-
-      await updateDocumentNonBlocking(doc(firestore!, 'classes', classId), { students: [...targetClass.students, studentId] });
-      await updateDocumentNonBlocking(doc(firestore!, 'enrollment_requests', requestId), { status: 'approved' });
-    },
-    updateEnrollmentRequest: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id), data); },
-    deleteEnrollmentRequest: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id)); },
-    markAttendanceByTheoflix: async (userId: string, theoflixCourseId: string, episodeIndex: number, lessonNotes?: string) => {
-      // Find physical courses linked to this theoflixCourseId
-      const linkedCourses = (courses || []).filter(c => 
-         c.id === theoflixCourseId || 
-         c.linkedTheoflixId === theoflixCourseId || 
-         c.syllabus?.some((s: any) => s.theoflixCourseId === theoflixCourseId)
-      );
-      const linkedCourseIds = linkedCourses.map(c => c.id);
-
-      // Find classes where user is enrolled for these physical courses
-      const relevantClasses = (classes || []).filter(c => 
-         linkedCourseIds.includes(c.courseId) && c.students?.includes(userId)
-      );
-
-      for (const cls of relevantClasses) {
-        const physicalCourse = linkedCourses.find(c => c.id === cls.courseId);
-        const syllabus = physicalCourse?.syllabus || [];
-        
-        // Find which syllabus module requires this episode
-        const episodeIdxStr = episodeIndex.toString();
-        let targetSyllabusIndex = -1;
-        
-        const hybridIndex = syllabus.findIndex((mod: any) => 
-            mod.theoflixCourseId === theoflixCourseId && 
-            mod.theoflixRequiredVideoIds?.includes(episodeIdxStr)
-        );
-
-        if (hybridIndex !== -1) {
-            targetSyllabusIndex = hybridIndex;
-        } else if (physicalCourse?.id === theoflixCourseId || physicalCourse?.linkedTheoflixId === theoflixCourseId) {
-            targetSyllabusIndex = episodeIndex;
-        }
-
-        if (targetSyllabusIndex === -1) continue;
-        // Build the projected schedule to accurately find the date for this episode
-        const items: any[] = [];
-        if (cls && cls.startDate) {
-            const start = parseISO(cls.startDate);
-            const holidaySet = new Set(cls.holidayDates || []);
-            const overrides = cls.scheduleOverrides || {};
-            
-            let currentDate = start;
-            let syllabusIndex = 0;
-            let safeCounter = 0;
-            const targetCount = syllabus.length > 0 ? syllabus.length : 12;
-
-            while (items.length < targetCount && safeCounter < 200) {
-                safeCounter++;
-                const dateStr = format(currentDate, 'yyyy-MM-dd');
-                
-                if (holidaySet.has(dateStr) && !overrides[dateStr]) {
-                    currentDate = addWeeks(currentDate, cls.frequency === 'quinzenal' ? 2 : 1);
-                    continue;
-                }
-
-                const override = overrides[dateStr];
-                if (override?.isCancelled) {
-                    currentDate = addWeeks(currentDate, cls.frequency === 'quinzenal' ? 2 : 1);
-                    continue;
-                }
-
-                const originalIdx = override?.syllabusId ? syllabus.findIndex(s => s.id === override.syllabusId) : syllabusIndex;
-                items.push({ dateStr, syllabusOriginalIndex: originalIdx });
-                
-                syllabusIndex++;
-                currentDate = addWeeks(currentDate, cls.frequency === 'quinzenal' ? 2 : 1);
-            }
-
-            Object.entries(overrides).forEach(([dateStr, override]: [string, any]) => {
-                if (override.isCancelled) return;
-                if (items.find(i => i.dateStr === dateStr)) return;
-                const originalIdx = override.syllabusId ? syllabus.findIndex(s => s.id === override.syllabusId) : -1;
-                items.push({ dateStr, syllabusOriginalIndex: originalIdx });
-            });
-
-            const extraSessions = cls.extraSessions || [];
-            extraSessions.forEach((session: any) => {
-                if (items.find(i => i.dateStr === session.date)) return;
-                const originalIdx = session.syllabusId ? syllabus.findIndex(s => s.id === session.syllabusId) : -1;
-                items.push({ dateStr: session.date, syllabusOriginalIndex: originalIdx });
-            });
-            
-            items.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
-        }
-        
-        const matchedItem = items.find((i: any) => i.syllabusOriginalIndex === targetSyllabusIndex);
-        if (!matchedItem) continue;
-        
-        const targetDate = matchedItem.dateStr;
-        const existingAttendance = cls.attendance || [];
-        const recordIdx = existingAttendance.findIndex((a: any) => a.date === targetDate);
-        const notes = lessonNotes?.trim();
-
-        if (recordIdx > -1) {
-          const record = existingAttendance[recordIdx];
-          let changed = false;
-          // Adiciona userId à lista online se ainda não estiver
-          if (!record.onlineStudentIds?.includes(userId)) {
-            record.onlineStudentIds = [...(record.onlineStudentIds || []), userId];
-            changed = true;
-          }
-          // Salva/atualiza as anotações (sempre, para permitir edição)
-          if (notes) {
-            record.lessonNotes = { ...(record.lessonNotes || {}), [userId]: notes };
-            changed = true;
-          }
-          if (changed) {
-            await updateDocumentNonBlocking(doc(firestore!, 'classes', cls.id), { attendance: existingAttendance });
-          }
-        } else {
-          const newRecord: any = { date: targetDate, presentStudentIds: [], onlineStudentIds: [userId] };
-          if (notes) newRecord.lessonNotes = { [userId]: notes };
-          existingAttendance.push(newRecord);
-          await updateDocumentNonBlocking(doc(firestore!, 'classes', cls.id), { attendance: existingAttendance });
-        }
+      if (data.phone !== undefined) updates['contact.phone'] = data.phone;
+      if (data.email !== undefined) updates['contact.email'] = data.email;
+      if (data.cpf !== undefined) updates['basic.cpf'] = data.cpf;
+      if (data.sexo !== undefined) updates['basic.sexo'] = data.sexo;
+      if (data.dataNascimento !== undefined) updates['basic.dataNascimento'] = data.dataNascimento;
+      if (data.batizado !== undefined) updates['ministerial.batizado'] = data.batizado;
+      if (data.integrationStatus !== undefined) updates['ministerial.integrationStatus'] = data.integrationStatus;
+      if (data.serviceStatus !== undefined) updates['services.serviceStatus'] = data.serviceStatus;
+      if (data.serviceAreaId !== undefined) updates['services.serviceAreaId'] = data.serviceAreaId;
+      if (data.serviceTeamId !== undefined) updates['services.serviceTeamId'] = data.serviceTeamId;
+      
+      if (Object.keys(updates).length > 0) {
+        await updateDocumentNonBlocking(memberRef, updates);
       }
     },
-    saveSchedule: async (data: any) => {
-      const id = `${data.areaId}_${data.month}`;
-      await setDocumentNonBlocking(doc(firestore!, 'saved_schedules', id), data);
+    addUser: async (data: any) => {
+      const res = await addDoc(collection(firestore!, 'users'), { ...data, createdAt: Timestamp.now() });
+      const studentId = res.id;
+
+      const batch = writeBatch(firestore!);
+      
+      const userTenantData = {
+        tenantId: tenantId,
+        slug: tenantId,
+        role: 'member',
+        email: data.email || '',
+        updatedAt: Timestamp.now()
+      };
+      batch.set(doc(firestore!, 'userTenants', studentId), userTenantData);
+
+      const tenantUserData = {
+        email: data.email || '',
+        role: 'member',
+        permissions: [],
+        status: 'active',
+        createdAt: Timestamp.now(),
+        lastLoginAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
+      };
+      batch.set(doc(firestore!, 'tenants', tenantId, 'users', studentId), tenantUserData);
+
+      const nameParts = (data.name || 'Novo Usuário').trim().split(/\s+/);
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(' ') || '';
+
+      const memberData = {
+        id: studentId,
+        tenantId: tenantId,
+        basic: {
+          firstName: firstName,
+          lastName: lastName,
+          cpf: data.cpf || '',
+          sexo: data.sexo || '',
+          dataNascimento: data.dataNascimento || '',
+          avatar: data.avatar || '',
+          photoURL: data.photoURL || '',
+        },
+        contact: {
+          phone: data.phone || '',
+          email: data.email || ''
+        },
+        ministerial: {
+          batizado: data.batizado || 'nao',
+          integrationStatus: data.integrationStatus || 'nao_alcancado',
+        },
+        services: {
+          serviceStatus: data.serviceStatus || 'not_serving',
+        },
+        family: {
+          familyMembers: [],
+        },
+        journey: {},
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
+      };
+      batch.set(doc(firestore!, 'tenants', tenantId, 'members', studentId), memberData);
+
+      await batch.commit();
+      return studentId;
     },
-    deleteSchedule: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'saved_schedules', id)); },
-  }), [users, serviceAreas, gcAreas, cells, redes, teams, events, rooms, reservations, reservationCategories, courses, classes, enrollmentRequests, pedagogicalLogs, wavePayments, disPayments, wavePlans, disPlans, waveExpenses, theoflixCourses, financialTransactions, financeRequests, savedSchedules, isLoading, firestore]);
+  }), [users, gc, volunteer, teaching, isLoading, firestore, tenantId]);
 
   return (
     <VolunteeringContext.Provider value={value}>

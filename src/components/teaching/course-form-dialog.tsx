@@ -9,8 +9,15 @@ import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
+import { type Course } from '@/contexts/volunteering-context';
 
-export function CourseFormDialog({ open, onOpenChange, existingCourse }) {
+interface CourseFormDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  existingCourse?: Course | null;
+}
+
+export function CourseFormDialog({ open, onOpenChange, existingCourse }: CourseFormDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [name, setName] = useState('');

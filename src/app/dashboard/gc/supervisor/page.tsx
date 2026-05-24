@@ -43,8 +43,8 @@ type ReuniaoLog = {
     conversoes: number;
     oferta: number;
   };
-  visitantesNomes?: string[];   // lista de nomes dos visitantes
-  conversoesNomes?: string[];   // lista de nomes dos novos convertidos
+  visitantesNomes?: string[] | string;   // lista de nomes dos visitantes
+  conversoesNomes?: string[] | string;   // lista de nomes dos novos convertidos
   observacoes?: string;         // observações gerais
   feedbackAoSupervisor?: string;
   termometroEspiritual?: number; // 1-5
@@ -935,7 +935,7 @@ export default function SupervisorPage() {
             {/* VISITANTES */}
             {(() => {
               const raw = selectedLog.visitantesNomes;
-              const nomes = Array.isArray(raw) ? raw : (typeof raw === 'string' && raw.trim() ? raw.split(',').map(s => s.trim()) : []);
+              const nomes: string[] = Array.isArray(raw) ? raw : (typeof raw === 'string' && raw.trim() ? raw.split(',').map((s: string) => s.trim()) : []);
               return nomes.length > 0 ? (
                 <>
                   <Separator />
@@ -945,7 +945,7 @@ export default function SupervisorPage() {
                       <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Visitantes</span>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                      {nomes.map((nome, i) => <Badge key={i} variant="secondary" className="text-xs">{nome}</Badge>)}
+                      {nomes.map((nome: string, i: number) => <Badge key={i} variant="secondary" className="text-xs">{nome}</Badge>)}
                     </div>
                   </div>
                 </>
@@ -955,7 +955,7 @@ export default function SupervisorPage() {
             {/* CONVERSÕES */}
             {(() => {
               const raw = selectedLog.conversoesNomes;
-              const nomes = Array.isArray(raw) ? raw : (typeof raw === 'string' && raw.trim() ? raw.split(',').map(s => s.trim()) : []);
+              const nomes: string[] = Array.isArray(raw) ? raw : (typeof raw === 'string' && raw.trim() ? raw.split(',').map((s: string) => s.trim()) : []);
               return nomes.length > 0 ? (
                 <>
                   <Separator />
@@ -965,7 +965,7 @@ export default function SupervisorPage() {
                       <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Conversões</span>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                      {nomes.map((nome, i) => <Badge key={i} className="text-xs bg-purple-100 text-purple-700">{nome}</Badge>)}
+                      {nomes.map((nome: string, i: number) => <Badge key={i} className="text-xs bg-purple-100 text-purple-700">{nome}</Badge>)}
                     </div>
                   </div>
                 </>

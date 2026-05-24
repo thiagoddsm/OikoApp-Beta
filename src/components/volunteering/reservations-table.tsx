@@ -35,7 +35,7 @@ export function ReservationsTable({
         
         return [...reservations].filter(res => {
             // Filtro de Categoria
-            if (categoryFilter.length > 0 && !categoryFilter.includes(res.categoryId)) return false;
+            if (categoryFilter.length > 0 && (!res.categoryId || !categoryFilter.includes(res.categoryId))) return false;
 
             // Filtro de Ambiente
             if (roomFilter !== 'all' && !res.rooms?.includes(roomFilter)) return false;

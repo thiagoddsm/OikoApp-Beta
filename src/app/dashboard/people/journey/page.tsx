@@ -27,7 +27,7 @@ type User = {
 };
 
 
-const statusLabels: { [key: string]: string } = journeyColumns.reduce((acc, col) => {
+const statusLabels: { [key: string]: string } = journeyColumns.reduce((acc: { [key: string]: string }, col) => {
     acc[col.id] = col.title;
     return acc;
 }, {});

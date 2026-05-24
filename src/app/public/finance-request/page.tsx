@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { addDocumentNonBlocking, FirebaseServices } from '@/firebase'; // Assuming FirebaseServices type is exported
+import { addDocumentNonBlocking, FirebaseServicesAndUser } from '@/firebase';
 import { collection, Timestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -17,7 +17,7 @@ import { Logo } from '@/components/icons';
 import { useFirebase } from '@/firebase';
 
 
-function PublicFinanceRequestForm({ firebase }: { firebase: FirebaseServices }) {
+function PublicFinanceRequestForm({ firebase }: { firebase: FirebaseServicesAndUser }) {
     const { firestore, storage } = firebase;
     const { toast } = useToast();
     

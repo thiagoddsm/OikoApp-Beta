@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { useVolunteering } from '@/contexts/volunteering-context';
+import { useVolunteering, type Course } from '@/contexts/volunteering-context';
 import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -13,7 +13,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 
-export function CourseDetailsForm({ course }) {
+interface CourseDetailsFormProps {
+  course: Course;
+}
+
+export function CourseDetailsForm({ course }: CourseDetailsFormProps) {
   const { users, courses, theoflixCourses, isLoading } = useVolunteering();
   const { firestore } = useFirebase();
   const { toast } = useToast();

@@ -17,7 +17,7 @@ const years = [currentYear -1, currentYear, currentYear + 1];
 
 
 function SavedSchedulesPageContent() {
-    const { areas, isLoading } = useVolunteering();
+    const { serviceAreas, isLoading } = useVolunteering();
     const [selectedAreaId, setSelectedAreaId] = useState<string | undefined>(undefined);
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
     const [selectedYear, setSelectedYear] = useState(currentYear);
@@ -47,7 +47,7 @@ function SavedSchedulesPageContent() {
                                 <Select value={selectedAreaId} onValueChange={setSelectedAreaId}>
                                 <SelectTrigger id="area" className="w-[250px]"><SelectValue placeholder="Selecione uma área..." /></SelectTrigger>
                                 <SelectContent>
-                                    {areas.map((area) => <SelectItem key={area.id} value={area.id}>{area.name}</SelectItem>)}
+                                    {serviceAreas.map((area) => <SelectItem key={area.id} value={area.id}>{area.name}</SelectItem>)}
                                 </SelectContent>
                                 </Select>
                             </div>

@@ -11,7 +11,7 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, collection } from 'firebase/firestore';
 
 export type Note = {
   id: string;
@@ -29,7 +29,7 @@ interface FollowUpTimelineProps {
 }
 
 export function FollowUpTimeline({ memberId, memberName, initialNotes, onNoteAdded }: FollowUpTimelineProps) {
-    const { user: currentUser } = useFirebase();
+    const { user: currentUser, firestore } = useFirebase();
     const { toast } = useToast();
     const [newNote, setNewNote] = useState('');
     const [isSaving, setIsSaving] = useState(false);
@@ -39,7 +39,7 @@ export function FollowUpTimeline({ memberId, memberName, initialNotes, onNoteAdd
         setIsSaving(true);
         
         try {
-            await addDocumentNonBlocking(`users/${memberId}/notes`, {
+            await addDocumentNonBlocking(collection(firestore, `users/${memberId}/notes`), {
                 authorId: currentUser.uid,
                 type: 'user',
                 content: newNote,

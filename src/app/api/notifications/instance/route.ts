@@ -103,10 +103,9 @@ export async function POST(request: Request) {
         // Fallback para Firestore se não vier no body
         if (!apiKey || !serverUrl) {
             try {
-                const { firestore } = initializeFirebase();
-                const configRef = doc(firestore, 'config', 'notifications');
-                const configSnap = await getDoc(configRef);
-                if (configSnap.exists()) {
+                const db = getAdminDb();
+                const configSnap = await db.collection('config').doc('notifications').get();
+                if (configSnap.exists) {
                     const data = configSnap.data();
                     apiKey = apiKey || data?.instanceKey || data?.whatsappApiKey;
                     serverUrl = serverUrl || data?.serverUrl || 'https://us.api-wa.me';

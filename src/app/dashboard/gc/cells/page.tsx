@@ -67,7 +67,17 @@ const cellStatusConfig = {
   inactive: { label: 'Inativa',        className: 'bg-slate-100 text-slate-500 border-slate-200' },
 };
 
-function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas, redes, existingCell }) {
+interface CreateOrEditCellDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  users: any[];
+  supervisors: any[];
+  areas: any[];
+  redes: any[];
+  existingCell?: any;
+}
+
+function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas, redes, existingCell }: CreateOrEditCellDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
@@ -94,17 +104,17 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
 
   const availableAreas = useMemo(() => {
     if (!redeId || !areas) return [];
-    return areas.filter(a => a.redeId === redeId);
+    return areas.filter((a: any) => a.redeId === redeId);
   }, [redeId, areas]);
 
-  const areaMap = useMemo(() => new Map(areas?.map(a => [a.id, a]) || []), [areas]);
+  const areaMap = useMemo(() => new Map<string, any>(areas?.map((a: any) => [a.id, a]) || []), [areas]);
 
   useEffect(() => {
     if (existingCell) {
       setNome(existingCell.nome || '');
       setLiderId(existingCell.liderId || '');
       setLiderCasalId(existingCell.liderCasalId || '');
-      setCoLideres(existingCell.coLideres || (existingCell.coLiderIds || []).map(id => ({ id })));
+      setCoLideres(existingCell.coLideres || (existingCell.coLiderIds || []).map((id: string) => ({ id })));
       setAnfitriaoId(existingCell.anfitriaoId || '');
       setAnfitriãoCasalId(existingCell.anfitriãoCasalId || '');
       setSecretariaId(existingCell.secretariaId || '');
@@ -130,10 +140,10 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
   }, [existingCell, open]);
   
   useEffect(() => {
-    if (areaId && !availableAreas.find(a => a.id === areaId)) setAreaId('');
+    if (areaId && !availableAreas.find((a: any) => a.id === areaId)) setAreaId('');
   }, [redeId, availableAreas, areaId]);
 
-  const handleAddressSelect = (place: google.maps.places.PlaceResult | null) => {
+  const handleAddressSelect = (place: any) => {
     if (place) {
       setStreet(place.formatted_address || '');
       if (place.geometry?.location) {
@@ -220,14 +230,14 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
             <Label className="text-right">Rede</Label>
             <Select value={redeId} onValueChange={setRedeId}>
               <SelectTrigger className="col-span-3"><SelectValue placeholder="Selecione a Rede" /></SelectTrigger>
-              <SelectContent>{redes.map(r => <SelectItem key={r.id} value={r.id}>{r.nome}</SelectItem>)}</SelectContent>
+              <SelectContent>{redes.map((r: any) => <SelectItem key={r.id} value={r.id}>{r.nome}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label className="text-right">Área</Label>
             <Select value={areaId} onValueChange={setAreaId} disabled={!redeId || availableAreas.length === 0}>
               <SelectTrigger className="col-span-3"><SelectValue placeholder={!redeId ? "Selecione uma rede primeiro" : "Selecione a Área"} /></SelectTrigger>
-              <SelectContent>{availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>)}</SelectContent>
+              <SelectContent>{availableAreas.map((a: any) => <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>)}</SelectContent>
             </Select>
           </div>
 
@@ -264,8 +274,8 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
             </div>
             <div className="col-span-3 space-y-2">
               {coLideres.map((cl, idx) => {
-                const clUser = users.find(u => u.id === cl.id);
-                const spouseUser = cl.casalId ? users.find(u => u.id === cl.casalId) : null;
+                const clUser = users.find((u: any) => u.id === cl.id);
+                const spouseUser = cl.casalId ? users.find((u: any) => u.id === cl.casalId) : null;
                 return (
                   <div key={cl.id} className="border rounded-lg p-2.5 space-y-2 bg-muted/20">
                     <div className="flex items-center gap-2">
@@ -330,8 +340,8 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
                 </Label>
                 {liderEAnfitriao && liderId && (
                   <span className="text-xs text-primary font-bold">
-                    {users.find(u => u.id === liderId)?.name || '—'}
-                    {liderCasalId && ` & ${users.find(u => u.id === liderCasalId)?.name || ''}`}
+                    {users.find((u: any) => u.id === liderId)?.name || '—'}
+                    {liderCasalId && ` & ${users.find((u: any) => u.id === liderCasalId)?.name || ''}`}
                   </span>
                 )}
               </div>
@@ -377,7 +387,7 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
               {memberSearch.trim() && (
                 <ScrollArea className="h-40 w-full rounded-md border p-2">
                   <div className="space-y-1">
-                    {users.filter(u => u.id !== liderId && u.name?.toLowerCase().includes(memberSearch.toLowerCase())).slice(0, 10).map(user => (
+                    {users.filter((u: any) => u.id !== liderId && u.name?.toLowerCase().includes(memberSearch.toLowerCase())).slice(0, 10).map((user: any) => (
                       <div key={user.id} className="flex items-center gap-2 py-0.5">
                         <Checkbox id={`member-${user.id}`} checked={selectedMembers.includes(user.id)}
                           onCheckedChange={checked => setSelectedMembers(prev => checked ? [...prev, user.id] : prev.filter(id => id !== user.id))} />
@@ -407,7 +417,7 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
               {anfitriaoElegiveiIds.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {anfitriaoElegiveiIds.map(id => {
-                    const u = users.find(x => x.id === id);
+                    const u = users.find((x: any) => x.id === id);
                     return u ? (
                       <div key={id} className="flex items-center gap-1 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-full px-2 py-0.5 text-[11px] font-semibold">
                         {u.name}

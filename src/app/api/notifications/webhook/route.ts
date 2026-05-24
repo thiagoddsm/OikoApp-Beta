@@ -159,6 +159,7 @@ export async function POST(request: Request) {
     else if (msgContent.conversation || msgContent.extendedTextMessage?.text || data.text) {
         const messageText = msgContent.conversation || msgContent.extendedTextMessage?.text || data.text || '[Mídia]';
         const senderPushName = data.pushName || data.senderName || data.verifiedName || null;
+        responseType = 'text';
         
         await db.collection('notifications_messages').add({
           from: fromPhone,

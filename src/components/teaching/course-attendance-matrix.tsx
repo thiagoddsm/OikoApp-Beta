@@ -514,7 +514,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                                     const nativeRepo = attendanceRecord?.repositions?.find(r => r.studentId === student.id);
                                                     if (nativeRepo) {
                                                         isRepo = true;
-                                                        repoDateStr = nativeRepo.dateStr;
+                                                        repoDateStr = nativeRepo.date;
                                                     }
                                                     
                                                     // Verifica se houve uma aula extra de reposição para este módulo

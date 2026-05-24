@@ -63,7 +63,7 @@ export async function performDeepUserMigration(
     const oldData = oldSnap.data()!;
     const newData = newSnap.exists ? newSnap.data()! : {};
 
-    // 1. Mescla os dados principais do perfil
+    // 1. Mescla os dados principais do perfil (legado)
     const mergedData = {
       ...newData,
       ...oldData, 
@@ -75,8 +75,8 @@ export async function performDeepUserMigration(
       lastLoginAt: FieldValue.serverTimestamp(),
     };
 
-    delete mergedData.migratedToUid;
-    delete mergedData.migratedAt;
+    delete (mergedData as any).migratedToUid;
+    delete (mergedData as any).migratedAt;
 
     const operations: FirestoreOperation[] = [];
 
@@ -85,6 +85,112 @@ export async function performDeepUserMigration(
       data: mergedData,
       type: 'set',
     });
+
+    // --- NOVA ESTRUTURA SAAS MULTI-TENANT ---
+    const tenantId = oldData.tenantId || newData.tenantId || 'ibm';
+    const role = oldData.hierarchy?.role || newData.hierarchy?.role || 'member';
+
+    const userTenantData = {
+      tenantId: tenantId,
+      slug: tenantId,
+      role: role,
+      email: mergedData.email,
+      updatedAt: FieldValue.serverTimestamp()
+    };
+
+    const tenantUserData = {
+      email: mergedData.email,
+      role: role,
+      permissions: oldData.permissions || newData.permissions || [],
+      status: oldData.serviceStatus || newData.serviceStatus || 'active',
+      createdAt: oldData.createdAt || newData.createdAt || FieldValue.serverTimestamp(),
+      lastLoginAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
+    };
+
+    const fullName = mergedData.name.trim();
+    const nameParts = fullName.split(/\s+/);
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(' ') || '';
+
+    const memberData = {
+      id: authUid,
+      tenantId: tenantId,
+      basic: {
+        firstName: firstName,
+        lastName: lastName,
+        cpf: oldData.cpf || newData.cpf || '',
+        sexo: oldData.sexo || newData.sexo || '',
+        dataNascimento: oldData.dataNascimento || newData.dataNascimento || '',
+        avatar: oldData.avatar || newData.avatar || '',
+        photoURL: oldData.photoURL || newData.photoURL || '',
+      },
+      contact: {
+        phone: oldData.phone || newData.phone || '',
+        email: mergedData.email,
+        address: {
+          street: oldData.address?.street || newData.address?.street || '',
+          cep: oldData.address?.cep || newData.address?.cep || '',
+        }
+      },
+      ministerial: {
+        batizado: oldData.batizado || newData.batizado || 'nao',
+        igrejaBatismo: oldData.igrejaBatismo || newData.igrejaBatismo || '',
+        membroAntigo: oldData.membroAntigo || newData.membroAntigo || 'nao',
+        igrejaAntiga: oldData.igrejaAntiga || newData.igrejaAntiga || '',
+        decisao: oldData.decisao || newData.decisao || [],
+        dataDecisao: oldData.dataDecisao || newData.dataDecisao || '',
+        integrationStatus: oldData.integrationStatus || newData.integrationStatus || 'nao_alcancado',
+      },
+      services: {
+        eligibleEventIds: oldData.eligibleEventIds || newData.eligibleEventIds || [],
+        serviceAreaId: oldData.serviceAreaId || newData.serviceAreaId || '',
+        serviceTeamId: oldData.serviceTeamId || newData.serviceTeamId || '',
+        blockedDates: oldData.blockedDates || newData.blockedDates || [],
+        lastServedDate: oldData.lastServedDate || newData.lastServedDate || null,
+        serviceStatus: oldData.serviceStatus || newData.serviceStatus || 'not_serving',
+      },
+      family: {
+        familyMembers: oldData.familyMembers || newData.familyMembers || [],
+      },
+      journey: oldData.journey || newData.journey || {},
+      createdAt: oldData.createdAt || newData.createdAt || FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
+    };
+
+    operations.push({
+      ref: db.collection('userTenants').doc(authUid),
+      data: userTenantData,
+      type: 'set',
+      merge: true
+    });
+    operations.push({
+      ref: db.collection('tenants').doc(tenantId).collection('users').doc(authUid),
+      data: tenantUserData,
+      type: 'set',
+      merge: true
+    });
+    operations.push({
+      ref: db.collection('tenants').doc(tenantId).collection('members').doc(authUid),
+      data: memberData,
+      type: 'set',
+      merge: true
+    });
+
+    // Remove do novo tenant se o ID antigo estava lá
+    operations.push({
+      ref: db.collection('userTenants').doc(oldDocId),
+      type: 'delete'
+    });
+    operations.push({
+      ref: db.collection('tenants').doc(tenantId).collection('users').doc(oldDocId),
+      type: 'delete'
+    });
+    operations.push({
+      ref: db.collection('tenants').doc(tenantId).collection('members').doc(oldDocId),
+      type: 'delete'
+    });
+    // ----------------------------------------
 
     // 2. Migrar subcoleção de anotações
     const notesSnap = await oldRef.collection('notes').get();
@@ -217,26 +323,48 @@ export async function resolveUserProfile(params: {
   const { uid, email, displayName, provider } = params;
   try {
     const db = getAdminDb();
-    const userRef = db.collection('users').doc(uid);
-    const userSnap = await userRef.get();
 
-    if (userSnap.exists) {
-      await userRef.update({
+    // 1. Verificar indexador global de tenants
+    const userTenantRef = db.collection('userTenants').doc(uid);
+    const userTenantSnap = await userTenantRef.get();
+
+    if (userTenantSnap.exists) {
+      const tenantData = userTenantSnap.data()!;
+      const tenantId = tenantData.tenantId || 'ibm';
+
+      const batch = db.batch();
+      batch.update(userTenantRef, {
+        updatedAt: FieldValue.serverTimestamp(),
+        ...(email ? { email } : {})
+      });
+      
+      const tenantUserRef = db.collection('tenants').doc(tenantId).collection('users').doc(uid);
+      batch.set(tenantUserRef, {
+        lastLoginAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+        ...(email ? { email } : {})
+      }, { merge: true });
+
+      const legacyRef = db.collection('users').doc(uid);
+      batch.update(legacyRef, {
         lastLoginAt: FieldValue.serverTimestamp(),
         ...(email ? { email } : {}),
-        ...(displayName ? { name: displayName } : {}),
+        ...(displayName ? { name: displayName } : {})
       });
+
+      await batch.commit();
       return { action: 'existing' };
     }
 
+    // 2. Se não existir no global, verificar se o e-mail bate com algum registro novo
     if (email) {
-      const byEmailSnap = await db.collection('users').where('email', '==', email).limit(1).get();
-      if (!byEmailSnap.empty) {
-        const oldDoc = byEmailSnap.docs[0];
+      const byTenantEmailSnap = await db.collection('userTenants').where('email', '==', email).limit(1).get();
+      if (!byTenantEmailSnap.empty) {
+        const oldDoc = byTenantEmailSnap.docs[0];
         const oldDocId = oldDoc.id;
         if (oldDocId !== uid) {
           const migrationResult = await performDeepUserMigration(uid, oldDocId, {
-            email: email || undefined,
+            email: email,
             name: displayName || undefined
           });
           if (!migrationResult.success) throw new Error(migrationResult.message);
@@ -245,18 +373,187 @@ export async function resolveUserProfile(params: {
       }
     }
 
-    const usersCountSnap = await db.collection('users').limit(1).get();
+    // 3. Fallback legado: verificar se o e-mail bate com a coleção /users antiga
+    if (email) {
+      const byEmailSnap = await db.collection('users').where('email', '==', email).limit(1).get();
+      if (!byEmailSnap.empty) {
+        const oldDoc = byEmailSnap.docs[0];
+        const oldDocId = oldDoc.id;
+        if (oldDocId !== uid) {
+          const migrationResult = await performDeepUserMigration(uid, oldDocId, {
+            email: email,
+            name: displayName || undefined
+          });
+          if (!migrationResult.success) throw new Error(migrationResult.message);
+          return { action: 'linked', linkedFromDocId: oldDocId };
+        } else {
+          // O UID antigo já é igual ao UID atual. Vamos criar as novas tabelas a partir do users/{uid} legado
+          const legacyData = oldDoc.data()!;
+          const tenantId = legacyData.tenantId || 'ibm';
+          const role = legacyData.hierarchy?.role || 'member';
+
+          const userTenantData = {
+            tenantId: tenantId,
+            slug: tenantId,
+            role: role,
+            email: email,
+            updatedAt: FieldValue.serverTimestamp()
+          };
+
+          const tenantUserData = {
+            email: email,
+            role: role,
+            permissions: legacyData.permissions || [],
+            status: legacyData.serviceStatus || 'active',
+            createdAt: legacyData.createdAt || FieldValue.serverTimestamp(),
+            lastLoginAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp()
+          };
+
+          const fullName = (legacyData.name || displayName || 'Novo Usuário').trim();
+          const nameParts = fullName.split(/\s+/);
+          const firstName = nameParts[0];
+          const lastName = nameParts.slice(1).join(' ') || '';
+
+          const memberData = {
+            id: uid,
+            tenantId: tenantId,
+            basic: {
+              firstName: firstName,
+              lastName: lastName,
+              cpf: legacyData.cpf || '',
+              sexo: legacyData.sexo || '',
+              dataNascimento: legacyData.dataNascimento || '',
+              avatar: legacyData.avatar || '',
+              photoURL: legacyData.photoURL || '',
+            },
+            contact: {
+              phone: legacyData.phone || '',
+              email: email,
+              address: {
+                street: legacyData.address?.street || '',
+                cep: legacyData.address?.cep || '',
+              }
+            },
+            ministerial: {
+              batizado: legacyData.batizado || 'nao',
+              igrejaBatismo: legacyData.igrejaBatismo || '',
+              membroAntigo: legacyData.membroAntigo || 'nao',
+              igrejaAntiga: legacyData.igrejaAntiga || '',
+              decisao: legacyData.decisao || [],
+              dataDecisao: legacyData.dataDecisao || '',
+              integrationStatus: legacyData.integrationStatus || 'nao_alcancado',
+            },
+            services: {
+              eligibleEventIds: legacyData.eligibleEventIds || [],
+              serviceAreaId: legacyData.serviceAreaId || '',
+              serviceTeamId: legacyData.serviceTeamId || '',
+              blockedDates: legacyData.blockedDates || [],
+              lastServedDate: legacyData.lastServedDate || null,
+              serviceStatus: legacyData.serviceStatus || 'not_serving',
+            },
+            family: {
+              familyMembers: legacyData.familyMembers || [],
+            },
+            journey: legacyData.journey || {},
+            createdAt: legacyData.createdAt || FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp()
+          };
+
+          const batch = db.batch();
+          batch.set(db.collection('userTenants').doc(uid), userTenantData, { merge: true });
+          batch.set(db.collection('tenants').doc(tenantId).collection('users').doc(uid), tenantUserData, { merge: true });
+          batch.set(db.collection('tenants').doc(tenantId).collection('members').doc(uid), memberData, { merge: true });
+          batch.update(db.collection('users').doc(uid), {
+            lastLoginAt: FieldValue.serverTimestamp(),
+            email: email,
+            ...(displayName ? { name: displayName } : {})
+          });
+          await batch.commit();
+
+          return { action: 'existing' };
+        }
+      }
+    }
+
+    // 4. Se não existir em nenhum lugar, é um novo registro
+    const usersCountSnap = await db.collection('userTenants').limit(1).get();
     const isFirstUser = usersCountSnap.empty;
-    await userRef.set({
+    const role = isFirstUser ? 'admin' : 'member';
+    const tenantId = 'ibm';
+
+    const userTenantData = {
+      tenantId: tenantId,
+      slug: tenantId,
+      role: role,
+      email: email || '',
+      updatedAt: FieldValue.serverTimestamp()
+    };
+
+    const tenantUserData = {
+      email: email || '',
+      role: role,
+      permissions: [],
+      status: 'active',
+      createdAt: FieldValue.serverTimestamp(),
+      lastLoginAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
+    };
+
+    const fullName = (displayName || 'Novo Usuário').trim();
+    const nameParts = fullName.split(/\s+/);
+    const firstName = nameParts[0];
+    const lastName = nameParts.slice(1).join(' ') || '';
+
+    const memberData = {
+      id: uid,
+      tenantId: tenantId,
+      basic: {
+        firstName: firstName,
+        lastName: lastName,
+        cpf: '',
+        sexo: '',
+        dataNascimento: '',
+        avatar: '',
+        photoURL: '',
+      },
+      contact: {
+        phone: '',
+        email: email || ''
+      },
+      ministerial: {
+        batizado: 'nao',
+        integrationStatus: 'nao_alcancado',
+      },
+      services: {
+        serviceStatus: 'not_serving',
+      },
+      family: {
+        familyMembers: [],
+      },
+      journey: {},
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
+    };
+
+    const legacyUserData = {
       name: displayName || 'Novo Usuário',
       email: email || '',
       phone: '',
-      hierarchy: { role: isFirstUser ? 'admin' : '' },
+      hierarchy: { role: role },
       integrationStatus: 'nao_alcancado',
       authUid: uid,
       createdAt: FieldValue.serverTimestamp(),
       lastLoginAt: FieldValue.serverTimestamp(),
-    });
+    };
+
+    const batch = db.batch();
+    batch.set(db.collection('userTenants').doc(uid), userTenantData);
+    batch.set(db.collection('tenants').doc(tenantId).collection('users').doc(uid), tenantUserData);
+    batch.set(db.collection('tenants').doc(tenantId).collection('members').doc(uid), memberData);
+    batch.set(db.collection('users').doc(uid), legacyUserData);
+
+    await batch.commit();
     return { action: 'created' };
   } catch (error: any) {
     console.error('[resolveUserProfile] Erro:', error);

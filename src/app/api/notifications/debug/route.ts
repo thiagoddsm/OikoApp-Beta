@@ -76,7 +76,7 @@ export async function GET() {
             logs,
             history,
             analysis: {
-                responseBroadcastIds: responses.map(r => ({ from: r.from, broadcastId: (r as any).broadcastId, type: (r as any).type, stanzaId: (r as any).stanzaId })),
+                responseBroadcastIds: responses.map(r => ({ from: (r as any).from, broadcastId: (r as any).broadcastId, type: (r as any).type, stanzaId: (r as any).stanzaId })),
                 sentMessageRecipients: sentMessages.map(s => ({ messageId: (s as any).messageId, recipient: (s as any).recipient, broadcastId: (s as any).broadcastId })),
             }
         }, { status: 200 });

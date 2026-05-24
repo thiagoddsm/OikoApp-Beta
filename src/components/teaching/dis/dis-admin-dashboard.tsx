@@ -249,7 +249,7 @@ export function DisAdminDashboard() {
             open={isClassFormOpen} 
             onOpenChange={setClassFormOpen} 
             courseId={primaryDisCourseId} 
-            existingClass={null} 
+            existingClass={undefined} 
         />
       )}
     </div>

@@ -17,7 +17,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Trash2, Pencil } from 'lucide-react';
 
-function ConfirmationModal({ open, onOpenChange, onConfirm }) {
+interface ConfirmationModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onConfirm: () => void;
+}
+
+function ConfirmationModal({ open, onOpenChange, onConfirm }: ConfirmationModalProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -36,7 +42,13 @@ function ConfirmationModal({ open, onOpenChange, onConfirm }) {
   );
 }
 
-export function RecordsList({ registros, loading, onEdit }) {
+interface RecordsListProps {
+  registros: any[];
+  loading: boolean;
+  onEdit: (registro: any) => void;
+}
+
+export function RecordsList({ registros, loading, onEdit }: RecordsListProps) {
   const { firestore } = useFirebase();
   const [modalOpen, setModalOpen] = useState(false);
   const [idToDelete, setIdToDelete] = useState<string | null>(null);
