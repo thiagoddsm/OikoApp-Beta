@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { FirebaseClientProvider } from '@/firebase';
 import Script from 'next/script';
 import { firebaseConfig } from '@/firebase/config';
+import { PWARegister } from '@/components/pwa-register';
 
 const manrope = Manrope({
   subsets: ['latin'],
@@ -54,6 +55,7 @@ export default function RootLayout({
           {children}
         </FirebaseClientProvider>
         <Toaster />
+        <PWARegister />
       </body>
     </html>
   );
