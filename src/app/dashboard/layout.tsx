@@ -145,6 +145,7 @@ const menuItems = [
 
 const settingsMenuItems = [
     { href: "/dashboard/settings", label: "Geral", icon: Settings, permissionId: 'settings' },
+    { href: "/dashboard/settings/churches", label: "Minha Igreja", icon: Church, permissionId: 'settings' },
     { href: "/dashboard/settings/notifications", label: "Notificações", icon: Send, permissionId: 'settings' },
 ];
 
