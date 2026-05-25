@@ -3,6 +3,7 @@
 import React, { createContext, useContext, ReactNode, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase, useDoc, updateDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
 import { collection, query, doc, addDoc, Timestamp, writeBatch, limit } from 'firebase/firestore';
+import { parseISO, format, addWeeks, addMonths } from 'date-fns';
 
 export interface Course {
   id: string;
@@ -352,64 +353,132 @@ export function TeachingProvider({ children }: { children: ReactNode }) {
     updateEnrollmentRequest: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id), data); },
     deleteEnrollmentRequest: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id)); },
     markAttendanceByTheoflix: async (userId: string, theoflixCourseId: string, episodeIndex: number, lessonNotes?: string) => {
-      const linkedCourses = (courses || []).filter(c => 
-         c.id === theoflixCourseId || 
-         c.linkedTheoflixId === theoflixCourseId || 
-         c.syllabus?.some((s: any) => s.theoflixCourseId === theoflixCourseId)
+      const episodeKey = episodeIndex.toString();
+
+      // Helper: project the class schedule to find which calendar date corresponds to a given syllabus index
+      const projectLessonDate = (cls: Class, syllabusIndex: number): string | null => {
+        if (!cls.startDate) return null;
+
+        const overrides = cls.scheduleOverrides || {};
+        const holidaySet = new Set(cls.holidayDates || []);
+        const start = parseISO(cls.startDate);
+        const end = cls.endDate ? parseISO(cls.endDate) : addMonths(start, 6);
+
+        // First check extra sessions for this specific syllabus module
+        const syllabusId = (courses || []).find(c => c.id === cls.courseId)?.syllabus?.[syllabusIndex]?.id;
+        if (syllabusId) {
+          const extra = (cls.extraSessions || []).find(s => s.syllabusId === syllabusId);
+          if (extra) return extra.date;
+        }
+
+        // Check schedule overrides for a date that points to this syllabus item
+        if (syllabusId) {
+          const overrideEntry = Object.entries(overrides).find(([, ov]: [string, any]) => ov.syllabusId === syllabusId && !ov.isCancelled);
+          if (overrideEntry) return overrideEntry[0];
+        }
+
+        // Walk the weekly schedule to find the nth valid lesson date
+        if (cls.frequency && cls.frequency !== 'pontual') {
+          let current = start;
+          let currentIndex = 0;
+          let safe = 0;
+          while (safe++ < 300) {
+            if (current > end) break;
+            const dStr = format(current, 'yyyy-MM-dd');
+            const ov = overrides[dStr];
+
+            // Skip holidays without override
+            if (holidaySet.has(dStr) && !ov) {
+              current = addWeeks(current, cls.frequency === 'quinzenal' ? 2 : 1);
+              continue;
+            }
+            // Skip cancelled sessions
+            if (ov?.isCancelled) {
+              current = addWeeks(current, cls.frequency === 'quinzenal' ? 2 : 1);
+              continue;
+            }
+
+            // If this date has an override pointing to a different syllabus, adjust expected index
+            const effectiveIndex = ov?.syllabusId
+              ? (courses || []).find(c => c.id === cls.courseId)?.syllabus?.findIndex((s: any) => s.id === ov.syllabusId) ?? currentIndex
+              : currentIndex;
+
+            if (effectiveIndex === syllabusIndex) return dStr;
+
+            currentIndex++;
+            current = addWeeks(current, cls.frequency === 'quinzenal' ? 2 : 1);
+          }
+        } else {
+          // Pontual: only first session
+          return syllabusIndex === 0 ? format(start, 'yyyy-MM-dd') : null;
+        }
+
+        return null;
+      };
+
+      const linkedCourses = (courses || []).filter(c =>
+        c.id === theoflixCourseId ||
+        c.linkedTheoflixId === theoflixCourseId ||
+        c.syllabus?.some((s: any) => s.theoflixCourseId === theoflixCourseId)
       );
       const linkedCourseIds = linkedCourses.map(c => c.id);
 
-      const relevantClasses = (classes || []).filter(c => 
-         linkedCourseIds.includes(c.courseId) && c.students?.includes(userId)
+      const relevantClasses = (classes || []).filter(c =>
+        linkedCourseIds.includes(c.courseId) && c.students?.includes(userId)
       );
 
       for (const cls of relevantClasses) {
         const physicalCourse = linkedCourses.find(c => c.id === cls.courseId);
-        const syllabus = physicalCourse?.syllabus || [];
-        
-        let lessonIndex = syllabus.findIndex((s: any) => s.theoflixCourseId === theoflixCourseId);
-        if (lessonIndex === -1 && physicalCourse?.id === theoflixCourseId) {
+        const syllabus: any[] = physicalCourse?.syllabus || [];
+
+        // Find the correct syllabus module: the one that lists this episode index in theoflixRequiredVideoIds
+        let lessonIndex = syllabus.findIndex((s: any) =>
+          s.theoflixCourseId === theoflixCourseId &&
+          Array.isArray(s.theoflixRequiredVideoIds) &&
+          s.theoflixRequiredVideoIds.includes(episodeKey)
+        );
+
+        // Fallback: if no specific mapping, use episode index directly (for direct-ID linked courses)
+        if (lessonIndex === -1 && (physicalCourse?.id === theoflixCourseId || physicalCourse?.linkedTheoflixId === theoflixCourseId)) {
           lessonIndex = episodeIndex;
         }
 
-        if (lessonIndex !== -1) {
-          const classRef = doc(firestore!, 'classes', cls.id);
-          const attendance = cls.attendance || [];
-          
-          let lessonDate = cls.startDate;
-          if (cls.extraSessions && cls.extraSessions.length > 0) {
-            const matchedSession = cls.extraSessions.find((s: any) => s.syllabusId === syllabus[lessonIndex]?.id);
-            if (matchedSession) lessonDate = matchedSession.date;
-          }
+        if (lessonIndex === -1) continue;
 
-          const existingRecordIndex = attendance.findIndex((r: any) => r.date === lessonDate);
-          const newAttendance = [...attendance];
+        // Project the calendar date for this lesson index
+        const lessonDate = projectLessonDate(cls, lessonIndex);
+        if (!lessonDate) continue;
 
-          if (existingRecordIndex !== -1) {
-            const record = newAttendance[existingRecordIndex];
-            const present = record.presentStudentIds || [];
-            if (!present.includes(userId)) {
-              newAttendance[existingRecordIndex] = {
-                ...record,
-                presentStudentIds: [...present, userId],
-                lessonNotes: {
-                  ...(record.lessonNotes || {}),
-                  [userId]: lessonNotes || 'Presença computada via Theoflix'
-                }
-              };
-            }
-          } else {
-            newAttendance.push({
-              date: lessonDate,
-              presentStudentIds: [userId],
+        const classRef = doc(firestore!, 'classes', cls.id);
+        const attendance = cls.attendance || [];
+        const existingRecordIndex = attendance.findIndex((r: any) => r.date === lessonDate);
+        const newAttendance = [...attendance];
+
+        if (existingRecordIndex !== -1) {
+          const record = newAttendance[existingRecordIndex];
+          const online = record.onlineStudentIds || [];
+          if (!online.includes(userId)) {
+            newAttendance[existingRecordIndex] = {
+              ...record,
+              onlineStudentIds: [...online, userId],
               lessonNotes: {
-                [userId]: lessonNotes || 'Presença computada via Theoflix'
+                ...(record.lessonNotes || {}),
+                [userId]: lessonNotes || 'Presença computada via TheoFlix'
               }
-            });
+            };
           }
-
-          await updateDocumentNonBlocking(classRef, { attendance: newAttendance });
+        } else {
+          newAttendance.push({
+            date: lessonDate,
+            presentStudentIds: [],
+            onlineStudentIds: [userId],
+            lessonNotes: {
+              [userId]: lessonNotes || 'Presença computada via TheoFlix'
+            }
+          });
         }
+
+        await updateDocumentNonBlocking(classRef, { attendance: newAttendance });
       }
     }
   }), [firestore, courses, classes, enrollmentRequests, tenantId]);
