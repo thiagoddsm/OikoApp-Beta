@@ -472,7 +472,7 @@ export default function ImportDataPage() {
                         serviceAreaId: record.serviceAreaName ? areaMap.get(record.serviceAreaName.toLowerCase()) || '' : '',
                         serviceTeamId: record.serviceTeamName ? teamMap.get(record.serviceTeamName.toLowerCase()) || '' : '',
                         hierarchy: {
-                            role: record.role || record.Cargo || 'member',
+                            role: record.role || record.Cargo || 'aluno',
                             celulaId: celulaId,
                             supervisorId: supervisorId,
                         },
@@ -767,7 +767,7 @@ export default function ImportDataPage() {
                             profession: cleanProfissao || null,
                         },
                         hierarchy: {
-                            role: record.role || record.Cargo || 'member',
+                            role: record.role || record.Cargo || 'aluno',
                             celulaId: celulaId,
                             supervisorId: supervisorId,
                         },

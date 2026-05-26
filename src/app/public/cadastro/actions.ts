@@ -153,7 +153,7 @@ export async function savePublicRegistration(data: {
             tags: oldData.tags || [],
             integrationStatus: oldData.integrationStatus || 'novo_convertido',
             serviceStatus: oldData.serviceStatus || 'not_serving',
-            hierarchy: oldData.hierarchy || { role: 'member', celulaId: '', supervisorId: '' },
+            hierarchy: oldData.hierarchy || { role: 'aluno', celulaId: '', supervisorId: '' },
             createdAt: oldData.createdAt || Timestamp.now()
         };
 
@@ -165,7 +165,7 @@ export async function savePublicRegistration(data: {
         userData.integrationStatus = 'novo_convertido';
         userData.serviceStatus = 'not_serving';
         userData.hierarchy = {
-            role: 'member',
+            role: 'aluno',
             celulaId: '',
             supervisorId: ''
         };

@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Loader2, Plus, Search, Trash2, Wand2, Tag, FilterX, X } from 'lucide-react';
+import { Loader2, Plus, Search, Trash2, Wand2, Tag, FilterX, X, Users, Briefcase, Compass } from 'lucide-react';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { EditUserDialog } from '@/components/users/edit-user-dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -56,6 +56,9 @@ export function PeopleTable() {
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedTag, setSelectedTag] = useState<string>('all');
+    const [selectedGcFilter, setSelectedGcFilter] = useState<string>('all');
+    const [selectedServiceFilter, setSelectedServiceFilter] = useState<string>('all');
+    const [selectedJourneyFilter, setSelectedJourneyFilter] = useState<string>('all');
     const [isFormOpen, setFormOpen] = useState(false);
     const [isMergeOpen, setIsMergeOpen] = useState(false);
     const [userToDelete, setUserToDelete] = useState<User | null>(null);
@@ -94,15 +97,33 @@ export function PeopleTable() {
             const matchesSearch = name.includes(term) || email.includes(term) || phone.includes(term);
             const matchesTag = selectedTag === 'all' || user.tags?.includes(selectedTag);
             
-            return matchesSearch && matchesTag;
+            // GC Filter
+            let matchesGc = true;
+            const hasGc = !!(user.hierarchy?.celulaId);
+            if (selectedGcFilter === 'with_gc') matchesGc = hasGc;
+            else if (selectedGcFilter === 'without_gc') matchesGc = !hasGc;
+            
+            // Service Filter
+            let matchesService = true;
+            const hasService = !!(user.serviceAreaId || user.serviceStatus === 'serving');
+            if (selectedServiceFilter === 'with_service') matchesService = hasService;
+            else if (selectedServiceFilter === 'without_service') matchesService = !hasService;
+            
+            // Journey Filter
+            let matchesJourney = true;
+            if (selectedJourneyFilter !== 'all') {
+                matchesJourney = (user.integrationStatus || 'nao_alcancado') === selectedJourneyFilter;
+            }
+            
+            return matchesSearch && matchesTag && matchesGc && matchesService && matchesJourney;
         });
 
         return [...filtered].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
-    }, [users, searchTerm, selectedTag]);
+    }, [users, searchTerm, selectedTag, selectedGcFilter, selectedServiceFilter, selectedJourneyFilter]);
 
     React.useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, selectedTag]);
+    }, [searchTerm, selectedTag, selectedGcFilter, selectedServiceFilter, selectedJourneyFilter]);
 
     const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
     const paginatedUsers = useMemo(() => {
@@ -128,7 +149,7 @@ export function PeopleTable() {
         return <div className="flex h-full items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
     }
 
-    const hasActiveFilters = searchTerm !== '' || selectedTag !== 'all';
+    const hasActiveFilters = searchTerm !== '' || selectedTag !== 'all' || selectedGcFilter !== 'all' || selectedServiceFilter !== 'all' || selectedJourneyFilter !== 'all';
     
     return (
          <Card className="border-none shadow-none bg-transparent">
@@ -147,8 +168,8 @@ export function PeopleTable() {
                 </div>
             </CardHeader>
 
-            <div className="flex flex-col md:flex-row items-center gap-3 bg-white p-3 rounded-xl border shadow-sm mb-6">
-                <div className="relative flex-1 w-full">
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 bg-white p-3 rounded-xl border shadow-sm mb-6 w-full flex-wrap">
+                <div className="relative flex-1 min-w-[200px]">
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
                         placeholder="Buscar por nome, email ou fone..."
@@ -158,31 +179,86 @@ export function PeopleTable() {
                     />
                 </div>
 
-                <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border w-full md:w-auto">
-                    <Tag className="size-3 text-muted-foreground ml-2" />
-                    <Select value={selectedTag} onValueChange={setSelectedTag}>
-                        <SelectTrigger className="h-8 border-none shadow-none bg-transparent w-full md:w-40 text-xs font-bold focus:ring-0">
-                            <SelectValue placeholder="Tags" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Todas as Tags</SelectItem>
-                            {availableTags.map(tag => (
-                                <SelectItem key={tag} value={tag}>{tag}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                    {/* Tags Filter */}
+                    <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border">
+                        <Tag className="size-3 text-muted-foreground ml-2" />
+                        <Select value={selectedTag} onValueChange={setSelectedTag}>
+                            <SelectTrigger className="h-8 border-none shadow-none bg-transparent w-[140px] text-xs font-bold focus:ring-0">
+                                <SelectValue placeholder="Tags" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todas as Tags</SelectItem>
+                                {availableTags.map(tag => (
+                                    <SelectItem key={tag} value={tag}>{tag}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
 
-                {hasActiveFilters && (
-                    <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => { setSearchTerm(''); setSelectedTag('all'); }} 
-                        className="text-muted-foreground hover:text-destructive shrink-0 h-9"
-                    >
-                        <FilterX className="size-4 mr-2" /> Limpar
-                    </Button>
-                )}
+                    {/* GC Filter */}
+                    <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border">
+                        <Users className="size-3 text-muted-foreground ml-2" />
+                        <Select value={selectedGcFilter} onValueChange={setSelectedGcFilter}>
+                            <SelectTrigger className="h-8 border-none shadow-none bg-transparent w-[140px] text-xs font-bold focus:ring-0">
+                                <SelectValue placeholder="Filtro GC" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todos os GCs</SelectItem>
+                                <SelectItem value="with_gc">Em GC</SelectItem>
+                                <SelectItem value="without_gc">Sem GC</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {/* Service Area Filter */}
+                    <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border">
+                        <Briefcase className="size-3 text-muted-foreground ml-2" />
+                        <Select value={selectedServiceFilter} onValueChange={setSelectedServiceFilter}>
+                            <SelectTrigger className="h-8 border-none shadow-none bg-transparent w-[150px] text-xs font-bold focus:ring-0">
+                                <SelectValue placeholder="Área de Serviço" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Serviço: Todos</SelectItem>
+                                <SelectItem value="with_service">Serve em Área</SelectItem>
+                                <SelectItem value="without_service">Não Serve em Área</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {/* Journey/Integration Status Filter */}
+                    <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg border">
+                        <Compass className="size-3 text-muted-foreground ml-2" />
+                        <Select value={selectedJourneyFilter} onValueChange={setSelectedJourneyFilter}>
+                            <SelectTrigger className="h-8 border-none shadow-none bg-transparent w-[160px] text-xs font-bold focus:ring-0">
+                                <SelectValue placeholder="Jornada" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todas as Jornadas</SelectItem>
+                                {Object.entries(journeyStatusLabels).map(([key, label]) => (
+                                    <SelectItem key={key} value={key}>{label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {hasActiveFilters && (
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => { 
+                                setSearchTerm(''); 
+                                setSelectedTag('all'); 
+                                setSelectedGcFilter('all'); 
+                                setSelectedServiceFilter('all'); 
+                                setSelectedJourneyFilter('all'); 
+                            }} 
+                            className="text-muted-foreground hover:text-destructive shrink-0 h-9"
+                        >
+                            <FilterX className="size-4 mr-2" /> Limpar
+                        </Button>
+                    )}
+                </div>
             </div>
 
             <CardContent className="px-0">
