@@ -28,6 +28,8 @@ type UserType = {
   contacts?: { cellPhone?: string; phone?: string };
   churchData?: { baptismDate?: any; membershipRoll?: string };
   status?: string;
+  batizado?: string;
+  dataBatismo?: string;
 };
 type Cell = {
   id: string; nome: string; liderId: string; supervisorId?: string;
@@ -37,6 +39,7 @@ type Cell = {
   address?: { street?: string };
   cellRoles?: Record<string, string>;
   visitors?: Visitor[];
+  multiplicationDate?: string;
 };
 type Area = { id: string; nome: string; liderId: string; redeId: string };
 type Rede = { id: string; nome: string };
@@ -207,7 +210,7 @@ export default function CellDetailPage() {
     </div>
   );
 
-  const baptizedCount = members.filter(u => u.churchData?.baptismDate).length;
+  const baptizedCount = members.filter(u => u.batizado === 'sim' || u.dataBatismo || u.churchData?.baptismDate).length;
   const leader = userMap.get(cell.liderId);
   const coLeaders = (cell.coLiderIds || []).map(id => userMap.get(id)).filter(Boolean) as UserType[];
   const anfitriao = cell.anfitriaoId ? userMap.get(cell.anfitriaoId) : null;
@@ -284,7 +287,7 @@ export default function CellDetailPage() {
                   <p className="text-center text-sm text-muted-foreground py-10 italic">Nenhum membro cadastrado.</p>
                 )}
                 {members.map(user => {
-                  const isBaptized = !!user.churchData?.baptismDate;
+                  const isBaptized = user.batizado === 'sim' || !!user.dataBatismo || !!user.churchData?.baptismDate;
                   const isLeader = user.id === cell.liderId;
                   const role = isLeader ? 'leader' : (cell.cellRoles?.[user.id] || 'member');
                   const roleCfg = ROLES[role] || ROLES.member;
@@ -317,7 +320,7 @@ export default function CellDetailPage() {
                         {cell.anfitriaoId === user.id && (
                           <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-200 font-bold">Anfitrião</Badge>
                         )}
-                        {!!user.churchData?.baptismDate ? (
+                        {isBaptized ? (
                           <Badge variant="outline" className="text-[10px] border-sky-200 bg-sky-50 text-sky-700 font-bold">
                             <Droplets className="h-2.5 w-2.5 mr-1" />Batizado
                           </Badge>
@@ -525,6 +528,7 @@ export default function CellDetailPage() {
                   { icon: MapPin, label: 'Endereço', value: cell.address?.street },
                   { icon: Calendar, label: 'Dia da Reunião', value: cell.meetingDay },
                   { icon: Clock, label: 'Horário', value: cell.meetingTime },
+                  { icon: Calendar, label: 'Futura Multiplicação', value: cell.multiplicationDate ? format(new Date(cell.multiplicationDate + 'T00:00:00'), 'dd/MM/yyyy') : 'Não definida' },
                 ].map(({ icon: Icon, label, value }) => (
                   <div key={label} className="flex items-start gap-3">
                     <Icon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
@@ -597,7 +601,7 @@ export default function CellDetailPage() {
                   <AvatarFallback className="text-xs font-bold">{u.name?.charAt(0)}</AvatarFallback>
                 </Avatar>
                 <span className="font-medium text-sm">{u.name}</span>
-                {u.churchData?.baptismDate && <Droplets className="h-3.5 w-3.5 text-sky-500 ml-auto" />}
+                {(u.batizado === 'sim' || u.dataBatismo || u.churchData?.baptismDate) && <Droplets className="h-3.5 w-3.5 text-sky-500 ml-auto" />}
               </button>
             ))}
           </div>

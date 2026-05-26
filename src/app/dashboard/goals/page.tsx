@@ -49,15 +49,17 @@ export default function GoalsPage() {
     const cultosQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'registros_de_presenca')) : null, [firestore]);
     const reportsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'attendance_reports')) : null, [firestore]);
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
+    const coursesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
 
     const { data: goals, isLoading: isLoadingGoals } = useCollection<Goal>(goalsQuery);
     const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>(cellsQuery);
     const { data: cultos, isLoading: isLoadingCultos } = useCollection<CultoRegistro>(cultosQuery);
     const { data: reports, isLoading: isLoadingReports } = useCollection<Report>(reportsQuery);
     const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
+    const { data: courses, isLoading: isLoadingCourses } = useCollection<any>(coursesQuery);
     
     const currentYear = new Date().getFullYear();
-    const isLoading = isLoadingGoals || isLoadingCells || isLoadingCultos || isLoadingReports || isLoadingUsers;
+    const isLoading = isLoadingGoals || isLoadingCells || isLoadingCultos || isLoadingReports || isLoadingUsers || isLoadingCourses;
 
     const kpiData = useMemo(() => {
         const getMonthlyData = (collection: any[] | null, dateField: string) => {
@@ -86,32 +88,117 @@ export default function GoalsPage() {
             return monthly;
         };
         
-        const monthlyAttendance = Array(12).fill(0);
-        const monthlyCounts = Array(12).fill(0);
+        const horarioToKpiKey: Record<string, string> = {
+            "Domingo - 07:30": "frequencia_culto_dom_0730",
+            "Domingo - 10:15": "frequencia_culto_dom_1015",
+            "Domingo - 17:30": "frequencia_culto_dom_1730",
+            "Domingo - 19:30": "frequencia_culto_dom_1930",
+            "Quinta - 20:00": "frequencia_culto_qui_2000",
+            "Evento": "frequencia_culto_evento"
+        };
+
+        const cultoMonthlyAttendance: Record<string, number[]> = {};
+        const cultoMonthlyCounts: Record<string, number[]> = {};
+
+        Object.values(horarioToKpiKey).forEach(key => {
+            cultoMonthlyAttendance[key] = Array(12).fill(0);
+            cultoMonthlyCounts[key] = Array(12).fill(0);
+        });
 
         cultos?.forEach(culto => {
             const date = culto.data instanceof Timestamp ? culto.data.toDate() : null;
             if (date && date.getFullYear() === currentYear) {
                 const month = date.getMonth();
-                monthlyAttendance[month] += (culto.adultos || 0) + (culto.criancas || 0);
-                monthlyCounts[month] += 1;
+                const key = horarioToKpiKey[culto.horario] || "frequencia_culto_evento";
+                
+                if (cultoMonthlyAttendance[key]) {
+                    cultoMonthlyAttendance[key][month] += (culto.adultos || 0) + (culto.criancas || 0);
+                    cultoMonthlyCounts[key][month] += 1;
+                }
             }
         });
 
-        const avgMonthlyAttendance = monthlyAttendance.map((total, i) => monthlyCounts[i] > 0 ? Math.round(total / monthlyCounts[i]) : 0);
+        const cultosKpis: Record<string, { actual: number; monthlyActuals: number[] }> = {};
         
-        const totalAverage = avgMonthlyAttendance.filter(v => v > 0);
-        const overallAvgAttendance = totalAverage.length > 0 ? Math.round(totalAverage.reduce((a, b) => a + b, 0) / totalAverage.length) : 0;
+        Object.values(horarioToKpiKey).forEach(key => {
+            const mAttendance = cultoMonthlyAttendance[key];
+            const mCounts = cultoMonthlyCounts[key];
+            
+            const avgMonthlyAttendance = mAttendance.map((total, i) => 
+                mCounts[i] > 0 ? Math.round(total / mCounts[i]) : 0
+            );
+            
+            const totalAverage = avgMonthlyAttendance.filter(v => v > 0);
+            const overallAvgAttendance = totalAverage.length > 0 
+                ? Math.round(totalAverage.reduce((a, b) => a + b, 0) / totalAverage.length) 
+                : 0;
+                
+            cultosKpis[key] = {
+                actual: overallAvgAttendance,
+                monthlyActuals: avgMonthlyAttendance
+            };
+        });
 
+        // Encontrar o curso de Batismo
+        const batismoCourse = courses?.find(c => c.name?.toLowerCase().includes('batismo'));
+        const batismoCourseId = batismoCourse?.id;
+
+        const baptizedUsers = users?.filter(u => {
+            const hasDirectBaptism = u.batizado === 'sim' || u.dataBatismo || u.churchData?.baptismDate;
+            const hasCourseApproval = batismoCourseId && u.journey?.courseStatus?.[batismoCourseId] === 'approved';
+            return hasDirectBaptism || hasCourseApproval;
+        }) || [];
+
+        // Distribuir batismos mensalmente baseado na data de batismo ou data de aprovação do curso (caso tenha)
+        const batismosMonthlyActuals = Array(12).fill(0);
+        baptizedUsers.forEach(u => {
+            let date: Date | null = null;
+            if (u.dataBatismo) {
+                try { date = new Date(u.dataBatismo); } catch {}
+            } else if (u.churchData?.baptismDate instanceof Timestamp) {
+                date = u.churchData.baptismDate.toDate();
+            } else if (batismoCourseId && u.journey?.courseApprovedAt?.[batismoCourseId]) {
+                const approvalVal = u.journey.courseApprovedAt[batismoCourseId];
+                if (approvalVal instanceof Timestamp) {
+                    date = approvalVal.toDate();
+                } else {
+                    try { date = new Date(approvalVal); } catch {}
+                }
+            } else if (u.createdAt instanceof Timestamp) {
+                date = u.createdAt.toDate();
+            }
+            
+            if (date && date.getFullYear() === currentYear) {
+                const month = date.getMonth();
+                batismosMonthlyActuals[month] += 1;
+            }
+        });
 
         return {
             'celulas': { actual: cells?.length || 0, monthlyActuals: getMonthlyData(cells, 'createdAt') },
-            'frequencia_culto': { actual: overallAvgAttendance, monthlyActuals: avgMonthlyAttendance },
+            ...cultosKpis,
             'conversoes': { actual: reports?.reduce((sum, r) => sum + (r.conversoes || 0), 0) || 0, monthlyActuals: getMonthlySum(reports, 'date', 'conversoes') },
-            'batismos': { actual: 0, monthlyActuals: Array(12).fill(0) }, // Placeholder
-            'novos_lideres': { actual: users?.filter(u => u.hierarchy?.role === 'lider_gc').length || 0, monthlyActuals: getMonthlyData(users, 'promotionDate') } // promotionDate should be added to user
+            'batismos': { actual: baptizedUsers.length, monthlyActuals: batismosMonthlyActuals },
+            'novos_lideres': { 
+                actual: users?.filter(u => {
+                    const status = u.integrationStatus;
+                    const role = u.hierarchy?.role;
+                    return (
+                        (status && ['lider_treinamento', 'lider_gc', 'lider_area', 'lider_rede', 'pastor'].includes(status)) ||
+                        (role && ['lider_treinamento', 'lider_gc', 'lider_area', 'lider_rede', 'pastor', 'pastor_senior', 'admin'].includes(role))
+                    );
+                }).length || 0, 
+                monthlyActuals: getMonthlyData(users?.filter(u => {
+                    const status = u.integrationStatus;
+                    const role = u.hierarchy?.role;
+                    return (
+                        (status && ['lider_treinamento', 'lider_gc', 'lider_area', 'lider_rede', 'pastor'].includes(status)) ||
+                        (role && ['lider_treinamento', 'lider_gc', 'lider_area', 'lider_rede', 'pastor', 'pastor_senior', 'admin'].includes(role))
+                    );
+                }) || null, 'promotionDate')
+            }
         };
-    }, [cells, cultos, reports, users, currentYear]);
+    }, [cells, cultos, reports, users, courses, currentYear]);
 
     if (isLoading) {
         return (

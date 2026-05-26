@@ -289,11 +289,11 @@ function MobileMenu({ pathname, permissions, userRole, onLinkClick, children }: 
         <SheetTitle className="sr-only">Menu</SheetTitle>
         <SheetDescription className="sr-only">Navegue pelas seções do painel.</SheetDescription>
         <SidebarHeader className="border-b border-slate-200">
-          <div className="flex items-center justify-center p-3 h-16">
+          <div className="flex items-center justify-start px-6 h-20 w-full">
             <img 
               src="https://firebasestorage.googleapis.com/v0/b/studio-1424813022-71754.firebasestorage.app/o/pwa%2FChatGPT%20Image%207%20de%20mai.%20de%202026%2C%2016_45_54.png?alt=media&token=c8100c94-fb27-4b1f-87b8-74bd1f8d3fe5" 
               alt="OikoApp Logo" 
-              className="h-10 w-auto object-contain" 
+              className="h-[60px] w-auto object-contain" 
             />
           </div>
         </SidebarHeader>
@@ -374,11 +374,11 @@ export default function DashboardLayout({
           {/* --- Desktop Sidebar --- */}
           <aside className="hidden lg:flex lg:flex-col lg:w-72 lg:border-r lg:border-slate-200 bg-white">
             <SidebarHeader className="border-b border-slate-200">
-              <div className="flex items-center justify-center p-3 h-16">
+              <div className="flex items-center justify-start px-6 h-20 w-full">
                 <img 
                   src="https://firebasestorage.googleapis.com/v0/b/studio-1424813022-71754.firebasestorage.app/o/pwa%2FChatGPT%20Image%207%20de%20mai.%20de%202026%2C%2016_45_54.png?alt=media&token=c8100c94-fb27-4b1f-87b8-74bd1f8d3fe5" 
                   alt="OikoApp Logo" 
-                  className="h-10 w-auto object-contain" 
+                  className="h-[60px] w-auto object-contain" 
                 />
               </div>
             </SidebarHeader>

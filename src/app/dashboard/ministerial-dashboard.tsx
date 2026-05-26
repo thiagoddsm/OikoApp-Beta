@@ -6,18 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query } from 'firebase/firestore';
+import { collection, query, Timestamp } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 
-type User = { id: string; name: string; avatar?: string; integrationStatus?: string; absenceCount?: number; };
+type User = { id: string; name: string; avatar?: string; integrationStatus?: string; absenceCount?: number; createdAt?: any; };
 type CultoRegistro = { id: string; adultos: number; criancas?: number; data: any; };
-
-const kpiChartData1 = [{ v: 8 }, { v: 12 }, { v: 10 }, { v: 15 }, { v: 14 }, { v: 18 }];
-const kpiChartData2 = [{ v: 10 }, { v: 10 }, { v: 14 }, { v: 16 }, { v: 12 }, { v: 15 }];
-const mainChartData = [
-  { month: 'Jan', value: 690 }, { month: 'Fev', value: 720 }, { month: 'Mar', value: 810 },
-  { month: 'Abr', value: 750 }, { month: 'Mai', value: 850 }, { month: 'Jun', value: 980 }, { month: 'Jul', value: 1050 },
-];
+type Cell = { id: string; nome: string; };
 
 const KpiCard = ({ title, value, percentage, icon: Icon, children, up }: any) => (
     <Card className="bg-white border-none shadow-sm rounded-2xl hover:shadow-lg transition-shadow duration-300">
@@ -55,7 +49,7 @@ const SimpleKpiCard = ({ title, value, icon: Icon, footer, link }: any) => (
     </Card>
 )
 
-const PresenceChart = () => (
+const PresenceChart = ({ data }: { data: any[] }) => (
     <Card className="bg-white border-none shadow-sm rounded-2xl col-span-1 lg:col-span-2">
         <CardHeader>
             <div className="flex justify-between items-center">
@@ -65,13 +59,13 @@ const PresenceChart = () => (
                 </div>
                 <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-full">
                      <Button size="sm" variant="ghost" className="bg-white shadow rounded-full font-bold text-indigo-600 hover:bg-white">Mês</Button>
-                     <Button size="sm" variant="ghost" className="rounded-full font-medium text-slate-500 hover:bg-slate-200">Semana</Button>
+                     <Button size="sm" variant="ghost" className="rounded-full font-medium text-slate-500 hover:bg-slate-200" disabled>Semana</Button>
                 </div>
             </div>
         </CardHeader>
         <CardContent className="h-[350px] w-full p-2">
             <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={mainChartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <AreaChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                     <defs>
                         <linearGradient id="mainChartFill" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.2}/>
@@ -143,19 +137,106 @@ export function MinisterialDashboard() {
 
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
     const registrosPresencaQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'registros_de_presenca')) : null, [firestore]);
+    const cellsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells')) : null, [firestore]);
 
     const { data: users, isLoading: loadingUsers } = useCollection<User>(usersQuery);
     const { data: allRegistrosPresenca, isLoading: loadingRegistros } = useCollection<CultoRegistro>(registrosPresencaQuery);
+    const { data: cells, isLoading: loadingCells } = useCollection<Cell>(cellsQuery);
 
-    const isLoading = loadingUsers || loadingRegistros;
+    const isLoading = loadingUsers || loadingRegistros || loadingCells;
+    const currentYear = new Date().getFullYear();
+    const monthsShort = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
     const kpiData = useMemo(() => {
-        const totalMembers = 1284;
-        const newVisitors = 46;
-        const avgAttendance = 842;
-        const activeGroups = 52;
+        const totalMembers = users?.length || 0;
+        
+        const totalAttendanceSum = allRegistrosPresenca?.reduce((sum, c) => sum + (c.adultos || 0) + (c.criancas || 0), 0) || 0;
+        const avgAttendance = allRegistrosPresenca && allRegistrosPresenca.length > 0 
+            ? Math.round(totalAttendanceSum / allRegistrosPresenca.length) 
+            : 0;
+
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const newVisitors = users?.filter(u => {
+            const createdAtDate = u.createdAt instanceof Timestamp 
+                ? u.createdAt.toDate() 
+                : u.createdAt?.seconds 
+                    ? new Date(u.createdAt.seconds * 1000) 
+                    : null;
+            return (
+                u.integrationStatus === 'nao_alcancado' || 
+                u.integrationStatus === 'novo_convertido' ||
+                (createdAtDate && createdAtDate >= thirtyDaysAgo)
+            );
+        }).length || 0;
+
+        const activeGroups = cells?.length || 0;
+
         return { totalMembers, newVisitors, avgAttendance, activeGroups };
-    }, []);
+    }, [users, allRegistrosPresenca, cells]);
+
+    const chartData = useMemo(() => {
+        const monthlySum = Array(12).fill(0);
+        const monthlyCount = Array(12).fill(0);
+
+        allRegistrosPresenca?.forEach(culto => {
+            const date = culto.data instanceof Timestamp 
+                ? culto.data.toDate() 
+                : culto.data?.seconds 
+                    ? new Date(culto.data.seconds * 1000) 
+                    : null;
+            if (date && date.getFullYear() === currentYear) {
+                const m = date.getMonth();
+                monthlySum[m] += (culto.adultos || 0) + (culto.criancas || 0);
+                monthlyCount[m] += 1;
+            }
+        });
+
+        const mainChartData = monthsShort.map((month, index) => {
+            const avg = monthlyCount[index] > 0 ? Math.round(monthlySum[index] / monthlyCount[index]) : 0;
+            return {
+                month,
+                value: avg
+            };
+        });
+
+        const hasRealData = mainChartData.some(d => d.value > 0);
+        const presenceData = hasRealData ? mainChartData : [
+            { month: 'Jan', value: 0 }, { month: 'Fev', value: 0 }, { month: 'Mar', value: 0 },
+            { month: 'Abr', value: 0 }, { month: 'Mai', value: 0 }, { month: 'Jun', value: 0 }, { month: 'Jul', value: 0 },
+        ];
+
+        const memberTrend = Array(6).fill(0).map((_, i) => {
+            const limitDate = new Date();
+            limitDate.setMonth(limitDate.getMonth() - (5 - i));
+            const count = users?.filter(u => {
+                const created = u.createdAt instanceof Timestamp 
+                    ? u.createdAt.toDate() 
+                    : u.createdAt?.seconds 
+                        ? new Date(u.createdAt.seconds * 1000) 
+                        : null;
+                return !created || created <= limitDate;
+            }).length || 0;
+            return { v: count };
+        });
+
+        const attendanceTrend = allRegistrosPresenca 
+            ? [...allRegistrosPresenca]
+                .sort((a, b) => {
+                    const da = a.data instanceof Timestamp ? a.data.toDate() : new Date();
+                    const db = b.data instanceof Timestamp ? b.data.toDate() : new Date();
+                    return da.getTime() - db.getTime();
+                })
+                .slice(-6)
+                .map(c => ({ v: (c.adultos || 0) + (c.criancas || 0) }))
+            : [];
+        
+        while (attendanceTrend.length < 6) {
+            attendanceTrend.unshift({ v: 0 });
+        }
+
+        return { presenceData, memberTrend, attendanceTrend };
+    }, [users, allRegistrosPresenca, currentYear]);
 
     const careAlerts = useMemo(() => {
         if (!users) return [];
@@ -174,27 +255,27 @@ export function MinisterialDashboard() {
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 mt-6">
             {/* KPIs */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                 <KpiCard title="Membros Totais" value={kpiData.totalMembers} percentage={12} icon={Users} up>
-                     <div className="h-10 w-full -ml-4">
-                        <ResponsiveContainer width="100%" height="100%">
-                           <AreaChart data={kpiChartData1}><Area type="monotone" dataKey="v" stroke="#10B981" strokeWidth={2.5} fill="#A7F3D0" fillOpacity={0.4}/></AreaChart>
-                        </ResponsiveContainer>
-                     </div>
+                 <KpiCard title="Membros Totais" value={kpiData.totalMembers} percentage={users && users.length > 0 ? 100 : undefined} icon={Users} up>
+                      <div className="h-10 w-full -ml-4">
+                         <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={chartData.memberTrend}><Area type="monotone" dataKey="v" stroke="#10B981" strokeWidth={2.5} fill="#A7F3D0" fillOpacity={0.4}/></AreaChart>
+                         </ResponsiveContainer>
+                      </div>
                  </KpiCard>
-                 <KpiCard title="Presença Média" value={kpiData.avgAttendance} percentage={5.4} icon={Calendar} up>
+                 <KpiCard title="Presença Média" value={kpiData.avgAttendance} percentage={allRegistrosPresenca && allRegistrosPresenca.length > 0 ? 100 : undefined} icon={Calendar} up>
                     <div className="h-10 w-full -ml-4">
                        <ResponsiveContainer width="100%" height="100%">
-                           <AreaChart data={kpiChartData2}><Area type="monotone" dataKey="v" stroke="#3B82F6" strokeWidth={2.5} fill="#BFDBFE" fillOpacity={0.4}/></AreaChart>
+                           <AreaChart data={chartData.attendanceTrend}><Area type="monotone" dataKey="v" stroke="#3B82F6" strokeWidth={2.5} fill="#BFDBFE" fillOpacity={0.4}/></AreaChart>
                        </ResponsiveContainer>
                     </div>
                  </KpiCard>
-                 <SimpleKpiCard title="Novos Visitantes" value={kpiData.newVisitors} icon={UserPlus} footer={`Este mês: +12 em relação à semana passada`}/>
+                 <SimpleKpiCard title="Novos Visitantes" value={kpiData.newVisitors} icon={UserPlus} footer={`Visitantes cadastrados nos últimos 30 dias`}/>
                  <SimpleKpiCard title="Grupos Ativos" value={kpiData.activeGroups} icon={Users} link="Ver todos os grupos"/>
             </div>
 
             {/* GRÁFICOS E ALERTAS */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
-                <PresenceChart />
+                <PresenceChart data={chartData.presenceData} />
                 <div className="xl:col-span-1 flex flex-col gap-8 h-full">
                     <AlertsPanel alerts={careAlerts} />
                     <TrainingCard />

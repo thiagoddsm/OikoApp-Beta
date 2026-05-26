@@ -33,6 +33,8 @@ type UserType = {
   photoURL?: string;
   hierarchy?: { role?: string; };
   churchData?: { baptismDate?: any; };
+  batizado?: string;
+  dataBatismo?: string;
 };
 
 type CoLider = { id: string; casalId?: string };
@@ -85,6 +87,7 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
   const [lng, setLng] = useState<number | undefined>(undefined);
   const [meetingDay, setMeetingDay] = useState('');
   const [meetingTime, setMeetingTime] = useState('');
+  const [multiplicationDate, setMultiplicationDate] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [status, setStatus] = useState<'active' | 'inactive' | 'growing'>('active');
   const [memberSearch, setMemberSearch] = useState('');
@@ -115,6 +118,7 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
       setLng(existingCell.address?.lng);
       setMeetingDay(existingCell.meetingDay || '');
       setMeetingTime(existingCell.meetingTime || '');
+      setMultiplicationDate(existingCell.multiplicationDate || '');
       setSelectedMembers(existingCell.membros || []);
       setStatus(existingCell.status || 'active');
       setAnfitriaoElegiveiIds(existingCell.anfitriaoElegiveiIds || []);
@@ -123,7 +127,7 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
       setNome(''); setLiderId(''); setLiderCasalId(''); setCoLideres([]); setAnfitriaoId('');
       setAnfitriãoCasalId(''); setSecretariaId(''); setAreaId(''); setRedeId('');
       setStreet(''); setLat(undefined); setLng(undefined);
-      setMeetingDay(''); setMeetingTime(''); setSelectedMembers([]);
+      setMeetingDay(''); setMeetingTime(''); setMultiplicationDate(''); setSelectedMembers([]);
       setStatus('active'); setAnfitriaoElegiveiIds([]); setLiderEAnfitriao(false);
     }
     setMemberSearch(''); setAddingSpouseFor(null);
@@ -175,7 +179,7 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
       supervisorId, areaId, redeId,
       membros: finalMembers, status,
       address: { street, lat, lng },
-      meetingDay, meetingTime,
+      meetingDay, meetingTime, multiplicationDate: multiplicationDate || null,
       anfitriaoElegiveiIds,
     };
     if (existingCell) {
@@ -438,6 +442,10 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
             <Label className="text-right">Horário</Label>
             <Input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} className="col-span-3"/>
           </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label className="text-right text-xs">Multiplicação</Label>
+            <Input type="date" value={multiplicationDate} onChange={e => setMultiplicationDate(e.target.value)} className="col-span-3"/>
+          </div>
         </div>
         <DialogFooter>
           <DialogClose asChild><Button type="button" variant="secondary">Cancelar</Button></DialogClose>
@@ -615,13 +623,14 @@ export default function CellsPage() {
                   <TableHead className="text-center">Membros</TableHead>
                   <TableHead className="text-center">Não Batizados</TableHead>
                   <TableHead className="text-center">Co-Líderes</TableHead>
+                  <TableHead className="text-center">Multiplicação</TableHead>
                   <TableHead className="text-center">Anfitrião Elegível?</TableHead>
                   <TableHead className="text-right pr-6">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredCells.length === 0 && (
-                  <TableRow><TableCell colSpan={9} className="h-32 text-center text-muted-foreground italic text-sm">
+                  <TableRow><TableCell colSpan={10} className="h-32 text-center text-muted-foreground italic text-sm">
                     {hasActiveFilters ? 'Nenhum GC encontrado com esses filtros.' : 'Nenhuma célula cadastrada.'}
                   </TableCell></TableRow>
                 )}
@@ -634,7 +643,7 @@ export default function CellsPage() {
                   
                   // Enriquecer membros
                   const memberUsers = (cell.membros || []).map(id => userMap.get(id)).filter(Boolean) as UserType[];
-                  const naoBatizadosCount = memberUsers.filter(u => !u.churchData?.baptismDate).length;
+                  const naoBatizadosCount = memberUsers.filter(u => !(u.batizado === 'sim' || u.dataBatismo || u.churchData?.baptismDate)).length;
                   const previewMembers = memberUsers.slice(0, 4);
                   const extraCount = memberUsers.length - previewMembers.length;
 
@@ -646,12 +655,26 @@ export default function CellsPage() {
                   const hasEligibleHost = cell.anfitriaoElegiveiIds && cell.anfitriaoElegiveiIds.length > 0;
                   const elegiveisCount = cell.anfitriaoElegiveiIds?.length || 0;
 
+                  // Formatar data de multiplicação futura
+                  const formatMultiplicationDate = (dateStr?: string) => {
+                      if (!dateStr) return '—';
+                      try {
+                          const [year, month, day] = dateStr.split('-');
+                          if (year && month && day) {
+                              return `${day}/${month}/${year}`;
+                          }
+                          return dateStr;
+                      } catch {
+                          return dateStr;
+                      }
+                  };
+
                   return (
                     <TableRow key={cell.id} className="hover:bg-muted/30 transition-colors">
                       {/* Célula */}
                       <TableCell className="pl-6">
                         <Link href={`/dashboard/gc/cells/${cell.id}`} className="font-bold text-foreground hover:text-primary hover:underline flex items-center gap-1 group">
-                          {cell.nome}
+                           {cell.nome}
                           <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                         </Link>
                         {cell.address?.street && (
@@ -722,6 +745,17 @@ export default function CellsPage() {
                         <span className="text-sm font-bold text-slate-700">{coLideresCount}</span>
                         {coLideresCasaisCount > 0 && (
                           <span className="text-[10px] text-primary block font-semibold">({coLideresCasaisCount} casal/casais)</span>
+                        )}
+                      </TableCell>
+
+                      {/* Data de Multiplicação */}
+                      <TableCell className="text-center">
+                        {cell.multiplicationDate ? (
+                          <Badge variant="outline" className="bg-indigo-50/50 text-indigo-700 border-indigo-200 font-bold text-xs">
+                            {formatMultiplicationDate(cell.multiplicationDate)}
+                          </Badge>
+                        ) : (
+                          <span className="text-slate-400 text-xs">—</span>
                         )}
                       </TableCell>
 

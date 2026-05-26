@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { FirebaseClientProvider } from '@/firebase';
 import Script from 'next/script';
 import { firebaseConfig } from '@/firebase/config';
+import { ZaiaCleanup } from '@/components/zaia-cleanup';
 
 const manrope = Manrope({
   subsets: ['latin'],
@@ -51,6 +52,7 @@ export default function RootLayout({
         inter.variable
       )}>
         <FirebaseClientProvider>
+          <ZaiaCleanup />
           {children}
         </FirebaseClientProvider>
         <Toaster />
@@ -58,3 +60,4 @@ export default function RootLayout({
     </html>
   );
 }
+

@@ -72,10 +72,8 @@ export function MemberDetails({ user }) {
                     <DetailItem icon={GraduationCap} label="Escolaridade" value={user.escolaridade || 'Não informado'} />
                     <DetailItem icon={Briefcase} label="Profissão" value={user.profissao || 'Não informado'} />
                     <DetailItem icon={Users} label="Estado Civil" value={user.estadoCivil || 'Não informado'} />
-                    <DetailItem icon={User} label="Cônjuge" value={user.conjuge || 'Não informado'} />
                     <DetailItem icon={MapPin} label="CEP" value={user.address?.cep || 'Não informado'} />
                     <DetailItem icon={Home} label="Endereço" value={user.address?.street || 'Não informado'} />
-                    <DetailItem icon={Users} label="Filhos" value={`${user.temFilhos === 'sim' ? 'Sim' : 'Não'} ${user.idadeFilhos ? `(${user.idadeFilhos})` : ''}`} />
                 </div>
             </section>
             <section>

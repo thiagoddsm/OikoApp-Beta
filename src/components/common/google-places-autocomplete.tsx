@@ -8,6 +8,7 @@ interface GooglePlacesAutocompleteProps {
   defaultValue?: string;
   onAddressSelect: (place: any) => void;
   className?: string;
+  placeholder?: string;
 }
 
 // Reutiliza o mesmo guard global do map-view para não carregar o script duas vezes
@@ -65,6 +66,7 @@ export function GooglePlacesAutocomplete({
   defaultValue = '',
   onAddressSelect,
   className,
+  placeholder = 'Digite o endereço...',
 }: GooglePlacesAutocompleteProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [inputValue, setInputValue] = useState(defaultValue);
@@ -117,7 +119,7 @@ export function GooglePlacesAutocomplete({
         ref={inputRef}
         value={inputValue}
         onChange={e => setInputValue(e.target.value)}
-        placeholder="Digite o endereço da célula..."
+        placeholder={placeholder}
         className={className}
         disabled={isLoading}
       />
