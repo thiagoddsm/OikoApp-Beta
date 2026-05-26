@@ -291,6 +291,41 @@ export default function ImportDataPage() {
         XLSX.writeFile(workbook, "modelo_importacao_membros.xlsx");
     };
 
+    const handleDownloadJsonTemplate = () => {
+        const templateData = [
+            {
+                "nome": "João da Silva",
+                "email": "joao.silva@exemplo.com",
+                "phone": "(11) 99999-8888",
+                "nascimento": "1990-05-15",
+                "estadoCivil": "Casado(a)",
+                "conjuge": "Maria da Silva",
+                "cpf": "123.456.789-00",
+                "Endereço": "Rua das Flores, 123",
+                "Filhos": "sim",
+                "idadeFilhos": "5",
+                "Status": "membro",
+                "Célula": "Conexão Jovem",
+                "Arrolamento": "Membro",
+                "dataArrolamento": "2024-01-01",
+                "dataBatismo": "2015-05-20",
+                "batizado": "sim",
+                "veiculoPlaca": "ABC1D23",
+                "veiculoMarca": "Toyota",
+                "veiculoModelo": "Corolla",
+                "veiculoCor": "Prata",
+                "comoConheceu": "Convite"
+            }
+        ];
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(templateData, null, 4));
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", "modelo_importacao_membros.json");
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+    };
+
     const handleImport = async () => {
         if (!file) {
             toast({ title: "Nenhum arquivo selecionado", description: "Por favor, selecione um arquivo .xlsx para importar.", variant: "destructive" });
@@ -694,10 +729,20 @@ export default function ImportDataPage() {
                             </TabsContent>
 
                             <TabsContent value="eklesia" className="space-y-8 mt-0">
+                                <div className="space-y-4 p-4 border rounded-lg">
+                                    <h4 className="font-semibold flex items-center gap-2"><Download className="size-5 text-primary"/>Passo 1: Baixar o Modelo JSON</h4>
+                                    <p className="text-sm text-muted-foreground">
+                                        Faça o download do modelo JSON para estruturar seus dados e validar os nomes de propriedades esperados.
+                                    </p>
+                                    <Button onClick={handleDownloadJsonTemplate} variant="outline">
+                                        Baixar modelo de importação (.json)
+                                    </Button>
+                                </div>
+
                                 <div className="space-y-4 p-4 border rounded-lg bg-slate-50/50">
-                                    <h4 className="font-semibold flex items-center gap-2"><DatabaseZap className="size-5 text-primary"/>Importação via JSON</h4>
+                                    <h4 className="font-semibold flex items-center gap-2"><DatabaseZap className="size-5 text-primary"/>Passo 2: Enviar o arquivo JSON</h4>
                                     <p className="text-sm text-muted-foreground leading-relaxed">
-                                        Selecione o arquivo exportado em formato JSON do Eklesia. O sistema irá normatizar automaticamente os nomes de campos (Ex: <code>Nome</code>, <code>Celular</code>, <code>Célula</code>) e criar os registros vinculados aos GCs correspondentes.
+                                        Selecione o arquivo exportado em formato JSON. O sistema irá normatizar automaticamente os nomes de campos (Ex: <code>Nome</code>, <code>Celular</code>, <code>Célula</code>) e criar/atualizar os registros vinculados aos GCs correspondentes.
                                     </p>
                                     <div className="grid w-full max-w-sm items-center gap-1.5 pt-2">
                                         <Label htmlFor="json-file">Arquivo JSON</Label>
@@ -716,12 +761,12 @@ export default function ImportDataPage() {
                                             <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processando JSON...</>
                                         ) : (
                                             <>{jsonImportCompleted ? <CheckCircle className="mr-2 h-4 w-4" /> : <Upload className="mr-2 h-4 w-4" />}
-                                            {jsonImportCompleted ? 'JSON Importado' : 'Importar JSON do Eklesia'}</>
+                                            {jsonImportCompleted ? 'JSON Processado' : 'Importar / Atualizar via JSON'}</>
                                         )}
                                     </Button>
                                     {jsonImportCompleted && (
                                         <p className="text-green-600 font-medium">
-                                            {jsonImportCount} membros do Eklesia foram importados com sucesso!
+                                            {jsonImportCount} membros foram processados com sucesso!
                                         </p>
                                     )}
                                 </div>
