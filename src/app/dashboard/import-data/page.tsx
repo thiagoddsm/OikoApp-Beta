@@ -618,8 +618,8 @@ export default function ImportDataPage() {
                     let matchedGcName = 'Nenhum';
                     
                     if (rawGcName) {
-                        // Pode ser uma lista separada por vírgula, ponto e vírgula, barra ou barras duplas (//)
-                        const gcCandidates = rawGcName.split(/(?:\/\/|[,;\/])+/).map(s => s.trim()).filter(Boolean);
+                        // Pode ser uma lista de GCs separados por vírgula ou ponto e vírgula, preservando a barra dupla (//) do nome do líder
+                        const gcCandidates = rawGcName.split(/[,;]+/).map(s => s.trim()).filter(Boolean);
                         let foundMatchDoc: any = null;
                         for (const candidate of gcCandidates) {
                             const localMatch = cellDocs.find(doc => normalizeString(doc.data().nome) === normalizeString(candidate));
