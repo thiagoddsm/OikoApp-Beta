@@ -49,17 +49,63 @@ function PersonProfilePageContent() {
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const { firestore, storage } = useFirebase();
 
+    const compressImage = (file: File, maxWidth = 500, maxHeight = 500): Promise<Blob> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target?.result as string;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > maxWidth) {
+                            height = Math.round((height * maxWidth) / width);
+                            width = maxWidth;
+                        }
+                    } else {
+                        if (height > maxHeight) {
+                            width = Math.round((width * maxHeight) / height);
+                            height = maxHeight;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx?.drawImage(img, 0, 0, width, height);
+
+                    canvas.toBlob((blob) => {
+                        if (blob) {
+                            resolve(blob);
+                        } else {
+                            reject(new Error("Erro ao converter canvas em blob"));
+                        }
+                    }, 'image/jpeg', 0.85);
+                };
+                img.onerror = (err) => reject(err);
+            };
+            reader.onerror = (err) => reject(err);
+        });
+    };
+
     const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !firestore || !storage) return;
 
         setIsUploadingPhoto(true);
         try {
-            const extension = file.name.split('.').pop() || 'jpg';
-            const filePath = `profile-pictures/${userId}_${Date.now()}.${extension}`;
+            // Compress the image client-side to maximum 500x500px at 0.85 quality
+            const compressedBlob = await compressImage(file, 500, 500);
+            
+            // Upload to a fixed path to overwrite the old picture and avoid storage bloat
+            const filePath = `profile-pictures/${userId}.jpg`;
             const fileRef = ref(storage, filePath);
             
-            await uploadBytes(fileRef, file);
+            await uploadBytes(fileRef, compressedBlob);
             const downloadUrl = await getDownloadURL(fileRef);
             
             const userDocRef = doc(firestore, 'users', userId);

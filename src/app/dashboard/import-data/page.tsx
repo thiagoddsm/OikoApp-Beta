@@ -16,7 +16,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 const columns = [
     "name", "email", "phone", "dataNascimento (YYYY-MM-DD)", "estadoCivil", 
     "addressStreet", "temFilhos (sim/nao)", "idadeFilhos", "integrationStatus", 
-    "role", "serviceAreaName", "serviceTeamName", "gcName"
+    "role", "serviceAreaName", "serviceTeamName", "gcName",
+    "cpf", "conjuge", "statusArrolamento", "dataArrolamento", "dataBatismo", 
+    "veiculoPlaca", "veiculoMarca", "veiculoModelo", "veiculoCor"
 ];
 
 const sampleData = [
@@ -33,9 +35,32 @@ const sampleData = [
         "role": "member",
         "serviceAreaName": "Recepção",
         "serviceTeamName": "Alpha",
-        "gcName": "Conexão Jovem"
+        "gcName": "Conexão Jovem",
+        "cpf": "123.456.789-00",
+        "conjuge": "Maria da Silva",
+        "statusArrolamento": "Membro",
+        "dataArrolamento": "2024-01-01",
+        "dataBatismo": "2015-05-20",
+        "veiculoPlaca": "ABC1D23",
+        "veiculoMarca": "Toyota",
+        "veiculoModelo": "Corolla",
+        "veiculoCor": "Prata"
     }
 ];
+
+const clean = (val: any) => {
+    if (val === undefined || val === null) return null;
+    const str = String(val).trim();
+    if (str === ".: NÃO INFORMADO :." || str === ".: NAO INFORMADO :." || str === "" || str.toLowerCase() === "não informado" || str.toLowerCase() === "nao informado") {
+        return null;
+    }
+    return str;
+};
+
+const normalizeString = (str: string) => {
+    if (!str) return '';
+    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[\s\-_]/g, '');
+};
 
 function OldAttendanceMigration() {
     const { firestore, user } = useFirebase();
@@ -288,16 +313,19 @@ export default function ImportDataPage() {
                 const areasQuery = query(collection(firestore, 'areas_of_service'));
                 const teamsQuery = query(collection(firestore, 'teams'));
                 const cellsQuery = query(collection(firestore, 'cells'));
+                const existingUsersQuery = query(collection(firestore, 'users'));
 
-                const [areasSnapshot, teamsSnapshot, cellsSnapshot] = await Promise.all([
+                const [areasSnapshot, teamsSnapshot, cellsSnapshot, existingUsersSnapshot] = await Promise.all([
                     getDocs(areasQuery),
                     getDocs(teamsQuery),
                     getDocs(cellsQuery),
+                    getDocs(existingUsersQuery),
                 ]);
 
                 const areaMap = new Map(areasSnapshot.docs.map(doc => [doc.data().name.toLowerCase(), doc.id]));
                 const teamMap = new Map(teamsSnapshot.docs.map(doc => [doc.data().name.toLowerCase(), doc.id]));
                 const cellDocs = cellsSnapshot.docs;
+                const existingUsers = existingUsersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
 
                 const data = e.target?.result;
                 const workbook = XLSX.read(data, { type: 'binary' });
@@ -306,40 +334,108 @@ export default function ImportDataPage() {
                 const json = XLSX.utils.sheet_to_json(worksheet) as any[];
 
                 const usersCollection = collection(firestore, 'users');
+
+                const cleanCpf = (c: any) => {
+                    const str = clean(c);
+                    return str ? str.replace(/\D/g, '') : null;
+                };
+
+                const findExistingUser = (importedCpf: string | null, importedEmail: string | null, importedName: string) => {
+                    if (importedCpf) {
+                        const found = existingUsers.find(u => u.cpf && u.cpf.replace(/\D/g, '') === importedCpf);
+                        if (found) return found;
+                    }
+                    if (importedEmail) {
+                        const found = existingUsers.find(u => u.email && u.email.toLowerCase() === importedEmail.toLowerCase());
+                        if (found) return found;
+                    }
+                    const foundByName = existingUsers.find(u => u.name && u.name.toLowerCase().trim() === importedName.toLowerCase().trim());
+                    return foundByName || null;
+                };
+
                 const importPromises = json.map(record => {
-                    const cellDoc = record.gcName ? cellDocs.find(doc => doc.data().nome.toLowerCase() === record.gcName.toLowerCase()) : null;
+                    const cleanNameVal = clean(record.name || record.Nome) || '';
+                    if (!cleanNameVal) {
+                        console.warn('Registro ignorado por não ter nome:', record);
+                        return Promise.resolve(); // Skip record without a name
+                    }
+
+                    const cleanEmailVal = clean(record.email || record.Email);
+                    const cleanPhoneVal = clean(record.phone || record.Celular || record.Telefone);
+                    const cleanCpfVal = cleanCpf(record.cpf || record.CPF);
+                    const cleanBirthDate = clean(record['dataNascimento (YYYY-MM-DD)'] || record.dataNascimento || record.nascimento);
+                    const cleanMaritalStatus = clean(record.estadoCivil || record.EstadoCivil);
+                    const cleanStreet = clean(record.addressStreet || record.street || record.Endereço);
+
+                    const gcName = record.gcName || record.GC || record.Célula || '';
+                    const cellDoc = gcName ? cellDocs.find(doc => normalizeString(doc.data().nome) === normalizeString(gcName)) : null;
                     const celulaId = cellDoc ? cellDoc.id : '';
                     const supervisorId = cellDoc ? cellDoc.data().supervisorId || '' : '';
 
-                    const userData = {
-                        name: record.name || '',
-                        email: record.email || '',
-                        phone: record.phone || '',
-                        dataNascimento: record['dataNascimento (YYYY-MM-DD)'] || '',
-                        estadoCivil: record.estadoCivil || '',
-                        address: { street: record.addressStreet || '' },
-                        temFilhos: record['temFilhos (sim/nao)']?.toLowerCase() || 'nao',
-                        idadeFilhos: record.idadeFilhos || '',
+                    const cleanConjuge = clean(record.conjuge || record.Cônjuge);
+                    const cleanStatusArrolamento = clean(record.statusArrolamento || record.arrolamento || record.Arrolamento);
+                    const cleanDataArrolamento = clean(record.dataArrolamento || record['Data Arrolamento']);
+                    const cleanDataBatismo = clean(record.dataBatismo || record['Data Batismo']);
+                    const cleanBatismoValue = clean(record.batizado || record.Batizado);
+                    const isBatizado = (cleanBatismoValue === 'sim' || cleanBatismoValue === 'true' || cleanBatismoValue === 'Sim' || cleanBatismoValue === true);
+
+                    const vPlaca = clean(record.veiculoPlaca || record.placa_veiculo || record.placa || record.Placa);
+                    const vMarca = clean(record.veiculoMarca || record.marca_veiculo || record.marca || record.Marca);
+                    const vModelo = clean(record.veiculoModelo || record.modelo_veiculo || record.modelo || record.Modelo);
+                    const vCor = clean(record.veiculoCor || record.cor_veiculo || record.cor || record.Cor);
+                    const hasVeiculo = !!(vPlaca || vMarca || vModelo || vCor);
+
+                    const photoUrlVal = clean(record.photoURL || record.profilePicture || record.foto || record.Foto || record.linkFoto);
+
+                    const userData: any = {
+                        name: cleanNameVal,
+                        email: cleanEmailVal || '',
+                        phone: cleanPhoneVal || '',
+                        dataNascimento: cleanBirthDate || '',
+                        estadoCivil: cleanMaritalStatus || '',
+                        cpf: cleanCpfVal || '',
+                        conjuge: cleanConjuge || null,
+                        statusArrolamento: cleanStatusArrolamento || null,
+                        dataArrolamento: cleanDataArrolamento || null,
+                        dataBatismo: cleanDataBatismo || null,
+                        batizado: isBatizado ? 'sim' : 'nao',
+                        address: { street: cleanStreet || '' },
+                        temFilhos: (String(record['temFilhos (sim/nao)'] || record.temFilhos).toLowerCase() === 'sim' || record.temFilhos === true) ? 'sim' : 'nao',
+                        idadeFilhos: clean(record.idadeFilhos) || '',
                         integrationStatus: record.integrationStatus || 'nao_alcancado',
                         serviceStatus: record.serviceAreaName ? 'serving' : 'not_serving',
                         serviceAreaId: record.serviceAreaName ? areaMap.get(record.serviceAreaName.toLowerCase()) || '' : '',
                         serviceTeamId: record.serviceTeamName ? teamMap.get(record.serviceTeamName.toLowerCase()) || '' : '',
                         hierarchy: {
-                            role: record.role || '',
+                            role: record.role || record.Cargo || 'member',
                             celulaId: celulaId,
                             supervisorId: supervisorId,
                         },
+                        veiculo: hasVeiculo ? {
+                            placa: vPlaca || null,
+                            marca: vMarca || null,
+                            modelo: vModelo || null,
+                            cor: vCor || null,
+                        } : null,
                         createdAt: Timestamp.now(),
                     };
-                    
-                    if (!userData.name) {
-                        console.warn('Registro ignorado por não ter nome:', record);
-                        return Promise.resolve(); // Skip record without a name
+
+                    if (photoUrlVal) {
+                        userData.photoURL = photoUrlVal;
+                        userData.profilePicture = photoUrlVal;
                     }
 
-                    return addDocumentNonBlocking(usersCollection, userData).then(() => {
-                        count++;
-                    });
+                    const existingUser = findExistingUser(cleanCpfVal, cleanEmailVal, cleanNameVal);
+                    if (existingUser) {
+                        const userDocRef = doc(firestore, 'users', existingUser.id);
+                        return updateDocumentNonBlocking(userDocRef, userData).then(() => {
+                            count++;
+                        });
+                    } else {
+                        return addDocumentNonBlocking(usersCollection, userData).then(() => {
+                            count++;
+                        });
+                    }
                 });
 
                 await Promise.all(importPromises);
@@ -349,7 +445,7 @@ export default function ImportDataPage() {
                 setImportCompleted(true);
                 toast({
                     title: "Importação Concluída!",
-                    description: `${count} registros de membros foram adicionados à fila de gravação.`,
+                    description: `${count} registros de membros foram processados (criados ou atualizados).`,
                 });
 
             } catch (error) {
@@ -397,37 +493,86 @@ export default function ImportDataPage() {
 
                 // Buscar GCs para vínculo automático
                 const cellsQuery = query(collection(firestore, 'cells'));
-                const cellsSnapshot = await getDocs(cellsQuery);
+                const existingUsersQuery = query(collection(firestore, 'users'));
+                const [cellsSnapshot, existingUsersSnapshot] = await Promise.all([
+                    getDocs(cellsQuery),
+                    getDocs(existingUsersQuery)
+                ]);
                 const cellDocs = cellsSnapshot.docs;
+                const existingUsers = existingUsersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
 
                 const usersCollection = collection(firestore, 'users');
+
+                const cleanCpf = (c: any) => {
+                    const str = clean(c);
+                    return str ? str.replace(/\D/g, '') : null;
+                };
+
+                const findExistingUser = (importedCpf: string | null, importedEmail: string | null, importedName: string) => {
+                    if (importedCpf) {
+                        const found = existingUsers.find(u => u.cpf && u.cpf.replace(/\D/g, '') === importedCpf);
+                        if (found) return found;
+                    }
+                    if (importedEmail) {
+                        const found = existingUsers.find(u => u.email && u.email.toLowerCase() === importedEmail.toLowerCase());
+                        if (found) return found;
+                    }
+                    const foundByName = existingUsers.find(u => u.name && u.name.toLowerCase().trim() === importedName.toLowerCase().trim());
+                    return foundByName || null;
+                };
                 
                 const importPromises = records.map(record => {
                     // Normalização flexível de campos (português/inglês, maiúsculas/minúsculas)
-                    const name = record.name || record.Nome || record.nome || '';
-                    const email = record.email || record.Email || record.email || '';
-                    const phone = record.phone || record.Celular || record.Telefone || record.Contato || '';
-                    const birthDate = record.dataNascimento || record.nascimento || record['Data Nascimento'] || record.data_nascimento || '';
-                    const maritalStatus = record.estadoCivil || record.EstadoCivil || record['Estado Civil'] || '';
-                    const street = record.addressStreet || record.street || record.Endereço || record.Logradouro || '';
+                    const cleanNameVal = clean(record.name || record.Nome || record.nome) || '';
+                    if (!cleanNameVal) {
+                        return Promise.resolve(); // Pular sem nome
+                    }
+
+                    const cleanEmailVal = clean(record.email || record.Email);
+                    const cleanPhoneVal = clean(record.phone || record.Celular || record.Telefone || record.Contato);
+                    const cleanCpfVal = cleanCpf(record.cpf || record.CPF);
+                    const cleanBirthDate = clean(record.dataNascimento || record.nascimento || record['Data Nascimento'] || record.data_nascimento);
+                    const cleanMaritalStatus = clean(record.estadoCivil || record.EstadoCivil || record['Estado Civil']);
+                    const cleanStreet = clean(record.addressStreet || record.street || record.Endereço || record.Logradouro);
                     const children = record.temFilhos || record.Filhos || 'nao';
                     const childrenAge = record.idadeFilhos || record['Idade Filhos'] || '';
                     const integrationStatus = record.integrationStatus || record.Status || 'membro';
+                    
                     const gcName = record.gcName || record.GC || record.Célula || '';
-
-                    const cellDoc = gcName ? cellDocs.find(doc => doc.data().nome?.toLowerCase() === gcName.toLowerCase()) : null;
+                    const cellDoc = gcName ? cellDocs.find(doc => normalizeString(doc.data().nome) === normalizeString(gcName)) : null;
                     const celulaId = cellDoc ? cellDoc.id : '';
                     const supervisorId = cellDoc ? cellDoc.data().supervisorId || '' : '';
 
-                    const userData = {
-                        name: name,
-                        email: email,
-                        phone: phone,
-                        dataNascimento: birthDate,
-                        estadoCivil: maritalStatus,
-                        address: { street: street },
+                    const cleanConjuge = clean(record.conjuge || record.Cônjuge);
+                    const cleanStatusArrolamento = clean(record.statusArrolamento || record.arrolamento || record.Arrolamento);
+                    const cleanDataArrolamento = clean(record.dataArrolamento || record['Data Arrolamento']);
+                    const cleanDataBatismo = clean(record.dataBatismo || record['Data Batismo']);
+                    const cleanBatismoValue = clean(record.batizado || record.Batizado);
+                    const isBatizado = (cleanBatismoValue === 'sim' || cleanBatismoValue === 'true' || cleanBatismoValue === 'Sim' || cleanBatismoValue === true);
+
+                    const vPlaca = clean(record.veiculoPlaca || record.placa_veiculo || record.placa || record.Placa);
+                    const vMarca = clean(record.veiculoMarca || record.marca_veiculo || record.marca || record.Marca);
+                    const vModelo = clean(record.veiculoModelo || record.modelo_veiculo || record.modelo || record.Modelo);
+                    const vCor = clean(record.veiculoCor || record.cor_veiculo || record.cor || record.Cor);
+                    const hasVeiculo = !!(vPlaca || vMarca || vModelo || vCor);
+
+                    const photoUrlVal = clean(record.photoURL || record.profilePicture || record.foto || record.Foto || record.linkFoto);
+
+                    const userData: any = {
+                        name: cleanNameVal,
+                        email: cleanEmailVal || '',
+                        phone: cleanPhoneVal || '',
+                        dataNascimento: cleanBirthDate || '',
+                        estadoCivil: cleanMaritalStatus || '',
+                        cpf: cleanCpfVal || '',
+                        conjuge: cleanConjuge || null,
+                        statusArrolamento: cleanStatusArrolamento || null,
+                        dataArrolamento: cleanDataArrolamento || null,
+                        dataBatismo: cleanDataBatismo || null,
+                        batizado: isBatizado ? 'sim' : 'nao',
+                        address: { street: cleanStreet || '' },
                         temFilhos: (String(children).toLowerCase() === 'sim' || children === true) ? 'sim' : 'nao',
-                        idadeFilhos: childrenAge,
+                        idadeFilhos: clean(childrenAge) || '',
                         integrationStatus: integrationStatus,
                         serviceStatus: 'not_serving',
                         hierarchy: {
@@ -435,16 +580,31 @@ export default function ImportDataPage() {
                             celulaId: celulaId,
                             supervisorId: supervisorId,
                         },
+                        veiculo: hasVeiculo ? {
+                            placa: vPlaca || null,
+                            marca: vMarca || null,
+                            modelo: vModelo || null,
+                            cor: vCor || null,
+                        } : null,
                         createdAt: Timestamp.now(),
                     };
-                    
-                    if (!userData.name) {
-                        return Promise.resolve(); // Pular sem nome
+
+                    if (photoUrlVal) {
+                        userData.photoURL = photoUrlVal;
+                        userData.profilePicture = photoUrlVal;
                     }
 
-                    return addDocumentNonBlocking(usersCollection, userData).then(() => {
-                        count++;
-                    });
+                    const existingUser = findExistingUser(cleanCpfVal, cleanEmailVal, cleanNameVal);
+                    if (existingUser) {
+                        const userDocRef = doc(firestore, 'users', existingUser.id);
+                        return updateDocumentNonBlocking(userDocRef, userData).then(() => {
+                            count++;
+                        });
+                    } else {
+                        return addDocumentNonBlocking(usersCollection, userData).then(() => {
+                            count++;
+                        });
+                    }
                 });
 
                 await Promise.all(importPromises);
@@ -454,7 +614,7 @@ export default function ImportDataPage() {
                 setJsonImportCompleted(true);
                 toast({
                     title: "Importação Concluída!",
-                    description: `${count} membros do Eklesia foram adicionados com sucesso.`,
+                    description: `${count} membros do Eklesia foram processados (criados ou atualizados).`,
                 });
 
             } catch (error: any) {

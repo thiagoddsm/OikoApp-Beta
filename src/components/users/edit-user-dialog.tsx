@@ -63,6 +63,16 @@ type User = {
   contatoTurno?: string[];
   observacoes?: string;
   tags?: string[];
+  conjuge?: string;
+  statusArrolamento?: string;
+  dataArrolamento?: string;
+  dataBatismo?: string;
+  veiculo?: {
+    placa?: string;
+    marca?: string;
+    modelo?: string;
+    cor?: string;
+  };
 };
 
 type Cell = {
@@ -125,6 +135,14 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
     celulaId: '',
     supervisorId: '',
     tags: '',
+    conjuge: '',
+    statusArrolamento: '',
+    dataArrolamento: '',
+    dataBatismo: '',
+    veiculoPlaca: '',
+    veiculoMarca: '',
+    veiculoModelo: '',
+    veiculoCor: '',
   });
   
   const cellsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells')) : null, [firestore]);
@@ -193,6 +211,14 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         contatoTurno: user.contatoTurno || [],
         observacoes: user.observacoes || '',
         tags: (user.tags || []).join(', '),
+        conjuge: user.conjuge || '',
+        statusArrolamento: user.statusArrolamento || '',
+        dataArrolamento: user.dataArrolamento || '',
+        dataBatismo: user.dataBatismo || '',
+        veiculoPlaca: user.veiculo?.placa || '',
+        veiculoMarca: user.veiculo?.marca || '',
+        veiculoModelo: user.veiculo?.modelo || '',
+        veiculoCor: user.veiculo?.cor || '',
       });
     } else {
       setFormData({
@@ -226,6 +252,14 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         celulaId: '',
         supervisorId: '',
         tags: '',
+        conjuge: '',
+        statusArrolamento: '',
+        dataArrolamento: '',
+        dataBatismo: '',
+        veiculoPlaca: '',
+        veiculoMarca: '',
+        veiculoModelo: '',
+        veiculoCor: '',
       });
     }
   }, [user, open]);
@@ -265,10 +299,10 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
     }
     if (!formData.name) {
          toast({
-            variant: 'destructive',
-            title: 'Campo Obrigatório',
-            description: 'O nome é obrigatório.',
-        });
+             variant: 'destructive',
+             title: 'Campo Obrigatório',
+             description: 'O nome é obrigatório.',
+         });
         return;
     }
     setIsSaving(true);
@@ -319,6 +353,16 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         contatoTurno: formData.contatoTurno,
         observacoes: formData.observacoes,
         tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '') : [],
+        conjuge: formData.conjuge || null,
+        statusArrolamento: formData.statusArrolamento || null,
+        dataArrolamento: formData.dataArrolamento || null,
+        dataBatismo: formData.dataBatismo || null,
+        veiculo: (formData.veiculoPlaca || formData.veiculoMarca || formData.veiculoModelo || formData.veiculoCor) ? {
+            placa: formData.veiculoPlaca || null,
+            marca: formData.veiculoMarca || null,
+            modelo: formData.veiculoModelo || null,
+            cor: formData.veiculoCor || null,
+        } : null,
     };
 
     try {
@@ -449,6 +493,12 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                           </SelectContent>
                       </Select>
                   </div>
+                  {(formData.estadoCivil === 'Casado(a)' || formData.estadoCivil === 'União Estável') && (
+                       <div className="space-y-1.5 animate-in fade-in-50">
+                           <Label htmlFor="conjuge">Nome do Cônjuge</Label>
+                           <Input id="conjuge" name="conjuge" value={formData.conjuge} onChange={handleInputChange} placeholder="Nome do cônjuge..." />
+                       </div>
+                   )}
                   <div className="space-y-1.5">
                       <Label>Possui filho(s)?</Label>
                       <RadioGroup value={formData.temFilhos} onValueChange={(v) => handleRadioChange('temFilhos', v)} className="flex items-center gap-4"><RadioGroupItem value="sim" id="filhos-sim" /><Label htmlFor="filhos-sim">Sim</Label><RadioGroupItem value="nao" id="filhos-nao" /><Label htmlFor="filhos-nao">Não</Label></RadioGroup>
@@ -464,7 +514,12 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                       <Label>Batizado?</Label>
                       <RadioGroup value={formData.batizado} onValueChange={(v) => handleRadioChange('batizado', v)} className="flex items-center gap-4"><RadioGroupItem value="sim" id="batizado-sim" /><Label htmlFor="batizado-sim">Sim</Label><RadioGroupItem value="nao" id="batizado-nao" /><Label htmlFor="batizado-nao">Não</Label></RadioGroup>
                   </div>
-                  {formData.batizado === 'sim' && <div className="space-y-1.5"><Label htmlFor="igrejaBatismo">Qual igreja foi batizado?</Label><Input id="igrejaBatismo" name="igrejaBatismo" value={formData.igrejaBatismo} onChange={handleInputChange}/></div>}
+                  {formData.batizado === 'sim' && (
+                       <>
+                           <div className="space-y-1.5"><Label htmlFor="igrejaBatismo">Qual igreja foi batizado?</Label><Input id="igrejaBatismo" name="igrejaBatismo" value={formData.igrejaBatismo} onChange={handleInputChange}/></div>
+                           <div className="space-y-1.5"><Label htmlFor="dataBatismo">Data do Batismo</Label><Input id="dataBatismo" name="dataBatismo" type="date" value={formData.dataBatismo} onChange={handleInputChange}/></div>
+                       </>
+                   )}
 
                   <div className="space-y-1.5">
                       <Label>Veio de outra igreja?</Label>
@@ -472,6 +527,22 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                   </div>
                   {formData.membroAntigo === 'sim' && <div className="space-y-1.5"><Label htmlFor="igrejaAntiga">Qual o nome da igreja de origem?</Label><Input id="igrejaAntiga" name="igrejaAntiga" value={formData.igrejaAntiga} onChange={handleInputChange}/></div>}
                   
+                  <div className="space-y-1.5">
+                      <Label htmlFor="statusArrolamento">Status de Arrolamento</Label>
+                      <Select value={formData.statusArrolamento} onValueChange={(v) => handleSelectChange('statusArrolamento', v)}>
+                          <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="Visitante">Visitante</SelectItem>
+                              <SelectItem value="Participante">Participante</SelectItem>
+                              <SelectItem value="Membro">Membro</SelectItem>
+                          </SelectContent>
+                      </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                      <Label htmlFor="dataArrolamento">Data do Arrolamento</Label>
+                      <Input id="dataArrolamento" name="dataArrolamento" type="date" value={formData.dataArrolamento} onChange={handleInputChange} />
+                  </div>
+
                   <div className="space-y-1.5">
                       <Label htmlFor="initialStatus">Status Inicial *</Label>
                       <Select value={formData.initialStatus} onValueChange={(v) => handleSelectChange('initialStatus', v)}>
@@ -626,6 +697,28 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                    </div>
               </div>
           </section>
+
+           <section className="space-y-4 p-4 border rounded-lg">
+               <h4 className="font-semibold text-primary border-b pb-2">Dados do Veículo</h4>
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                   <div className="space-y-1.5">
+                       <Label htmlFor="veiculoPlaca">Placa do Veículo</Label>
+                       <Input id="veiculoPlaca" name="veiculoPlaca" value={formData.veiculoPlaca} onChange={handleInputChange} placeholder="Ex: ABC1D23" />
+                   </div>
+                   <div className="space-y-1.5">
+                       <Label htmlFor="veiculoMarca">Marca</Label>
+                       <Input id="veiculoMarca" name="veiculoMarca" value={formData.veiculoMarca} onChange={handleInputChange} placeholder="Ex: Toyota" />
+                   </div>
+                   <div className="space-y-1.5">
+                       <Label htmlFor="veiculoModelo">Modelo</Label>
+                       <Input id="veiculoModelo" name="veiculoModelo" value={formData.veiculoModelo} onChange={handleInputChange} placeholder="Ex: Corolla" />
+                   </div>
+                   <div className="space-y-1.5">
+                       <Label htmlFor="veiculoCor">Cor</Label>
+                       <Input id="veiculoCor" name="veiculoCor" value={formData.veiculoCor} onChange={handleInputChange} placeholder="Ex: Prata" />
+                   </div>
+               </div>
+           </section>
 
           <section className="space-y-4 p-4 border rounded-lg">
               <h4 className="font-semibold text-primary border-b pb-2">Tags e Categorização</h4>
