@@ -26,6 +26,7 @@ import { journeyColumns } from '@/components/users/journey-status-config';
 import { sendWelcomeMessage } from '@/app/actions/whatsapp-actions';
 import { Textarea } from '../ui/textarea';
 import { formatName } from '@/lib/utils';
+import { GooglePlacesAutocomplete } from '@/components/common/google-places-autocomplete';
 
 type User = {
   id: string;
@@ -116,6 +117,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
     profissao: '',
     addressStreet: '',
     addressCep: '',
+    addressLocation: null as { latitude: number; longitude: number } | null,
     batizado: 'nao',
     igrejaBatismo: '',
     membroAntigo: 'nao',
@@ -148,25 +150,25 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
   
   const cellsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells')) : null, [firestore]);
   const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>(cellsQuery);
-
+ 
   const allUsersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
   const { data: allUsers, isLoading: isLoadingUsers } = useCollection<User>(allUsersQuery);
-
+ 
   const supervisors = useMemo(() => {
     if (!allUsers) return [];
     const leaderRoles = ['lider_gc', 'lider_area', 'lider_rede', 'pastor', 'pastor_senior', 'admin'];
     return allUsers.filter(u => u.hierarchy?.role && leaderRoles.includes(u.hierarchy.role));
   }, [allUsers]);
-
+ 
   const [supervisorSearch, setSupervisorSearch] = useState('');
   const [showSupervisorResults, setShowSupervisorResults] = useState(false);
-
+ 
   const filteredSupervisors = useMemo(() => {
     if (!supervisorSearch) return supervisors;
     const term = supervisorSearch.toLowerCase();
     return supervisors.filter(s => s.name?.toLowerCase().includes(term));
   }, [supervisors, supervisorSearch]);
-
+ 
   useEffect(() => {
     if (formData.supervisorId && formData.supervisorId !== 'null' && supervisors.length > 0) {
       const found = supervisors.find(s => s.id === formData.supervisorId);
@@ -177,8 +179,8 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
       setSupervisorSearch('');
     }
   }, [formData.supervisorId, supervisors]);
-
-
+ 
+ 
   useEffect(() => {
     if (user) {
       setFormData({
@@ -193,6 +195,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         estadoCivil: user.estadoCivil || '',
         addressStreet: user.address?.street || '',
         addressCep: user.address?.cep || '',
+        addressLocation: user.address?.location || null,
         integrationStatus: user.integrationStatus || 'nao_alcancado',
         role: user.hierarchy?.role || '',
         celulaId: user.hierarchy?.celulaId || '',
@@ -233,6 +236,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         profissao: '',
         addressStreet: '',
         addressCep: '',
+        addressLocation: null,
         batizado: 'nao',
         igrejaBatismo: '',
         membroAntigo: 'nao',
@@ -268,6 +272,34 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddressSelect = (place: any) => {
+    let cep = '';
+    const street = place.formatted_address || '';
+    
+    if (place.address_components) {
+      for (const component of place.address_components) {
+        if (component.types.includes('postal_code')) {
+          cep = component.long_name.replace(/\D/g, '');
+        }
+      }
+    }
+    
+    let coords: { latitude: number; longitude: number } | null = null;
+    if (place.geometry?.location) {
+      coords = {
+        latitude: place.geometry.location.lat(),
+        longitude: place.geometry.location.lng()
+      };
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      addressStreet: street,
+      addressCep: cep || prev.addressCep,
+      addressLocation: coords || prev.addressLocation
+    }));
   };
   
   const handleRadioChange = (name: string, value: string) => {
@@ -332,6 +364,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         address: {
             street: formData.addressStreet,
             cep: formData.addressCep,
+            location: formData.addressLocation || null
         },
         integrationStatus: finalIntegrationStatus,
         hierarchy: {
@@ -479,7 +512,11 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                   </div>
                   <div className="space-y-1.5">
                       <Label htmlFor="addressStreet">Endereço (Rua e Nº)</Label>
-                      <Input id="addressStreet" name="addressStreet" value={formData.addressStreet} onChange={handleInputChange} placeholder="Rua das Flores, 123" />
+                      <GooglePlacesAutocomplete
+                        defaultValue={formData.addressStreet}
+                        onAddressSelect={handleAddressSelect}
+                        placeholder="Rua das Flores, 123"
+                      />
                   </div>
                   <div className="space-y-1.5">
                       <Label htmlFor="estadoCivil">Estado Civil</Label>
