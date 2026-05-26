@@ -3,6 +3,7 @@
 import { initializeFirebase } from '@/firebase';
 import { getAuth, signInAnonymously } from 'firebase/auth';
 import { collection, query, where, getDocs, doc, setDoc, addDoc, getDoc, Timestamp } from 'firebase/firestore';
+import { formatName } from '@/lib/utils';
 
 export async function verifyEmailRegistered(email: string) {
     const { firestore } = initializeFirebase();
@@ -103,7 +104,7 @@ export async function savePublicRegistration(data: {
     }
 
     const userData: any = {
-        name: data.name,
+        name: formatName(data.name),
         email: emailClean,
         phone: data.phone || '',
         cpf: data.cpf || '',
@@ -121,11 +122,11 @@ export async function savePublicRegistration(data: {
             street: data.addressStreet || '',
             cep: data.addressCep || ''
         },
-        conjuge: data.conjuge || null,
+        conjuge: data.conjuge ? formatName(data.conjuge) : null,
         temFilhos: data.temFilhos || 'nao',
         idadeFilhos: data.idadeFilhos || '',
         comoConheceu: data.comoConheceu || '',
-        nomeConvidou: data.nomeConvidou || '',
+        nomeConvidou: data.nomeConvidou ? formatName(data.nomeConvidou) : '',
         batizado: data.batizado || 'nao',
         dataBatismo: data.dataBatismo || '',
         igrejaBatismo: data.igrejaBatismo || '',

@@ -5,6 +5,7 @@ import { useFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, setDocu
 import { collection, Timestamp, getDocs, query, writeBatch, doc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { matchGcWithAi, geocodeAddress } from './actions';
+import { formatName } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Loader2, Upload, CheckCircle, Download, DatabaseZap, Wand2 } from 'lucide-react';
@@ -448,7 +449,7 @@ export default function ImportDataPage() {
                     }
 
                     const userData: any = {
-                        name: cleanNameVal,
+                        name: formatName(cleanNameVal),
                         email: cleanEmailVal || '',
                         phone: cleanPhoneVal || '',
                         dataNascimento: cleanBirthDate || '',
@@ -458,6 +459,7 @@ export default function ImportDataPage() {
                         dataArrolamento: cleanDataArrolamento || null,
                         dataBatismo: cleanDataBatismo || null,
                         batizado: isBatizado ? 'sim' : 'nao',
+                        conjuge: cleanConjuge ? formatName(cleanConjuge) : null,
                         address: { 
                             street: cleanStreet || '',
                             cep: cleanCep || '',
@@ -704,6 +706,8 @@ export default function ImportDataPage() {
                     const cleanTipoDecisao = clean(record['TIPO DECISÃO'] || record.tipoDecisao);
                     const cleanProfissao = clean(record.PROFISSÃO || record.profissao);
                     const cleanIgrejaBatismo = clean(record['NOME DA OUTRA IGREJA'] || record.igrejaBatismo);
+                    const cleanConjuge = clean(record.conjuge || record.Cônjuge || record['CÔNJUGE'] || record.CONJUGE || record.spouse);
+                    const cleanNomeConvidou = clean(record.nomeConvidou || record['Quem Convidou'] || record.quemConvidou || record.convidouPor || record.nomeConvidou);
                     
                     // NOME DO LÍDER (Responsável pelo acompanhamento)
                     const rawSupervisorName = clean(record['NOME DO LÍDER'] || record.Responsavel || record.supervisorName);
@@ -732,7 +736,7 @@ export default function ImportDataPage() {
                     }
 
                     const userData: any = {
-                        name: cleanNameVal,
+                        name: formatName(cleanNameVal),
                         email: cleanEmailVal || '',
                         phone: cleanPhoneVal || '',
                         dataNascimento: cleanBirthDate || '',
@@ -741,6 +745,8 @@ export default function ImportDataPage() {
                         dataArrolamento: cleanDataArrolamento || null,
                         dataBatismo: cleanDataBatismo || null,
                         batizado: isBatizado ? 'sim' : 'nao',
+                        conjuge: cleanConjuge ? formatName(cleanConjuge) : null,
+                        nomeConvidou: cleanNomeConvidou ? formatName(cleanNomeConvidou) : '',
                         address: { 
                             street: cleanStreet || '',
                             cep: cleanCep || '',

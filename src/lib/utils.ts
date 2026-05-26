@@ -26,3 +26,19 @@ export function formatCPF(cpf: string | number | undefined): string {
     }
     return String(cpf);
 }
+
+export function formatName(name: string): string {
+    if (!name) return "";
+    const lowercaseWords = ["de", "di", "da", "do", "dos", "das", "e", "o", "a", "em", "para"];
+    return name
+        .trim()
+        .toLowerCase()
+        .split(/\s+/)
+        .map((word, index) => {
+            if (index > 0 && lowercaseWords.includes(word)) {
+                return word;
+            }
+            return word.charAt(0).toUpperCase() + word.slice(1);
+        })
+        .join(" ");
+}

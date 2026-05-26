@@ -25,6 +25,7 @@ import { userRoles } from '@/lib/roles';
 import { journeyColumns } from '@/components/users/journey-status-config';
 import { sendWelcomeMessage } from '@/app/actions/whatsapp-actions';
 import { Textarea } from '../ui/textarea';
+import { formatName } from '@/lib/utils';
 
 type User = {
   id: string;
@@ -319,7 +320,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
     }
     
     const dataToSave = {
-        name: formData.name,
+        name: formatName(formData.name),
         phone: formData.phone,
         email: formData.email,
         cpf: formData.cpf,
@@ -348,12 +349,12 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         temFilhos: formData.temFilhos,
         idadeFilhos: formData.idadeFilhos,
         comoConheceu: formData.comoConheceu,
-        nomeConvidou: formData.nomeConvidou,
+        nomeConvidou: formData.nomeConvidou ? formatName(formData.nomeConvidou) : '',
         contatoPreferencia: formData.contatoPreferencia,
         contatoTurno: formData.contatoTurno,
         observacoes: formData.observacoes,
         tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '') : [],
-        conjuge: formData.conjuge || null,
+        conjuge: formData.conjuge ? formatName(formData.conjuge) : null,
         statusArrolamento: formData.statusArrolamento || null,
         dataArrolamento: formData.dataArrolamento || null,
         dataBatismo: formData.dataBatismo || null,
