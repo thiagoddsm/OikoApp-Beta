@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // Define the columns for the template
 const columns = [
@@ -242,10 +243,18 @@ function FixPertencerClassesMigration() {
 export default function ImportDataPage() {
     const { firestore, user } = useFirebase();
     const { toast } = useToast();
+    
+    // Excel Import States
     const [isImporting, setIsImporting] = useState(false);
     const [importCompleted, setImportCompleted] = useState(false);
     const [importCount, setImportCount] = useState(0);
     const [file, setFile] = useState<File | null>(null);
+
+    // JSON Import States
+    const [jsonFile, setJsonFile] = useState<File | null>(null);
+    const [isImportingJson, setIsImportingJson] = useState(false);
+    const [jsonImportCompleted, setJsonImportCompleted] = useState(false);
+    const [jsonImportCount, setJsonImportCount] = useState(0);
 
     const handleDownloadTemplate = () => {
         const worksheet = XLSX.utils.json_to_sheet(sampleData, { header: columns });
@@ -356,57 +365,210 @@ export default function ImportDataPage() {
         reader.readAsBinaryString(file);
     };
 
+    const handleImportJson = async () => {
+        if (!jsonFile) {
+            toast({ title: "Nenhum arquivo selecionado", description: "Por favor, selecione um arquivo .json para importar.", variant: "destructive" });
+            return;
+        }
+        if (!user || !firestore) {
+            toast({ title: "Erro", description: "Você precisa estar logado para importar dados.", variant: "destructive" });
+            return;
+        }
+
+        setIsImportingJson(true);
+        setJsonImportCompleted(false);
+        setJsonImportCount(0);
+        let count = 0;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const text = e.target?.result as string;
+                const rawJson = JSON.parse(text);
+                
+                // Suportar tanto um array direto quanto um objeto que contenha a lista
+                const records = Array.isArray(rawJson) 
+                    ? rawJson 
+                    : (rawJson.membros || rawJson.members || rawJson.data || []);
+
+                if (!Array.isArray(records)) {
+                    throw new Error("O arquivo JSON deve conter uma lista (array) de membros.");
+                }
+
+                // Buscar GCs para vínculo automático
+                const cellsQuery = query(collection(firestore, 'cells'));
+                const cellsSnapshot = await getDocs(cellsQuery);
+                const cellDocs = cellsSnapshot.docs;
+
+                const usersCollection = collection(firestore, 'users');
+                
+                const importPromises = records.map(record => {
+                    // Normalização flexível de campos (português/inglês, maiúsculas/minúsculas)
+                    const name = record.name || record.Nome || record.nome || '';
+                    const email = record.email || record.Email || record.email || '';
+                    const phone = record.phone || record.Celular || record.Telefone || record.Contato || '';
+                    const birthDate = record.dataNascimento || record.nascimento || record['Data Nascimento'] || record.data_nascimento || '';
+                    const maritalStatus = record.estadoCivil || record.EstadoCivil || record['Estado Civil'] || '';
+                    const street = record.addressStreet || record.street || record.Endereço || record.Logradouro || '';
+                    const children = record.temFilhos || record.Filhos || 'nao';
+                    const childrenAge = record.idadeFilhos || record['Idade Filhos'] || '';
+                    const integrationStatus = record.integrationStatus || record.Status || 'membro';
+                    const gcName = record.gcName || record.GC || record.Célula || '';
+
+                    const cellDoc = gcName ? cellDocs.find(doc => doc.data().nome?.toLowerCase() === gcName.toLowerCase()) : null;
+                    const celulaId = cellDoc ? cellDoc.id : '';
+                    const supervisorId = cellDoc ? cellDoc.data().supervisorId || '' : '';
+
+                    const userData = {
+                        name: name,
+                        email: email,
+                        phone: phone,
+                        dataNascimento: birthDate,
+                        estadoCivil: maritalStatus,
+                        address: { street: street },
+                        temFilhos: (String(children).toLowerCase() === 'sim' || children === true) ? 'sim' : 'nao',
+                        idadeFilhos: childrenAge,
+                        integrationStatus: integrationStatus,
+                        serviceStatus: 'not_serving',
+                        hierarchy: {
+                            role: record.role || record.Cargo || 'member',
+                            celulaId: celulaId,
+                            supervisorId: supervisorId,
+                        },
+                        createdAt: Timestamp.now(),
+                    };
+                    
+                    if (!userData.name) {
+                        return Promise.resolve(); // Pular sem nome
+                    }
+
+                    return addDocumentNonBlocking(usersCollection, userData).then(() => {
+                        count++;
+                    });
+                });
+
+                await Promise.all(importPromises);
+                
+                setJsonImportCount(count);
+                setIsImportingJson(false);
+                setJsonImportCompleted(true);
+                toast({
+                    title: "Importação Concluída!",
+                    description: `${count} membros do Eklesia foram adicionados com sucesso.`,
+                });
+
+            } catch (error: any) {
+                console.error("Error during JSON import:", error);
+                setIsImportingJson(false);
+                toast({
+                    title: "Erro na Importação",
+                    description: error.message || "Ocorreu um erro ao processar o arquivo JSON.",
+                    variant: "destructive",
+                });
+            }
+        };
+        reader.readAsText(jsonFile);
+    };
+
     return (
         <div className="space-y-6">
             <Card>
                 <CardHeader>
                     <CardTitle>Importação de Membresia</CardTitle>
                     <CardDescription>
-                        Use esta ferramenta para importar em massa a lista de membros da sua igreja para o sistema.
+                        Importe a lista de membros em lote para o sistema Oiko.
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-8">
-                    <div className="space-y-4 p-4 border rounded-lg">
-                        <h4 className="font-semibold flex items-center gap-2"><Download className="size-5 text-primary"/>Passo 1: Baixar o Modelo</h4>
-                        <p className="text-sm text-muted-foreground">
-                            Faça o download da planilha modelo. Preencha com os dados dos seus membros, mantendo as colunas no formato original.
-                        </p>
-                        <Button onClick={handleDownloadTemplate} variant="outline">
-                            Baixar modelo de planilha (.xlsx)
-                        </Button>
-                    </div>
-
-                    <div className="space-y-4 p-4 border rounded-lg">
-                         <h4 className="font-semibold flex items-center gap-2"><Upload className="size-5 text-primary"/>Passo 2: Enviar a Planilha</h4>
-                        <p className="text-sm text-muted-foreground">
-                           Selecione o arquivo .xlsx que você preencheu e clique em "Iniciar Importação".
-                        </p>
-                        <div className="grid w-full max-w-sm items-center gap-1.5">
-                            <Label htmlFor="excel-file">Arquivo Excel</Label>
-                            <Input 
-                                id="excel-file" 
-                                type="file" 
-                                accept=".xlsx, .xls"
-                                onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
-                            />
+                <CardContent className="p-0">
+                    <Tabs defaultValue="excel" className="w-full">
+                        <div className="px-6 border-b">
+                            <TabsList className="bg-transparent h-12 gap-6 p-0">
+                                <TabsTrigger value="excel" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none font-bold text-xs uppercase">Excel (.xlsx)</TabsTrigger>
+                                <TabsTrigger value="eklesia" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none font-bold text-xs uppercase">Eklesia (JSON)</TabsTrigger>
+                            </TabsList>
                         </div>
-                    </div>
+
+                        <div className="p-6">
+                            <TabsContent value="excel" className="space-y-8 mt-0">
+                                <div className="space-y-4 p-4 border rounded-lg">
+                                    <h4 className="font-semibold flex items-center gap-2"><Download className="size-5 text-primary"/>Passo 1: Baixar o Modelo</h4>
+                                    <p className="text-sm text-muted-foreground">
+                                        Faça o download da planilha modelo. Preencha com os dados dos seus membros, mantendo as colunas no formato original.
+                                    </p>
+                                    <Button onClick={handleDownloadTemplate} variant="outline">
+                                        Baixar modelo de planilha (.xlsx)
+                                    </Button>
+                                </div>
+
+                                <div className="space-y-4 p-4 border rounded-lg">
+                                     <h4 className="font-semibold flex items-center gap-2"><Upload className="size-5 text-primary"/>Passo 2: Enviar a Planilha</h4>
+                                    <p className="text-sm text-muted-foreground">
+                                       Selecione o arquivo .xlsx que você preencheu e clique em "Iniciar Importação".
+                                    </p>
+                                    <div className="grid w-full max-w-sm items-center gap-1.5">
+                                        <Label htmlFor="excel-file">Planilha Excel</Label>
+                                        <Input 
+                                            id="excel-file" 
+                                            type="file" 
+                                            accept=".xlsx, .xls"
+                                            onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col items-center gap-4 pt-4 border-t">
+                                    <Button onClick={handleImport} disabled={isImporting || importCompleted || !file} className="w-full max-w-sm">
+                                        {isImporting ? (
+                                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Importando...</>
+                                        ) : (
+                                            <>{importCompleted ? <CheckCircle className="mr-2 h-4 w-4" /> : <Upload className="mr-2 h-4 w-4" />}
+                                            {importCompleted ? 'Dados Importados' : 'Iniciar Importação'}</>
+                                        )}
+                                    </Button>
+                                    {importCompleted && (
+                                        <p className="text-green-600 font-medium">
+                                            {importCount} membros foram importados com sucesso!
+                                        </p>
+                                    )}
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="eklesia" className="space-y-8 mt-0">
+                                <div className="space-y-4 p-4 border rounded-lg bg-slate-50/50">
+                                    <h4 className="font-semibold flex items-center gap-2"><DatabaseZap className="size-5 text-primary"/>Importação via JSON</h4>
+                                    <p className="text-sm text-muted-foreground leading-relaxed">
+                                        Selecione o arquivo exportado em formato JSON do Eklesia. O sistema irá normatizar automaticamente os nomes de campos (Ex: <code>Nome</code>, <code>Celular</code>, <code>Célula</code>) e criar os registros vinculados aos GCs correspondentes.
+                                    </p>
+                                    <div className="grid w-full max-w-sm items-center gap-1.5 pt-2">
+                                        <Label htmlFor="json-file">Arquivo JSON</Label>
+                                        <Input 
+                                            id="json-file" 
+                                            type="file" 
+                                            accept=".json"
+                                            onChange={(e) => setJsonFile(e.target.files ? e.target.files[0] : null)}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col items-center gap-4 pt-4 border-t">
+                                    <Button onClick={handleImportJson} disabled={isImportingJson || jsonImportCompleted || !jsonFile} className="w-full max-w-sm bg-indigo-600 hover:bg-indigo-700 text-white">
+                                        {isImportingJson ? (
+                                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processando JSON...</>
+                                        ) : (
+                                            <>{jsonImportCompleted ? <CheckCircle className="mr-2 h-4 w-4" /> : <Upload className="mr-2 h-4 w-4" />}
+                                            {jsonImportCompleted ? 'JSON Importado' : 'Importar JSON do Eklesia'}</>
+                                        )}
+                                    </Button>
+                                    {jsonImportCompleted && (
+                                        <p className="text-green-600 font-medium">
+                                            {jsonImportCount} membros do Eklesia foram importados com sucesso!
+                                        </p>
+                                    )}
+                                </div>
+                            </TabsContent>
+                        </div>
+                    </Tabs>
                 </CardContent>
-                <CardFooter className="flex-col items-center gap-4">
-                     <Button onClick={handleImport} disabled={isImporting || importCompleted || !file} className="w-full max-w-sm">
-                        {isImporting ? (
-                            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Importando...</>
-                        ) : (
-                            <>{importCompleted ? <CheckCircle className="mr-2 h-4 w-4" /> : <Upload className="mr-2 h-4 w-4" />}
-                            {importCompleted ? 'Dados Importados' : 'Iniciar Importação'}</>
-                        )}
-                    </Button>
-                    {importCompleted && (
-                        <p className="text-green-600 font-medium">
-                            {importCount} membros foram importados com sucesso!
-                        </p>
-                    )}
-                </CardFooter>
             </Card>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
