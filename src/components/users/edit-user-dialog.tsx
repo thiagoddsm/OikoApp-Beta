@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Loader2 } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useDoc, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
@@ -138,6 +138,26 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
     const leaderRoles = ['lider_gc', 'lider_area', 'lider_rede', 'pastor', 'pastor_senior', 'admin'];
     return allUsers.filter(u => u.hierarchy?.role && leaderRoles.includes(u.hierarchy.role));
   }, [allUsers]);
+
+  const [supervisorSearch, setSupervisorSearch] = useState('');
+  const [showSupervisorResults, setShowSupervisorResults] = useState(false);
+
+  const filteredSupervisors = useMemo(() => {
+    if (!supervisorSearch) return supervisors;
+    const term = supervisorSearch.toLowerCase();
+    return supervisors.filter(s => s.name?.toLowerCase().includes(term));
+  }, [supervisors, supervisorSearch]);
+
+  useEffect(() => {
+    if (formData.supervisorId && formData.supervisorId !== 'null' && supervisors.length > 0) {
+      const found = supervisors.find(s => s.id === formData.supervisorId);
+      if (found) {
+        setSupervisorSearch(found.name);
+      }
+    } else if (!formData.supervisorId || formData.supervisorId === 'null') {
+      setSupervisorSearch('');
+    }
+  }, [formData.supervisorId, supervisors]);
 
 
   useEffect(() => {
@@ -540,16 +560,70 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                           </SelectContent>
                       </Select>
                   </div>
-                  <div className="space-y-1.5">
-                      <Label htmlFor="supervisorId">Responsável pelo Acompanhamento</Label>
-                      <Select value={formData.supervisorId} onValueChange={(v) => handleSelectChange('supervisorId', v)} disabled={isLoadingUsers}>
-                          <SelectTrigger><SelectValue placeholder={isLoadingUsers ? "Carregando..." : "Selecione o responsável..."} /></SelectTrigger>
-                          <SelectContent>
-                              <SelectItem value="null">Nenhum</SelectItem>
-                              {supervisors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                          </SelectContent>
-                      </Select>
-                  </div>
+                   <div className="space-y-1.5 relative">
+                       <Label htmlFor="supervisorSearch">Responsável pelo Acompanhamento</Label>
+                       <div className="relative">
+                           <Input 
+                               id="supervisorSearch" 
+                               value={supervisorSearch} 
+                               onChange={(e) => {
+                                   setSupervisorSearch(e.target.value);
+                                   setShowSupervisorResults(true);
+                               }}
+                               onFocus={() => setShowSupervisorResults(true)}
+                               onBlur={() => {
+                                   // Delay closure to allow item click selection to register
+                                   setTimeout(() => setShowSupervisorResults(false), 200);
+                               }}
+                               placeholder="Digite para buscar o responsável..."
+                               disabled={isLoadingUsers}
+                           />
+                           {supervisorSearch && (
+                               <button 
+                                   type="button" 
+                                   onClick={() => {
+                                       setSupervisorSearch('');
+                                       handleSelectChange('supervisorId', 'null');
+                                       setShowSupervisorResults(false);
+                                   }}
+                                   className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+                               >
+                                   <X className="size-4" />
+                               </button>
+                           )}
+                       </div>
+                       {showSupervisorResults && (
+                           <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                               <div 
+                                   onClick={() => {
+                                       setSupervisorSearch('');
+                                       handleSelectChange('supervisorId', 'null');
+                                       setShowSupervisorResults(false);
+                                   }}
+                                   className="px-3 py-2 text-sm text-muted-foreground hover:bg-slate-100 cursor-pointer font-medium"
+                               >
+                                   Nenhum
+                               </div>
+                               {filteredSupervisors.length === 0 ? (
+                                   <div className="px-3 py-2 text-sm text-muted-foreground italic">Nenhum responsável encontrado</div>
+                               ) : (
+                                   filteredSupervisors.map(s => (
+                                       <div 
+                                           key={s.id}
+                                           onClick={() => {
+                                               setSupervisorSearch(s.name);
+                                               handleSelectChange('supervisorId', s.id);
+                                               setShowSupervisorResults(false);
+                                           }}
+                                           className="px-3 py-2 text-sm text-slate-800 hover:bg-slate-100 cursor-pointer font-medium"
+                                       >
+                                           {s.name}
+                                       </div>
+                                   ))
+                               )}
+                           </div>
+                       )}
+                   </div>
               </div>
           </section>
 

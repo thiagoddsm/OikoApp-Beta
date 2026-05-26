@@ -32,6 +32,9 @@ type User = {
         celulaId?: string;
         role?: string;
     };
+    serviceAreaId?: string;
+    profilePicture?: string;
+    photoURL?: string;
 };
 
 const journeyStatusLabels: { [key: string]: string } = {
@@ -56,15 +59,20 @@ export function PeopleTable() {
     const [isFormOpen, setFormOpen] = useState(false);
     const [isMergeOpen, setIsMergeOpen] = useState(false);
     const [userToDelete, setUserToDelete] = useState<User | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 20;
 
     // Queries: Gate by firestore && currentUser to prevent unnecessary public execution
     const usersQuery = useMemoFirebase(() => (firestore && currentUser) ? query(collection(firestore, 'users')) : null, [firestore, currentUser]);
     const cellsQuery = useMemoFirebase(() => (firestore && currentUser) ? query(collection(firestore, 'cells')) : null, [firestore, currentUser]);
+    const areasQuery = useMemoFirebase(() => (firestore && currentUser) ? query(collection(firestore, 'areas_of_service')) : null, [firestore, currentUser]);
     
     const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
     const { data: cells, isLoading: isLoadingCells } = useCollection<any>(cellsQuery);
+    const { data: areas, isLoading: isLoadingAreas } = useCollection<any>(areasQuery);
 
     const cellMap = useMemo(() => new Map(cells?.map(c => [c.id, c.nome]) || []), [cells]);
+    const areaMap = useMemo(() => new Map(areas?.map(a => [a.id, a.name]) || []), [areas]);
 
     const availableTags = useMemo(() => {
         if (!users) return [];
@@ -77,7 +85,7 @@ export function PeopleTable() {
         if (!users) return [];
         const term = String(searchTerm || '').toLowerCase().trim();
         
-        return users.filter(user => {
+        const filtered = users.filter(user => {
             if (!user) return false;
             
             const name = String(user.name || '').toLowerCase();
@@ -88,7 +96,19 @@ export function PeopleTable() {
             
             return matchesSearch && matchesTag;
         });
+
+        return [...filtered].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
     }, [users, searchTerm, selectedTag]);
+
+    React.useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, selectedTag]);
+
+    const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+    const paginatedUsers = useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredUsers.slice(start, start + itemsPerPage);
+    }, [filteredUsers, currentPage]);
     
     const handleDelete = () => {
         if (!userToDelete || !firestore) return;
@@ -102,7 +122,7 @@ export function PeopleTable() {
         setUserToDelete(null);
     };
     
-    const isLoading = isLoadingUsers || isLoadingCells;
+    const isLoading = isLoadingUsers || isLoadingCells || isLoadingAreas;
 
     if (isLoading) {
         return <div className="flex h-full items-center justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -119,7 +139,7 @@ export function PeopleTable() {
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                     {/* <Button variant="outline" onClick={() => setIsMergeOpen(true)} className="font-bold">
-                        <Wand2 className="mr-2 h-4 w-4 text-indigo-500" /> Unificar
+                         <Wand2 className="mr-2 h-4 w-4 text-indigo-500" /> Unificar
                     </Button> */}
                     <Button onClick={() => setFormOpen(true)} className="font-bold">
                         <Plus className="mr-2 h-4 w-4" /> Novo Cadastro
@@ -172,10 +192,10 @@ export function PeopleTable() {
                             <TableRow>
                                 <TableHead className="w-[60px]"></TableHead>
                                 <TableHead>Nome</TableHead>
-                                <TableHead>Contatos</TableHead>
                                 <TableHead>Jornada</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Tags</TableHead>
+                                <TableHead>Área de Serviço</TableHead>
+                                <TableHead>GC</TableHead>
+                                <TableHead>TAG</TableHead>
                                 <TableHead className="text-right">Ações</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -183,15 +203,22 @@ export function PeopleTable() {
                             {filteredUsers.length === 0 ? (
                                 <TableRow><TableCell colSpan={7} className="h-32 text-center text-muted-foreground italic">Nenhum registro encontrado.</TableCell></TableRow>
                             ) : (
-                                filteredUsers.map(user => {
-                                    const avatar = PlaceHolderImages.find(p => p.id === user.avatar) || PlaceHolderImages[1];
-                                    const isServing = user.serviceStatus === 'serving';
+                                paginatedUsers.map(user => {
+                                    const normalizePhone = (p: string | number) => {
+                                        let phone = String(p || '').replace(/\D/g, '');
+                                        if (phone.length === 10 || phone.length === 11) return '55' + phone;
+                                        return phone;
+                                    };
+
+                                    const userImage = user.profilePicture?.includes('pps.whatsapp.net') && user.phone 
+                                        ? `/api/contacts/profile-picture?phone=${normalizePhone(user.phone)}&proxy=true` 
+                                        : user.profilePicture || user.photoURL;
 
                                     return (
                                         <TableRow key={user.id} className="hover:bg-slate-50 transition-colors">
                                             <TableCell>
                                                 <Avatar className="size-9 border shadow-sm">
-                                                    <AvatarImage src={avatar.imageUrl} alt={user.name} />
+                                                    <AvatarImage src={userImage} alt={user.name} />
                                                     <AvatarFallback>{String(user.name || '?').charAt(0)}</AvatarFallback>
                                                 </Avatar>
                                             </TableCell>
@@ -202,27 +229,28 @@ export function PeopleTable() {
                                                 <div className="text-[10px] uppercase font-black text-muted-foreground">ID: {user.id.substring(0, 8)}</div>
                                             </TableCell>
                                             <TableCell>
-                                                <div className="text-sm font-medium">{formatPhone(user.phone)}</div>
-                                                <div className="text-xs text-muted-foreground lowercase">{user.email || '-'}</div>
-                                            </TableCell>
-                                            <TableCell>
                                                 <Badge variant="outline" className="text-[10px] font-black uppercase">
                                                     {journeyStatusLabels[user.integrationStatus || 'nao_alcancado'] || 'Não definido'}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className={cn("text-[9px] font-black uppercase border-none", isServing ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500")}>
-                                                    {isServing ? 'Servindo' : 'Inativo'}
-                                                </Badge>
+                                                <div className="text-sm font-medium text-slate-700">
+                                                    {areaMap.get(user.serviceAreaId || '') || '-'}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="text-sm font-medium text-slate-700">
+                                                    {cellMap.get(user.hierarchy?.celulaId || '') || '-'}
+                                                </div>
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex flex-wrap gap-1 max-w-[150px]">
-                                                    {user.tags?.slice(0, 2).map(tag => (
+                                                    {user.tags?.slice(0, 3).map(tag => (
                                                         <Badge key={tag} variant="secondary" className="text-[8px] h-4 px-1.5 font-bold bg-primary/5 text-primary border-none">
                                                             {tag}
                                                         </Badge>
                                                     ))}
-                                                    {(user.tags?.length || 0) > 2 && <span className="text-[8px] text-muted-foreground">+{(user.tags?.length || 0) - 2}</span>}
+                                                    {(user.tags?.length || 0) > 3 && <span className="text-[8px] text-muted-foreground">+{(user.tags?.length || 0) - 3}</span>}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-right">
@@ -239,6 +267,36 @@ export function PeopleTable() {
                             )}
                         </TableBody>
                     </Table>
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-between border-t px-4 py-3 bg-slate-50/50">
+                            <div className="text-xs text-muted-foreground font-medium">
+                                Mostrando {Math.min(filteredUsers.length, (currentPage - 1) * itemsPerPage + 1)} a {Math.min(filteredUsers.length, currentPage * itemsPerPage)} de {filteredUsers.length} membros
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    disabled={currentPage === 1}
+                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    className="h-8 font-bold"
+                                >
+                                    Anterior
+                                </Button>
+                                <div className="text-xs font-bold px-2">
+                                    Página {currentPage} de {totalPages}
+                                </div>
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    disabled={currentPage === totalPages}
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                    className="h-8 font-bold"
+                                >
+                                    Próxima
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </CardContent>
             <EditUserDialog user={null} open={isFormOpen} onOpenChange={setFormOpen} />
