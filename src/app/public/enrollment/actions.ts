@@ -42,7 +42,8 @@ export async function verifyMemberEmail(email: string) {
             found: true,
             userId,
             maskedName: maskName(userData.name),
-            maskedPhone: maskPhone(userData.phone)
+            maskedPhone: maskPhone(userData.phone),
+            hasCpf: !!(userData.cpfCnpj || userData.cpf || userData.cnpj)
         };
     } catch (e) {
         console.error("Error verifying email:", e);

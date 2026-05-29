@@ -10,12 +10,20 @@ import { Badge } from '@/components/ui/badge';
 import {
     Loader2, ArrowRight, CheckCircle, Search,
     BookOpen, Layers, Clock, CalendarDays, Sparkles, ChevronLeft, Info,
-    GraduationCap, Briefcase, ListChecks, ChevronRight
+    GraduationCap, Briefcase, ListChecks, ChevronRight, QrCode, Copy
 } from 'lucide-react';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/icons';
 import { cn } from '@/lib/utils';
 import { verifyMemberEmail, submitEnrollmentRequest } from './actions';
+import { useFirebase } from '@/firebase';
 
 const STEPS = [
     { id: 1, name: 'Identificação', icon: Sparkles },
@@ -58,7 +66,8 @@ function Stepper({ currentStep }: { currentStep: number }) {
 }
 
 function EnrollmentForm() {
-    const { courses, classes } = useVolunteering();
+    const { firestore } = useFirebase();
+    const { courses, classes, strategicEvents } = useVolunteering();
     const { toast } = useToast();
 
     // Global Flow State
@@ -69,7 +78,7 @@ function EnrollmentForm() {
     const [mode, setMode] = useState<'existing' | 'new'>('existing');
     const [isVerifying, setIsVerifying] = useState(false);
     const [emailInput, setEmailInput] = useState('');
-    const [foundUser, setFoundUser] = useState<{ userId: string; maskedName: string; maskedPhone: string } | null>(null);
+    const [foundUser, setFoundUser] = useState<{ userId: string; maskedName: string; maskedPhone: string; hasCpf?: boolean } | null>(null);
     const [formData, setFormData] = useState({ name: '', phone: '' });
 
     // Step 2: Category
@@ -79,17 +88,28 @@ function EnrollmentForm() {
     const [trailFilter, setTrailFilter] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+    const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
 
     // Step 4: Class Selection
     const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
 
-    // Step 5: Submission
+    // Step 5: Submission & Asaas Specifics
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [cpfCnpj, setCpfCnpj] = useState('');
+    const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'BOLETO' | 'CREDIT_CARD' | 'UNDEFINED'>('PIX');
+    const [chargeType, setChargeType] = useState<'UNIQUE' | 'SUBSCRIPTION'>('UNIQUE');
+    const [companionName, setCompanionName] = useState('');
+    const [billingResult, setBillingResult] = useState<any>(null);
 
     // Navigation Data
     const courseClasses = useMemo(() => classes.filter(cls => cls.courseId === selectedCourseId), [classes, selectedCourseId]);
     const selectedCourse = useMemo(() => courses.find(c => c.id === selectedCourseId), [courses, selectedCourseId]);
     const selectedClassObj = useMemo(() => classes.find(c => c.id === selectedClassId), [classes, selectedClassId]);
+
+    const selectedEvent = useMemo(() => {
+        if (!strategicEvents || !selectedEventId) return null;
+        return strategicEvents.find(e => e.id === selectedEventId);
+    }, [strategicEvents, selectedEventId]);
 
     const filteredCourses = useMemo(() => {
         if (!courses || selectedCategory === 'eventos' || !selectedCategory) return [];
@@ -112,6 +132,20 @@ function EnrollmentForm() {
         });
     }, [courses, selectedCategory, trailFilter, searchTerm]);
 
+    const filteredEvents = useMemo(() => {
+        if (!strategicEvents || selectedCategory !== 'eventos') return [];
+        return strategicEvents.filter(evt => {
+            const isApprovedPublic = evt.status === 'aprovado' && evt.isPublicForRegistration === true;
+            if (!isApprovedPublic) return false;
+
+            if (searchTerm.trim()) {
+                const term = searchTerm.toLowerCase();
+                return evt.eventName.toLowerCase().includes(term) || (evt.ministry || '').toLowerCase().includes(term);
+            }
+            return true;
+        });
+    }, [strategicEvents, selectedCategory, searchTerm]);
+
     // Handlers
     const handleVerifyEmail = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -130,7 +164,8 @@ function EnrollmentForm() {
             setFoundUser({
                 userId: result.userId!,
                 maskedName: result.maskedName!,
-                maskedPhone: result.maskedPhone!
+                maskedPhone: result.maskedPhone!,
+                hasCpf: result.hasCpf
             });
             setMode('existing');
         } else {
@@ -140,46 +175,317 @@ function EnrollmentForm() {
     };
 
     const nextStep = () => {
-        setCurrentStep(p => Math.min(p + 1, 5));
+        if (selectedCategory === 'eventos' && currentStep === 3) {
+            setCurrentStep(5);
+        } else {
+            setCurrentStep(p => Math.min(p + 1, 5));
+        }
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const prevStep = () => {
-        setCurrentStep(p => Math.max(p - 1, 1));
+        if (selectedCategory === 'eventos' && currentStep === 5) {
+            setCurrentStep(3);
+        } else {
+            setCurrentStep(p => Math.max(p - 1, 1));
+        }
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const handleFinalSubmit = async () => {
-        if (!selectedCourseId) return;
-        setIsSubmitting(true);
-        try {
-            await submitEnrollmentRequest({
-                userId: foundUser?.userId,
-                name: mode === 'new' ? formData.name : undefined,
-                email: emailInput.toLowerCase().trim(),
-                phone: mode === 'new' ? formData.phone : undefined,
-                courseId: selectedCourseId,
-                classId: selectedClassId || undefined
-            });
-            setIsSuccess(true);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        } catch (error) {
-            toast({ variant: 'destructive', title: "Erro ao processar", description: "Não foi possível enviar sua inscrição." });
-        } finally {
-            setIsSubmitting(false);
+        if (selectedCategory === 'eventos') {
+            if (!selectedEventId || !selectedEvent) return;
+
+            const needsCpfInput = selectedEvent.isPaid === 'pago' && (mode === 'new' || !foundUser?.hasCpf);
+            if (needsCpfInput && !cpfCnpj.trim()) {
+                toast({
+                    variant: 'destructive',
+                    title: 'CPF/CNPJ obrigatório',
+                    description: 'Preencha o CPF ou CNPJ do pagador para gerar a cobrança.'
+                });
+                return;
+            }
+
+            setIsSubmitting(true);
+            try {
+                const finalEmail = emailInput.toLowerCase().trim();
+                let finalName = mode === 'new' ? formData.name : undefined;
+                let finalPhone = mode === 'new' ? formData.phone : undefined;
+                let userId = foundUser?.userId;
+                let finalCpf = cpfCnpj;
+
+                if (userId && firestore) {
+                    const { doc, getDoc } = await import('firebase/firestore');
+                    const userDoc = await getDoc(doc(firestore, 'users', userId));
+                    if (userDoc.exists()) {
+                        const realData = userDoc.data();
+                        finalName = realData.name;
+                        finalPhone = realData.phone;
+                        if (!finalCpf) {
+                            finalCpf = realData.cpfCnpj || realData.cpf || realData.cnpj || '';
+                        }
+                    }
+                }
+
+                if (!finalName) {
+                    finalName = 'Participante IBM';
+                }
+
+                const isPaid = selectedEvent.isPaid === 'pago';
+                let asaasCharge: any = null;
+
+                if (isPaid) {
+                    // 1. Criar/Buscar Cliente no Asaas
+                    const customerRes = await fetch('/api/asaas/customers', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: finalName,
+                            email: finalEmail,
+                            phone: finalPhone || '',
+                            cpfCnpj: finalCpf.replace(/\D/g, ''),
+                            userId: userId || undefined
+                        }),
+                    });
+
+                    if (!customerRes.ok) {
+                        const err = await customerRes.json().catch(() => ({}));
+                        throw new Error(err.error || `Erro ao criar cliente no Asaas (${customerRes.status})`);
+                    }
+
+                    const { customerId } = await customerRes.json();
+
+                    // 2. Criar cobrança ou assinatura no Asaas
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+                    const isSubscription = chargeType === 'SUBSCRIPTION';
+                    const endpoint = isSubscription ? '/api/asaas/subscriptions' : '/api/asaas/payments';
+
+                    const paymentRes = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            customerId,
+                            billingType: paymentMethod,
+                            value: selectedEvent.ticketPrice || 0,
+                            dueDate: tomorrowStr,
+                            description: `Inscrição Evento: ${selectedEvent.eventName}`,
+                            externalReference: userId || undefined
+                        }),
+                    });
+
+                    if (!paymentRes.ok) {
+                        const err = await paymentRes.json().catch(() => ({}));
+                        throw new Error(err.error || `Erro ao criar cobrança no Asaas (${paymentRes.status})`);
+                    }
+
+                    asaasCharge = await paymentRes.json();
+                }
+
+                // 3. Salvar inscrição no Firestore
+                if (firestore) {
+                    const { collection, addDoc, Timestamp } = await import('firebase/firestore');
+                    const regData: any = {
+                        eventId: selectedEventId,
+                        userId: userId || 'anonymous',
+                        userMetadata: {
+                            name: finalName,
+                            email: finalEmail,
+                            phone: finalPhone || '',
+                        },
+                        payment: {
+                            status: isPaid ? 'pending' : 'approved',
+                            method: isPaid ? paymentMethod.toLowerCase() : 'free',
+                            valuePaid: isPaid ? (selectedEvent.ticketPrice || 0) : 0,
+                            paidAt: isPaid ? null : Timestamp.now(),
+                            transactionId: isPaid ? (asaasCharge?.id || `asaas_${Math.random().toString(36).substring(2, 10)}`) : 'free',
+                        },
+                        attendance: {
+                            checkedIn: false,
+                            checkedInAt: null,
+                            checkedInBy: null,
+                        },
+                        companionName: companionName.trim(),
+                        createdAt: Timestamp.now(),
+                    };
+
+                    if (isPaid && asaasCharge) {
+                        regData.payment.asaasPaymentId = asaasCharge.id;
+                        regData.payment.asaasStatus = asaasCharge.status || 'PENDING';
+                        regData.payment.invoiceUrl = asaasCharge.invoiceUrl;
+                        regData.payment.bankSlipUrl = asaasCharge.bankSlipUrl;
+
+                        // Obter QR Code se for PIX
+                        if (paymentMethod === 'PIX' && asaasCharge.id) {
+                            try {
+                                const qrRes = await fetch(`/api/asaas/payments/${asaasCharge.id}/pix`);
+                                if (qrRes.ok) {
+                                    const qrData = await qrRes.json();
+                                    regData.payment.pixQrCodeImage = qrData.encodedImage;
+                                    regData.payment.pixCopyPaste = qrData.payload;
+                                }
+                            } catch (e) {
+                                console.error('Erro ao buscar QR Code Pix:', e);
+                            }
+                        }
+                    }
+
+                    const docRef = await addDoc(collection(firestore, 'event_registrations'), regData);
+
+                    setBillingResult({
+                        isPaid,
+                        registrationId: docRef.id,
+                        paymentMethod,
+                        chargeType,
+                        value: selectedEvent.ticketPrice,
+                        invoiceUrl: asaasCharge?.invoiceUrl || regData.payment.invoiceUrl || '',
+                        bankSlipUrl: asaasCharge?.bankSlipUrl || regData.payment.bankSlipUrl || '',
+                        pixQrCodeImage: asaasCharge?.pixQrCodeImage || regData.payment.pixQrCodeImage || '',
+                        pixCopyPaste: asaasCharge?.pixCopyPaste || regData.payment.pixCopyPaste || '',
+                    });
+                }
+
+                setIsSuccess(true);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } catch (error: any) {
+                console.error(error);
+                toast({
+                    variant: 'destructive',
+                    title: "Erro ao processar",
+                    description: error.message || "Não foi possível enviar sua inscrição."
+                });
+            } finally {
+                setIsSubmitting(false);
+            }
+        } else {
+            if (!selectedCourseId) return;
+            setIsSubmitting(true);
+            try {
+                await submitEnrollmentRequest({
+                    userId: foundUser?.userId,
+                    name: mode === 'new' ? formData.name : undefined,
+                    email: emailInput.toLowerCase().trim(),
+                    phone: mode === 'new' ? formData.phone : undefined,
+                    courseId: selectedCourseId,
+                    classId: selectedClassId || undefined
+                });
+                setIsSuccess(true);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } catch (error) {
+                toast({ variant: 'destructive', title: "Erro ao processar", description: "Não foi possível enviar sua inscrição." });
+            } finally {
+                setIsSubmitting(false);
+            }
         }
     };
 
     // Rendered Views
     if (isSuccess) {
+        const isPaidEvent = billingResult?.isPaid;
         return (
-            <div className="max-w-md mx-auto py-20 px-4 text-center space-y-6 animate-in zoom-in-95 duration-500">
+            <div className={cn("mx-auto py-12 px-4 text-center space-y-6 animate-in zoom-in-95 duration-500", isPaidEvent ? "max-w-lg" : "max-w-md")}>
                 <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
                     <CheckCircle size={40} />
                 </div>
-                <h2 className="text-4xl font-black uppercase italic tracking-tighter text-slate-900 leading-none">Protocolo<br />Enviado!</h2>
-                <p className="text-muted-foreground font-medium">Sua solicitação para <strong>{selectedCourse?.name}</strong> foi recebida. Em breve a secretaria entrará em contato.</p>
-                <Button onClick={() => window.location.reload()} variant="outline" className="w-full font-bold h-12 rounded-xl">Fazer Outra Inscrição</Button>
+                <h2 className="text-4xl font-black uppercase italic tracking-tighter text-slate-900 leading-none">
+                    {isPaidEvent ? "Inscrição\nRecebida!" : "Inscrição\nConfirmada!"}
+                </h2>
+
+                {isPaidEvent ? (
+                    <div className="space-y-4 text-left bg-white p-6 rounded-[2rem] border-2 shadow-md">
+                        <p className="text-sm text-slate-600 font-medium text-center">
+                            Sua inscrição para <strong>{selectedEvent?.eventName}</strong> está pré-registrada. Conclua o pagamento abaixo para confirmar sua vaga.
+                        </p>
+
+                        {/* PIX */}
+                        {billingResult.paymentMethod === 'PIX' && (
+                            <div className="flex flex-col items-center gap-4 border-t border-slate-100 pt-4">
+                                {billingResult.pixQrCodeImage ? (
+                                    <div className="p-3 bg-white border border-slate-200 rounded-xl inline-flex shadow-sm">
+                                        <img
+                                            src={`data:image/png;base64,${billingResult.pixQrCodeImage}`}
+                                            alt="QR Code PIX"
+                                            className="size-40 rounded"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="size-40 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-center">
+                                        <QrCode className="size-16 text-slate-300" />
+                                    </div>
+                                )}
+
+                                {billingResult.pixCopyPaste && (
+                                    <div className="w-full space-y-1.5">
+                                        <Label className="text-xs text-slate-500">Código Pix Copia e Cola</Label>
+                                        <div className="flex gap-2">
+                                            <Input
+                                                readOnly
+                                                value={billingResult.pixCopyPaste}
+                                                className="bg-slate-50 border-slate-200 text-slate-700 text-xs select-all h-9"
+                                            />
+                                            <Button
+                                                size="icon"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    navigator.clipboard.writeText(billingResult.pixCopyPaste);
+                                                    toast({ title: 'Copiado!', description: 'Código Pix copiado.' });
+                                                }}
+                                                className="shrink-0 h-9 w-9 border-slate-200"
+                                            >
+                                                <Copy className="size-4 text-slate-500" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* BOLETO */}
+                        {billingResult.paymentMethod === 'BOLETO' && billingResult.bankSlipUrl && (
+                            <div className="flex flex-col items-center gap-4 border-t border-slate-100 pt-4">
+                                <p className="text-sm text-slate-600 text-center">
+                                    O boleto bancário foi gerado com sucesso.
+                                </p>
+                                <Button
+                                    onClick={() => window.open(billingResult.bankSlipUrl, '_blank')}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold w-full"
+                                >
+                                    Abrir Boleto
+                                </Button>
+                            </div>
+                        )}
+
+                        {/* CREDIT_CARD ou UNDEFINED */}
+                        {(billingResult.paymentMethod === 'CREDIT_CARD' || billingResult.paymentMethod === 'UNDEFINED') && billingResult.invoiceUrl && (
+                            <div className="flex flex-col items-center gap-4 border-t border-slate-100 pt-4">
+                                <p className="text-sm text-slate-600 text-center">
+                                    O link de faturamento foi gerado. Clique no botão abaixo para preencher os dados de pagamento.
+                                </p>
+                                <Button
+                                    onClick={() => window.open(billingResult.invoiceUrl, '_blank')}
+                                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold w-full"
+                                >
+                                    Efetuar Pagamento
+                                </Button>
+                            </div>
+                        )}
+
+                        <div className="text-[11px] text-slate-500 font-mono text-center pt-2">
+                            ID de inscrição: {billingResult.registrationId}
+                        </div>
+                    </div>
+                ) : (
+                    <p className="text-muted-foreground font-medium">
+                        Sua solicitação para <strong>{selectedCategory === 'eventos' ? selectedEvent?.eventName : selectedCourse?.name}</strong> foi recebida.
+                        {selectedCategory === 'eventos' ? " Inscrição confirmada!" : " Em breve a secretaria entrará em contato."}
+                    </p>
+                )}
+
+                <Button onClick={() => window.location.reload()} variant="outline" className="w-full font-bold h-12 rounded-xl">
+                    Fazer Outra Inscrição
+                </Button>
             </div>
         );
     }
@@ -322,10 +628,58 @@ function EnrollmentForm() {
                     </Button>
 
                     {selectedCategory === 'eventos' ? (
-                        <div className="py-20 text-center space-y-4 bg-white rounded-[2rem] border-2 border-dashed">
-                            <CalendarDays className="size-12 mx-auto text-slate-300" />
-                            <h3 className="text-xl font-bold text-slate-400 uppercase tracking-widest italic">Sem Eventos</h3>
-                            <p className="text-sm text-muted-foreground max-w-xs mx-auto">Nenhum evento com inscrições abertas no momento.</p>
+                        <div className="space-y-6">
+                            <div className="space-y-4">
+                                <div className="relative">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground size-5" />
+                                    <Input
+                                        placeholder="Buscar evento por nome..."
+                                        value={searchTerm}
+                                        onChange={e => setSearchTerm(e.target.value)}
+                                        className="h-14 pl-12 rounded-2xl bg-white border-2 shadow-sm text-lg focus-visible:ring-primary/20"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {filteredEvents.map(evt => {
+                                    const isPaid = evt.isPaid === 'pago';
+                                    return (
+                                        <Card
+                                            key={evt.id}
+                                            className="overflow-hidden rounded-[2rem] cursor-pointer transition-all duration-300 hover:shadow-xl border-2 hover:border-primary group bg-white"
+                                            onClick={() => {
+                                                setSelectedEventId(evt.id);
+                                                setSelectedCourseId(null);
+                                                setSelectedClassId(null);
+                                                nextStep();
+                                            }}
+                                        >
+                                            <div className="relative aspect-video bg-slate-100">
+                                                <img src={`https://picsum.photos/seed/${evt.id}/600/300`} alt="" className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-700" />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent z-10" />
+                                                <div className="absolute top-4 right-4 z-20 flex gap-1.5">
+                                                    <Badge className={cn("border-none text-[9px] font-bold uppercase", isPaid ? "bg-amber-500 text-slate-900" : "bg-emerald-500 text-white")}>
+                                                        {isPaid ? `R$ ${evt.ticketPrice?.toFixed(2)}` : 'Gratuito'}
+                                                    </Badge>
+                                                </div>
+                                                <div className="absolute bottom-4 left-5 z-20 pr-4">
+                                                    <Badge className="bg-primary backdrop-blur-md text-white border-none mb-2 text-[8px] font-black uppercase tracking-widest">{evt.ministry || 'Evento'}</Badge>
+                                                    <h4 className="text-white font-black uppercase italic tracking-tighter leading-tight text-lg shadow-sm mb-1">{evt.eventName}</h4>
+                                                    <p className="text-white/80 text-[10px] font-medium flex items-center gap-1">
+                                                        <CalendarDays className="size-3" /> {evt.startDate ? new Date(evt.startDate + 'T00:00:00').toLocaleDateString('pt-BR') : ''}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </Card>
+                                    );
+                                })}
+                                {filteredEvents.length === 0 && (
+                                    <div className="col-span-full py-16 text-center text-muted-foreground border-2 border-dashed rounded-[2rem]">
+                                        Nenhum evento com inscrições abertas no momento.
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     ) : (
                         <div className="space-y-6">
@@ -444,7 +798,7 @@ function EnrollmentForm() {
             {currentStep === 5 && (
                 <div className="space-y-6 animate-in slide-in-from-right-8">
                     <Button variant="ghost" size="sm" onClick={prevStep} className="text-muted-foreground -ml-2 mb-2 font-bold uppercase tracking-widest text-[10px]">
-                        <ChevronLeft className="mr-1 size-3" /> Alterar Turma
+                        <ChevronLeft className="mr-1 size-3" /> {selectedCategory === 'eventos' ? 'Alterar Evento' : 'Alterar Turma'}
                     </Button>
 
                     <Card className="shadow-xl border-none overflow-hidden rounded-[2.5rem] bg-slate-900 text-white">
@@ -465,10 +819,20 @@ function EnrollmentForm() {
 
                                 <div className="h-px bg-white/10" />
 
-                                <div>
-                                    <Label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Curso Selecionado</Label>
-                                    <p className="font-bold text-lg text-primary-foreground italic uppercase tracking-tighter leading-none mt-1">{selectedCourse?.name}</p>
-                                </div>
+                                {selectedCategory === 'eventos' ? (
+                                    <div>
+                                        <Label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Evento Selecionado</Label>
+                                        <p className="font-bold text-lg text-primary-foreground italic uppercase tracking-tighter leading-none mt-1">{selectedEvent?.eventName}</p>
+                                        <p className="text-xs text-slate-400 mt-1 uppercase font-semibold">
+                                            {selectedEvent?.startDate ? new Date(selectedEvent.startDate + 'T12:00:00').toLocaleDateString('pt-BR') : ''}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <Label className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Curso Selecionado</Label>
+                                        <p className="font-bold text-lg text-primary-foreground italic uppercase tracking-tighter leading-none mt-1">{selectedCourse?.name}</p>
+                                    </div>
+                                )}
 
                                 {selectedClassObj && (
                                     <>
@@ -481,6 +845,100 @@ function EnrollmentForm() {
                                     </>
                                 )}
                             </div>
+
+                            {selectedCategory === 'eventos' && selectedEvent?.isPaid === 'pago' && (
+                                <div className="space-y-4 p-5 bg-white/5 rounded-2xl border border-white/10">
+                                    <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                                        💳 Informações de Faturamento (Asaas)
+                                    </h4>
+
+                                    {(mode === 'new' || !foundUser?.hasCpf) && (
+                                        <div className="space-y-1.5">
+                                            <Label className="text-[10px] font-black uppercase text-slate-400">
+                                                CPF / CNPJ do Pagador <span className="text-red-400">*</span>
+                                            </Label>
+                                            <Input
+                                                type="text"
+                                                placeholder="000.000.000-00"
+                                                value={cpfCnpj}
+                                                onChange={(e) => setCpfCnpj(e.target.value)}
+                                                className="bg-white/10 border-white/20 text-white h-11 rounded-xl placeholder-slate-600 focus-visible:ring-primary focus-visible:border-primary"
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-black uppercase text-slate-400">Formato</Label>
+                                        <Select
+                                            value={chargeType}
+                                            onValueChange={(val: any) => setChargeType(val)}
+                                        >
+                                            <SelectTrigger className="bg-white/10 border-white/20 text-white h-11 rounded-xl">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                                                <SelectItem value="UNIQUE">Cobrança Única</SelectItem>
+                                                <SelectItem value="SUBSCRIPTION">Assinatura Mensal</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-black uppercase text-slate-400">Meio de Pagamento</Label>
+                                        <Select
+                                            value={paymentMethod}
+                                            onValueChange={(val: any) => setPaymentMethod(val)}
+                                        >
+                                            <SelectTrigger className="bg-white/10 border-white/20 text-white h-11 rounded-xl">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                                                <SelectItem value="PIX">🏦 Pix</SelectItem>
+                                                <SelectItem value="BOLETO">📄 Boleto Bancário</SelectItem>
+                                                <SelectItem value="CREDIT_CARD">💳 Cartão de Crédito</SelectItem>
+                                                <SelectItem value="UNDEFINED">❓ Indefinido (Escolha do pagador)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-black uppercase text-slate-400">Nome do Acompanhante (Opcional)</Label>
+                                        <Input
+                                            type="text"
+                                            placeholder="Nome de quem vai com você..."
+                                            value={companionName}
+                                            onChange={(e) => setCompanionName(e.target.value)}
+                                            className="bg-white/10 border-white/20 text-white h-11 rounded-xl placeholder-slate-600 focus-visible:ring-primary focus-visible:border-primary"
+                                        />
+                                    </div>
+
+                                    <div className="flex justify-between items-center text-xs border-t border-white/10 pt-3">
+                                        <span className="text-slate-400">Valor total:</span>
+                                        <span className="font-bold text-amber-400 text-base">
+                                            R$ {selectedEvent?.ticketPrice?.toFixed(2)}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {selectedCategory === 'eventos' && selectedEvent?.isPaid !== 'pago' && (
+                                <div className="space-y-4 p-5 bg-white/5 rounded-2xl border border-white/10">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-[10px] font-black uppercase text-slate-400">Nome do Acompanhante (Opcional)</Label>
+                                        <Input
+                                            type="text"
+                                            placeholder="Nome de quem vai com você..."
+                                            value={companionName}
+                                            onChange={(e) => setCompanionName(e.target.value)}
+                                            className="bg-white/10 border-white/20 text-white h-11 rounded-xl placeholder-slate-600 focus-visible:ring-primary focus-visible:border-primary"
+                                        />
+                                    </div>
+                                    <div className="flex justify-between items-center text-xs border-t border-white/10 pt-3">
+                                        <span className="text-slate-400">Valor da Inscrição:</span>
+                                        <span className="font-bold text-emerald-400 text-sm">Gratuito</span>
+                                    </div>
+                                </div>
+                            )}
 
                             <Button
                                 onClick={handleFinalSubmit}
