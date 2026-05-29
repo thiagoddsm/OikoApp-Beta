@@ -34,7 +34,7 @@ export function FinancialSettings() {
   
   // Campos do Formulário de Cobrança Real
   const [selectedMemberId, setSelectedMemberId] = useState<string>('');
-  const [chargeType, setChargeType] = useState<'UNIQUE' | 'INSTALLMENT'>('UNIQUE');
+  const [chargeType, setChargeType] = useState<'UNIQUE' | 'INSTALLMENT' | 'SUBSCRIPTION'>('UNIQUE');
   const [billingType, setBillingType] = useState<'PIX' | 'BOLETO' | 'CREDIT_CARD' | 'UNDEFINED'>('PIX');
   const [amount, setAmount] = useState<number>(10.0);
   const [installments, setInstallments] = useState<number>(3);
@@ -187,7 +187,11 @@ export function FinancialSettings() {
       dueDate.setDate(dueDate.getDate() + dueDays);
       const dueDateStr = dueDate.toISOString().split('T')[0];
 
-      const paymentRes = await fetch('/api/asaas/payments', {
+      // Se for formato assinatura, chama o endpoint de subscriptions
+      const isSubscription = chargeType === 'SUBSCRIPTION';
+      const endpoint = isSubscription ? '/api/asaas/subscriptions' : '/api/asaas/payments';
+
+      const paymentRes = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -195,9 +199,9 @@ export function FinancialSettings() {
           billingType,
           value: amount,
           dueDate: dueDateStr,
-          description: `Cobrança de Teste Oiko — ${member.name}`,
+          description: `${isSubscription ? 'Assinatura' : 'Cobrança'} de Teste Oiko — ${member.name}`,
           externalReference: selectedMemberId,
-          ...(chargeType === 'INSTALLMENT' && { installmentCount: installments })
+          ...(!isSubscription && chargeType === 'INSTALLMENT' && { installmentCount: installments })
         })
       });
 
@@ -207,12 +211,12 @@ export function FinancialSettings() {
         response: paymentData
       });
 
-      if (!paymentRes.ok) throw new Error(paymentData.error || 'Erro ao criar cobrança');
+      if (!paymentRes.ok) throw new Error(paymentData.error || 'Erro ao criar cobrança/assinatura');
 
       setCreatedCharge(paymentData);
       toast({
-        title: "Cobrança Criada no Asaas!",
-        description: "A API retornou os dados de pagamento com sucesso.",
+        title: isSubscription ? "Assinatura Criada no Asaas!" : "Cobrança Criada no Asaas!",
+        description: "A API retornou os dados de faturamento com sucesso.",
       });
 
     } catch (err: any) {
@@ -375,6 +379,7 @@ export function FinancialSettings() {
                   <SelectContent>
                     <SelectItem value="UNIQUE">Cobrança Única</SelectItem>
                     <SelectItem value="INSTALLMENT">Parcelado</SelectItem>
+                    <SelectItem value="SUBSCRIPTION">Assinatura Mensal</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

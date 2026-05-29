@@ -219,3 +219,27 @@ export async function listPayments(
 export async function cancelPayment(paymentId: string): Promise<{ deleted: boolean }> {
   return asaasRequest<{ deleted: boolean }>(`/payments/${paymentId}`, 'DELETE');
 }
+
+/**
+ * Cria uma nova Assinatura recorrente no Asaas.
+ */
+export async function createSubscription(data: {
+  customerId: string;
+  billingType: string;
+  value: number;
+  dueDate: string;
+  description?: string;
+  externalReference?: string;
+  cycle?: 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUALLY' | 'YEARLY';
+}): Promise<any> {
+  return asaasRequest<any>('/subscriptions', 'POST', {
+    customer: data.customerId,
+    billingType: data.billingType,
+    value: data.value,
+    nextDueDate: data.dueDate,
+    cycle: data.cycle || 'MONTHLY',
+    description: data.description,
+    externalReference: data.externalReference,
+  });
+}
+

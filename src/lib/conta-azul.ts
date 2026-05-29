@@ -44,7 +44,7 @@ export function getAuthorizationUrl(): string {
   const clientId = process.env.CONTA_AZUL_CLIENT_ID;
   const redirectUri = encodeURIComponent(process.env.CONTA_AZUL_REDIRECT_URI || '');
   const state = 'oiko-auth-state'; // Pode ser gerado randomicamente
-  return `https://auth.contaazul.com/oauth2/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=sales&state=${state}&response_type=code`;
+  return `https://auth.contaazul.com/login?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}&scope=openid+profile+aws.cognito.signin.user.admin`;
 }
 
 export async function exchangeCodeForToken(code: string): Promise<ContaAzulToken> {
