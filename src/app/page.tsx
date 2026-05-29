@@ -241,12 +241,13 @@ export default function LandingPage() {
             />
           </div>
           <div className="hidden md:flex items-center space-x-8">
-            <a className="font-label-md text-label-md uppercase tracking-wider text-primary font-bold border-b-2 border-primary pb-1" href="#jornada">Jornada</a>
+            <a className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="#jornada">Jornada</a>
             <a className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="#igreja-em-celulas">Igreja em Células</a>
             <a className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="#redes">Redes</a>
             <a className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="#trilha-discipulado">Trilha Discipulado</a>
-            <a className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="#cultura-servir">Cultura Servir</a>
+            <a className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="https://projeto-luz-para-a-cidade-757083107524.us-west1.run.app/" target="_blank" rel="noopener noreferrer">Ação Social</a>
             <a className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="#visita">Visite-nos</a>
+            <Link className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="/quem-somos">Quem Somos</Link>
           </div>
           <Link href="/login" className="bg-primary text-on-primary px-6 py-2.5 rounded-full font-label-md text-label-md hover:opacity-90 hover:scale-105 transition-all active:scale-95 shadow-md shadow-primary/10">
             Área do Membro
@@ -688,29 +689,32 @@ export default function LandingPage() {
                 Mudar a cidade através do discipulado. Nossa missão é refletir a luz da manhã em cada coração gonçalense.
               </p>
               <div className="flex gap-4">
-                <a className="w-10 h-10 rounded-full bg-primary/5 flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all" href="#"><span className="material-symbols-outlined text-xl">videocam</span></a>
-                <a className="w-10 h-10 rounded-full bg-primary/5 flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all" href="#"><span className="material-symbols-outlined text-xl">groups</span></a>
+                <a className="w-10 h-10 rounded-full bg-primary/5 flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all" href="https://www.youtube.com/@ibmanha" target="_blank" rel="noopener noreferrer" title="YouTube"><span className="material-symbols-outlined text-xl">videocam</span></a>
+                <a className="w-10 h-10 rounded-full bg-primary/5 flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all" href="https://www.instagram.com/ibmanha/" target="_blank" rel="noopener noreferrer" title="Instagram"><span className="material-symbols-outlined text-xl">groups</span></a>
               </div>
             </div>
             
             <div className="md:col-span-8 grid grid-cols-2 md:grid-cols-4 gap-8">
               <div className="flex flex-col gap-5">
                 <span className="font-label-sm uppercase tracking-[0.2em] text-primary font-bold">SOBRE</span>
-                <a className="text-body-md text-on-surface-variant hover:text-primary transition-colors" href="#">Quem Somos</a>
-                <a className="text-body-md text-on-surface-variant hover:text-primary transition-colors" href="#">Nossa História</a>
-                <a className="text-body-md text-on-surface-variant hover:text-primary transition-colors" href="#">Nossa Liderança</a>
+                <Link className="text-body-md text-on-surface-variant hover:text-primary transition-colors" href="/quem-somos">Quem Somos</Link>
+                <Link className="text-body-md text-on-surface-variant hover:text-primary transition-colors" href="/quem-somos#historia">Nossa História</Link>
+                <Link className="text-body-md text-on-surface-variant hover:text-primary transition-colors" href="/quem-somos#lideranca">Nossa Liderança</Link>
               </div>
               <div className="flex flex-col gap-5">
                 <span className="font-label-sm uppercase tracking-[0.2em] text-primary font-bold">IGREJA</span>
                 <Link className="text-body-md text-on-surface-variant hover:text-primary transition-colors" href="/gc">Células (GC)</Link>
                 <Link className="text-body-md text-on-surface-variant hover:text-primary transition-colors" href="/enrollment">Escola Lumine</Link>
+                <a className="text-body-md text-on-surface-variant hover:text-primary transition-colors" href="https://projeto-luz-para-a-cidade-757083107524.us-west1.run.app/" target="_blank" rel="noopener noreferrer">Ação Social</a>
+                <a className="text-body-md text-on-surface-variant hover:text-primary transition-colors" href="https://ibmcamp.com.br" target="_blank" rel="noopener noreferrer">IBM CAMP</a>
                 <a className="text-body-md text-on-surface-variant hover:text-primary transition-colors" href="#">Ministérios</a>
               </div>
               <div className="flex flex-col gap-5">
                 <span className="font-label-sm uppercase tracking-[0.2em] text-primary font-bold">CONECTE</span>
                 <Link className="text-body-md text-on-surface-variant hover:text-primary transition-colors" href="/enrollment">Sou Visitante</Link>
-                <a className="text-body-md text-on-surface-variant hover:text-primary transition-colors" href="#">Instagram</a>
-                <a className="text-body-md text-on-surface-variant hover:text-primary transition-colors" href="#">YouTube</a>
+                <a className="text-body-md text-on-surface-variant hover:text-primary transition-colors" href="https://www.instagram.com/ibmanha/" target="_blank" rel="noopener noreferrer">Instagram</a>
+                <a className="text-body-md text-on-surface-variant hover:text-primary transition-colors" href="https://www.youtube.com/@ibmanha" target="_blank" rel="noopener noreferrer">YouTube</a>
+                <a className="text-body-md text-on-surface-variant hover:text-primary transition-colors" href="https://www.facebook.com/ibmanha/" target="_blank" rel="noopener noreferrer">Facebook</a>
               </div>
               <div className="flex flex-col gap-5">
                 <span className="font-label-sm uppercase tracking-[0.2em] text-primary font-bold">LEGAL</span>

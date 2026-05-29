@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import { useFirebase } from '@/firebase';
-import { doc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, getDocs, addDoc, Timestamp, query, where, limit } from 'firebase/firestore';
 import { parseISO, format, addWeeks, addMonths } from 'date-fns';
+import { INTEGRATION_STATUS_TO_EVENT } from '@/lib/timeline';
+
 
 const CRESCER_COURSE_ID = '0p9aolpCoHzGrnnue4nP';
 
@@ -283,6 +285,140 @@ export default function MigrateCrescer() {
     }
   };
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // MIGRAÇÃO DA LINHA DO TEMPO
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const runTimelineMigration = async (live: boolean) => {
+    if (!firestore) { addLog('❌ Firestore não iniciado'); return; }
+    setLoading(true);
+    addLog(`\n=== Migração da Linha do Tempo (${live ? '🔴 MODO LIVE' : '🟡 MODO DRY RUN'}) ===\n`);
+
+    // Helper: verifica se já existe um evento migrado para não duplicar
+    const hasMigratedEvent = async (userId: string, category: string, eventDescription: string): Promise<boolean> => {
+      const q = query(
+        collection(firestore, `users/${userId}/notes`),
+        where('source', '==', 'migrated'),
+        where('category', '==', category),
+        where('eventDescription', '==', eventDescription),
+        limit(1)
+      );
+      const snap = await getDocs(q);
+      return !snap.empty;
+    };
+
+    const addEvent = async (userId: string, payload: any): Promise<number> => {
+      const exists = await hasMigratedEvent(userId, payload.category, payload.eventDescription);
+      if (exists) return 0;
+      if (live) {
+        await addDoc(collection(firestore, `users/${userId}/notes`), {
+          type: 'system',
+          content: '',
+          authorId: 'migration_script',
+          createdAt: Timestamp.now(),
+          source: 'migrated',
+          ...payload,
+        });
+      }
+      return 1;
+    };
+
+    try {
+      const usersSnap = await getDocs(collection(firestore, 'users'));
+      addLog(`📋 Total de membros: ${usersSnap.size}`);
+      addLog('');
+
+      let totalEvents = 0;
+      let processed = 0;
+
+      for (const userDoc of usersSnap.docs) {
+        const data = userDoc.data();
+        const userId = userDoc.id;
+        let eventsForUser = 0;
+
+        // 1. Origem do cadastro
+        if (data.createdAt) {
+          const origem = data.comoConheceu ? data.comoConheceu.toUpperCase() : 'CADASTRO MANUAL';
+          eventsForUser += await addEvent(userId, {
+            category: 'origin',
+            entityTitle: 'ORIGEM DO CADASTRO',
+            eventDescription: origem,
+            eventDate: data.createdAt,
+          });
+        }
+
+        // 2. Status eclesiástico atual
+        const status = data.integrationStatus;
+        if (status && INTEGRATION_STATUS_TO_EVENT[status]) {
+          const evt = INTEGRATION_STATUS_TO_EVENT[status];
+          eventsForUser += await addEvent(userId, {
+            category: 'ecclesiastical_status',
+            entityTitle: evt.description,
+            eventDescription: evt.description,
+            statusBadge: evt.badge,
+            eventDate: data.updatedAt ?? data.createdAt ?? Timestamp.now(),
+          });
+        }
+
+        // 3. Célula atual
+        const celulaId = data.hierarchy?.celulaId;
+        if (celulaId) {
+          let cellName = 'GC';
+          try {
+            const cellSnap = await getDoc(doc(firestore, 'cells', celulaId));
+            if (cellSnap.exists()) cellName = cellSnap.data()?.nome ?? 'GC';
+          } catch (_) {}
+
+          eventsForUser += await addEvent(userId, {
+            category: 'gc',
+            entityTitle: cellName.toUpperCase(),
+            eventDescription: 'MEMBRO DO GC',
+            relatedId: celulaId,
+            eventDate: data.updatedAt ?? data.createdAt ?? Timestamp.now(),
+          });
+        }
+
+        // 4. Cursos aprovados
+        const courseStatus: Record<string, string> = data.journey?.courseStatus ?? {};
+        for (const [courseId, cStatus] of Object.entries(courseStatus)) {
+          if (cStatus !== 'approved') continue;
+          let courseName = courseId;
+          try {
+            const courseSnap = await getDoc(doc(firestore, 'courses', courseId));
+            if (courseSnap.exists()) courseName = courseSnap.data()?.name ?? courseId;
+          } catch (_) {}
+
+          eventsForUser += await addEvent(userId, {
+            category: 'teaching',
+            entityTitle: courseName.toUpperCase(),
+            eventDescription: 'APROVADO',
+            statusBadge: 'APROVADO',
+            relatedId: courseId,
+            eventDate: data.updatedAt ?? data.createdAt ?? Timestamp.now(),
+          });
+        }
+
+        if (eventsForUser > 0) {
+          addLog(`  ${live ? '✅' : '📌'} ${data.name ?? userId}: ${eventsForUser} evento(s) ${live ? 'criado(s)' : 'a criar'}`);
+          totalEvents += eventsForUser;
+        }
+        processed++;
+      }
+
+      addLog(`\n===== RESUMO =====`);
+      addLog(`Membros processados: ${processed}`);
+      addLog(`Eventos ${live ? 'criados' : 'que seriam criados'}: ${totalEvents}`);
+      if (!live) addLog(`\n⚠️ Execute em MODO LIVE para gravar no banco de dados.`);
+      if (live) addLog(`\n🎉 Migração da Linha do Tempo concluída!`);
+
+    } catch (e: any) {
+      addLog(`\n❌ Erro: ${e.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
   return (
     <div style={{ padding: 40, fontFamily: 'monospace', color: '#fff', background: '#0a0a0c', minHeight: '100vh' }}>
       <div style={{ maxWidth: 900, margin: '0 auto' }}>
@@ -359,6 +495,51 @@ export default function MigrateCrescer() {
                 }}
               >
                 🔴 Executar (Live)
+              </button>
+            </div>
+          </div>
+          {/* Card 3: Linha do Tempo */}
+          <div style={{ background: '#121216', padding: 24, borderRadius: 12, border: '1px solid #222', gridColumn: '1 / -1' }}>
+            <h3 style={{ color: '#fff', marginBottom: 4, fontSize: '1.2rem' }}>3. Migrar Linha do Tempo dos Membros</h3>
+            <p style={{ color: '#aaa', fontSize: '0.85rem', lineHeight: 1.5, marginBottom: 20 }}>
+              Gera eventos históricos na linha do tempo de cada membro com base nos dados já existentes:
+              origem do cadastro, status eclesiástico atual, célula (GC) e cursos aprovados.
+              É <strong style={{ color: '#0f0' }}>idempotente</strong> — pode rodar múltiplas vezes sem duplicar eventos.
+            </p>
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button
+                onClick={() => runTimelineMigration(false)}
+                disabled={loading}
+                style={{
+                  background: '#3182ce',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '10px 16px',
+                  borderRadius: 6,
+                  fontSize: 14,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  fontWeight: 'bold',
+                  flex: 1
+                }}
+              >
+                🔍 Testar (Dry Run)
+              </button>
+              <button
+                onClick={() => runTimelineMigration(true)}
+                disabled={loading}
+                style={{
+                  background: '#6b46c1',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '10px 16px',
+                  borderRadius: 6,
+                  fontSize: 14,
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                  fontWeight: 'bold',
+                  flex: 1
+                }}
+              >
+                🟣 Executar (Live)
               </button>
             </div>
           </div>

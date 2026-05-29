@@ -88,7 +88,7 @@ export default function PublicHomePage() {
                                         <span className="material-symbols-outlined text-accent">child_care</span>
                                         <span className="text-sm font-medium">Kids & Juniores</span>
                                     </a>
-                                    <a className="p-3 hover:bg-slate-50 rounded-lg transition-colors flex items-center gap-3" href="#">
+                                    <a className="p-3 hover:bg-slate-50 rounded-lg transition-colors flex items-center gap-3" href="https://projeto-luz-para-a-cidade-757083107524.us-west1.run.app/" target="_blank" rel="noopener noreferrer">
                                         <span className="material-symbols-outlined text-accent">volunteer_activism</span>
                                         <span className="text-sm font-medium">Ação Social</span>
                                     </a>
@@ -112,7 +112,7 @@ export default function PublicHomePage() {
                                 </div>
                             </div>
                         </div>
-                        <a className="text-sm font-semibold text-primary/70 hover:text-primary transition-colors" href="#">Eventos</a>
+                        <a className="text-sm font-semibold text-primary/70 hover:text-primary transition-colors" href="/public/events">Eventos</a>
                     </nav>
                 </div>
                 <div className="flex items-center gap-6">
@@ -296,7 +296,8 @@ export default function PublicHomePage() {
                             <li><a className="hover:text-accent transition-colors" href="#">Nossa Visão</a></li>
                             <li><a className="hover:text-accent transition-colors" href="#">Ministérios</a></li>
                             <li><a className="hover:text-accent transition-colors" href="#">Células (GCs)</a></li>
-                            <li><a className="hover:text-accent transition-colors" href="#">Eventos</a></li>
+                            <li><a className="hover:text-accent transition-colors" href="/public/events">Eventos</a></li>
+                            <li><a className="hover:text-accent transition-colors" href="https://ibmcamp.com.br" target="_blank" rel="noopener noreferrer">IBM CAMP</a></li>
                         </ul>
                     </div>
                     <div>

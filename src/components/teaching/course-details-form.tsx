@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { PersonSearchInput } from '@/components/common/person-search-input';
 
 export function CourseDetailsForm({ course }) {
   const { users, courses, theoflixCourses, isLoading } = useVolunteering();
@@ -243,15 +244,15 @@ export function CourseDetailsForm({ course }) {
                   <div className="space-y-4">
                       <div>
                         <Label htmlFor="responsibleId" className="text-[10px] uppercase font-black text-muted-foreground">Responsável Designado</Label>
-                        <Select value={formData.responsibleId || 'null'} onValueChange={v => handleFieldChange('responsibleId', v)} disabled={isLoading}>
-                          <SelectTrigger id="responsibleId" className="bg-white mt-1">
-                            <SelectValue placeholder="Selecione um líder..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="null">Nenhum</SelectItem>
-                            {users.map(user => <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
+                        <div className="mt-1">
+                          <PersonSearchInput
+                            value={formData.responsibleId === 'null' ? '' : formData.responsibleId}
+                            onChange={v => handleFieldChange('responsibleId', v)}
+                            users={users}
+                            placeholder="Buscar coordenador..."
+                            optional
+                          />
+                        </div>
                       </div>
                       
                       {responsible && (

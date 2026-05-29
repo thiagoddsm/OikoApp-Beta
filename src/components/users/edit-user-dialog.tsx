@@ -27,6 +27,7 @@ import { sendWelcomeMessage } from '@/app/actions/whatsapp-actions';
 import { Textarea } from '../ui/textarea';
 import { formatName } from '@/lib/utils';
 import { GooglePlacesAutocomplete } from '@/components/common/google-places-autocomplete';
+import { addTimelineEvent, INTEGRATION_STATUS_TO_EVENT } from '@/lib/timeline';
 
 type User = {
   id: string;
@@ -44,6 +45,7 @@ type User = {
   address?: {
     street?: string;
     cep?: string;
+    location?: any;
   };
   hierarchy?: {
     role?: string;
@@ -403,6 +405,57 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         if(isEditing && user) {
             const userDocRef = doc(firestore, 'users', user.id);
             updateDocumentNonBlocking(userDocRef, dataToSave);
+
+            // ── Triggers da Linha do Tempo ──────────────────────────────────
+            const authorId = currentUser?.uid ?? 'system';
+
+            // 1. Mudança de status eclesiástico (integrationStatus)
+            const prevStatus = user.integrationStatus ?? 'nao_alcancado';
+            if (finalIntegrationStatus && finalIntegrationStatus !== prevStatus) {
+                const statusEvent = INTEGRATION_STATUS_TO_EVENT[finalIntegrationStatus];
+                if (statusEvent) {
+                    addTimelineEvent(user.id, firestore, {
+                        category: 'ecclesiastical_status',
+                        entityTitle: statusEvent.description,
+                        eventDescription: statusEvent.description,
+                        statusBadge: statusEvent.badge,
+                        source: 'automatic',
+                        authorId,
+                    }).catch(console.error);
+                }
+            }
+
+            // 2. Mudança de célula (GC)
+            const prevCelulaId = user.hierarchy?.celulaId ?? '';
+            const newCelulaId = formData.celulaId ?? '';
+            if (newCelulaId !== prevCelulaId) {
+                // Encontrar o nome da célula
+                const cell = cells?.find(c => c.id === newCelulaId);
+                const cellName = cell?.nome ?? (newCelulaId ? 'Célula' : '');
+
+                let gcDescription = '';
+                if (!prevCelulaId && newCelulaId) {
+                    gcDescription = 'INICIOU COMO PARTICIPANTE';
+                } else if (prevCelulaId && newCelulaId && prevCelulaId !== newCelulaId) {
+                    gcDescription = 'TRANSFERIDO DE CÉLULA';
+                } else if (prevCelulaId && !newCelulaId) {
+                    gcDescription = 'DEIXOU DE PARTICIPAR';
+                }
+
+                if (gcDescription) {
+                    const prevCell = cells?.find(c => c.id === prevCelulaId);
+                    addTimelineEvent(user.id, firestore, {
+                        category: 'gc',
+                        entityTitle: newCelulaId ? cellName : (prevCell?.nome ?? 'GC'),
+                        eventDescription: gcDescription,
+                        relatedId: newCelulaId || prevCelulaId,
+                        source: 'automatic',
+                        authorId,
+                    }).catch(console.error);
+                }
+            }
+            // ── Fim dos triggers ────────────────────────────────────────────
+
         } else {
             const usersCollection = collection(firestore, 'users');
             addDocumentNonBlocking(usersCollection, {

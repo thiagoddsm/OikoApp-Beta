@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { createContext, useContext, ReactNode, useMemo } from 'react';
+import React, { createContext, useContext, ReactNode, useMemo, useEffect } from 'react';
 import { format, addWeeks, addMonths, parseISO } from 'date-fns';
 import { useFirebase, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, useDoc } from '@/firebase';
 import { collection, query, doc, Timestamp, addDoc, where } from 'firebase/firestore';
@@ -13,6 +13,22 @@ export type User = {
   phone?: string;
   avatar?: string;
   integrationStatus?: string;
+  cpf?: string;
+  sexo?: string;
+  escolaridade?: string;
+  profissao?: string;
+  dataNascimento?: string;
+  estadoCivil?: string;
+  address?: {
+    street?: string;
+    cep?: string;
+    location?: any;
+  };
+  hierarchy?: {
+    role?: string;
+    celulaId?: string;
+    supervisorId?: string;
+  };
   serviceStatus?: 'serving' | 'not_serving';
   serviceAreaId?: string;
   serviceTeamId?: string;
@@ -332,6 +348,7 @@ interface VolunteeringContextType {
   events: VolunteeringEvent[];
   rooms: Room[];
   reservations: RoomReservation[];
+  strategicEvents: any[];
   courses: Course[];
   classes: Class[];
   enrollmentRequests: EnrollmentRequest[];
@@ -406,7 +423,14 @@ interface VolunteeringContextType {
 const VolunteeringContext = createContext<VolunteeringContextType | undefined>(undefined);
 
 export function VolunteeringProvider({ children }: { children: ReactNode }) {
-  const { firestore, user } = useFirebase();
+  const { firestore, user, auth, isUserLoading } = useFirebase();
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.pathname.includes('/public/') && auth && !user && !isUserLoading) {
+      const { initiateAnonymousSignIn } = require('@/firebase/non-blocking-login');
+      initiateAnonymousSignIn(auth);
+    }
+  }, [auth, user, isUserLoading]);
 
   const { data: userData, isLoading: loadingRole } = useDoc<{ hierarchy?: { role?: string }; }>(user ? `users/${user.uid}` : null);
 
@@ -417,14 +441,24 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   
   const roleId = userData?.hierarchy?.role;
   const { data: accessProfile, isLoading: loadingProfile } = useDoc<any>(user && roleId ? `access_profiles/${roleId}` : null);
-  const permissions = accessProfile?.permissions || {};
+  const permissions = useMemo(() => accessProfile?.permissions || {}, [accessProfile?.permissions]);
 
   // Helper to check permission
   const can = (permId: string, action = 'view') => isAdmin || !!permissions?.[permId]?.[action];
 
+  const isAnonymous = user?.isAnonymous;
+  const isPublicRoute = typeof window !== 'undefined' && window.location.pathname.includes('/public/');
+  const shouldLoadPublicData = isAnonymous || isPublicRoute;
+
   // Queries sensíveis que exigem login e papel adequado (só rodam após papel ser conhecido)
   const usersQ = useMemoFirebase(() => (firestore && user && roleResolved && (can('pessoas_list') || can('teaching_courses', 'view_students') || can('teaching_wave', 'view_teacher_area') || can('teaching_dis', 'view_teacher_area'))) ? query(collection(firestore, 'users')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-  const serviceAreasQ = useMemoFirebase(() => (firestore && user && roleResolved && can('servico_areas')) ? query(collection(firestore, 'areas_of_service')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
+  const serviceAreasQ = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    if (shouldLoadPublicData || (roleResolved && can('servico_areas'))) {
+      return query(collection(firestore, 'areas_of_service'));
+    }
+    return null;
+  }, [firestore, user, roleResolved, isAdmin, permissions, shouldLoadPublicData]);
   const teamsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('servico_teams')) ? query(collection(firestore, 'teams')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
   const eventsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('servico_events')) ? query(collection(firestore, 'volunteering_events')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
   const reservationsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('ministerial_reservations')) ? query(collection(firestore, 'room_reservations')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
@@ -447,7 +481,20 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   const financialTransactionsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('ministerial_finance')) ? query(collection(firestore, 'financial_transactions')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
   const financeRequestsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('ministerial_finance')) ? query(collection(firestore, 'finance_requests')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
   const savedSchedulesQ = useMemoFirebase(() => (firestore && user && roleResolved && can('servico_schedule')) ? query(collection(firestore, 'saved_schedules')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-  const roomsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('ministerial_reservations')) ? query(collection(firestore, 'rooms')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
+  const roomsQ = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    if (shouldLoadPublicData || (roleResolved && can('ministerial_reservations'))) {
+      return query(collection(firestore, 'rooms'));
+    }
+    return null;
+  }, [firestore, user, roleResolved, isAdmin, permissions, shouldLoadPublicData]);
+  const strategicEventsQ = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    if (shouldLoadPublicData || roleResolved) {
+      return query(collection(firestore, 'strategic_events'));
+    }
+    return null;
+  }, [firestore, user, roleResolved, shouldLoadPublicData]);
   const theoflixCoursesQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'theoflix_courses')) : null, [firestore, user]);
   const reservationCategoriesQ = useMemoFirebase(() => (firestore && user && roleResolved && can('ministerial_reservations')) ? query(collection(firestore, 'reservation_categories')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
   
@@ -466,6 +513,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   const { data: events, isLoading: le } = useCollection<VolunteeringEvent>(eventsQ);
   const { data: rooms, isLoading: lr } = useCollection<Room>(roomsQ);
   const { data: reservations, isLoading: lres } = useCollection<RoomReservation>(reservationsQ);
+  const { data: strategicEvents, isLoading: lse } = useCollection<any>(strategicEventsQ);
   const { data: courses, isLoading: lco } = useCollection<Course>(coursesQ);
   const { data: classes, isLoading: lcl } = useCollection<Class>(classesQ);
   const { data: enrollmentRequests, isLoading: ler } = useCollection<EnrollmentRequest>(enrollmentRequestsQ);
@@ -484,7 +532,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   const { data: gcAreas, isLoading: lga } = useCollection<Area>(gcAreasQ);
   const { data: redes, isLoading: lre } = useCollection<Rede>(redesQ);
 
-  const isLoading = loadingRole || loadingProfile || (user ? lu : false) || la || lt || le || (user ? lr : false) || lres || lco || lcl || ler || lpl || lwp || ldp || lwpn || ldpn || lwe || loadingCategories || (user ? loadingTheoflix : false) || lft || lfr || lss || lce || lga || lre;
+  const isLoading = loadingRole || loadingProfile || (user ? lu : false) || la || lt || le || (user ? lr : false) || lres || lse || lco || lcl || ler || lpl || lwp || ldp || lwpn || ldpn || lwe || loadingCategories || (user ? loadingTheoflix : false) || lft || lfr || lss || lce || lga || lre;
 
   const value = useMemo(() => ({
     users: users || [],
@@ -493,6 +541,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
     events: events || [],
     rooms: rooms || [],
     reservations: reservations || [],
+    strategicEvents: strategicEvents || [],
     courses: courses || [],
     classes: classes || [],
     enrollmentRequests: enrollmentRequests || [],

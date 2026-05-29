@@ -623,8 +623,36 @@ export default function ImportDataPage() {
                         // Pode ser uma lista de GCs separados por vírgula ou ponto e vírgula, preservando a barra dupla (//) do nome do líder
                         const gcCandidates = rawGcName.split(/[,;]+/).map(s => s.trim()).filter(Boolean);
                         let foundMatchDoc: any = null;
+
+                        const smartLocalMatch = (candidate: string) => {
+                            const normCandidate = normalizeString(candidate);
+                            // 1. Match exato ou normalizado
+                            let match = cellDocs.find(doc => normalizeString(doc.data().nome) === normCandidate);
+                            if (match) return match;
+
+                            // 2. Se contém '//', tenta casar a parte do nome do GC ou o nome parcial
+                            if (candidate.includes('//')) {
+                                const parts = candidate.split('//').map(p => p.trim());
+                                const gcPart = normalizeString(parts[0]);
+                                
+                                // Tenta achar uma célula cujo nome normalizado contenha a parte do GC ou vice-versa
+                                match = cellDocs.find(doc => {
+                                    const docName = normalizeString(doc.data().nome);
+                                    return docName.includes(gcPart) || gcPart.includes(docName);
+                                });
+                                if (match) return match;
+                            }
+
+                            // 3. Tenta achar qualquer célula que contenha o termo buscado ou vice-versa
+                            match = cellDocs.find(doc => {
+                                const docName = normalizeString(doc.data().nome);
+                                return docName.includes(normCandidate) || normCandidate.includes(docName);
+                            });
+                            return match || null;
+                        };
+
                         for (const candidate of gcCandidates) {
-                            const localMatch = cellDocs.find(doc => normalizeString(doc.data().nome) === normalizeString(candidate));
+                            const localMatch = smartLocalMatch(candidate);
                             if (localMatch) {
                                 foundMatchDoc = localMatch;
                                 break;

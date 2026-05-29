@@ -1,15 +1,17 @@
 'use client';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useVolunteering, type User } from '@/contexts/volunteering-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, User as UserIcon } from 'lucide-react';
+import { Loader2, User as UserIcon, Search } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Switch } from '../ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Input } from '../ui/input';
 
 export function VolunteersManagement() {
   const { users, serviceAreas: areas, teams, isLoading, updateVolunteer } = useVolunteering();
+  const [search, setSearch] = useState('');
 
   const handleStatusChange = (user: User, checked: boolean) => {
     const newStatus = checked ? 'serving' : 'not_serving';
@@ -30,6 +32,11 @@ export function VolunteersManagement() {
     updateVolunteer(user.id, { serviceTeamId: teamId === 'null' ? '' : teamId });
   };
 
+  const filteredUsers = useMemo(() => {
+    if (!search.trim()) return users;
+    const term = search.toLowerCase();
+    return users.filter(u => u.name?.toLowerCase().includes(term));
+  }, [users, search]);
 
   if (isLoading) {
     return (
@@ -40,8 +47,19 @@ export function VolunteersManagement() {
   }
 
   return (
-    <div className="rounded-lg border">
-      <Table>
+    <div className="space-y-4">
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar voluntário pelo nome..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
+      <div className="rounded-lg border">
+        <Table>
         <TableHeader>
           <TableRow>
             <TableHead className="w-[250px]">Membro</TableHead>
@@ -51,7 +69,7 @@ export function VolunteersManagement() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {users.map(user => {
+          {filteredUsers.map(user => {
             const avatar = PlaceHolderImages.find(p => p.id === 'avatar-1'); // Placeholder avatar
             const isServing = user.serviceStatus === 'serving';
 
@@ -112,6 +130,7 @@ export function VolunteersManagement() {
           })}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 }

@@ -1,13 +1,13 @@
-
 'use client';
 
 import { EventPlanningForm } from '@/components/events/planning-form';
 import { GuestBriefingGenerator } from '@/components/events/guest-briefing';
 import { PostEventFeedback } from '@/components/events/post-event-feedback';
+import { EventRegistrationsTab } from '@/components/events/event-registrations-tab';
 import { VolunteeringProvider } from '@/contexts/volunteering-context';
 import { useParams } from 'next/navigation';
 import { useDoc } from '@/firebase';
-import { Loader2, FileText, UserCheck, MessageSquare } from 'lucide-react';
+import { Loader2, FileText, UserCheck, MessageSquare, Users } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { PlanningEvent } from '@/components/events/planning-form';
@@ -16,6 +16,8 @@ import type { PlanningEvent } from '@/components/events/planning-form';
 type StrategicEvent = {
   id: string;
   eventName: string;
+  isPaid?: string;
+  ticketPrice?: number;
   [key: string]: any; 
 };
 
@@ -52,14 +54,18 @@ export default function EventDetailPage() {
     return (
         <VolunteeringProvider>
              <Tabs defaultValue="planning" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
                     <TabsTrigger value="planning">
                         <FileText className="mr-2 size-4" />
                         Planejamento Estratégico
                     </TabsTrigger>
+                    <TabsTrigger value="registrations">
+                        <Users className="mr-2 size-4" />
+                        Inscrições
+                    </TabsTrigger>
                     <TabsTrigger value="guest_briefing">
                         <UserCheck className="mr-2 size-4" />
-                        Briefing do Convidado
+                        Briefing Convidado
                     </TabsTrigger>
                     <TabsTrigger value="post_event">
                         <MessageSquare className="mr-2 size-4" />
@@ -69,11 +75,18 @@ export default function EventDetailPage() {
                 <TabsContent value="planning" className="mt-6">
                      <EventPlanningForm existingEvent={planningEvent} />
                 </TabsContent>
+                <TabsContent value="registrations" className="mt-6">
+                     <EventRegistrationsTab 
+                        eventId={eventId} 
+                        eventPrice={eventData.ticketPrice}
+                        isPaid={eventData.isPaid === 'pago'}
+                     />
+                </TabsContent>
                 <TabsContent value="guest_briefing" className="mt-6">
-                    <GuestBriefingGenerator event={eventData} />
+                     <GuestBriefingGenerator event={eventData} />
                 </TabsContent>
                 <TabsContent value="post_event" className="mt-6">
-                    <PostEventFeedback event={eventData} />
+                     <PostEventFeedback event={eventData} />
                 </TabsContent>
             </Tabs>
         </VolunteeringProvider>
