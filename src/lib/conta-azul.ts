@@ -21,6 +21,7 @@ if (typeof window === 'undefined') {
 }
 
 import { Timestamp } from 'firebase/firestore';
+import { getAdminDb } from '@/lib/firebase-admin';
 
 export interface ContaAzulToken {
   accessToken: string;
@@ -40,17 +41,49 @@ export interface ContaAzulEntry {
   paymentDate?: string;
 }
 
-export function getAuthorizationUrl(): string {
-  const clientId = process.env.CONTA_AZUL_CLIENT_ID;
-  const redirectUri = encodeURIComponent(process.env.CONTA_AZUL_REDIRECT_URI || '');
+export async function getContaAzulCredentials() {
+  try {
+    dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+  } catch (e) {
+    // ignore
+  }
+
+  try {
+    const db = getAdminDb();
+    const snap = await db.collection('system_settings').doc('finance').get();
+    
+    if (snap.exists) {
+      const data = snap.data()!;
+      if (data.contaAzulClientId) {
+        return {
+          clientId: data.contaAzulClientId,
+          clientSecret: data.contaAzulClientSecret || '',
+          redirectUri: data.contaAzulRedirectUri || 'https://ibmanha.com.br/api/finance/conta-azul/callback',
+          baseUrl: data.contaAzulBaseUrl || 'https://api-v2.contaazul.com'
+        };
+      }
+    }
+  } catch (error) {
+    console.warn('[Conta Azul Config] Não foi possível ler credenciais do Firestore. Tentando fallback para .env.', error);
+  }
+
+  return {
+    clientId: process.env.CONTA_AZUL_CLIENT_ID || '60recemcs55rtt1jij35lp13ki',
+    clientSecret: process.env.CONTA_AZUL_CLIENT_SECRET || '13m3rht192ibciso195b7hnnnpmgrvt13ribng8u0uep588pe5ha',
+    redirectUri: process.env.CONTA_AZUL_REDIRECT_URI || 'https://ibmanha.com.br/api/finance/conta-azul/callback',
+    baseUrl: process.env.CONTA_AZUL_BASE_URL || 'https://api-v2.contaazul.com'
+  };
+}
+
+export async function getAuthorizationUrl(): Promise<string> {
+  const { clientId, redirectUri } = await getContaAzulCredentials();
+  const encodedRedirectUri = encodeURIComponent(redirectUri);
   const state = 'oiko-auth-state'; // Pode ser gerado randomicamente
-  return `https://auth.contaazul.com/login?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}&scope=openid+profile+aws.cognito.signin.user.admin`;
+  return `https://auth.contaazul.com/login?response_type=code&client_id=${clientId}&redirect_uri=${encodedRedirectUri}&state=${state}&scope=openid+profile+aws.cognito.signin.user.admin`;
 }
 
 export async function exchangeCodeForToken(code: string): Promise<ContaAzulToken> {
-  const clientId = process.env.CONTA_AZUL_CLIENT_ID;
-  const clientSecret = process.env.CONTA_AZUL_CLIENT_SECRET;
-  const redirectUri = process.env.CONTA_AZUL_REDIRECT_URI || '';
+  const { clientId, clientSecret, redirectUri } = await getContaAzulCredentials();
 
   const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
 
@@ -84,8 +117,7 @@ export async function exchangeCodeForToken(code: string): Promise<ContaAzulToken
 }
 
 export async function refreshAccessToken(refreshToken: string): Promise<ContaAzulToken> {
-  const clientId = process.env.CONTA_AZUL_CLIENT_ID;
-  const clientSecret = process.env.CONTA_AZUL_CLIENT_SECRET;
+  const { clientId, clientSecret } = await getContaAzulCredentials();
 
   const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
 
@@ -117,7 +149,7 @@ export async function refreshAccessToken(refreshToken: string): Promise<ContaAzu
 }
 
 export async function contaAzulRequest(path: string, accessToken: string, method = 'GET', body?: any) {
-  const baseUrl = process.env.CONTA_AZUL_BASE_URL || 'https://api-v2.contaazul.com';
+  const { baseUrl } = await getContaAzulCredentials();
   const url = `${baseUrl}${path}`;
 
   const headers: HeadersInit = {

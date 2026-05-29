@@ -5,7 +5,7 @@ export const runtime = 'nodejs';
 
 export async function GET() {
   try {
-    const authUrl = getAuthorizationUrl();
+    const authUrl = await getAuthorizationUrl();
     return NextResponse.redirect(authUrl);
   } catch (error: any) {
     console.error('[Conta Azul] Erro ao gerar URL de autorização:', error.message);
