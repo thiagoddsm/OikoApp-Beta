@@ -35,7 +35,7 @@ export function FinancialSettings() {
   // Campos do Formulário de Cobrança Real
   const [selectedMemberId, setSelectedMemberId] = useState<string>('');
   const [chargeType, setChargeType] = useState<'UNIQUE' | 'INSTALLMENT'>('UNIQUE');
-  const [billingType, setBillingType] = useState<'PIX' | 'BOLETO' | 'CREDIT_CARD'>('PIX');
+  const [billingType, setBillingType] = useState<'PIX' | 'BOLETO' | 'CREDIT_CARD' | 'UNDEFINED'>('PIX');
   const [amount, setAmount] = useState<number>(10.0);
   const [installments, setInstallments] = useState<number>(3);
   const [cpfCnpj, setCpfCnpj] = useState<string>('');
@@ -387,6 +387,7 @@ export function FinancialSettings() {
                     <SelectItem value="PIX">Pix</SelectItem>
                     <SelectItem value="BOLETO">Boleto Bancário</SelectItem>
                     <SelectItem value="CREDIT_CARD">Cartão de Crédito</SelectItem>
+                    <SelectItem value="UNDEFINED">Indefinido (Escolha do pagador)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -45,14 +45,12 @@ interface AsaasListResponse<T> {
  * Obtém as credenciais do Asaas dinamicamente de 3 fontes redundantes.
  */
 async function getAsaasCredentials(): Promise<{ apiKey: string; baseUrl: string }> {
-  // 1. Forçar carregamento do .env do projeto
   try {
     dotenv.config({ path: path.resolve(process.cwd(), '.env') });
   } catch (e) {
     // ignore
   }
 
-  // 2. Tentar ler do Firestore
   try {
     const db = getAdminDb();
     const snap = await db.collection('system_settings').doc('finance').get();
@@ -70,7 +68,6 @@ async function getAsaasCredentials(): Promise<{ apiKey: string; baseUrl: string 
     console.warn('[Asaas Config] Não foi possível ler credenciais do Firestore. Tentando fallback para .env.', error);
   }
 
-  // 3. Fallback para variáveis de ambiente locais
   const envKey = process.env.ASAAS_API_KEY || '';
   const envUrl = process.env.ASAAS_BASE_URL || 'https://api.asaas.com/v3';
 
@@ -87,7 +84,6 @@ async function asaasRequest<T = unknown>(
 ): Promise<T> {
   const { apiKey, baseUrl } = await getAsaasCredentials();
 
-  // Se mesmo com os fallbacks a chave estiver em branco, vamos avisar de forma detalhada
   if (!apiKey || apiKey.includes('COLE_AQUI')) {
     throw new Error('Chave de API do Asaas não configurada. Salve-a na aba financeira de configurações ou no .env');
   }
@@ -108,7 +104,6 @@ async function asaasRequest<T = unknown>(
     options.body = JSON.stringify(body);
   }
 
-  // Desativa cache nativo do Next.js para garantir chamadas dinâmicas
   if (options.headers) {
     (options as any).next = { revalidate: 0 };
   }
@@ -145,7 +140,6 @@ export async function findOrCreateCustomer(data: {
   phone?: string;
   externalReference: string;
 }): Promise<AsaasCustomer> {
-  // O Asaas exige CPF/CNPJ limpo (apenas números) para a busca
   const cleanCpfCnpj = data.cpfCnpj ? data.cpfCnpj.replace(/\D/g, '') : '';
   
   if (cleanCpfCnpj) {
@@ -157,7 +151,6 @@ export async function findOrCreateCustomer(data: {
     }
   }
 
-  // Busca secundária por externalReference
   const searchResultRef = await asaasRequest<AsaasListResponse<AsaasCustomer>>(
     `/customers?externalReference=${encodeURIComponent(data.externalReference)}&limit=1`
   );
@@ -166,7 +159,6 @@ export async function findOrCreateCustomer(data: {
     return searchResultRef.data[0];
   }
 
-  // Não encontrado — cria novo cliente
   const customer = await asaasRequest<AsaasCustomer>('/customers', 'POST', {
     name: data.name,
     cpfCnpj: cleanCpfCnpj || undefined,
@@ -188,17 +180,24 @@ export async function createPayment(data: {
   installmentCount?: number;
   installmentValue?: number;
 }): Promise<AsaasPayment> {
-  // Asaas espera o campo 'customer' com o ID do cliente
-  return asaasRequest<AsaasPayment>('/payments', 'POST', {
+  const payload: any = {
     customer: data.customerId,
     billingType: data.billingType,
-    value: data.value,
     dueDate: data.dueDate,
     description: data.description,
     externalReference: data.externalReference,
-    installmentCount: data.installmentCount,
-    installmentValue: data.installmentValue,
-  });
+  };
+
+  // REGRA DO ASAAS: Se for parcelado, não pode enviar o campo 'value'
+  // Deve enviar 'totalValue' e 'installmentCount'
+  if (data.installmentCount && data.installmentCount > 1) {
+    payload.totalValue = data.value;
+    payload.installmentCount = data.installmentCount;
+  } else {
+    payload.value = data.value;
+  }
+
+  return asaasRequest<AsaasPayment>('/payments', 'POST', payload);
 }
 
 export async function getPayment(paymentId: string): Promise<AsaasPayment> {
