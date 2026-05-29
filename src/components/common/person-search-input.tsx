@@ -50,13 +50,21 @@ export function PersonSearchInput({
   }, []);
 
   const filteredResults = useMemo(() => {
-    const term = search.trim().toLowerCase();
+    const normalize = (str: string) => 
+      (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+    const term = normalize(search.trim());
     if (!term) {
       // Return suggestions if no search term, excluding already excludedIds or selected value
       return suggestions.filter(u => !excludeIds.includes(u.id) && u.id !== value);
     }
     return users
-      .filter(u => !excludeIds.includes(u.id) && u.id !== value && u.name?.toLowerCase().includes(term))
+      .filter(u => {
+        const isExcluded = excludeIds.includes(u.id) || u.id === value;
+        if (isExcluded) return false;
+        const normalizedName = normalize(u.name);
+        return normalizedName.includes(term);
+      })
       .slice(0, 15);
   }, [search, users, excludeIds, suggestions, value]);
 

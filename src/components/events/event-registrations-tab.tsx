@@ -9,12 +9,15 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Users, DollarSign, CheckCircle2, AlertCircle, Phone, Mail, UserPlus, Check, X } from 'lucide-react';
+import { Loader2, Users, DollarSign, CheckCircle2, AlertCircle, Phone, Mail, UserPlus, Check, X, CreditCard } from 'lucide-react';
+import { PaymentStatusBadge } from '@/components/events/payment-status-badge';
+import { EventPaymentDialog } from '@/components/events/payment-dialog';
 
 interface EventRegistrationsTabProps {
   eventId: string;
   eventPrice?: number;
   isPaid?: boolean;
+  eventTitle?: string;
 }
 
 type Registration = {
@@ -43,11 +46,13 @@ type Registration = {
   createdAt: any;
 };
 
-export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false }: EventRegistrationsTabProps) {
+export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false, eventTitle = '' }: EventRegistrationsTabProps) {
   const { firestore, user } = useFirebase();
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [selectedRegistration, setSelectedRegistration] = useState<Registration | null>(null);
 
   // Fetch registrations for this event
   const registrationsQuery = useMemoFirebase(() => {
@@ -73,16 +78,20 @@ export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false 
     return { total, approved, pending, revenue };
   }, [rawRegistrations]);
 
-  // Filtered registrations list
   const filteredRegistrations = useMemo(() => {
     if (!rawRegistrations) return [];
+
+    const normalize = (str: string) => 
+      (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+    const search = normalize(searchTerm.trim());
+
     return [...rawRegistrations]
       .filter(r => {
-        const name = r.userMetadata?.name?.toLowerCase() || '';
-        const email = r.userMetadata?.email?.toLowerCase() || '';
-        const phone = r.userMetadata?.phone || '';
-        const companion = r.companionName?.toLowerCase() || '';
-        const search = searchTerm.toLowerCase();
+        const name = normalize(r.userMetadata?.name || '');
+        const email = normalize(r.userMetadata?.email || '');
+        const phone = normalize(r.userMetadata?.phone || '');
+        const companion = normalize(r.companionName || '');
 
         return name.includes(search) || email.includes(search) || phone.includes(search) || companion.includes(search);
       })
@@ -309,9 +318,13 @@ export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false 
                         {/* Payment status badge */}
                         <TableCell>
                           <div className="flex flex-col gap-1 items-start">
-                            <Badge className={isApproved ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-100 border-none" : "bg-amber-100 text-amber-800 hover:bg-amber-100 border-none"}>
-                              {isApproved ? 'Aprovado' : 'Pendente'}
-                            </Badge>
+                            <PaymentStatusBadge
+                              status={
+                                // Prefer Asaas status (uppercase) if available, else map local status
+                                (reg.payment as any)?.asaasStatus ||
+                                (reg.payment?.status === 'approved' ? 'CONFIRMED' : 'PENDING')
+                              }
+                            />
                             <span className="text-[9px] font-mono text-slate-400">
                               {reg.payment?.method === 'free' ? 'Grátis' : `Pix (R$ ${reg.payment?.valuePaid?.toFixed(2)})`}
                             </span>
@@ -362,6 +375,23 @@ export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false 
                               </Button>
                             )}
 
+                            {/* Generate Asaas charge for pending registrations */}
+                            {!isApproved && isPaid && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedRegistration(reg);
+                                  setPaymentDialogOpen(true);
+                                }}
+                                className="h-7 px-2 border-blue-200 text-blue-700 hover:bg-blue-50"
+                                title="Gerar Cobrança Asaas"
+                              >
+                                <CreditCard className="size-3 mr-1" />
+                                Cobrar
+                              </Button>
+                            )}
+
                             {/* Remove registration */}
                             <Button
                               size="sm"
@@ -384,6 +414,20 @@ export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false 
           )}
         </CardContent>
       </Card>
+
+      {/* Payment Dialog */}
+      {selectedRegistration && (
+        <EventPaymentDialog
+          open={paymentDialogOpen}
+          onOpenChange={(open) => {
+            setPaymentDialogOpen(open);
+            if (!open) setSelectedRegistration(null);
+          }}
+          registration={selectedRegistration}
+          eventPrice={eventPrice}
+          eventTitle={eventTitle}
+        />
+      )}
     </div>
   );
 }

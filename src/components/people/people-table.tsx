@@ -86,14 +86,18 @@ export function PeopleTable() {
 
     const filteredUsers = useMemo(() => {
         if (!users) return [];
-        const term = String(searchTerm || '').toLowerCase().trim();
+        
+        const normalize = (str: string) => 
+            (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+        const term = normalize(searchTerm.trim());
         
         const filtered = users.filter(user => {
             if (!user) return false;
             
-            const name = String(user.name || '').toLowerCase();
-            const email = String(user.email || '').toLowerCase();
-            const phone = String(user.phone || '').toLowerCase();
+            const name = normalize(user.name);
+            const email = normalize(user.email || '');
+            const phone = normalize(String(user.phone || ''));
             const matchesSearch = name.includes(term) || email.includes(term) || phone.includes(term);
             const matchesTag = selectedTag === 'all' || user.tags?.includes(selectedTag);
             

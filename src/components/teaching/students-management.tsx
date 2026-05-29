@@ -70,12 +70,23 @@ export function StudentsManagement({ filterCourseIds }: StudentsManagementProps)
 
   const filteredEnrollments = useMemo(() => {
       if (!enrollments) return [];
+
+      const normalize = (str: string) => 
+          (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+      const term = normalize(searchTerm.trim());
+
       return enrollments.filter(enrollment => {
+        const studentName = normalize(enrollment.user.name);
+        const email = normalize(enrollment.user.email || '');
+        const courseName = normalize(enrollment.course.name);
+        const className = normalize(enrollment.class.name);
+
         const matchesSearch = 
-            enrollment.user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (enrollment.user.email && enrollment.user.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-            enrollment.course.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            enrollment.class.name.toLowerCase().includes(searchTerm.toLowerCase());
+            studentName.includes(term) ||
+            email.includes(term) ||
+            courseName.includes(term) ||
+            className.includes(term);
             
         const matchesTrack = selectedTrackFilter === 'all' || enrollment.course.ebdTrack === selectedTrackFilter;
         const matchesCourse = selectedCourseFilter === 'all' || enrollment.course.id === selectedCourseFilter;

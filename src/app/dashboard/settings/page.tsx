@@ -9,6 +9,8 @@ import { Separator } from "@/components/ui/separator";
 import { Shield, Users, Loader2, AlertTriangle, Activity, ExternalLink } from "lucide-react";
 import { AccessProfileManager } from '@/components/settings/access-profile-manager';
 import { UserRoleAssignment } from '@/components/settings/user-role-assignment';
+import { IntegrationsManager } from '@/components/settings/integrations-manager';
+import { FinancialSettings } from '@/components/settings/financial-settings';
 import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 
@@ -20,9 +22,8 @@ export type AccessProfile = {
 };
 
 export default function SettingsPage() {
-  const { firestore, user, isUserLoading } = useFirebase();
   const router = useRouter();
-  
+  const { firestore, user, isUserLoading } = useFirebase();
   const { data: userData, isLoading: isUserDataLoading } = useDoc<{ hierarchy?: { role?: string }; }>(user ? `users/${user.uid}`: null);
   const userRole = userData?.hierarchy?.role;
 
@@ -68,6 +69,36 @@ export default function SettingsPage() {
 
   return (
      <div className="space-y-8">
+        <Card>
+            <CardHeader>
+                <div className="flex items-center gap-4">
+                    <Shield className="size-6 text-primary" />
+                    <CardTitle>Integrações Financeiras</CardTitle>
+                </div>
+                <CardDescription>Gerencie as conexões com o Asaas e o Conta Azul ERP.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <IntegrationsManager />
+            </CardContent>
+        </Card>
+
+        <Separator />
+
+        <Card>
+            <CardHeader>
+                <div className="flex items-center gap-4">
+                    <Shield className="size-6 text-primary" />
+                    <CardTitle>Configurações Financeiras</CardTitle>
+                </div>
+                <CardDescription>Defina prazos úteis e simule webhooks de teste.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <FinancialSettings />
+            </CardContent>
+        </Card>
+
+        <Separator />
+
         <Card>
             <CardHeader>
                 <div className="flex items-center gap-4">
