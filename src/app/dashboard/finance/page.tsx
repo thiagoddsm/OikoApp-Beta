@@ -5,11 +5,12 @@ import React, { useState, useMemo, Suspense } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  Loader2, LayoutDashboard, HeartHandshake, TrendingUp, Settings, FileText
+  Loader2, LayoutDashboard, HeartHandshake, TrendingUp, Settings, FileText, RefreshCw
 } from 'lucide-react';
 import { TithesOfferingsManager } from '@/components/finance/tithes-offerings-manager';
 import { CashFlowManager } from '@/components/finance/cash-flow-manager';
 import { FinanceRequestsManager } from '@/components/finance/finance-requests-manager';
+import { ContaAzulManager } from '@/components/finance/conta-azul-manager';
 import { useVolunteering, VolunteeringProvider } from '@/contexts/volunteering-context';
 
 function FinancePageContent() {
@@ -59,6 +60,7 @@ function FinancePageContent() {
             <TabsTrigger value="tithes" className="rounded-lg font-bold"><HeartHandshake className="size-4 mr-2" /> Dízimos</TabsTrigger>
             <TabsTrigger value="cashflow" className="rounded-lg font-bold"><TrendingUp className="size-4 mr-2" /> Fluxo</TabsTrigger>
             <TabsTrigger value="requests" className="rounded-lg font-bold"><FileText className="size-4 mr-2" /> Solicitações</TabsTrigger>
+            <TabsTrigger value="conta-azul" className="rounded-lg font-bold"><RefreshCw className="size-4 mr-2" /> Conta Azul</TabsTrigger>
           </TabsList>
         </div>
 
@@ -75,6 +77,7 @@ function FinancePageContent() {
         <TabsContent value="tithes" className="mt-6"><TithesOfferingsManager /></TabsContent>
         <TabsContent value="cashflow" className="mt-6"><CashFlowManager /></TabsContent>
         <TabsContent value="requests" className="mt-6"><FinanceRequestsManager /></TabsContent>
+        <TabsContent value="conta-azul" className="mt-6"><ContaAzulManager /></TabsContent>
       </Tabs>
     </div>
   );

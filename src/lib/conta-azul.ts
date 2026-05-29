@@ -91,13 +91,13 @@ export async function exchangeCodeForToken(code: string): Promise<ContaAzulToken
     method: 'POST',
     headers: {
       'Authorization': `Basic ${basicAuth}`,
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: JSON.stringify({
+    body: new URLSearchParams({
       grant_type: 'authorization_code',
       code,
       redirect_uri: redirectUri,
-    }),
+    }).toString(),
   });
 
   if (!response.ok) {
@@ -125,12 +125,12 @@ export async function refreshAccessToken(refreshToken: string): Promise<ContaAzu
     method: 'POST',
     headers: {
       'Authorization': `Basic ${basicAuth}`,
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: JSON.stringify({
+    body: new URLSearchParams({
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
-    }),
+    }).toString(),
   });
 
   if (!response.ok) {
