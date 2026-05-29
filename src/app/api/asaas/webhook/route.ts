@@ -115,6 +115,60 @@ async function processWebhookEvent(request: Request): Promise<void> {
         { merge: true }
       );
       console.log(`[Asaas Webhook] Cobrança ${payment.id} atualizada: ${event} → ${internalStatus}`);
+
+      // Sincronizar status com a inscrição do evento correspondente
+      const isPaidEvent = event === 'PAYMENT_RECEIVED' || event === 'PAYMENT_CONFIRMED';
+      
+      try {
+        const registrationsRef = db.collection('event_registrations');
+        let querySnapshot = await registrationsRef.where('payment.asaasPaymentId', '==', payment.id).get();
+        
+        if (querySnapshot.empty) {
+          querySnapshot = await registrationsRef.where('payment.transactionId', '==', payment.id).get();
+        }
+        
+        if (querySnapshot.empty && payment.subscription) {
+          querySnapshot = await registrationsRef.where('payment.asaasPaymentId', '==', payment.subscription).get();
+        }
+
+        if (querySnapshot.empty && payment.externalReference) {
+          const docSnap = await registrationsRef.doc(payment.externalReference).get();
+          if (docSnap.exists) {
+            const regRef = registrationsRef.doc(payment.externalReference);
+            const updateData: any = {
+              'payment.asaasStatus': payment.status || 'RECEIVED',
+              'payment.updatedAt': now,
+            };
+            if (isPaidEvent) {
+              updateData['payment.status'] = 'approved';
+              updateData['payment.paidAt'] = now;
+            }
+            await regRef.update(updateData);
+            console.log(`[Asaas Webhook] Inscrição ${payment.externalReference} atualizada via externalReference`);
+          }
+        }
+
+        if (!querySnapshot.empty) {
+          const batch = db.batch();
+          querySnapshot.docs.forEach(doc => {
+            const regRef = registrationsRef.doc(doc.id);
+            const updateData: any = {
+              'payment.asaasStatus': payment.status || 'RECEIVED',
+              'payment.updatedAt': now,
+            };
+            if (isPaidEvent) {
+              updateData['payment.status'] = 'approved';
+              updateData['payment.paidAt'] = now;
+            }
+            batch.update(regRef, updateData);
+          });
+          await batch.commit();
+          console.log(`[Asaas Webhook] Sincronizadas ${querySnapshot.size} inscrições de evento para o pagamento ${payment.id}`);
+        }
+      } catch (regError: unknown) {
+        const msg = regError instanceof Error ? regError.message : 'Erro desconhecido';
+        console.error('[Asaas Webhook] Erro ao sincronizar inscrição de evento:', msg);
+      }
     }
 
     // 2. Processar Eventos de Assinatura (Subscription)

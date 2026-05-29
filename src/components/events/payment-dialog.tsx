@@ -143,6 +143,7 @@ export function EventPaymentDialog({
           email: registration.userMetadata.email || '',
           phone: registration.userMetadata.phone || '',
           cpfCnpj: cpfCnpj.trim(),
+          userId: registration.userId,
         }),
       });
 
