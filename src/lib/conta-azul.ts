@@ -176,43 +176,69 @@ export async function contaAzulRequest(path: string, accessToken: string, method
   return response.json();
 }
 
+function normalizeStatus(status: string): 'PENDING' | 'PAID' | 'OVERDUE' | 'CANCELLED' {
+  if (!status) return 'PENDING';
+  const s = status.toUpperCase();
+  if (s === 'BAIXADO' || s === 'PAID' || s === 'PAGO' || s === 'RECEBIDO') return 'PAID';
+  if (s === 'ATRASADO' || s === 'OVERDUE' || s === 'VENCIDO') return 'OVERDUE';
+  if (s === 'CANCELADO' || s === 'CANCELLED') return 'CANCELLED';
+  return 'PENDING';
+}
+
 export async function getFinancialEntries(
   accessToken: string,
   params: { startDate: string; endDate: string; page?: number }
 ): Promise<any[]> {
-  const { startDate, endDate, page = 1 } = params;
-  // Endpoint de lançamentos financeiros
-  // Documentação v2: GET /v1/financial-receivables e GET /v1/financial-payables
-  // Nota: A API v2 unifica e simplifica alguns endpoints, mas mantemos buscas estruturadas.
-  // Vamos buscar contas a receber e contas a pagar.
+  const { startDate, endDate, page = 0 } = params;
+  
+  // O Conta Azul usa paginação de base 1
+  const apiPage = typeof page === 'number' ? (page < 1 ? page + 1 : page) : 1;
   
   try {
-    const receivables = await contaAzulRequest(`/v1/financial-receivables?start_date=${startDate}&end_date=${endDate}&page=${page}`, accessToken);
-    const payables = await contaAzulRequest(`/v1/financial-payables?start_date=${startDate}&end_date=${endDate}&page=${page}`, accessToken);
+    const receivables = await contaAzulRequest(
+      `/v1/receitas?data_vencimento_de=${startDate}&data_vencimento_ate=${endDate}&pagina=${apiPage}&tamanho_pagina=100`,
+      accessToken
+    );
+    const payables = await contaAzulRequest(
+      `/v1/despesas?data_vencimento_de=${startDate}&data_vencimento_ate=${endDate}&pagina=${apiPage}&tamanho_pagina=100`,
+      accessToken
+    );
     
-    const normalizedReceivables = (receivables || []).map((r: any) => ({
-      id: r.id,
-      type: 'RECEIVABLE',
-      description: r.description,
-      amount: r.value,
-      dueDate: r.due_date,
-      status: r.status, // PENDING, PAID, OVERDUE, CANCELLED
-      category: r.category_name,
-      contactName: r.customer_name,
-      paymentDate: r.payment_date || null
-    }));
+    const receivablesData = Array.isArray(receivables)
+      ? receivables
+      : (receivables?.itens || receivables?.items || []);
 
-    const normalizedPayables = (payables || []).map((p: any) => ({
-      id: p.id,
-      type: 'PAYABLE',
-      description: p.description,
-      amount: p.value,
-      dueDate: p.due_date,
-      status: p.status,
-      category: p.category_name,
-      contactName: p.supplier_name,
-      paymentDate: p.payment_date || null
-    }));
+    const normalizedReceivables = receivablesData.map((r: any) => {
+      const id = r.id;
+      const type = 'RECEIVABLE';
+      const description = r.descricao || r.description || '';
+      const amount = typeof r.valor === 'number' ? r.valor : (typeof r.value === 'number' ? r.value : 0);
+      const dueDate = r.data_vencimento || r.due_date || '';
+      const status = normalizeStatus(r.situacao || r.status);
+      const category = r.categoria?.nome || r.category_name || r.category || '';
+      const contactName = r.cliente?.nome || r.customer_name || r.contact_name || '';
+      const paymentDate = r.data_pagamento || r.payment_date || null;
+      
+      return { id, type, description, amount, dueDate, status, category, contactName, paymentDate };
+    });
+
+    const payablesData = Array.isArray(payables)
+      ? payables
+      : (payables?.itens || payables?.items || []);
+
+    const normalizedPayables = payablesData.map((p: any) => {
+      const id = p.id;
+      const type = 'PAYABLE';
+      const description = p.descricao || p.description || '';
+      const amount = typeof p.valor === 'number' ? p.valor : (typeof p.value === 'number' ? p.value : 0);
+      const dueDate = p.data_vencimento || p.due_date || '';
+      const status = normalizeStatus(p.situacao || p.status);
+      const category = p.categoria?.nome || p.category_name || p.category || '';
+      const contactName = p.fornecedor?.nome || p.supplier_name || p.contact_name || '';
+      const paymentDate = p.data_pagamento || p.payment_date || null;
+      
+      return { id, type, description, amount, dueDate, status, category, contactName, paymentDate };
+    });
 
     return [...normalizedReceivables, ...normalizedPayables];
   } catch (error) {
