@@ -16,6 +16,8 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 
 // Define the columns for the template
 const columns = [
@@ -531,6 +533,8 @@ export default function ImportDataPage() {
     const [isAnalyzingJson, setIsAnalyzingJson] = useState(false);
     const [stats, setStats] = useState({ total: 0, newCount: 0, updateCount: 0 });
     const [selectedPreviewUser, setSelectedPreviewUser] = useState<any | null>(null);
+    const [availableGcs, setAvailableGcs] = useState<{ id: string; name: string; supervisorId: string }[]>([]);
+
 
     const handleAnalyzeJson = async () => {
         if (!jsonFile) {
@@ -566,7 +570,13 @@ export default function ImportDataPage() {
                     getDocs(cellsQuery),
                     getDocs(existingUsersQuery)
                 ]);
-                const cellDocs = cellsSnapshot.docs;
+                setAvailableGcs(
+                    cellDocs
+                        .map(doc => ({ id: doc.id, name: doc.data().nome, supervisorId: doc.data().supervisorId || '' }))
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                );
+
+
                 const existingUsers = existingUsersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
 
                 const usersCollection = collection(firestore, 'users');
@@ -814,8 +824,10 @@ export default function ImportDataPage() {
                         matchedGcName,
                         photoUrlVal,
                         userData,
-                        originalName: record.NOME || record.Nome || record.nome
+                        originalName: record.NOME || record.Nome || record.nome,
+                        detectedGcs: rawGcName ? String(rawGcName).split(/[,;]+/).map(s => s.trim()).filter(Boolean) : []
                     };
+
                 });
 
                 const resolved = (await Promise.all(analyzedPromises)).filter(Boolean);
@@ -1055,10 +1067,55 @@ export default function ImportDataPage() {
                                                                     {record.userData.phone || '—'}
                                                                 </TableCell>
                                                                 <TableCell>
-                                                                    <span className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 ring-1 ring-inset ring-indigo-700/10">
-                                                                        {record.matchedGcName}
-                                                                    </span>
+                                                                    <div className="flex flex-col gap-1.5">
+                                                                        <Select
+                                                                            value={record.userData.hierarchy.celulaId || 'none'}
+                                                                            onValueChange={(val) => {
+                                                                                const selectedGc = availableGcs.find(g => g.id === val);
+                                                                                const newGcName = selectedGc ? selectedGc.name : 'Nenhum';
+                                                                                const newSupervisorId = selectedGc ? selectedGc.supervisorId : '';
+                                                                                
+                                                                                setPreviewRecords(prev => prev.map((r, idx) => {
+                                                                                    if (idx === index) {
+                                                                                        return {
+                                                                                            ...r,
+                                                                                            matchedGcName: newGcName,
+                                                                                            userData: {
+                                                                                                ...r.userData,
+                                                                                                hierarchy: {
+                                                                                                    ...r.userData.hierarchy,
+                                                                                                    celulaId: val === 'none' ? '' : val,
+                                                                                                    supervisorId: newSupervisorId
+                                                                                                }
+                                                                                            }
+                                                                                        };
+                                                                                    }
+                                                                                    return r;
+                                                                                }));
+                                                                            }}
+                                                                        >
+                                                                            <SelectTrigger className="h-8 w-[180px]">
+                                                                                <SelectValue placeholder="Selecione o GC" />
+                                                                            </SelectTrigger>
+                                                                            <SelectContent>
+                                                                                <SelectItem value="none">Nenhum</SelectItem>
+                                                                                {[...availableGcs].sort((a, b) => a.name.localeCompare(b.name)).map(gc => (
+                                                                                    <SelectItem key={gc.id} value={gc.id}>
+                                                                                        {gc.name}
+                                                                                    </SelectItem>
+                                                                                ))}
+
+                                                                            </SelectContent>
+                                                                        </Select>
+                                                                        {record.detectedGcs && record.detectedGcs.length > 1 && (
+                                                                            <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 border border-amber-100 rounded px-1.5 py-1 w-[180px] whitespace-normal break-words" title={`Múltiplos GCs no JSON: ${record.detectedGcs.join(', ')}`}>
+                                                                                Opções: {record.detectedGcs.join(', ')}
+                                                                            </span>
+                                                                        )}
+
+                                                                    </div>
                                                                 </TableCell>
+
                                                                 <TableCell>
                                                                     {record.actionType === 'new' ? (
                                                                         <span className="inline-flex items-center rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 ring-1 ring-inset ring-emerald-700/10">

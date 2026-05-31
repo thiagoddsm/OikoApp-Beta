@@ -107,6 +107,25 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
+    // Células, Áreas e Redes (GC)
+    match /cells/{cellId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /areas/{areaId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /redes/{redeId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Histórico de Presenças e Logs de Reunião
+    match /reuniao_logs/{logId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /presencas_historico/{presencaId} {
+      allow read, write: if isAuthenticated();
+    }
+
     // Regra Geral de Fallback: Qualquer usuário autenticado pode ler e escrever o restante
     match /{document=**} {
       allow read, write: if isAuthenticated();
