@@ -180,9 +180,11 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
         const targetName = mode === 'new' ? newName : selectedUser?.name;
         const targetPhone = mode === 'new' ? newPhone : selectedUser?.phone;
         const courseName = selectedCourse?.name || 'Curso';
+        const targetClass = classes.find(c => c.id === classId);
+        const className = targetClass?.name || '';
 
         if (targetName && targetPhone) {
-            sendEnrollmentMessage(targetName, String(targetPhone), courseName, {
+            sendEnrollmentMessage(targetName, String(targetPhone), courseName, className, {
                 enabled: config?.enabled,
                 serverUrl: config?.serverUrl,
                 instanceKey: config?.instanceKey,

@@ -302,6 +302,26 @@ function WhatsappSender({ config }: { config: any }) {
     const [individualPhone, setIndividualPhone] = useState('');
     const [spreadsheetData, setSpreadsheetData] = useState('');
     const [importedContacts, setImportedContacts] = useState<{name: string, phone: string}[]>([]);
+    
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    const insertTag = (tag: string) => {
+        const textarea = textareaRef.current;
+        if (textarea) {
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = message;
+            const before = text.substring(0, start);
+            const after = text.substring(end, text.length);
+            setMessage(before + tag + after);
+            setTimeout(() => {
+                textarea.focus();
+                textarea.setSelectionRange(start + tag.length, start + tag.length);
+            }, 0);
+        } else {
+            setMessage(prev => prev + tag);
+        }
+    };
 
     // Blacklist configuration for estimation
     const blacklistQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'notifications_blacklist')) : null, [firestore]);
@@ -1157,8 +1177,40 @@ function WhatsappSender({ config }: { config: any }) {
 
                 {msgType !== 'survey' && (
                     <div className="space-y-2">
-                        <Label>Mensagem Principal</Label>
+                        <div className="flex items-center justify-between">
+                            <Label>Mensagem Principal</Label>
+                            <div className="flex gap-1.5">
+                                <Button 
+                                    type="button" 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="text-[10px] h-6 px-2 font-black uppercase tracking-wider text-primary border-primary/20 hover:bg-primary/5" 
+                                    onClick={() => insertTag('{{nome}}')}
+                                >
+                                    + Aluno ({"{{nome}}"})
+                                </Button>
+                                <Button 
+                                    type="button" 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="text-[10px] h-6 px-2 font-black uppercase tracking-wider text-primary border-primary/20 hover:bg-primary/5" 
+                                    onClick={() => insertTag('{{turma}}')}
+                                >
+                                    + Turma ({"{{turma}}"})
+                                </Button>
+                                <Button 
+                                    type="button" 
+                                    size="sm" 
+                                    variant="outline" 
+                                    className="text-[10px] h-6 px-2 font-black uppercase tracking-wider text-primary border-primary/20 hover:bg-primary/5" 
+                                    onClick={() => insertTag('{{faltas}}')}
+                                >
+                                    + Faltas ({"{{faltas}}"})
+                                </Button>
+                            </div>
+                        </div>
                         <Textarea 
+                            ref={textareaRef}
                             placeholder="Olá {{nome}}, temos um convite..." 
                             className="min-h-[120px]" 
                             value={message} 

@@ -262,7 +262,52 @@ export async function POST(request: Request) {
 
         // ===== ENVIAR PARA USUÁRIOS COM RATE LIMITING =====
         for (const user of filteredTargetUsers) {
-            const personalizedBody = parseSpintax(message || '').replace('{{nome}}', user.name);
+            const firstName = user.name 
+                ? (user.name.trim().split(' ')[0].charAt(0).toUpperCase() + user.name.trim().split(' ')[0].slice(1).toLowerCase())
+                : 'Membro';
+                
+            let userClassName = '';
+            let userMissedLessonsText = 'Nenhuma falta';
+            
+            if (message && (message.includes('{{turma}}') || message.includes('{turma}') || message.includes('{{faltas}}') || message.includes('{faltas}'))) {
+                try {
+                    const classesSnap = await db.collection('classes').where('students', 'array-contains', user.id).get();
+                    if (!classesSnap.empty) {
+                        const userClass = classesSnap.docs[0].data();
+                        userClassName = userClass.name || '';
+                        
+                        if (message.includes('{{faltas}}') || message.includes('{faltas}')) {
+                            const attendance = userClass.attendance || [];
+                            let lessonCounter = 0;
+                            const missedLessons: string[] = [];
+                            const sortedAttendance = [...attendance].sort((a, b) => a.date.localeCompare(b.date));
+                            
+                            sortedAttendance.forEach((record: any) => {
+                                const isExtra = record.date.includes('T') || record.isRepositionOnly;
+                                if (!isExtra) {
+                                    lessonCounter++;
+                                    const isPresent = record.presentStudentIds?.includes(user.id) || record.onlineStudentIds?.includes(user.id);
+                                    if (!isPresent) {
+                                        missedLessons.push(`Aula ${lessonCounter}`);
+                                    }
+                                }
+                            });
+                            userMissedLessonsText = missedLessons.length > 0 ? missedLessons.join(', ') : 'Nenhuma falta';
+                        }
+                    }
+                } catch (e) {
+                    console.error("Erro ao resolver turma/faltas para o usuário:", e);
+                }
+            }
+
+            const messageWithVariables = (message || '')
+                .replace(/\{\{nome\}\}/gi, firstName)
+                .replace(/\{nome\}/gi, firstName)
+                .replace(/\{\{turma\}\}/gi, userClassName)
+                .replace(/\{turma\}/gi, userClassName)
+                .replace(/\{\{faltas\}\}/gi, userMissedLessonsText)
+                .replace(/\{faltas\}/gi, userMissedLessonsText);
+            const personalizedBody = parseSpintax(messageWithVariables);
             const formattedPhone = formatWhatsAppNumber(user.phone);
 
             await sendOne(formattedPhone, user.name, personalizedBody, user);

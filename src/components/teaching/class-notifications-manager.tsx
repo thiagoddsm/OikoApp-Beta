@@ -138,9 +138,29 @@ export function ClassNotificationsManager({ classData, courseData }: ClassNotifi
     const { toast } = useToast();
 
     const [targetFilter, setTargetFilter] = useState('all');
-    const [messageText, setMessageText] = useState('Olá [Nome],\n\nPassando para informar que...');
+    const [messageText, setMessageText] = useState('Olá {{nome}},\n\nPassando para informar que da turma {{turma}}...');
     const [isCreating, setIsCreating] = useState(false);
     const [activeTab, setActiveTab] = useState<'compose' | 'campaigns'>('compose');
+
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+    const insertTag = (tag: string) => {
+        const textarea = textareaRef.current;
+        if (textarea) {
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const text = messageText;
+            const before = text.substring(0, start);
+            const after = text.substring(end, text.length);
+            setMessageText(before + tag + after);
+            setTimeout(() => {
+                textarea.focus();
+                textarea.setSelectionRange(start + tag.length, start + tag.length);
+            }, 0);
+        } else {
+            setMessageText(prev => prev + tag);
+        }
+    };
 
     // Estado de progresso da campanha em execução
     const [runningCampaignId, setRunningCampaignId] = useState<string | null>(null);
@@ -287,7 +307,14 @@ export function ClassNotificationsManager({ classData, courseData }: ClassNotifi
                     name: s.name,
                     phone: s.phone,
                     personalizedMessage: messageText
+                        .replace(/\{\{nome\}\}/gi, firstName)
+                        .replace(/\{nome\}/gi, firstName)
                         .replace(/\[Nome\]/gi, firstName)
+                        .replace(/\{\{turma\}\}/gi, classData.name || '')
+                        .replace(/\{turma\}/gi, classData.name || '')
+                        .replace(/\[Turma\]/gi, classData.name || '')
+                        .replace(/\{\{faltas\}\}/gi, faltasText)
+                        .replace(/\{faltas\}/gi, faltasText)
                         .replace(/\[Faltas\]/gi, faltasText),
                 };
             });
@@ -422,10 +449,18 @@ export function ClassNotificationsManager({ classData, courseData }: ClassNotifi
                             </div>
 
                             <div className="pt-2">
-                                <h3 className="font-bold flex items-center gap-2 mb-2">
-                                    <Send className="size-4" /> Mensagem
-                                </h3>
+                                <div className="flex items-center justify-between mb-2">
+                                    <h3 className="font-bold flex items-center gap-2">
+                                        <Send className="size-4" /> Mensagem
+                                    </h3>
+                                    <div className="flex gap-1">
+                                        <Button type="button" size="sm" variant="outline" className="text-[9px] h-5 px-1.5 font-bold" onClick={() => insertTag('{{nome}}')}>+ Aluno</Button>
+                                        <Button type="button" size="sm" variant="outline" className="text-[9px] h-5 px-1.5 font-bold" onClick={() => insertTag('{{turma}}')}>+ Turma</Button>
+                                        <Button type="button" size="sm" variant="outline" className="text-[9px] h-5 px-1.5 font-bold" onClick={() => insertTag('{{faltas}}')}>+ Faltas</Button>
+                                    </div>
+                                </div>
                                 <Textarea
+                                    ref={textareaRef}
                                     rows={8}
                                     value={messageText}
                                     onChange={e => setMessageText(e.target.value)}
@@ -435,8 +470,9 @@ export function ClassNotificationsManager({ classData, courseData }: ClassNotifi
                                 />
                                 <p className="text-xs text-muted-foreground mt-2 italic space-y-1">
                                     <span>Variáveis disponíveis:</span><br />
-                                    <span className="font-semibold text-primary">[Nome]</span> - Nome do aluno.<br />
-                                    <span className="font-semibold text-primary">[Faltas]</span> - Aulas que o aluno faltou.
+                                    <span className="font-semibold text-primary">{"{{nome}}"}</span> - Nome do aluno.<br />
+                                    <span className="font-semibold text-primary">{"{{turma}}"}</span> - Nome da turma.<br />
+                                    <span className="font-semibold text-primary">{"{{faltas}}"}</span> - Aulas que o aluno faltou.
                                 </p>
                             </div>
 
