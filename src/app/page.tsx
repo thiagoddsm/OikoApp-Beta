@@ -330,7 +330,7 @@ export default function LandingPage() {
                 </div>
                 <div className="mt-8 space-y-2 max-w-[200px]">
                   <h3 className="font-bold text-lg text-primary tracking-tight">ILUMINAR</h3>
-                  <p className="text-sm text-on-surface-variant font-medium">Ganhar pessoas, Evangelização, Atração</p>
+                  <p className="text-sm text-on-surface-variant font-medium">Ganhar pessoas, Evangelização, Alcance</p>
                   <div className="w-8 h-1 bg-primary/20 mx-auto rounded-full group-hover:w-16 transition-all"></div>
                 </div>
               </div>
@@ -483,39 +483,70 @@ export default function LandingPage() {
                 <div className="space-y-0 relative">
                   <div className="absolute left-6 top-6 bottom-6 w-0.5 bg-gradient-to-b from-primary via-primary/20 to-transparent"></div>
                   
-                  {/* Passo 1 */}
+                  {/* Ciclo ILUMINAR */}
                   <div className="flex gap-12 group pb-16 relative">
-                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white font-bold z-10 shadow-lg shadow-primary/20 group-hover:scale-110 transition-transform">1</div>
-                    <div className="pt-1">
-                      <h3 className="font-headline-sm text-xl mb-3 group-hover:text-primary transition-colors">BATISMO E PERTENCER</h3>
-                      <p className="text-on-surface-variant body-md max-w-xl">Integração inicial, Compromisso e Visão IBM. Entendendo o que significa fazer parte da família através do batismo.</p>
+                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary flex items-center justify-center text-white font-bold z-10 shadow-lg shadow-primary/20 group-hover:scale-110 transition-transform">
+                      <span className="material-symbols-outlined text-xl">lightbulb</span>
+                    </div>
+                    <div className="pt-1 flex-grow">
+                      <h3 className="font-headline-sm text-xl mb-1 text-primary uppercase font-bold tracking-wider">ILUMINAR</h3>
+                      <p className="text-on-surface-variant body-md mb-4 max-w-xl">Despertar a fé e integrar o novo discípulo na família espiritual.</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl">
+                        <div className="bg-white/80 border border-outline-variant/30 hover:border-primary/30 p-4 rounded-2xl apple-shadow transition-all group/sub">
+                          <span className="font-bold text-base text-on-surface group-hover/sub:text-primary transition-colors block mb-1">Batismo</span>
+                          <p className="text-xs text-on-surface-variant leading-relaxed">Declaração pública de fé e início da jornada com Cristo.</p>
+                        </div>
+                        <div className="bg-white/80 border border-outline-variant/30 hover:border-primary/30 p-4 rounded-2xl apple-shadow transition-all group/sub">
+                          <span className="font-bold text-base text-on-surface group-hover/sub:text-primary transition-colors block mb-1">Pertencer</span>
+                          <p className="text-xs text-on-surface-variant leading-relaxed">Integração oficial, alinhamento com a visão e valores da igreja.</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   
-                  {/* Passo 2 */}
+                  {/* Ciclo BUSCAR */}
                   <div className="flex gap-12 group pb-16 relative">
-                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-white border-2 border-primary flex items-center justify-center text-primary font-bold z-10 apple-shadow group-hover:bg-primary group-hover:text-white transition-all">2</div>
-                    <div className="pt-1">
-                      <h3 className="font-headline-sm text-xl mb-3 group-hover:text-primary transition-colors">CRESCER E CUIDAR</h3>
-                      <p className="text-on-surface-variant body-md max-w-xl">Discipulado 1-a-1, Pastoreio mútuo no GC e busca pela Maturidade espiritual profunda em comunidade.</p>
+                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-white border-2 border-primary flex items-center justify-center text-primary font-bold z-10 apple-shadow group-hover:bg-primary group-hover:text-white transition-all">
+                      <span className="material-symbols-outlined text-xl">search</span>
+                    </div>
+                    <div className="pt-1 flex-grow">
+                      <h3 className="font-headline-sm text-xl mb-1 text-on-surface group-hover:text-primary transition-colors uppercase font-bold tracking-wider">BUSCAR</h3>
+                      <p className="text-on-surface-variant body-md mb-4 max-w-xl">Aprofundar o relacionamento com Deus e com a comunidade.</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-2xl">
+                        <div className="bg-white/80 border border-outline-variant/30 hover:border-primary/30 p-4 rounded-2xl apple-shadow transition-all group/sub">
+                          <span className="font-bold text-base text-on-surface group-hover/sub:text-primary transition-colors block mb-1">Crescer</span>
+                          <p className="text-xs text-on-surface-variant leading-relaxed">Maturidade espiritual através do estudo da Palavra e devocionais.</p>
+                        </div>
+                        <div className="bg-white/80 border border-outline-variant/30 hover:border-primary/30 p-4 rounded-2xl apple-shadow transition-all group/sub">
+                          <span className="font-bold text-base text-on-surface group-hover/sub:text-primary transition-colors block mb-1">Cuidar</span>
+                          <p className="text-xs text-on-surface-variant leading-relaxed">Pastoreio mútuo e amor prático nas relações cotidianas e nos GCs.</p>
+                        </div>
+                        <div className="bg-white/80 border border-outline-variant/30 hover:border-primary/30 p-4 rounded-2xl apple-shadow transition-all group/sub">
+                          <span className="font-bold text-base text-on-surface group-hover/sub:text-primary transition-colors block mb-1">Discipular</span>
+                          <p className="text-xs text-on-surface-variant leading-relaxed">Caminhar com outros, transmitindo ensinamentos e gerando líderes.</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                   
-                  {/* Passo 3 */}
-                  <div className="flex gap-12 group pb-16 relative">
-                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-white border-2 border-primary/40 flex items-center justify-center text-primary/60 font-bold z-10 apple-shadow group-hover:border-primary group-hover:text-primary transition-all">3</div>
-                    <div className="pt-1">
-                      <h3 className="font-headline-sm text-xl mb-3 group-hover:text-primary transition-colors">LIDERAR E APOIAR</h3>
-                      <p className="text-on-surface-variant body-md max-w-xl">Capacitação ministerial e o despertar da liderança para servir ao corpo de Cristo e multiplicar a vida da igreja.</p>
-                    </div>
-                  </div>
-                  
-                  {/* Passo 4 */}
+                  {/* Ciclo MUDAR */}
                   <div className="flex gap-12 group relative">
-                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-white border-2 border-primary/20 flex items-center justify-center text-primary/30 font-bold z-10 apple-shadow group-hover:border-primary group-hover:text-primary transition-all">4</div>
-                    <div className="pt-1">
-                      <h3 className="font-headline-sm text-xl mb-3 group-hover:text-primary transition-colors">ENVIAR</h3>
-                      <p className="text-on-surface-variant body-md max-w-xl">Multiplicação de GCs, Missões urbanas e impacto social. Levando a vida da igreja para onde a cidade mais precisa.</p>
+                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-white border-2 border-primary/20 flex items-center justify-center text-primary/30 font-bold z-10 apple-shadow group-hover:border-primary group-hover:text-primary transition-all">
+                      <span className="material-symbols-outlined text-xl">rocket_launch</span>
+                    </div>
+                    <div className="pt-1 flex-grow">
+                      <h3 className="font-headline-sm text-xl mb-1 text-on-surface group-hover:text-primary transition-colors uppercase font-bold tracking-wider">MUDAR</h3>
+                      <p className="text-on-surface-variant body-md mb-4 max-w-xl">Impactar a sociedade e multiplicar o Reino através do envio.</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-xl">
+                        <div className="bg-white/80 border border-outline-variant/30 hover:border-primary/30 p-4 rounded-2xl apple-shadow transition-all group/sub">
+                          <span className="font-bold text-base text-on-surface group-hover/sub:text-primary transition-colors block mb-1">Apoiar</span>
+                          <p className="text-xs text-on-surface-variant leading-relaxed">Servir ativamente nos ministérios locais e expandir o corpo.</p>
+                        </div>
+                        <div className="bg-white/80 border border-outline-variant/30 hover:border-primary/30 p-4 rounded-2xl apple-shadow transition-all group/sub">
+                          <span className="font-bold text-base text-on-surface group-hover/sub:text-primary transition-colors block mb-1">Enviar</span>
+                          <p className="text-xs text-on-surface-variant leading-relaxed">Multiplicação de células, plantação de igrejas e ação social na cidade.</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

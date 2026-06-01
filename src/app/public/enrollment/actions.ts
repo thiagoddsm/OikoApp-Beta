@@ -1,26 +1,25 @@
 'use server';
 
-import { initializeFirebase } from '@/firebase';
-import { collection, query, where, getDocs, doc, getDoc, addDoc, Timestamp } from 'firebase/firestore';
+import { getAdminDb } from '@/lib/firebase-admin';
+import { Timestamp } from 'firebase-admin/firestore';
 
 /**
  * Verifica se um e-mail pertence a um membro cadastrado.
  * Retorna dados mascarados para privacidade e o ID interno para submissão.
  */
 export async function verifyMemberEmail(email: string) {
-    const { firestore } = initializeFirebase();
-    if (!firestore) return { error: "Database not available" };
-
     try {
-        const q = query(collection(firestore, 'users'), where('email', '==', email.toLowerCase().trim()));
-        const snap = await getDocs(q);
+        const db = getAdminDb();
+        const q = db.collection('users').where('email', '==', email.toLowerCase().trim());
+        const snap = await q.get();
 
         if (snap.empty) {
             return { found: false };
         }
 
-        const userData = snap.docs[0].data();
-        const userId = snap.docs[0].id;
+        const userDoc = snap.docs[0];
+        const userData = userDoc.data();
+        const userId = userDoc.id;
 
         // Máscaras de privacidade
         const maskName = (name: string) => {
@@ -63,37 +62,41 @@ export async function submitEnrollmentRequest(data: {
     courseId: string;
     classId?: string;
 }) {
-    const { firestore } = initializeFirebase();
-    if (!firestore) throw new Error("Database not available");
+    try {
+        const db = getAdminDb();
 
-    let finalName = data.name;
-    let finalPhone = data.phone;
-    let finalEmail = data.email;
+        let finalName = data.name;
+        let finalPhone = data.phone;
+        let finalEmail = data.email;
 
-    // Se é um membro reconhecido, buscamos os dados reais no servidor
-    if (data.userId) {
-        const userDoc = await getDoc(doc(firestore, 'users', data.userId));
-        if (userDoc.exists()) {
-            const realData = userDoc.data();
-            finalName = realData.name;
-            finalPhone = realData.phone;
-            finalEmail = realData.email;
+        // Se é um membro reconhecido, buscamos os dados reais no servidor
+        if (data.userId) {
+            const userDoc = await db.collection('users').doc(data.userId).get();
+            if (userDoc.exists) {
+                const realData = userDoc.data()!;
+                finalName = realData.name;
+                finalPhone = realData.phone;
+                finalEmail = realData.email;
+            }
         }
+
+        if (!finalName || !finalEmail) {
+            throw new Error("Dados de identificação ausentes.");
+        }
+
+        await db.collection('enrollment_requests').add({
+            name: finalName,
+            email: finalEmail.toLowerCase(),
+            phone: finalPhone || '',
+            courseId: data.courseId,
+            classId: data.classId || '',
+            status: 'pending',
+            createdAt: Timestamp.now()
+        });
+
+        return { success: true };
+    } catch (e: any) {
+        console.error("Error submitting enrollment request:", e);
+        return { error: e.message || "Erro ao salvar a inscrição." };
     }
-
-    if (!finalName || !finalEmail) {
-        throw new Error("Dados de identificação ausentes.");
-    }
-
-    await addDoc(collection(firestore, 'enrollment_requests'), {
-        name: finalName,
-        email: finalEmail.toLowerCase(),
-        phone: finalPhone || '',
-        courseId: data.courseId,
-        classId: data.classId || '',
-        status: 'pending',
-        createdAt: Timestamp.now()
-    });
-
-    return { success: true };
 }

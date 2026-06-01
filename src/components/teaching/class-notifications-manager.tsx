@@ -208,8 +208,8 @@ export function ClassNotificationsManager({ classData, courseData }: ClassNotifi
                 // Se é uma data com horário (aula extra) e não está na lista de extras atual → fantasma
                 if (r.date.includes('T') && !allExtraSessionDates.has(r.date)) return false;
 
-                // Se a turma tem cronograma e a data não está no conjunto válido → fantasma
-                if (classData.startDate && !validDatesForThisClass.has(r.date)) return false;
+                // Se a turma tem cronograma e a data não está no conjunto válido e é uma aula extra (com 'T') → fantasma
+                if (classData.startDate && !validDatesForThisClass.has(r.date) && r.date.includes('T')) return false;
 
                 return true;
             })
