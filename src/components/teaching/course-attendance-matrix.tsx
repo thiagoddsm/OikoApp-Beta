@@ -149,8 +149,8 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                 // Se é uma data com horário (aula extra) e não está na lista atual, é resquício de exclusão
                 if (att.date.includes('T') && !allExtraSessionDates.has(att.date)) return;
 
-                // Se a turma TEM um cronograma estruturado, só renderiza a coluna de fallback se a data for validada no cronograma ou se for data regular (sem 'T')
-                if (cls.startDate && !validDatesForThisClass.has(att.date) && att.date.includes('T')) return;
+                // Se a turma TEM um cronograma estruturado, a data deve estar no cronograma válido
+                if (cls.startDate && !validDatesForThisClass.has(att.date)) return;
 
                 dates.add(att.date);
             });

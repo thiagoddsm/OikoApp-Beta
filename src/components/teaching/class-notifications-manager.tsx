@@ -45,7 +45,7 @@ function CampaignsPanel({ classId, onResume }: { classId: string; onResume: (cam
 
     // Ordenar no cliente para evitar índice composto no Firestore
     const campaigns = useMemo(
-        () => [...rawCampaigns].sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0)),
+        () => [...(rawCampaigns || [])].sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0)),
         [rawCampaigns]
     );
 
@@ -208,8 +208,8 @@ export function ClassNotificationsManager({ classData, courseData }: ClassNotifi
                 // Se é uma data com horário (aula extra) e não está na lista de extras atual → fantasma
                 if (r.date.includes('T') && !allExtraSessionDates.has(r.date)) return false;
 
-                // Se a turma tem cronograma e a data não está no conjunto válido e é uma aula extra (com 'T') → fantasma
-                if (classData.startDate && !validDatesForThisClass.has(r.date) && r.date.includes('T')) return false;
+                // Se a turma tem cronograma, a data deve estar no conjunto de datas válidas do cronograma
+                if (classData.startDate && !validDatesForThisClass.has(r.date)) return false;
 
                 return true;
             })
