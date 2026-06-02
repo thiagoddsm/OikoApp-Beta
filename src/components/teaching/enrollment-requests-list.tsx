@@ -57,12 +57,7 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
             const courseName = targetCourse?.name || 'Curso';
             
             if (request.name && request.phone) {
-                sendEnrollmentMessage(request.name, String(request.phone), courseName, className, {
-                    enabled: config?.enabled,
-                    serverUrl: config?.serverUrl,
-                    instanceKey: config?.instanceKey,
-                    notifyEnrollment: config?.notifyEnrollment
-                }).catch(err => {
+                sendEnrollmentMessage(request.name, String(request.phone), courseName, className).catch(err => {
                     console.error("Erro ao enviar mensagem de matrícula:", err);
                 });
             }

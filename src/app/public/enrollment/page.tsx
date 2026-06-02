@@ -694,11 +694,86 @@ function EnrollmentForm() {
                                     />
                                 </div>
                                 {selectedCategory === 'lumine' && (
-                                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 pt-1">
-                                        <Button variant={trailFilter === 'all' ? 'default' : 'secondary'} size="sm" onClick={() => setTrailFilter('all')} className="rounded-full font-bold h-9 px-4 text-[10px] uppercase whitespace-nowrap">Todos</Button>
-                                        <Button variant={trailFilter === 'biblico' ? 'default' : 'secondary'} size="sm" onClick={() => setTrailFilter('biblico')} className="rounded-full font-bold h-9 px-4 text-[10px] uppercase whitespace-nowrap">Bíblico</Button>
-                                        <Button variant={trailFilter === 'teologico' ? 'default' : 'secondary'} size="sm" onClick={() => setTrailFilter('teologico')} className="rounded-full font-bold h-9 px-4 text-[10px] uppercase whitespace-nowrap">Teológico</Button>
-                                        <Button variant={trailFilter === 'discipulado' ? 'default' : 'secondary'} size="sm" onClick={() => setTrailFilter('discipulado')} className="rounded-full font-bold h-9 px-4 text-[10px] uppercase whitespace-nowrap">Discipulado</Button>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => setTrailFilter('all')}
+                                            className={cn(
+                                                "p-4 rounded-2xl border-2 shadow-sm transition-all text-left flex flex-col group relative overflow-hidden",
+                                                trailFilter === 'all'
+                                                    ? "bg-primary/5 border-primary text-primary"
+                                                    : "bg-white border-outline-variant/30 hover:border-primary hover:shadow-md hover:-translate-y-0.5"
+                                            )}
+                                        >
+                                            <div className={cn(
+                                                "size-10 rounded-xl flex items-center justify-center mb-3 transition-transform group-hover:scale-110",
+                                                trailFilter === 'all' ? "bg-primary text-white" : "bg-primary/10 text-primary"
+                                            )}>
+                                                <Layers size={18} />
+                                            </div>
+                                            <h4 className="text-xs font-black uppercase tracking-tighter italic leading-none mb-1">Todos</h4>
+                                            <p className="text-[10px] text-muted-foreground leading-normal line-clamp-2">Todos os cursos disponíveis</p>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setTrailFilter('biblico')}
+                                            className={cn(
+                                                "p-4 rounded-2xl border-2 shadow-sm transition-all text-left flex flex-col group relative overflow-hidden",
+                                                trailFilter === 'biblico'
+                                                    ? "bg-primary/5 border-primary text-primary"
+                                                    : "bg-white border-outline-variant/30 hover:border-primary hover:shadow-md hover:-translate-y-0.5"
+                                            )}
+                                        >
+                                            <div className={cn(
+                                                "size-10 rounded-xl flex items-center justify-center mb-3 transition-transform group-hover:scale-110",
+                                                trailFilter === 'biblico' ? "bg-primary text-white" : "bg-primary/10 text-primary"
+                                            )}>
+                                                <BookOpen size={18} />
+                                            </div>
+                                            <h4 className="text-xs font-black uppercase tracking-tighter italic leading-none mb-1">Bíblico</h4>
+                                            <p className="text-[10px] text-muted-foreground leading-normal line-clamp-2">Estudo e compreensão bíblica</p>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setTrailFilter('teologico')}
+                                            className={cn(
+                                                "p-4 rounded-2xl border-2 shadow-sm transition-all text-left flex flex-col group relative overflow-hidden",
+                                                trailFilter === 'teologico'
+                                                    ? "bg-primary/5 border-primary text-primary"
+                                                    : "bg-white border-outline-variant/30 hover:border-primary hover:shadow-md hover:-translate-y-0.5"
+                                            )}
+                                        >
+                                            <div className={cn(
+                                                "size-10 rounded-xl flex items-center justify-center mb-3 transition-transform group-hover:scale-110",
+                                                trailFilter === 'teologico' ? "bg-primary text-white" : "bg-primary/10 text-primary"
+                                            )}>
+                                                <GraduationCap size={18} />
+                                            </div>
+                                            <h4 className="text-xs font-black uppercase tracking-tighter italic leading-none mb-1">Teológico</h4>
+                                            <p className="text-[10px] text-muted-foreground leading-normal line-clamp-2">Doutrina e teologia bíblica</p>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setTrailFilter('discipulado')}
+                                            className={cn(
+                                                "p-4 rounded-2xl border-2 shadow-sm transition-all text-left flex flex-col group relative overflow-hidden",
+                                                trailFilter === 'discipulado'
+                                                    ? "bg-primary/5 border-primary text-primary"
+                                                    : "bg-white border-outline-variant/30 hover:border-primary hover:shadow-md hover:-translate-y-0.5"
+                                            )}
+                                        >
+                                            <div className={cn(
+                                                "size-10 rounded-xl flex items-center justify-center mb-3 transition-transform group-hover:scale-110",
+                                                trailFilter === 'discipulado' ? "bg-primary text-white" : "bg-primary/10 text-primary"
+                                            )}>
+                                                <ListChecks size={18} />
+                                            </div>
+                                            <h4 className="text-xs font-black uppercase tracking-tighter italic leading-none mb-1">Discipulado</h4>
+                                            <p className="text-[10px] text-muted-foreground leading-normal line-clamp-2">Crescimento espiritual e prático</p>
+                                        </button>
                                     </div>
                                 )}
                             </div>

@@ -6,6 +6,15 @@ import Script from 'next/script';
 
 export default function GCPage() {
   useEffect(() => {
+    // Force scroll to top on mount and again shortly after to counteract iframe focus steal
+    window.scrollTo(0, 0);
+    const scrollTimeout = setTimeout(() => {
+      window.scrollTo(0, 0);
+    }, 100);
+    const scrollTimeout2 = setTimeout(() => {
+      window.scrollTo(0, 0);
+    }, 500);
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -23,7 +32,11 @@ export default function GCPage() {
       observer.observe(el);
     });
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      clearTimeout(scrollTimeout);
+      clearTimeout(scrollTimeout2);
+    };
   }, []);
 
   return (
@@ -175,14 +188,15 @@ export default function GCPage() {
           <div className="hidden md:flex items-center space-x-8">
             <Link className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="/#jornada">Jornada</Link>
             <Link className="font-label-md text-label-md uppercase tracking-wider text-primary font-bold border-b-2 border-primary pb-1" href="/gc">Igreja em Células</Link>
-            <Link className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="/#redes">Redes</Link>
             <Link className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="/#trilha-discipulado">Trilha Discipulado</Link>
             <a className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="https://projeto-luz-para-a-cidade-757083107524.us-west1.run.app/" target="_blank" rel="noopener noreferrer">Ação Social</a>
             <Link className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="/#visita">Visite-nos</Link>
-            <Link className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="/quem-somos">Quem Somos</Link>
           </div>
 
           <div className="flex items-center gap-4">
+            <Link href="/public/enrollment" className="border border-primary text-primary px-6 py-2.5 rounded-full font-label-md text-label-md hover:bg-primary/5 hover:scale-105 transition-all active:scale-95">
+              Inscrições
+            </Link>
             <Link href="/login" className="bg-primary text-on-primary px-6 py-2.5 rounded-full font-label-md text-label-md hover:opacity-90 hover:scale-105 transition-all active:scale-95 shadow-md shadow-primary/10">
               Área do Membro
             </Link>
@@ -361,6 +375,7 @@ export default function GCPage() {
               marginWidth={0} 
               className="w-full h-[500px] sm:h-[650px] border-0"
               allowFullScreen
+              loading="lazy"
             ></iframe>
           </div>
         </div>

@@ -184,12 +184,7 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
         const className = targetClass?.name || '';
 
         if (targetName && targetPhone) {
-            sendEnrollmentMessage(targetName, String(targetPhone), courseName, className, {
-                enabled: config?.enabled,
-                serverUrl: config?.serverUrl,
-                instanceKey: config?.instanceKey,
-                notifyEnrollment: config?.notifyEnrollment
-            });
+            sendEnrollmentMessage(targetName, String(targetPhone), courseName, className);
         }
 
         toast({ title: 'Sucesso!', description: 'Matrícula realizada com sucesso.' });
