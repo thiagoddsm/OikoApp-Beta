@@ -570,8 +570,9 @@ export default function ImportDataPage() {
                     getDocs(cellsQuery),
                     getDocs(existingUsersQuery)
                 ]);
+                const cellDocs = cellsSnapshot.docs;
                 setAvailableGcs(
-                    cellsSnapshot.docs
+                    cellDocs
                         .map(doc => ({ id: doc.id, name: doc.data().nome, supervisorId: doc.data().supervisorId || '' }))
                         .sort((a, b) => a.name.localeCompare(b.name))
                 );
