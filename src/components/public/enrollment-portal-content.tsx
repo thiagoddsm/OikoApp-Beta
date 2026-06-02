@@ -49,7 +49,7 @@ export function EnrollmentPortalContent() {
 
     const renderCourseCard = (course: any) => {
         const hasClasses = classes.some(cls => cls.courseId === course.id);
-        const imageUrl = `https://picsum.photos/seed/${course.id}/600/400`;
+        const imageUrl = course.imageUrl || `https://picsum.photos/seed/${course.id}/600/400`;
 
         return (
             <Card key={course.id} className="overflow-hidden group hover:shadow-xl transition-all duration-300 border-none shadow-md bg-card">

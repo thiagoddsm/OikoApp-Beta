@@ -85,7 +85,7 @@ function EnrollmentForm() {
     const [selectedCategory, setSelectedCategory] = useState<'lumine' | 'escolas' | 'ministerios' | 'eventos' | null>(null);
 
     // Step 3: Catalog
-    const [trailFilter, setTrailFilter] = useState('all');
+    const [trailFilter, setTrailFilter] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
     const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
@@ -113,7 +113,7 @@ function EnrollmentForm() {
 
     const filteredCourses = useMemo(() => {
         if (!courses || selectedCategory === 'eventos' || !selectedCategory) return [];
-        return courses.filter(c => {
+        const result = courses.filter(c => {
             const ministry = c.ministryName?.toLowerCase() || '';
             const isLumine = ministry.includes('lumine') || ministry.includes('ebd');
             const isEscola = ministry.includes('wave') || ministry === 'dis';
@@ -122,13 +122,23 @@ function EnrollmentForm() {
             if (selectedCategory === 'escolas' && !isEscola) return false;
             if (selectedCategory === 'ministerios' && (isLumine || isEscola)) return false;
 
-            if (selectedCategory === 'lumine' && trailFilter !== 'all' && c.ebdTrack !== trailFilter) return false;
+            if (selectedCategory === 'lumine') {
+                if (!trailFilter) return false;
+                if (trailFilter !== 'all' && c.ebdTrack !== trailFilter) return false;
+            }
 
             if (searchTerm.trim()) {
                 const term = searchTerm.toLowerCase();
                 return c.name.toLowerCase().includes(term) || (c.description || '').toLowerCase().includes(term);
             }
             return true;
+        });
+
+        return result.sort((a, b) => {
+            const orderA = (a as any).sortOrder !== undefined && (a as any).sortOrder !== null ? Number((a as any).sortOrder) : 9999;
+            const orderB = (b as any).sortOrder !== undefined && (b as any).sortOrder !== null ? Number((b as any).sortOrder) : 9999;
+            if (orderA !== orderB) return orderA - orderB;
+            return a.name.localeCompare(b.name);
         });
     }, [courses, selectedCategory, trailFilter, searchTerm]);
 
@@ -623,8 +633,19 @@ function EnrollmentForm() {
             {/* Passo 3: Catálogo */}
             {currentStep === 3 && (
                 <div className="space-y-6 animate-in slide-in-from-right-8">
-                    <Button variant="ghost" size="sm" onClick={prevStep} className="text-muted-foreground -ml-2 mb-2 font-bold uppercase tracking-widest text-[10px]">
-                        <ChevronLeft className="mr-1 size-3" /> Escolher Categoria
+                    <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => {
+                            if (selectedCategory === 'lumine' && trailFilter !== null) {
+                                setTrailFilter(null);
+                            } else {
+                                prevStep();
+                            }
+                        }} 
+                        className="text-muted-foreground -ml-2 mb-2 font-bold uppercase tracking-widest text-[10px]"
+                    >
+                        <ChevronLeft className="mr-1 size-3" /> {selectedCategory === 'lumine' && trailFilter !== null ? 'Escolher Trilho' : 'Escolher Categoria'}
                     </Button>
 
                     {selectedCategory === 'eventos' ? (
@@ -683,128 +704,115 @@ function EnrollmentForm() {
                         </div>
                     ) : (
                         <div className="space-y-6">
-                            <div className="space-y-4">
-                                <div className="relative">
-                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground size-5" />
-                                    <Input
-                                        placeholder="Buscar curso por nome..."
-                                        value={searchTerm}
-                                        onChange={e => setSearchTerm(e.target.value)}
-                                        className="h-14 pl-12 rounded-2xl bg-white border-2 shadow-sm text-lg focus-visible:ring-primary/20"
-                                    />
-                                </div>
-                                {selectedCategory === 'lumine' && (
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                            {selectedCategory === 'lumine' && trailFilter === null ? (
+                                <div className="space-y-6 animate-in fade-in-50 duration-500">
+                                    <h3 className="text-xl font-black italic tracking-tighter uppercase text-center mb-6">Selecione o Trilho Acadêmico</h3>
+                                    <div className="grid grid-cols-2 gap-4">
                                         <button
                                             type="button"
                                             onClick={() => setTrailFilter('all')}
-                                            className={cn(
-                                                "p-4 rounded-2xl border-2 shadow-sm transition-all text-left flex flex-col group relative overflow-hidden",
-                                                trailFilter === 'all'
-                                                    ? "bg-primary/5 border-primary text-primary"
-                                                    : "bg-white border-outline-variant/30 hover:border-primary hover:shadow-md hover:-translate-y-0.5"
-                                            )}
+                                            className="bg-white p-6 rounded-[2rem] border-2 shadow-sm hover:border-primary hover:shadow-xl hover:-translate-y-1 transition-all text-left flex flex-col group"
                                         >
-                                            <div className={cn(
-                                                "size-10 rounded-xl flex items-center justify-center mb-3 transition-transform group-hover:scale-110",
-                                                trailFilter === 'all' ? "bg-primary text-white" : "bg-primary/10 text-primary"
-                                            )}>
-                                                <Layers size={18} />
+                                            <div className="size-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                                <Layers size={24} />
                                             </div>
-                                            <h4 className="text-xs font-black uppercase tracking-tighter italic leading-none mb-1">Todos</h4>
-                                            <p className="text-[10px] text-muted-foreground leading-normal line-clamp-2">Todos os cursos disponíveis</p>
+                                            <h4 className="text-lg font-black uppercase tracking-tighter italic leading-none mb-2">Todos</h4>
+                                            <p className="text-xs text-muted-foreground font-medium">Exibe todas as disciplinas e trilhos disponíveis.</p>
                                         </button>
 
                                         <button
                                             type="button"
                                             onClick={() => setTrailFilter('biblico')}
-                                            className={cn(
-                                                "p-4 rounded-2xl border-2 shadow-sm transition-all text-left flex flex-col group relative overflow-hidden",
-                                                trailFilter === 'biblico'
-                                                    ? "bg-primary/5 border-primary text-primary"
-                                                    : "bg-white border-outline-variant/30 hover:border-primary hover:shadow-md hover:-translate-y-0.5"
-                                            )}
+                                            className="bg-white p-6 rounded-[2rem] border-2 shadow-sm hover:border-primary hover:shadow-xl hover:-translate-y-1 transition-all text-left flex flex-col group"
                                         >
-                                            <div className={cn(
-                                                "size-10 rounded-xl flex items-center justify-center mb-3 transition-transform group-hover:scale-110",
-                                                trailFilter === 'biblico' ? "bg-primary text-white" : "bg-primary/10 text-primary"
-                                            )}>
-                                                <BookOpen size={18} />
+                                            <div className="size-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                                <BookOpen size={24} />
                                             </div>
-                                            <h4 className="text-xs font-black uppercase tracking-tighter italic leading-none mb-1">Bíblico</h4>
-                                            <p className="text-[10px] text-muted-foreground leading-normal line-clamp-2">Estudo e compreensão bíblica</p>
+                                            <h4 className="text-lg font-black uppercase tracking-tighter italic leading-none mb-2">Bíblico</h4>
+                                            <p className="text-xs text-muted-foreground font-medium">Estudo e aprofundamento das Escrituras.</p>
                                         </button>
 
                                         <button
                                             type="button"
                                             onClick={() => setTrailFilter('teologico')}
-                                            className={cn(
-                                                "p-4 rounded-2xl border-2 shadow-sm transition-all text-left flex flex-col group relative overflow-hidden",
-                                                trailFilter === 'teologico'
-                                                    ? "bg-primary/5 border-primary text-primary"
-                                                    : "bg-white border-outline-variant/30 hover:border-primary hover:shadow-md hover:-translate-y-0.5"
-                                            )}
+                                            className="bg-white p-6 rounded-[2rem] border-2 shadow-sm hover:border-primary hover:shadow-xl hover:-translate-y-1 transition-all text-left flex flex-col group"
                                         >
-                                            <div className={cn(
-                                                "size-10 rounded-xl flex items-center justify-center mb-3 transition-transform group-hover:scale-110",
-                                                trailFilter === 'teologico' ? "bg-primary text-white" : "bg-primary/10 text-primary"
-                                            )}>
-                                                <GraduationCap size={18} />
+                                            <div className="size-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                                <GraduationCap size={24} />
                                             </div>
-                                            <h4 className="text-xs font-black uppercase tracking-tighter italic leading-none mb-1">Teológico</h4>
-                                            <p className="text-[10px] text-muted-foreground leading-normal line-clamp-2">Doutrina e teologia bíblica</p>
+                                            <h4 className="text-lg font-black uppercase tracking-tighter italic leading-none mb-2">Teológico</h4>
+                                            <p className="text-xs text-muted-foreground font-medium">Doutrina sistemática e teologia prática.</p>
                                         </button>
 
                                         <button
                                             type="button"
                                             onClick={() => setTrailFilter('discipulado')}
-                                            className={cn(
-                                                "p-4 rounded-2xl border-2 shadow-sm transition-all text-left flex flex-col group relative overflow-hidden",
-                                                trailFilter === 'discipulado'
-                                                    ? "bg-primary/5 border-primary text-primary"
-                                                    : "bg-white border-outline-variant/30 hover:border-primary hover:shadow-md hover:-translate-y-0.5"
-                                            )}
+                                            className="bg-white p-6 rounded-[2rem] border-2 shadow-sm hover:border-primary hover:shadow-xl hover:-translate-y-1 transition-all text-left flex flex-col group"
                                         >
-                                            <div className={cn(
-                                                "size-10 rounded-xl flex items-center justify-center mb-3 transition-transform group-hover:scale-110",
-                                                trailFilter === 'discipulado' ? "bg-primary text-white" : "bg-primary/10 text-primary"
-                                            )}>
-                                                <ListChecks size={18} />
+                                            <div className="size-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                                <ListChecks size={24} />
                                             </div>
-                                            <h4 className="text-xs font-black uppercase tracking-tighter italic leading-none mb-1">Discipulado</h4>
-                                            <p className="text-[10px] text-muted-foreground leading-normal line-clamp-2">Crescimento espiritual e prático</p>
+                                            <h4 className="text-lg font-black uppercase tracking-tighter italic leading-none mb-2">Discipulado</h4>
+                                            <p className="text-xs text-muted-foreground font-medium">Crescimento, maturidade e caminhada cristã.</p>
                                         </button>
                                     </div>
-                                )}
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {filteredCourses.map(course => (
-                                    <Card
-                                        key={course.id}
-                                        className="overflow-hidden rounded-[2rem] cursor-pointer transition-all duration-300 hover:shadow-xl border-2 hover:border-primary group bg-white"
-                                        onClick={() => {
-                                            setSelectedCourseId(course.id);
-                                            setSelectedClassId(null);
-                                            nextStep();
-                                        }}
-                                    >
-                                        <div className="relative aspect-video bg-slate-100">
-                                            <img src={`https://picsum.photos/seed/${course.id}/600/300`} alt="" className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-700" />
-                                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent z-10" />
-                                            <div className="absolute bottom-4 left-5 z-20 pr-4">
-                                                <Badge className="bg-primary backdrop-blur-md text-white border-none mb-2 text-[8px] font-black uppercase tracking-widest">{course.ministryName}</Badge>
-                                                <h4 className="text-white font-black uppercase italic tracking-tighter leading-tight text-lg shadow-sm">{course.name}</h4>
-                                            </div>
+                                </div>
+                            ) : (
+                                <div className="space-y-6 animate-in slide-in-from-right-8">
+                                    {selectedCategory === 'lumine' && (
+                                        <div className="flex items-center justify-between mb-2">
+                                            <h4 className="text-sm font-black uppercase italic text-primary tracking-wider">
+                                                Lumine — Trilho: {
+                                                    trailFilter === 'all' ? 'Todos' :
+                                                    trailFilter === 'biblico' ? 'Bíblico' :
+                                                    trailFilter === 'teologico' ? 'Teológico' :
+                                                    trailFilter === 'discipulado' ? 'Discipulado' : ''
+                                                }
+                                            </h4>
+                                            <Button variant="ghost" size="xs" onClick={() => setTrailFilter(null)} className="h-7 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-primary">
+                                                <ChevronLeft className="mr-1 size-3" /> Outro Trilho
+                                            </Button>
                                         </div>
-                                    </Card>
-                                ))}
-                                {filteredCourses.length === 0 && (
-                                    <div className="col-span-full py-16 text-center text-muted-foreground border-2 border-dashed rounded-[2rem]">
-                                        Nenhum curso encontrado nesta categoria.
+                                    )}
+                                    <div className="relative">
+                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground size-5" />
+                                        <Input
+                                            placeholder="Buscar curso por nome..."
+                                            value={searchTerm}
+                                            onChange={e => setSearchTerm(e.target.value)}
+                                            className="h-14 pl-12 rounded-2xl bg-white border-2 shadow-sm text-lg focus-visible:ring-primary/20"
+                                        />
                                     </div>
-                                )}
-                            </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        {filteredCourses.map(course => (
+                                            <Card
+                                                key={course.id}
+                                                className="overflow-hidden rounded-[2rem] cursor-pointer transition-all duration-300 hover:shadow-xl border-2 hover:border-primary group bg-white"
+                                                onClick={() => {
+                                                    setSelectedCourseId(course.id);
+                                                    setSelectedClassId(null);
+                                                    nextStep();
+                                                }}
+                                            >
+                                                <div className="relative aspect-video bg-slate-100">
+                                                    <img src={course.imageUrl || `https://picsum.photos/seed/${course.id}/600/300`} alt="" className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-700" />
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent z-10" />
+                                                    <div className="absolute bottom-4 left-5 z-20 pr-4">
+                                                        <Badge className="bg-primary backdrop-blur-md text-white border-none mb-2 text-[8px] font-black uppercase tracking-widest">{course.ministryName}</Badge>
+                                                        <h4 className="text-white font-black uppercase italic tracking-tighter leading-tight text-lg shadow-sm">{course.name}</h4>
+                                                    </div>
+                                                </div>
+                                            </Card>
+                                        ))}
+                                        {filteredCourses.length === 0 && (
+                                            <div className="col-span-full py-16 text-center text-muted-foreground border-2 border-dashed rounded-[2rem]">
+                                                Nenhum curso encontrado nesta categoria.
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

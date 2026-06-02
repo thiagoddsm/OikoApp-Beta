@@ -29,6 +29,8 @@ export function CourseDetailsForm({ course }) {
     requiresMemberStatus: false,
     requiresBaptism: false,
     prerequisiteCourseId: '',
+    sortOrder: '0',
+    imageUrl: '',
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -46,6 +48,8 @@ export function CourseDetailsForm({ course }) {
         requiresMemberStatus: course.requiresMemberStatus || false,
         requiresBaptism: course.requiresBaptism || false,
         prerequisiteCourseId: course.prerequisiteCourseId || '',
+        sortOrder: course.sortOrder?.toString() || '0',
+        imageUrl: course.imageUrl || '',
       });
     }
   }, [course]);
@@ -70,6 +74,8 @@ export function CourseDetailsForm({ course }) {
             requiresMemberStatus: formData.requiresMemberStatus,
             requiresBaptism: formData.requiresBaptism,
             prerequisiteCourseId: formData.prerequisiteCourseId === 'none' ? '' : formData.prerequisiteCourseId,
+            sortOrder: Number(formData.sortOrder) || 0,
+            imageUrl: formData.imageUrl,
         });
         toast({ title: 'Sucesso!', description: 'As configurações do curso foram atualizadas.'});
     } catch (e) {
@@ -162,6 +168,36 @@ export function CourseDetailsForm({ course }) {
                               ))}
                           </SelectContent>
                       </Select>
+                  </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+                  <div className="space-y-2">
+                      <Label htmlFor="sortOrder">Ordem de Exibição (Sort Order)</Label>
+                      <Input 
+                        id="sortOrder" 
+                        type="number" 
+                        value={formData.sortOrder} 
+                        onChange={e => handleFieldChange('sortOrder', e.target.value)}
+                        placeholder="Ex: 1"
+                      />
+                      <p className="text-[10px] text-muted-foreground italic">
+                          Define a ordem em que este curso será exibido na listagem (valores menores aparecem primeiro).
+                      </p>
+                  </div>
+
+                  <div className="space-y-2">
+                      <Label htmlFor="imageUrl">URL da Imagem de Capa</Label>
+                      <Input 
+                        id="imageUrl" 
+                        type="text" 
+                        value={formData.imageUrl} 
+                        onChange={e => handleFieldChange('imageUrl', e.target.value)}
+                        placeholder="https://exemplo.com/imagem.jpg"
+                      />
+                      <p className="text-[10px] text-muted-foreground italic">
+                          URL da imagem que será exibida como capa deste curso. Se vazio, uma imagem padrão será usada.
+                      </p>
                   </div>
               </div>
           </div>
@@ -271,6 +307,30 @@ export function CourseDetailsForm({ course }) {
                       )}
                   </div>
               </CardContent>
+          </Card>
+
+          <Card className="overflow-hidden border border-outline-variant/20 shadow-sm bg-card">
+              <div className="p-4 border-b font-bold text-xs uppercase tracking-wider text-primary flex items-center gap-2">
+                  <BookOpen className="size-4" /> Pré-visualização da Capa
+              </div>
+              <div className="relative aspect-video bg-slate-100 flex items-center justify-center">
+                  {formData.imageUrl ? (
+                      <img 
+                          src={formData.imageUrl} 
+                          alt="Capa do curso" 
+                          className="object-cover w-full h-full"
+                          onError={(e) => {
+                              (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${course.id}/600/300`;
+                          }}
+                      />
+                  ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground p-4 text-center">
+                          <BookOpen className="size-8 mb-2 opacity-40 text-primary" />
+                          <span className="text-xs font-bold text-slate-800">Nenhuma capa personalizada</span>
+                          <span className="text-[10px] opacity-75 mt-1">Usando imagem padrão do Picsum</span>
+                      </div>
+                  )}
+              </div>
           </Card>
 
           <div className="p-4 bg-muted/30 rounded-lg border border-dashed text-center">
