@@ -426,7 +426,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   const { firestore, user, auth, isUserLoading } = useFirebase();
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.pathname.includes('/public/') && auth && !user && !isUserLoading) {
+    if (typeof window !== 'undefined' && (window.location.pathname.includes('/public/') || window.location.pathname.includes('/calendario')) && auth && !user && !isUserLoading) {
       const { initiateAnonymousSignIn } = require('@/firebase/non-blocking-login');
       initiateAnonymousSignIn(auth);
     }
@@ -447,7 +447,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   const can = (permId: string, action = 'view') => isAdmin || !!permissions?.[permId]?.[action];
 
   const isAnonymous = user?.isAnonymous;
-  const isPublicRoute = typeof window !== 'undefined' && window.location.pathname.includes('/public/');
+  const isPublicRoute = typeof window !== 'undefined' && (window.location.pathname.includes('/public/') || window.location.pathname.includes('/calendario'));
   const shouldLoadPublicData = isAnonymous || isPublicRoute;
 
   // Queries sensíveis que exigem login e papel adequado (só rodam após papel ser conhecido)
@@ -461,7 +461,13 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   }, [firestore, user, roleResolved, isAdmin, permissions, shouldLoadPublicData]);
   const teamsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('servico_teams')) ? query(collection(firestore, 'teams')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
   const eventsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('servico_events')) ? query(collection(firestore, 'volunteering_events')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-  const reservationsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('ministerial_reservations')) ? query(collection(firestore, 'room_reservations')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
+  const reservationsQ = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    if (shouldLoadPublicData || (roleResolved && can('ministerial_reservations'))) {
+      return query(collection(firestore, 'room_reservations'));
+    }
+    return null;
+  }, [firestore, user, roleResolved, isAdmin, permissions, shouldLoadPublicData]);
   const enrollmentRequestsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('teaching_courses')) ? query(collection(firestore, 'enrollment_requests')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
 
   const pedagogicalLogsQ = useMemoFirebase(() => {
@@ -496,7 +502,13 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
     return null;
   }, [firestore, user, roleResolved, shouldLoadPublicData]);
   const theoflixCoursesQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'theoflix_courses')) : null, [firestore, user]);
-  const reservationCategoriesQ = useMemoFirebase(() => (firestore && user && roleResolved && can('ministerial_reservations')) ? query(collection(firestore, 'reservation_categories')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
+  const reservationCategoriesQ = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    if (shouldLoadPublicData || (roleResolved && can('ministerial_reservations'))) {
+      return query(collection(firestore, 'reservation_categories'));
+    }
+    return null;
+  }, [firestore, user, roleResolved, isAdmin, permissions, shouldLoadPublicData]);
   
   // GC Hierarchy Queries (Exige login para respeitar as regras do Firestore)
   const cellsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'cells')) : null, [firestore, user]);
