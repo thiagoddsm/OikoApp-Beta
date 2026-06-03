@@ -6,10 +6,13 @@ import { collection, query, where, getDocs, doc, setDoc, addDoc, getDoc, Timesta
 import { formatName } from '@/lib/utils';
 
 export async function verifyEmailRegistered(email: string) {
-    const { firestore } = initializeFirebase();
-    if (!firestore) return { error: "Database not available" };
+    const { firestore, auth } = initializeFirebase();
+    if (!firestore || !auth) return { error: "Database not available" };
 
     try {
+        // Autenticar anonimamente no servidor para passar pela regra do Firestore (isAuthenticated)
+        await signInAnonymously(auth);
+
         const q = query(collection(firestore, 'users'), where('email', '==', email.toLowerCase().trim()));
         const snap = await getDocs(q);
 
