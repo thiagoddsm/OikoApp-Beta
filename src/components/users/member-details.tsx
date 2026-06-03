@@ -6,7 +6,13 @@ import { User, Phone, Home, CheckCircle, Calendar, Users, MapPin, BadgeHelp, Use
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-const DetailItem = ({ icon, label, value }) => {
+interface DetailItemProps {
+  icon: React.ComponentType<any>;
+  label: string;
+  value: any;
+}
+
+const DetailItem = ({ icon, label, value }: DetailItemProps) => {
     if (!value || (Array.isArray(value) && value.length === 0)) return null;
     const Icon = icon;
     
@@ -38,7 +44,11 @@ const DetailItem = ({ icon, label, value }) => {
     );
 };
 
-export function MemberDetails({ user }) {
+interface MemberDetailsProps {
+  user: any;
+}
+
+export function MemberDetails({ user }: MemberDetailsProps) {
   const formatBaptismVal = () => {
     if (user.batizado !== 'sim') return 'Não';
     const place = user.igrejaBatismo ? ` na ${user.igrejaBatismo}` : '';

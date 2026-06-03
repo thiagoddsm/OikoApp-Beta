@@ -45,7 +45,7 @@ function CampaignsPanel({ classId, onResume }: { classId: string; onResume: (cam
 
     // Ordenar no cliente para evitar índice composto no Firestore
     const campaigns = useMemo(
-        () => [...(rawCampaigns || [])].sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0)),
+        () => (Array.isArray(rawCampaigns) ? [...rawCampaigns] : []).sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0)),
         [rawCampaigns]
     );
 
@@ -549,7 +549,9 @@ export function ClassNotificationsManager({ classData, courseData }: ClassNotifi
                                                         {student.hasPhone ? (
                                                             <CheckCircle2 className="size-4 text-emerald-500 mx-auto" />
                                                         ) : (
-                                                            <AlertCircle className="size-4 text-amber-500 mx-auto" title="Sem telefone" />
+                                                            <span title="Sem telefone">
+                                                                <AlertCircle className="size-4 text-amber-500 mx-auto" />
+                                                            </span>
                                                         )}
                                                     </TableCell>
                                                 </TableRow>

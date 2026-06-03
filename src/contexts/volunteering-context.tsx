@@ -39,6 +39,8 @@ export type User = {
   taughtCourseIds?: string[];
   financialStatus?: string;
   batizado?: 'sim' | 'nao';
+  dataBatismo?: string;
+  gcId?: string;
   igrejaBatismo?: string;
   membroAntigo?: 'sim' | 'nao';
   igrejaAntiga?: string;
@@ -161,13 +163,16 @@ export type Class = {
     startTime: string;
     endTime: string;
     syllabusId?: string;
+    isRepositionOnly?: boolean;
   }[];
   registrationDeadline?: string;
   attendance?: { 
     date: string; 
     presentStudentIds: string[]; 
     onlineStudentIds?: string[];
-    repositions?: { studentId: string; date: string }[];
+    repositions?: { studentId: string; date: string; dateStr?: string }[];
+    isRepositionOnly?: boolean;
+    lessonNotes?: string;
   }[];
   grades?: { studentId: string; assessmentName: string; grade: number }[];
   materials?: { title: string; url: string; description?: string }[];

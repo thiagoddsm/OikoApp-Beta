@@ -26,6 +26,7 @@ import { ptBR } from 'date-fns/locale';
 
 export interface PlanningEvent {
     id: string;
+    date?: string;
     ministry: string;
     organizer: string;
     eventName: string;

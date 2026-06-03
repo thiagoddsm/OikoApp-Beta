@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { PersonSearchInput } from '@/components/common/person-search-input';
 
-export function CourseDetailsForm({ course }) {
+export function CourseDetailsForm({ course }: { course: any }) {
   const { users, courses, theoflixCourses, isLoading } = useVolunteering();
   const { firestore } = useFirebase();
   const { toast } = useToast();

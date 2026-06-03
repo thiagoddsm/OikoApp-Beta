@@ -10,7 +10,13 @@ import { useToast } from '@/hooks/use-toast';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 
-export function CourseFormDialog({ open, onOpenChange, existingCourse }) {
+interface CourseFormDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  existingCourse?: any;
+}
+
+export function CourseFormDialog({ open, onOpenChange, existingCourse }: CourseFormDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [name, setName] = useState('');

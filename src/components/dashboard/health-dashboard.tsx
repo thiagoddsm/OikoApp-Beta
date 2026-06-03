@@ -170,9 +170,8 @@ const DashboardSaude = () => {
 
   const semaforo = getSemaforoStatus();
 
-  // Gerar alertas acionáveis
   const gerarAlertas = () => {
-    const alertas = [];
+    const alertas: { tipo: string; fator: string; mensagem: string; acao: string; }[] = [];
     
     scores.forEach(fator => {
       if (fator.score <= 2) {
@@ -195,8 +194,8 @@ const DashboardSaude = () => {
     return alertas;
   };
 
-  const getAcaoSugerida = (fator) => {
-    const acoes = {
+  const getAcaoSugerida = (fator: string) => {
+    const acoes: Record<string, string> = {
       'Consistência': 'Configure lembretes automáticos para o líder',
       'Evangelismo': 'Planeje evento evangelístico na célula',
       'Engajamento': 'Faça contato individual com membros ausentes',

@@ -46,7 +46,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }:
   const [weekOfMonth, setWeekOfMonth] = useState('');
   const [holidayDates, setHolidayDates] = useState<string[]>([]);
   const [extraDates, setExtraDates] = useState<string[]>([]); // Mantido para retrocompatibilidade
-  const [extraSessions, setExtraSessions] = useState<{ id: string; date: string; startTime: string; endTime: string; syllabusId?: string }[]>([]);
+  const [extraSessions, setExtraSessions] = useState<{ id: string; date: string; startTime: string; endTime: string; syllabusId?: string; isRepositionOnly?: boolean; }[]>([]);
   const [scheduleOverrides, setScheduleOverrides] = useState<Record<string, any>>({});
   
   const [locationType, setLocationType] = useState<'ibm' | 'the_school' | ''>('');

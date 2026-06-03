@@ -6,30 +6,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from '@/components/ui/button';
 import { Loader2, PlusCircle, Edit, Trash2, ChevronRight, Wand2, ClipboardCheck, BookOpen } from 'lucide-react';
 import { ClassFormDialog } from './class-form-dialog';
-import { useVolunteering } from '@/contexts/volunteering-context';
+import { useVolunteering, type Class } from '@/contexts/volunteering-context';
 import { format, addWeeks, startOfMonth, nextDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
-
-type Class = { 
-    id: string; 
-    name: string; 
-    teacherId: string; 
-    students: string[]; 
-    maxStudents?: number;
-    courseId: string; 
-    frequency?: 'pontual' | 'semanal' | 'quinzenal' | 'mensal', 
-    startDate?: string, 
-    endDate?: string, 
-    startTime?: string, 
-    endTime?: string, 
-    dayOfWeek?: string, 
-    weekOfMonth?: string, 
-    locationId?: string 
-};
 
 export function CourseClassesManager({ course }: { course: any }) {
     const { firestore } = useFirebase();
