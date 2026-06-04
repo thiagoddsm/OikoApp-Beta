@@ -114,6 +114,15 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
         const areaName = areaMap.get(areaId) || "Área Desconhecida";
         const monthName = new Date(monthFilter + '-02').toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
 
+        if (channel === 'email') {
+            toast({
+                variant: 'destructive',
+                title: "Canal não suportado",
+                description: "O envio de notificações por e-mail não está configurado para esta funcionalidade. Por favor, utilize o WhatsApp."
+            });
+            return;
+        }
+
         const scheduleData = schedule;
         if (!scheduleData || !scheduleData.schedule) {
             toast({
@@ -150,14 +159,18 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
         let failCount = 0;
 
         for (const volunteer of volunteers) {
+            const firstName = volunteer.name
+                ? (volunteer.name.trim().split(' ')[0].charAt(0).toUpperCase() + volunteer.name.trim().split(' ')[0].slice(1).toLowerCase())
+                : 'Membro';
+
             // Filtrar itens da escala em que este voluntário participa
             const scheduledItems = scheduleData.schedule.filter((item: any) => item.memberIds.includes(volunteer.id));
             const formattedDates = scheduledItems.map((item: any) => {
                 const day = getDayOfWeek(item.date);
-                return `• *${item.date}* (${day}) - *${item.eventName}*${item.teamName ? ` [Equipe ${item.teamName}]` : ''}`;
+                return `• ${item.date} (${day}) - ${item.eventName}${item.teamName ? ` [Equipe ${item.teamName}]` : ''}`;
             }).join('\n');
 
-            const personalizedMessage = `Olá, *${volunteer.name}*! 🗓️ Segue a sua escala de voluntariado na área de *${areaName}* para *${monthName}*:\n\n${formattedDates}\n\nContamos com você! Em caso de imprevistos, avise sua liderança o quanto antes.`;
+            const personalizedMessage = `Olá, ${firstName}! 🗓️ Segue a sua escala de voluntariado na área de ${areaName} para ${monthName.toLowerCase()}:\n\n${formattedDates}\n\nContamos com você! Em caso de imprevistos, avise sua liderança o quanto antes.`;
 
             try {
                 const response = await fetch('/api/notifications/send', {

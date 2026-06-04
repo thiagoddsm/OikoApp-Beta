@@ -11,6 +11,8 @@ import { Label } from '../ui/label';
 import { Badge } from '../ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Timestamp } from 'firebase/firestore';
+import { useDoc } from '@/firebase';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const months = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -51,6 +53,8 @@ const getAllFifthWeeksOfYear = (year: number) => {
 export function ScheduleGenerator() {
   const { serviceAreas: areas, teams, events, users, isLoading, saveSchedule } = useVolunteering();
   const { toast } = useToast();
+  const { data: waConfig } = useDoc<any>('config/notifications');
+  const [notifyOnSave, setNotifyOnSave] = useState(true);
   const [selectedAreaId, setSelectedAreaId] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState(currentYear);
@@ -229,6 +233,69 @@ export function ScheduleGenerator() {
         title: "Escala Salva!",
         description: "A escala gerada foi salva e pode ser visualizada na aba 'Escalas Salvas'."
     });
+
+    if (notifyOnSave) {
+        // Obter voluntários designados com telefones
+        const volunteersToNotify = skeleton
+            .filter(item => item.volunteerId)
+            .map(item => {
+                const u = users.find(user => user.id === item.volunteerId);
+                return {
+                    id: item.volunteerId,
+                    name: u?.name || 'Voluntário',
+                    phone: u?.phone || '',
+                };
+            })
+            .filter(v => v.phone);
+
+        if (volunteersToNotify.length > 0) {
+            // Agrupar voluntários por id
+            const uniqueVolunteers = Array.from(new Set(volunteersToNotify.map(v => v.id)))
+                .map(id => volunteersToNotify.find(v => v.id === id)!);
+
+            const areaName = areas.find(a => a.id === selectedAreaId)?.name || "Área Desconhecida";
+            const monthName = months[selectedMonth] + " de " + selectedYear;
+
+            toast({
+                title: "Enviando Notificações...",
+                description: `Enviando lembretes de escala via WhatsApp para ${uniqueVolunteers.length} voluntários.`,
+            });
+
+            for (const volunteer of uniqueVolunteers) {
+                const firstName = volunteer.name
+                    ? (volunteer.name.trim().split(' ')[0].charAt(0).toUpperCase() + volunteer.name.trim().split(' ')[0].slice(1).toLowerCase())
+                    : 'Membro';
+
+                const scheduledItems = skeleton.filter(item => item.volunteerId === volunteer.id);
+                const formattedDates = scheduledItems.map(item => {
+                    const dateParts = item.date.split('/');
+                    const dateObj = new Date(parseInt(dateParts[2]), parseInt(dateParts[1]) - 1, parseInt(dateParts[0]), 12, 0, 0);
+                    const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+                    const day = weekDays[dateObj.getDay()];
+                    return `• ${item.date} (${day}) - ${item.eventName}${item.teamName ? ` [Equipe ${item.teamName}]` : ''}`;
+                }).join('\n');
+
+                const personalizedMessage = `Olá, ${firstName}! 🗓️ Segue a sua escala de voluntariado na área de ${areaName} para ${monthName.toLowerCase()}:\n\n${formattedDates}\n\nContamos com você! Em caso de imprevistos, avise sua liderança o quanto antes.`;
+
+                try {
+                    await fetch('/api/notifications/send', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            channel: 'whatsapp',
+                            audience: 'specific_members',
+                            targets: [{ id: volunteer.id, name: volunteer.name, phone: volunteer.phone }],
+                            message: personalizedMessage,
+                            instanceKey: waConfig?.instanceKey || waConfig?.whatsappApiKey,
+                            serverUrl: waConfig?.serverUrl
+                        }),
+                    });
+                } catch (error) {
+                    console.error("Erro ao notificar no salvamento:", volunteer.name, error);
+                }
+            }
+        }
+    }
   };
 
   const getEligibleVolunteers = (item: any) => {
@@ -328,13 +395,25 @@ export function ScheduleGenerator() {
                        Revise as vagas, preencha automaticamente ou atribua voluntários manualmente.
                     </CardDescription>
                 </div>
-                <div className="flex gap-2">
-                     <Button variant="outline" onClick={handleAutoFill}><Wand2 className="mr-2 h-4 w-4" /> Preencher Auto.</Button>
-                    <Button variant="outline" disabled><Download className="mr-2 h-4 w-4" /> Exportar</Button>
-                    <Button onClick={handleSave} disabled={isSaving || selectedAreaId === 'all'}>
-                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                        Salvar Escala
-                    </Button>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 mr-2">
+                    <Checkbox
+                      id="notify-on-save"
+                      checked={notifyOnSave}
+                      onCheckedChange={(checked) => setNotifyOnSave(!!checked)}
+                    />
+                    <Label htmlFor="notify-on-save" className="text-xs cursor-pointer select-none text-muted-foreground font-medium">
+                      Notificar por WhatsApp ao salvar
+                    </Label>
+                  </div>
+                  <div className="flex gap-2">
+                       <Button variant="outline" onClick={handleAutoFill}><Wand2 className="mr-2 h-4 w-4" /> Preencher Auto.</Button>
+                      <Button variant="outline" disabled><Download className="mr-2 h-4 w-4" /> Exportar</Button>
+                      <Button onClick={handleSave} disabled={isSaving || selectedAreaId === 'all'}>
+                          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                          Salvar Escala
+                      </Button>
+                  </div>
                 </div>
             </div>
           </CardHeader>

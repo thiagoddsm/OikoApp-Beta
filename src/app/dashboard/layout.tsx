@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   Home,
   Users,
@@ -65,7 +65,9 @@ import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Logo } from "@/components/icons";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useFirebase, useDoc } from "@/firebase";
+import { useFirebase, useDoc, useMemoFirebase } from "@/firebase";
+import { useCollection } from "@/firebase/firestore/use-collection";
+import { collection, query } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { PendingAccess } from "@/components/auth/pending-access";
@@ -154,10 +156,11 @@ interface MenuItemsProps {
   pathname: string;
   permissions: MenuPermissions;
   userRole: string | undefined;
+  isGcStaff: boolean;
   onLinkClick: () => void;
 }
 
-function MenuItems({ pathname, permissions, userRole, onLinkClick }: MenuItemsProps) {
+function MenuItems({ pathname, permissions, userRole, isGcStaff, onLinkClick }: MenuItemsProps) {
   // IDs acessíveis por padrão para qualquer membro autenticado (sem perfil de acesso específico)
   const DEFAULT_MEMBER_PERMISSIONS = new Set(['dashboard', 'teaching_courses', 'gcs_report']);
 
@@ -166,7 +169,8 @@ function MenuItems({ pathname, permissions, userRole, onLinkClick }: MenuItemsPr
     if (userRole === 'admin') return true;
     
     const gcAccessRoles = ['lider_gc', 'lider_treinamento', 'colider', 'secretario', 'secretaria', 'lider'];
-    if ((permissionId === 'gcs_cells' || permissionId === 'gcs_report') && userRole && gcAccessRoles.includes(userRole)) {
+    if ((permissionId === 'gcs_cells' || permissionId === 'gcs_report') && 
+        (isGcStaff || (userRole && gcAccessRoles.includes(userRole)))) {
       return true;
     }
 
@@ -278,7 +282,7 @@ interface MobileMenuProps extends MenuItemsProps {
   children: React.ReactNode;
 }
 
-function MobileMenu({ pathname, permissions, userRole, onLinkClick, children }: MobileMenuProps) {
+function MobileMenu({ pathname, permissions, userRole, isGcStaff, onLinkClick, children }: MobileMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const handleLinkClick = () => {
@@ -304,7 +308,7 @@ function MobileMenu({ pathname, permissions, userRole, onLinkClick, children }: 
           </div>
         </SidebarHeader>
         <div className="flex-1 overflow-y-auto">
-            <MenuItems pathname={pathname} permissions={permissions} userRole={userRole} onLinkClick={handleLinkClick} />
+            <MenuItems pathname={pathname} permissions={permissions} userRole={userRole} isGcStaff={isGcStaff} onLinkClick={handleLinkClick} />
         </div>
       </SheetContent>
     </Sheet>
@@ -318,11 +322,24 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { user, auth, isUserLoading } = useFirebase();
+  const { user, auth, isUserLoading, firestore } = useFirebase();
   const router = useRouter();
 
   const { data: userData, isLoading: isUserDataLoading } = useDoc<{ hierarchy?: { role?: string }; }>(user ? `users/${user.uid}`: null);
   
+  const cellsQuery = useMemoFirebase(() => (user && firestore) ? query(collection(firestore, 'cells')) : null, [user, firestore]);
+  const { data: cells } = useCollection<any>(cellsQuery);
+
+  const isGcStaff = useMemo(() => {
+    if (!user || !cells) return false;
+    return cells.some((cell: any) => 
+      cell.liderId === user.uid ||
+      cell.liderCasalId === user.uid ||
+      cell.coLiderIds?.includes(user.uid) ||
+      cell.secretariaId === user.uid
+    );
+  }, [user, cells]);
+
   const userRole = userData?.hierarchy?.role;
   const { data: accessProfile, isLoading: isLoadingAccessProfile } = useDoc<AccessProfile>(
     userRole ? `access_profiles/${userRole}` : null
@@ -389,7 +406,7 @@ export default function DashboardLayout({
               </div>
             </SidebarHeader>
             <div className="flex-1 flex flex-col overflow-y-auto">
-                <MenuItems pathname={pathname} permissions={accessProfile?.permissions} userRole={userRole} onLinkClick={() => {}} />
+                <MenuItems pathname={pathname} permissions={accessProfile?.permissions} userRole={userRole} isGcStaff={isGcStaff} onLinkClick={() => {}} />
             </div>
              <SidebarFooter className="border-t border-slate-200">
                 <div className="flex items-center gap-3 p-4">
@@ -415,6 +432,7 @@ export default function DashboardLayout({
                     pathname={pathname} 
                     permissions={accessProfile?.permissions} 
                     userRole={userRole} 
+                    isGcStaff={isGcStaff}
                     onLinkClick={() => {}}
                 >
                     <Button
