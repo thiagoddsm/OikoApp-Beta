@@ -24,6 +24,7 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
     
     const scheduleId = `${areaId}_${monthFilter}`;
     const { data: schedule, isLoading: isScheduleLoading } = useDoc<SavedSchedule>(scheduleId ? `saved_schedules/${scheduleId}` : null);
+    const { data: waConfig } = useDoc<any>('config/notifications');
     
     const isLoading = isContextLoading || isScheduleLoading;
 
@@ -166,7 +167,9 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
                         channel,
                         audience: 'specific_members',
                         targets: [{ id: volunteer.id, name: volunteer.name, phone: volunteer.phone }],
-                        message: personalizedMessage
+                        message: personalizedMessage,
+                        instanceKey: waConfig?.instanceKey || waConfig?.whatsappApiKey,
+                        serverUrl: waConfig?.serverUrl
                     }),
                 });
 
