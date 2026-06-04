@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { useToast } from '@/hooks/use-toast';
 
 const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
@@ -101,7 +101,11 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
             tableRows.push(rowData);
         });
 
-        (doc as any).autoTable(tableColumn, tableRows, { startY: 30 });
+        autoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: 30,
+        });
         doc.save(`escala_${areaName}_${monthFilter}.pdf`);
     };
 
