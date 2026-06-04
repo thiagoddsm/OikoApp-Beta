@@ -1,6 +1,6 @@
 
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -58,16 +58,26 @@ export function ScheduleGenerator() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const teamRotation = useMemo(() => {
-    const rotationMap = new Map<string, any>();
-    const teamNames = ['Alpha', 'Bravo', 'Charlie', 'Delta'];
-    teamNames.forEach(name => {
-      const team = teams.find(t => t.name.toLowerCase() === name.toLowerCase());
-      if (team) {
-        rotationMap.set(name.toLowerCase(), team);
-      }
-    });
-    return rotationMap;
+  const [weekTeams, setWeekTeams] = useState<Record<number, string>>({
+    1: '',
+    2: '',
+    3: '',
+    4: '',
+    5: ''
+  });
+
+  // Populate default week rotation based on team names including alpha/bravo/charlie/delta
+  useEffect(() => {
+    if (teams && teams.length > 0) {
+      const findTeamId = (name: string) => teams.find(t => t.name.toLowerCase().includes(name))?.id || '';
+      setWeekTeams({
+        1: findTeamId('alpha'),
+        2: findTeamId('bravo'),
+        3: findTeamId('charlie'),
+        4: findTeamId('delta'),
+        5: findTeamId('alpha')
+      });
+    }
   }, [teams]);
 
 
@@ -94,15 +104,9 @@ export function ScheduleGenerator() {
                         
                         let assignedTeam = null;
                         const weekOfMonth = getWeekOfMonth(currentDate);
-                        if (weekOfMonth >= 1 && weekOfMonth <= 4) {
-                            const teamName = ['Alpha', 'Bravo', 'Charlie', 'Delta'][weekOfMonth - 1].toLowerCase();
-                            assignedTeam = teamRotation.get(teamName) || null;
-                        } else if (weekOfMonth === 5) {
-                            const fifthWeekIndex = getFifthWeekOccurrenceInYear(currentDate, fifthWeeksOfYear);
-                            if (fifthWeekIndex !== -1) {
-                                const teamName = ['Alpha', 'Bravo', 'Charlie', 'Delta'][fifthWeekIndex % 4].toLowerCase();
-                                assignedTeam = teamRotation.get(teamName) || null;
-                            }
+                        const assignedTeamId = weekTeams[weekOfMonth];
+                        if (assignedTeamId) {
+                            assignedTeam = teams.find(t => t.id === assignedTeamId) || null;
                         }
 
                          for (let i = 0; i < reqArea.quantity; i++) {
@@ -181,6 +185,16 @@ export function ScheduleGenerator() {
     newSkeleton[index].volunteerId = volunteerId === 'null' ? null : volunteerId;
     setSkeleton(newSkeleton);
   }
+
+  const handleTeamChange = (index: number, teamId: string) => {
+    if (!skeleton) return;
+    const newSkeleton = [...skeleton];
+    const team = teams.find(t => t.id === teamId);
+    newSkeleton[index].teamId = teamId === 'null' ? null : teamId;
+    newSkeleton[index].teamName = teamId === 'null' ? null : (team?.name || null);
+    newSkeleton[index].volunteerId = null; // Reset volunteer when team changes
+    setSkeleton(newSkeleton);
+  };
   
   const handleSave = async () => {
     if (!skeleton || selectedAreaId === 'all') {
@@ -270,6 +284,31 @@ export function ScheduleGenerator() {
             </div>
             
           </div>
+
+          <div className="mt-6 border-t pt-6 animate-in fade-in-50 duration-300">
+            <Label className="text-xs font-black uppercase text-slate-500 mb-3 block">Configuração de Rodízio de Equipes (Por Semana do Mês)</Label>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+              {[1, 2, 3, 4, 5].map((week) => (
+                <div key={week} className="space-y-1.5">
+                  <Label className="text-xs text-slate-600 font-semibold">Semana {week}</Label>
+                  <Select 
+                    value={weekTeams[week] || 'null'} 
+                    onValueChange={(val) => setWeekTeams(prev => ({ ...prev, [week]: val === 'null' ? '' : val }))}
+                  >
+                    <SelectTrigger className="h-9 bg-background">
+                      <SelectValue placeholder="Sem Equipe" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="null">Nenhuma</SelectItem>
+                      {teams.map(t => (
+                        <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
+            </div>
+          </div>
            <div className="mt-6 flex justify-end">
                 <Button onClick={handleGenerateSkeleton} disabled={isGenerating || !selectedAreaId}>
                     {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CalendarCog className="mr-2 h-4 w-4" />}
@@ -322,7 +361,22 @@ export function ScheduleGenerator() {
                                     <TableCell className="font-medium">{item.date}</TableCell>
                                     <TableCell>{item.eventName}</TableCell>
                                     <TableCell><Badge variant="outline">{item.areaName}</Badge></TableCell>
-                                    <TableCell>{item.teamName ? <Badge>{item.teamName}</Badge> : '-'}</TableCell>
+                                    <TableCell>
+                                        <Select 
+                                            value={item.teamId || 'null'} 
+                                            onValueChange={(value) => handleTeamChange(index, value)}
+                                        >
+                                            <SelectTrigger className="h-8 w-[140px] bg-background">
+                                                <SelectValue placeholder="Sem Equipe" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="null">Nenhuma</SelectItem>
+                                                {teams.map(t => (
+                                                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </TableCell>
                                      <TableCell>
                                         <Select value={item.volunteerId || 'null'} onValueChange={(value) => handleVolunteerChange(index, value)}>
                                             <SelectTrigger>

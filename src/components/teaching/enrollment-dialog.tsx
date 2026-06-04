@@ -180,14 +180,11 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
         const targetName = mode === 'new' ? newName : selectedUser?.name;
         const targetPhone = mode === 'new' ? newPhone : selectedUser?.phone;
         const courseName = selectedCourse?.name || 'Curso';
+        const targetClass = classes.find(c => c.id === classId);
+        const className = targetClass?.name || '';
 
         if (targetName && targetPhone) {
-            sendEnrollmentMessage(targetName, String(targetPhone), courseName, {
-                enabled: config?.enabled,
-                serverUrl: config?.serverUrl,
-                instanceKey: config?.instanceKey,
-                notifyEnrollment: config?.notifyEnrollment
-            });
+            sendEnrollmentMessage(targetName, String(targetPhone), courseName, className);
         }
 
         toast({ title: 'Sucesso!', description: 'Matrícula realizada com sucesso.' });
@@ -232,37 +229,45 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
                         />
                     </div>
                     <div className="max-h-[300px] overflow-y-auto p-1 custom-scrollbar">
-                        {users.filter(u => u.name?.toLowerCase().includes(searchTerm.toLowerCase())).length === 0 ? (
-                            <div className="py-10 flex flex-col items-center gap-3 text-center">
-                                <p className="text-sm text-muted-foreground">Nenhum aluno encontrado com este nome.</p>
-                                <Button size="sm" variant="outline" onClick={() => handleCreateNew()}>
-                                    <PlusCircle className="mr-2 size-4" /> Cadastrar "{searchTerm}"
-                                </Button>
-                            </div>
-                        ) : (
-                            <div className="space-y-1">
-                                <p className="text-[10px] font-black uppercase text-muted-foreground px-3 py-2 tracking-widest">Sugestões do Sistema</p>
-                                {users
-                                    .filter(u => u.name?.toLowerCase().includes(searchTerm.toLowerCase()))
-                                    .slice(0, 15)
-                                    .map(user => (
-                                    <button 
-                                        key={user.id} 
-                                        onClick={() => handleSelectUser(user)}
-                                        className="flex items-center gap-3 w-full p-3 hover:bg-primary/5 rounded-lg transition-all text-left group border border-transparent hover:border-primary/10"
-                                    >
-                                        <div className="size-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs group-hover:bg-primary group-hover:text-white transition-colors">
-                                            {user.name?.charAt(0)}
-                                        </div>
-                                        <div className="flex flex-col flex-1 overflow-hidden">
-                                            <span className="font-bold text-sm text-slate-900 group-hover:text-primary transition-colors truncate">{user.name}</span>
-                                            <span className="text-[10px] text-muted-foreground italic truncate">{user.email || 'Sem e-mail'}</span>
-                                        </div>
-                                        <ArrowLeft className="size-4 opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0 rotate-180 text-primary" />
-                                    </button>
-                                ))}
-                            </div>
-                        )}
+                        {(() => {
+                            const normalize = (str: string) => 
+                                (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+                            const term = normalize(searchTerm.trim());
+                            const filteredUsers = users.filter(u => normalize(u.name).includes(term));
+
+                            if (filteredUsers.length === 0) {
+                                return (
+                                    <div className="py-10 flex flex-col items-center gap-3 text-center">
+                                        <p className="text-sm text-muted-foreground">Nenhum aluno encontrado com este nome.</p>
+                                        <Button size="sm" variant="outline" onClick={() => handleCreateNew()}>
+                                            <PlusCircle className="mr-2 size-4" /> Cadastrar "{searchTerm}"
+                                        </Button>
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-black uppercase text-muted-foreground px-3 py-2 tracking-widest">Sugestões do Sistema</p>
+                                    {filteredUsers.slice(0, 15).map(user => (
+                                        <button 
+                                            key={user.id} 
+                                            onClick={() => handleSelectUser(user)}
+                                            className="flex items-center gap-3 w-full p-3 hover:bg-primary/5 rounded-lg transition-all text-left group border border-transparent hover:border-primary/10"
+                                        >
+                                            <div className="size-9 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs group-hover:bg-primary group-hover:text-white transition-colors">
+                                                {user.name?.charAt(0)}
+                                            </div>
+                                            <div className="flex flex-col flex-1 overflow-hidden">
+                                                <span className="font-bold text-sm text-slate-900 group-hover:text-primary transition-colors truncate">{user.name}</span>
+                                                <span className="text-[10px] text-muted-foreground italic truncate">{user.email || 'Sem e-mail'}</span>
+                                            </div>
+                                            <ArrowLeft className="size-4 opacity-0 group-hover:opacity-100 transition-all -translate-x-2 group-hover:translate-x-0 rotate-180 text-primary" />
+                                        </button>
+                                    ))}
+                                </div>
+                            );
+                        })()}
                     </div>
                 </div>
                 

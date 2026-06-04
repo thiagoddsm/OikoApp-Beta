@@ -1,4 +1,3 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -11,6 +10,16 @@ service cloud.firestore {
     // Helper para verificar se o documento pertence ao usuário logado
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Helper para verificar se o usuário logado é Administrador ou Pastor Sênior
+    function isAdmin() {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        (
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hierarchy.role == 'admin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hierarchy.role == 'pastor_senior'
+        );
     }
 
     // Regras Públicas: Essenciais para o Portal de Inscrições e TheoFlix
@@ -29,37 +38,40 @@ service cloud.firestore {
       allow write: if isAuthenticated();
     }
 
-    // Usuários: Leitura pública necessária para login/busca, escrita autenticada
+    // Usuários: Apenas usuários autenticados podem ler/buscar perfis. Escrita pelo próprio ou Admin.
     match /users/{userId} {
-      allow read: if true;
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && (isOwner(userId) || isAdmin());
+    }
+
+    // Subcoleção de anotações/linha do tempo de usuários
+    match /users/{userId}/notes/{noteId} {
+      allow read: if isAuthenticated();
       allow write: if isAuthenticated();
     }
 
     // Inscrições: Qualquer um pode criar, autenticado pode ler
     match /enrollment_requests/{requestId} {
       allow create: if true;
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
     // Pagamentos Wave: Usuário pode ler apenas os próprios, admin lê tudo
     match /wave_payments/{paymentId} {
       allow read: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid ||
-        resource == null
+        resource == null || resource.data.userId == request.auth.uid || isAdmin()
       );
       allow list: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if isAuthenticated() && isAdmin();
     }
 
     // Pagamentos DIS: Usuário pode ler apenas os próprios, admin lê tudo
     match /dis_payments/{paymentId} {
       allow read: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid ||
-        resource == null
+        resource == null || resource.data.userId == request.auth.uid || isAdmin()
       );
       allow list: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if isAuthenticated() && isAdmin();
     }
 
     // Logs Pedagógicos: Autenticado pode ler e escrever
@@ -67,16 +79,27 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
-    // Financeiro: Protocolos de requisição
+    // Financeiro: Protocolos de requisição (Qualquer pessoa pode criar, mas apenas autenticados leem/escrevem)
     match /finance_requests/{reqId} {
       allow create: if true;
       allow read, write: if isAuthenticated();
     }
 
+    // Transações Financeiras: Apenas Admins podem ver ou modificar
+    match /financial_transactions/{txId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Perfis de Acesso e Permissões: Apenas Admins
+    match /access_profiles/{profileId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
     // Configurações públicas ou do sistema acessíveis a usuários autenticados
     match /config/theoflix {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow write: if isAdmin();
     }
 
     // Campanhas de Notificação
@@ -84,8 +107,26 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
-    // Regra Geral: Qualquer usuário autenticado pode ler e escrever o restante
-    // (Admins e membros com permissão usam o controle de acesso da aplicação)
+    // Células, Áreas e Redes (GC)
+    match /cells/{cellId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /areas/{areaId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /redes/{redeId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Histórico de Presenças e Logs de Reunião
+    match /reuniao_logs/{logId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /presencas_historico/{presencaId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Regra Geral de Fallback: Qualquer usuário autenticado pode ler e escrever o restante
     match /{document=**} {
       allow read, write: if isAuthenticated();
     }

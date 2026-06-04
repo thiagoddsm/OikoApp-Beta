@@ -1,9 +1,13 @@
-
 'use client';
+
 import React, { useState, useEffect } from 'react';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, serverTimestamp, doc } from 'firebase/firestore';
-import { Clock, Users, Layout, DollarSign, Utensils, FileText, ShieldAlert, Target, ListChecks, HelpCircle, Building, MapPin, Download, Megaphone } from 'lucide-react';
+import { 
+  Clock, Users, DollarSign, Utensils, FileText, Target, ListChecks, HelpCircle, 
+  MapPin, Download, HeartHandshake, Baby, Music, Video, Shield, Coffee, HelpCircle as HelpIcon,
+  Sparkles, Check, ChevronRight, Loader2, AlertCircle, Info, Calendar, Plus, Minus
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,20 +15,18 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Loader2, Plus, Minus } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import Link from 'next/link';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ScrollArea } from '../ui/scroll-area';
-import { Checkbox } from '../ui/checkbox';
 
 export interface PlanningEvent {
     id: string;
+    date?: string;
     ministry: string;
     organizer: string;
     eventName: string;
@@ -37,7 +39,6 @@ export interface PlanningEvent {
     method5w2h: Record<string, string>;
     startDate: string;
     endDate: string;
-    date?: string;
     timeLoadIn: string;
     timeStart: string;
     timeEnd: string;
@@ -62,98 +63,98 @@ export interface PlanningEvent {
     serviceTeamsNotes: string;
     financialsNotes: string;
     marketingNotes: string;
+    isPublicForRegistration?: boolean;
+    requiresBaptism?: boolean;
+    requiresActiveService?: boolean;
+    requiredCourseId?: string;
+    registrationPageType?: 'system' | 'custom_html';
+    customHtmlCode?: string;
 }
-
-const smartMappings: Record<string, { label: string; placeholder: string }> = {
-  specific: { label: "Específico (S)", placeholder: "Ex: Treinar 20 novos voluntários para a equipe de mídia." },
-  measurable: { label: "Mensurável (M)", placeholder: "Ex: Atingir 80% de aprovação no teste final." },
-  achievable: { label: "Alcançável (A)", placeholder: "Ex: Sim, temos 3 instrutores, material e sala disponível." },
-  relevant: { label: "Relevante (R)", placeholder: "Ex: Para suprir a alta demanda de voluntários para a Páscoa." },
-  timeBound: { label: "Temporal (T)", placeholder: "Ex: Treinamento concluído até 15 de Março." }
-};
-
-const method5w2hMappings: Record<string, { label: string; placeholder: string }> = {
-  what: { label: "What (O Quê?)", placeholder: "Ex: Realizar a Conferência de Mulheres 2025." },
-  why: { label: "Why (Por Quê?)", placeholder: "Ex: Fortalecer a comunhão e o ensino bíblico para mulheres." },
-  who: { label: "Who (Quem?)", placeholder: "Ex: Pastora Maria (coord.), Ana (logística), Equipe de Louvor." },
-  where: { label: "Where (Onde?)", placeholder: "Ex: Templo Sede e Salão Social." },
-  when: { label: "When (Quando?)", placeholder: "Ex: 10 a 12 de Outubro, das 19h às 22h." },
-  how: { label: "How (Como?)", placeholder: "Ex: Definir preletoras, abrir inscrições, divulgar nas redes, etc." },
-  howMuch: { label: "How Much (Quanto?)", placeholder: "Ex: R$ 15.000,00" }
-};
-
-const timeTooltips = {
-  timeLoadIn: "Acesso da equipe: Horário que a equipe precisa chegar para montar som, luz, decoração, etc.",
-  timeStart: "Início para o público: Horário que as portas abrem e os convidados podem entrar.",
-  timeEnd: "Término para o público: Horário que a última parte do evento se encerra para os participantes.",
-  timeLoadOut: "Desocupação total: Horário que o local deve estar completamente vazio e limpo pela equipe."
-};
 
 const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
-const designOptions = [
-    { id: 'design-stories', label: 'Stories' },
-    { id: 'design-feed', label: 'Feed' },
-    { id: 'design-thumb', label: 'Thumb' },
-    { id: 'design-projecao', label: 'Projeção' },
-    { id: 'design-carrossel', label: 'Carrossel' },
-    { id: 'design-reels', label: 'Reels' },
-    { id: 'design-video', label: 'Vídeo' },
-    { id: 'design-folheto', label: 'Folheto' },
-    { id: 'design-banner', label: 'Banner' },
-];
-
+// Function to map a service area name to a Lucide icon
+function getAreaIcon(name: string) {
+  const n = name.toLowerCase();
+  if (n.includes('mídia') || n.includes('som') || n.includes('transmissão') || n.includes('projeção') || n.includes('foto') || n.includes('luz')) {
+    return <Video className="size-5" />;
+  }
+  if (n.includes('kids') || n.includes('infantil') || n.includes('crianças')) {
+    return <Baby className="size-5" />;
+  }
+  if (n.includes('louvor') || n.includes('música') || n.includes('banda') || n.includes('canto')) {
+    return <Music className="size-5" />;
+  }
+  if (n.includes('recepção') || n.includes('acolhimento') || n.includes('boas') || n.includes('diácono')) {
+    return <HeartHandshake className="size-5" />;
+  }
+  if (n.includes('café') || n.includes('alimentação') || n.includes('cantina') || n.includes('cozinha')) {
+    return <Coffee className="size-5" />;
+  }
+  if (n.includes('segurança') || n.includes('estacionamento') || n.includes('apoio')) {
+    return <Shield className="size-5" />;
+  }
+  return <Users className="size-5" />;
+}
 
 export function EventPlanningForm({ existingEvent = null }: { existingEvent?: PlanningEvent | null }) {
   const { firestore } = useFirebase();
-  const { rooms, serviceAreas: areas } = useVolunteering();
+  const { rooms, serviceAreas: areas, courses } = useVolunteering();
   const { toast } = useToast();
+
+  const allRooms = React.useMemo(() => {
+    const list = [...rooms];
+    if (!list.some(r => r.name.toLowerCase() === 'online')) {
+      list.push({ id: 'online_room', name: 'Online' } as any);
+    }
+    return list;
+  }, [rooms]);
+
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  // Simplified Form state that maps to backend strategic/SMART/5W2H schemas
   const [formData, setFormData] = useState({
     ministry: '',
     organizer: 'IBM',
     eventName: '',
     category: '',
     recurrence: 'unico',
-    recurrenceDetails: {
-        type: 'semanal',
-        endDate: '',
-        dayOfWeek: ''
-    },
-    visionAlignment: '',
-    phaseAlignment: '',
-    smart: { specific: '', measurable: '', achievable: '', relevant: '', timeBound: '' } as Record<string, string>,
-    method5w2h: { what: '', why: '', who: '', where: '', when: '', how: '', howMuch: '' } as Record<string, string>,
+    recurrenceDetails: { type: 'semanal', endDate: '', dayOfWeek: '' },
+    
+    // Simplified Practical Plan fields
+    importance: '', // Maps to visionAlignment & method5w2h.why
+    whatWeWillDo: '', // Maps to smart.specific, method5w2h.what
+    whatWeNeed: '', // Maps to smart.achievable, method5w2h.how
+    
     startDate: '',
     endDate: '',
-    timeLoadIn: '',
     timeStart: '',
     timeEnd: '',
-    timeLoadOut: '',
+    
     eventType: 'interno',
     space: '',
     externalLocation: '',
-    roomLayout: '',
+    roomLayout: 'padrao',
     requiredServiceAreas: [] as { areaId: string; quantity: number }[],
+    
     hasFood: 'nao',
-    foodType: '',
     kitchenResponsible: '',
+    
     isPaid: 'gratuito',
-    fixedCosts: '',
+    fixedCosts: '', // "Custo Total do Evento"
     variableCostPerPerson: '',
-    ticketPrice: '',
-    breakEvenAnalysis: '',
-    designSupportNeeded: 'nao',
-    designRequests: [] as string[],
-    marketingSupportNeeded: 'nao',
-    logisticsNotes: '',
-    serviceTeamsNotes: '',
-    financialsNotes: '',
-    marketingNotes: '',
+    ticketPrice: '', // "Preço Cobrado por Pessoa"
+    
+    isPublicForRegistration: false,
+    requiresBaptism: false,
+    requiresActiveService: false,
+    requiredCourseId: '',
+    registrationPageType: 'system',
+    customHtmlCode: '',
   });
 
+  // Load existing event data & map technical fields to simplified fields
   useEffect(() => {
     if (existingEvent) {
       setFormData({
@@ -163,293 +164,172 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
         category: existingEvent.category || '',
         recurrence: existingEvent.recurrence || 'unico',
         recurrenceDetails: existingEvent.recurrenceDetails || { type: 'semanal', endDate: '', dayOfWeek: '' },
-        visionAlignment: existingEvent.visionAlignment || '',
-        phaseAlignment: existingEvent.phaseAlignment || '',
-        smart: existingEvent.smart || { specific: '', measurable: '', achievable: '', relevant: '', timeBound: '' },
-        method5w2h: existingEvent.method5w2h || { what: '', why: '', who: '', where: '', when: '', how: '', howMuch: '' },
+        
+        importance: existingEvent.visionAlignment || existingEvent.method5w2h?.why || '',
+        whatWeWillDo: existingEvent.method5w2h?.what || existingEvent.smart?.specific || '',
+        whatWeNeed: existingEvent.method5w2h?.how || existingEvent.smart?.achievable || '',
+        
         startDate: existingEvent.startDate || existingEvent.date || '',
         endDate: existingEvent.endDate || existingEvent.startDate || existingEvent.date || '',
-        timeLoadIn: existingEvent.timeLoadIn || '',
         timeStart: existingEvent.timeStart || '',
         timeEnd: existingEvent.timeEnd || '',
-        timeLoadOut: existingEvent.timeLoadOut || '',
+        
         eventType: existingEvent.eventType || 'interno',
         space: existingEvent.space || '',
         externalLocation: existingEvent.externalLocation || '',
-        roomLayout: existingEvent.roomLayout || '',
+        roomLayout: existingEvent.roomLayout || 'padrao',
         requiredServiceAreas: existingEvent.requiredServiceAreas || [],
+        
         hasFood: existingEvent.hasFood || 'nao',
-        foodType: existingEvent.foodType || '',
         kitchenResponsible: existingEvent.kitchenResponsible || '',
+        
         isPaid: existingEvent.isPaid || 'gratuito',
         fixedCosts: existingEvent.fixedCosts?.toString() || '',
         variableCostPerPerson: existingEvent.variableCostPerPerson?.toString() || '',
         ticketPrice: existingEvent.ticketPrice?.toString() || '',
-        breakEvenAnalysis: existingEvent.breakEvenAnalysis?.toString() || '',
-        designSupportNeeded: existingEvent.designSupportNeeded ? 'sim' : 'nao',
-        designRequests: existingEvent.designRequests || [],
-        marketingSupportNeeded: existingEvent.marketingSupportNeeded ? 'sim' : 'nao',
-        logisticsNotes: existingEvent.logisticsNotes || '',
-        serviceTeamsNotes: existingEvent.serviceTeamsNotes || '',
-        financialsNotes: existingEvent.financialsNotes || '',
-        marketingNotes: existingEvent.marketingNotes || '',
+        
+        isPublicForRegistration: existingEvent.isPublicForRegistration || false,
+        requiresBaptism: existingEvent.requiresBaptism || false,
+        requiresActiveService: existingEvent.requiresActiveService || false,
+        requiredCourseId: existingEvent.requiredCourseId || '',
+        registrationPageType: existingEvent.registrationPageType || 'system',
+        customHtmlCode: existingEvent.customHtmlCode || '',
       });
     }
   }, [existingEvent]);
 
-
-  useEffect(() => {
-    const fixed = parseFloat(formData.fixedCosts) || 0;
-    const variable = parseFloat(formData.variableCostPerPerson) || 0;
-    const price = parseFloat(formData.ticketPrice) || 0;
-
-    if (price > variable) {
-        const breakEven = Math.ceil(fixed / (price - variable));
-        setFormData(prev => ({...prev, breakEvenAnalysis: isFinite(breakEven) ? breakEven.toString() : ''}));
-    } else {
-        setFormData(prev => ({...prev, breakEvenAnalysis: ''}));
-    }
-
-  }, [formData.fixedCosts, formData.variableCostPerPerson, formData.ticketPrice]);
-
+  // Handle standard input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleNestedChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, parent: 'smart' | 'method5w2h') => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [parent]: {
-        ...prev[parent],
-        [name]: value
-      }
-    }));
-  };
-  
   const handleRadioChange = (name: string, value: string) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleRecurrenceChange = (e: React.ChangeEvent<HTMLInputElement> | {name: string, value: string}) => {
-    const { name, value } = 'target' in e ? e.target : e;
+  const handleRecurrenceChange = (e: any) => {
+    const name = e.target ? e.target.name : e.name;
+    const value = e.target ? e.target.value : e.value;
     setFormData(prev => ({
       ...prev,
-      recurrenceDetails: {
-        ...prev.recurrenceDetails,
-        [name]: value
-      }
+      recurrenceDetails: { ...prev.recurrenceDetails, [name]: value }
     }));
   };
 
+  // Visual Ministry Team Quantity Change handlers
   const handleAreaChange = (areaId: string, checked: boolean) => {
     setFormData(prev => {
-        const existing = prev.requiredServiceAreas;
-        if (checked) {
-            return { ...prev, requiredServiceAreas: [...existing, { areaId, quantity: 1 }] };
-        } else {
-            return { ...prev, requiredServiceAreas: existing.filter(a => a.areaId !== areaId) };
-        }
-    });
-  };
-  
-  const handleDesignRequestChange = (item: string, checked: boolean) => {
-    setFormData(prev => {
-        const currentRequests = prev.designRequests || [];
-        if (checked) {
-            return { ...prev, designRequests: [...currentRequests, item] };
-        } else {
-            return { ...prev, designRequests: currentRequests.filter(req => req !== item) };
-        }
+      const existing = prev.requiredServiceAreas;
+      if (checked) {
+        return { ...prev, requiredServiceAreas: [...existing, { areaId, quantity: 1 }] };
+      } else {
+        return { ...prev, requiredServiceAreas: existing.filter(a => a.areaId !== areaId) };
+      }
     });
   };
 
   const handleQuantityChange = (areaId: string, increment: boolean) => {
     setFormData(prev => ({
-        ...prev,
-        requiredServiceAreas: prev.requiredServiceAreas.map(a => {
-            if (a.areaId === areaId) {
-                const newQuantity = increment ? a.quantity + 1 : Math.max(1, a.quantity - 1);
-                return { ...a, quantity: newQuantity };
-            }
-            return a;
-        })
+      ...prev,
+      requiredServiceAreas: prev.requiredServiceAreas.map(a => {
+        if (a.areaId === areaId) {
+          const newQty = increment ? a.quantity + 1 : Math.max(1, a.quantity - 1);
+          return { ...a, quantity: newQty };
+        }
+        return a;
+      })
     }));
   };
-  
-  const handleGeneratePdf = () => {
-    if (!existingEvent) return;
 
-    const doc = new jsPDF();
-    const margin = 15;
-    let y = 20;
-
-    const addSection = (title: string, content: string, startY: number) => {
-        const titleLines = doc.splitTextToSize(title, 180);
-        const contentLines = doc.splitTextToSize(content || '-', 180);
-        const height = (titleLines.length + contentLines.length) * 5 + 10;
-        
-        if (startY + height > 280) {
-            doc.addPage();
-            startY = 20;
-        }
-
-        doc.setFontSize(11);
-        doc.setTextColor(40);
-        doc.text(titleLines, margin, startY);
-        startY += titleLines.length * 5 + 1;
-        
-        doc.setFontSize(10);
-        doc.setTextColor(100);
-        doc.text(contentLines, margin, startY);
-        startY += contentLines.length * 5;
-        
-        return startY + 5;
-    };
-    
-    doc.setFontSize(18);
-    const titleLines = doc.splitTextToSize(`Planejamento Estratégico: ${formData.eventName}`, 180);
-    doc.text(titleLines, margin, y);
-    y += (titleLines.length * 7) + 3;
-
-    doc.setFontSize(12);
-    doc.text(`Solicitante: ${formData.ministry} (${formData.organizer})`, margin, y);
-    y += 7;
-    doc.text(`Categoria: ${formData.category}`, margin, y);
-    y += 7;
-    
-    const eventStartDate = formData.startDate ? format(new Date(formData.startDate + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : 'N/A';
-    const eventEndDate = formData.endDate ? format(new Date(formData.endDate + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : 'N/A';
-    const dateText = eventStartDate === eventEndDate ? eventStartDate : `${eventStartDate} a ${eventEndDate}`;
-    doc.text(`Data do Evento: ${dateText}`, margin, y);
-    y += 10;
-
-    (doc as any).autoTable({
-        startY: y,
-        head: [['Metas SMART', 'Descrição']],
-        body: Object.entries(formData.smart).map(([key, value]) => [smartMappings[key]?.label || key, value || '-']),
-        theme: 'grid'
-    });
-    y = (doc as any).autoTable.previous.finalY + 10;
-    
-    (doc as any).autoTable({
-        startY: y,
-        head: [['Plano de Ação (5W2H)', 'Descrição']],
-        body: Object.entries(formData.method5w2h).map(([key, value]) => [method5w2hMappings[key]?.label || key, value || '-']),
-        theme: 'grid'
-    });
-    y = (doc as any).autoTable.previous.finalY + 10;
-
-    doc.setFontSize(14);
-    doc.text('Detalhes Logísticos', margin, y);
-    y += 8;
-    const logisticDetails = [
-      ['Horário de Montagem (Load-in)', formData.timeLoadIn || '-'],
-      ['Horário de Início (Público)', formData.timeStart || '-'],
-      ['Horário de Término (Público)', formData.timeEnd || '-'],
-      ['Horário de Desocupação (Load-out)', formData.timeLoadOut || '-'],
-      ['Local', formData.eventType === 'interno' ? formData.space : formData.externalLocation],
-      ['Layout da Sala', formData.roomLayout || '-'],
-      ['Alimentação', `${formData.hasFood === 'sim' ? 'Sim' : 'Não'} (${formData.foodType || 'N/A'})`],
-    ];
-    (doc as any).autoTable({
-        startY: y,
-        body: logisticDetails,
-        theme: 'grid'
-    });
-    y = (doc as any).autoTable.previous.finalY;
-    if (formData.logisticsNotes) y = addSection('Observações de Logística:', formData.logisticsNotes, y);
-    y += 10;
-
-
-    doc.setFontSize(14);
-    doc.text('Equipes de Serviço Demandadas', margin, y);
-    y += 8;
-    if (formData.requiredServiceAreas.length > 0) {
-        const serviceAreasBody = formData.requiredServiceAreas.map(req => {
-            const area = areas.find(a => a.id === req.areaId);
-            return [area ? area.name : req.areaId, req.quantity.toString()];
-        });
-        (doc as any).autoTable({
-            startY: y,
-            head: [['Área de Serviço', 'Voluntários Necessários']],
-            body: serviceAreasBody,
-            theme: 'grid'
-        });
-        y = (doc as any).autoTable.previous.finalY;
-    } else {
-        doc.setFontSize(10);
-        doc.text('Nenhuma equipe de serviço demandada.', margin, y);
-        y += 7;
-    }
-    if (formData.serviceTeamsNotes) y = addSection('Observações sobre Equipes:', formData.serviceTeamsNotes, y);
-    y += 10;
-
-
-    doc.setFontSize(14);
-    doc.text('Análise Financeira', margin, y);
-    y += 8;
-    const financeDetails = [
-        ['Modelo', formData.isPaid === 'pago' ? 'Autossustentável (Pago)' : 'Subsidiado (Gratuito)'],
-        ['Custos Fixos', `R$ ${formData.fixedCosts || '0'}`],
-        ['Custo por Pessoa', `R$ ${formData.variableCostPerPerson || '0'}`],
-        ['Valor da Inscrição', `R$ ${formData.ticketPrice || '0'}`],
-        ['Ponto de Equilíbrio', `${formData.breakEvenAnalysis || '0'} pessoas`],
-    ];
-    (doc as any).autoTable({ startY: y, body: financeDetails, theme: 'grid' });
-    y = (doc as any).autoTable.previous.finalY;
-    if (formData.financialsNotes) y = addSection('Observações Financeiras:', formData.financialsNotes, y);
-    y += 10;
-
-
-    doc.setFontSize(14);
-    doc.text('Comunicação & Marketing', margin, y);
-    y += 8;
-    const marketingDetails = [
-        ['Apoio de Design', formData.designSupportNeeded === 'sim' ? 'Sim' : 'Não'],
-        ['Itens de Design', formData.designSupportNeeded === 'sim' ? (formData.designRequests.join(', ') || 'Nenhum') : 'N/A'],
-        ['Planejamento de Marketing', formData.marketingSupportNeeded === 'sim' ? 'Sim' : 'Não'],
-    ];
-    (doc as any).autoTable({ startY: y, body: marketingDetails, theme: 'grid' });
-    y = (doc as any).autoTable.previous.finalY;
-    if (formData.marketingNotes) y = addSection('Observações de Marketing:', formData.marketingNotes, y);
-
-
-    doc.save(`evento_${formData.eventName.replace(/\s+/g, '_')}.pdf`);
-  };
-
+  // Submit and map simplified fields back to technical Firestore schemas
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     if (!firestore) {
-        toast({ title: 'Erro', description: 'Banco de dados não disponível.', variant: 'destructive'});
-        setLoading(false);
-        return;
+      toast({ title: 'Erro', description: 'Banco de dados não disponível.', variant: 'destructive' });
+      setLoading(false);
+      return;
     }
 
-    const dataToSave = {
-      ...formData,
-      designSupportNeeded: formData.designSupportNeeded === 'sim',
-      designRequests: formData.designSupportNeeded === 'sim' ? formData.designRequests : [],
-      marketingSupportNeeded: formData.marketingSupportNeeded === 'sim',
-      method5w2h: {
-          ...formData.method5w2h,
-          where: formData.eventType === 'interno' ? formData.space : formData.externalLocation,
-      },
-      fixedCosts: parseFloat(formData.fixedCosts) || 0,
-      variableCostPerPerson: parseFloat(formData.variableCostPerPerson) || 0,
-      ticketPrice: parseFloat(formData.ticketPrice) || 0,
-      breakEvenAnalysis: parseInt(formData.breakEvenAnalysis, 10) || 0,
+    const fixed = parseFloat(formData.fixedCosts) || 0;
+    const price = parseFloat(formData.ticketPrice) || 0;
+    const variable = parseFloat(formData.variableCostPerPerson) || 0;
+
+    // Automatic break-even calculation
+    const breakEven = (price > variable) ? Math.ceil(fixed / (price - variable)) : 0;
+
+    // ── backend mapping logic ──────────────────────────────────────
+    const mappedSmart = {
+      specific: formData.whatWeWillDo,
+      measurable: `Público-alvo e engajamento: ${formData.whatWeWillDo.substring(0, 100)}...`,
+      achievable: `Recursos mapeados: ${formData.whatWeNeed.substring(0, 100)}...`,
+      relevant: formData.importance,
+      timeBound: `${formData.startDate} das ${formData.timeStart} às ${formData.timeEnd}`,
     };
 
+    const mapped5w2h = {
+      what: formData.whatWeWillDo,
+      why: formData.importance,
+      who: formData.ministry,
+      where: formData.eventType === 'interno' ? formData.space : formData.externalLocation,
+      when: `${formData.startDate} (${formData.timeStart} - ${formData.timeEnd})`,
+      how: formData.whatWeNeed,
+      howMuch: formData.isPaid === 'pago' ? `Custo Total: R$ ${fixed}` : 'Gratuito (Subvenção)',
+    };
+
+    const dataToSave = {
+      ministry: formData.ministry,
+      organizer: formData.organizer,
+      eventName: formData.eventName,
+      category: formData.category,
+      recurrence: formData.recurrence,
+      recurrenceDetails: formData.recurrence,
+      
+      visionAlignment: formData.importance,
+      phaseAlignment: `Identidade e maturidade da igreja: ${formData.importance.substring(0, 100)}...`,
+      
+      smart: mappedSmart,
+      method5w2h: mapped5w2h,
+      
+      startDate: formData.startDate,
+      endDate: formData.endDate || formData.startDate,
+      timeStart: formData.timeStart,
+      timeEnd: formData.timeEnd,
+      
+      // Auto-set logistics markers behind the scenes
+      timeLoadIn: formData.timeStart,
+      timeLoadOut: formData.timeEnd,
+      
+      eventType: formData.eventType,
+      space: formData.space,
+      externalLocation: formData.externalLocation,
+      roomLayout: formData.roomLayout,
+      requiredServiceAreas: formData.requiredServiceAreas,
+      
+      hasFood: formData.hasFood,
+      kitchenResponsible: formData.hasFood === 'sim' ? formData.kitchenResponsible : '',
+      
+      isPaid: formData.isPaid,
+      fixedCosts: fixed,
+      variableCostPerPerson: variable,
+      ticketPrice: price,
+      breakEvenAnalysis: breakEven,
+      
+      isPublicForRegistration: formData.isPublicForRegistration,
+      requiresBaptism: formData.requiresBaptism,
+      requiresActiveService: formData.requiresActiveService,
+      requiredCourseId: formData.requiredCourseId,
+      registrationPageType: formData.registrationPageType,
+      customHtmlCode: formData.customHtmlCode,
+    };
 
     try {
       if (existingEvent) {
-          const docRef = doc(firestore, "strategic_events", existingEvent.id);
-          await updateDocumentNonBlocking(docRef, dataToSave);
-          toast({ title: 'Sucesso!', description: 'O evento foi atualizado.'});
+        const docRef = doc(firestore, "strategic_events", existingEvent.id);
+        await updateDocumentNonBlocking(docRef, dataToSave);
+        toast({ title: 'Sucesso!', description: 'O evento foi atualizado.' });
       } else {
         const collectionRef = collection(firestore, "strategic_events");
         await addDocumentNonBlocking(collectionRef, {
@@ -459,436 +339,627 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
         });
         setSuccess(true);
         window.scrollTo(0, 0);
-        toast({ title: 'Sucesso!', description: 'Sua solicitação de evento foi protocolada.'});
+        toast({ title: 'Sucesso!', description: 'Sua solicitação de evento foi protocolada.' });
       }
     } catch (error) {
       console.error("Erro:", error);
-      toast({ title: 'Erro ao Submeter', description: 'Por favor, tente novamente.', variant: 'destructive'});
+      toast({ title: 'Erro ao Submeter', description: 'Por favor, tente novamente.', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
   };
 
+  const handleGeneratePdf = () => {
+    if (!existingEvent) return;
+    const doc = new jsPDF();
+    const margin = 15;
+    let y = 20;
+
+    const addSection = (title: string, content: string, startY: number) => {
+      const titleLines = doc.splitTextToSize(title, 180);
+      const contentLines = doc.splitTextToSize(content || '-', 180);
+      const height = (titleLines.length + contentLines.length) * 5 + 10;
+      
+      if (startY + height > 280) {
+        doc.addPage();
+        startY = 20;
+      }
+
+      doc.setFontSize(11);
+      doc.setTextColor(40);
+      doc.text(titleLines, margin, startY);
+      startY += titleLines.length * 5 + 1;
+      
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(contentLines, margin, startY);
+      startY += contentLines.length * 5;
+      
+      return startY + 5;
+    };
+    
+    doc.setFontSize(18);
+    const titleLines = doc.splitTextToSize(`Planejamento de Evento: ${formData.eventName}`, 180);
+    doc.text(titleLines, margin, y);
+    y += (titleLines.length * 7) + 3;
+
+    doc.setFontSize(12);
+    doc.text(`Solicitante: ${formData.ministry} (${formData.organizer})`, margin, y);
+    y += 7;
+    doc.text(`Categoria: ${formData.category}`, margin, y);
+    y += 10;
+
+    y = addSection('Por que este evento é importante para o ministério:', formData.importance, y);
+    y = addSection('Plano Prático (O que faremos):', formData.whatWeWillDo, y);
+    y = addSection('Recursos Necessários:', formData.whatWeNeed, y);
+
+    const eventStartDate = formData.startDate ? format(new Date(formData.startDate + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : 'N/A';
+    doc.text(`Data: ${eventStartDate} (${formData.timeStart} - ${formData.timeEnd})`, margin, y);
+    y += 10;
+
+    doc.save(`evento_${formData.eventName.replace(/\s+/g, '_')}.pdf`);
+  };
+
   if (success) {
     return (
-      <div className="min-h-[70vh] bg-emerald-50 flex items-center justify-center p-6 rounded-lg">
-        <div className="bg-white p-8 rounded-xl shadow-2xl text-center max-w-lg border-t-8 border-emerald-600">
-          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <ShieldAlert className="text-emerald-600" size={32} />
-          </div>
-          <h2 className="text-3xl font-bold text-gray-800 mb-2">Solicitação Protocolada</h2>
-          <p className="text-gray-600 mb-6">
-            Seu planejamento estratégico foi enviado para a liderança para análise. Você pode acompanhar o status na tela de eventos.
-          </p>
-          <div className="flex justify-center gap-4">
-            <Button onClick={() => window.location.reload()} variant="outline">
-              Novo Planejamento
-            </Button>
-            <Button asChild className="bg-emerald-600 hover:bg-emerald-700">
-              <Link href="/dashboard/events">
-                Ver Todos Eventos
-              </Link>
-            </Button>
-          </div>
+      <div className="max-w-2xl mx-auto bg-slate-950 border border-slate-800 rounded-2xl p-12 text-center shadow-2xl mt-12 text-white">
+        <div className="w-20 h-20 bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-6">
+          <Sparkles className="size-10 animate-pulse" />
+        </div>
+        <h2 className="text-3xl font-extrabold text-white mb-3">Solicitação Protocolada!</h2>
+        <p className="text-slate-400 text-sm mb-8 leading-relaxed">
+          Obrigado por planejar com excelência. Sua solicitação foi enviada para o Conselho Administrativo e a Governança Geral da IBM. Você receberá atualizações no seu painel.
+        </p>
+        <div className="flex flex-col sm:flex-row justify-center gap-3">
+          <Button onClick={() => setSuccess(false)} variant="outline" className="border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white">
+            Criar Outra Solicitação
+          </Button>
+          <Button asChild className="bg-blue-600 hover:bg-blue-500">
+            <a href="/dashboard/events">Ir para Painel de Eventos</a>
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-10 px-4 -m-6 font-sans">
-      <div className="max-w-5xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden">
-        
-        <div className="bg-slate-800 py-10 px-8 text-center relative overflow-hidden">
-          <div className="relative z-10">
-            <span className="bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest">Sistema de Governança</span>
-            <h1 className="text-3xl md:text-4xl font-extrabold text-white mt-4 mb-2">Solicitação de Evento</h1>
-            <p className="text-slate-300 max-w-2xl mx-auto text-sm">
-              Alinhamento Estratégico • Planejamento Tático • Excelência Operacional
-            </p>
-          </div>
+    <div className="max-w-4xl mx-auto bg-slate-950 border border-slate-800/80 rounded-2xl shadow-2xl overflow-hidden text-white font-sans antialiased">
+      
+      {/* Visual Header */}
+      <div className="relative bg-gradient-to-b from-slate-900 to-slate-950 border-b border-slate-800/60 py-10 px-8 text-center overflow-hidden">
+        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#3b82f6_1px,transparent_1px)] [background-size:16px_16px]"></div>
+        <div className="relative z-10 space-y-2">
+          <span className="bg-blue-950 text-blue-300 border border-blue-800/50 text-[10px] font-black px-3.5 py-1 rounded-full uppercase tracking-wider">
+            IBM Eventos
+          </span>
+          <h1 className="text-3xl md:text-4xl font-black tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+            {existingEvent ? 'Editar Planejamento' : 'Planejar Novo Evento'}
+          </h1>
+          <p className="text-slate-400 max-w-xl mx-auto text-xs sm:text-sm leading-relaxed">
+            Compartilhe a visão do seu evento. Cuidamos do suporte tecnológico e infraestrutura para que você foque no ministério.
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-8 md:p-12 space-y-12">
+        {existingEvent && (
+          <Button 
+            onClick={handleGeneratePdf} 
+            variant="outline" 
+            size="sm" 
+            className="absolute top-4 right-4 bg-slate-900 border-slate-800 text-xs font-bold gap-2 text-slate-300 hover:bg-slate-800 hover:text-white"
+          >
+            <Download className="size-3.5" /> PDF
+          </Button>
+        )}
+      </div>
 
-          <section>
-            <div className="flex items-center gap-3 mb-6 pb-2 border-b border-gray-200">
-              <div className="bg-blue-100 p-2 rounded-lg text-blue-700"><FileText size={24} /></div>
-              <h2 className="text-2xl font-bold text-gray-800">1. Identidade do Evento</h2>
+      <form onSubmit={handleSubmit} className="p-6 sm:p-10 space-y-10">
+
+        {/* Section 1: Identidade */}
+        <section className="space-y-6">
+          <div className="flex items-center gap-2.5 pb-2 border-b border-slate-800/80">
+            <Info className="size-5 text-blue-400" />
+            <h2 className="text-lg font-bold text-slate-100">Identidade do Evento</h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-1.5">
+              <Label htmlFor="ministry" className="text-slate-300 text-xs uppercase tracking-wider font-bold">Nome do Ministério / Solicitante</Label>
+              <Input required id="ministry" name="ministry" value={formData.ministry} onChange={handleChange} placeholder="Ex: Louvor, Jovens, Missões..." className="bg-slate-950 border-slate-800 focus-visible:ring-blue-500" />
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              <div>
-                <Label htmlFor="ministry">Solicitante</Label>
-                <Input required id="ministry" name="ministry" value={formData.ministry} onChange={handleChange} />
+
+            <div className="space-y-1.5">
+              <Label className="text-slate-300 text-xs uppercase tracking-wider font-bold">Tipo de Organização</Label>
+              <RadioGroup value={formData.organizer} onValueChange={(v) => handleRadioChange('organizer', v)} className="flex gap-6 mt-3">
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="IBM" id="org_ibm" className="text-blue-500 focus:ring-blue-500" />
+                  <Label htmlFor="org_ibm" className="font-medium text-sm cursor-pointer text-slate-200">Interno (IBM)</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="Externo" id="org_externo" className="text-blue-500 focus:ring-blue-500" />
+                  <Label htmlFor="org_externo" className="font-medium text-sm cursor-pointer text-slate-200">Externo / Parceria</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="eventName" className="text-slate-300 text-xs uppercase tracking-wider font-bold">Nome do Evento</Label>
+              <Input required id="eventName" name="eventName" value={formData.eventName} onChange={handleChange} placeholder="Ex: IBM Camp, Conexão Louvor, Vigília..." className="bg-slate-950 border-slate-800 focus-visible:ring-blue-500" />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="category" className="text-slate-300 text-xs uppercase tracking-wider font-bold">Categoria</Label>
+              <Select required name="category" value={formData.category} onValueChange={(v) => setFormData(p => ({...p, category: v}))}>
+                <SelectTrigger id="category" className="bg-slate-950 border-slate-800">
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-900 border-slate-850 text-white">
+                  <SelectItem value="adoracao">Adoração e Liturgia</SelectItem>
+                  <SelectItem value="educacao">Educação e Discipulado</SelectItem>
+                  <SelectItem value="koinonia">Comunhão e Koinonia</SelectItem>
+                  <SelectItem value="outreach">Evangelismo e Missões</SelectItem>
+                  <SelectItem value="adm">Administrativo e Governança</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-slate-300 text-xs uppercase tracking-wider font-bold">Frequência</Label>
+            <RadioGroup value={formData.recurrence} onValueChange={(v) => handleRadioChange('recurrence', v)} className="flex gap-6 mt-2">
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="unico" id="r_unico" className="text-blue-500" />
+                <Label htmlFor="r_unico" className="font-medium text-sm cursor-pointer">Único</Label>
               </div>
-               <div>
-                <Label>Organizador</Label>
-                <RadioGroup value={formData.organizer} onValueChange={(v) => handleRadioChange('organizer', v)} className="flex gap-4 mt-2">
-                    <div className="flex items-center space-x-2"><RadioGroupItem value="IBM" id="org_ibm" /><Label htmlFor="org_ibm">IBM (Interno)</Label></div>
-                    <div className="flex items-center space-x-2"><RadioGroupItem value="Externo" id="org_externo" /><Label htmlFor="org_externo">Externo</Label></div>
-                </RadioGroup>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="recorrente" id="r_recorrente" className="text-blue-500" />
+                <Label htmlFor="r_recorrente" className="font-medium text-sm cursor-pointer">Temporada (Recorrente)</Label>
               </div>
-               <div>
-                <Label htmlFor="eventName">Nome do Evento</Label>
-                <Input required id="eventName" name="eventName" value={formData.eventName} onChange={handleChange} />
-              </div>
-               <div>
-                <Label htmlFor="category">Categoria</Label>
-                <Select required name="category" value={formData.category} onValueChange={(v) => setFormData(p => ({...p, category: v}))}>
-                  <SelectTrigger id="category"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="adoracao">Adoração e Liturgia</SelectItem>
-                    <SelectItem value="educacao">Educação e Discipulado</SelectItem>
-                    <SelectItem value="koinonia">Comunhão e Koinonia</SelectItem>
-                    <SelectItem value="outreach">Evangelismo e Missões</SelectItem>
-                    <SelectItem value="adm">Administrativo e Governança</SelectItem>
+            </RadioGroup>
+          </div>
+
+          {formData.recurrence === 'recorrente' && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 border border-slate-800 bg-slate-950/40 rounded-xl">
+              <div className="space-y-1.5">
+                <Label htmlFor="recurrenceType" className="text-xs text-slate-400">Intervalo</Label>
+                <Select required={formData.recurrence === 'recorrente'} name="type" value={formData.recurrenceDetails.type} onValueChange={(v) => handleRecurrenceChange({name: 'type', value: v})}>
+                  <SelectTrigger id="recurrenceType" className="bg-slate-950 border-slate-800"><SelectValue/></SelectTrigger>
+                  <SelectContent className="bg-slate-900 text-white border-slate-800">
+                    <SelectItem value="semanal">Semanal</SelectItem>
+                    <SelectItem value="quinzenal">Quinzenal</SelectItem>
+                    <SelectItem value="mensal">Mensal</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <Label>Recorrência</Label>
-                 <RadioGroup value={formData.recurrence} onValueChange={(v) => handleRadioChange('recurrence', v)} className="flex gap-4 mt-2">
-                    <div className="flex items-center space-x-2"><RadioGroupItem value="unico" id="r_unico" /><Label htmlFor="r_unico">Evento Único</Label></div>
-                    <div className="flex items-center space-x-2"><RadioGroupItem value="recorrente" id="r_recorrente" /><Label htmlFor="r_recorrente">Temporada</Label></div>
-                </RadioGroup>
+              <div className="space-y-1.5">
+                <Label htmlFor="dayOfWeek" className="text-xs text-slate-400">Dia da Semana</Label>
+                <Select required={formData.recurrence === 'recorrente'} name="dayOfWeek" value={formData.recurrenceDetails.dayOfWeek} onValueChange={(v) => handleRecurrenceChange({name: 'dayOfWeek', value: v})}>
+                  <SelectTrigger id="dayOfWeek" className="bg-slate-950 border-slate-800"><SelectValue placeholder="Selecione..."/></SelectTrigger>
+                  <SelectContent className="bg-slate-900 text-white border-slate-800">
+                    {weekDays.map(day => <SelectItem key={day} value={day}>{day}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="endDate" className="text-xs text-slate-400">Data Final da Temporada</Label>
+                <Input required={formData.recurrence === 'recorrente'} type="date" name="endDate" value={formData.recurrenceDetails.endDate} onChange={handleRecurrenceChange} className="bg-slate-950 border-slate-800" />
               </div>
             </div>
-             {formData.recurrence === 'recorrente' && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-4 p-4 border rounded-md bg-slate-50">
-                    <div>
-                        <Label htmlFor="recurrenceType">Tipo de Recorrência</Label>
-                        <Select required={formData.recurrence === 'recorrente'} name="type" value={formData.recurrenceDetails.type} onValueChange={(v) => handleRecurrenceChange({name: 'type', value: v})}>
-                            <SelectTrigger id="recurrenceType"><SelectValue/></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="semanal">Semanal</SelectItem>
-                                <SelectItem value="quinzenal">Quinzenal</SelectItem>
-                                <SelectItem value="mensal">Mensal</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div>
-                        <Label htmlFor="dayOfWeek">Dia da Semana</Label>
-                        <Select required={formData.recurrence === 'recorrente'} name="dayOfWeek" value={formData.recurrenceDetails.dayOfWeek} onValueChange={(v) => handleRecurrenceChange({name: 'dayOfWeek', value: v})}>
-                             <SelectTrigger id="dayOfWeek"><SelectValue placeholder="Selecione..."/></SelectTrigger>
-                             <SelectContent>
-                                {weekDays.map(day => <SelectItem key={day} value={day}>{day}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div>
-                        <Label htmlFor="endDate">Data Final da Temporada</Label>
-                        <Input required={formData.recurrence === 'recorrente'} type="date" name="endDate" value={formData.recurrenceDetails.endDate} onChange={handleRecurrenceChange} />
-                    </div>
-                </div>
-            )}
-          </section>
+          )}
+        </section>
 
-          <section className="bg-slate-50 p-6 rounded-xl border border-slate-200">
-            <div className="flex items-center gap-3 mb-6 pb-2 border-b border-slate-200">
-              <div className="bg-indigo-100 p-2 rounded-lg text-indigo-700"><Target size={24} /></div>
-              <h2 className="text-2xl font-bold text-gray-800">2. Planejamento Tático</h2>
+        {/* Section 2: Proposta e Importância */}
+        <section className="space-y-6 bg-slate-950/40 p-6 rounded-2xl border border-slate-800/80">
+          <div className="flex items-center gap-2.5 pb-2 border-b border-slate-850">
+            <Sparkles className="size-5 text-blue-400" />
+            <h2 className="text-lg font-bold text-slate-100">Coração & Propósito</h2>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="importance" className="text-slate-300 text-xs uppercase tracking-wider font-bold">Por que este evento é importante para o seu ministério?</Label>
+            <Textarea required id="importance" name="importance" rows={3} value={formData.importance} onChange={handleChange} placeholder="Descreva de forma simples o motivo por trás deste evento e o impacto espiritual e de comunhão esperado..." className="bg-slate-950 border-slate-850 text-white placeholder-slate-600 focus-visible:ring-blue-500" />
+          </div>
+        </section>
+
+        {/* Section 3: Plano Prático */}
+        <section className="space-y-6">
+          <div className="flex items-center gap-2.5 pb-2 border-b border-slate-800/80">
+            <ListChecks className="size-5 text-blue-400" />
+            <h2 className="text-lg font-bold text-slate-100">Plano Prático</h2>
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="whatWeWillDo" className="text-slate-300 text-xs uppercase tracking-wider font-bold">O que faremos?</Label>
+              <Textarea required id="whatWeWillDo" name="whatWeWillDo" rows={3} value={formData.whatWeWillDo} onChange={handleChange} placeholder="Como será o evento na prática? Detalhe o fluxo básico de horários e a programação principal..." className="bg-slate-950 border-slate-800 focus-visible:ring-blue-500" />
             </div>
 
-            <div className="mb-6">
-               <Label htmlFor="visionAlignment">Alinhamento com a Visão (Justificativa)</Label>
-               <Textarea required id="visionAlignment" name="visionAlignment" rows={2} value={formData.visionAlignment} onChange={handleChange} placeholder="Como este evento contribui para o tema do ano ou crescimento das células?"></Textarea>
+            <div className="space-y-1.5">
+              <Label htmlFor="whatWeNeed" className="text-slate-300 text-xs uppercase tracking-wider font-bold">O que precisamos? (Cadeiras, Som, Limpeza)</Label>
+              <Textarea required id="whatWeNeed" name="whatWeNeed" rows={2} value={formData.whatWeNeed} onChange={handleChange} placeholder="Liste os equipamentos de som, projeção, cadeiras, mesas, púlpito e recursos operacionais necessários..." className="bg-slate-950 border-slate-800 focus-visible:ring-blue-500" />
             </div>
 
-            <div className="mb-8">
-               <Label htmlFor="phaseAlignment">Alinhamento com a Fase da Igreja</Label>
-               <Textarea required id="phaseAlignment" name="phaseAlignment" rows={2} value={formData.phaseAlignment} onChange={handleChange} placeholder="Como este evento se encaixa na fase atual da igreja?"></Textarea>
+            <div className="space-y-1.5">
+              <Label htmlFor="fixedCosts" className="text-slate-300 text-xs uppercase tracking-wider font-bold">Qual o orçamento previsto? (Custo total estimado)</Label>
+              <Input 
+                id="fixedCosts" 
+                name="fixedCosts" 
+                type="number" 
+                value={formData.fixedCosts} 
+                onChange={handleChange} 
+                placeholder="Ex: 500.00" 
+                className="bg-slate-950 border-slate-800 focus-visible:ring-blue-500" 
+              />
             </div>
+          </div>
+        </section>
 
-            <div className="bg-white p-5 rounded-lg border border-indigo-100 shadow-sm mb-8">
-              <h3 className="font-bold text-indigo-800 mb-4 flex items-center gap-2"><ListChecks size={18}/> Metas SMART (Seja Inteligente)</h3>
-              <div className="space-y-3">
-                 {Object.entries(smartMappings).map(([key, mapping]) => (
-                     <div key={key} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-center">
-                        <Label className="text-xs font-bold uppercase text-indigo-600 md:text-right px-2">{mapping.label}</Label>
-                        <Input type="text" name={key} placeholder={mapping.placeholder} value={formData.smart[key] || ''} onChange={(e) => handleNestedChange(e, 'smart')} className="md:col-span-3 bg-indigo-50/30" />
-                     </div>
-                 ))}
-              </div>
-            </div>
+        {/* Section 4: Cronograma e Local */}
+        <section className="space-y-6">
+          <div className="flex items-center gap-2.5 pb-2 border-b border-slate-800/80">
+            <Calendar className="size-5 text-blue-400" />
+            <h2 className="text-lg font-bold text-slate-100">Cronograma & Local</h2>
+          </div>
 
-             <div className="bg-white p-5 rounded-lg border border-emerald-100 shadow-sm">
-              <h3 className="font-bold text-emerald-800 mb-4 flex items-center gap-2"><Layout size={18}/> Plano de Ação (5W2H)</h3>
-              <div className="space-y-3">
-                 {Object.entries(method5w2hMappings).map(([key, mapping]) => (
-                     <div key={key} className="grid grid-cols-1 md:grid-cols-4 gap-2 items-start">
-                        <Label className="text-xs font-bold uppercase text-emerald-700 md:text-right px-2 pt-2">{mapping.label}</Label>
-                        <Textarea name={key} placeholder={mapping.placeholder} value={formData.method5w2h[key] || ''} onChange={(e) => handleNestedChange(e, 'method5w2h')} className="md:col-span-3 bg-emerald-50/30" rows={3}/>
-                     </div>
-                 ))}
-              </div>
-            </div>
-          </section>
-
-          <section>
-            <TooltipProvider>
-                <div className="flex items-center gap-3 mb-6 pb-2 border-b border-gray-200">
-                  <div className="bg-indigo-100 p-2 rounded-lg text-indigo-700"><Clock size={24} /></div>
-                  <h2 className="text-2xl font-bold text-gray-800">3. Matriz Logística</h2>
-                </div>
-                <div className="mb-8">
-                  <Label className="block text-sm font-bold text-gray-700 mb-2">Cronograma Operacional (Datas e Marcos)</Label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                        <div className="space-y-4">
-                            <div className="space-y-1.5">
-                                <Label htmlFor="startDate">Data de Início</Label>
-                                <Input id="startDate" type="date" required name="startDate" value={formData.startDate} onChange={handleChange} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="timeLoadIn" className="flex items-center gap-1 text-xs font-bold text-indigo-600">
-                                        1. Load-In
-                                        <Tooltip><TooltipTrigger asChild><button type="button"><HelpCircle className="size-3 text-gray-400" /></button></TooltipTrigger><TooltipContent><p>{timeTooltips.timeLoadIn}</p></TooltipContent></Tooltip>
-                                    </Label>
-                                    <Input id="timeLoadIn" type="time" required name="timeLoadIn" value={formData.timeLoadIn} onChange={handleChange} className="border-indigo-200" />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="timeStart" className="flex items-center gap-1 text-xs font-bold text-green-600">
-                                        2. Start
-                                        <Tooltip><TooltipTrigger asChild><button type="button"><HelpCircle className="size-3 text-gray-400" /></button></TooltipTrigger><TooltipContent><p>{timeTooltips.timeStart}</p></TooltipContent></Tooltip>
-                                    </Label>
-                                    <Input id="timeStart" type="time" required name="timeStart" value={formData.timeStart} onChange={handleChange} className="border-green-200" />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div className="space-y-1.5">
-                                <Label htmlFor="endDate">Data de Término</Label>
-                                <Input id="endDate" type="date" required name="endDate" value={formData.endDate} onChange={handleChange} />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="timeEnd" className="flex items-center gap-1 text-xs font-bold text-gray-600">
-                                        3. End
-                                        <Tooltip><TooltipTrigger asChild><button type="button"><HelpCircle className="size-3 text-gray-400" /></button></TooltipTrigger><TooltipContent><p>{timeTooltips.timeEnd}</p></TooltipContent></Tooltip>
-                                    </Label>
-                                    <Input id="timeEnd" type="time" required name="timeEnd" value={formData.timeEnd} onChange={handleChange} className="border-gray-200" />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label htmlFor="timeLoadOut" className="flex items-center gap-1 text-xs font-bold text-red-600">
-                                        4. Load-Out
-                                        <Tooltip><TooltipTrigger asChild><button type="button"><HelpCircle className="size-3 text-gray-400" /></button></TooltipTrigger><TooltipContent><p>{timeTooltips.timeLoadOut}</p></TooltipContent></Tooltip>
-                                    </Label>
-                                    <Input id="timeLoadOut" type="time" required name="timeLoadOut" value={formData.timeLoadOut} onChange={handleChange} className="border-red-200" />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="mb-6">
-                    <Label className="font-bold">Local do Evento</Label>
-                    <RadioGroup value={formData.eventType} onValueChange={(v) => handleRadioChange('eventType', v)} className="flex gap-4 mt-2">
-                        <Label htmlFor="type_interno" className={cn("flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 flex-1", formData.eventType === 'interno' && 'bg-slate-100 border-slate-400')}>
-                            <RadioGroupItem value="interno" id="type_interno" className="mr-2"/>
-                            <Building className="mr-2 size-4 text-slate-600" />
-                            Interno (na Igreja)
-                        </Label>
-                        <Label htmlFor="type_externo" className={cn("flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 flex-1", formData.eventType === 'externo' && 'bg-slate-100 border-slate-400')}>
-                            <RadioGroupItem value="externo" id="type_externo" className="mr-2"/>
-                            <MapPin className="mr-2 size-4 text-slate-600" />
-                            Externo
-                        </Label>
-                    </RadioGroup>
-                </div>
-                
-                {formData.eventType === 'interno' ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-4 rounded-b-lg border-x border-b">
-                        <div>
-                            <Label htmlFor="space">Ambiente Solicitado</Label>
-                            <Select name="space" value={formData.space} onValueChange={(v) => setFormData(p => ({...p, space: v}))}>
-                                <SelectTrigger id="space"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                <SelectContent>
-                                    {rooms.map(room => (
-                                        <SelectItem key={room.id} value={room.name}>{room.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div>
-                            <Label htmlFor="roomLayout">Layout da Sala</Label>
-                            <Select name="roomLayout" value={formData.roomLayout} onValueChange={(v) => setFormData(p => ({...p, roomLayout: v}))}><SelectTrigger id="roomLayout"><SelectValue placeholder="Padrão" /></SelectTrigger><SelectContent><SelectItem value="padrao">Padrão</SelectItem><SelectItem value="auditorio">Auditório</SelectItem><SelectItem value="banquete">Banquete (Mesas)</SelectItem><SelectItem value="limpo">Espaço Livre</SelectItem></SelectContent></Select>
-                        </div>
-                    </div>
-                ) : (
-                     <div className="bg-slate-50 p-4 rounded-b-lg border-x border-b">
-                        <Label htmlFor="externalLocation">Localização do Evento Externo</Label>
-                        <Input id="externalLocation" name="externalLocation" value={formData.externalLocation} onChange={handleChange} placeholder="Ex: Chácara Recanto Feliz, Rua das Flores, 123" />
-                    </div>
-                )}
-
-                 <div className="bg-orange-50 p-6 rounded-xl border border-orange-200 mt-6">
-                    <div className="flex items-center gap-2 mb-4"><Utensils className="text-orange-600" size={20} /><h3 className="font-bold text-orange-900">Alimentação</h3></div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
-                            <Label>Haverá Comida?</Label>
-                             <RadioGroup value={formData.hasFood} onValueChange={(v) => handleRadioChange('hasFood', v)} className="flex items-center gap-4 mt-2">
-                                <div className="flex items-center space-x-2"><RadioGroupItem value="sim" id="food_sim" /><Label htmlFor="food_sim">Sim</Label></div>
-                                <div className="flex items-center space-x-2"><RadioGroupItem value="nao" id="food_nao" /><Label htmlFor="food_nao">Não</Label></div>
-                            </RadioGroup>
-                        </div>
-                        {formData.hasFood === 'sim' && (<>
-                            <div>
-                                <Label className="text-xs font-bold text-orange-800 uppercase">Origem</Label>
-                                 <Select name="foodType" value={formData.foodType} onValueChange={(v) => setFormData(p => ({...p, foodType: v}))}><SelectTrigger><SelectValue placeholder="Selecione..."/></SelectTrigger><SelectContent><SelectItem value="interno">Preparo Interno</SelectItem><SelectItem value="terceirizado">Buffet</SelectItem><SelectItem value="potluck">Junta-Pratos</SelectItem></SelectContent></Select>
-                            </div>
-                            <div>
-                                <Label className="text-xs font-bold text-orange-800 uppercase">Responsável Limpeza</Label>
-                                <Input type="text" name="kitchenResponsible" value={formData.kitchenResponsible} onChange={handleChange} />
-                            </div>
-                        </>)}
-                    </div>
-                 </div>
-                 <div className="mt-4">
-                    <Label htmlFor="logisticsNotes">Observações sobre Logística</Label>
-                    <Textarea id="logisticsNotes" name="logisticsNotes" value={formData.logisticsNotes} onChange={handleChange} placeholder="Observações gerais sobre horários, locais, alimentação, etc." />
-                </div>
-            </TooltipProvider>
-          </section>
-
-           <section>
-                <div className="flex items-center gap-3 mb-6 pb-2 border-b border-gray-200">
-                    <div className="bg-orange-100 p-2 rounded-lg text-orange-700"><Users size={24} /></div>
-                    <h2 className="text-2xl font-bold text-gray-800">4. Equipes de Serviço</h2>
-                </div>
-                <div>
-                    <Label>Áreas de Serviço Demandadas</Label>
-                    <p className="text-sm text-muted-foreground mb-2">Selecione as áreas necessárias e a quantidade de voluntários para cada.</p>
-                    <ScrollArea className="h-60 w-full rounded-md border p-4">
-                        <div className="space-y-4">
-                            {areas.map(area => {
-                                const isSelected = formData.requiredServiceAreas.some(ra => ra.areaId === area.id);
-                                const selectedArea = formData.requiredServiceAreas.find(ra => ra.areaId === area.id);
-                                return (
-                                    <div key={area.id} className="flex items-center justify-between">
-                                        <div className="flex items-center gap-2">
-                                            <Checkbox
-                                                id={`area-${area.id}`}
-                                                checked={isSelected}
-                                                onCheckedChange={(checked) => handleAreaChange(area.id, !!checked)}
-                                            />
-                                            <Label htmlFor={`area-${area.id}`}>{area.name}</Label>
-                                        </div>
-                                        {isSelected && (
-                                            <div className="flex items-center gap-2">
-                                                <Button type="button" variant="outline" size="icon" className="h-6 w-6" onClick={() => handleQuantityChange(area.id, false)}><Minus className="h-3 w-3"/></Button>
-                                                <span className="font-bold w-4 text-center">{selectedArea?.quantity}</span>
-                                                <Button type="button" variant="outline" size="icon" className="h-6 w-6" onClick={() => handleQuantityChange(area.id, true)}><Plus className="h-3 w-3"/></Button>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </ScrollArea>
-                </div>
-                 <div className="mt-4">
-                    <Label htmlFor="serviceTeamsNotes">Observações sobre Equipes</Label>
-                    <Textarea id="serviceTeamsNotes" name="serviceTeamsNotes" value={formData.serviceTeamsNotes} onChange={handleChange} placeholder="Alguma necessidade específica de perfil, uniforme, etc?" />
-                </div>
-            </section>
-
-          <section>
-            <div className="flex items-center gap-3 mb-6 pb-2 border-b border-gray-200">
-              <div className="bg-emerald-100 p-2 rounded-lg text-emerald-700"><DollarSign size={24} /></div>
-              <h2 className="text-2xl font-bold text-gray-800">5. Engenharia Financeira</h2>
-            </div>
-            <RadioGroup value={formData.isPaid} onValueChange={(v) => handleRadioChange('isPaid', v)} className="flex gap-4 mb-4">
-                <Label htmlFor="paid_nao" className={cn("flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 flex-1", formData.isPaid === 'gratuito' && 'bg-slate-100 border-slate-400')}><RadioGroupItem value="gratuito" id="paid_nao" className="mr-2"/>Subsidiado (Gratuito)</Label>
-                <Label htmlFor="paid_sim" className={cn("flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50 flex-1", formData.isPaid === 'pago' && 'bg-slate-100 border-slate-400')}><RadioGroupItem value="pago" id="paid_sim" className="mr-2"/>Autossustentável (Pago)</Label>
-            </RadioGroup>
-            {formData.isPaid === 'pago' && (
-                <div className="bg-emerald-50 p-6 rounded-xl border border-emerald-200 grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                        <div><Label htmlFor="fixedCosts">Custos Fixos Totais (R$)</Label><Input id="fixedCosts" type="number" name="fixedCosts" value={formData.fixedCosts} onChange={handleChange} placeholder="Soma de todos os custos que não mudam com o nº de pessoas"/></div>
-                        <div><Label htmlFor="variableCostPerPerson">Custo Variável por Pessoa (R$)</Label><Input id="variableCostPerPerson" type="number" name="variableCostPerPerson" value={formData.variableCostPerPerson} onChange={handleChange} placeholder="Custo do kit, alimentação, etc."/></div>
-                    </div>
-                    <div className="space-y-4">
-                        <div><Label htmlFor="ticketPrice">Valor da Inscrição (R$)</Label><Input id="ticketPrice" type="number" name="ticketPrice" value={formData.ticketPrice} onChange={handleChange} /></div>
-                        <div>
-                            <Label htmlFor="breakEvenAnalysis">Ponto de Equilíbrio (Qtd. Pessoas)</Label>
-                            <Input id="breakEvenAnalysis" type="number" name="breakEvenAnalysis" value={formData.breakEvenAnalysis} disabled className="font-bold bg-white" />
-                            <p className="text-xs text-muted-foreground mt-1">Nº de inscrições para cobrir os custos.</p>
-                        </div>
-                    </div>
-                </div>
-            )}
-             <div className="mt-4">
-                <Label htmlFor="financialsNotes">Observações Financeiras</Label>
-                <Textarea id="financialsNotes" name="financialsNotes" value={formData.financialsNotes} onChange={handleChange} placeholder="Justificativa de custos, necessidade de patrocínio, etc." />
-            </div>
-          </section>
-          
-          <section>
-            <div className="flex items-center gap-3 mb-6 pb-2 border-b border-gray-200">
-              <div className="bg-rose-100 p-2 rounded-lg text-rose-700"><Megaphone size={24} /></div>
-              <h2 className="text-2xl font-bold text-gray-800">6. Comunicação & Marketing</h2>
-            </div>
-
-            <div className="space-y-6">
-              <div>
-                <Label className="font-bold">Precisa de apoio da equipe de design?</Label>
-                <RadioGroup value={formData.designSupportNeeded} onValueChange={(v) => handleRadioChange('designSupportNeeded', v)} className="flex gap-4 mt-2">
-                    <div className="flex items-center space-x-2"><RadioGroupItem value="sim" id="design_sim" /><Label htmlFor="design_sim">Sim</Label></div>
-                    <div className="flex items-center space-x-2"><RadioGroupItem value="nao" id="design_nao" /><Label htmlFor="design_nao">Não</Label></div>
-                </RadioGroup>
+          <div className="bg-slate-950/40 p-5 border border-slate-850 rounded-2xl space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="startDate" className="text-xs text-slate-400 uppercase tracking-wider font-bold">Data do Evento</Label>
+                <Input id="startDate" type="date" required name="startDate" value={formData.startDate} onChange={handleChange} className="bg-slate-950 border-slate-800 focus-visible:ring-blue-500" />
               </div>
 
-              {formData.designSupportNeeded === 'sim' && (
-                  <div className="bg-rose-50 p-4 rounded-lg border border-rose-100">
-                      <Label className="font-semibold text-rose-800">Quais itens de design você precisa?</Label>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-2">
-                          {designOptions.map(item => (
-                              <div key={item.id} className="flex items-center space-x-2">
-                                  <Checkbox
-                                      id={item.id}
-                                      checked={formData.designRequests.includes(item.label)}
-                                      onCheckedChange={(checked) => handleDesignRequestChange(item.label, !!checked)}
-                                  />
-                                  <Label htmlFor={item.id} className="font-normal">{item.label}</Label>
-                              </div>
-                          ))}
-                      </div>
-                  </div>
-              )}
+              <div className="space-y-1.5">
+                <Label htmlFor="timeStart" className="text-xs text-slate-400 uppercase tracking-wider font-bold">Horário de Início</Label>
+                <Input id="timeStart" type="time" required name="timeStart" value={formData.timeStart} onChange={handleChange} className="bg-slate-950 border-slate-800 focus-visible:ring-blue-500" />
+              </div>
 
-              <div>
-                  <Label className="font-bold">Precisa de planejamento de marketing? <span className="text-sm text-muted-foreground font-normal">(para eventos grandes)</span></Label>
-                  <RadioGroup value={formData.marketingSupportNeeded} onValueChange={(v) => handleRadioChange('marketingSupportNeeded', v)} className="flex gap-4 mt-2">
-                      <div className="flex items-center space-x-2"><RadioGroupItem value="sim" id="marketing_sim" /><Label htmlFor="marketing_sim">Sim</Label></div>
-                      <div className="flex items-center space-x-2"><RadioGroupItem value="nao" id="marketing_nao" /><Label htmlFor="marketing_nao">Não</Label></div>
-                  </RadioGroup>
+              <div className="space-y-1.5">
+                <Label htmlFor="timeEnd" className="text-xs text-slate-400 uppercase tracking-wider font-bold">Horário de Término</Label>
+                <Input id="timeEnd" type="time" required name="timeEnd" value={formData.timeEnd} onChange={handleChange} className="bg-slate-950 border-slate-800 focus-visible:ring-blue-500" />
               </div>
             </div>
-             <div className="mt-4">
-                <Label htmlFor="marketingNotes">Observações sobre Comunicação</Label>
-                <Textarea id="marketingNotes" name="marketingNotes" value={formData.marketingNotes} onChange={handleChange} placeholder="Público-alvo, canais de divulgação, mensagem principal, etc." />
-            </div>
-          </section>
+          </div>
 
-          <div className="pt-6 border-t border-gray-200 flex items-center gap-4">
-            <Button type="submit" disabled={loading} size="lg" className="w-full md:w-auto md:min-w-[300px]">
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {existingEvent ? 'Salvar Alterações' : 'Protocolar Solicitação'}
-            </Button>
-            {existingEvent && (
-                <Button type="button" variant="outline" onClick={handleGeneratePdf} size="lg">
-                    <Download className="mr-2 h-4 w-4" />
-                    Gerar PDF
-                </Button>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label className="text-slate-300 text-xs uppercase tracking-wider font-bold">Onde será realizado o evento?</Label>
+              <RadioGroup value={formData.eventType} onValueChange={(v) => handleRadioChange('eventType', v)} className="flex gap-6 mt-2">
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="interno" id="loc_int" className="text-blue-500" />
+                  <Label htmlFor="loc_int" className="font-medium text-sm cursor-pointer text-slate-200">IBM (Espaço Físico / Online)</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="externo" id="loc_ext" className="text-blue-500" />
+                  <Label htmlFor="loc_ext" className="font-medium text-sm cursor-pointer text-slate-200">Local Externo</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {formData.eventType === 'interno' ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border border-slate-850 bg-slate-950/40 rounded-xl">
+                <div className="space-y-1.5">
+                  <Label htmlFor="space" className="text-xs text-slate-400">Ambiente Solicitado</Label>
+                  <Select name="space" value={formData.space} onValueChange={(v) => setFormData(p => ({...p, space: v}))}>
+                    <SelectTrigger id="space" className="bg-slate-950 border-slate-800"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent className="bg-slate-900 text-white border-slate-800">
+                      {allRooms.map(room => (
+                        <SelectItem key={room.id} value={room.name}>{room.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="roomLayout" className="text-xs text-slate-400">Organização da Sala</Label>
+                  <Select name="roomLayout" value={formData.roomLayout} onValueChange={(v) => setFormData(p => ({...p, roomLayout: v}))}>
+                    <SelectTrigger id="roomLayout" className="bg-slate-950 border-slate-800"><SelectValue placeholder="Padrão" /></SelectTrigger>
+                    <SelectContent className="bg-slate-900 text-white border-slate-800">
+                      <SelectItem value="padrao">Padrão / Cadeiras Fixas</SelectItem>
+                      <SelectItem value="auditorio">Auditório (Cadeiras enfileiradas)</SelectItem>
+                      <SelectItem value="banquete">Banquete (Módulos / Mesas)</SelectItem>
+                      <SelectItem value="limpo">Espaço Vazio / Limpo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 border border-slate-850 bg-slate-950/40 rounded-xl space-y-1.5">
+                <Label htmlFor="externalLocation" className="text-xs text-slate-400">Endereço / Local Externo</Label>
+                <Input id="externalLocation" name="externalLocation" value={formData.externalLocation} onChange={handleChange} placeholder="Ex: Chácara Recanto Feliz, Rua Principal, 450" className="bg-slate-950 border-slate-800" />
+              </div>
             )}
           </div>
-        </form>
-      </div>
+        </section>
+
+        {/* Section 5: Equipes de Serviço (Visual Selection) */}
+        <section className="space-y-6 bg-slate-950/40 p-6 rounded-2xl border border-slate-800/80">
+          <div className="flex items-center gap-2.5 pb-2 border-b border-slate-850">
+            <Users className="size-5 text-blue-400" />
+            <h2 className="text-lg font-bold text-slate-100">Equipes de Serviço (Mão de Obra)</h2>
+          </div>
+
+          <div className="space-y-3">
+            <Label className="text-slate-350 text-xs">Marque as equipes necessárias para dar suporte ao evento:</Label>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {areas.map(area => {
+                const selected = formData.requiredServiceAreas.find(ra => ra.areaId === area.id);
+                const isSelected = !!selected;
+
+                return (
+                  <div 
+                    key={area.id} 
+                    className={cn(
+                      "p-3.5 rounded-xl border flex items-center justify-between transition-all select-none",
+                      isSelected 
+                        ? "bg-blue-950/20 border-blue-500/40 text-white" 
+                        : "bg-slate-950/30 border-slate-850 text-slate-400 hover:border-slate-800"
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Checkbox
+                        id={`area-${area.id}`}
+                        checked={isSelected}
+                        onCheckedChange={(checked) => handleAreaChange(area.id, !!checked)}
+                        className="border-slate-700 data-[state=checked]:bg-blue-500 data-[state=checked]:border-blue-500"
+                      />
+                      <label htmlFor={`area-${area.id}`} className="flex items-center gap-2 text-xs font-semibold cursor-pointer truncate">
+                        {getAreaIcon(area.name)}
+                        <span className="truncate">{area.name}</span>
+                      </label>
+                    </div>
+
+                    {isSelected && (
+                      <div className="flex items-center gap-1.5 bg-slate-950/60 p-0.5 rounded-lg border border-slate-800">
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-5 w-5 rounded text-slate-400 hover:text-white"
+                          onClick={() => handleQuantityChange(area.id, false)}
+                        >
+                          <Minus className="h-2.5 w-2.5" />
+                        </Button>
+                        <span className="text-[11px] font-black w-4 text-center text-slate-200">{selected.quantity}</span>
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-5 w-5 rounded text-slate-400 hover:text-white"
+                          onClick={() => handleQuantityChange(area.id, true)}
+                        >
+                          <Plus className="h-2.5 w-2.5" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* Section 6: Alimentação e Limpeza */}
+        <section className="space-y-6">
+          <div className="flex items-center gap-2.5 pb-2 border-b border-slate-800/80">
+            <Utensils className="size-5 text-blue-400" />
+            <h2 className="text-lg font-bold text-slate-100">Alimentação & Limpeza</h2>
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-slate-350 text-xs font-bold uppercase tracking-wider block">O evento terá algum tipo de alimentação?</Label>
+              <RadioGroup value={formData.hasFood} onValueChange={(v) => handleRadioChange('hasFood', v)} className="flex gap-6 mt-1">
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="sim" id="food_yes" className="text-blue-500" />
+                  <Label htmlFor="food_yes" className="font-medium text-sm cursor-pointer">Sim</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="nao" id="food_no" className="text-blue-500" />
+                  <Label htmlFor="food_no" className="font-medium text-sm cursor-pointer">Não</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {formData.hasFood === 'sim' && (
+              <div className="p-4 border border-red-950/20 bg-red-950/10 rounded-xl space-y-3 animate-fadeIn">
+                <div className="flex items-center gap-2 text-red-300 text-xs font-bold">
+                  <AlertCircle className="size-4 shrink-0 text-red-400" />
+                  Regra Administrativa: Obrigatório indicar um responsável pela conservação e limpeza.
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="kitchenResponsible" className="text-xs text-slate-300">Responsável pela Conservação & Limpeza</Label>
+                  <Input 
+                    required={formData.hasFood === 'sim'} 
+                    id="kitchenResponsible" 
+                    name="kitchenResponsible" 
+                    value={formData.kitchenResponsible} 
+                    onChange={handleChange} 
+                    placeholder="Nome da pessoa responsável pela limpeza do espaço pós-evento..." 
+                    className="bg-slate-950 border-slate-850 focus-visible:ring-red-500" 
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Section 7: Financeiro Simplificado */}
+        <section className="space-y-6 bg-slate-950/40 p-6 rounded-2xl border border-slate-800/80">
+          <div className="flex items-center gap-2.5 pb-2 border-b border-slate-850">
+            <DollarSign className="size-5 text-blue-400" />
+            <h2 className="text-lg font-bold text-slate-100">Financeiro & Inscrições</h2>
+          </div>
+
+          <div className="space-y-5">
+            <div className="space-y-1.5">
+              <Label className="text-slate-300 text-xs uppercase tracking-wider font-bold">Cobrança de Ingressos</Label>
+              <RadioGroup value={formData.isPaid} onValueChange={(v) => handleRadioChange('isPaid', v)} className="flex gap-6 mt-1">
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="gratuito" id="pay_free" className="text-blue-500" />
+                  <Label htmlFor="pay_free" className="font-medium text-sm cursor-pointer">Evento Gratuito (Membros)</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="pago" id="pay_paid" className="text-blue-500" />
+                  <Label htmlFor="pay_paid" className="font-medium text-sm cursor-pointer">Evento Pago (Inscrição)</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {formData.isPaid === 'pago' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border border-slate-800 bg-slate-950/40 rounded-xl">
+                <div className="space-y-1.5">
+                  <Label htmlFor="ticketPrice" className="text-xs text-slate-400">Preço da Inscrição (Preço por pessoa)</Label>
+                  <Input 
+                    required={formData.isPaid === 'pago'}
+                    id="ticketPrice" 
+                    name="ticketPrice" 
+                    type="number"
+                    value={formData.ticketPrice} 
+                    onChange={handleChange} 
+                    placeholder="Ex: 50.00"
+                    className="bg-slate-950 border-slate-800"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Section 8: Divulgação & Portaria */}
+        <section className="space-y-6">
+          <div className="flex items-center gap-2.5 pb-2 border-b border-slate-800/80">
+            <Shield className="size-5 text-blue-400" />
+            <h2 className="text-lg font-bold text-slate-100">Divulgação & Portaria (Inscrições)</h2>
+          </div>
+
+          <div className="space-y-5">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="isPublicForRegistration"
+                checked={formData.isPublicForRegistration}
+                onCheckedChange={(checked) => setFormData(p => ({ ...p, isPublicForRegistration: !!checked }))}
+                className="border-slate-700 data-[state=checked]:bg-blue-500"
+              />
+              <Label htmlFor="isPublicForRegistration" className="font-bold cursor-pointer text-slate-200">Divulgar na página pública para inscrições</Label>
+            </div>
+
+            {formData.isPublicForRegistration && (
+              <div className="bg-slate-950/40 p-5 rounded-2xl border border-slate-800 space-y-5">
+                <h4 className="font-bold text-xs uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                  <Info className="size-3.5 text-blue-400" /> Regras de Portaria (Pré-requisitos)
+                </h4>
+                
+                <div className="space-y-3 text-sm">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="requiresBaptism"
+                      checked={formData.requiresBaptism}
+                      onCheckedChange={(checked) => setFormData(p => ({ ...p, requiresBaptism: !!checked }))}
+                    />
+                    <Label htmlFor="requiresBaptism" className="font-normal cursor-pointer text-slate-300">Exigir que o participante seja batizado nas águas</Label>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="requiresActiveService"
+                      checked={formData.requiresActiveService}
+                      onCheckedChange={(checked) => setFormData(p => ({ ...p, requiresActiveService: !!checked }))}
+                    />
+                    <Label htmlFor="requiresActiveService" className="font-normal cursor-pointer text-slate-300">Exigir que o participante atue em alguma equipe de voluntários (Serviço Ativo)</Label>
+                  </div>
+
+                  <div className="space-y-1.5 pt-2">
+                    <Label htmlFor="requiredCourseId" className="text-xs text-slate-400 font-bold uppercase tracking-wider block">Exigir conclusão de curso na Escola Lumine</Label>
+                    <Select
+                      value={formData.requiredCourseId || 'none'}
+                      onValueChange={(val) => setFormData(p => ({ ...p, requiredCourseId: val === 'none' ? '' : val }))}
+                    >
+                      <SelectTrigger id="requiredCourseId" className="bg-slate-950 border-slate-800">
+                        <SelectValue placeholder="Selecione um curso (opcional)" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                        <SelectItem value="none">Nenhum curso (Livre)</SelectItem>
+                        {(courses || []).map(course => (
+                          <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Custom Page Type */}
+                <div className="space-y-3 pt-4 border-t border-slate-850">
+                  <Label className="text-xs text-slate-405 font-bold uppercase tracking-wider block">Tipo de Página de Inscrição</Label>
+                  <div className="flex flex-col sm:flex-row gap-4 mt-2">
+                    <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-slate-200">
+                      <input
+                        type="radio"
+                        name="registrationPageType"
+                        value="system"
+                        checked={formData.registrationPageType !== 'custom_html'}
+                        onChange={() => setFormData(p => ({ ...p, registrationPageType: 'system' }))}
+                        className="text-blue-500 focus:ring-blue-500"
+                      />
+                      Sistema Oiko Padrão (PIX checkout)
+                    </label>
+                    <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer text-slate-200">
+                      <input
+                        type="radio"
+                        name="registrationPageType"
+                        value="custom_html"
+                        checked={formData.registrationPageType === 'custom_html'}
+                        onChange={() => setFormData(p => ({ ...p, registrationPageType: 'custom_html' }))}
+                        className="text-blue-500 focus:ring-blue-500"
+                      />
+                      Página Própria / HTML Customizado (embed iframe etc)
+                    </label>
+                  </div>
+
+                  {formData.registrationPageType === 'custom_html' && (
+                    <div className="space-y-2 pt-2 animate-fadeIn">
+                      <Label htmlFor="customHtmlCode" className="text-[10px] text-slate-450 uppercase font-black">Código HTML Customizado</Label>
+                      <Textarea
+                        id="customHtmlCode"
+                        placeholder="Cole aqui o formulário Google Forms (iframe), Typeform, Sympla ou código próprio..."
+                        value={formData.customHtmlCode || ''}
+                        onChange={(e) => setFormData(p => ({ ...p, customHtmlCode: e.target.value }))}
+                        className="font-mono text-xs min-h-[150px] bg-slate-950 border-slate-800 text-white placeholder-slate-700"
+                      />
+                      <p className="text-[10px] text-slate-500">
+                        O código inserido acima será incorporado diretamente no modal quando um membro se inscrever na página pública.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Submit actions */}
+        <div className="pt-6 border-t border-slate-800/80 flex flex-col sm:flex-row gap-3">
+          <Button 
+            type="submit" 
+            disabled={loading} 
+            className="w-full sm:w-auto sm:min-w-[200px] bg-blue-600 hover:bg-blue-500 text-white font-bold h-11 text-sm shadow-lg shadow-blue-900/20"
+          >
+            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {existingEvent ? 'Salvar Alterações' : 'Protocolar Evento'}
+          </Button>
+          
+          {existingEvent && (
+            <Button 
+              type="button" 
+              onClick={handleGeneratePdf} 
+              variant="outline"
+              className="border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white h-11 text-xs font-bold gap-2"
+            >
+              <Download className="size-4" /> Download PDF
+            </Button>
+          )}
+        </div>
+
+      </form>
     </div>
   );
 }

@@ -17,6 +17,9 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+import { VolunteeringProvider } from '@/contexts/volunteering-context';
+import { CreateReservationDialog } from '@/components/volunteering/create-reservation-dialog';
+
 type StrategicEvent = {
   id: string;
   eventName: string;
@@ -32,8 +35,17 @@ const statusConfig: { [key: string]: { label: string; color: string; } } = {
 };
 
 export default function EventsListPage() {
+  return (
+    <VolunteeringProvider>
+      <EventsListContent />
+    </VolunteeringProvider>
+  );
+}
+
+function EventsListContent() {
   const { firestore } = useFirebase();
   const { toast } = useToast();
+  const [isDialogOpen, setDialogOpen] = useState(false);
   
   const eventsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'strategic_events')) : null, [firestore]);
   const { data: events, isLoading } = useCollection<StrategicEvent>(eventsQuery);
@@ -104,11 +116,9 @@ export default function EventsListPage() {
                     <Share2 className="mr-2 size-4" />
                     Compartilhar Formulário
                 </Button>
-                <Button asChild>
-                    <Link href="/dashboard/events/planning">
-                        <PlusCircle className="mr-2 size-4" />
-                        Novo Planejamento
-                    </Link>
+                <Button onClick={() => setDialogOpen(true)}>
+                    <PlusCircle className="mr-2 size-4" />
+                    Criar Evento/Agendamento
                 </Button>
             </div>
         </CardHeader>
@@ -181,6 +191,7 @@ export default function EventsListPage() {
             </div>
         </CardContent>
       </Card>
+      <CreateReservationDialog open={isDialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 }

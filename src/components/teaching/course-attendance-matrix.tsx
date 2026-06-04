@@ -16,6 +16,8 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { addTimelineEvent } from '@/lib/timeline';
+import { useFirebase } from '@/firebase';
 
 
 
@@ -46,6 +48,7 @@ const Legend = () => (
 export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
     const { classes, users, courses, updateVolunteer, isLoading } = useVolunteering();
     const { toast } = useToast();
+    const { firestore, user: currentUser } = useFirebase();
     const [selectedClassId, setSelectedClassId] = useState<string>('all');
     const [isSyncing, setIsSyncing] = useState(false);
     
@@ -146,8 +149,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                 // Se é uma data com horário (aula extra) e não está na lista atual, é resquício de exclusão
                 if (att.date.includes('T') && !allExtraSessionDates.has(att.date)) return;
 
-                // Se a turma TEM um cronograma estruturado, só renderiza a coluna de fallback se a data for validada no cronograma
-                // Isso evita "fantasmas" de dias normais onde o professor salvou chamada mas depois mudou a data ou excluiu o dia
+                // Se a turma TEM um cronograma estruturado, a data deve estar no cronograma válido
                 if (cls.startDate && !validDatesForThisClass.has(att.date)) return;
 
                 dates.add(att.date);
@@ -239,12 +241,29 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                 });
 
                 const isApproved = totalMandatory > 0 && (completedMandatory / totalMandatory) * 100 >= threshold;
+                const alreadyApproved = student.journey?.courseStatus?.[courseId] === 'approved';
 
                 if (isApproved) {
                     syncCount++;
-                    return updateVolunteer(student.id, {
+                    const updatePromise = updateVolunteer(student.id, {
                         [`journey.courseStatus.${courseId}`]: 'approved'
                     });
+
+                    // ── Timeline trigger ──────────────────────────────────────
+                    if (!alreadyApproved && firestore) {
+                        addTimelineEvent(student.id, firestore, {
+                            category: 'teaching',
+                            entityTitle: course?.name ?? 'Curso',
+                            eventDescription: 'APROVADO',
+                            statusBadge: 'APROVADO',
+                            source: 'automatic',
+                            authorId: currentUser?.uid ?? 'system',
+                            relatedId: courseId,
+                        }).catch(console.error);
+                    }
+                    // ── Fim do trigger ────────────────────────────────────────
+
+                    return updatePromise;
                 }
                 return Promise.resolve();
             });
@@ -257,6 +276,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
             setIsSyncing(false);
         }
     };
+
 
     const toggleFilter = (columnKey: string, value: string) => {
         setColumnFilters(prev => ({

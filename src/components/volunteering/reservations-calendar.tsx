@@ -211,13 +211,47 @@ export function ReservationsCalendar({
     roomFilter = 'all',
     categoryFilter = []
 }: ReservationsCalendarProps) {
-  const { reservations, reservationCategories, isLoading } = useVolunteering();
+  const { reservations, reservationCategories, strategicEvents, isLoading } = useVolunteering();
   const [date, setDate] = useState(new Date());
   const [calView, setCalView] = useState<View>(Views.MONTH);
   const [displayMode, setDisplayMode] = useState<'calendar' | 'list'>('calendar');
 
   const events = useMemo(() => {
-    if (!reservations || !Array.isArray(reservations)) return [];
+    const allOccurrences: any[] = [];
+
+    // Mapear e injetar os Eventos Estratégicos Aprovados
+    if (strategicEvents && Array.isArray(strategicEvents)) {
+      strategicEvents.forEach(evt => {
+        if (evt.status !== 'aprovado') return;
+        if (categoryFilter.length > 0) return; // Ocultar se houver filtro por categoria de reserva
+        if (roomFilter !== 'all' && evt.space !== roomFilter) return;
+        if (searchTerm && !evt.eventName.toLowerCase().includes(searchTerm.toLowerCase())) return;
+
+        try {
+          const start = new Date(evt.startDate + 'T' + (evt.timeStart || '00:00'));
+          const end = new Date((evt.endDate || evt.startDate) + 'T' + (evt.timeEnd || '23:59'));
+
+          if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
+
+          allOccurrences.push({
+            id: 'strategic_' + evt.id,
+            title: '⭐ ' + evt.eventName + ' (' + (evt.space || 'IBM') + ')',
+            start: start,
+            end: end,
+            resource: {
+              ...evt,
+              isStrategicEvent: true,
+              status: 'approved',
+              rooms: evt.space ? [evt.space] : []
+            }
+          });
+        } catch (e) {
+          console.error("Erro ao converter datas do evento estratégico no calendário:", e, evt);
+        }
+      });
+    }
+
+    if (!reservations || !Array.isArray(reservations)) return allOccurrences;
 
     const filteredBase = reservations.filter(res => {
         if (categoryFilter.length > 0 && (!res.categoryId || !categoryFilter.includes(res.categoryId))) return false;
@@ -225,8 +259,6 @@ export function ReservationsCalendar({
         if (searchTerm && !res.eventName.toLowerCase().includes(searchTerm.toLowerCase())) return false;
         return true;
     });
-
-    const allOccurrences: any[] = [];
 
     filteredBase.forEach(res => {
       try {
@@ -302,7 +334,7 @@ export function ReservationsCalendar({
     });
 
     return allOccurrences;
-  }, [reservations, searchTerm, roomFilter, categoryFilter]);
+  }, [reservations, strategicEvents, searchTerm, roomFilter, categoryFilter]);
 
   const eventStyleGetter = (event: any) => {
     const status = event.resource?.status || 'pending';

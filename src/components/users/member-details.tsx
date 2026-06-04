@@ -2,12 +2,12 @@
 'use client';
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { User, Phone, Home, CheckCircle, Calendar, Users, MapPin, BadgeHelp, UserPlus, Smartphone, Clock, Mail, Church, Target, LogIn, GraduationCap, Briefcase, IdCard } from 'lucide-react';
+import { User, Phone, Home, CheckCircle, Calendar, Users, MapPin, BadgeHelp, UserPlus, Smartphone, Clock, Mail, Church, Target, LogIn, GraduationCap, Briefcase, IdCard, Car } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface DetailItemProps {
-  icon: any;
+  icon: React.ComponentType<any>;
   label: string;
   value: any;
 }
@@ -44,7 +44,24 @@ const DetailItem = ({ icon, label, value }: DetailItemProps) => {
     );
 };
 
-export function MemberDetails({ user }: { user: any }) {
+interface MemberDetailsProps {
+  user: any;
+}
+
+export function MemberDetails({ user }: MemberDetailsProps) {
+  const formatBaptismVal = () => {
+    if (user.batizado !== 'sim') return 'Não';
+    const place = user.igrejaBatismo ? ` na ${user.igrejaBatismo}` : '';
+    if (user.dataBatismo) {
+      try {
+        const formattedDate = format(parseISO(user.dataBatismo), 'dd/MM/yyyy', { locale: ptBR });
+        return `Sim (em ${formattedDate})${place}`;
+      } catch (e) {
+        return `Sim (em ${user.dataBatismo})${place}`;
+      }
+    }
+    return `Sim${place}`;
+  };
   return (
     <Card>
         <CardHeader>
@@ -57,23 +74,24 @@ export function MemberDetails({ user }: { user: any }) {
                 <div className="grid md:grid-cols-2 gap-x-8 gap-y-4">
                     <DetailItem icon={User} label="Nome" value={user.name} />
                     <DetailItem icon={IdCard} label="CPF" value={user.cpf || 'Não informado'} />
-                    <DetailItem icon={Users} label="Sexo" value={user.sexo || 'Não informado'} />
+                    <DetailItem icon={Users} label="Sexo" value={user.sexo || user.gender || 'Não informado'} />
                     <DetailItem icon={Mail} label="Email" value={user.email || 'Não informado'} />
                     <DetailItem icon={Phone} label="Telefone" value={user.phone || 'Não informado'} />
                     <DetailItem icon={Calendar} label="Nascimento" value={user.dataNascimento || 'Não informado'} />
-                    <DetailItem icon={GraduationCap} label="Escolaridade" value={user.escolaridade || 'Não informado'} />
-                    <DetailItem icon={Briefcase} label="Profissão" value={user.profissao || 'Não informado'} />
+                    <DetailItem icon={GraduationCap} label="Escolaridade" value={user.escolaridade || user.professional?.educationLevel || 'Não informado'} />
+                    <DetailItem icon={Briefcase} label="Profissão" value={user.profissao || user.professional?.profession || 'Não informado'} />
                     <DetailItem icon={Users} label="Estado Civil" value={user.estadoCivil || 'Não informado'} />
                     <DetailItem icon={MapPin} label="CEP" value={user.address?.cep || 'Não informado'} />
                     <DetailItem icon={Home} label="Endereço" value={user.address?.street || 'Não informado'} />
-                    <DetailItem icon={Users} label="Filhos" value={`${user.temFilhos === 'sim' ? 'Sim' : 'Não'} ${user.idadeFilhos ? `(${user.idadeFilhos})` : ''}`} />
                 </div>
             </section>
             <section>
                 <h4 className="font-semibold text-primary border-b pb-2 mb-4">Jornada Espiritual</h4>
                 <div className="grid md:grid-cols-2 gap-x-8 gap-y-4">
-                    <DetailItem icon={CheckCircle} label="Batizado?" value={user.batizado === 'sim' ? `Sim, na ${user.igrejaBatismo || 'igreja'}` : 'Não'} />
+                    <DetailItem icon={CheckCircle} label="Batizado?" value={formatBaptismVal()} />
                     <DetailItem icon={Church} label="Veio de outra igreja?" value={user.membroAntigo === 'sim' ? `Sim, da ${user.igrejaAntiga || 'outra igreja'}` : 'Não'} />
+                    <DetailItem icon={Church} label="Status de Arrolamento" value={user.statusArrolamento || 'Não informado'} />
+                    <DetailItem icon={Calendar} label="Data do Arrolamento" value={user.dataArrolamento || 'Não informado'} />
                     <DetailItem icon={LogIn} label="Status Inicial" value={user.initialStatus?.replace('_', ' ') || 'Não informado'} />
                     <DetailItem icon={Target} label="Decisão" value={user.decisao?.join(', ') || 'Não informado'} />
                     <DetailItem icon={Calendar} label="Data da Decisão" value={user.dataDecisao || 'Não informado'} />
@@ -88,6 +106,17 @@ export function MemberDetails({ user }: { user: any }) {
                     <DetailItem icon={Clock} label="Turno para Contato" value={user.contatoTurno?.join(', ') || 'Não informado'} />
                 </div>
             </section>
+            {user.veiculo && (user.veiculo.placa || user.veiculo.marca || user.veiculo.modelo || user.veiculo.cor) && (
+                <section>
+                    <h4 className="font-semibold text-primary border-b pb-2 mb-4">Dados do Veículo</h4>
+                    <div className="grid md:grid-cols-2 gap-x-8 gap-y-4">
+                        <DetailItem icon={Car} label="Placa do Veículo" value={user.veiculo.placa || 'Não informado'} />
+                        <DetailItem icon={Car} label="Marca" value={user.veiculo.marca || 'Não informado'} />
+                        <DetailItem icon={Car} label="Modelo" value={user.veiculo.modelo || 'Não informado'} />
+                        <DetailItem icon={Car} label="Cor" value={user.veiculo.cor || 'Não informado'} />
+                    </div>
+                </section>
+            )}
         </CardContent>
     </Card>
   );

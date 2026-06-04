@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from '@/components/ui/button';
 import { Loader2, PlusCircle, Edit, Trash2, ChevronRight, Wand2, ClipboardCheck, BookOpen } from 'lucide-react';
 import { ClassFormDialog } from './class-form-dialog';
-import { useVolunteering, Class } from '@/contexts/volunteering-context';
+import { useVolunteering, type Class } from '@/contexts/volunteering-context';
 import { format, addWeeks, startOfMonth, nextDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';

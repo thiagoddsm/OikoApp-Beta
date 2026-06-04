@@ -19,6 +19,8 @@ import { journeyColumns } from './journey-status-config';
 import { EnrollmentDialog } from '../teaching/enrollment-dialog';
 import { sendJourneyAdvanceMessage } from '@/app/actions/whatsapp-actions';
 import { Badge } from '../ui/badge';
+import { addTimelineEvent, INTEGRATION_STATUS_TO_EVENT } from '@/lib/timeline';
+
 
 const weekDayMap: Record<string, number> = {
     "Domingo": 0, "Segunda-feira": 1, "Terça-feira": 2, "Quarta-feira": 3,
@@ -48,7 +50,7 @@ type JourneyPhaseRequirement = {
 };
 
 export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { memberId: string, memberName: string, currentStatusId: string }) {
-    const { firestore } = useFirebase();
+    const { firestore, user: currentUser } = useFirebase();
     const { data: config } = useDoc<any>('config/notifications');
     const { toast } = useToast();
     const { updateVolunteer, classes, courses, users } = useVolunteering();
@@ -247,6 +249,22 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
 
         updateVolunteer(memberId, { integrationStatus: nextStage.id });
         
+        // ── Timeline trigger: avanço de jornada ─────────────────────────────
+        if (firestore) {
+            const statusEvent = INTEGRATION_STATUS_TO_EVENT[nextStage.id];
+            if (statusEvent) {
+                addTimelineEvent(memberId, firestore, {
+                    category: 'ecclesiastical_status',
+                    entityTitle: statusEvent.description,
+                    eventDescription: statusEvent.description,
+                    statusBadge: statusEvent.badge,
+                    source: 'automatic',
+                    authorId: currentUser?.uid ?? 'system',
+                }).catch(console.error);
+            }
+        }
+        // ── Fim do trigger ───────────────────────────────────────────────
+
         // Notificação de avanço de jornada
         if (memberData?.phone && memberData?.name) {
             sendJourneyAdvanceMessage(memberData.name, String(memberData.phone), nextStage.title, {

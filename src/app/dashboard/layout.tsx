@@ -165,6 +165,12 @@ function MenuItems({ pathname, permissions, userRole, onLinkClick }: MenuItemsPr
   const hasPermission = (permissionId: string | undefined, action: string = 'view') => {
     if (!permissionId) return true;
     if (userRole === 'admin') return true;
+    
+    const gcAccessRoles = ['lider_gc', 'lider_treinamento', 'colider', 'secretario', 'secretaria', 'lider'];
+    if ((permissionId === 'gcs_cells' || permissionId === 'gcs_report') && userRole && gcAccessRoles.includes(userRole)) {
+      return true;
+    }
+
     // Se não há perfil de acesso mas é uma rota liberada por padrão para membros
     if (!permissions) return DEFAULT_MEMBER_PERMISSIONS.has(permissionId);
     return !!permissions[permissionId]?.[action];
@@ -290,11 +296,11 @@ function MobileMenu({ pathname, permissions, userRole, onLinkClick, children }: 
         <SheetTitle className="sr-only">Menu</SheetTitle>
         <SheetDescription className="sr-only">Navegue pelas seções do painel.</SheetDescription>
         <SidebarHeader className="border-b border-slate-200">
-          <div className="flex items-center justify-center p-3 h-16">
+          <div className="flex items-center justify-start px-6 h-20 w-full">
             <img 
               src="https://firebasestorage.googleapis.com/v0/b/studio-1424813022-71754.firebasestorage.app/o/pwa%2FChatGPT%20Image%207%20de%20mai.%20de%202026%2C%2016_45_54.png?alt=media&token=c8100c94-fb27-4b1f-87b8-74bd1f8d3fe5" 
               alt="OikoApp Logo" 
-              className="h-10 w-auto object-contain" 
+              className="h-[60px] w-auto object-contain" 
             />
           </div>
         </SidebarHeader>
@@ -375,11 +381,11 @@ export default function DashboardLayout({
           {/* --- Desktop Sidebar --- */}
           <aside className="hidden lg:flex lg:flex-col lg:w-72 lg:border-r lg:border-slate-200 bg-white">
             <SidebarHeader className="border-b border-slate-200">
-              <div className="flex items-center justify-center p-3 h-16">
+              <div className="flex items-center justify-start px-6 h-20 w-full">
                 <img 
                   src="https://firebasestorage.googleapis.com/v0/b/studio-1424813022-71754.firebasestorage.app/o/pwa%2FChatGPT%20Image%207%20de%20mai.%20de%202026%2C%2016_45_54.png?alt=media&token=c8100c94-fb27-4b1f-87b8-74bd1f8d3fe5" 
                   alt="OikoApp Logo" 
-                  className="h-10 w-auto object-contain" 
+                  className="h-[60px] w-auto object-contain" 
                 />
               </div>
             </SidebarHeader>
@@ -421,8 +427,8 @@ export default function DashboardLayout({
                         <span className="sr-only">Toggle navigation menu</span>
                     </Button>
                 </MobileMenu>
-                 <div className="w-full flex-1">
-                    <form>
+                 <div className="flex-1 flex items-center">
+                    <form className="hidden md:block w-full">
                         <div className="relative">
                             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
@@ -432,6 +438,10 @@ export default function DashboardLayout({
                             />
                         </div>
                     </form>
+                    <Button variant="ghost" size="icon" className="md:hidden shrink-0">
+                        <Search className="h-5 w-5" />
+                        <span className="sr-only">Buscar</span>
+                    </Button>
                 </div>
                 <Button variant="ghost" size="icon" className="rounded-full">
                     <Moon className="h-5 w-5" />

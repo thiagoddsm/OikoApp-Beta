@@ -13,6 +13,7 @@ import { Loader2, PlusCircle, Trash2, HeartHandshake, User } from 'lucide-react'
 import { Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { PersonSearchInput } from '@/components/common/person-search-input';
 
 export function TithesOfferingsManager() {
   const { users, financialTransactions, addFinancialTransaction, deleteFinancialTransaction } = useVolunteering();
@@ -21,7 +22,7 @@ export function TithesOfferingsManager() {
   const [isSaving, setIsSaving] = useState(false);
   
   const [formData, setFormData] = useState({
-    memberId: 'null',
+    memberId: '',
     category: 'Dízimo',
     amount: '',
     date: new Date().toISOString().split('T')[0],
@@ -47,7 +48,7 @@ export function TithesOfferingsManager() {
       date: Timestamp.fromDate(new Date(`${formData.date}T12:00:00`)),
       description: formData.description,
       status: 'paid' as const,
-      memberId: formData.memberId === 'null' ? '' : formData.memberId,
+      memberId: !formData.memberId || formData.memberId === 'null' ? '' : formData.memberId,
       paymentMethod: formData.paymentMethod,
     };
 
@@ -62,7 +63,7 @@ export function TithesOfferingsManager() {
     }
   };
 
-  const userMap = useMemo(() => new Map(users.map(u => [u.id, u.name])), [users]);
+  const userMap = useMemo(() => new Map<string, string>((users || []).map(u => [u.id, u.name as string])), [users]);
 
   return (
     <div className="space-y-6">
@@ -77,13 +78,13 @@ export function TithesOfferingsManager() {
         <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Membro (Opcional)</Label>
-            <Select value={formData.memberId} onValueChange={(v) => setFormData(p => ({...p, memberId: v}))}>
-              <SelectTrigger><SelectValue placeholder="Pesquisar membro..." /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="null">Visitante / Anônimo</SelectItem>
-                {users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <PersonSearchInput
+              value={formData.memberId}
+              onChange={(id) => setFormData(p => ({ ...p, memberId: id }))}
+              users={users}
+              placeholder="Buscar membro..."
+              optional
+            />
           </div>
           <div className="space-y-2">
             <Label>Categoria</Label>

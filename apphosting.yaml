@@ -2,6 +2,10 @@
 runConfig:
   maxInstances: 1
 
+env:
+  - variable: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    value: AIzaSyCRnfTI9q7BHndavVzl5wDAaehjLBlxMVc
+
 build:
   run: NODE_ENV=production next build
   output: .next

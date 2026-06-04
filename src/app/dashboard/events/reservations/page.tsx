@@ -85,7 +85,7 @@ function ReservationsPageContent() {
                     </div>
                     <Button onClick={handleNewReservation}>
                         <PlusCircle className="mr-2 h-4 w-4"/>
-                        Nova Reserva
+                        Criar Evento/Agendamento
                     </Button>
                 </CardHeader>
                 <CardContent>
@@ -193,7 +193,7 @@ function ReservationsPageContent() {
 
 
                     <Tabs defaultValue="calendar">
-                        <TabsList className="grid w-full grid-cols-3">
+                        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto gap-1">
                             <TabsTrigger value="calendar">Calendário</TabsTrigger>
                             <TabsTrigger value="list">Lista de Solicitações</TabsTrigger>
                             <TabsTrigger value="rooms">Ambientes</TabsTrigger>

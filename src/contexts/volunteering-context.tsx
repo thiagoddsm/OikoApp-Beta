@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { createContext, useContext, ReactNode, useMemo } from 'react';
+import React, { createContext, useContext, ReactNode, useMemo, useEffect } from 'react';
 import { format, addWeeks, addMonths, parseISO } from 'date-fns';
 import { useFirebase, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, useDoc } from '@/firebase';
 import { collection, query, doc, Timestamp, addDoc, where, writeBatch } from 'firebase/firestore';
@@ -17,6 +17,23 @@ export type User = {
   cpf?: string;
   avatar?: string;
   integrationStatus?: string;
+  sexo?: string;
+  escolaridade?: string;
+  profissao?: string;
+  dataNascimento?: string;
+  estadoCivil?: string;
+  address?: {
+    street?: string;
+    cep?: string;
+    location?: any;
+  };
+  hierarchy?: {
+    role?: string;
+    celulaId?: string;
+    supervisorId?: string;
+    redeId?: string;
+    areaId?: string;
+  };
   serviceStatus?: 'serving' | 'not_serving';
   serviceAreaId?: string;
   serviceTeamId?: string;
@@ -27,6 +44,8 @@ export type User = {
   taughtCourseIds?: string[];
   financialStatus?: string;
   batizado?: 'sim' | 'nao';
+  dataBatismo?: string;
+  gcId?: string;
   igrejaBatismo?: string;
   membroAntigo?: 'sim' | 'nao';
   igrejaAntiga?: string;
@@ -40,13 +59,6 @@ export type User = {
     memberCourseProgress?: Record<string, boolean>;
     theoflixProgress?: Record<string, Record<string, boolean>>;
     courseStatus?: Record<string, 'pending' | 'approved' | 'rejected'>;
-  };
-  hierarchy?: {
-    role: string;
-    celulaId?: string;
-    supervisorId?: string;
-    redeId?: string;
-    areaId?: string;
   };
 };
 
@@ -118,6 +130,8 @@ export type Course = {
   requiresMemberStatus?: boolean;
   requiresBaptism?: boolean;
   prerequisiteCourseId?: string;
+  imageUrl?: string;
+  sortOrder?: number;
 };
 
 export type SavedSchedule = {
@@ -166,6 +180,7 @@ export type Class = {
     onlineStudentIds?: string[];
     repositions?: { studentId: string; date: string }[];
     isRepositionOnly?: boolean;
+    lessonNotes?: Record<string, string>;
   }[];
   grades?: { studentId: string; assessmentName: string; grade: number }[];
   materials?: { title: string; url: string; description?: string }[];
@@ -347,6 +362,7 @@ interface VolunteeringContextType {
   events: VolunteeringEvent[];
   rooms: Room[];
   reservations: RoomReservation[];
+  strategicEvents: any[];
   courses: Course[];
   classes: Class[];
   enrollmentRequests: EnrollmentRequest[];
@@ -436,7 +452,14 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
 }
 
 function VolunteeringInnerProvider({ children }: { children: ReactNode }) {
-  const { firestore, user } = useFirebase();
+  const { firestore, user, auth, isUserLoading } = useFirebase();
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && (window.location.pathname.includes('/public/') || window.location.pathname.includes('/calendario')) && auth && !user && !isUserLoading) {
+      const { initiateAnonymousSignIn } = require('@/firebase/non-blocking-login');
+      initiateAnonymousSignIn(auth);
+    }
+  }, [auth, user, isUserLoading]);
 
   // Consumindo sub-contextos especializados
   const gc = useGC();
@@ -447,28 +470,41 @@ function VolunteeringInnerProvider({ children }: { children: ReactNode }) {
   const { data: userTenant, isLoading: loadingRole } = useDoc<any>(user ? `userTenants/${user.uid}` : null);
   const tenantId = userTenant?.tenantId || 'ibm';
   const role = userTenant?.role || 'member';
-  const isAdmin = role === 'admin' || role === 'pastor_senior';
+  const isAdmin = !loadingRole && (userTenant !== undefined || !user) && (role === 'admin' || role === 'pastor_senior');
 
   const { data: accessProfile, isLoading: loadingProfile } = useDoc<any>(user && role ? `access_profiles/${role}` : null);
-  const permissions = accessProfile?.permissions || {};
+  const permissions = useMemo(() => accessProfile?.permissions || {}, [accessProfile?.permissions]);
   const can = (permId: string, action = 'view') => isAdmin || !!permissions?.[permId]?.[action];
   const roleResolved = !!userTenant;
+
+  const isAnonymous = user?.isAnonymous;
+  const isPublicRoute = typeof window !== 'undefined' && (window.location.pathname.includes('/public/') || window.location.pathname.includes('/calendario'));
+  const shouldLoadPublicData = isAnonymous || isPublicRoute;
 
   // Consultas específicas não-especializadas
   const usersQ = useMemoFirebase(() => (firestore && user && roleResolved && (can('pessoas_list') || can('teaching_courses', 'view_students') || can('teaching_wave', 'view_teacher_area') || can('teaching_dis', 'view_teacher_area'))) ? query(collection(firestore, 'users')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
   const financialTransactionsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('ministerial_finance')) ? query(collection(firestore, 'financial_transactions')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
   const financeRequestsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('ministerial_finance')) ? query(collection(firestore, 'finance_requests')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
+  const strategicEventsQ = useMemoFirebase(() => {
+    if (!firestore || !user) return null;
+    if (shouldLoadPublicData || roleResolved) {
+      return query(collection(firestore, 'strategic_events'));
+    }
+    return null;
+  }, [firestore, user, roleResolved, shouldLoadPublicData]);
 
   const { data: users, isLoading: lu } = useCollection<User>(usersQ);
   const { data: financialTransactions, isLoading: lft } = useCollection<FinancialTransaction>(financialTransactionsQ);
   const { data: financeRequests, isLoading: lfr } = useCollection<FinanceRequest>(financeRequestsQ);
+  const { data: strategicEvents, isLoading: lse } = useCollection<any>(strategicEventsQ);
 
-  const isLoading = gc.isLoading || volunteer.isLoading || teaching.isLoading || loadingRole || loadingProfile || (user ? lu : false) || lft || lfr;
+  const isLoading = gc.isLoading || volunteer.isLoading || teaching.isLoading || loadingRole || loadingProfile || (user ? lu : false) || lft || lfr || lse;
 
   const value = useMemo(() => ({
     users: users || [],
     financialTransactions: financialTransactions || [],
     financeRequests: financeRequests || [],
+    strategicEvents: strategicEvents || [],
     
     // Sub-context GC
     cells: gc.cells,
@@ -642,7 +678,7 @@ function VolunteeringInnerProvider({ children }: { children: ReactNode }) {
       await batch.commit();
       return studentId;
     },
-  }), [users, gc, volunteer, teaching, isLoading, firestore, tenantId]);
+  }), [users, gc, volunteer, teaching, strategicEvents, isLoading, firestore, tenantId]);
 
   return (
     <VolunteeringContext.Provider value={value}>

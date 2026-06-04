@@ -7,12 +7,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2, Trash2, Calendar, Sparkles } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Timestamp, query, collection } from 'firebase/firestore';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PersonSearchInput } from '@/components/common/person-search-input';
 
 interface CreateReservationDialogProps {
   open: boolean;
@@ -49,12 +50,22 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [flowChoice, setFlowChoice] = useState<'selection' | 'reservation'>('selection');
   
   const isLoading = isLoadingContext || isLoadingPatrimonio;
+
+  const allRooms = React.useMemo(() => {
+    const list = [...availableRooms];
+    if (!list.some(r => r.name.toLowerCase() === 'online')) {
+      list.push({ id: 'online_room', name: 'Online' } as any);
+    }
+    return list;
+  }, [availableRooms]);
 
   useEffect(() => {
     if (open) {
       if (existingReservation) {
+        setFlowChoice('reservation');
         setEventName(existingReservation.eventName || '');
         setRequesterId(existingReservation.requesterId || user?.uid || '');
         setSelectedRooms(existingReservation.rooms || []);
@@ -86,6 +97,7 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
         setEndTime(end ? end.toTimeString().split(' ')[0].substring(0, 5) : '');
       } else {
         // Reset form for new reservation
+        setFlowChoice('selection');
         setEventName('');
         setRequesterId(user?.uid || '');
         setSelectedRooms([]);
@@ -98,9 +110,9 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
         setWeekOfMonth('1');
         const now = new Date();
         setStartDate(now.toISOString().split('T')[0]);
-        setStartTime(now.toTimeString().split(' ')[0].substring(0, 5));
+        setStartTime("19:00");
         setEndDate(now.toISOString().split('T')[0]);
-        setEndTime(new Date(now.getTime() + 60 * 60 * 1000).toTimeString().split(' ')[0].substring(0, 5));
+        setEndTime("21:00");
         setCategoryId('');
         setIsCreatingCategory(false);
         setNewCategoryName('');
@@ -200,6 +212,141 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
     });
   };
 
+  const isStrategic = existingReservation && (existingReservation as any).isStrategicEvent;
+
+  if (isStrategic) {
+    const sEvt = existingReservation as any;
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-slate-900 font-bold">
+              <span>⭐ Evento Estratégico</span>
+            </DialogTitle>
+            <DialogDescription>
+              Este evento foi planejado e protocolado como evento estratégico da igreja.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs text-muted-foreground">Nome do Evento</Label>
+                <p className="font-bold text-slate-800 text-sm">{sEvt.eventName}</p>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Ministério / Organizador</Label>
+                <p className="font-semibold text-slate-700 text-sm">{sEvt.ministry || sEvt.organizer || 'IBM'}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs text-muted-foreground">Data</Label>
+                <p className="text-sm text-slate-700 font-semibold">
+                  {sEvt.startDate ? sEvt.startDate.split('-').reverse().join('/') : ''}
+                  {sEvt.endDate && sEvt.endDate !== sEvt.startDate ? ` a ${sEvt.endDate.split('-').reverse().join('/')}` : ''}
+                </p>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Horário</Label>
+                <p className="text-sm text-slate-700 font-semibold">{sEvt.timeStart || '00:00'} às {sEvt.timeEnd || '23:59'}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs text-muted-foreground">Espaço / Sala</Label>
+                <p className="text-sm text-slate-700 font-semibold">{sEvt.space || 'Não especificado'}</p>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Tipo de Inscrição</Label>
+                <p className="text-sm text-slate-700 font-semibold">
+                  {sEvt.isPaid === 'pago' ? `Pago (R$ ${sEvt.ticketPrice || '0.00'})` : 'Gratuito'}
+                </p>
+              </div>
+            </div>
+
+            {sEvt.visionAlignment && (
+              <div>
+                <Label className="text-xs text-muted-foreground">Alinhamento de Visão</Label>
+                <p className="text-sm text-slate-700 italic">"{sEvt.visionAlignment}"</p>
+              </div>
+            )}
+
+            {sEvt.phaseAlignment && (
+              <div>
+                <Label className="text-xs text-muted-foreground">Alinhamento de Fase</Label>
+                <p className="text-sm text-slate-700 italic">"{sEvt.phaseAlignment}"</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="flex gap-2">
+            <DialogClose asChild>
+              <Button variant="outline">Fechar</Button>
+            </DialogClose>
+            <Button asChild>
+              <a href="/dashboard/events">Ver Detalhes do Protocolo</a>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  if (open && flowChoice === 'selection') {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>O que você deseja solicitar?</DialogTitle>
+            <DialogDescription>
+              Selecione o tipo de solicitação que deseja criar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-4 py-4">
+            <button
+              onClick={() => setFlowChoice('reservation')}
+              className="flex items-start gap-4 p-4 rounded-xl border border-outline-variant/30 hover:border-primary/50 hover:bg-primary/5 transition-all text-left group"
+            >
+              <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                <Calendar className="size-5" />
+              </div>
+              <div>
+                <h4 className="font-bold text-on-surface group-hover:text-primary transition-colors">Agendamento de Espaço</h4>
+                <p className="text-xs text-on-surface-variant leading-relaxed mt-1">
+                  Reserve salas, auditório ou equipamentos para ensaios, reuniões de GC, cultos e atividades internas de rotina.
+                </p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                onOpenChange(false);
+                window.location.href = '/dashboard/events/planning';
+              }}
+              className="flex items-start gap-4 p-4 rounded-xl border border-outline-variant/30 hover:border-primary/50 hover:bg-primary/5 transition-all text-left group"
+            >
+              <div className="w-10 h-10 rounded-lg bg-secondary/10 text-secondary flex items-center justify-center shrink-0">
+                <Sparkles className="size-5" />
+              </div>
+              <div>
+                <h4 className="font-bold text-on-surface group-hover:text-primary transition-colors">Planejamento de Evento</h4>
+                <p className="text-xs text-on-surface-variant leading-relaxed mt-1">
+                  Cadastre um novo evento estratégico completo (ex: IBM CAMP, retiros, congressos) contendo metas, orçamento, equipes e divulgação pública.
+                </p>
+              </div>
+            </button>
+          </div>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline" className="w-full">Cancelar</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
@@ -222,12 +369,14 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
               </div>
               <div>
                 <Label htmlFor="requesterId">Solicitante</Label>
-                <Select value={requesterId} onValueChange={setRequesterId} disabled={isLoading}>
-                  <SelectTrigger id="requesterId"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                      {users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+            <div className="mt-1">
+              <PersonSearchInput
+                value={requesterId}
+                onChange={setRequesterId}
+                users={users}
+                placeholder="Buscar solicitante..."
+              />
+            </div>
               </div>
               <div>
                 <Label htmlFor="categoryId">Categoria</Label>
@@ -255,7 +404,7 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
                   <Label>Salas/Ambientes</Label>
                   <ScrollArea className="h-32 w-full rounded-md border p-4">
                       <div className="space-y-2">
-                          {availableRooms.map(room => (
+                          {allRooms.map(room => (
                               <div key={room.id} className="flex items-center space-x-2">
                                   <Checkbox
                                       id={`room-${room.id}`}

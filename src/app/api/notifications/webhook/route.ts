@@ -155,11 +155,37 @@ export async function POST(request: Request) {
             selectedOptions: options
         };
     }
+
+    // Interceptor para o Bot de Relatório de GC se houver sessão ativa
+    if (!data.fromMe && !fromRaw.includes('@g.us')) {
+        const sessionDoc = await db.collection('gc_report_sessions').doc(fromPhone).get();
+        if (sessionDoc.exists) {
+            let messageText = '';
+            if (responseType === 'button') {
+                messageText = payload?.buttonText || '';
+            } else if (responseType === 'poll') {
+                messageText = Array.isArray(payload?.selectedOptions) ? payload.selectedOptions.join(', ') : '';
+            } else {
+                messageText = msgContent.conversation || msgContent.extendedTextMessage?.text || data.text || '';
+            }
+
+            const { handleGcReportIncomingMessage } = await import('@/lib/gc-report-bot');
+            await handleGcReportIncomingMessage(
+                fromPhone,
+                messageText,
+                responseType || 'text',
+                payload
+            );
+            return NextResponse.json({ success: true });
+        }
+    }
+
     // D. Common Text
-    else if (msgContent.conversation || msgContent.extendedTextMessage?.text || data.text) {
+    if (msgContent.conversation || msgContent.extendedTextMessage?.text || data.text) {
         const messageText = msgContent.conversation || msgContent.extendedTextMessage?.text || data.text || '[Mídia]';
         const senderPushName = data.pushName || data.senderName || data.verifiedName || null;
         responseType = 'text';
+        
         
         await db.collection('notifications_messages').add({
           from: fromPhone,

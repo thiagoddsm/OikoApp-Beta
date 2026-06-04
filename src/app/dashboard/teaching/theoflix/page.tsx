@@ -474,7 +474,15 @@ function TheoFlixContent() {
                                             <span className="text-[8px] sm:text-[10px] font-bold text-muted-foreground uppercase">
                                                 <Clock className="size-2.5 sm:size-3 inline mr-1" /> {getCourseTotalDuration(course)}
                                             </span>
-                                            <Badge variant="secondary" className="text-[7px] sm:text-[9px] h-3 sm:h-4 px-1 font-black">
+                                            <Badge 
+                                                variant="outline" 
+                                                className={cn(
+                                                    "text-[7px] sm:text-[9px] h-3 sm:h-4 px-1 font-black transition-all",
+                                                    course.type === 'Obrigatório' 
+                                                        ? "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100" 
+                                                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                                                )}
+                                            >
                                                 {isLocked ? 'BLOQUEADO' : course.type}
                                             </Badge>
                                         </div>

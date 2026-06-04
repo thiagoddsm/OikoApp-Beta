@@ -8,7 +8,12 @@ import { EditGoalDialog } from '@/components/goals/edit-goal-dialog';
 
 const kpiDefinitions: Record<string, { title: string; icon: React.ElementType }> = {
     'celulas': { title: 'Número de Células', icon: Users },
-    'frequencia_culto': { title: 'Frequência Média no Culto', icon: CheckSquare },
+    'frequencia_culto_dom_0730': { title: 'Frequência Dom - 07:30', icon: CheckSquare },
+    'frequencia_culto_dom_1015': { title: 'Frequência Dom - 10:15', icon: CheckSquare },
+    'frequencia_culto_dom_1730': { title: 'Frequência Dom - 17:30', icon: CheckSquare },
+    'frequencia_culto_dom_1930': { title: 'Frequência Dom - 19:30', icon: CheckSquare },
+    'frequencia_culto_qui_2000': { title: 'Frequência Qui - 20:00', icon: CheckSquare },
+    'frequencia_culto_evento': { title: 'Frequência Eventos', icon: CheckSquare },
     'conversoes': { title: 'Conversões', icon: UserPlus },
     'batismos': { title: 'Batismos', icon: Crosshair },
     'novos_lideres': { title: 'Formação de Novos Líderes', icon: GraduationCap },

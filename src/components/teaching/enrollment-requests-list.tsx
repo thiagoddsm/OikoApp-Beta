@@ -11,8 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
+import { useDoc } from '@/firebase';
+import { sendEnrollmentMessage } from '@/app/actions/whatsapp-actions';
+
 export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
-    const { enrollmentRequests, classes, approveEnrollmentRequest, updateEnrollmentRequest, deleteEnrollmentRequest, isLoading } = useVolunteering();
+    const { enrollmentRequests, classes, courses, approveEnrollmentRequest, updateEnrollmentRequest, deleteEnrollmentRequest, isLoading } = useVolunteering();
+    const { data: config } = useDoc<any>('config/notifications');
     const { toast } = useToast();
     const [selectedClassMap, setSelectedClassMap] = useState<Record<string, string>>({});
     const [isActionInProgress, setIsActionInProgress] = useState<string | null>(null);
@@ -45,6 +49,18 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
         try {
             await approveEnrollmentRequest(request.id, targetClassId);
             toast({ title: 'Inscrição Aprovada!', description: `${request.name} foi matriculado com sucesso.` });
+
+            // Enviar notificação de matrícula
+            const targetClass = classes?.find(c => c.id === targetClassId);
+            const className = targetClass?.name || '';
+            const targetCourse = courses?.find(c => c.id === request.courseId);
+            const courseName = targetCourse?.name || 'Curso';
+            
+            if (request.name && request.phone) {
+                sendEnrollmentMessage(request.name, String(request.phone), courseName, className).catch(err => {
+                    console.error("Erro ao enviar mensagem de matrícula:", err);
+                });
+            }
         } catch (error) {
             console.error("Erro ao aprovar:", error);
             toast({ variant: 'destructive', title: 'Erro na Aprovação', description: 'Ocorreu uma falha ao vincular o aluno.' });

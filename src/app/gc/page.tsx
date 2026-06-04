@@ -6,6 +6,15 @@ import Script from 'next/script';
 
 export default function GCPage() {
   useEffect(() => {
+    // Force scroll to top on mount and again shortly after to counteract iframe focus steal
+    window.scrollTo(0, 0);
+    const scrollTimeout = setTimeout(() => {
+      window.scrollTo(0, 0);
+    }, 100);
+    const scrollTimeout2 = setTimeout(() => {
+      window.scrollTo(0, 0);
+    }, 500);
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -23,7 +32,11 @@ export default function GCPage() {
       observer.observe(el);
     });
 
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      clearTimeout(scrollTimeout);
+      clearTimeout(scrollTimeout2);
+    };
   }, []);
 
   return (
@@ -159,7 +172,6 @@ export default function GCPage() {
         }}
       />
 
-      {/* NAVBAR */}
       <header className="fixed top-0 left-0 w-full z-50 bg-surface/75 backdrop-blur-xl border-b border-outline-variant/20 shadow-[0_4px_30px_rgb(0,0,0,0.02)]">
         <div className="max-w-[1440px] mx-auto px-6 h-20 flex items-center justify-between">
           <div className="flex items-center">
@@ -173,22 +185,21 @@ export default function GCPage() {
             </Link>
           </div>
 
+          <div className="hidden md:flex items-center space-x-8">
+            <Link className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="/#jornada">Jornada</Link>
+            <Link className="font-label-md text-label-md uppercase tracking-wider text-primary font-bold border-b-2 border-primary pb-1" href="/gc">Igreja em Células</Link>
+            <Link className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="/#trilha-discipulado">Trilha Discipulado</Link>
+            <a className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="https://projeto-luz-para-a-cidade-757083107524.us-west1.run.app/" target="_blank" rel="noopener noreferrer">Ação Social</a>
+            <Link className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="/#visita">Visite-nos</Link>
+          </div>
+
           <div className="flex items-center gap-4">
-            <Link 
-              href="/"
-              className="text-on-surface-variant hover:text-primary transition-colors text-sm font-semibold uppercase tracking-wider hidden sm:block"
-            >
-              Voltar ao Início
+            <Link href="/public/enrollment" className="border border-primary text-primary px-6 py-2.5 rounded-full font-label-md text-label-md hover:bg-primary/5 hover:scale-105 transition-all active:scale-95">
+              Inscrições
             </Link>
-            <a 
-              href="https://wa.me/5521997558801"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 bg-primary hover:opacity-90 text-white px-6 py-3 rounded-full font-bold transition-all hover:scale-105 shadow-md shadow-primary/10 text-sm"
-            >
-              <span>Encontrar um GC</span>
-              <span className="material-symbols-outlined text-base">near_me</span>
-            </a>
+            <Link href="/login" className="bg-primary text-on-primary px-6 py-2.5 rounded-full font-label-md text-label-md hover:opacity-90 hover:scale-105 transition-all active:scale-95 shadow-md shadow-primary/10">
+              Área do Membro
+            </Link>
           </div>
         </div>
       </header>
@@ -364,6 +375,7 @@ export default function GCPage() {
               marginWidth={0} 
               className="w-full h-[500px] sm:h-[650px] border-0"
               allowFullScreen
+              loading="lazy"
             ></iframe>
           </div>
         </div>
@@ -438,18 +450,23 @@ export default function GCPage() {
             <div className="md:col-span-7 grid grid-cols-2 sm:grid-cols-3 gap-8">
               <div className="flex flex-col gap-4">
                 <span className="font-display text-xs uppercase tracking-widest text-primary font-bold">SOBRE</span>
-                <a className="text-sm font-body text-on-surface-variant hover:text-primary transition-colors" href="#">Quem Somos</a>
-                <a className="text-sm font-body text-on-surface-variant hover:text-primary transition-colors" href="#">Nossa Liderança</a>
+                <Link className="text-sm font-body text-on-surface-variant hover:text-primary transition-colors" href="/quem-somos">Quem Somos</Link>
+                <Link className="text-sm font-body text-on-surface-variant hover:text-primary transition-colors" href="/quem-somos#historia">Nossa História</Link>
+                <Link className="text-sm font-body text-on-surface-variant hover:text-primary transition-colors" href="/quem-somos#lideranca">Nossa Liderança</Link>
               </div>
               <div className="flex flex-col gap-4">
                 <span className="font-display text-xs uppercase tracking-widest text-primary font-bold">IGREJA</span>
                 <Link className="text-sm font-body text-on-surface-variant hover:text-primary transition-colors" href="/gc">Células (GC)</Link>
                 <Link className="text-sm font-body text-on-surface-variant hover:text-primary transition-colors" href="/enrollment">Escola Lumine</Link>
+                <a className="text-sm font-body text-on-surface-variant hover:text-primary transition-colors" href="https://projeto-luz-para-a-cidade-757083107524.us-west1.run.app/" target="_blank" rel="noopener noreferrer">Ação Social</a>
+                <a className="text-sm font-body text-on-surface-variant hover:text-primary transition-colors" href="https://ibmcamp.com.br" target="_blank" rel="noopener noreferrer">IBM CAMP</a>
               </div>
               <div className="flex flex-col gap-4">
                 <span className="font-display text-xs uppercase tracking-widest text-primary font-bold">CONECTE</span>
                 <a className="text-sm font-body text-on-surface-variant hover:text-primary transition-colors" href="https://wa.me/5521997558801" target="_blank" rel="noopener noreferrer">WhatsApp</a>
-                <a className="text-sm font-body text-on-surface-variant hover:text-primary transition-colors" href="#" target="_blank" rel="noopener noreferrer">Instagram</a>
+                <a className="text-sm font-body text-on-surface-variant hover:text-primary transition-colors" href="https://www.instagram.com/ibmanha/" target="_blank" rel="noopener noreferrer">Instagram</a>
+                <a className="text-sm font-body text-on-surface-variant hover:text-primary transition-colors" href="https://www.youtube.com/@ibmanha" target="_blank" rel="noopener noreferrer">YouTube</a>
+                <a className="text-sm font-body text-on-surface-variant hover:text-primary transition-colors" href="https://www.facebook.com/ibmanha/" target="_blank" rel="noopener noreferrer">Facebook</a>
               </div>
             </div>
           </div>

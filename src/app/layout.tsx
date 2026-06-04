@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { FirebaseClientProvider } from '@/firebase';
 import Script from 'next/script';
 import { firebaseConfig } from '@/firebase/config';
+import { ZaiaCleanup } from '@/components/zaia-cleanup';
 
 const manrope = Manrope({
   subsets: ['latin'],
@@ -24,6 +25,15 @@ export const metadata: Metadata = {
   description: 'Uma família que vive o evangelho de forma prática e relevante, centrada em Jesus e apaixonada pela missão de Deus.',
 };
 
+export const viewport = {
+  themeColor: '#6750A4',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -36,7 +46,9 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/favicon.ico" sizes="any" />
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#0F172A" />
+        <meta name="theme-color" content="#6750A4" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <link rel="apple-touch-icon" href="https://firebasestorage.googleapis.com/v0/b/studio-1424813022-71754.firebasestorage.app/o/pwa%2Flogo_1772385880160.png?alt=media&token=9f992f3e-70cd-4a19-a67f-77d16369e81a" />
         {googleMapsApiKey && (
           <Script
@@ -51,6 +63,7 @@ export default function RootLayout({
         inter.variable
       )}>
         <FirebaseClientProvider>
+          <ZaiaCleanup />
           {children}
         </FirebaseClientProvider>
         <Toaster />
@@ -58,3 +71,4 @@ export default function RootLayout({
     </html>
   );
 }
+

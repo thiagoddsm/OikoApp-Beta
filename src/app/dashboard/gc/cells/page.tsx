@@ -4,7 +4,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useMemoFirebase } from '@/firebase';
+import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, doc, query, deleteDoc } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -33,6 +33,8 @@ type UserType = {
   photoURL?: string;
   hierarchy?: { role?: string; };
   churchData?: { baptismDate?: any; };
+  batizado?: string;
+  dataBatismo?: string;
 };
 
 type CoLider = { id: string; casalId?: string };
@@ -56,6 +58,8 @@ type Cell = {
   status?: 'active' | 'inactive' | 'growing';
   address?: { street: string; lat?: number; lng?: number; };
   anfitriaoElegiveiIds?: string[];
+  multiplicationDate?: string;
+  liderEAnfitriao?: boolean;
 };
 
 type Area = { id: string; nome: string; liderId: string; redeId: string; };
@@ -74,10 +78,11 @@ interface CreateOrEditCellDialogProps {
   supervisors: any[];
   areas: any[];
   redes: any[];
-  existingCell?: any;
+  existingCell: Cell | null;
+  isSupervisor: boolean;
 }
 
-function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas, redes, existingCell }: CreateOrEditCellDialogProps) {
+function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas, redes, existingCell, isSupervisor }: CreateOrEditCellDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
@@ -95,6 +100,7 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
   const [lng, setLng] = useState<number | undefined>(undefined);
   const [meetingDay, setMeetingDay] = useState('');
   const [meetingTime, setMeetingTime] = useState('');
+  const [multiplicationDate, setMultiplicationDate] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [status, setStatus] = useState<'active' | 'inactive' | 'growing'>('active');
   const [memberSearch, setMemberSearch] = useState('');
@@ -125,6 +131,7 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
       setLng(existingCell.address?.lng);
       setMeetingDay(existingCell.meetingDay || '');
       setMeetingTime(existingCell.meetingTime || '');
+      setMultiplicationDate(existingCell.multiplicationDate || '');
       setSelectedMembers(existingCell.membros || []);
       setStatus(existingCell.status || 'active');
       setAnfitriaoElegiveiIds(existingCell.anfitriaoElegiveiIds || []);
@@ -133,7 +140,7 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
       setNome(''); setLiderId(''); setLiderCasalId(''); setCoLideres([]); setAnfitriaoId('');
       setAnfitriãoCasalId(''); setSecretariaId(''); setAreaId(''); setRedeId('');
       setStreet(''); setLat(undefined); setLng(undefined);
-      setMeetingDay(''); setMeetingTime(''); setSelectedMembers([]);
+      setMeetingDay(''); setMeetingTime(''); setMultiplicationDate(''); setSelectedMembers([]);
       setStatus('active'); setAnfitriaoElegiveiIds([]); setLiderEAnfitriao(false);
     }
     setMemberSearch(''); setAddingSpouseFor(null);
@@ -154,7 +161,7 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
   };
 
   const handleSave = async () => {
-    const selectedArea = areaMap.get(areaId);
+    const selectedArea = areaMap.get(areaId) as any;
     const supervisorId = selectedArea?.liderId;
     if (!nome || !liderId || !areaId || !redeId || !supervisorId) {
       toast({ variant: "destructive", title: "Campos obrigatórios", description: "Preencha todos os campos incluindo Rede e Área." });
@@ -185,7 +192,7 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
       supervisorId, areaId, redeId,
       membros: finalMembers, status,
       address: { street, lat, lng },
-      meetingDay, meetingTime,
+      meetingDay, meetingTime, multiplicationDate: multiplicationDate || null,
       anfitriaoElegiveiIds,
     };
     if (existingCell) {
@@ -228,14 +235,14 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
           {/* REDE + ÁREA */}
           <div className="grid grid-cols-4 items-center gap-4">
             <Label className="text-right">Rede</Label>
-            <Select value={redeId} onValueChange={setRedeId}>
+            <Select value={redeId} onValueChange={setRedeId} disabled={!isSupervisor}>
               <SelectTrigger className="col-span-3"><SelectValue placeholder="Selecione a Rede" /></SelectTrigger>
               <SelectContent>{redes.map((r: any) => <SelectItem key={r.id} value={r.id}>{r.nome}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label className="text-right">Área</Label>
-            <Select value={areaId} onValueChange={setAreaId} disabled={!redeId || availableAreas.length === 0}>
+            <Select value={areaId} onValueChange={setAreaId} disabled={!isSupervisor || !redeId || availableAreas.length === 0}>
               <SelectTrigger className="col-span-3"><SelectValue placeholder={!redeId ? "Selecione uma rede primeiro" : "Selecione a Área"} /></SelectTrigger>
               <SelectContent>{availableAreas.map((a: any) => <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>)}</SelectContent>
             </Select>
@@ -421,7 +428,7 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
                     return u ? (
                       <div key={id} className="flex items-center gap-1 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-full px-2 py-0.5 text-[11px] font-semibold">
                         {u.name}
-                        <button type="button" onClick={() => setAnfitriaoElegiveiIds(prev => prev.filter(x => x !== id))} className="hover:text-destructive ml-0.5">✕</button>
+                        <button type="button" onClick={() => setAnfitriaoElegiveiIds(prev => prev.filter((x: any) => x !== id))} className="hover:text-destructive ml-0.5">✕</button>
                       </div>
                     ) : null;
                   })}
@@ -448,6 +455,10 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
             <Label className="text-right">Horário</Label>
             <Input type="time" value={meetingTime} onChange={e => setMeetingTime(e.target.value)} className="col-span-3"/>
           </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label className="text-right text-xs">Multiplicação</Label>
+            <Input type="date" value={multiplicationDate} onChange={e => setMultiplicationDate(e.target.value)} className="col-span-3"/>
+          </div>
         </div>
         <DialogFooter>
           <DialogClose asChild><Button type="button" variant="secondary">Cancelar</Button></DialogClose>
@@ -463,11 +474,17 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
 
 
 export default function CellsPage() {
-  const { firestore } = useFirebase();
+  const { firestore, user } = useFirebase();
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [editingCell, setEditingCell] = useState<Cell | null>(null);
   const [deletingCell, setDeletingCell] = useState<Cell | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const { data: userData } = useDoc<{ hierarchy?: { role?: string; celulaId?: string; }; }>(
+    user ? `users/${user.uid}` : null
+  );
+  const userRole = userData?.hierarchy?.role;
+  const isSupervisor = ['lider_area', 'lider_rede', 'pastor', 'pastor_senior', 'admin'].includes(userRole || '');
 
   // ── Filtros ──────────────────────────────────────────────────────────────
   const [filterName, setFilterName] = useState('');
@@ -510,7 +527,18 @@ export default function CellsPage() {
   // Células filtradas
   const filteredCells = useMemo(() => {
     if (!cells) return [];
-    return cells.filter(cell => {
+    
+    let baseCells = cells;
+    if (user && !isSupervisor) {
+      baseCells = cells.filter(cell => 
+        cell.liderId === user.uid || 
+        cell.coLiderIds?.includes(user.uid) || 
+        cell.secretariaId === user.uid ||
+        userData?.hierarchy?.celulaId === cell.id
+      );
+    }
+
+    return baseCells.filter(cell => {
       if (filterName && !cell.nome?.toLowerCase().includes(filterName.toLowerCase())) return false;
       if (filterRedeId && cell.redeId !== filterRedeId) return false;
       if (filterAreaId && cell.areaId !== filterAreaId) return false;
@@ -518,7 +546,7 @@ export default function CellsPage() {
       if (filterStatus && (cell.status || 'active') !== filterStatus) return false;
       return true;
     });
-  }, [cells, filterName, filterRedeId, filterAreaId, filterLiderId, filterStatus]);
+  }, [cells, filterName, filterRedeId, filterAreaId, filterLiderId, filterStatus, isSupervisor, user, userData]);
 
   const hasActiveFilters = filterName || filterRedeId || filterAreaId || filterLiderId || filterStatus;
   const clearFilters = () => { setFilterName(''); setFilterRedeId(''); setFilterAreaId(''); setFilterLiderId(''); setFilterStatus(''); };
@@ -544,10 +572,12 @@ export default function CellsPage() {
           <CardTitle className="text-lg font-black">Gestão de Células</CardTitle>
           <CardDescription>Visualize, crie e edite as células e sua estrutura hierárquica.</CardDescription>
         </div>
-        <Button onClick={() => { setEditingCell(null); setDialogOpen(true); }}>
-          <PlusCircle className="mr-2 h-4 w-4"/>
-          Criar Célula
-        </Button>
+        {isSupervisor && (
+          <Button onClick={() => { setEditingCell(null); setDialogOpen(true); }}>
+            <PlusCircle className="mr-2 h-4 w-4"/>
+            Criar Célula
+          </Button>
+        )}
       </CardHeader>
 
       {/* ── BARRA DE FILTROS ─────────────────────────────────────────────── */}
@@ -625,13 +655,14 @@ export default function CellsPage() {
                   <TableHead className="text-center">Membros</TableHead>
                   <TableHead className="text-center">Não Batizados</TableHead>
                   <TableHead className="text-center">Co-Líderes</TableHead>
+                  <TableHead className="text-center">Multiplicação</TableHead>
                   <TableHead className="text-center">Anfitrião Elegível?</TableHead>
                   <TableHead className="text-right pr-6">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredCells.length === 0 && (
-                  <TableRow><TableCell colSpan={9} className="h-32 text-center text-muted-foreground italic text-sm">
+                  <TableRow><TableCell colSpan={10} className="h-32 text-center text-muted-foreground italic text-sm">
                     {hasActiveFilters ? 'Nenhum GC encontrado com esses filtros.' : 'Nenhuma célula cadastrada.'}
                   </TableCell></TableRow>
                 )}
@@ -644,7 +675,7 @@ export default function CellsPage() {
                   
                   // Enriquecer membros
                   const memberUsers = (cell.membros || []).map(id => userMap.get(id)).filter(Boolean) as UserType[];
-                  const naoBatizadosCount = memberUsers.filter(u => !u.churchData?.baptismDate).length;
+                  const naoBatizadosCount = memberUsers.filter(u => !(u.batizado === 'sim' || u.dataBatismo || u.churchData?.baptismDate)).length;
                   const previewMembers = memberUsers.slice(0, 4);
                   const extraCount = memberUsers.length - previewMembers.length;
 
@@ -656,12 +687,26 @@ export default function CellsPage() {
                   const hasEligibleHost = cell.anfitriaoElegiveiIds && cell.anfitriaoElegiveiIds.length > 0;
                   const elegiveisCount = cell.anfitriaoElegiveiIds?.length || 0;
 
+                  // Formatar data de multiplicação futura
+                  const formatMultiplicationDate = (dateStr?: string) => {
+                      if (!dateStr) return '—';
+                      try {
+                          const [year, month, day] = dateStr.split('-');
+                          if (year && month && day) {
+                              return `${day}/${month}/${year}`;
+                          }
+                          return dateStr;
+                      } catch {
+                          return dateStr;
+                      }
+                  };
+
                   return (
                     <TableRow key={cell.id} className="hover:bg-muted/30 transition-colors">
                       {/* Célula */}
                       <TableCell className="pl-6">
                         <Link href={`/dashboard/gc/cells/${cell.id}`} className="font-bold text-foreground hover:text-primary hover:underline flex items-center gap-1 group">
-                          {cell.nome}
+                           {cell.nome}
                           <ChevronRight className="h-3.5 w-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                         </Link>
                         {cell.address?.street && (
@@ -735,6 +780,17 @@ export default function CellsPage() {
                         )}
                       </TableCell>
 
+                      {/* Data de Multiplicação */}
+                      <TableCell className="text-center">
+                        {cell.multiplicationDate ? (
+                          <Badge variant="outline" className="bg-indigo-50/50 text-indigo-700 border-indigo-200 font-bold text-xs">
+                            {formatMultiplicationDate(cell.multiplicationDate)}
+                          </Badge>
+                        ) : (
+                          <span className="text-slate-400 text-xs">—</span>
+                        )}
+                      </TableCell>
+
                       {/* Tem anfitrião elegível? */}
                       <TableCell className="text-center font-bold">
                         {hasEligibleHost ? (
@@ -754,9 +810,11 @@ export default function CellsPage() {
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingCell(cell); setDialogOpen(true); }}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => setDeletingCell(cell)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {isSupervisor && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => setDeletingCell(cell)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -778,6 +836,7 @@ export default function CellsPage() {
         areas={areas}
         redes={redes}
         existingCell={editingCell}
+        isSupervisor={isSupervisor}
       />
     )}
 

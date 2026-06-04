@@ -47,7 +47,7 @@ export function FamilyManagement({ user }: FamilyManagementProps) {
     const familyLinks: FamilyLink[] = user.familyMembers || [];
 
     const filteredUsers = useMemo(() => {
-        if (!searchTerm) return users.filter(u => u.id !== user.id).slice(0, 10);
+        if (!searchTerm.trim()) return [];
         const lowerSearch = searchTerm.toLowerCase();
         return users.filter(u => u.id !== user.id && u.name.toLowerCase().includes(lowerSearch)).slice(0, 15);
     }, [users, searchTerm, user.id]);

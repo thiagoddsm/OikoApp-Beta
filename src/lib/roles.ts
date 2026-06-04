@@ -8,5 +8,6 @@ export const userRoles: { [key: string]: string } = {
   'lider_gc': 'Líder de GC',
   'team_leader': 'Líder de Equipe',
   'member': 'Membro',
-  'volunteer': 'Voluntário'
+  'volunteer': 'Voluntário',
+  'aluno': 'Aluno'
 };

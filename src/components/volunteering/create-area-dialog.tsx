@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PersonSearchInput } from '@/components/common/person-search-input';
 
 interface CreateAreaDialogProps {
   open: boolean;
@@ -84,19 +85,13 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
           </div>
           <div>
             <Label htmlFor="leader-id">Líder (Opcional)</Label>
-            <Select value={leaderId} onValueChange={setLeaderId} disabled={isLoading}>
-              <SelectTrigger id="leader-id">
-                <SelectValue placeholder="Selecione um líder" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="null">Nenhum</SelectItem>
-                {users.map(user => (
-                  <SelectItem key={user.id} value={user.id}>
-                    {user.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <PersonSearchInput
+              value={leaderId}
+              onChange={setLeaderId}
+              users={users}
+              placeholder="Buscar líder..."
+              optional
+            />
           </div>
            <div>
             <Label htmlFor="leader-contact">Contato do Líder (Opcional)</Label>

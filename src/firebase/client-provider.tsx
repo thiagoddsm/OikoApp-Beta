@@ -14,6 +14,14 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
     return initializeFirebase();
   }, []); // Empty dependency array ensures this runs only once on mount
 
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then((reg) => console.log('Service Worker registrado com sucesso:', reg.scope))
+        .catch((err) => console.error('Erro ao registrar o Service Worker:', err));
+    }
+  }, []);
+
   return (
     <FirebaseProvider
       firebaseApp={firebaseServices.firebaseApp}

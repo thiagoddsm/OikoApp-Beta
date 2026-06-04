@@ -97,7 +97,7 @@ export async function sendWelcomeMessage(userName: string, phone: string, config
 /**
  * Sends a message when a student is enrolled in a class.
  */
-export async function sendEnrollmentMessage(userName: string, phone: string, className: string, configOverride?: any) {
+export async function sendEnrollmentMessage(userName: string, phone: string, courseName: string, className: string, configOverride?: any) {
     try {
         const config = configOverride || await getWhatsAppConfig();
         if (!config || !config.enabled || !config.notifyEnrollment) return { success: false };
@@ -108,7 +108,13 @@ export async function sendEnrollmentMessage(userName: string, phone: string, cla
         });
         const formattedPhone = formatWhatsAppNumber(phone);
         
-        const message = `Olá *${userName}*! Você foi matriculado(a) na turma *${className}*. 📚 Prepare seu coração para este tempo de aprendizado! Em breve passaremos mais informações.`;
+        // Formatar o nome para primeiro nome capitalizado
+        const firstName = userName
+            ? (userName.trim().split(' ')[0].charAt(0).toUpperCase() + userName.trim().split(' ')[0].slice(1).toLowerCase())
+            : 'Membro';
+
+        let classInfo = className ? ` na turma *${className}*` : '';
+        const message = `Olá *${firstName}*! Sua inscrição no curso *${courseName}*${classInfo} foi confirmada! 📚 Prepare seu coração para este tempo de aprendizado! Em breve passaremos mais informações.`;
 
         const response = await whatsapp.sendMessage({
             type: "TEXT",

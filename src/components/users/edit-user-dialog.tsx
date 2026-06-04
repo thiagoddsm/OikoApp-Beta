@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Loader2 } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useDoc, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { useCollection } from '@/firebase/firestore/use-collection';
@@ -25,6 +25,9 @@ import { userRoles } from '@/lib/roles';
 import { journeyColumns } from '@/components/users/journey-status-config';
 import { sendWelcomeMessage } from '@/app/actions/whatsapp-actions';
 import { Textarea } from '../ui/textarea';
+import { formatName } from '@/lib/utils';
+import { GooglePlacesAutocomplete } from '@/components/common/google-places-autocomplete';
+import { addTimelineEvent, INTEGRATION_STATUS_TO_EVENT } from '@/lib/timeline';
 
 type User = {
   id: string;
@@ -35,13 +38,19 @@ type User = {
   integrationStatus?: string;
   cpf?: string;
   sexo?: string;
+  gender?: string;
   escolaridade?: string;
   profissao?: string;
+  professional?: {
+    educationLevel?: string;
+    profession?: string;
+  };
   dataNascimento?: string;
   estadoCivil?: string;
   address?: {
     street?: string;
     cep?: string;
+    location?: any;
   };
   hierarchy?: {
     role?: string;
@@ -63,6 +72,16 @@ type User = {
   contatoTurno?: string[];
   observacoes?: string;
   tags?: string[];
+  conjuge?: string;
+  statusArrolamento?: string;
+  dataArrolamento?: string;
+  dataBatismo?: string;
+  veiculo?: {
+    placa?: string;
+    marca?: string;
+    modelo?: string;
+    cor?: string;
+  };
 };
 
 type Cell = {
@@ -105,6 +124,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
     profissao: '',
     addressStreet: '',
     addressCep: '',
+    addressLocation: null as { latitude: number; longitude: number } | null,
     batizado: 'nao',
     igrejaBatismo: '',
     membroAntigo: 'nao',
@@ -125,21 +145,49 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
     celulaId: '',
     supervisorId: '',
     tags: '',
+    conjuge: '',
+    statusArrolamento: '',
+    dataArrolamento: '',
+    dataBatismo: '',
+    veiculoPlaca: '',
+    veiculoMarca: '',
+    veiculoModelo: '',
+    veiculoCor: '',
   });
   
   const cellsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells')) : null, [firestore]);
   const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>(cellsQuery);
-
+ 
   const allUsersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
   const { data: allUsers, isLoading: isLoadingUsers } = useCollection<User>(allUsersQuery);
-
+ 
   const supervisors = useMemo(() => {
     if (!allUsers) return [];
     const leaderRoles = ['lider_gc', 'lider_area', 'lider_rede', 'pastor', 'pastor_senior', 'admin'];
     return allUsers.filter(u => u.hierarchy?.role && leaderRoles.includes(u.hierarchy.role));
   }, [allUsers]);
-
-
+ 
+  const [supervisorSearch, setSupervisorSearch] = useState('');
+  const [showSupervisorResults, setShowSupervisorResults] = useState(false);
+ 
+  const filteredSupervisors = useMemo(() => {
+    if (!supervisorSearch) return supervisors;
+    const term = supervisorSearch.toLowerCase();
+    return supervisors.filter(s => s.name?.toLowerCase().includes(term));
+  }, [supervisors, supervisorSearch]);
+ 
+  useEffect(() => {
+    if (formData.supervisorId && formData.supervisorId !== 'null' && supervisors.length > 0) {
+      const found = supervisors.find(s => s.id === formData.supervisorId);
+      if (found) {
+        setSupervisorSearch(found.name);
+      }
+    } else if (!formData.supervisorId || formData.supervisorId === 'null') {
+      setSupervisorSearch('');
+    }
+  }, [formData.supervisorId, supervisors]);
+ 
+ 
   useEffect(() => {
     if (user) {
       setFormData({
@@ -147,13 +195,14 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         phone: user.phone || '',
         email: user.email || '',
         cpf: user.cpf || '',
-        sexo: user.sexo || '',
-        escolaridade: user.escolaridade || '',
-        profissao: user.profissao || '',
+        sexo: user.sexo || user.gender || '',
+        escolaridade: user.escolaridade || user.professional?.educationLevel || '',
+        profissao: user.profissao || user.professional?.profession || '',
         dataNascimento: user.dataNascimento || '',
         estadoCivil: user.estadoCivil || '',
         addressStreet: user.address?.street || '',
         addressCep: user.address?.cep || '',
+        addressLocation: user.address?.location || null,
         integrationStatus: user.integrationStatus || 'nao_alcancado',
         role: user.hierarchy?.role || '',
         celulaId: user.hierarchy?.celulaId || '',
@@ -173,6 +222,14 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         contatoTurno: user.contatoTurno || [],
         observacoes: user.observacoes || '',
         tags: (user.tags || []).join(', '),
+        conjuge: user.conjuge || '',
+        statusArrolamento: user.statusArrolamento || '',
+        dataArrolamento: user.dataArrolamento || '',
+        dataBatismo: user.dataBatismo || '',
+        veiculoPlaca: user.veiculo?.placa || '',
+        veiculoMarca: user.veiculo?.marca || '',
+        veiculoModelo: user.veiculo?.modelo || '',
+        veiculoCor: user.veiculo?.cor || '',
       });
     } else {
       setFormData({
@@ -186,6 +243,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         profissao: '',
         addressStreet: '',
         addressCep: '',
+        addressLocation: null,
         batizado: 'nao',
         igrejaBatismo: '',
         membroAntigo: 'nao',
@@ -206,6 +264,14 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         celulaId: '',
         supervisorId: '',
         tags: '',
+        conjuge: '',
+        statusArrolamento: '',
+        dataArrolamento: '',
+        dataBatismo: '',
+        veiculoPlaca: '',
+        veiculoMarca: '',
+        veiculoModelo: '',
+        veiculoCor: '',
       });
     }
   }, [user, open]);
@@ -213,6 +279,34 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleAddressSelect = (place: any) => {
+    let cep = '';
+    const street = place.formatted_address || '';
+    
+    if (place.address_components) {
+      for (const component of place.address_components) {
+        if (component.types.includes('postal_code')) {
+          cep = component.long_name.replace(/\D/g, '');
+        }
+      }
+    }
+    
+    let coords: { latitude: number; longitude: number } | null = null;
+    if (place.geometry?.location) {
+      coords = {
+        latitude: place.geometry.location.lat(),
+        longitude: place.geometry.location.lng()
+      };
+    }
+    
+    setFormData(prev => ({
+      ...prev,
+      addressStreet: street,
+      addressCep: cep || prev.addressCep,
+      addressLocation: coords || prev.addressLocation
+    }));
   };
   
   const handleRadioChange = (name: string, value: string) => {
@@ -245,10 +339,10 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
     }
     if (!formData.name) {
          toast({
-            variant: 'destructive',
-            title: 'Campo Obrigatório',
-            description: 'O nome é obrigatório.',
-        });
+             variant: 'destructive',
+             title: 'Campo Obrigatório',
+             description: 'O nome é obrigatório.',
+         });
         return;
     }
     setIsSaving(true);
@@ -265,18 +359,24 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
     }
     
     const dataToSave = {
-        name: formData.name,
+        name: formatName(formData.name),
         phone: formData.phone,
         email: formData.email,
         cpf: formData.cpf,
         sexo: formData.sexo,
+        gender: formData.sexo || null,
         escolaridade: formData.escolaridade,
         profissao: formData.profissao,
+        professional: {
+            educationLevel: formData.escolaridade || null,
+            profession: formData.profissao || null
+        },
         dataNascimento: formData.dataNascimento,
         estadoCivil: formData.estadoCivil,
         address: {
             street: formData.addressStreet,
             cep: formData.addressCep,
+            location: formData.addressLocation || null
         },
         integrationStatus: finalIntegrationStatus,
         hierarchy: {
@@ -294,17 +394,78 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         temFilhos: formData.temFilhos,
         idadeFilhos: formData.idadeFilhos,
         comoConheceu: formData.comoConheceu,
-        nomeConvidou: formData.nomeConvidou,
+        nomeConvidou: formData.nomeConvidou ? formatName(formData.nomeConvidou) : '',
         contatoPreferencia: formData.contatoPreferencia,
         contatoTurno: formData.contatoTurno,
         observacoes: formData.observacoes,
         tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '') : [],
+        conjuge: formData.conjuge ? formatName(formData.conjuge) : null,
+        statusArrolamento: formData.statusArrolamento || null,
+        dataArrolamento: formData.dataArrolamento || null,
+        dataBatismo: formData.dataBatismo || null,
+        veiculo: (formData.veiculoPlaca || formData.veiculoMarca || formData.veiculoModelo || formData.veiculoCor) ? {
+            placa: formData.veiculoPlaca || null,
+            marca: formData.veiculoMarca || null,
+            modelo: formData.veiculoModelo || null,
+            cor: formData.veiculoCor || null,
+        } : null,
     };
 
     try {
         if(isEditing && user) {
             const userDocRef = doc(firestore, 'users', user.id);
             updateDocumentNonBlocking(userDocRef, dataToSave);
+
+            // ── Triggers da Linha do Tempo ──────────────────────────────────
+            const authorId = currentUser?.uid ?? 'system';
+
+            // 1. Mudança de status eclesiástico (integrationStatus)
+            const prevStatus = user.integrationStatus ?? 'nao_alcancado';
+            if (finalIntegrationStatus && finalIntegrationStatus !== prevStatus) {
+                const statusEvent = INTEGRATION_STATUS_TO_EVENT[finalIntegrationStatus];
+                if (statusEvent) {
+                    addTimelineEvent(user.id, firestore, {
+                        category: 'ecclesiastical_status',
+                        entityTitle: statusEvent.description,
+                        eventDescription: statusEvent.description,
+                        statusBadge: statusEvent.badge,
+                        source: 'automatic',
+                        authorId,
+                    }).catch(console.error);
+                }
+            }
+
+            // 2. Mudança de célula (GC)
+            const prevCelulaId = user.hierarchy?.celulaId ?? '';
+            const newCelulaId = formData.celulaId ?? '';
+            if (newCelulaId !== prevCelulaId) {
+                // Encontrar o nome da célula
+                const cell = cells?.find(c => c.id === newCelulaId);
+                const cellName = cell?.nome ?? (newCelulaId ? 'Célula' : '');
+
+                let gcDescription = '';
+                if (!prevCelulaId && newCelulaId) {
+                    gcDescription = 'INICIOU COMO PARTICIPANTE';
+                } else if (prevCelulaId && newCelulaId && prevCelulaId !== newCelulaId) {
+                    gcDescription = 'TRANSFERIDO DE CÉLULA';
+                } else if (prevCelulaId && !newCelulaId) {
+                    gcDescription = 'DEIXOU DE PARTICIPAR';
+                }
+
+                if (gcDescription) {
+                    const prevCell = cells?.find(c => c.id === prevCelulaId);
+                    addTimelineEvent(user.id, firestore, {
+                        category: 'gc',
+                        entityTitle: newCelulaId ? cellName : (prevCell?.nome ?? 'GC'),
+                        eventDescription: gcDescription,
+                        relatedId: newCelulaId || prevCelulaId,
+                        source: 'automatic',
+                        authorId,
+                    }).catch(console.error);
+                }
+            }
+            // ── Fim dos triggers ────────────────────────────────────────────
+
         } else {
             const usersCollection = collection(firestore, 'users');
             addDocumentNonBlocking(usersCollection, {
@@ -414,7 +575,11 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                   </div>
                   <div className="space-y-1.5">
                       <Label htmlFor="addressStreet">Endereço (Rua e Nº)</Label>
-                      <Input id="addressStreet" name="addressStreet" value={formData.addressStreet} onChange={handleInputChange} placeholder="Rua das Flores, 123" />
+                      <GooglePlacesAutocomplete
+                        defaultValue={formData.addressStreet}
+                        onAddressSelect={handleAddressSelect}
+                        placeholder="Rua das Flores, 123"
+                      />
                   </div>
                   <div className="space-y-1.5">
                       <Label htmlFor="estadoCivil">Estado Civil</Label>
@@ -429,6 +594,12 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                           </SelectContent>
                       </Select>
                   </div>
+                  {(formData.estadoCivil === 'Casado(a)' || formData.estadoCivil === 'União Estável') && (
+                       <div className="space-y-1.5 animate-in fade-in-50">
+                           <Label htmlFor="conjuge">Nome do Cônjuge</Label>
+                           <Input id="conjuge" name="conjuge" value={formData.conjuge} onChange={handleInputChange} placeholder="Nome do cônjuge..." />
+                       </div>
+                   )}
                   <div className="space-y-1.5">
                       <Label>Possui filho(s)?</Label>
                       <RadioGroup value={formData.temFilhos} onValueChange={(v) => handleRadioChange('temFilhos', v)} className="flex items-center gap-4"><RadioGroupItem value="sim" id="filhos-sim" /><Label htmlFor="filhos-sim">Sim</Label><RadioGroupItem value="nao" id="filhos-nao" /><Label htmlFor="filhos-nao">Não</Label></RadioGroup>
@@ -444,7 +615,12 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                       <Label>Batizado?</Label>
                       <RadioGroup value={formData.batizado} onValueChange={(v) => handleRadioChange('batizado', v)} className="flex items-center gap-4"><RadioGroupItem value="sim" id="batizado-sim" /><Label htmlFor="batizado-sim">Sim</Label><RadioGroupItem value="nao" id="batizado-nao" /><Label htmlFor="batizado-nao">Não</Label></RadioGroup>
                   </div>
-                  {formData.batizado === 'sim' && <div className="space-y-1.5"><Label htmlFor="igrejaBatismo">Qual igreja foi batizado?</Label><Input id="igrejaBatismo" name="igrejaBatismo" value={formData.igrejaBatismo} onChange={handleInputChange}/></div>}
+                  {formData.batizado === 'sim' && (
+                       <>
+                           <div className="space-y-1.5"><Label htmlFor="igrejaBatismo">Qual igreja foi batizado?</Label><Input id="igrejaBatismo" name="igrejaBatismo" value={formData.igrejaBatismo} onChange={handleInputChange}/></div>
+                           <div className="space-y-1.5"><Label htmlFor="dataBatismo">Data do Batismo</Label><Input id="dataBatismo" name="dataBatismo" type="date" value={formData.dataBatismo} onChange={handleInputChange}/></div>
+                       </>
+                   )}
 
                   <div className="space-y-1.5">
                       <Label>Veio de outra igreja?</Label>
@@ -452,6 +628,22 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                   </div>
                   {formData.membroAntigo === 'sim' && <div className="space-y-1.5"><Label htmlFor="igrejaAntiga">Qual o nome da igreja de origem?</Label><Input id="igrejaAntiga" name="igrejaAntiga" value={formData.igrejaAntiga} onChange={handleInputChange}/></div>}
                   
+                  <div className="space-y-1.5">
+                      <Label htmlFor="statusArrolamento">Status de Arrolamento</Label>
+                      <Select value={formData.statusArrolamento} onValueChange={(v) => handleSelectChange('statusArrolamento', v)}>
+                          <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="Visitante">Visitante</SelectItem>
+                              <SelectItem value="Participante">Participante</SelectItem>
+                              <SelectItem value="Membro">Membro</SelectItem>
+                          </SelectContent>
+                      </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                      <Label htmlFor="dataArrolamento">Data do Arrolamento</Label>
+                      <Input id="dataArrolamento" name="dataArrolamento" type="date" value={formData.dataArrolamento} onChange={handleInputChange} />
+                  </div>
+
                   <div className="space-y-1.5">
                       <Label htmlFor="initialStatus">Status Inicial *</Label>
                       <Select value={formData.initialStatus} onValueChange={(v) => handleSelectChange('initialStatus', v)}>
@@ -540,18 +732,94 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                           </SelectContent>
                       </Select>
                   </div>
-                  <div className="space-y-1.5">
-                      <Label htmlFor="supervisorId">Responsável pelo Acompanhamento</Label>
-                      <Select value={formData.supervisorId} onValueChange={(v) => handleSelectChange('supervisorId', v)} disabled={isLoadingUsers}>
-                          <SelectTrigger><SelectValue placeholder={isLoadingUsers ? "Carregando..." : "Selecione o responsável..."} /></SelectTrigger>
-                          <SelectContent>
-                              <SelectItem value="null">Nenhum</SelectItem>
-                              {supervisors?.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                          </SelectContent>
-                      </Select>
-                  </div>
+                   <div className="space-y-1.5 relative">
+                       <Label htmlFor="supervisorSearch">Responsável pelo Acompanhamento</Label>
+                       <div className="relative">
+                           <Input 
+                               id="supervisorSearch" 
+                               value={supervisorSearch} 
+                               onChange={(e) => {
+                                   setSupervisorSearch(e.target.value);
+                                   setShowSupervisorResults(true);
+                               }}
+                               onFocus={() => setShowSupervisorResults(true)}
+                               onBlur={() => {
+                                   // Delay closure to allow item click selection to register
+                                   setTimeout(() => setShowSupervisorResults(false), 200);
+                               }}
+                               placeholder="Digite para buscar o responsável..."
+                               disabled={isLoadingUsers}
+                           />
+                           {supervisorSearch && (
+                               <button 
+                                   type="button" 
+                                   onClick={() => {
+                                       setSupervisorSearch('');
+                                       handleSelectChange('supervisorId', 'null');
+                                       setShowSupervisorResults(false);
+                                   }}
+                                   className="absolute right-2.5 top-2.5 text-muted-foreground hover:text-foreground"
+                               >
+                                   <X className="size-4" />
+                               </button>
+                           )}
+                       </div>
+                       {showSupervisorResults && (
+                           <div className="absolute z-50 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                               <div 
+                                   onClick={() => {
+                                       setSupervisorSearch('');
+                                       handleSelectChange('supervisorId', 'null');
+                                       setShowSupervisorResults(false);
+                                   }}
+                                   className="px-3 py-2 text-sm text-muted-foreground hover:bg-slate-100 cursor-pointer font-medium"
+                               >
+                                   Nenhum
+                               </div>
+                               {filteredSupervisors.length === 0 ? (
+                                   <div className="px-3 py-2 text-sm text-muted-foreground italic">Nenhum responsável encontrado</div>
+                               ) : (
+                                   filteredSupervisors.map(s => (
+                                       <div 
+                                           key={s.id}
+                                           onClick={() => {
+                                               setSupervisorSearch(s.name);
+                                               handleSelectChange('supervisorId', s.id);
+                                               setShowSupervisorResults(false);
+                                           }}
+                                           className="px-3 py-2 text-sm text-slate-800 hover:bg-slate-100 cursor-pointer font-medium"
+                                       >
+                                           {s.name}
+                                       </div>
+                                   ))
+                               )}
+                           </div>
+                       )}
+                   </div>
               </div>
           </section>
+
+           <section className="space-y-4 p-4 border rounded-lg">
+               <h4 className="font-semibold text-primary border-b pb-2">Dados do Veículo</h4>
+               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                   <div className="space-y-1.5">
+                       <Label htmlFor="veiculoPlaca">Placa do Veículo</Label>
+                       <Input id="veiculoPlaca" name="veiculoPlaca" value={formData.veiculoPlaca} onChange={handleInputChange} placeholder="Ex: ABC1D23" />
+                   </div>
+                   <div className="space-y-1.5">
+                       <Label htmlFor="veiculoMarca">Marca</Label>
+                       <Input id="veiculoMarca" name="veiculoMarca" value={formData.veiculoMarca} onChange={handleInputChange} placeholder="Ex: Toyota" />
+                   </div>
+                   <div className="space-y-1.5">
+                       <Label htmlFor="veiculoModelo">Modelo</Label>
+                       <Input id="veiculoModelo" name="veiculoModelo" value={formData.veiculoModelo} onChange={handleInputChange} placeholder="Ex: Corolla" />
+                   </div>
+                   <div className="space-y-1.5">
+                       <Label htmlFor="veiculoCor">Cor</Label>
+                       <Input id="veiculoCor" name="veiculoCor" value={formData.veiculoCor} onChange={handleInputChange} placeholder="Ex: Prata" />
+                   </div>
+               </div>
+           </section>
 
           <section className="space-y-4 p-4 border rounded-lg">
               <h4 className="font-semibold text-primary border-b pb-2">Tags e Categorização</h4>

@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react';
 import { useVolunteering, type DisPayment } from '@/contexts/volunteering-context';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
+import { PersonSearchInput } from '@/components/common/person-search-input';
 
 interface DisPaymentFormDialogProps {
   open: boolean;
@@ -85,12 +86,14 @@ export function DisPaymentFormDialog({ open, onOpenChange, existingPayment }: Di
         <div className="space-y-4 py-4">
           <div>
             <Label htmlFor="user-id">Aluno do Curso</Label>
-            <Select value={userId} onValueChange={setUserId} disabled={isLoading}>
-                <SelectTrigger id="user-id"><SelectValue placeholder="Selecione um aluno..." /></SelectTrigger>
-                <SelectContent>
-                    {users.map(user => <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>)}
-                </SelectContent>
-            </Select>
+            <div className="mt-1">
+              <PersonSearchInput
+                value={userId}
+                onChange={setUserId}
+                users={users}
+                placeholder="Buscar aluno..."
+              />
+            </div>
           </div>
           <div>
             <Label htmlFor="plan-id">Plano Selecionado</Label>
