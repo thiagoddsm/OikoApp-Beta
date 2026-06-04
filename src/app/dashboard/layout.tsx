@@ -409,7 +409,7 @@ export default function DashboardLayout({
           </aside>
 
           {/* --- Main Content --- */}
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col h-screen overflow-hidden">
              <header className="flex h-16 items-center gap-4 border-b bg-white px-6 sticky top-0 z-30">
                 <MobileMenu 
                     pathname={pathname} 
