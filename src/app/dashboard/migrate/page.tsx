@@ -138,9 +138,9 @@ export default function MigrateCrescer() {
         getDocs(collection(firestore, 'users'))
       ]);
 
-      const courses = coursesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const classes = classesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const users = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const courses: any[] = coursesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const classes: any[] = classesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const users: any[] = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
       addLog(`✅ Carregados: ${courses.length} cursos, ${classes.length} turmas, ${users.length} usuários\n`);
 

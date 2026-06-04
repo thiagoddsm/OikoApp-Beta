@@ -1,11 +1,11 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getPixQrCode } from '@/lib/asaas';
 
 export const runtime = 'nodejs';
 
 export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ id: string }> }
+  _request: NextRequest,
+  { params }: { params: any }
 ) {
   try {
     const { id } = await params;
