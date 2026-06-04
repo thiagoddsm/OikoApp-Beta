@@ -346,11 +346,11 @@ export async function resolveUserProfile(params: {
       }, { merge: true });
 
       const legacyRef = db.collection('users').doc(uid);
-      batch.update(legacyRef, {
+      batch.set(legacyRef, {
         lastLoginAt: FieldValue.serverTimestamp(),
         ...(email ? { email } : {}),
         ...(displayName ? { name: displayName } : {})
-      });
+      }, { merge: true });
 
       await batch.commit();
       return { action: 'existing' };
