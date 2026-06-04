@@ -106,21 +106,82 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
     };
 
     const handleNotification = async (channel: 'email' | 'whatsapp', audience: 'all' | string) => {
+        const areaName = areaMap.get(areaId) || "Área Desconhecida";
+        const monthName = new Date(monthFilter + '-02').toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+
+        const scheduleData = schedule;
+        if (!scheduleData || !scheduleData.schedule) {
+            toast({
+                variant: 'destructive',
+                title: "Erro",
+                description: "Dados da escala não disponíveis."
+            });
+            return;
+        }
+
+        const uniqueMemberIds = Array.from(new Set(
+            scheduleData.schedule.flatMap((item: any) => item.memberIds || []) || []
+        ));
+
+        const volunteers = uniqueMemberIds
+            .map(id => users.find(u => u.id === id))
+            .filter((u): u is typeof users[0] => !!u && !!u.phone);
+
+        if (volunteers.length === 0) {
+            toast({
+                variant: 'destructive',
+                title: "Nenhum destinatário",
+                description: "Não há voluntários com telefone/e-mail cadastrado nesta escala."
+            });
+            return;
+        }
+
         toast({
             title: "Enviando Notificações...",
-            description: `A notificação por ${channel} para "${audience}" está sendo processada.`,
+            description: `Enviando lembretes de escala via ${channel === 'whatsapp' ? 'WhatsApp' : 'E-mail'} para ${volunteers.length} voluntários.`,
         });
 
-        const response = await fetch('/api/notifications/send', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ channel, audience, message: "Lembrete de escala..." }),
-        });
+        let successCount = 0;
+        let failCount = 0;
 
-        if(response.ok) {
-            toast({ title: "Notificações na Fila!", description: `As mensagens foram adicionadas à fila de envio.` });
+        for (const volunteer of volunteers) {
+            // Filtrar itens da escala em que este voluntário participa
+            const scheduledItems = scheduleData.schedule.filter((item: any) => item.memberIds.includes(volunteer.id));
+            const formattedDates = scheduledItems.map((item: any) => {
+                const day = getDayOfWeek(item.date);
+                return `• *${item.date}* (${day}) - *${item.eventName}*${item.teamName ? ` [Equipe ${item.teamName}]` : ''}`;
+            }).join('\n');
+
+            const personalizedMessage = `Olá, *${volunteer.name}*! 🗓️ Segue a sua escala de voluntariado na área de *${areaName}* para *${monthName}*:\n\n${formattedDates}\n\nContamos com você! Em caso de imprevistos, avise sua liderança o quanto antes.`;
+
+            try {
+                const response = await fetch('/api/notifications/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        channel,
+                        audience: 'specific_members',
+                        targets: [{ id: volunteer.id, name: volunteer.name, phone: volunteer.phone }],
+                        message: personalizedMessage
+                    }),
+                });
+
+                if (response.ok) {
+                    successCount++;
+                } else {
+                    failCount++;
+                }
+            } catch (error) {
+                failCount++;
+            }
+        }
+
+        if (failCount === 0) {
+            toast({ title: "Notificações enviadas!", description: `Todas as ${successCount} notificações foram enviadas.` });
+        } else if (successCount > 0) {
+            toast({ title: "Envio parcial", description: `${successCount} enviadas com sucesso, ${failCount} falharam.` });
         } else {
-             toast({ variant: 'destructive', title: "Erro", description: `Falha ao enviar notificações.` });
+            toast({ variant: 'destructive', title: "Erro", description: `Falha ao enviar notificações.` });
         }
     };
     
