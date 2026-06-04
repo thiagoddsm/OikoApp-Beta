@@ -174,9 +174,29 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
                     successCount++;
                 } else {
                     failCount++;
+                    try {
+                        const errBody = await response.json();
+                        console.error("Erro ao enviar para voluntário:", volunteer.name, errBody);
+                        toast({
+                            variant: 'destructive',
+                            title: `Falha no envio (${volunteer.name})`,
+                            description: errBody.error || "Erro desconhecido no gateway de envio."
+                        });
+                    } catch (e) {
+                        toast({
+                            variant: 'destructive',
+                            title: `Falha no envio (${volunteer.name})`,
+                            description: `Código HTTP: ${response.status}`
+                        });
+                    }
                 }
-            } catch (error) {
+            } catch (error: any) {
                 failCount++;
+                toast({
+                    variant: 'destructive',
+                    title: `Erro de rede (${volunteer.name})`,
+                    description: error.message || "Erro na conexão com o servidor."
+                });
             }
         }
 
