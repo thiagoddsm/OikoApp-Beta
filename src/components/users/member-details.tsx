@@ -75,12 +75,12 @@ export function MemberDetails({ user }: MemberDetailsProps) {
                 <div className="grid md:grid-cols-2 gap-x-8 gap-y-4">
                     <DetailItem icon={User} label="Nome" value={user.name} />
                     <DetailItem icon={IdCard} label="CPF" value={user.cpf || 'Não informado'} />
-                    <DetailItem icon={Users} label="Sexo" value={user.sexo || 'Não informado'} />
+                    <DetailItem icon={Users} label="Sexo" value={user.sexo || user.gender || 'Não informado'} />
                     <DetailItem icon={Mail} label="Email" value={user.email || 'Não informado'} />
                     <DetailItem icon={Phone} label="Telefone" value={user.phone || 'Não informado'} />
                     <DetailItem icon={Calendar} label="Nascimento" value={user.dataNascimento || 'Não informado'} />
-                    <DetailItem icon={GraduationCap} label="Escolaridade" value={user.escolaridade || 'Não informado'} />
-                    <DetailItem icon={Briefcase} label="Profissão" value={user.profissao || 'Não informado'} />
+                    <DetailItem icon={GraduationCap} label="Escolaridade" value={user.escolaridade || user.professional?.educationLevel || 'Não informado'} />
+                    <DetailItem icon={Briefcase} label="Profissão" value={user.profissao || user.professional?.profession || 'Não informado'} />
                     <DetailItem icon={Users} label="Estado Civil" value={user.estadoCivil || 'Não informado'} />
                     <DetailItem icon={MapPin} label="CEP" value={user.address?.cep || 'Não informado'} />
                     <DetailItem icon={Home} label="Endereço" value={user.address?.street || 'Não informado'} />

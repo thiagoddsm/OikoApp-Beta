@@ -164,6 +164,12 @@ function MenuItems({ pathname, permissions, userRole, onLinkClick }: MenuItemsPr
   const hasPermission = (permissionId: string | undefined, action: string = 'view') => {
     if (!permissionId) return true;
     if (userRole === 'admin') return true;
+    
+    const gcAccessRoles = ['lider_gc', 'lider_treinamento', 'colider', 'secretario', 'secretaria', 'lider'];
+    if ((permissionId === 'gcs_cells' || permissionId === 'gcs_report') && userRole && gcAccessRoles.includes(userRole)) {
+      return true;
+    }
+
     // Se não há perfil de acesso mas é uma rota liberada por padrão para membros
     if (!permissions) return DEFAULT_MEMBER_PERMISSIONS.has(permissionId);
     return !!permissions[permissionId]?.[action];
@@ -420,8 +426,8 @@ export default function DashboardLayout({
                         <span className="sr-only">Toggle navigation menu</span>
                     </Button>
                 </MobileMenu>
-                 <div className="w-full flex-1">
-                    <form>
+                 <div className="flex-1 flex items-center">
+                    <form className="hidden md:block w-full">
                         <div className="relative">
                             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                             <Input
@@ -431,6 +437,10 @@ export default function DashboardLayout({
                             />
                         </div>
                     </form>
+                    <Button variant="ghost" size="icon" className="md:hidden shrink-0">
+                        <Search className="h-5 w-5" />
+                        <span className="sr-only">Buscar</span>
+                    </Button>
                 </div>
                 <Button variant="ghost" size="icon" className="rounded-full">
                     <Moon className="h-5 w-5" />

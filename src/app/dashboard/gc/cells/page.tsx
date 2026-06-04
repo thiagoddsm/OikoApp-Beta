@@ -4,7 +4,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useCollection } from '@/firebase/firestore/use-collection';
-import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useMemoFirebase } from '@/firebase';
+import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, doc, query, deleteDoc } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -58,6 +58,8 @@ type Cell = {
   status?: 'active' | 'inactive' | 'growing';
   address?: { street: string; lat?: number; lng?: number; };
   anfitriaoElegiveiIds?: string[];
+  multiplicationDate?: string;
+  liderEAnfitriao?: boolean;
 };
 
 type Area = { id: string; nome: string; liderId: string; redeId: string; };
@@ -69,7 +71,18 @@ const cellStatusConfig = {
   inactive: { label: 'Inativa',        className: 'bg-slate-100 text-slate-500 border-slate-200' },
 };
 
-function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas, redes, existingCell }) {
+interface CreateOrEditCellDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  users: any[];
+  supervisors: any[];
+  areas: any[];
+  redes: any[];
+  existingCell: Cell | null;
+  isSupervisor: boolean;
+}
+
+function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas, redes, existingCell, isSupervisor }: CreateOrEditCellDialogProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
@@ -97,17 +110,17 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
 
   const availableAreas = useMemo(() => {
     if (!redeId || !areas) return [];
-    return areas.filter(a => a.redeId === redeId);
+    return areas.filter((a: any) => a.redeId === redeId);
   }, [redeId, areas]);
 
-  const areaMap = useMemo(() => new Map(areas?.map(a => [a.id, a]) || []), [areas]);
+  const areaMap = useMemo(() => new Map(areas?.map((a: any) => [a.id, a]) || []), [areas]);
 
   useEffect(() => {
     if (existingCell) {
       setNome(existingCell.nome || '');
       setLiderId(existingCell.liderId || '');
       setLiderCasalId(existingCell.liderCasalId || '');
-      setCoLideres(existingCell.coLideres || (existingCell.coLiderIds || []).map(id => ({ id })));
+      setCoLideres(existingCell.coLideres || (existingCell.coLiderIds || []).map((id: any) => ({ id })));
       setAnfitriaoId(existingCell.anfitriaoId || '');
       setAnfitriãoCasalId(existingCell.anfitriãoCasalId || '');
       setSecretariaId(existingCell.secretariaId || '');
@@ -134,10 +147,10 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
   }, [existingCell, open]);
   
   useEffect(() => {
-    if (areaId && !availableAreas.find(a => a.id === areaId)) setAreaId('');
+    if (areaId && !availableAreas.find((a: any) => a.id === areaId)) setAreaId('');
   }, [redeId, availableAreas, areaId]);
 
-  const handleAddressSelect = (place: google.maps.places.PlaceResult | null) => {
+  const handleAddressSelect = (place: any) => {
     if (place) {
       setStreet(place.formatted_address || '');
       if (place.geometry?.location) {
@@ -148,7 +161,7 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
   };
 
   const handleSave = async () => {
-    const selectedArea = areaMap.get(areaId);
+    const selectedArea = areaMap.get(areaId) as any;
     const supervisorId = selectedArea?.liderId;
     if (!nome || !liderId || !areaId || !redeId || !supervisorId) {
       toast({ variant: "destructive", title: "Campos obrigatórios", description: "Preencha todos os campos incluindo Rede e Área." });
@@ -222,16 +235,16 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
           {/* REDE + ÁREA */}
           <div className="grid grid-cols-4 items-center gap-4">
             <Label className="text-right">Rede</Label>
-            <Select value={redeId} onValueChange={setRedeId}>
+            <Select value={redeId} onValueChange={setRedeId} disabled={!isSupervisor}>
               <SelectTrigger className="col-span-3"><SelectValue placeholder="Selecione a Rede" /></SelectTrigger>
-              <SelectContent>{redes.map(r => <SelectItem key={r.id} value={r.id}>{r.nome}</SelectItem>)}</SelectContent>
+              <SelectContent>{redes.map((r: any) => <SelectItem key={r.id} value={r.id}>{r.nome}</SelectItem>)}</SelectContent>
             </Select>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label className="text-right">Área</Label>
-            <Select value={areaId} onValueChange={setAreaId} disabled={!redeId || availableAreas.length === 0}>
+            <Select value={areaId} onValueChange={setAreaId} disabled={!isSupervisor || !redeId || availableAreas.length === 0}>
               <SelectTrigger className="col-span-3"><SelectValue placeholder={!redeId ? "Selecione uma rede primeiro" : "Selecione a Área"} /></SelectTrigger>
-              <SelectContent>{availableAreas.map(a => <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>)}</SelectContent>
+              <SelectContent>{availableAreas.map((a: any) => <SelectItem key={a.id} value={a.id}>{a.nome}</SelectItem>)}</SelectContent>
             </Select>
           </div>
 
@@ -268,8 +281,8 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
             </div>
             <div className="col-span-3 space-y-2">
               {coLideres.map((cl, idx) => {
-                const clUser = users.find(u => u.id === cl.id);
-                const spouseUser = cl.casalId ? users.find(u => u.id === cl.casalId) : null;
+                const clUser = users.find((u: any) => u.id === cl.id);
+                const spouseUser = cl.casalId ? users.find((u: any) => u.id === cl.casalId) : null;
                 return (
                   <div key={cl.id} className="border rounded-lg p-2.5 space-y-2 bg-muted/20">
                     <div className="flex items-center gap-2">
@@ -334,8 +347,8 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
                 </Label>
                 {liderEAnfitriao && liderId && (
                   <span className="text-xs text-primary font-bold">
-                    {users.find(u => u.id === liderId)?.name || '—'}
-                    {liderCasalId && ` & ${users.find(u => u.id === liderCasalId)?.name || ''}`}
+                    {users.find((u: any) => u.id === liderId)?.name || '—'}
+                    {liderCasalId && ` & ${users.find((u: any) => u.id === liderCasalId)?.name || ''}`}
                   </span>
                 )}
               </div>
@@ -381,7 +394,7 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
               {memberSearch.trim() && (
                 <ScrollArea className="h-40 w-full rounded-md border p-2">
                   <div className="space-y-1">
-                    {users.filter(u => u.id !== liderId && u.name?.toLowerCase().includes(memberSearch.toLowerCase())).slice(0, 10).map(user => (
+                    {users.filter((u: any) => u.id !== liderId && u.name?.toLowerCase().includes(memberSearch.toLowerCase())).slice(0, 10).map((user: any) => (
                       <div key={user.id} className="flex items-center gap-2 py-0.5">
                         <Checkbox id={`member-${user.id}`} checked={selectedMembers.includes(user.id)}
                           onCheckedChange={checked => setSelectedMembers(prev => checked ? [...prev, user.id] : prev.filter(id => id !== user.id))} />
@@ -411,11 +424,11 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
               {anfitriaoElegiveiIds.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {anfitriaoElegiveiIds.map(id => {
-                    const u = users.find(x => x.id === id);
+                    const u = users.find((x: any) => x.id === id);
                     return u ? (
                       <div key={id} className="flex items-center gap-1 bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-full px-2 py-0.5 text-[11px] font-semibold">
                         {u.name}
-                        <button type="button" onClick={() => setAnfitriaoElegiveiIds(prev => prev.filter(x => x !== id))} className="hover:text-destructive ml-0.5">✕</button>
+                        <button type="button" onClick={() => setAnfitriaoElegiveiIds(prev => prev.filter((x: any) => x !== id))} className="hover:text-destructive ml-0.5">✕</button>
                       </div>
                     ) : null;
                   })}
@@ -461,11 +474,17 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
 
 
 export default function CellsPage() {
-  const { firestore } = useFirebase();
+  const { firestore, user } = useFirebase();
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [editingCell, setEditingCell] = useState<Cell | null>(null);
   const [deletingCell, setDeletingCell] = useState<Cell | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const { data: userData } = useDoc<{ hierarchy?: { role?: string; celulaId?: string; }; }>(
+    user ? `users/${user.uid}` : null
+  );
+  const userRole = userData?.hierarchy?.role;
+  const isSupervisor = ['lider_area', 'lider_rede', 'pastor', 'pastor_senior', 'admin'].includes(userRole || '');
 
   // ── Filtros ──────────────────────────────────────────────────────────────
   const [filterName, setFilterName] = useState('');
@@ -508,7 +527,18 @@ export default function CellsPage() {
   // Células filtradas
   const filteredCells = useMemo(() => {
     if (!cells) return [];
-    return cells.filter(cell => {
+    
+    let baseCells = cells;
+    if (user && !isSupervisor) {
+      baseCells = cells.filter(cell => 
+        cell.liderId === user.uid || 
+        cell.coLiderIds?.includes(user.uid) || 
+        cell.secretariaId === user.uid ||
+        userData?.hierarchy?.celulaId === cell.id
+      );
+    }
+
+    return baseCells.filter(cell => {
       if (filterName && !cell.nome?.toLowerCase().includes(filterName.toLowerCase())) return false;
       if (filterRedeId && cell.redeId !== filterRedeId) return false;
       if (filterAreaId && cell.areaId !== filterAreaId) return false;
@@ -516,7 +546,7 @@ export default function CellsPage() {
       if (filterStatus && (cell.status || 'active') !== filterStatus) return false;
       return true;
     });
-  }, [cells, filterName, filterRedeId, filterAreaId, filterLiderId, filterStatus]);
+  }, [cells, filterName, filterRedeId, filterAreaId, filterLiderId, filterStatus, isSupervisor, user, userData]);
 
   const hasActiveFilters = filterName || filterRedeId || filterAreaId || filterLiderId || filterStatus;
   const clearFilters = () => { setFilterName(''); setFilterRedeId(''); setFilterAreaId(''); setFilterLiderId(''); setFilterStatus(''); };
@@ -542,10 +572,12 @@ export default function CellsPage() {
           <CardTitle className="text-lg font-black">Gestão de Células</CardTitle>
           <CardDescription>Visualize, crie e edite as células e sua estrutura hierárquica.</CardDescription>
         </div>
-        <Button onClick={() => { setEditingCell(null); setDialogOpen(true); }}>
-          <PlusCircle className="mr-2 h-4 w-4"/>
-          Criar Célula
-        </Button>
+        {isSupervisor && (
+          <Button onClick={() => { setEditingCell(null); setDialogOpen(true); }}>
+            <PlusCircle className="mr-2 h-4 w-4"/>
+            Criar Célula
+          </Button>
+        )}
       </CardHeader>
 
       {/* ── BARRA DE FILTROS ─────────────────────────────────────────────── */}
@@ -778,9 +810,11 @@ export default function CellsPage() {
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingCell(cell); setDialogOpen(true); }}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => setDeletingCell(cell)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          {isSupervisor && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => setDeletingCell(cell)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -802,6 +836,7 @@ export default function CellsPage() {
         areas={areas}
         redes={redes}
         existingCell={editingCell}
+        isSupervisor={isSupervisor}
       />
     )}
 

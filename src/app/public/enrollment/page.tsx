@@ -769,7 +769,7 @@ function EnrollmentForm() {
                                                     trailFilter === 'discipulado' ? 'Discipulado' : ''
                                                 }
                                             </h4>
-                                            <Button variant="ghost" size="xs" onClick={() => setTrailFilter(null)} className="h-7 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-primary">
+                                            <Button variant="ghost" size="sm" onClick={() => setTrailFilter(null)} className="h-7 text-[10px] font-bold uppercase tracking-widest text-muted-foreground hover:text-primary">
                                                 <ChevronLeft className="mr-1 size-3" /> Outro Trilho
                                             </Button>
                                         </div>

@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, where, doc, writeBatch, Timestamp, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch, Timestamp, serverTimestamp, getDocs } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,11 +13,12 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Loader2, Send, Users, Heart, BarChart2, MessageSquare,
   ChevronRight, ChevronLeft, CheckCircle2, AlertTriangle,
-  Flame, HandHeart, UserX, UserCheck
+  Flame, HandHeart, UserX, UserCheck, History
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
+import { format, parseISO } from 'date-fns';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type PresenceStatus = 'presente' | 'ausente_justificado' | 'ausente_sem_justificativa' | 'visitante';
@@ -40,6 +41,14 @@ type Cell = {
   supervisorId?: string;
   meetingDay?: string;
   membros: string[];
+  visitors?: {
+    id: string;
+    name: string;
+    phone?: string;
+    firstVisitDate?: string;
+    origin?: string;
+    consolidationStatus?: string;
+  }[];
 };
 
 // ─── Utilitário: última data de reunião ────────────────────────────────────────
@@ -247,16 +256,9 @@ function StepMetricas({ data, onChange, reportDate, onDateChange }: {
     .filter(v => v.length > 0).length;
   return (
     <div className="space-y-5">
-      <div className="space-y-2">
-        <Label htmlFor="reportDate">Data da Reunião</Label>
-        <input
-          id="reportDate"
-          type="date"
-          value={reportDate}
-          onChange={e => onDateChange(e.target.value)}
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        />
-        <p className="text-[11px] text-muted-foreground">Data calculada automaticamente com base no dia de reunião da célula. Ajuste se necessário.</p>
+      <div className="space-y-2 bg-slate-50 p-3 rounded-lg border border-slate-100">
+        <p className="text-xs text-slate-500 font-bold uppercase">Data da Reunião Selecionada</p>
+        <p className="text-sm font-semibold text-slate-800">📅 {reportDate ? format(parseISO(reportDate), "dd/MM/yyyy") : "—"}</p>
       </div>
       <div className="space-y-2">
         <Label htmlFor="licao">Lição / Tema da Reunião</Label>
@@ -308,6 +310,7 @@ export default function CellReportPage() {
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
 
   // Role do usuário logado
   const { data: userData } = useDoc<{ hierarchy?: { role?: string } }>(
@@ -372,6 +375,75 @@ export default function CellReportPage() {
   }, [firestore, cell]);
   const { data: members, isLoading: l4 } = useCollection<UserProfile>(membersQuery);
 
+  const recentLogsQuery = useMemoFirebase(() => {
+    if (!firestore || !cell) return null;
+    return query(collection(firestore, 'reuniao_logs'), where('cellId', '==', cell.id));
+  }, [firestore, cell]);
+
+  const { data: rawRecentLogs, isLoading: isLoadingRecentLogs } = useCollection<any>(recentLogsQuery);
+
+  const recentLogs = useMemo(() => {
+    if (!rawRecentLogs) return [];
+    return [...rawRecentLogs]
+      .sort((a, b) => b.date.localeCompare(a.date))
+      .slice(0, 5);
+  }, [rawRecentLogs]);
+
+  const handleEditLog = async (log: any) => {
+    if (!firestore) return;
+    setEditingLogId(log.id);
+    setReportDate(log.date);
+    setMetricas({
+      licao: log.licaoMinistrada || '',
+      visitantes: log.visitantesNomes || '',
+      conversoes: log.metricas?.conversoes || 0,
+    });
+    setFeedback(log.feedbackAoSupervisor || '');
+
+    try {
+      const presDocs = await getDocs(
+        query(
+          collection(firestore, 'presencas_historico'),
+          where('reuniaoLogId', '==', log.id)
+        )
+      );
+      
+      const presList: MemberAttendance[] = [];
+      presDocs.forEach(d => {
+        const data = d.data();
+        presList.push({
+          membroId: data.membroId,
+          membroNome: data.membroNome,
+          status: data.status,
+          termometro: data.termometro || null,
+          pedidoOracao: data.pedidoOracao || '',
+          observacaoCuidado: data.observacaoCuidado || '',
+        });
+      });
+
+      if (members) {
+        const finalAttendance = members.map(m => {
+          const match = presList.find(p => p.membroId === m.id);
+          if (match) return match;
+          return {
+            membroId: m.id,
+            membroNome: m.name,
+            status: 'presente' as const,
+            termometro: null,
+            pedidoOracao: '',
+            observacaoCuidado: '',
+          };
+        });
+        setAttendance(finalAttendance);
+      }
+      
+      setStep(1);
+      toast({ title: 'Relatório carregado!', description: 'Você pode editar as informações e salvar novamente.' });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Erro ao carregar presenças', description: err.message });
+    }
+  };
+
   // Estado da chamada
   const [attendance, setAttendance] = useState<MemberAttendance[]>([]);
 
@@ -416,8 +488,11 @@ export default function CellReportPage() {
       const dateStr = reportDate || new Date().toISOString().split('T')[0];
 
       // Documento principal da reunião
-      const logRef = doc(collection(firestore, 'reuniao_logs'));
-      batch.set(logRef, {
+      const logRef = editingLogId
+        ? doc(firestore, 'reuniao_logs', editingLogId)
+        : doc(collection(firestore, 'reuniao_logs'));
+
+      const logData = {
         cellId: cell.id,
         cellNome: cell.nome,
         date: dateStr,
@@ -434,8 +509,28 @@ export default function CellReportPage() {
         licaoMinistrada: metricas.licao,
         visitantesNomes: metricas.visitantes,
         feedbackAoSupervisor: feedback,
-        createdAt: now,
-      });
+        updatedAt: now,
+      };
+
+      if (editingLogId) {
+        batch.update(logRef, logData);
+
+        // Deletar presenças antigas do relatório
+        const oldPresDocs = await getDocs(
+          query(
+            collection(firestore, 'presencas_historico'),
+            where('reuniaoLogId', '==', editingLogId)
+          )
+        );
+        oldPresDocs.forEach(d => {
+          batch.delete(d.ref);
+        });
+      } else {
+        batch.set(logRef, {
+          ...logData,
+          createdAt: now,
+        });
+      }
 
       // Um documento por membro em presencas_historico
       attendance.forEach(att => {
@@ -453,6 +548,38 @@ export default function CellReportPage() {
           createdAt: now,
         });
       });
+
+      // Adiciona novos visitantes à célula
+      const visitantesNomesArray = metricas.visitantes
+        .split(',')
+        .map(v => v.trim())
+        .filter(v => v.length > 0);
+
+      const existingVisitors = cell.visitors || [];
+      const updatedVisitors = [...existingVisitors];
+      let cellUpdated = false;
+
+      visitantesNomesArray.forEach((nome, index) => {
+        const exists = existingVisitors.some(
+          v => v.name.toLowerCase() === nome.toLowerCase()
+        );
+        if (!exists) {
+          updatedVisitors.push({
+            id: `v_${Date.now()}_${index}`,
+            name: nome,
+            phone: '',
+            firstVisitDate: new Date().toISOString(),
+            origin: 'Relatório de Célula',
+            consolidationStatus: 'new',
+          });
+          cellUpdated = true;
+        }
+      });
+
+      if (cellUpdated) {
+        const cellRef = doc(firestore, 'cells', cell.id);
+        batch.update(cellRef, { visitors: updatedVisitors });
+      }
 
       await batch.commit();
       setSubmitted(true);
@@ -499,7 +626,7 @@ export default function CellReportPage() {
         <p className="text-muted-foreground max-w-sm">
           Seu relatório da célula <strong>{cell?.nome}</strong> foi salvo com sucesso. Que Deus abençoe sua dedicação! 🙏
         </p>
-        <Button onClick={() => { setSubmitted(false); setStep(1); setFeedback(''); setMetricas({ visitantes: '', conversoes: 0, licao: '' }); }}>
+        <Button onClick={() => { setSubmitted(false); setEditingLogId(null); setStep(1); setFeedback(''); setMetricas({ visitantes: '', conversoes: 0, licao: '' }); }}>
           Enviar outro relatório
         </Button>
       </div>
@@ -527,6 +654,85 @@ export default function CellReportPage() {
         ) : (
           <p className="text-sm text-muted-foreground mt-1">Célula: <strong>{cell?.nome}</strong></p>
         )}
+      </div>
+
+      {/* Relatórios Recentes */}
+      {recentLogs.length > 0 && (
+        <Card className="border border-slate-200">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-bold flex items-center gap-2 text-slate-700">
+              <History className="h-4 w-4 text-indigo-600" />
+              Relatórios Recentes (Selecione para Editar/Ver)
+            </CardTitle>
+            <CardDescription className="text-xs">
+              Edite um relatório anterior a partir dos dados já salvos.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pb-3">
+            <div className="flex flex-wrap gap-2">
+              {recentLogs.map((log: any) => {
+                const isSelected = editingLogId === log.id;
+                const formattedDate = format(parseISO(log.date), "dd/MM/yyyy");
+                return (
+                  <Button
+                    key={log.id}
+                    variant={isSelected ? "default" : "outline"}
+                    size="sm"
+                    className="text-xs gap-1 h-8"
+                    onClick={() => handleEditLog(log)}
+                  >
+                    <span>📅 {formattedDate}</span>
+                    {log.licaoMinistrada && <span className="opacity-60 max-w-[80px] truncate">— {log.licaoMinistrada}</span>}
+                    {isSelected && <span className="ml-1 text-[10px] font-bold bg-white text-indigo-600 px-1 rounded">Editando</span>}
+                  </Button>
+                );
+              })}
+              {editingLogId && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-destructive hover:bg-destructive/10 h-8"
+                  onClick={() => {
+                    setEditingLogId(null);
+                    setReportDate(getLastMeetingDate(cell?.meetingDay));
+                    setMetricas({ licao: '', visitantes: '', conversoes: 0 });
+                    setFeedback('');
+                    if (members) {
+                      setAttendance(members.map(m => ({
+                        membroId: m.id,
+                        membroNome: m.name,
+                        status: 'presente',
+                        termometro: null,
+                        pedidoOracao: '',
+                        observacaoCuidado: '',
+                      })));
+                    }
+                    setStep(1);
+                  }}
+                >
+                  Cancelar Edição (Novo)
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Seletor de Data/Semana */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div className="space-y-1 animate-in fade-in duration-200">
+          <Label htmlFor="mainReportDate" className="font-bold text-xs text-slate-500 uppercase">Data/Semana da Reunião</Label>
+          <input
+            id="mainReportDate"
+            type="date"
+            value={reportDate}
+            onChange={e => setReportDate(e.target.value)}
+            className="flex h-9 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring font-semibold text-slate-800"
+          />
+        </div>
+        <p className="text-[11px] text-muted-foreground max-w-xs sm:text-right">
+          Selecione a data da reunião da célula. Os dados do relatório serão vinculados a esta semana.
+        </p>
       </div>
 
       {/* Barra de progresso */}

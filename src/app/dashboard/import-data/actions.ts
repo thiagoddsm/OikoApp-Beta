@@ -30,7 +30,7 @@ IMPORTANTE:
             }
         });
         
-        return response.value?.matchedName || null;
+        return response.output?.matchedName || null;
     } catch (error) {
         console.error("Erro na correspondência de GC via IA:", error);
         return null;

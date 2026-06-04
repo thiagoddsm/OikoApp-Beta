@@ -933,44 +933,36 @@ export default function SupervisorPage() {
             )}
 
             {/* VISITANTES */}
-            {(() => {
-              const raw = selectedLog.visitantesNomes;
-              const nomes = Array.isArray(raw) ? raw : (typeof raw === 'string' && raw.trim() ? raw.split(',').map(s => s.trim()) : []);
-              return nomes.length > 0 ? (
-                <>
-                  <Separator />
-                  <div className="py-4 space-y-2">
-                    <div className="flex items-center gap-1.5">
-                      <UserPlus className="h-3.5 w-3.5 text-sky-500" />
-                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Visitantes</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {nomes.map((nome, i) => <Badge key={i} variant="secondary" className="text-xs">{nome}</Badge>)}
-                    </div>
+            {Array.isArray(selectedLog.visitantesNomes) && selectedLog.visitantesNomes.length > 0 && (
+              <>
+                <Separator />
+                <div className="py-4 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <UserPlus className="h-3.5 w-3.5 text-sky-500" />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Visitantes</span>
                   </div>
-                </>
-              ) : null;
-            })()}
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedLog.visitantesNomes.map((nome: string, i: number) => <Badge key={i} variant="secondary" className="text-xs">{nome}</Badge>)}
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* CONVERSÕES */}
-            {(() => {
-              const raw = selectedLog.conversoesNomes;
-              const nomes = Array.isArray(raw) ? raw : (typeof raw === 'string' && raw.trim() ? raw.split(',').map(s => s.trim()) : []);
-              return nomes.length > 0 ? (
-                <>
-                  <Separator />
-                  <div className="py-4 space-y-2">
-                    <div className="flex items-center gap-1.5">
-                      <HeartHandshake className="h-3.5 w-3.5 text-purple-500" />
-                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Conversões</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {nomes.map((nome, i) => <Badge key={i} className="text-xs bg-purple-100 text-purple-700">{nome}</Badge>)}
-                    </div>
+            {Array.isArray(selectedLog.conversoesNomes) && selectedLog.conversoesNomes.length > 0 && (
+              <>
+                <Separator />
+                <div className="py-4 space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <HeartHandshake className="h-3.5 w-3.5 text-purple-500" />
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Conversões</span>
                   </div>
-                </>
-              ) : null;
-            })()}
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedLog.conversoesNomes.map((nome: string, i: number) => <Badge key={i} className="text-xs bg-purple-100 text-purple-700">{nome}</Badge>)}
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* OBSERVAÇÕES */}
             {selectedLog.observacoes?.trim() && (

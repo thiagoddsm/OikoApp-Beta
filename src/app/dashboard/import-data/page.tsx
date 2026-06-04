@@ -417,6 +417,7 @@ export default function ImportDataPage() {
                     const cleanBirthDate = clean(record['dataNascimento (YYYY-MM-DD)'] || record.dataNascimento || record.nascimento);
                     const cleanMaritalStatus = clean(record.estadoCivil || record.EstadoCivil);
                     const cleanStreet = clean(record.addressStreet || record.street || record.Endereço);
+                    const cleanCep = clean(record.cep || record.CEP || record.Cep) || '';
 
                     const gcName = record.gcName || record.GC || record.Célula || '';
                     const cellDoc = gcName ? cellDocs.find(doc => normalizeString(doc.data().nome) === normalizeString(gcName)) : null;
@@ -428,7 +429,7 @@ export default function ImportDataPage() {
                     const cleanDataArrolamento = clean(record.dataArrolamento || record['Data Arrolamento']);
                     const cleanDataBatismo = clean(record.dataBatismo || record['Data Batismo']);
                     const cleanBatismoValue = clean(record.batizado || record.Batizado);
-                    const isBatizado = (cleanBatismoValue === 'sim' || cleanBatismoValue === 'true' || cleanBatismoValue === 'Sim' || cleanBatismoValue === true);
+                    const isBatizado = (cleanBatismoValue === 'sim' || cleanBatismoValue === 'true' || cleanBatismoValue === 'Sim');
 
                     const vPlaca = clean(record.veiculoPlaca || record.placa_veiculo || record.placa || record.Placa);
                     const vMarca = clean(record.veiculoMarca || record.marca_veiculo || record.marca || record.Marca);
@@ -450,6 +451,8 @@ export default function ImportDataPage() {
                         }
                     }
 
+                    const existingUser = findExistingUser(cleanCpfVal, cleanEmailVal, cleanNameVal);
+
                     const userData: any = {
                         name: formatName(cleanNameVal),
                         email: cleanEmailVal || '',
@@ -463,28 +466,31 @@ export default function ImportDataPage() {
                         batizado: isBatizado ? 'sim' : 'nao',
                         conjuge: cleanConjuge ? formatName(cleanConjuge) : null,
                         address: { 
-                            street: cleanStreet || '',
-                            cep: cleanCep || '',
-                            location: locationData || null
+                            ...(existingUser?.address || {}),
+                            street: cleanStreet || existingUser?.address?.street || '',
+                            cep: cleanCep || existingUser?.address?.cep || '',
+                            location: locationData || existingUser?.address?.location || null
                         },
                         temFilhos: (String(record['temFilhos (sim/nao)'] || record.temFilhos).toLowerCase() === 'sim' || record.temFilhos === true) ? 'sim' : 'nao',
                         idadeFilhos: clean(record.idadeFilhos) || '',
-                        integrationStatus: record.integrationStatus || 'nao_alcancado',
-                        serviceStatus: record.serviceAreaName ? 'serving' : 'not_serving',
-                        serviceAreaId: record.serviceAreaName ? areaMap.get(record.serviceAreaName.toLowerCase()) || '' : '',
-                        serviceTeamId: record.serviceTeamName ? teamMap.get(record.serviceTeamName.toLowerCase()) || '' : '',
+                        integrationStatus: record.integrationStatus || existingUser?.integrationStatus || 'nao_alcancado',
+                        serviceStatus: record.serviceAreaName ? 'serving' : (existingUser?.serviceStatus || 'not_serving'),
+                        serviceAreaId: record.serviceAreaName ? areaMap.get(record.serviceAreaName.toLowerCase()) || '' : (existingUser?.serviceAreaId || ''),
+                        serviceTeamId: record.serviceTeamName ? teamMap.get(record.serviceTeamName.toLowerCase()) || '' : (existingUser?.serviceTeamId || ''),
                         hierarchy: {
-                            role: record.role || record.Cargo || 'aluno',
-                            celulaId: celulaId,
-                            supervisorId: supervisorId,
+                            ...(existingUser?.hierarchy || {}),
+                            role: record.role || record.Cargo || existingUser?.hierarchy?.role || 'aluno',
+                            celulaId: celulaId || existingUser?.hierarchy?.celulaId || '',
+                            supervisorId: supervisorId || existingUser?.hierarchy?.supervisorId || '',
                         },
                         veiculo: hasVeiculo ? {
+                            ...(existingUser?.veiculo || {}),
                             placa: vPlaca || null,
                             marca: vMarca || null,
                             modelo: vModelo || null,
                             cor: vCor || null,
-                        } : null,
-                        createdAt: Timestamp.now(),
+                        } : (existingUser?.veiculo || null),
+                        createdAt: existingUser?.createdAt || Timestamp.now(),
                     };
 
                     if (photoUrlVal) {
@@ -492,7 +498,6 @@ export default function ImportDataPage() {
                         userData.profilePicture = photoUrlVal;
                     }
 
-                    const existingUser = findExistingUser(cleanCpfVal, cleanEmailVal, cleanNameVal);
                     if (existingUser) {
                         const userDocRef = doc(firestore, 'users', existingUser.id);
                         return updateDocumentNonBlocking(userDocRef, userData).then(() => {
@@ -718,7 +723,7 @@ export default function ImportDataPage() {
                     const cleanDataArrolamento = clean(record['DATA ARROLAMENTO'] || record.dataArrolamento);
                     const cleanDataBatismo = clean(record['DATA BATISMO'] || record.dataBatismo);
                     const cleanBatismoValue = clean(record.BATIZADO || record.batizado || record.Batizado);
-                    const isBatizado = (cleanBatismoValue === 'sim' || cleanBatismoValue === 'true' || cleanBatismoValue === 'Sim' || cleanBatismoValue === true);
+                    const isBatizado = (cleanBatismoValue === 'sim' || cleanBatismoValue === 'true' || cleanBatismoValue === 'Sim');
 
                     const vPlaca = clean(record['PLACA VEICULO'] || record.veiculoPlaca || record.placa);
                     const vMarca = clean(record['MARCA VEICULO'] || record.veiculoMarca || record.marca);
@@ -787,36 +792,40 @@ export default function ImportDataPage() {
                         conjuge: cleanConjuge ? formatName(cleanConjuge) : null,
                         nomeConvidou: cleanNomeConvidou ? formatName(cleanNomeConvidou) : '',
                         address: { 
-                            street: cleanStreet || '',
-                            cep: cleanCep || '',
-                            location: locationData || null
+                            ...(existingUser?.address || {}),
+                            street: cleanStreet || existingUser?.address?.street || '',
+                            cep: cleanCep || existingUser?.address?.cep || '',
+                            location: locationData || existingUser?.address?.location || null
                         },
                         tags,
-                        integrationStatus: 'membro',
-                        serviceStatus: 'not_serving',
-                        comoConheceu: cleanComoConheceu || null,
-                        gender: cleanSexo,
-                        escolaridade: cleanEscolaridade || null,
-                        apelido: cleanApelido || null,
-                        tipoDecisao: cleanTipoDecisao || null,
-                        profissao: cleanProfissao || null,
-                        igrejaBatismo: cleanIgrejaBatismo || null,
+                        integrationStatus: existingUser?.integrationStatus || 'membro',
+                        serviceStatus: existingUser?.serviceStatus || 'not_serving',
+                        comoConheceu: cleanComoConheceu || existingUser?.comoConheceu || null,
+                        gender: cleanSexo || existingUser?.gender || null,
+                        escolaridade: cleanEscolaridade || existingUser?.escolaridade || null,
+                        apelido: cleanApelido || existingUser?.apelido || null,
+                        tipoDecisao: cleanTipoDecisao || existingUser?.tipoDecisao || null,
+                        profissao: cleanProfissao || existingUser?.profissao || null,
+                        igrejaBatismo: cleanIgrejaBatismo || existingUser?.igrejaBatismo || null,
                         professional: {
-                            educationLevel: cleanEscolaridade || null,
-                            profession: cleanProfissao || null,
+                            ...(existingUser?.professional || {}),
+                            educationLevel: cleanEscolaridade || existingUser?.professional?.educationLevel || null,
+                            profession: cleanProfissao || existingUser?.professional?.profession || null,
                         },
                         hierarchy: {
-                            role: record.role || record.Cargo || 'aluno',
-                            celulaId: celulaId,
-                            supervisorId: supervisorId,
+                            ...(existingUser?.hierarchy || {}),
+                            role: record.role || record.Cargo || existingUser?.hierarchy?.role || 'aluno',
+                            celulaId: celulaId || existingUser?.hierarchy?.celulaId || '',
+                            supervisorId: supervisorId || existingUser?.hierarchy?.supervisorId || '',
                         },
                         veiculo: hasVeiculo ? {
+                            ...(existingUser?.veiculo || {}),
                             placa: vPlaca || null,
                             marca: vMarca || null,
                             modelo: vModelo || null,
                             cor: vCor || null,
-                        } : null,
-                        createdAt: Timestamp.now(),
+                        } : (existingUser?.veiculo || null),
+                        createdAt: existingUser?.createdAt || Timestamp.now(),
                     };
 
                     return {

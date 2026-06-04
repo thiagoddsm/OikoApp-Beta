@@ -5,6 +5,7 @@ import { useFirebase, useDoc } from '@/firebase';
 import { userRoles } from '@/lib/roles';
 import { StudentDashboard } from '@/components/teaching/student-dashboard';
 import { VolunteeringProvider } from '@/contexts/volunteering-context';
+import { VolunteeringWidget } from '@/components/dashboard/volunteering-widget';
 import { MinisterialDashboard } from './ministerial-dashboard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -50,6 +51,7 @@ export default function DashboardPage() {
                         </div>
                     </div>
                 )}
+                <VolunteeringWidget />
             </div>
         </VolunteeringProvider>
     );

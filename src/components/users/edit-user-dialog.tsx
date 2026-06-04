@@ -38,8 +38,13 @@ type User = {
   integrationStatus?: string;
   cpf?: string;
   sexo?: string;
+  gender?: string;
   escolaridade?: string;
   profissao?: string;
+  professional?: {
+    educationLevel?: string;
+    profession?: string;
+  };
   dataNascimento?: string;
   estadoCivil?: string;
   address?: {
@@ -190,9 +195,9 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         phone: user.phone || '',
         email: user.email || '',
         cpf: user.cpf || '',
-        sexo: user.sexo || '',
-        escolaridade: user.escolaridade || '',
-        profissao: user.profissao || '',
+        sexo: user.sexo || user.gender || '',
+        escolaridade: user.escolaridade || user.professional?.educationLevel || '',
+        profissao: user.profissao || user.professional?.profession || '',
         dataNascimento: user.dataNascimento || '',
         estadoCivil: user.estadoCivil || '',
         addressStreet: user.address?.street || '',
@@ -359,8 +364,13 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         email: formData.email,
         cpf: formData.cpf,
         sexo: formData.sexo,
+        gender: formData.sexo || null,
         escolaridade: formData.escolaridade,
         profissao: formData.profissao,
+        professional: {
+            educationLevel: formData.escolaridade || null,
+            profession: formData.profissao || null
+        },
         dataNascimento: formData.dataNascimento,
         estadoCivil: formData.estadoCivil,
         address: {

@@ -21,6 +21,7 @@ type CultoRegistro = {
   adultos: number;
   criancas?: number;
   data: Timestamp; 
+  horario?: string;
 };
 
 type Report = {
@@ -30,6 +31,16 @@ type Report = {
 
 type User = {
     id: string;
+    name?: string;
+    createdAt?: Timestamp;
+    batizado?: string;
+    dataBatismo?: string;
+    churchData?: { baptismDate?: Timestamp };
+    journey?: { 
+        courseStatus?: Record<string, string>;
+        courseApprovedAt?: Record<string, any>;
+    };
+    integrationStatus?: string;
     hierarchy?: {
         role?: string;
     },
@@ -109,7 +120,7 @@ export default function GoalsPage() {
             const date = culto.data instanceof Timestamp ? culto.data.toDate() : null;
             if (date && date.getFullYear() === currentYear) {
                 const month = date.getMonth();
-                const key = horarioToKpiKey[culto.horario] || "frequencia_culto_evento";
+                const key = (culto.horario && horarioToKpiKey[culto.horario]) || "frequencia_culto_evento";
                 
                 if (cultoMonthlyAttendance[key]) {
                     cultoMonthlyAttendance[key][month] += (culto.adultos || 0) + (culto.criancas || 0);
