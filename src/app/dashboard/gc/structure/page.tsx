@@ -4,9 +4,9 @@
 import React, { useState, useMemo } from 'react';
 import { useFirebase, useCollection, deleteDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { doc, collection, query, where, getDocs } from 'firebase/firestore';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
-import { Loader2, Users, ChevronDown, Pencil, Trash2, Network, AreaChart, Building2, PlusCircle } from "lucide-react";
+import { Loader2, Users, ChevronDown, Pencil, Trash2, Network, AreaChart, Building2, PlusCircle, Crown, GitBranch, Layers } from "lucide-react";
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { CreateRedeDialog } from '@/components/structure/create-rede-dialog';
 import { CreateAreaDialog } from '@/components/structure/create-area-dialog';
 import { EditPastorDialog } from '@/components/structure/edit-pastor-dialog';
@@ -14,394 +14,504 @@ import { DeleteConfirmationDialog } from '@/components/structure/delete-confirma
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-type User = { id: string; name: string; hierarchy?: { role?: string; } };
+type User = { id: string; name: string; hierarchy?: { role?: string } };
 type Cell = { id: string; nome: string; liderId: string; areaId: string; redeId: string; membros: string[] };
-type Area = { id: string; nome: string; liderId: string; redeId: string; };
-type Rede = { id: string; nome: string; liderId: string; pastorId: string; cor?: string; };
+type Area = { id: string; nome: string; liderId: string; redeId: string };
+type Rede = { id: string; nome: string; liderId: string; pastorId: string; cor?: string };
 
 interface HierarchyNode {
-    id: string;
-    nome: string;
-    liderName: string;
-    type: 'pastor' | 'rede' | 'area' | 'cell';
-    stats: {
-        directChildren: number;
-        participantes: number;
-    };
-    children: HierarchyNode[];
-    liderId?: string;
-    pastorId?: string;
-    redeId?: string;
-    cor?: string;
+  id: string;
+  nome: string;
+  liderName: string;
+  type: 'pastor' | 'rede' | 'area' | 'cell';
+  stats: { directChildren: number; participantes: number };
+  children: HierarchyNode[];
+  liderId?: string;
+  pastorId?: string;
+  redeId?: string;
+  cor?: string;
 }
 
-const nodeIcons = {
-    pastor: { icon: Network, color: 'bg-indigo-100 text-indigo-600' },
-    rede: { icon: AreaChart, color: 'bg-sky-100 text-sky-600' },
-    area: { icon: Building2, color: 'bg-amber-100 text-amber-600' },
-    cell: { icon: Users, color: 'bg-emerald-100 text-emerald-600' },
+// ─── Paleta de cores por rede ──────────────────────────────────────────────────
+const REDE_PALETTES: Record<string, { bg: string; border: string; text: string; badge: string; dot: string }> = {
+  vermelho:  { bg: 'from-red-50 to-rose-50',      border: 'border-red-200',    text: 'text-red-700',    badge: 'bg-red-100 text-red-700 border-red-200',    dot: 'bg-red-400' },
+  verde:     { bg: 'from-emerald-50 to-green-50',  border: 'border-emerald-200',text: 'text-emerald-700',badge: 'bg-emerald-100 text-emerald-700 border-emerald-200', dot: 'bg-emerald-400' },
+  azul:      { bg: 'from-blue-50 to-sky-50',       border: 'border-blue-200',   text: 'text-blue-700',   badge: 'bg-blue-100 text-blue-700 border-blue-200',   dot: 'bg-blue-400' },
+  laranja:   { bg: 'from-orange-50 to-amber-50',   border: 'border-orange-200', text: 'text-orange-700', badge: 'bg-orange-100 text-orange-700 border-orange-200', dot: 'bg-orange-400' },
+  roxo:      { bg: 'from-purple-50 to-violet-50',  border: 'border-purple-200', text: 'text-purple-700', badge: 'bg-purple-100 text-purple-700 border-purple-200', dot: 'bg-purple-400' },
+  amarelo:   { bg: 'from-yellow-50 to-amber-50',   border: 'border-yellow-200', text: 'text-yellow-700', badge: 'bg-yellow-100 text-yellow-700 border-yellow-200', dot: 'bg-yellow-400' },
+  rosa:      { bg: 'from-pink-50 to-rose-50',      border: 'border-pink-200',   text: 'text-pink-700',   badge: 'bg-pink-100 text-pink-700 border-pink-200',   dot: 'bg-pink-400' },
 };
 
-interface NodeCardProps {
-    node: HierarchyNode;
-    onEdit?: (node: HierarchyNode) => void;
-    onDelete?: (node: HierarchyNode) => void;
-    children?: React.ReactNode;
-    onToggle?: () => void;
-    isExpanded?: boolean;
-    hasChildren?: boolean;
-    isRoot?: boolean;
+function getPalette(cor?: string) {
+  if (!cor) return REDE_PALETTES['azul'];
+  const key = cor.toLowerCase();
+  return REDE_PALETTES[key] || REDE_PALETTES['azul'];
 }
 
-const NodeCard = ({ node, onEdit, onDelete, children, onToggle, isExpanded, hasChildren, isRoot }: NodeCardProps) => {
-    const config = nodeIcons[node.type] || nodeIcons.cell;
-    const Icon = config.icon;
-
-    return (
-        <div className="relative flex flex-col items-center">
-            {!isRoot && <div className="absolute top-0 -mt-2 h-2 w-0.5 bg-slate-300"></div>}
-
-            <Card className="w-64 shadow-md hover:shadow-xl transition-shadow duration-300 z-10 bg-card">
-                 <CardHeader className="flex flex-row items-center gap-3 p-4">
-                    <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", config.color)}>
-                        <Icon className="h-5 w-5" />
-                    </div>
-                    <div className="flex-1 truncate text-left">
-                        <CardTitle className="text-base truncate">{node.nome}</CardTitle>
-                        <CardDescription className="text-xs truncate">{node.liderName}</CardDescription>
-                    </div>
-                 </CardHeader>
-                 <CardContent className="px-4 pb-4 pt-0">
-                    <div className="text-xs space-y-1.5">
-                        {node.type !== 'cell' && (
-                            <div className="flex justify-between items-center">
-                                <span className="text-muted-foreground">Sub-níveis:</span>
-                                <span className="font-bold">{node.stats.directChildren}</span>
-                            </div>
-                        )}
-                        <div className="flex justify-between items-center">
-                            <span className="text-muted-foreground">Participantes:</span>
-                            <span className="font-bold">{node.stats.participantes}</span>
-                        </div>
-                     </div>
-                 </CardContent>
-                 {(onEdit || onDelete || hasChildren) && (
-                    <CardFooter className="bg-slate-50 p-1 flex justify-end items-center">
-                         {onEdit && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(node)}>
-                                <Pencil className="h-4 w-4" />
-                            </Button>
-                        )}
-                        {onDelete && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDelete(node)}>
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                        )}
-                         {hasChildren && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onToggle}>
-                                <ChevronDown className={cn("h-4 w-4 transition-transform", isExpanded && "rotate-180")} />
-                            </Button>
-                        )}
-                    </CardFooter>
-                 )}
-            </Card>
-            
-            {isExpanded && hasChildren && (
-                <>
-                    <div className="absolute top-full h-4 w-0.5 bg-slate-300"></div>
-                    <div className="absolute top-full mt-4 h-0.5 w-full bg-slate-300"></div>
-                    <div className="mt-8 flex justify-center gap-8 w-full">
-                        {children}
-                    </div>
-                </>
-            )}
-        </div>
-    );
-};
+// ─── Hierarquia ────────────────────────────────────────────────────────────────
 
 const buildHierarchy = (users: User[], redes: Rede[], areas: Area[], cells: Cell[]): HierarchyNode | null => {
-    const userMap = new Map(users.map(u => [u.id, u]));
+  const userMap = new Map(users.map(u => [u.id, u]));
+  const seniorPastor = users.find(u => u.hierarchy?.role === 'pastor_senior') || users.find(u => u.hierarchy?.role === 'admin');
+  if (!seniorPastor) return null;
 
-    const seniorPastor = users.find(u => u.hierarchy?.role === 'pastor_senior') || users.find(u => u.hierarchy?.role === 'admin');
-    if (!seniorPastor) return null;
+  const cellNodes = cells.map(cell => ({
+    id: cell.id, nome: cell.nome, type: 'cell' as const, areaId: cell.areaId,
+    liderName: userMap.get(cell.liderId)?.name || 'N/A',
+    stats: { directChildren: 0, participantes: cell.membros?.length || 0 },
+    children: []
+  }));
 
-    const cellNodes: (HierarchyNode & { areaId: string })[] = cells.map(cell => ({
-        id: cell.id,
-        nome: cell.nome,
-        type: 'cell' as const,
-        liderName: userMap.get(cell.liderId)?.name || 'N/A',
-        areaId: cell.areaId,
-        stats: {
-            directChildren: 0,
-            participantes: cell.membros?.length || 0,
-        },
-        children: []
-    }));
-
-    const areaNodes: (HierarchyNode & { redeId: string })[] = areas.map(area => {
-        const areaCells = cellNodes.filter(c => c.areaId === area.id);
-        const participantes = areaCells.reduce((sum, c) => sum + c.stats.participantes, 0);
-        return {
-            id: area.id,
-            nome: area.nome,
-            type: 'area' as const,
-            redeId: area.redeId,
-            liderId: area.liderId,
-            liderName: userMap.get(area.liderId)?.name || 'N/A',
-            stats: {
-                directChildren: areaCells.length,
-                participantes: participantes,
-            },
-            children: areaCells
-        };
-    });
-
-    const redeNodes: (HierarchyNode & { pastorId: string })[] = redes.map(rede => {
-        const redeAreas = areaNodes.filter(a => a.redeId === rede.id);
-        const participantes = redeAreas.reduce((sum, a) => sum + a.stats.participantes, 0);
-        return {
-            id: rede.id,
-            nome: rede.nome,
-            type: 'rede' as const,
-            pastorId: rede.pastorId,
-            liderId: rede.liderId,
-            liderName: userMap.get(rede.liderId)?.name || 'N/A',
-            cor: rede.cor,
-            stats: {
-                directChildren: redeAreas.length,
-                participantes: participantes,
-            },
-            children: redeAreas
-        };
-    });
-
-    const totalParticipantes = redeNodes.reduce((sum, r) => sum + r.stats.participantes, 0);
-
+  const areaNodes = areas.map(area => {
+    const areaCells = cellNodes.filter(c => c.areaId === area.id);
     return {
-        id: seniorPastor.id,
-        nome: 'Igreja Batista da Manhã',
-        liderName: `Pastor Sênior: ${seniorPastor.name}`,
-        type: 'pastor' as const,
-        stats: { 
-            directChildren: redeNodes.length,
-            participantes: totalParticipantes,
-        },
-        children: redeNodes
+      id: area.id, nome: area.nome, type: 'area' as const, redeId: area.redeId, liderId: area.liderId,
+      liderName: userMap.get(area.liderId)?.name || 'N/A',
+      stats: { directChildren: areaCells.length, participantes: areaCells.reduce((s, c) => s + c.stats.participantes, 0) },
+      children: areaCells
     };
+  });
+
+  const redeNodes = redes.map(rede => {
+    const redeAreas = areaNodes.filter(a => a.redeId === rede.id);
+    return {
+      id: rede.id, nome: rede.nome, type: 'rede' as const, pastorId: rede.pastorId, liderId: rede.liderId, cor: rede.cor,
+      liderName: userMap.get(rede.liderId)?.name || 'N/A',
+      stats: { directChildren: redeAreas.length, participantes: redeAreas.reduce((s, a) => s + a.stats.participantes, 0) },
+      children: redeAreas
+    };
+  });
+
+  return {
+    id: seniorPastor.id, nome: 'Igreja Batista da Manhã', type: 'pastor' as const,
+    liderName: `Pastor Sênior: ${seniorPastor.name}`,
+    stats: { directChildren: redeNodes.length, participantes: redeNodes.reduce((s, r) => s + r.stats.participantes, 0) },
+    children: redeNodes
+  };
 };
 
-interface RenderNodeProps {
-    node: HierarchyNode;
-    onEditNode: (node: HierarchyNode) => void;
-    onDeleteNode: (node: HierarchyNode) => void;
-    isRoot?: boolean;
+// ─── Card de nó (Pastor / Rede) ────────────────────────────────────────────────
+
+function RootCard({ node, onEdit, onToggle, isExpanded }: {
+  node: HierarchyNode; onEdit: () => void; onToggle: () => void; isExpanded: boolean;
+}) {
+  return (
+    <div className="flex flex-col items-center">
+      <div className="relative bg-gradient-to-br from-indigo-600 to-purple-700 rounded-2xl shadow-2xl shadow-indigo-200 p-5 w-72 text-white">
+        {/* glow */}
+        <div className="absolute inset-0 rounded-2xl bg-white/5" />
+
+        <div className="relative flex items-center gap-3 mb-4">
+          <div className="bg-white/20 rounded-xl p-2.5">
+            <Crown className="size-5 text-white" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-black text-base leading-tight truncate">{node.nome}</p>
+            <p className="text-indigo-200 text-[11px] truncate">{node.liderName}</p>
+          </div>
+          <Button variant="ghost" size="icon" className="text-white/70 hover:text-white hover:bg-white/10 h-7 w-7 shrink-0" onClick={onEdit}>
+            <Pencil className="size-3.5" />
+          </Button>
+        </div>
+
+        <div className="relative grid grid-cols-2 gap-2">
+          <div className="bg-white/10 rounded-xl p-3 text-center">
+            <p className="text-2xl font-black">{node.stats.directChildren}</p>
+            <p className="text-[10px] text-indigo-200 uppercase tracking-wider">Redes</p>
+          </div>
+          <div className="bg-white/10 rounded-xl p-3 text-center">
+            <p className="text-2xl font-black">{node.stats.participantes}</p>
+            <p className="text-[10px] text-indigo-200 uppercase tracking-wider">Pessoas</p>
+          </div>
+        </div>
+
+        {node.children.length > 0 && (
+          <button
+            onClick={onToggle}
+            className="relative mt-3 w-full flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-indigo-200 hover:text-white transition-colors py-1"
+          >
+            {isExpanded ? 'Recolher' : 'Ver redes'}
+            <ChevronDown className={cn("size-3 transition-transform duration-300", isExpanded && "rotate-180")} />
+          </button>
+        )}
+      </div>
+
+      {/* conector vertical */}
+      {isExpanded && node.children.length > 0 && (
+        <div className="w-0.5 h-8 bg-gradient-to-b from-indigo-300 to-slate-200" />
+      )}
+    </div>
+  );
 }
 
-const RenderNode = ({ node, onEditNode, onDeleteNode, isRoot = false }: RenderNodeProps) => {
-    const [isExpanded, setIsExpanded] = useState(isRoot);
-    const hasChildren = node.children && node.children.length > 0;
+// ─── Card de Rede ──────────────────────────────────────────────────────────────
 
-    return (
-        <div className="flex flex-col items-center">
-            <NodeCard
-                node={node}
-                isExpanded={isExpanded}
-                hasChildren={hasChildren}
-                onToggle={() => setIsExpanded(!isExpanded)}
-                onEdit={node.type === 'rede' || node.type === 'area' || node.type === 'pastor' ? onEditNode : undefined}
-                onDelete={node.type === 'rede' || node.type === 'area' ? onDeleteNode : undefined}
-                isRoot={isRoot}
-            >
-                {isExpanded && hasChildren && (
-                    <div className="flex justify-center gap-8 w-full relative pt-8">
-                        {node.children.length > 1 && <div className="absolute top-10 h-0.5 bg-slate-300 left-1/4 right-1/4"></div>}
-                        
-                        {node.children.map(childNode => (
-                            <RenderNode 
-                                key={childNode.id} 
-                                node={childNode} 
-                                onEditNode={onEditNode} 
-                                onDeleteNode={onDeleteNode}
-                            />
-                        ))}
-                    </div>
-                )}
-            </NodeCard>
+function RedeCard({ node, onEdit, onDelete, onToggle, isExpanded }: {
+  node: HierarchyNode; onEdit: () => void; onDelete: () => void; onToggle: () => void; isExpanded: boolean;
+}) {
+  const palette = getPalette(node.cor);
+  return (
+    <div className="flex flex-col items-center">
+      {/* conector de cima */}
+      <div className="w-0.5 h-6 bg-slate-200" />
+
+      <div className={cn("relative bg-gradient-to-br rounded-2xl border-2 shadow-lg p-5 w-60 transition-all hover:shadow-xl group", palette.bg, palette.border)}>
+        <div className="flex items-center gap-3 mb-3">
+          <div className={cn("rounded-xl p-2 shrink-0", palette.badge)}>
+            <AreaChart className="size-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className={cn("font-black text-sm leading-tight truncate", palette.text)}>{node.nome}</p>
+            <p className="text-muted-foreground text-[10px] truncate">{node.liderName}</p>
+          </div>
         </div>
-    );
-};
 
+        <div className="grid grid-cols-2 gap-1.5 mb-3">
+          <div className="bg-white/80 rounded-lg p-2 text-center">
+            <p className={cn("text-lg font-black leading-none", palette.text)}>{node.stats.directChildren}</p>
+            <p className="text-[9px] text-muted-foreground uppercase">Áreas</p>
+          </div>
+          <div className="bg-white/80 rounded-lg p-2 text-center">
+            <p className={cn("text-lg font-black leading-none", palette.text)}>{node.stats.participantes}</p>
+            <p className="text-[9px] text-muted-foreground uppercase">Pessoas</p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-2 border-t border-white/60">
+          <div className="flex gap-1">
+            <button onClick={onEdit} className="p-1.5 rounded-lg hover:bg-white/60 transition-colors text-muted-foreground hover:text-foreground">
+              <Pencil className="size-3.5" />
+            </button>
+            <button onClick={onDelete} className="p-1.5 rounded-lg hover:bg-red-50 transition-colors text-muted-foreground hover:text-red-500">
+              <Trash2 className="size-3.5" />
+            </button>
+          </div>
+          {node.children.length > 0 && (
+            <button onClick={onToggle} className={cn("flex items-center gap-1 text-[9px] font-black uppercase tracking-wider transition-colors", palette.text)}>
+              {isExpanded ? 'Recolher' : 'Áreas'}
+              <ChevronDown className={cn("size-3 transition-transform duration-300", isExpanded && "rotate-180")} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {isExpanded && node.children.length > 0 && (
+        <div className="w-0.5 h-6 bg-slate-200" />
+      )}
+    </div>
+  );
+}
+
+// ─── Card de Área ──────────────────────────────────────────────────────────────
+
+function AreaCard({ node, redeCor, onEdit, onDelete, onToggle, isExpanded }: {
+  node: HierarchyNode; redeCor?: string; onEdit: () => void; onDelete: () => void; onToggle: () => void; isExpanded: boolean;
+}) {
+  const palette = getPalette(redeCor);
+  return (
+    <div className="flex flex-col items-center">
+      <div className="w-0.5 h-5 bg-slate-200" />
+
+      <div className="bg-white rounded-xl border shadow-sm p-4 w-52 hover:shadow-md transition-shadow group">
+        <div className="flex items-center gap-2.5 mb-2.5">
+          <div className={cn("size-2 rounded-full shrink-0", palette.dot)} />
+          <div className="flex-1 min-w-0">
+            <p className="font-black text-sm leading-tight truncate">{node.nome}</p>
+            <p className="text-muted-foreground text-[10px] truncate">{node.liderName}</p>
+          </div>
+        </div>
+
+        <div className="flex gap-1.5 mb-2.5">
+          <Badge variant="outline" className="text-[9px] font-bold flex-1 justify-center py-0.5">
+            <Layers className="size-2.5 mr-1" />{node.stats.directChildren} GCs
+          </Badge>
+          <Badge variant="outline" className="text-[9px] font-bold flex-1 justify-center py-0.5">
+            <Users className="size-2.5 mr-1" />{node.stats.participantes}
+          </Badge>
+        </div>
+
+        <div className="flex items-center justify-between pt-2 border-t">
+          <div className="flex gap-0.5">
+            <button onClick={onEdit} className="p-1 rounded hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+              <Pencil className="size-3" />
+            </button>
+            <button onClick={onDelete} className="p-1 rounded hover:bg-red-50 transition-colors text-muted-foreground hover:text-red-500">
+              <Trash2 className="size-3" />
+            </button>
+          </div>
+          {node.children.length > 0 && (
+            <button onClick={onToggle} className="flex items-center gap-1 text-[9px] font-black uppercase text-muted-foreground hover:text-foreground transition-colors">
+              {isExpanded ? 'Ocultar' : 'GCs'}
+              <ChevronDown className={cn("size-2.5 transition-transform duration-300", isExpanded && "rotate-180")} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {isExpanded && node.children.length > 0 && (
+        <div className="w-0.5 h-5 bg-slate-200" />
+      )}
+    </div>
+  );
+}
+
+// ─── Card de Célula ────────────────────────────────────────────────────────────
+
+function CellCard({ node, redeCor }: { node: HierarchyNode; redeCor?: string }) {
+  const palette = getPalette(redeCor);
+  return (
+    <div className="flex flex-col items-center">
+      <div className="w-0.5 h-4 bg-slate-200" />
+      <div className="bg-white rounded-lg border p-3 w-44 hover:border-slate-300 hover:shadow-sm transition-all">
+        <div className="flex items-center gap-2 mb-1.5">
+          <div className={cn("size-1.5 rounded-full shrink-0", palette.dot)} />
+          <p className="font-bold text-xs truncate flex-1">{node.nome}</p>
+        </div>
+        <p className="text-[10px] text-muted-foreground truncate mb-2">{node.liderName}</p>
+        <div className="flex items-center gap-1">
+          <Users className="size-3 text-muted-foreground" />
+          <span className="text-[10px] font-bold text-muted-foreground">{node.stats.participantes} pessoas</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Render recursivo ──────────────────────────────────────────────────────────
+
+function RenderRede({ node, onEdit, onDelete }: {
+  node: HierarchyNode; onEdit: (n: HierarchyNode) => void; onDelete: (n: HierarchyNode) => void;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  return (
+    <div className="flex flex-col items-center">
+      <RedeCard
+        node={node}
+        onEdit={() => onEdit(node)}
+        onDelete={() => onDelete(node)}
+        onToggle={() => setExpanded(v => !v)}
+        isExpanded={expanded}
+      />
+      {expanded && node.children.length > 0 && (
+        <div className="relative flex gap-6 mt-0">
+          {/* linha horizontal */}
+          {node.children.length > 1 && (
+            <div className="absolute top-0 left-[calc(50%_-_calc((var(--n)_-_1)_*_3.5rem))] right-[calc(50%_-_calc((var(--n)_-_1)_*_3.5rem))] h-0.5 bg-slate-200"
+              style={{ '--n': node.children.length } as React.CSSProperties} />
+          )}
+          {node.children.map(area => (
+            <RenderArea key={area.id} node={area} redeCor={node.cor} onEdit={onEdit} onDelete={onDelete} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RenderArea({ node, redeCor, onEdit, onDelete }: {
+  node: HierarchyNode; redeCor?: string; onEdit: (n: HierarchyNode) => void; onDelete: (n: HierarchyNode) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="flex flex-col items-center">
+      <AreaCard
+        node={node}
+        redeCor={redeCor}
+        onEdit={() => onEdit(node)}
+        onDelete={() => onDelete(node)}
+        onToggle={() => setExpanded(v => !v)}
+        isExpanded={expanded}
+      />
+      {expanded && node.children.length > 0 && (
+        <div className="relative flex flex-wrap justify-center gap-3 mt-0">
+          {node.children.map(cell => (
+            <CellCard key={cell.id} node={cell} redeCor={redeCor} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Página principal ──────────────────────────────────────────────────────────
 
 export default function StructurePage() {
-    const { firestore } = useFirebase();
-    const { toast } = useToast();
-    const [isRedeDialogOpen, setRedeDialogOpen] = useState(false);
-    const [isAreaDialogOpen, setAreaDialogOpen] = useState(false);
-    const [isPastorDialogOpen, setPastorDialogOpen] = useState(false);
-    const [editingNode, setEditingNode] = useState<HierarchyNode | null>(null);
-    const [nodeToDelete, setNodeToDelete] = useState<HierarchyNode | null>(null);
-    const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const { firestore } = useFirebase();
+  const { toast } = useToast();
+  const [isRedeDialogOpen, setRedeDialogOpen] = useState(false);
+  const [isAreaDialogOpen, setAreaDialogOpen] = useState(false);
+  const [isPastorDialogOpen, setPastorDialogOpen] = useState(false);
+  const [editingNode, setEditingNode] = useState<HierarchyNode | null>(null);
+  const [nodeToDelete, setNodeToDelete] = useState<HierarchyNode | null>(null);
+  const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [rootExpanded, setRootExpanded] = useState(true);
 
-    const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
-    const cellsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells')) : null, [firestore]);
-    const areasQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'areas')) : null, [firestore]);
-    const redesQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'redes')) : null, [firestore]);
+  const usersQ  = useMemoFirebase(() => firestore ? query(collection(firestore, 'users'))  : null, [firestore]);
+  const cellsQ  = useMemoFirebase(() => firestore ? query(collection(firestore, 'cells'))  : null, [firestore]);
+  const areasQ  = useMemoFirebase(() => firestore ? query(collection(firestore, 'areas'))  : null, [firestore]);
+  const redesQ  = useMemoFirebase(() => firestore ? query(collection(firestore, 'redes'))  : null, [firestore]);
 
-    const { data: users, isLoading: isLoadingUsers } = useCollection<User>(usersQuery);
-    const { data: cells, isLoading: isLoadingCells } = useCollection<Cell>(cellsQuery);
-    const { data: areas, isLoading: isLoadingAreas } = useCollection<Area>(areasQuery);
-    const { data: redes, isLoading: isLoadingRedes } = useCollection<Rede>(redesQuery);
+  const { data: users,  isLoading: lu } = useCollection<User>(usersQ);
+  const { data: cells,  isLoading: lc } = useCollection<Cell>(cellsQ);
+  const { data: areas,  isLoading: la } = useCollection<Area>(areasQ);
+  const { data: redes,  isLoading: lr } = useCollection<Rede>(redesQ);
+  const isLoading = lu || lc || la || lr;
 
-    const hierarchyData = useMemo(() => {
-        if (!users || !redes || !areas || !cells) return null;
-        return buildHierarchy(users, redes, areas, cells);
-    }, [users, redes, areas, cells]);
-    
-    const isLoading = isLoadingUsers || isLoadingCells || isLoadingAreas || isLoadingRedes;
+  const hierarchyData = useMemo(() => {
+    if (!users || !redes || !areas || !cells) return null;
+    return buildHierarchy(users, redes, areas, cells);
+  }, [users, redes, areas, cells]);
 
-    const handleEditNode = (node: HierarchyNode) => {
-        setEditingNode(node);
-        if (node.type === 'rede') {
-            setRedeDialogOpen(true);
-        } else if (node.type === 'area') {
-            setAreaDialogOpen(true);
-        } else if (node.type === 'pastor') {
-            setPastorDialogOpen(true);
-        }
-    };
-    
-    const handleDeleteNode = (node: HierarchyNode) => {
-        setNodeToDelete(node);
-        setDeleteDialogOpen(true);
-    };
+  const handleEdit = (node: HierarchyNode) => {
+    setEditingNode(node);
+    if (node.type === 'rede') setRedeDialogOpen(true);
+    else if (node.type === 'area') setAreaDialogOpen(true);
+    else if (node.type === 'pastor') setPastorDialogOpen(true);
+  };
 
-    const confirmDelete = async () => {
-        if (!nodeToDelete || !firestore) return;
-    
-        if (nodeToDelete.type === 'rede') {
-            const areasQ = query(collection(firestore, 'areas'), where('redeId', '==', nodeToDelete.id));
-            try {
-                const areasSnapshot = await getDocs(areasQ);
-                const deletePromises: Promise<void>[] = [];
-                areasSnapshot.forEach(areaDoc => {
-                    deletePromises.push(deleteDocumentNonBlocking(doc(firestore, 'areas', areaDoc.id)));
-                });
-                
-                await Promise.all(deletePromises);
+  const handleDelete = (node: HierarchyNode) => {
+    setNodeToDelete(node);
+    setDeleteDialogOpen(true);
+  };
 
-                const redeDocRef = doc(firestore, 'redes', nodeToDelete.id);
-                deleteDocumentNonBlocking(redeDocRef);
-                
-                toast({
-                    title: "Exclusão em Cascata Iniciada",
-                    description: `A rede "${nodeToDelete.nome}" e todas as suas áreas serão excluídas.`,
-                });
+  const confirmDelete = async () => {
+    if (!nodeToDelete || !firestore) return;
+    if (nodeToDelete.type === 'rede') {
+      try {
+        const snap = await getDocs(query(collection(firestore, 'areas'), where('redeId', '==', nodeToDelete.id)));
+        await Promise.all(snap.docs.map(d => deleteDocumentNonBlocking(doc(firestore, 'areas', d.id))));
+        deleteDocumentNonBlocking(doc(firestore, 'redes', nodeToDelete.id));
+        toast({ title: 'Rede excluída', description: `"${nodeToDelete.nome}" e suas áreas foram removidas.` });
+      } catch {
+        toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível excluir.' });
+      }
+    } else if (nodeToDelete.type === 'area') {
+      deleteDocumentNonBlocking(doc(firestore, 'areas', nodeToDelete.id));
+      toast({ title: 'Área excluída', description: `"${nodeToDelete.nome}" foi removida.` });
+    }
+    setDeleteDialogOpen(false);
+    setNodeToDelete(null);
+  };
 
-            } catch (error) {
-                 toast({
-                    variant: "destructive",
-                    title: "Erro na Exclusão em Cascata",
-                    description: "Não foi possível buscar as áreas para exclusão.",
-                });
-            }
+  const closeDialogs = () => {
+    setEditingNode(null);
+    setRedeDialogOpen(false);
+    setAreaDialogOpen(false);
+    setPastorDialogOpen(false);
+  };
 
-        } else if (nodeToDelete.type === 'area') {
-            const docRef = doc(firestore, 'areas', nodeToDelete.id);
-            deleteDocumentNonBlocking(docRef);
-            toast({
-                title: "Exclusão Iniciada",
-                description: `A área "${nodeToDelete.nome}" será excluída em breve.`,
-            });
-        }
-    
-        setDeleteDialogOpen(false);
-        setNodeToDelete(null);
-    };
+  return (
+    <>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-black tracking-tight flex items-center gap-2.5">
+            <div className="bg-indigo-100 p-2 rounded-xl">
+              <GitBranch className="size-5 text-indigo-600" />
+            </div>
+            Estrutura Hierárquica
+          </h1>
+          <p className="text-muted-foreground text-sm mt-1">Visualize e gerencie as redes, áreas e GCs da igreja.</p>
+        </div>
+        <div className="flex gap-2 shrink-0">
+          <Button variant="outline" onClick={() => { setEditingNode(null); setAreaDialogOpen(true); }} className="font-bold">
+            <PlusCircle className="mr-2 size-4" /> Criar Área
+          </Button>
+          <Button onClick={() => { setEditingNode(null); setRedeDialogOpen(true); }} className="font-bold shadow-lg">
+            <PlusCircle className="mr-2 size-4" /> Criar Rede
+          </Button>
+        </div>
+      </div>
 
-    const handleCloseDialogs = () => {
-        setEditingNode(null);
-        setRedeDialogOpen(false);
-        setAreaDialogOpen(false);
-        setPastorDialogOpen(false);
-    };
+      {/* Conteúdo */}
+      <div className="bg-gradient-to-br from-slate-50 to-indigo-50/30 rounded-2xl border border-slate-200 min-h-[70vh] overflow-auto p-8">
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center h-64 gap-3">
+            <Loader2 className="size-8 animate-spin text-indigo-500" />
+            <p className="text-muted-foreground text-sm font-medium">Carregando estrutura...</p>
+          </div>
+        ) : !hierarchyData ? (
+          <div className="flex flex-col items-center justify-center h-64 gap-3 text-center">
+            <div className="bg-slate-100 rounded-2xl p-5">
+              <Network className="size-10 text-slate-400" />
+            </div>
+            <p className="font-bold text-slate-700">Nenhuma hierarquia encontrada</p>
+            <p className="text-sm text-muted-foreground max-w-xs">
+              Para começar, vá para <strong>Configurações</strong> e defina um usuário como <strong>Admin</strong> ou <strong>Pastor Sênior</strong>.
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-0 min-w-max mx-auto">
+            {/* Nó raiz (Igreja) */}
+            <RootCard
+              node={hierarchyData}
+              onEdit={() => handleEdit(hierarchyData)}
+              onToggle={() => setRootExpanded(v => !v)}
+              isExpanded={rootExpanded}
+            />
 
-    return (
-        <>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <div>
-                        <CardTitle>Estrutura Hierárquica</CardTitle>
-                        <CardDescription>Visualize e gerencie as redes, áreas e GCs da igreja.</CardDescription>
-                    </div>
-                    <div className="flex gap-2">
-                        <Button onClick={() => { setEditingNode(null); setAreaDialogOpen(true); }}>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Criar Área
-                        </Button>
-                        <Button onClick={() => { setEditingNode(null); setRedeDialogOpen(true); }}>
-                            <PlusCircle className="mr-2 h-4 w-4" />
-                            Criar Rede
-                        </Button>
-                    </div>
-                </CardHeader>
-                <CardContent className="overflow-x-auto p-8 bg-slate-50/50 min-h-[60vh]">
-                    {isLoading ? (
-                        <div className="flex items-center justify-center h-48">
-                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                            <p className="ml-4 text-muted-foreground">Carregando estrutura...</p>
-                        </div>
-                    ) : (
-                         hierarchyData ? (
-                            <div className="flex justify-center">
-                                <RenderNode node={hierarchyData} isRoot={true} onEditNode={handleEditNode} onDeleteNode={handleDeleteNode} />
-                            </div>
-                        ) : (
-                            <div className="text-center py-10 text-muted-foreground">
-                                <p>Nenhuma hierarquia encontrada.</p>
-                                <p className="text-sm">Para começar, vá para <strong>Configurações</strong> e defina um usuário como <strong>Admin</strong> ou <strong>Pastor Sênior</strong>.</p>
-                            </div>
-                        )
-                    )}
-                </CardContent>
-            </Card>
-
-            {users && (
-              <CreateRedeDialog 
-                open={isRedeDialogOpen}
-                onOpenChange={handleCloseDialogs}
-                users={users}
-                existingRede={editingNode?.type === 'rede' ? editingNode : null}
-              />
+            {/* Redes */}
+            {rootExpanded && hierarchyData.children.length > 0 && (
+              <div className="relative flex flex-wrap justify-center gap-8 items-start mt-0">
+                {/* linha horizontal conectando as redes */}
+                {hierarchyData.children.length > 1 && (
+                  <div className="absolute top-0 left-[12%] right-[12%] h-0.5 bg-slate-200" />
+                )}
+                {hierarchyData.children.map(rede => (
+                  <RenderRede
+                    key={rede.id}
+                    node={rede}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                  />
+                ))}
+              </div>
             )}
+          </div>
+        )}
+      </div>
 
-            {users && redes && (
-                 <CreateAreaDialog 
-                    open={isAreaDialogOpen}
-                    onOpenChange={handleCloseDialogs}
-                    users={users}
-                    redes={redes}
-                    existingArea={editingNode?.type === 'area' ? editingNode : null}
-                />
-            )}
-            
-            {users && (
-                <EditPastorDialog
-                    open={isPastorDialogOpen}
-                    onOpenChange={handleCloseDialogs}
-                    users={users}
-                    currentPastorId={editingNode?.type === 'pastor' ? editingNode.id : ''}
-                />
-            )}
+      {/* Legenda */}
+      {hierarchyData && (
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[11px] text-muted-foreground mt-4 px-1">
+          <div className="flex items-center gap-1.5">
+            <div className="size-2.5 rounded-full bg-indigo-500" />
+            <span className="font-medium">Igreja</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="size-2.5 rounded-full bg-sky-400" />
+            <span className="font-medium">Rede</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="size-2.5 rounded-full bg-slate-400" />
+            <span className="font-medium">Área</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="size-2.5 rounded-full bg-emerald-400" />
+            <span className="font-medium">Grupo de Célula</span>
+          </div>
+        </div>
+      )}
 
-            {nodeToDelete && (
-                <DeleteConfirmationDialog
-                    open={isDeleteDialogOpen}
-                    onOpenChange={setDeleteDialogOpen}
-                    onConfirm={confirmDelete}
-                    itemName={nodeToDelete.nome}
-                    itemType={nodeToDelete.type === 'rede' ? 'Rede' : 'Área'}
-                />
-            )}
-        </>
-    );
+      {/* Dialogs */}
+      {users && (
+        <CreateRedeDialog open={isRedeDialogOpen} onOpenChange={closeDialogs} users={users}
+          existingRede={editingNode?.type === 'rede' ? editingNode : null} />
+      )}
+      {users && redes && (
+        <CreateAreaDialog open={isAreaDialogOpen} onOpenChange={closeDialogs} users={users} redes={redes}
+          existingArea={editingNode?.type === 'area' ? editingNode : null} />
+      )}
+      {users && (
+        <EditPastorDialog open={isPastorDialogOpen} onOpenChange={closeDialogs} users={users}
+          currentPastorId={editingNode?.type === 'pastor' ? editingNode.id : ''} />
+      )}
+      {nodeToDelete && (
+        <DeleteConfirmationDialog open={isDeleteDialogOpen} onOpenChange={setDeleteDialogOpen}
+          onConfirm={confirmDelete} itemName={nodeToDelete.nome}
+          itemType={nodeToDelete.type === 'rede' ? 'Rede' : 'Área'} />
+      )}
+    </>
+  );
 }
