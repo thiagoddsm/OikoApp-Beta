@@ -770,7 +770,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
         if (!matchedItem) continue;
 
         // Validar se todos os vídeos exigidos para este módulo foram assistidos
-        const mod = syllabus[targetSyllabusIndex];
+        const mod = syllabus[targetSyllabusIndex] as any;
         const requiredVideoIds = mod?.theoflixRequiredVideoIds || [];
         if (requiredVideoIds.length > 0) {
           const userRef = doc(firestore!, 'users', userId);
@@ -778,7 +778,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
           const userData = userSnap.data() as any;
           const userProgress = userData?.journey?.theoflixProgress?.[theoflixCourseId] || {};
           
-          const currentTheoflixCourse = theoflixCourses.find((tc: any) => tc.id === theoflixCourseId);
+          const currentTheoflixCourse = theoflixCourses?.find((tc: any) => tc.id === theoflixCourseId);
           const episodes = currentTheoflixCourse?.episodes || [];
           
           const allWatched = requiredVideoIds.every((reqIndexStr: string) => {
@@ -809,7 +809,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
           }
           // Salva/atualiza as anotações (sempre, para permitir edição)
           if (notes) {
-            record.lessonNotes = { ...(record.lessonNotes || {}), [userId]: notes };
+            record.lessonNotes = { ...((record.lessonNotes || {}) as any), [userId]: notes };
             changed = true;
           }
           if (changed) {
