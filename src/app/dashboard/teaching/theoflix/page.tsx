@@ -550,9 +550,28 @@ function TheoFlixContent() {
                     <section className="space-y-4 sm:space-y-6">
                         <h3 className="text-[9px] sm:text-xs font-black uppercase text-primary tracking-widest">Grade de Aulas</h3>
                         <div className="space-y-2 sm:space-y-4">
-                            {selectedCourse.episodes?.map((ep, idx) => {
+                             {selectedCourse.episodes?.map((ep, idx) => {
                                 const epKey = ep.youtubeId || ep.title.replace(/\s+/g, '_');
                                 const isCompleted = userProgress[selectedCourse.id]?.[epKey];
+
+                                // Procura se este episódio está associado a alguma aula física
+                                const matchedLesson = (() => {
+                                    const physicalCourse = physicalCourses?.find(pc => 
+                                        pc.linkedTheoflixId === selectedCourse.id || pc.id === selectedCourse.id
+                                    );
+                                    const syllabus = physicalCourse?.syllabus || [];
+                                    const sIdx = syllabus.findIndex((mod: any) => 
+                                        mod.theoflixCourseId === selectedCourse.id &&
+                                        mod.theoflixRequiredVideoIds?.includes(idx.toString())
+                                    );
+                                    if (sIdx !== -1) {
+                                        return {
+                                            num: String(sIdx + 1).padStart(2, '0'),
+                                            title: syllabus[sIdx].title
+                                        };
+                                    }
+                                    return null;
+                                })();
                                 
                                 return (
                                 <div key={idx} className={cn(
@@ -569,6 +588,11 @@ function TheoFlixContent() {
                                           )}
                                         </div>
                                         <div className="min-w-0">
+                                            {matchedLesson && (
+                                                <span className="text-[10px] font-bold text-primary block uppercase tracking-wider mb-0.5">
+                                                    Aula {matchedLesson.num}: {matchedLesson.title}
+                                                </span>
+                                            )}
                                             <h4 className="font-black text-xs sm:text-lg uppercase italic truncate">{ep.title}</h4>
                                             <span className="text-[8px] sm:text-[10px] text-slate-500 font-bold uppercase">{ep.duration || '45 MIN'}</span>
                                         </div>

@@ -94,7 +94,6 @@ export async function processCampaign(
 
     const campaign = snap.data() as NotificationCampaign;
     const recipients = [...campaign.recipients];
-    const waClient = await getWhatsAppClient();
 
     let sentCount = campaign.sentCount;
     let failedCount = campaign.failedCount;
@@ -124,13 +123,27 @@ export async function processCampaign(
 
             try {
                 const formattedPhone = formatWhatsAppNumber(recipient.phone);
-                await waClient.sendMessage({
-                    type: TypeMessage.TEXT,
-                    body: {
+                
+                const response = await fetch('/api/notifications/proxy-send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
                         to: formattedPhone,
                         text: recipient.personalizedMessage,
-                    },
+                    }),
                 });
+
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({}));
+                    throw new Error(errData.error || `HTTP ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                const isSuccess = result.status === 'success' || result.status === 200 || result.key || result.id || result.messageId || result.data?.id;
+                if (!isSuccess) {
+                    throw new Error(JSON.stringify(result));
+                }
 
                 recipients[j] = {
                     ...recipient,
@@ -142,7 +155,7 @@ export async function processCampaign(
                 recipients[j] = {
                     ...recipient,
                     status: 'failed',
-                    error: err?.message || 'Erro desconhecido',
+                    error: err?.message || err?.toString() || 'Erro desconhecido',
                 };
                 failedCount++;
             }

@@ -125,6 +125,20 @@ function CampaignsPanel({ classId, onResume }: { classId: string; onResume: (cam
                                 <span className="font-bold">{pct}%</span>
                             </div>
                         </div>
+
+                        {c.failedCount > 0 && (
+                            <div className="mt-3 pt-3 border-t border-dashed space-y-1.5">
+                                <span className="text-[10px] font-bold text-red-500 uppercase tracking-widest block">Erros de Envio:</span>
+                                <div className="max-h-32 overflow-y-auto space-y-1 text-xs">
+                                    {(c.recipients || []).filter(r => r.status === 'failed').map((r, rIdx) => (
+                                        <div key={rIdx} className="bg-red-50/50 border border-red-100 rounded-lg p-2 flex flex-col gap-0.5">
+                                            <span className="font-bold text-slate-800 text-[11px]">{r.name} ({r.phone})</span>
+                                            <span className="text-red-600 text-[10px] font-medium">{r.error || 'Erro desconhecido'}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 );
             })}

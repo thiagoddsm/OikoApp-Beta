@@ -4,7 +4,7 @@
 import React, { createContext, useContext, ReactNode, useMemo, useEffect } from 'react';
 import { format, addWeeks, addMonths, parseISO } from 'date-fns';
 import { useFirebase, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, useDoc } from '@/firebase';
-import { collection, query, doc, Timestamp, addDoc, where } from 'firebase/firestore';
+import { collection, query, doc, Timestamp, addDoc, where, getDoc } from 'firebase/firestore';
 
 export type User = {
   id: string;
@@ -768,6 +768,31 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
         
         const matchedItem = items.find((i: any) => i.syllabusOriginalIndex === targetSyllabusIndex);
         if (!matchedItem) continue;
+
+        // Validar se todos os vídeos exigidos para este módulo foram assistidos
+        const mod = syllabus[targetSyllabusIndex];
+        const requiredVideoIds = mod?.theoflixRequiredVideoIds || [];
+        if (requiredVideoIds.length > 0) {
+          const userRef = doc(firestore!, 'users', userId);
+          const userSnap = await getDoc(userRef);
+          const userData = userSnap.data() as any;
+          const userProgress = userData?.journey?.theoflixProgress?.[theoflixCourseId] || {};
+          
+          const currentTheoflixCourse = theoflixCourses.find((tc: any) => tc.id === theoflixCourseId);
+          const episodes = currentTheoflixCourse?.episodes || [];
+          
+          const allWatched = requiredVideoIds.every((reqIndexStr: string) => {
+            const reqIndex = parseInt(reqIndexStr, 10);
+            const reqEpisode = episodes[reqIndex];
+            if (!reqEpisode) return false;
+            const reqEpKey = reqEpisode.youtubeId || reqEpisode.title.replace(/\s+/g, '_');
+            return userProgress[reqEpKey] === true || reqIndex === episodeIndex;
+          });
+          
+          if (!allWatched) {
+            continue;
+          }
+        }
         
         const targetDate = matchedItem.dateStr;
         const existingAttendance = cls.attendance || [];
