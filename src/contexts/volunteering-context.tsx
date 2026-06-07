@@ -281,6 +281,7 @@ export type EnrollmentRequest = {
   phone: string;
   status: 'pending' | 'approved' | 'rejected';
   createdAt: Timestamp;
+  volunteerId?: string;
 };
 
 export type PedagogicalLog = {

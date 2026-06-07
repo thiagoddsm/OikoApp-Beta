@@ -7,7 +7,7 @@ import {
   Loader2, ArrowLeft, BookOpen, Users, User, FileText, 
   ClipboardCheck, Folder, Inbox, GraduationCap, TrendingUp,
   LayoutDashboard, PlusCircle, UserPlus, Waves, Lightbulb, School, HandHelping,
-  CheckCircle2
+  CheckCircle2, BarChart3
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ import { EnrollmentRequestsList } from '@/components/teaching/enrollment-request
 import { StudentsManagement } from '@/components/teaching/students-management';
 import { CourseAttendanceMatrix } from '@/components/teaching/course-attendance-matrix';
 import { CourseSyllabusManager } from '@/components/teaching/course-syllabus-manager';
+import { CourseReports } from '@/components/teaching/course-reports';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -153,6 +154,7 @@ function CourseDetailPageContent() {
                                 <TabsTrigger value="classes">Turmas</TabsTrigger>
                                 <TabsTrigger value="teachers">Professores</TabsTrigger>
                                 <TabsTrigger value="syllabus">Ementa</TabsTrigger>
+                                <TabsTrigger value="reports"><BarChart3 className="mr-2 size-4"/>Relatórios</TabsTrigger>
                             </TabsList>
                         </div>
 
@@ -182,6 +184,10 @@ function CourseDetailPageContent() {
 
                         <TabsContent value="syllabus" className="mt-0 animate-in slide-in-from-left-4 duration-300">
                             <CourseSyllabusManager course={course} />
+                        </TabsContent>
+
+                        <TabsContent value="reports" className="mt-0 animate-in slide-in-from-left-4 duration-300">
+                            <CourseReports courseId={course.id} />
                         </TabsContent>
                     </Tabs>
                 </CardContent>

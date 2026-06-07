@@ -52,7 +52,13 @@ function EventsListContent() {
 
   const sortedEvents = useMemo(() => {
     if (!events) return [];
-    return [...events].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return [...events].sort((a, b) => {
+      const timeA = a.date ? new Date(a.date).getTime() : 0;
+      const timeB = b.date ? new Date(b.date).getTime() : 0;
+      const validA = !isNaN(timeA) ? timeA : 0;
+      const validB = !isNaN(timeB) ? timeB : 0;
+      return validB - validA;
+    });
   }, [events]);
 
   const handleStatusChange = (id: string, status: string) => {
@@ -157,8 +163,21 @@ function EventsListContent() {
                                             {event.eventName}
                                         </Link>
                                     </TableCell>
-                                    <TableCell className="text-muted-foreground">{event.ministry}</TableCell>
-                                    <TableCell>{format(new Date(event.date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}</TableCell>
+                                    <TableCell className="text-muted-foreground">
+                                        {event.ministry}
+                                    </TableCell>
+                                    <TableCell>
+                                        {(() => {
+                                            try {
+                                                if (!event.date) return '—';
+                                                const d = new Date(event.date + 'T12:00:00');
+                                                if (isNaN(d.getTime())) return '—';
+                                                return format(d, 'dd/MM/yyyy', { locale: ptBR });
+                                            } catch {
+                                                return '—';
+                                            }
+                                        })()}
+                                    </TableCell>
                                     <TableCell>
                                         <Badge variant="outline" className={statusInfo.color}>{statusInfo.label}</Badge>
                                     </TableCell>

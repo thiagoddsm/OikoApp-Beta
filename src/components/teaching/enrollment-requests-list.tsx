@@ -57,7 +57,16 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
             const courseName = targetCourse?.name || 'Curso';
             
             if (request.name && request.phone) {
-                sendEnrollmentMessage(request.name, String(request.phone), courseName, className).catch(err => {
+                // Se localizou o voluntário pelo e-mail ou nome para obter o ID
+                sendEnrollmentMessage(
+                    request.name, 
+                    String(request.phone), 
+                    courseName, 
+                    className, 
+                    undefined, 
+                    request.courseId, 
+                    request.volunteerId || undefined
+                ).catch(err => {
                     console.error("Erro ao enviar mensagem de matrícula:", err);
                 });
             }

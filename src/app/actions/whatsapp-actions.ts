@@ -97,10 +97,46 @@ export async function sendWelcomeMessage(userName: string, phone: string, config
 /**
  * Sends a message when a student is enrolled in a class.
  */
-export async function sendEnrollmentMessage(userName: string, phone: string, courseName: string, className: string, configOverride?: any) {
+export async function sendEnrollmentMessage(
+    userName: string, 
+    phone: string, 
+    courseName: string, 
+    className: string, 
+    configOverride?: any,
+    courseId?: string,
+    userId?: string
+) {
     try {
         const config = configOverride || await getWhatsAppConfig();
         if (!config || !config.enabled || !config.notifyEnrollment) return { success: false };
+
+        const db = getAdminDb();
+        let userDocRef = null;
+
+        // Se passarmos o userId, podemos obter o documento do usuário
+        if (userId) {
+            userDocRef = db.collection('users').doc(userId);
+        } else if (phone) {
+            // Tenta achar pelo telefone caso não tenha userId
+            const formattedPhone = formatWhatsAppNumber(phone);
+            const querySnapshot = await db.collection('users').where('phone', '==', phone).limit(1).get();
+            if (!querySnapshot.empty) {
+                userDocRef = querySnapshot.docs[0].ref;
+            }
+        }
+
+        // Se localizou o usuário, checa se a notificação para este curso já foi enviada
+        if (userDocRef && courseId) {
+            const docSnap = await userDocRef.get();
+            if (docSnap.exists) {
+                const userData = docSnap.data();
+                const notified = userData?.journey?.notifiedEnrollments || [];
+                if (notified.includes(courseId)) {
+                    console.log(`[sendEnrollmentMessage] Notificação ignorada: usuário ${userName} já notificado para o curso ${courseId}.`);
+                    return { success: false, reason: 'Already notified' };
+                }
+            }
+        }
 
         const whatsapp = await getWhatsAppClient({
             server: config?.serverUrl,
@@ -120,6 +156,17 @@ export async function sendEnrollmentMessage(userName: string, phone: string, cou
             type: "TEXT",
             body: { to: formattedPhone, text: message }
         });
+
+        // Registrar o envio para evitar duplicação no futuro
+        if (userDocRef && courseId) {
+            const docSnap = await userDocRef.get();
+            const notified = docSnap.exists ? (docSnap.data()?.journey?.notifiedEnrollments || []) : [];
+            if (!notified.includes(courseId)) {
+                await userDocRef.update({
+                    'journey.notifiedEnrollments': [...notified, courseId]
+                });
+            }
+        }
 
         return { success: true, response };
     } catch (error: any) {

@@ -4,7 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { useVolunteering, getModuleIndexForDate, weekDayMap, Course, Class } from '@/contexts/volunteering-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Clock, Award, Loader2, Users, GraduationCap, ChevronRight, XCircle, Minus, Video, PlayCircle, Star, Filter, RefreshCw, Send, Info, ListFilter } from 'lucide-react';
+import { CheckCircle2, Clock, Award, Loader2, Users, GraduationCap, ChevronRight, XCircle, Minus, Video, PlayCircle, Star, Filter, RefreshCw, Send, Info, ListFilter, Search } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -48,9 +48,11 @@ const Legend = () => (
 export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
     const { classes, users, courses, updateVolunteer, isLoading } = useVolunteering();
     const { toast } = useToast();
-    const { firestore, user: currentUser } = useFirebase();
-    const [selectedClassId, setSelectedClassId] = useState<string>('all');
+    const { firestore, user: currentUser } = useFirebase();    const [selectedClassId, setSelectedClassId] = useState<string>('all');
     const [isSyncing, setIsSyncing] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(15);
     
     // Filtros de coluna
     const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
@@ -192,10 +194,19 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
         };
     };
 
-    const students = useMemo(() => {
+    // Alunos filtrados por busca textual e filtros de coluna
+    const filteredStudents = useMemo(() => {
         const studentSet = new Set<string>();
         filteredClasses.forEach(cls => cls.students?.forEach(sId => studentSet.add(sId)));
         let baseStudents = users.filter(u => studentSet.has(u.id)).sort((a, b) => a.name.localeCompare(b.name));
+
+        // Filtro por texto (Busca)
+        if (searchQuery.trim()) {
+            const normalizedQuery = searchQuery.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            baseStudents = baseStudents.filter(s => 
+                s.name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(normalizedQuery)
+            );
+        }
 
         // Aplica filtros de coluna
         return baseStudents.filter(student => {
@@ -225,7 +236,15 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
             }
             return true;
         });
-    }, [users, filteredClasses, columnFilters, modules, threshold]);
+    }, [users, filteredClasses, columnFilters, modules, threshold, searchQuery]);
+
+    // Paginação
+    const paginatedStudents = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return filteredStudents.slice(startIndex, startIndex + itemsPerPage);
+    }, [filteredStudents, currentPage, itemsPerPage]);
+
+    const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
 
     const handleSyncWithProfiles = async () => {
         if (!courseId || isSyncing) return;
@@ -233,7 +252,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
         
         try {
             let syncCount = 0;
-            const promises = students.map(student => {
+            const promises = filteredStudents.map(student => {
                 const totalMandatory = modules.filter(m => m.type !== 'Eletivo').length;
                 let completedMandatory = 0;
                 modules.forEach(m => {
@@ -290,7 +309,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
     return (
         <TooltipProvider>
             <div className="space-y-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 bg-slate-50 p-4 rounded-xl border border-dashed">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 bg-slate-50 p-4 rounded-xl border border-dashed">
                     <div className="flex items-center gap-3">
                         <div className="bg-primary/10 p-2.5 rounded-xl text-primary shadow-sm">
                             <Filter className="size-5" />
@@ -301,15 +320,28 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                         </div>
                     </div>
                     
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                         {Object.values(columnFilters).some(v => v !== 'all') && (
                             <Button variant="ghost" size="sm" onClick={() => setColumnFilters({})} className="text-[10px] font-bold uppercase text-destructive">
                                 Limpar Filtros
                             </Button>
                         )}
-                        <div className="flex items-center gap-3 bg-white p-1.5 rounded-lg border shadow-sm min-w-[250px]">
+                        <div className="relative min-w-[200px]">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                            <input
+                                type="text"
+                                placeholder="Buscar aluno por nome..."
+                                className="w-full h-11 pl-9 pr-4 rounded-lg border bg-white text-sm focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                                value={searchQuery}
+                                onChange={(e) => {
+                                    setSearchQuery(e.target.value);
+                                    setCurrentPage(1); // Volta para a primeira página
+                                }}
+                            />
+                        </div>
+                        <div className="flex items-center gap-3 bg-white p-1.5 rounded-lg border shadow-sm min-w-[200px]">
                             <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Turma:</Label>
-                            <Select value={selectedClassId} onValueChange={setSelectedClassId}>
+                            <Select value={selectedClassId} onValueChange={(v) => { setSelectedClassId(v); setCurrentPage(1); }}>
                                 <SelectTrigger className="h-8 font-bold border-none shadow-none focus:ring-0">
                                     <SelectValue />
                                 </SelectTrigger>
@@ -321,10 +353,6 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                 </SelectContent>
                             </Select>
                         </div>
-                        <Button onClick={handleSyncWithProfiles} disabled={isSyncing || students.length === 0} size="sm" className="h-11 px-6 font-black uppercase tracking-widest shadow-lg">
-                            {isSyncing ? <Loader2 className="size-4 animate-spin mr-2" /> : <Send className="size-4 mr-2" />}
-                            Sincronizar com Perfis
-                        </Button>
                     </div>
                 </div>
 
@@ -335,7 +363,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                 <TableHead className="min-w-[250px] sticky left-0 bg-white z-[2] border-r shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
                                     <div className="flex items-center justify-between">
                                         <span>Aluno</span>
-                                        <Badge variant="outline" className="text-[9px]">{students.length} exibidos</Badge>
+                                        <Badge variant="outline" className="text-[9px]">{filteredStudents.length} filtrados</Badge>
                                     </div>
                                 </TableHead>
                                 {isMembership ? (
@@ -397,7 +425,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                                         </span>
                                                         {mod && (
                                                             <Tooltip>
-                                                                <TooltipTrigger asChild>
+                                                                 <TooltipTrigger asChild>
                                                                     <div className="cursor-help">
                                                                         <Info className="size-3 text-slate-400 group-hover:text-primary transition-colors" />
                                                                     </div>
@@ -451,14 +479,14 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {students.length === 0 ? (
+                            {paginatedStudents.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={isMembership ? modules.length + 2 : allDates.length + 2} className="h-32 text-center text-muted-foreground italic">
                                         Nenhum aluno atende aos filtros selecionados.
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                students.map(student => {
+                                paginatedStudents.map(student => {
                                     let completedCount = 0;
                                     const studentClass = courseClasses.find(c => c.students?.includes(student.id));
 
@@ -567,7 +595,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                                         icon = (
                                                             <Tooltip>
                                                                 <TooltipTrigger asChild>
-                                                                    <div className="cursor-help mx-auto w-fit">
+                                                                                                        <div className="cursor-help mx-auto w-fit">
                                                                         <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-amber-200 h-5 w-5 p-0 flex items-center justify-center font-black">
                                                                             R
                                                                         </Badge>
@@ -608,6 +636,54 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                         </TableBody>
                     </Table>
                 </div>
+
+                {/* Controles de Paginação */}
+                {totalPages > 1 && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 p-4 rounded-xl border border-dashed text-sm text-muted-foreground font-medium">
+                        <div className="flex items-center gap-2">
+                            <span>Mostrar</span>
+                            <Select value={itemsPerPage.toString()} onValueChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}>
+                                <SelectTrigger className="h-8 w-16 bg-white font-bold">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="15">15</SelectItem>
+                                    <SelectItem value="30">30</SelectItem>
+                                    <SelectItem value="50">50</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <span>por página</span>
+                            <span className="mx-2 text-slate-300">|</span>
+                            <span>Exibindo de {((currentPage - 1) * itemsPerPage) + 1} a {Math.min(currentPage * itemsPerPage, filteredStudents.length)} de {filteredStudents.length} alunos</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
+                                disabled={currentPage === 1}
+                                className="h-8 px-3 font-bold uppercase text-xs"
+                            >
+                                Anterior
+                            </Button>
+                            <div className="flex items-center gap-1 mx-2">
+                                <span className="font-bold text-slate-800">{currentPage}</span>
+                                <span className="opacity-50">/</span>
+                                <span>{totalPages}</span>
+                            </div>
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
+                                disabled={currentPage === totalPages}
+                                className="h-8 px-3 font-bold uppercase text-xs"
+                            >
+                                Próxima
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
                 <Legend />
             </div>
         </TooltipProvider>
