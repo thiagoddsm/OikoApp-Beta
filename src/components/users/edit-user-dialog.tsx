@@ -358,6 +358,29 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         }
     }
     
+    const existingFamilyMembers = isEditing && user ? (user.familyMembers || []) : [];
+    const updatedFamilyMembers = [...existingFamilyMembers];
+    if (formData.conjuge) {
+        const conjugeClean = formatName(formData.conjuge);
+        const conjugeIndex = updatedFamilyMembers.findIndex((m: any) => m.relation === 'Cônjuge');
+        if (conjugeIndex > -1) {
+            updatedFamilyMembers[conjugeIndex] = {
+                ...updatedFamilyMembers[conjugeIndex],
+                name: conjugeClean
+            };
+        } else {
+            updatedFamilyMembers.push({
+                name: conjugeClean,
+                relation: 'Cônjuge'
+            });
+        }
+    } else {
+        const conjugeIndex = updatedFamilyMembers.findIndex((m: any) => m.relation === 'Cônjuge');
+        if (conjugeIndex > -1) {
+            updatedFamilyMembers.splice(conjugeIndex, 1);
+        }
+    }
+
     const dataToSave = {
         name: formatName(formData.name),
         phone: formData.phone,
@@ -400,6 +423,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         observacoes: formData.observacoes,
         tags: formData.tags ? formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '') : [],
         conjuge: formData.conjuge ? formatName(formData.conjuge) : null,
+        familyMembers: updatedFamilyMembers,
         statusArrolamento: formData.statusArrolamento || null,
         dataArrolamento: formData.dataArrolamento || null,
         dataBatismo: formData.dataBatismo || null,

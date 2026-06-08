@@ -82,15 +82,24 @@ export function FamilyManagement({ user }: FamilyManagementProps) {
         }
 
         const updatedLinks = [...familyLinks, newLink];
-        updateDocumentNonBlocking(doc(firestore!, 'users', user.id), { familyMembers: updatedLinks });
+        const updateData: any = { familyMembers: updatedLinks };
+        if (newRelation === 'Cônjuge') {
+            updateData.conjuge = newLink.name;
+        }
+        updateDocumentNonBlocking(doc(firestore!, 'users', user.id), updateData);
         
         toast({ title: 'Vínculo familiar adicionado!' });
         resetForm();
     };
 
     const handleRemoveLink = (index: number) => {
+        const removedLink = familyLinks[index];
         const updatedLinks = familyLinks.filter((_, i) => i !== index);
-        updateDocumentNonBlocking(doc(firestore!, 'users', user.id), { familyMembers: updatedLinks });
+        const updateData: any = { familyMembers: updatedLinks };
+        if (removedLink && removedLink.relation === 'Cônjuge') {
+            updateData.conjuge = null;
+        }
+        updateDocumentNonBlocking(doc(firestore!, 'users', user.id), updateData);
         toast({ title: 'Vínculo removido.' });
     };
 

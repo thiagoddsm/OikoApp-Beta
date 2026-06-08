@@ -174,10 +174,33 @@ export async function savePublicRegistration(data: {
         const docRef = doc(firestore, 'users', data.userId);
         const oldDoc = await getDoc(docRef);
         const oldData = oldDoc.exists() ? oldDoc.data() || {} : {};
+
+        const updatedFamilyMembers = [...(oldData.familyMembers || [])];
+        if (data.conjuge) {
+            const conjugeClean = formatName(data.conjuge);
+            const conjugeIndex = updatedFamilyMembers.findIndex((m: any) => m.relation === 'Cônjuge');
+            if (conjugeIndex > -1) {
+                updatedFamilyMembers[conjugeIndex] = {
+                    ...updatedFamilyMembers[conjugeIndex],
+                    name: conjugeClean
+                };
+            } else {
+                updatedFamilyMembers.push({
+                    name: conjugeClean,
+                    relation: 'Cônjuge'
+                });
+            }
+        } else {
+            const conjugeIndex = updatedFamilyMembers.findIndex((m: any) => m.relation === 'Cônjuge');
+            if (conjugeIndex > -1) {
+                updatedFamilyMembers.splice(conjugeIndex, 1);
+            }
+        }
         
         const mergedData = {
             ...oldData,
             ...userData,
+            familyMembers: updatedFamilyMembers,
             // Preservar propriedades estruturais
             tags: oldData.tags || [],
             integrationStatus: oldData.integrationStatus || 'novo_convertido',
@@ -203,6 +226,10 @@ export async function savePublicRegistration(data: {
             supervisorId: ''
         };
         userData.tags = [];
+        userData.familyMembers = data.conjuge ? [{
+            name: formatName(data.conjuge),
+            relation: 'Cônjuge'
+        }] : [];
 
         const newDocRef = await addDoc(collection(firestore, 'users'), userData);
         return { success: true, userId: newDocRef.id, action: 'created' };
