@@ -79,6 +79,8 @@ const attendanceAnalysisFlow = ai.defineFlow(
     const response = await attendanceAnalysisPrompt({
       recordsJson: JSON.stringify(formattedRecords, null, 2),
       statsJson: JSON.stringify(inp.stats, null, 2),
+    }, {
+      model: 'googleai/gemini-1.5-flash'
     });
     return response.text || "Não foi possível gerar a análise.";
   }
