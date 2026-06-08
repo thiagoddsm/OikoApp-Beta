@@ -8,9 +8,10 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { BarChart3, Users, Award, Percent, BookOpen, Download, Calendar } from 'lucide-react';
+import { BarChart3, Users, Award, Percent, BookOpen, Download, Calendar, Printer } from 'lucide-react';
 import { format, parseISO, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface CourseReportsProps {
   courseId: string;
@@ -72,6 +73,7 @@ export function CourseReports({ courseId }: CourseReportsProps) {
           if (isPresent || isRepo) {
             attendedClasses++;
           }
+          totalAttendancePossibilities++;
         });
 
         totalClassDates += classDates.size;
@@ -182,7 +184,7 @@ export function CourseReports({ courseId }: CourseReportsProps) {
   return (
     <div className="space-y-6">
       {/* Filtros */}
-      <div className="flex flex-col md:flex-row md:items-end gap-4 bg-slate-50 p-4 rounded-xl border border-dashed">
+      <div className="flex flex-col md:flex-row md:items-end gap-4 bg-slate-50 p-4 rounded-xl border border-dashed print-hidden">
         <div className="flex-1 space-y-1">
           <Label className="text-[10px] font-black uppercase text-muted-foreground">Turma</Label>
           <Select value={selectedClassId} onValueChange={setSelectedClassId}>
@@ -218,13 +220,39 @@ export function CourseReports({ courseId }: CourseReportsProps) {
           />
         </div>
 
-        <Button onClick={handleExportCSV} className="h-10 font-bold uppercase tracking-widest text-xs px-5">
-          <Download className="size-4 mr-2" /> Exportar CSV
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleExportCSV} variant="outline" className="h-10 font-bold uppercase tracking-widest text-xs px-5">
+            <Download className="size-4 mr-2" /> CSV
+          </Button>
+        </div>
       </div>
 
+      {/* Gráfico de Evolução de Frequência */}
+      {classByClassReport.length > 0 && (
+        <Card className="shadow-sm border-none bg-slate-50/30 p-6 print-card">
+          <CardHeader className="px-0 pt-0">
+            <CardTitle className="text-base font-black uppercase text-slate-800">Evolução da Frequência por Aula</CardTitle>
+            <CardDescription>Percentual de presença registrada ao longo do curso</CardDescription>
+          </CardHeader>
+          <CardContent className="h-[200px] p-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={classByClassReport.map(session => ({
+                date: format(parseISO(session.date.split('T')[0]), 'dd/MM'),
+                'Freq. (%)': session.total > 0 ? Math.round((session.present / session.total) * 100) : 0
+              }))}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="date" fontSize={11} stroke="#64748b" />
+                <YAxis domain={[0, 100]} fontSize={11} stroke="#64748b" />
+                <Tooltip />
+                <Line type="monotone" dataKey="Freq. (%)" stroke="#4f46e5" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 print-card">
         <Card className="shadow-sm border-none bg-slate-50/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
             <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Alunos Inscritos</CardTitle>

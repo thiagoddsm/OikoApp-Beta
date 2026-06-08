@@ -604,7 +604,6 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
                       <Label>Possui filho(s)?</Label>
                       <RadioGroup value={formData.temFilhos} onValueChange={(v) => handleRadioChange('temFilhos', v)} className="flex items-center gap-4"><RadioGroupItem value="sim" id="filhos-sim" /><Label htmlFor="filhos-sim">Sim</Label><RadioGroupItem value="nao" id="filhos-nao" /><Label htmlFor="filhos-nao">Não</Label></RadioGroup>
                   </div>
-                  {formData.temFilhos === 'sim' && <div className="md:col-span-2 space-y-1.5"><Label htmlFor="idadeFilhos">Qual a idade do(s) seu(s) filho(s)?</Label><Input id="idadeFilhos" name="idadeFilhos" value={formData.idadeFilhos} onChange={handleInputChange} placeholder="Ex: 5, 10, 15" /></div>}
               </div>
           </section>
           

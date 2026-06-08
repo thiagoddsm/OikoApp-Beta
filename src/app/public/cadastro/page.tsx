@@ -361,12 +361,6 @@ export default function PublicCadastroPage() {
                                                 </SelectContent>
                                             </Select>
                                         </div>
-                                        {formData.temFilhos === 'sim' && (
-                                            <div className="space-y-1.5 animate-in fade-in duration-200">
-                                                <Label htmlFor="idadeFilhos">Idade dos Filhos (separe por vírgula)</Label>
-                                                <Input id="idadeFilhos" name="idadeFilhos" value={formData.idadeFilhos} onChange={handleInputChange} placeholder="Ex: 5, 8, 12" />
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
 
@@ -511,7 +505,7 @@ export default function PublicCadastroPage() {
                                             </Select>
                                         </div>
                                         <div className="space-y-1.5">
-                                            <Label htmlFor="serviceAreaId">Tem interesse em servir em alguma área voluntária?</Label>
+                                            <Label htmlFor="serviceAreaId">Área de voluntariado</Label>
                                             <Select value={formData.serviceAreaId || 'null'} onValueChange={(v) => handleSelectChange('serviceAreaId', v)}>
                                                 <SelectTrigger id="serviceAreaId"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                                                 <SelectContent>

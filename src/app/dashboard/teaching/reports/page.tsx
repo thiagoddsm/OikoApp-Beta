@@ -7,12 +7,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { BarChart2, BookOpen, Users, Award, Percent, ChevronRight, FileText, Download } from 'lucide-react';
+import { BarChart2, BookOpen, Users, Award, Percent, ChevronRight, FileText, Download, Printer } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 function GeneralTeachingReportsContent() {
   const { courses, classes, users } = useVolunteering();
   const [selectedCourseId, setSelectedCourseId] = useState<string>('all');
+  const [selectedTrack, setSelectedTrack] = useState<string>('all');
+
+  // Traduzir o track
+  const getTrackName = (track?: string, type?: string) => {
+    if (type === 'eletivo') return 'Eletivas & Outros';
+    if (track === 'discipulado') return 'Trilho de Discipulado';
+    if (track === 'biblico') return 'Trilho Bíblico';
+    if (track === 'teologico') return 'Trilho Teológico';
+    return 'Eletivas & Outros';
+  };
 
   // Calcular estatísticas consolidadas por curso
   const courseStats = useMemo(() => {
@@ -52,12 +63,16 @@ function GeneralTeachingReportsContent() {
         id: course.id,
         name: course.name,
         ministryName: course.ministryName || 'Ensino',
+        track: course.ebdTrack || 'eletivo',
+        type: course.type || 'eletivo',
         classesCount: courseClasses.length,
         enrolledCount,
         averageAttendance,
       };
-    }).sort((a, b) => b.enrolledCount - a.enrolledCount);
-  }, [courses, classes]);
+    })
+    .filter(c => selectedTrack === 'all' || c.track === selectedTrack || (selectedTrack === 'eletivo' && c.type === 'eletivo'))
+    .sort((a, b) => b.enrolledCount - a.enrolledCount);
+  }, [courses, classes, selectedTrack]);
 
   // KPIs globais de todo o Ensino
   const globalKpis = useMemo(() => {
@@ -100,11 +115,64 @@ function GeneralTeachingReportsContent() {
     };
   }, [courses, classes]);
 
+  // Gráfico de barras: alunos por curso
+  const chartData = useMemo(() => {
+    return courseStats.slice(0, 8).map(c => ({
+      name: c.name.length > 15 ? c.name.substring(0, 13) + '...' : c.name,
+      'Alunos': c.enrolledCount,
+      'Freq. Média (%)': c.averageAttendance
+    }));
+  }, [courseStats]);
+
+  // Gráfico de pizza: aprovados vs reprovados gerais
+  const pieData = useMemo(() => {
+    let approved = 0;
+    let pending = 0;
+
+    courses.forEach(course => {
+      const courseClasses = classes.filter(c => c.courseId === course.id);
+      const studentSet = new Set<string>();
+      courseClasses.forEach(cls => cls.students?.forEach(sId => studentSet.add(sId)));
+      const threshold = course.minAttendanceApproval || 75;
+
+      studentSet.forEach(studentId => {
+        let attended = 0;
+        let total = 0;
+
+        courseClasses.forEach(cls => {
+          if (!cls.students?.includes(studentId)) return;
+          const resolved = getResolvedSchedule(cls, course);
+          const activeDates = new Set(resolved.map(r => r.dateStr));
+
+          cls.attendance?.forEach(att => {
+            if (!activeDates.has(att.date)) return;
+            const isPresent = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
+            const isRepo = att.repositions?.some(r => r.studentId === studentId);
+            if (isPresent || isRepo) attended++;
+            total++;
+          });
+        });
+
+        const rate = total > 0 ? (attended / total) * 100 : 0;
+        if (rate >= threshold) {
+          approved++;
+        } else {
+          pending++;
+        }
+      });
+    });
+
+    return [
+      { name: 'Apto (Aprovado)', value: approved, color: '#10b981' },
+      { name: 'Pendente/Reprovado', value: pending, color: '#f59e0b' }
+    ];
+  }, [courses, classes]);
+
   const handleExportConsolidatedCSV = () => {
-    const headers = ['Curso', 'Ministerio', 'Qtd. Turmas', 'Alunos Matriculados', 'Frequência Média (%)'];
+    const headers = ['Curso', 'Trilho', 'Qtd. Turmas', 'Alunos Matriculados', 'Frequência Média (%)'];
     const rows = courseStats.map(c => [
       c.name,
-      c.ministryName,
+      getTrackName(c.track, c.type),
       c.classesCount,
       c.enrolledCount,
       `${c.averageAttendance}%`
@@ -125,13 +193,47 @@ function GeneralTeachingReportsContent() {
     document.body.removeChild(link);
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 print-content">
+      {/* CSS específico para impressão em PDF */}
+      <style dangerouslySetInnerHTML={{__html: `
+        @media print {
+          body {
+            background: white !important;
+            color: black !important;
+          }
+          header, nav, aside, footer, button, .print-hidden, .no-print, [role="tablist"], select {
+            display: none !important;
+          }
+          main, .print-content {
+            width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+          }
+          .print-card {
+            page-break-inside: avoid !important;
+            box-shadow: none !important;
+            border: 1px solid #e2e8f0 !important;
+            margin-bottom: 1.5rem !important;
+          }
+          .print-title {
+            font-size: 24px !important;
+            font-weight: 900 !important;
+          }
+        }
+      `}} />
+
       {/* Top Header & Selector */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border shadow-sm print-card">
         <div className="space-y-1">
-          <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-            <BarChart2 className="size-6 text-primary" />
+          <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2 print-title">
+            <BarChart2 className="size-6 text-primary print-hidden" />
             Relatórios de Ensino
           </h1>
           <p className="text-xs text-muted-foreground">
@@ -139,19 +241,41 @@ function GeneralTeachingReportsContent() {
           </p>
         </div>
 
-        <div className="w-full sm:w-[300px] space-y-1.5 shrink-0">
-          <Label htmlFor="courseSelector" className="text-[10px] font-black uppercase text-muted-foreground ml-1">Selecionar Curso</Label>
-          <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
-            <SelectTrigger id="courseSelector" className="bg-white font-bold h-10">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Visão Geral (Todos os Cursos)</SelectItem>
-              {courses.map(course => (
-                <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto print-hidden">
+          <div className="w-[180px] space-y-1.5">
+            <Label htmlFor="trackSelector" className="text-[10px] font-black uppercase text-muted-foreground ml-1">Trilho</Label>
+            <Select value={selectedTrack} onValueChange={setSelectedTrack}>
+              <SelectTrigger id="trackSelector" className="bg-white font-bold h-10">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Trilhos</SelectItem>
+                <SelectItem value="discipulado">Trilho de Discipulado</SelectItem>
+                <SelectItem value="biblico">Trilho Bíblico</SelectItem>
+                <SelectItem value="teologico">Trilho Teológico</SelectItem>
+                <SelectItem value="eletivo">Eletivas & Outros</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="w-[220px] space-y-1.5">
+            <Label htmlFor="courseSelector" className="text-[10px] font-black uppercase text-muted-foreground ml-1">Selecionar Curso</Label>
+            <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
+              <SelectTrigger id="courseSelector" className="bg-white font-bold h-10">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Visão Geral (Todos os Cursos)</SelectItem>
+                {courses.map(course => (
+                  <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Button onClick={handlePrint} variant="outline" size="sm" className="h-10 mt-5 font-bold uppercase gap-1.5">
+            <Printer className="size-4" /> PDF
+          </Button>
         </div>
       </div>
 
@@ -160,10 +284,10 @@ function GeneralTeachingReportsContent() {
         <div className="space-y-6">
           {/* KPIs Globais */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="shadow-sm border-none bg-white">
+            <Card className="shadow-sm border-none bg-white print-card">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                 <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Cursos Ativos</CardTitle>
-                <BookOpen className="size-4 text-blue-600" />
+                <BookOpen className="size-4 text-blue-600 print-hidden" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-black">{globalKpis.totalCourses}</div>
@@ -171,10 +295,10 @@ function GeneralTeachingReportsContent() {
               </CardContent>
             </Card>
 
-            <Card className="shadow-sm border-none bg-white">
+            <Card className="shadow-sm border-none bg-white print-card">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                 <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Turmas Registradas</CardTitle>
-                <FileText className="size-4 text-emerald-600" />
+                <FileText className="size-4 text-emerald-600 print-hidden" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-black">{globalKpis.totalClasses}</div>
@@ -182,10 +306,10 @@ function GeneralTeachingReportsContent() {
               </CardContent>
             </Card>
 
-            <Card className="shadow-sm border-none bg-white">
+            <Card className="shadow-sm border-none bg-white print-card">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                 <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Alunos Ativos</CardTitle>
-                <Users className="size-4 text-indigo-600" />
+                <Users className="size-4 text-indigo-600 print-hidden" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-black">{globalKpis.totalStudents}</div>
@@ -193,10 +317,10 @@ function GeneralTeachingReportsContent() {
               </CardContent>
             </Card>
 
-            <Card className="shadow-sm border-none bg-white">
+            <Card className="shadow-sm border-none bg-white print-card">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                 <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Freq. Média Geral</CardTitle>
-                <Percent className="size-4 text-amber-600" />
+                <Percent className="size-4 text-amber-600 print-hidden" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-black text-amber-600">{globalKpis.globalAverage}%</div>
@@ -205,14 +329,67 @@ function GeneralTeachingReportsContent() {
             </Card>
           </div>
 
+          {/* Gráficos de Visualização Recharts */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 print-card">
+            <Card className="lg:col-span-2 shadow-sm border-none bg-white p-6">
+              <CardHeader className="px-0 pt-0">
+                <CardTitle className="text-base font-black uppercase text-slate-800">Inscritos por Curso (Top 8)</CardTitle>
+                <CardDescription>Comparativo do total de alunos ativos por curso</CardDescription>
+              </CardHeader>
+              <CardContent className="h-[280px] p-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" fontSize={11} stroke="#64748b" />
+                    <YAxis fontSize={11} stroke="#64748b" />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="Alunos" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card className="shadow-sm border-none bg-white p-6">
+              <CardHeader className="px-0 pt-0">
+                <CardTitle className="text-base font-black uppercase text-slate-800">Aproveitamento Geral</CardTitle>
+                <CardDescription>Taxa de aptidão baseada em presença mínima</CardDescription>
+              </CardHeader>
+              <CardContent className="h-[280px] p-0 flex flex-col justify-center items-center">
+                <ResponsiveContainer width="100%" height="90%">
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex gap-4 text-xs font-bold mt-2">
+                  <div className="flex items-center gap-1.5"><span className="size-3 rounded-full bg-[#10b981]"></span> Apto</div>
+                  <div className="flex items-center gap-1.5"><span className="size-3 rounded-full bg-[#f59e0b]"></span> Pendente</div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           {/* Tabela Consolidada por Curso */}
-          <Card className="shadow-sm border-none">
+          <Card className="shadow-sm border-none bg-white print-card">
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-lg font-black uppercase text-slate-800">Estatísticas Consolidadas por Curso</CardTitle>
-                <CardDescription className="text-xs">Lista consolidada com o aproveitamento de cada curso ativo</CardDescription>
+                <CardTitle className="text-lg font-black uppercase text-slate-800">Estatísticas Consolidadas</CardTitle>
+                <CardDescription className="text-xs">Lista de cursos filtrados e desempenho médio</CardDescription>
               </div>
-              <Button onClick={handleExportConsolidatedCSV} variant="outline" size="sm" className="font-bold text-xs uppercase tracking-wider gap-1.5">
+              <Button onClick={handleExportConsolidatedCSV} variant="outline" size="sm" className="font-bold text-xs uppercase tracking-wider gap-1.5 print-hidden">
                 <Download className="size-3.5" /> Exportar Planilha
               </Button>
             </CardHeader>
@@ -221,11 +398,11 @@ function GeneralTeachingReportsContent() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Curso</TableHead>
-                    <TableHead>Ministério</TableHead>
+                    <TableHead>Trilho / Tipo</TableHead>
                     <TableHead className="text-center">Turmas</TableHead>
                     <TableHead className="text-center">Alunos Inscritos</TableHead>
                     <TableHead className="text-center">Frequência Média</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
+                    <TableHead className="text-right print-hidden">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -237,13 +414,13 @@ function GeneralTeachingReportsContent() {
                     courseStats.map((course) => (
                       <TableRow key={course.id}>
                         <TableCell className="font-bold text-sm text-slate-800">{course.name}</TableCell>
-                        <TableCell className="text-muted-foreground text-xs font-medium">{course.ministryName}</TableCell>
+                        <TableCell className="text-muted-foreground text-xs font-medium">{getTrackName(course.track, course.type)}</TableCell>
                         <TableCell className="text-center font-bold text-slate-700">{course.classesCount}</TableCell>
                         <TableCell className="text-center font-black text-slate-800">{course.enrolledCount}</TableCell>
                         <TableCell className="text-center">
                           <span className="font-black text-sm text-primary">{course.averageAttendance}%</span>
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right print-hidden">
                           <Button 
                             variant="ghost" 
                             size="sm" 
@@ -263,7 +440,7 @@ function GeneralTeachingReportsContent() {
         </div>
       ) : (
         // DETALHE DO CURSO SELECIONADO
-        <Card className="shadow-sm border-none bg-white p-6">
+        <Card className="shadow-sm border-none bg-white p-6 print-card">
           <CourseReports courseId={selectedCourseId} />
         </Card>
       )}
