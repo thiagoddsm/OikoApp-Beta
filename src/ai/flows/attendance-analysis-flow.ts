@@ -2,6 +2,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
+import { googleAI } from '@genkit-ai/google-genai';
 
 const AttendanceAnalysisInputSchema = z.object({
   records: z.array(z.object({
@@ -80,7 +81,7 @@ const attendanceAnalysisFlow = ai.defineFlow(
       recordsJson: JSON.stringify(formattedRecords, null, 2),
       statsJson: JSON.stringify(inp.stats, null, 2),
     }, {
-      model: 'googleai/gemini-1.5-flash'
+      model: 'googleai/gemini-flash-latest'
     });
     return response.text || "Não foi possível gerar a análise.";
   }
