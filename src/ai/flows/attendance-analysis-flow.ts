@@ -17,7 +17,7 @@ const AttendanceAnalysisInputSchema = z.object({
   })),
   stats: z.object({
     mean: z.number(),
-    stdDev: z.number(),
+    byHorario: z.any().optional(),
   }),
 });
 

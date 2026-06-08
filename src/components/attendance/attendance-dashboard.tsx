@@ -229,19 +229,42 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
   const analysisStats = useMemo(() => {
     if (registrosFiltrados.length < 3) return null;
     
-    const totals = registrosFiltrados.map(r => r.adultos + (r.criancas || 0));
-    const n = totals.length;
-    const sum = totals.reduce((a, b) => a + b, 0);
-    const mean = sum / n;
+    // Agrupa por horário para calcular médias e desvios de forma justa
+    const recordsByHorario: Record<string, number[]> = {};
+    registrosFiltrados.forEach(r => {
+      if (!recordsByHorario[r.horario]) {
+        recordsByHorario[r.horario] = [];
+      }
+      recordsByHorario[r.horario].push(r.adultos + (r.criancas || 0));
+    });
     
-    const variance = totals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / n;
-    const stdDev = Math.sqrt(variance);
+    const statsByHorario: Record<string, { mean: number; stdDev: number; count: number }> = {};
+    Object.entries(recordsByHorario).forEach(([horario, totals]) => {
+      const n = totals.length;
+      const sum = totals.reduce((a, b) => a + b, 0);
+      const mean = sum / n;
+      const variance = totals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / n;
+      const stdDev = Math.sqrt(variance);
+      
+      statsByHorario[horario] = {
+        mean: Math.round(mean),
+        stdDev: Math.round(stdDev),
+        count: n
+      };
+    });
+    
+    const totalsGlobal = registrosFiltrados.map(r => r.adultos + (r.criancas || 0));
+    const meanGlobal = totalsGlobal.reduce((a, b) => a + b, 0) / totalsGlobal.length;
     
     const outliers = registrosFiltrados.map(r => {
       const total = r.adultos + (r.criancas || 0);
-      const diff = total - mean;
-      const zScore = stdDev > 0 ? diff / stdDev : 0;
-      const pctDiff = Math.round((diff / mean) * 100);
+      const hStats = statsByHorario[r.horario];
+      
+      if (!hStats || hStats.count < 3) return null;
+      
+      const diff = total - hStats.mean;
+      const zScore = hStats.stdDev > 0 ? diff / hStats.stdDev : 0;
+      const pctDiff = Math.round((diff / hStats.mean) * 100);
       
       return {
         record: r,
@@ -250,12 +273,14 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
         pctDiff,
         isHigh: zScore >= 1.2,
         isLow: zScore <= -1.2,
+        localMean: hStats.mean,
+        localStdDev: hStats.stdDev,
       };
-    }).filter(o => o.isHigh || o.isLow);
+    }).filter((o): o is NonNullable<typeof o> => o !== null && (o.isHigh || o.isLow));
     
     return {
-      mean: Math.round(mean),
-      stdDev: Math.round(stdDev),
+      meanGlobal: Math.round(meanGlobal),
+      statsByHorario,
       outliers,
     };
   }, [registrosFiltrados]);
@@ -280,7 +305,7 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
         records: recordsForAi,
         stats: {
           mean: stats.mediaGeral,
-          stdDev: analysisStats?.stdDev || 0,
+          byHorario: analysisStats?.statsByHorario || {},
         }
       });
       setAiReport(report);
@@ -543,9 +568,12 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
                                               {o.isHigh ? `+${o.pctDiff}%` : `${o.pctDiff}%`}
                                           </Badge>
                                       </div>
-                                      <div className="text-[11px] font-semibold text-slate-600">
-                                          Frequência: <span className="font-bold text-slate-900">{o.total}</span> (Média: {analysisStats.mean})
-                                      </div>
+                                      <div className="text-[10px] font-bold text-indigo-600 uppercase tracking-tight">
+                                           {o.record.horario}
+                                       </div>
+                                       <div className="text-[11px] font-semibold text-slate-600">
+                                           Frequência: <span className="font-bold text-slate-900">{o.total}</span> (Média do Horário: {o.localMean})
+                                       </div>
                                       {/* Fatores contextuais */}
                                       <div className="flex flex-wrap gap-1 mt-1">
                                           {o.record.apresentacaoBebe && <Badge variant="outline" className="text-[9px] bg-sky-50 text-sky-700 border-sky-200">Bebês</Badge>}
