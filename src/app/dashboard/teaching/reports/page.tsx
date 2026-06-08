@@ -10,11 +10,14 @@ import { Button } from '@/components/ui/button';
 import { BarChart2, BookOpen, Users, Award, Percent, ChevronRight, FileText, Download, Printer } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { parseISO, isWithinInterval } from 'date-fns';
 
 function GeneralTeachingReportsContent() {
   const { courses, classes, users } = useVolunteering();
   const [selectedCourseId, setSelectedCourseId] = useState<string>('all');
   const [selectedTrack, setSelectedTrack] = useState<string>('all');
+  const [dateStart, setDateStart] = useState<string>('');
+  const [dateEnd, setDateEnd] = useState<string>('');
 
   // Traduzir o track
   const getTrackName = (track?: string, type?: string) => {
@@ -45,6 +48,13 @@ function GeneralTeachingReportsContent() {
           cls.attendance?.forEach(att => {
             if (!activeDates.has(att.date)) return; // Ignora se a aula foi excluída
 
+            if (dateStart || dateEnd) {
+              const date = parseISO(att.date.split('T')[0]);
+              const start = dateStart ? parseISO(dateStart) : parseISO('2000-01-01');
+              const end = dateEnd ? parseISO(dateEnd) : parseISO('2100-01-01');
+              if (!isWithinInterval(date, { start, end })) return;
+            }
+
             const isPresent = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
             const isRepo = att.repositions?.some(r => r.studentId === studentId);
             if (isPresent || isRepo) {
@@ -72,7 +82,7 @@ function GeneralTeachingReportsContent() {
     })
     .filter(c => selectedTrack === 'all' || c.track === selectedTrack || (selectedTrack === 'eletivo' && c.type === 'eletivo'))
     .sort((a, b) => b.enrolledCount - a.enrolledCount);
-  }, [courses, classes, selectedTrack]);
+  }, [courses, classes, selectedTrack, dateStart, dateEnd]);
 
   // KPIs globais de todo o Ensino
   const globalKpis = useMemo(() => {
@@ -95,6 +105,13 @@ function GeneralTeachingReportsContent() {
         cls.attendance?.forEach(att => {
           if (!activeDates.has(att.date)) return; // Ignora se a aula foi excluída
 
+          if (dateStart || dateEnd) {
+            const date = parseISO(att.date.split('T')[0]);
+            const start = dateStart ? parseISO(dateStart) : parseISO('2000-01-01');
+            const end = dateEnd ? parseISO(dateEnd) : parseISO('2100-01-01');
+            if (!isWithinInterval(date, { start, end })) return;
+          }
+
           const isPresent = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
           const isRepo = att.repositions?.some(r => r.studentId === studentId);
           if (isPresent || isRepo) {
@@ -113,7 +130,7 @@ function GeneralTeachingReportsContent() {
       totalStudents: uniqueStudents.size,
       globalAverage,
     };
-  }, [courses, classes]);
+  }, [courses, classes, dateStart, dateEnd]);
 
   // Gráfico de barras: alunos por curso
   const chartData = useMemo(() => {
@@ -146,6 +163,14 @@ function GeneralTeachingReportsContent() {
 
           cls.attendance?.forEach(att => {
             if (!activeDates.has(att.date)) return;
+
+            if (dateStart || dateEnd) {
+              const date = parseISO(att.date.split('T')[0]);
+              const start = dateStart ? parseISO(dateStart) : parseISO('2000-01-01');
+              const end = dateEnd ? parseISO(dateEnd) : parseISO('2100-01-01');
+              if (!isWithinInterval(date, { start, end })) return;
+            }
+
             const isPresent = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
             const isRepo = att.repositions?.some(r => r.studentId === studentId);
             if (isPresent || isRepo) attended++;
@@ -166,7 +191,7 @@ function GeneralTeachingReportsContent() {
       { name: 'Apto (Aprovado)', value: approved, color: '#10b981' },
       { name: 'Pendente/Reprovado', value: pending, color: '#f59e0b' }
     ];
-  }, [courses, classes]);
+  }, [courses, classes, dateStart, dateEnd]);
 
   const handleExportConsolidatedCSV = () => {
     const headers = ['Curso', 'Trilho', 'Qtd. Turmas', 'Alunos Matriculados', 'Frequência Média (%)'];
@@ -272,6 +297,30 @@ function GeneralTeachingReportsContent() {
               </SelectContent>
             </Select>
           </div>
+
+          {selectedCourseId === 'all' && (
+            <>
+              <div className="w-[140px] space-y-1.5 animate-in fade-in duration-200">
+                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">De</Label>
+                <input
+                  type="date"
+                  className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 font-bold"
+                  value={dateStart}
+                  onChange={(e) => setDateStart(e.target.value)}
+                />
+              </div>
+
+              <div className="w-[140px] space-y-1.5 animate-in fade-in duration-200">
+                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Até</Label>
+                <input
+                  type="date"
+                  className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 font-bold"
+                  value={dateEnd}
+                  onChange={(e) => setDateEnd(e.target.value)}
+                />
+              </div>
+            </>
+          )}
 
           <Button onClick={handlePrint} variant="outline" size="sm" className="h-10 mt-5 font-bold uppercase gap-1.5">
             <Printer className="size-4" /> PDF
