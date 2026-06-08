@@ -172,10 +172,19 @@ function PedagogicalLogPageContent() {
     const moduleNames = useMemo(() => resolvedSchedule.map(i => i.syllabusItem?.title || ''), [resolvedSchedule]);
 
     const currentResolvedItem = useMemo(() => resolvedSchedule.find(i => i.dateStr === selectedDate), [resolvedSchedule, selectedDate]);
-    const currentModuleKey = useMemo(() => {
+    const autoModuleKey = useMemo(() => {
         if (!currentResolvedItem || currentResolvedItem.syllabusOriginalIndex === -1) return '';
         return `module${currentResolvedItem.syllabusOriginalIndex + 1}`;
     }, [currentResolvedItem]);
+
+    const [manualModuleKey, setManualModuleKey] = useState<string>('');
+
+    // Sincronizar manualModuleKey quando a data selecionada/módulo automático mudar
+    useEffect(() => {
+        setManualModuleKey(autoModuleKey);
+    }, [autoModuleKey]);
+
+    const currentModuleKey = manualModuleKey || autoModuleKey;
 
     useEffect(() => {
         if (classOccurrences.length > 0 && !selectedDate) {
@@ -360,37 +369,57 @@ function PedagogicalLogPageContent() {
                 <Button variant="outline" onClick={() => router.back()} className="h-9">
                     <ArrowLeft className="mr-2 h-4 w-4" /> Voltar para o Painel
                 </Button>
-                <div className="flex items-center gap-4 bg-white p-2 rounded-xl border shadow-sm w-full md:w-auto">
-                    <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Sessão do Ciclo:</Label>
-                    <Select value={selectedDate} onValueChange={setSelectedDate}>
-                        <SelectTrigger className="w-[280px] h-9 font-bold">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                                {classOccurrences.map((date, idx) => {
-                                    const attendance = classData.attendance?.find((a: any) => a.date === date);
-                                    const hasAttendance = attendance && (attendance.presentStudentIds.length > 0);
-                                    const moduleName = moduleNames[idx] ? `- ${moduleNames[idx]}` : '';
-                                    const isExtra = resolvedSchedule[idx]?.isExtraSession;
-                                    const isRepoOnly = resolvedSchedule[idx]?.isRepositionOnly;
-                                    const startTime = resolvedSchedule[idx]?.startTime;
-                                    const titlePrefix = isExtra ? 'Aula Extra' : `Aula ${idx + 1}`;
-                                    const timeDisplay = startTime ? ` (${startTime})` : '';
+                <div className="flex flex-wrap items-center gap-4 bg-white p-2 rounded-xl border shadow-sm w-full md:w-auto">
+                    <div className="flex items-center gap-2">
+                        <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Sessão do Ciclo:</Label>
+                        <Select value={selectedDate} onValueChange={setSelectedDate}>
+                            <SelectTrigger className="w-[280px] h-9 font-bold">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                    {classOccurrences.map((date, idx) => {
+                                        const attendance = classData.attendance?.find((a: any) => a.date === date);
+                                        const hasAttendance = attendance && (attendance.presentStudentIds.length > 0);
+                                        const moduleName = moduleNames[idx] ? `- ${moduleNames[idx]}` : '';
+                                        const isExtra = resolvedSchedule[idx]?.isExtraSession;
+                                        const isRepoOnly = resolvedSchedule[idx]?.isRepositionOnly;
+                                        const startTime = resolvedSchedule[idx]?.startTime;
+                                        const titlePrefix = isExtra ? 'Aula Extra' : `Aula ${idx + 1}`;
+                                        const timeDisplay = startTime ? ` (${startTime})` : '';
 
-                                    return (
-                                        <SelectItem key={date} value={date}>
-                                            <div className="flex items-center justify-between w-full gap-2">
-                                                <span className="font-bold truncate text-xs">
-                                                    {titlePrefix}{timeDisplay} {moduleName}
-                                                    {isRepoOnly && <span className="text-[9px] uppercase font-black text-amber-500 ml-2">(Apenas Reposição)</span>}
-                                                </span>
-                                                {hasAttendance && <CheckCircle2 className="size-3 text-emerald-500 shrink-0" />}
-                                            </div>
+                                        return (
+                                            <SelectItem key={date} value={date}>
+                                                <div className="flex items-center justify-between w-full gap-2">
+                                                    <span className="font-bold truncate text-xs">
+                                                        {titlePrefix}{timeDisplay} {moduleName}
+                                                        {isRepoOnly && <span className="text-[9px] uppercase font-black text-amber-500 ml-2">(Apenas Reposição)</span>}
+                                                    </span>
+                                                    {hasAttendance && <CheckCircle2 className="size-3 text-emerald-500 shrink-0" />}
+                                                </div>
+                                            </SelectItem>
+                                        )
+                                    })}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {isMemberCourse && (
+                        <div className="flex items-center gap-2 border-l pl-4 animate-in fade-in duration-200">
+                            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-2">Vincular a:</Label>
+                            <Select value={currentModuleKey} onValueChange={setManualModuleKey}>
+                                <SelectTrigger className="w-[220px] h-9 font-bold">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {courseData?.syllabus?.map((item: any, idx: number) => (
+                                        <SelectItem key={`module${idx + 1}`} value={`module${idx + 1}`}>
+                                            <span className="font-bold text-xs">Aula {idx + 1}: {item.title}</span>
                                         </SelectItem>
-                                    )
-                                })}
-                        </SelectContent>
-                    </Select>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
                 </div>
             </div>
 

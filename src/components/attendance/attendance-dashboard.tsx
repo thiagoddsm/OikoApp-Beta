@@ -1,10 +1,22 @@
-
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { 
+    Download, 
+    Printer, 
+    Users, 
+    Calendar, 
+    TrendingUp, 
+    Baby, 
+    Award, 
+    FlameKindling,
+    FileText
+} from 'lucide-react';
 import {
     ResponsiveContainer,
     LineChart,
@@ -47,10 +59,15 @@ interface AttendanceDashboardProps {
 const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
         return (
-            <div className="bg-background border border-border p-2 rounded-lg shadow-lg">
-                <p className="label font-bold">{`${label}`}</p>
+            <div className="bg-white border border-slate-200 p-3 rounded-xl shadow-xl space-y-1.5 animate-in fade-in-50 duration-150">
+                <p className="label font-black text-slate-800 text-xs uppercase tracking-tight">{label}</p>
+                <div className="h-px bg-slate-100 my-1" />
                 {payload.map((pld: any, index: number) => (
-                     <p key={index} style={{ color: pld.fill }}>{`${pld.name}: ${pld.value.toLocaleString('pt-BR')}`}</p>
+                     <div key={index} className="flex items-center gap-2 text-xs font-bold">
+                        <span className="size-2 rounded-full" style={{ backgroundColor: pld.color || pld.fill }} />
+                        <span className="text-slate-500">{pld.name}:</span>
+                        <span className="text-slate-800">{pld.value.toLocaleString('pt-BR')}</span>
+                     </div>
                 ))}
             </div>
         );
@@ -123,7 +140,7 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
      return registrosFiltrados.map(r => ({
          date: new Date(r.data.seconds * 1000).toLocaleDateString('pt-BR', { timeZone: 'UTC' }),
          Adultos: r.adultos,
-         Crianças: r.criancas,
+         Crianças: r.criancas || 0,
          Total: r.adultos + (r.criancas || 0)
      }));
   }, [registrosFiltrados]);
@@ -168,117 +185,272 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
       ].filter(item => item.Média > 0);
   }, [registrosFiltrados]);
 
+  const handleExportCSV = () => {
+    const headers = ['Data', 'Horário', 'Adultos', 'Crianças', 'Total', 'Série de Mensagem', 'Feriado Próximo', 'Jogo de Futebol', 'Apresentação Bebê'];
+    const rows = registrosFiltrados.map(r => {
+      const dateStr = new Date(r.data.seconds * 1000).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+      return [
+        dateStr,
+        r.horario,
+        r.adultos,
+        r.criancas || 0,
+        r.adultos + (r.criancas || 0),
+        r.serieMensagem || '',
+        r.feriadoProximo ? 'Sim' : 'Não',
+        r.jogoFutebol ? 'Sim' : 'Não',
+        r.apresentacaoBebe ? 'Sim' : 'Não'
+      ];
+    });
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(e => e.map(val => `"${val}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'relatorio_presenca_cultos.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
 
   if (loading) {
-    return <p className="text-center text-muted-foreground mt-10">Carregando dados...</p>;
+    return <p className="text-center text-muted-foreground mt-10 font-bold animate-pulse">Carregando dados...</p>;
   }
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Filtros e Pesquisa</CardTitle>
+      {/* CSS para Impressão */}
+      <style dangerouslySetInnerHTML={{__html: `
+        @media print {
+          body {
+            background: white !important;
+            color: black !important;
+          }
+          header, nav, aside, footer, button, .print-hidden, .no-print, [role="tablist"], select, input, .border-dashed {
+            display: none !important;
+          }
+          main, .space-y-6, .grid {
+            width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+          }
+          .card, .p-6, .border {
+            page-break-inside: avoid !important;
+            box-shadow: none !important;
+            border: 1px solid #e2e8f0 !important;
+            margin-bottom: 1.5rem !important;
+          }
+        }
+      `}} />
+
+      {/* Painel de Filtros */}
+      <Card className="shadow-sm border bg-white print-hidden">
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-slate-800 font-black uppercase text-sm tracking-wider">Filtros & Pesquisa</CardTitle>
+            <CardDescription className="text-xs">Filtre por datas, séries de mensagens e fatores externos.</CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button onClick={handleExportCSV} variant="outline" size="sm" className="font-bold text-xs uppercase gap-1.5 h-9">
+              <Download className="size-3.5" /> Planilha
+            </Button>
+            <Button onClick={handlePrint} variant="outline" size="sm" className="font-bold text-xs uppercase gap-1.5 h-9">
+              <Printer className="size-3.5" /> PDF
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Input type="date" value={filtroDataInicio} onChange={e => setFiltroDataInicio(e.target.value)} title="Data Início"/>
-          <Input type="date" value={filtroDataFim} onChange={e => setFiltroDataFim(e.target.value)} title="Data Fim"/>
-          <Select value={filtroHorario} onValueChange={setFiltroHorario}>
-              <SelectTrigger><SelectValue placeholder="Filtrar por horário" /></SelectTrigger>
-              <SelectContent>
-                  <SelectItem value="todos">Todos Horários</SelectItem>
-                  {horariosCultos.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
-              </SelectContent>
-          </Select>
-          <Input type="search" value={filtroSerie} onChange={e => setFiltroSerie(e.target.value)} placeholder="Buscar por Série..."/>
-           <Select value={filtroFeriado} onValueChange={setFeriadoFeriado}>
-              <SelectTrigger><SelectValue placeholder="Feriado próximo?" /></SelectTrigger>
-              <SelectContent>
-                  <SelectItem value="todos">Feriado? (Todos)</SelectItem>
-                  <SelectItem value="sim">Sim</SelectItem>
-                  <SelectItem value="nao">Não</SelectItem>
-              </SelectContent>
-          </Select>
-          <Select value={filtroJogo} onValueChange={setJogoFutebol}>
-              <SelectTrigger><SelectValue placeholder="Jogo no horário?" /></SelectTrigger>
-              <SelectContent>
-                  <SelectItem value="todos">Jogo? (Todos)</SelectItem>
-                  <SelectItem value="sim">Sim</SelectItem>
-                  <SelectItem value="nao">Não</SelectItem>
-              </SelectContent>
-          </Select>
-          <Select value={filtroBebe} onValueChange={setApresentacaoBebe}>
-              <SelectTrigger><SelectValue placeholder="Apresentação de bebê?" /></SelectTrigger>
-              <SelectContent>
-                  <SelectItem value="todos">Bebê? (Todos)</SelectItem>
-                  <SelectItem value="sim">Sim</SelectItem>
-                  <SelectItem value="nao">Não</SelectItem>
-              </SelectContent>
-          </Select>
+        <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="space-y-1.5">
+            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">De</Label>
+            <Input type="date" value={filtroDataInicio} onChange={e => setFiltroDataInicio(e.target.value)} className="bg-white h-10 font-bold"/>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Até</Label>
+            <Input type="date" value={filtroDataFim} onChange={e => setFiltroDataFim(e.target.value)} className="bg-white h-10 font-bold"/>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Horário do Culto</Label>
+            <Select value={filtroHorario} onValueChange={setFiltroHorario}>
+                <SelectTrigger className="bg-white h-10 font-bold"><SelectValue placeholder="Todos" /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="todos">Todos Horários</SelectItem>
+                    {horariosCultos.map(h => <SelectItem key={h} value={h}>{h}</SelectItem>)}
+                </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Buscar por Série</Label>
+            <Input type="search" value={filtroSerie} onChange={e => setFiltroSerie(e.target.value)} placeholder="Ex: Amor, Fé..." className="bg-white h-10"/>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Feriado Próximo?</Label>
+            <Select value={filtroFeriado} onValueChange={setFeriadoFeriado}>
+                <SelectTrigger className="bg-white h-10 font-bold"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="sim">Sim</SelectItem>
+                    <SelectItem value="nao">Não</SelectItem>
+                </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Jogo de Futebol?</Label>
+            <Select value={filtroJogo} onValueChange={setJogoFutebol}>
+                <SelectTrigger className="bg-white h-10 font-bold"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="sim">Sim</SelectItem>
+                    <SelectItem value="nao">Não</SelectItem>
+                </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Apresentação Bebê?</Label>
+            <Select value={filtroBebe} onValueChange={setApresentacaoBebe}>
+                <SelectTrigger className="bg-white h-10 font-bold"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="sim">Sim</SelectItem>
+                    <SelectItem value="nao">Não</SelectItem>
+                </SelectContent>
+            </Select>
+          </div>
         </CardContent>
       </Card>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="text-center"><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Registros</CardTitle></CardHeader><CardContent><p className="text-3xl font-bold text-primary">{stats.count}</p></CardContent></Card>
-        <Card className="text-center"><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Total Adultos</CardTitle></CardHeader><CardContent><p className="text-3xl font-bold text-emerald-600">{stats.totalAdultos.toLocaleString('pt-BR')}</p></CardContent></Card>
-        <Card className="text-center"><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Total Crianças</CardTitle></CardHeader><CardContent><p className="text-3xl font-bold text-amber-600">{stats.totalCriancas.toLocaleString('pt-BR')}</p></CardContent></Card>
-        <Card className="text-center"><CardHeader><CardTitle className="text-sm font-medium text-muted-foreground">Média Geral/Culto</CardTitle></CardHeader><CardContent><p className="text-3xl font-bold text-violet-600">{stats.mediaGeral}</p></CardContent></Card>
+      {/* Cards de Métricas */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="shadow-sm border bg-white">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Cultos Registrados</CardTitle>
+            <Calendar className="size-4 text-blue-600 print-hidden" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-black text-slate-800">{stats.count}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Registros no período</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm border bg-white">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Total de Adultos</CardTitle>
+            <Users className="size-4 text-emerald-600 print-hidden" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-black text-emerald-600">{stats.totalAdultos.toLocaleString('pt-BR')}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Presença acumulada</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm border bg-white">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Total de Crianças</CardTitle>
+            <Baby className="size-4 text-amber-600 print-hidden" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-black text-amber-600">{stats.totalCriancas.toLocaleString('pt-BR')}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Presença acumulada</p>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm border bg-white">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Média Geral por Culto</CardTitle>
+            <FlameKindling className="size-4 text-indigo-600 print-hidden" />
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-black text-indigo-600">{(stats.totalAdultos + stats.totalCriancas > 0) ? stats.mediaGeral : 0}</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Adultos + Crianças por celebração</p>
+          </CardContent>
+        </Card>
       </div>
       
       {registrosFiltrados.length === 0 ? (
-          <p className="text-center text-muted-foreground py-10">Nenhum dado encontrado para os filtros aplicados.</p>
+        <Card className="p-8 border border-dashed text-center">
+          <CardContent className="py-8">
+            <p className="text-sm text-muted-foreground italic">Nenhum dado encontrado para os filtros aplicados.</p>
+          </CardContent>
+        </Card>
       ) : (
         <div className="space-y-6">
-            <Card>
-                <CardHeader><CardTitle>Frequência ao Longo do Tempo</CardTitle></CardHeader>
-                <CardContent className="h-[350px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                     <LineChart data={frequenciaAoLongoDoTempoData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                        <YAxis tick={{ fontSize: 12 }} />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Legend />
-                        <Line type="monotone" dataKey="Total" stroke="#8b5cf6" strokeWidth={2} name="Total de Pessoas" />
-                        <Line type="monotone" dataKey="Adultos" stroke="#10b981" strokeWidth={2} name="Adultos" />
-                        <Line type="monotone" dataKey="Crianças" stroke="#f59e0b" strokeWidth={2} name="Crianças" />
-                     </LineChart>
-                  </ResponsiveContainer>
-                </CardContent>
-            </Card>
+          {/* Gráfico Principal */}
+          <Card className="shadow-sm border bg-white p-6">
+            <CardHeader className="px-0 pt-0">
+              <CardTitle className="text-base font-black uppercase text-slate-800">Frequência ao Longo do Tempo</CardTitle>
+              <CardDescription>Visualização da evolução do total de participantes</CardDescription>
+            </CardHeader>
+            <CardContent className="h-[350px] p-0">
+              <ResponsiveContainer width="100%" height="100%">
+                 <LineChart data={frequenciaAoLongoDoTempoData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} stroke="#64748b" />
+                    <YAxis tick={{ fontSize: 11 }} stroke="#64748b" />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend />
+                    <Line type="monotone" dataKey="Total" stroke="#4f46e5" strokeWidth={3} name="Total de Pessoas" activeDot={{ r: 8 }} />
+                    <Line type="monotone" dataKey="Adultos" stroke="#10b981" strokeWidth={2} name="Adultos" />
+                    <Line type="monotone" dataKey="Crianças" stroke="#f59e0b" strokeWidth={2} name="Crianças" />
+                 </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
 
+          {/* Gráficos de Média por Horários e Fatores */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-             <Card>
-                <CardHeader><CardTitle>Média por Horário (Adultos vs Crianças)</CardTitle></CardHeader>
-                <CardContent className="h-[350px]">
+             <Card className="shadow-sm border bg-white p-6">
+                <CardHeader className="px-0 pt-0">
+                  <CardTitle className="text-base font-black uppercase text-slate-800">Média por Horário</CardTitle>
+                  <CardDescription>Divisão de presença média de Adultos vs Crianças</CardDescription>
+                </CardHeader>
+                <CardContent className="h-[320px] p-0">
                    <ResponsiveContainer width="100%" height="100%">
                        <BarChart data={mediaPorHorarioData}>
-                           <CartesianGrid strokeDasharray="3 3" />
-                           <XAxis dataKey="name" tick={{ fontSize: 12 }}/>
-                           <YAxis tick={{ fontSize: 12 }} />
-                           <Tooltip content={<CustomTooltip />}/>
+                           <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                           <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="#64748b" />
+                           <YAxis tick={{ fontSize: 11 }} stroke="#64748b" />
+                           <Tooltip content={<CustomTooltip />} />
                            <Legend />
-                           <Bar dataKey="Adultos" fill="#10b981" name="Média de Adultos" />
-                           <Bar dataKey="Crianças" fill="#f59e0b" name="Média de Crianças" />
+                           <Bar dataKey="Adultos" fill="#10b981" name="Média de Adultos" radius={[4, 4, 0, 0]} />
+                           <Bar dataKey="Crianças" fill="#f59e0b" name="Média de Crianças" radius={[4, 4, 0, 0]} />
                        </BarChart>
                     </ResponsiveContainer>
                 </CardContent>
-            </Card>
+             </Card>
             
-            <Card>
-                <CardHeader><CardTitle>Média por Fatores Externos</CardTitle></CardHeader>
-                <CardContent className="h-[350px]">
+             <Card className="shadow-sm border bg-white p-6">
+                <CardHeader className="px-0 pt-0">
+                  <CardTitle className="text-base font-black uppercase text-slate-800">Média por Fatores Externos</CardTitle>
+                  <CardDescription>Impacto de feriados ou jogos de futebol na frequência</CardDescription>
+                </CardHeader>
+                <CardContent className="h-[320px] p-0">
                      <ResponsiveContainer width="100%" height="100%">
                        <BarChart data={mediaPorFatoresExternosData} layout="vertical">
-                           <CartesianGrid strokeDasharray="3 3" />
-                           <XAxis type="number" tick={{ fontSize: 12 }} />
-                           <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 12 }} />
-                           <Tooltip content={<CustomTooltip />}/>
+                           <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                           <XAxis type="number" tick={{ fontSize: 11 }} stroke="#64748b" />
+                           <YAxis type="category" dataKey="name" width={100} tick={{ fontSize: 11 }} stroke="#64748b" />
+                           <Tooltip content={<CustomTooltip />} />
                            <Legend />
-                           <Bar dataKey="Média" fill="#8b5cf6" name="Média de Frequência Total" />
+                           <Bar dataKey="Média" fill="#4f46e5" name="Média de Frequência Total" radius={[0, 4, 4, 0]} />
                        </BarChart>
                     </ResponsiveContainer>
                 </CardContent>
-            </Card>
+             </Card>
           </div>
         </div>
       )}
