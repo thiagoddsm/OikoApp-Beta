@@ -62,6 +62,8 @@ export type AreaOfService = {
   name: string;
   leaderId?: string;
   leaderContact?: string;
+  unifiedCelebrations?: boolean;
+  unifiedGroups?: { name: string; eventNames: string[] }[];
 };
 
 export type Team = {

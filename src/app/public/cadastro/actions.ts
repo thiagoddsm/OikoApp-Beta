@@ -5,6 +5,26 @@ import { getAuth, signInAnonymously } from 'firebase/auth';
 import { collection, query, where, getDocs, doc, setDoc, addDoc, getDoc, Timestamp } from 'firebase/firestore';
 import { formatName } from '@/lib/utils';
 
+export async function getPublicFormOptions() {
+    const { firestore, auth } = initializeFirebase();
+    if (!firestore || !auth) return { cells: [], areas: [] };
+
+    try {
+        await signInAnonymously(auth);
+
+        const cellsSnap = await getDocs(collection(firestore, 'cells'));
+        const cells = cellsSnap.docs.map(doc => ({ id: doc.id, nome: doc.data().nome }));
+
+        const areasSnap = await getDocs(collection(firestore, 'areas_of_service'));
+        const areas = areasSnap.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+
+        return { cells, areas };
+    } catch (e) {
+        console.error("Error fetching public form options:", e);
+        return { cells: [], areas: [] };
+    }
+}
+
 export async function verifyEmailRegistered(email: string) {
     const { firestore, auth } = initializeFirebase();
     if (!firestore || !auth) return { error: "Database not available" };
@@ -51,6 +71,8 @@ export async function verifyEmailRegistered(email: string) {
                 veiculoMarca: userData.veiculo?.marca || '',
                 veiculoModelo: userData.veiculo?.modelo || '',
                 veiculoCor: userData.veiculo?.cor || '',
+                celulaId: userData.hierarchy?.celulaId || '',
+                serviceAreaId: userData.serviceAreaId || '',
             }
         };
     } catch (e) {
@@ -86,6 +108,8 @@ export async function savePublicRegistration(data: {
     veiculoMarca?: string;
     veiculoModelo?: string;
     veiculoCor?: string;
+    celulaId?: string;
+    serviceAreaId?: string;
 }) {
     const { firestore, auth } = initializeFirebase();
     if (!firestore || !auth) throw new Error("Database not available");
@@ -141,6 +165,8 @@ export async function savePublicRegistration(data: {
             modelo: data.veiculoModelo || null,
             cor: data.veiculoCor || null,
         } : null,
+        serviceAreaId: data.serviceAreaId || '',
+        serviceStatus: data.serviceAreaId ? 'serving' : 'not_serving',
         updatedAt: Timestamp.now()
     };
 
@@ -155,8 +181,12 @@ export async function savePublicRegistration(data: {
             // Preservar propriedades estruturais
             tags: oldData.tags || [],
             integrationStatus: oldData.integrationStatus || 'novo_convertido',
-            serviceStatus: oldData.serviceStatus || 'not_serving',
-            hierarchy: oldData.hierarchy || { role: 'aluno', celulaId: '', supervisorId: '' },
+            serviceStatus: data.serviceAreaId ? 'serving' : (oldData.serviceStatus || 'not_serving'),
+            hierarchy: {
+                role: oldData.hierarchy?.role || 'aluno',
+                celulaId: data.celulaId || oldData.hierarchy?.celulaId || '',
+                supervisorId: oldData.hierarchy?.supervisorId || ''
+            },
             createdAt: oldData.createdAt || Timestamp.now()
         };
 
@@ -166,10 +196,10 @@ export async function savePublicRegistration(data: {
         // Criar do zero
         userData.createdAt = Timestamp.now();
         userData.integrationStatus = 'novo_convertido';
-        userData.serviceStatus = 'not_serving';
+        userData.serviceStatus = data.serviceAreaId ? 'serving' : 'not_serving';
         userData.hierarchy = {
             role: 'aluno',
-            celulaId: '',
+            celulaId: data.celulaId || '',
             supervisorId: ''
         };
         userData.tags = [];

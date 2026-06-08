@@ -72,7 +72,7 @@ export function MemberDetails({ user }: MemberDetailsProps) {
         <CardContent className="space-y-8">
             <section>
                 <h4 className="font-semibold text-primary border-b pb-2 mb-4">Dados Pessoais</h4>
-                <div className="grid md:grid-cols-2 gap-x-8 gap-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
                     <DetailItem icon={User} label="Nome" value={user.name} />
                     <DetailItem icon={IdCard} label="CPF" value={user.cpf || 'Não informado'} />
                     <DetailItem icon={Users} label="Sexo" value={user.sexo || user.gender || 'Não informado'} />
@@ -88,7 +88,7 @@ export function MemberDetails({ user }: MemberDetailsProps) {
             </section>
             <section>
                 <h4 className="font-semibold text-primary border-b pb-2 mb-4">Jornada Espiritual</h4>
-                <div className="grid md:grid-cols-2 gap-x-8 gap-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
                     <DetailItem icon={CheckCircle} label="Batizado?" value={formatBaptismVal()} />
                     <DetailItem icon={Church} label="Veio de outra igreja?" value={user.membroAntigo === 'sim' ? `Sim, da ${user.igrejaAntiga || 'outra igreja'}` : 'Não'} />
                     <DetailItem icon={Church} label="Status de Arrolamento" value={user.statusArrolamento || 'Não informado'} />
@@ -100,21 +100,22 @@ export function MemberDetails({ user }: MemberDetailsProps) {
             </section>
             <section>
                 <h4 className="font-semibold text-primary border-b pb-2 mb-4">Chegada na IBM</h4>
-                <div className="grid md:grid-cols-2 gap-x-8 gap-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
                     <DetailItem icon={BadgeHelp} label="Como conheceu a IBM" value={user.comoConheceu || 'Não informado'} />
                     <DetailItem icon={UserPlus} label="Quem convidou" value={user.nomeConvidou || 'Não informado'} />
                     <DetailItem icon={Smartphone} label="Preferência de Contato" value={user.contatoPreferencia?.join(', ') || 'Não informado'} />
                     <DetailItem icon={Clock} label="Turno para Contato" value={user.contatoTurno?.join(', ') || 'Não informado'} />
                 </div>
             </section>
-            {user.veiculo && (user.veiculo.placa || user.veiculo.marca || user.veiculo.modelo || user.veiculo.cor) && (
+            {/* Dados do Veículo */}
+            {(user.veiculo?.placa || user.veiculo?.marca || user.veiculo?.modelo || user.veiculo?.cor || user.veiculoPlaca || user.veiculoMarca || user.veiculoModelo || user.veiculoCor) && (
                 <section>
                     <h4 className="font-semibold text-primary border-b pb-2 mb-4">Dados do Veículo</h4>
-                    <div className="grid md:grid-cols-2 gap-x-8 gap-y-4">
-                        <DetailItem icon={Car} label="Placa do Veículo" value={user.veiculo.placa || 'Não informado'} />
-                        <DetailItem icon={Car} label="Marca" value={user.veiculo.marca || 'Não informado'} />
-                        <DetailItem icon={Car} label="Modelo" value={user.veiculo.modelo || 'Não informado'} />
-                        <DetailItem icon={Car} label="Cor" value={user.veiculo.cor || 'Não informado'} />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+                        <DetailItem icon={Car} label="Placa do Veículo" value={user.veiculo?.placa || user.veiculoPlaca} />
+                        <DetailItem icon={Car} label="Marca" value={user.veiculo?.marca || user.veiculoMarca} />
+                        <DetailItem icon={Car} label="Modelo" value={user.veiculo?.modelo || user.veiculoModelo} />
+                        <DetailItem icon={Car} label="Cor" value={user.veiculo?.cor || user.veiculoCor} />
                     </div>
                 </section>
             )}

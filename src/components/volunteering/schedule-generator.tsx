@@ -153,7 +153,20 @@ export function ScheduleGenerator() {
                 const isEligibleForEvent = u.eligibleEventIds?.includes(item.eventId);
                 const isCorrectTeam = u.serviceTeamId === item.teamId || !u.serviceTeamId; // Wildcard
                 const isNotBlocked = !u.blockedDates?.includes(dateString);
-                const isNotServingSameDay = !tempSkeleton.some(s => s.volunteerId === u.id && s.date === item.date);
+                
+                // Se for celebração unificada, permite servir no mesmo dia para o mesmo grupo de cultos
+                const area = areas.find(a => a.id === item.areaId);
+                let isNotServingSameDay = true;
+                if (area?.unifiedCelebrations && area.unifiedGroups) {
+                    const group = area.unifiedGroups.find(g => g.eventNames.some(name => item.eventName.toLowerCase().includes(name.toLowerCase())));
+                    isNotServingSameDay = !tempSkeleton.some(s => {
+                        if (s.volunteerId !== u.id || s.date !== item.date) return false;
+                        const isSameGroup = group?.eventNames.some(name => s.eventName.toLowerCase().includes(name.toLowerCase()));
+                        return !isSameGroup; // Só bloqueia se for de outro grupo
+                    });
+                } else {
+                    isNotServingSameDay = !tempSkeleton.some(s => s.volunteerId === u.id && s.date === item.date);
+                }
 
                 return u.serviceStatus === 'serving' && isCorrectArea && isEligibleForEvent && isCorrectTeam && isNotBlocked && isNotServingSameDay;
             })
@@ -176,6 +189,22 @@ export function ScheduleGenerator() {
             const assignedVolunteerId = eligibleVolunteers[0].id;
             tempSkeleton[i].volunteerId = assignedVolunteerId;
             volunteerAllocations[assignedVolunteerId] = (volunteerAllocations[assignedVolunteerId] || 0) + 1;
+
+            // Propagar para eventos unificados no mesmo dia
+            const area = areas.find(a => a.id === item.areaId);
+            if (area?.unifiedCelebrations && area.unifiedGroups) {
+                const group = area.unifiedGroups.find(g => g.eventNames.some(name => item.eventName.toLowerCase().includes(name.toLowerCase())));
+                if (group) {
+                    tempSkeleton.forEach((otherItem) => {
+                        if (otherItem.date === item.date && otherItem.areaId === item.areaId && !otherItem.volunteerId) {
+                            const isSameGroup = group.eventNames.some(name => otherItem.eventName.toLowerCase().includes(name.toLowerCase()));
+                            if (isSameGroup) {
+                                otherItem.volunteerId = assignedVolunteerId;
+                            }
+                        }
+                    });
+                }
+            }
         }
     }
 
@@ -186,7 +215,25 @@ export function ScheduleGenerator() {
   const handleVolunteerChange = (index: number, volunteerId: string) => {
     if(!skeleton) return;
     const newSkeleton = [...skeleton];
-    newSkeleton[index].volunteerId = volunteerId === 'null' ? null : volunteerId;
+    const val = volunteerId === 'null' ? null : volunteerId;
+    newSkeleton[index].volunteerId = val;
+
+    // Propagar alteração se for celebração unificada
+    const currentItem = newSkeleton[index];
+    const area = areas.find(a => a.id === currentItem.areaId);
+    if (area?.unifiedCelebrations && area.unifiedGroups) {
+      const group = area.unifiedGroups.find(g => g.eventNames.some(name => currentItem.eventName.toLowerCase().includes(name.toLowerCase())));
+      if (group) {
+        newSkeleton.forEach((item, idx) => {
+          if (idx !== index && item.date === currentItem.date && item.areaId === currentItem.areaId) {
+            const isSameGroup = group.eventNames.some(name => item.eventName.toLowerCase().includes(name.toLowerCase()));
+            if (isSameGroup) {
+              item.volunteerId = val;
+            }
+          }
+        });
+      }
+    }
     setSkeleton(newSkeleton);
   }
 
@@ -194,9 +241,30 @@ export function ScheduleGenerator() {
     if (!skeleton) return;
     const newSkeleton = [...skeleton];
     const team = teams.find(t => t.id === teamId);
-    newSkeleton[index].teamId = teamId === 'null' ? null : teamId;
-    newSkeleton[index].teamName = teamId === 'null' ? null : (team?.name || null);
+    const valTeamId = teamId === 'null' ? null : teamId;
+    const valTeamName = teamId === 'null' ? null : (team?.name || null);
+    newSkeleton[index].teamId = valTeamId;
+    newSkeleton[index].teamName = valTeamName;
     newSkeleton[index].volunteerId = null; // Reset volunteer when team changes
+
+    // Propagar alteração se for celebração unificada
+    const currentItem = newSkeleton[index];
+    const area = areas.find(a => a.id === currentItem.areaId);
+    if (area?.unifiedCelebrations && area.unifiedGroups) {
+      const group = area.unifiedGroups.find(g => g.eventNames.some(name => currentItem.eventName.toLowerCase().includes(name.toLowerCase())));
+      if (group) {
+        newSkeleton.forEach((item, idx) => {
+          if (idx !== index && item.date === currentItem.date && item.areaId === currentItem.areaId) {
+            const isSameGroup = group.eventNames.some(name => item.eventName.toLowerCase().includes(name.toLowerCase()));
+            if (isSameGroup) {
+              item.teamId = valTeamId;
+              item.teamName = valTeamName;
+              item.volunteerId = null;
+            }
+          }
+        });
+      }
+    }
     setSkeleton(newSkeleton);
   };
   

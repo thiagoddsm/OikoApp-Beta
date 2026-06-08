@@ -22,6 +22,7 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
   const [name, setName] = useState('');
   const [leaderId, setLeaderId] = useState('');
   const [leaderContact, setLeaderContact] = useState('');
+  const [unifiedCelebrations, setUnifiedCelebrations] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -29,6 +30,7 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
       setName(existingArea?.name || '');
       setLeaderId(existingArea?.leaderId || '');
       setLeaderContact(existingArea?.leaderContact || '');
+      setUnifiedCelebrations(existingArea?.unifiedCelebrations || false);
     }
   }, [open, existingArea]);
 
@@ -51,6 +53,11 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
       name,
       leaderId: leaderId === 'null' ? '' : leaderId,
       leaderContact,
+      unifiedCelebrations,
+      unifiedGroups: unifiedCelebrations ? [
+        { name: "Manhã", eventNames: ["Culto Clássico", "Culto da Manhã", "Clássico", "Manhã"] },
+        { name: "Noite/Tarde", eventNames: ["Culto da Tarde", "Culto da Noite", "Tarde", "Noite"] }
+      ] : []
     };
 
     if (existingArea) {
@@ -69,7 +76,7 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
         <DialogHeader>
           <DialogTitle>{existingArea ? 'Editar Área de Serviço' : 'Criar Nova Área de Serviço'}</DialogTitle>
           <DialogDescription>
-            Defina o nome da área de serviço e, opcionalmente, vincule um líder e suas informações de contato.
+            Defina o nome da área de serviço, configurações de escala e líder responsável.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -82,6 +89,23 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
               placeholder="Ex: Mídia"
               required
             />
+          </div>
+          <div className="flex items-center space-x-2 py-2 border rounded-xl px-4 bg-slate-50/50">
+            <input
+              type="checkbox"
+              id="unified-celebrations"
+              checked={unifiedCelebrations}
+              onChange={(e) => setUnifiedCelebrations(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+            />
+            <div className="grid gap-0.5 leading-none">
+              <Label htmlFor="unified-celebrations" className="text-sm font-bold cursor-pointer text-slate-800">
+                Celebrações Unificadas
+              </Label>
+              <p className="text-[11px] text-muted-foreground">
+                Cultos agrupados compartilham da mesma escala de voluntários (Ex: Clássico e Manhã).
+              </p>
+            </div>
           </div>
           <div>
             <Label htmlFor="leader-id">Líder (Opcional)</Label>

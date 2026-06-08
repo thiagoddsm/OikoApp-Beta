@@ -1,15 +1,15 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Logo } from '@/components/icons';
-import { Loader2, ArrowRight, CheckCircle, Sparkles, User, Home, Users, Heart, Compass, Car } from 'lucide-react';
+import { Loader2, ArrowRight, CheckCircle, Sparkles, User, Home, Users, Heart, Compass, Car, HandHelping } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { verifyEmailRegistered, savePublicRegistration } from './actions';
+import { verifyEmailRegistered, savePublicRegistration, getPublicFormOptions } from './actions';
 import { GooglePlacesAutocomplete } from '@/components/common/google-places-autocomplete';
 
 export default function PublicCadastroPage() {
@@ -21,6 +21,8 @@ export default function PublicCadastroPage() {
     const [isChecking, setIsChecking] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [userId, setUserId] = useState<string | undefined>(undefined);
+    const [cells, setCells] = useState<{ id: string; nome: string }[]>([]);
+    const [areas, setAreas] = useState<{ id: string; name: string }[]>([]);
     
     // Form fields
     const [formData, setFormData] = useState({
@@ -48,7 +50,18 @@ export default function PublicCadastroPage() {
         veiculoMarca: '',
         veiculoModelo: '',
         veiculoCor: '',
+        celulaId: '',
+        serviceAreaId: '',
     });
+
+    useEffect(() => {
+        async function fetchOptions() {
+            const res = await getPublicFormOptions();
+            setCells(res.cells || []);
+            setAreas(res.areas || []);
+        }
+        fetchOptions();
+    }, []);
 
     const handleEmailCheck = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -91,6 +104,8 @@ export default function PublicCadastroPage() {
                 veiculoMarca: result.userData.veiculoMarca || '',
                 veiculoModelo: result.userData.veiculoModelo || '',
                 veiculoCor: result.userData.veiculoCor || '',
+                celulaId: result.userData.celulaId || '',
+                serviceAreaId: result.userData.serviceAreaId || '',
             });
             toast({
                 title: "Cadastro Localizado!",
@@ -123,6 +138,8 @@ export default function PublicCadastroPage() {
                 veiculoMarca: '',
                 veiculoModelo: '',
                 veiculoCor: '',
+                celulaId: '',
+                serviceAreaId: '',
             });
             toast({
                 title: "Novo Cadastro!",
@@ -472,6 +489,36 @@ export default function PublicCadastroPage() {
                                         <div className="space-y-1.5">
                                             <Label htmlFor="veiculoCor">Cor</Label>
                                             <Input id="veiculoCor" name="veiculoCor" value={formData.veiculoCor} onChange={handleInputChange} placeholder="Preto, Prata, Branco..." />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 6. CÉLULA (GC) E VOLUNTARIADO */}
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2 border-b pb-2">
+                                        <HandHelping className="size-5 text-primary" />
+                                        <h3 className="font-black uppercase italic text-sm tracking-tight text-slate-800">6. Célula (GC) e Voluntariado</h3>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="celulaId">Sua Célula / GC</Label>
+                                            <Select value={formData.celulaId || 'null'} onValueChange={(v) => handleSelectChange('celulaId', v)}>
+                                                <SelectTrigger id="celulaId"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="null">Nenhuma / Não participo</SelectItem>
+                                                    {cells.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label htmlFor="serviceAreaId">Tem interesse em servir em alguma área voluntária?</Label>
+                                            <Select value={formData.serviceAreaId || 'null'} onValueChange={(v) => handleSelectChange('serviceAreaId', v)}>
+                                                <SelectTrigger id="serviceAreaId"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="null">Apenas frequentar / Sem área por enquanto</SelectItem>
+                                                    {areas.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                     </div>
                                 </div>
