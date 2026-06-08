@@ -3,10 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, serverTimestamp, doc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { 
   Clock, Users, DollarSign, Utensils, FileText, Target, ListChecks, HelpCircle, 
   MapPin, Download, HeartHandshake, Baby, Music, Video, Shield, Coffee, HelpCircle as HelpIcon,
-  Sparkles, Check, ChevronRight, Loader2, AlertCircle, Info, Calendar, Plus, Minus
+  Sparkles, Check, ChevronRight, Loader2, AlertCircle, Info, Calendar, Plus, Minus, UploadCloud,
+  Image, CreditCard
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -63,6 +65,19 @@ export interface PlanningEvent {
     serviceTeamsNotes: string;
     financialsNotes: string;
     marketingNotes: string;
+    coverImageUrl?: string;
+    expectedAttendance?: number;
+    hasAlternativeFunding?: boolean;
+    alternativeFundingDetails?: string;
+    alternativeFundingExpectedAmount?: number;
+    acceptPix?: boolean;
+    acceptCash?: boolean;
+    acceptCard?: boolean;
+    acceptInstallments?: boolean;
+    maxInstallments?: number;
+    installmentsInterestType?: 'com_juros' | 'sem_juros';
+    acceptRecurring?: boolean;
+    recurringLimitMonth?: string;
     isPublicForRegistration?: boolean;
     requiresBaptism?: boolean;
     requiresActiveService?: boolean;
@@ -98,9 +113,29 @@ function getAreaIcon(name: string) {
 }
 
 export function EventPlanningForm({ existingEvent = null }: { existingEvent?: PlanningEvent | null }) {
-  const { firestore } = useFirebase();
+  const { firestore, storage } = useFirebase();
   const { rooms, serviceAreas: areas, courses } = useVolunteering();
   const { toast } = useToast();
+  const [uploadingCover, setUploadingCover] = useState(false);
+
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !storage) return;
+
+    setUploadingCover(true);
+    const fileRef = ref(storage, `event-covers/${Date.now()}_${file.name}`);
+    try {
+      const snapshot = await uploadBytes(fileRef, file);
+      const url = await getDownloadURL(snapshot.ref);
+      setFormData(prev => ({ ...prev, coverImageUrl: url }));
+      toast({ title: 'Sucesso!', description: 'Imagem de capa carregada com sucesso.' });
+    } catch (error: any) {
+      console.error("Upload error:", error);
+      toast({ title: 'Erro no upload', description: error.message || 'Erro ao enviar imagem.', variant: 'destructive' });
+    } finally {
+      setUploadingCover(false);
+    }
+  };
 
   const allRooms = React.useMemo(() => {
     const list = [...rooms];
@@ -146,6 +181,20 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
     variableCostPerPerson: '',
     ticketPrice: '', // "Preço Cobrado por Pessoa"
     
+    coverImageUrl: '',
+    expectedAttendance: '',
+    hasAlternativeFunding: false,
+    alternativeFundingDetails: '',
+    alternativeFundingExpectedAmount: '',
+    acceptPix: false,
+    acceptCash: false,
+    acceptCard: false,
+    acceptInstallments: false,
+    maxInstallments: '12',
+    installmentsInterestType: 'sem_juros' as 'com_juros' | 'sem_juros',
+    acceptRecurring: false,
+    recurringLimitMonth: '',
+
     isPublicForRegistration: false,
     requiresBaptism: false,
     requiresActiveService: false,
@@ -188,6 +237,20 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
         variableCostPerPerson: existingEvent.variableCostPerPerson?.toString() || '',
         ticketPrice: existingEvent.ticketPrice?.toString() || '',
         
+        coverImageUrl: existingEvent.coverImageUrl || '',
+        expectedAttendance: existingEvent.expectedAttendance?.toString() || '',
+        hasAlternativeFunding: existingEvent.hasAlternativeFunding || false,
+        alternativeFundingDetails: existingEvent.alternativeFundingDetails || '',
+        alternativeFundingExpectedAmount: existingEvent.alternativeFundingExpectedAmount?.toString() || '',
+        acceptPix: existingEvent.acceptPix || false,
+        acceptCash: existingEvent.acceptCash || false,
+        acceptCard: existingEvent.acceptCard || false,
+        acceptInstallments: existingEvent.acceptInstallments || false,
+        maxInstallments: existingEvent.maxInstallments?.toString() || '12',
+        installmentsInterestType: existingEvent.installmentsInterestType || 'sem_juros',
+        acceptRecurring: existingEvent.acceptRecurring || false,
+        recurringLimitMonth: existingEvent.recurringLimitMonth || '',
+
         isPublicForRegistration: existingEvent.isPublicForRegistration || false,
         requiresBaptism: existingEvent.requiresBaptism || false,
         requiresActiveService: existingEvent.requiresActiveService || false,
@@ -316,6 +379,20 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
       variableCostPerPerson: variable,
       ticketPrice: price,
       breakEvenAnalysis: breakEven,
+
+      coverImageUrl: formData.coverImageUrl,
+      expectedAttendance: parseInt(formData.expectedAttendance) || 0,
+      hasAlternativeFunding: formData.hasAlternativeFunding,
+      alternativeFundingDetails: formData.hasAlternativeFunding ? formData.alternativeFundingDetails : '',
+      alternativeFundingExpectedAmount: formData.hasAlternativeFunding ? (parseFloat(formData.alternativeFundingExpectedAmount) || 0) : 0,
+      acceptPix: formData.acceptPix,
+      acceptCash: formData.acceptCash,
+      acceptCard: formData.acceptCard,
+      acceptInstallments: formData.acceptInstallments,
+      maxInstallments: formData.acceptInstallments ? (parseInt(formData.maxInstallments) || 12) : null,
+      installmentsInterestType: formData.acceptInstallments ? formData.installmentsInterestType : null,
+      acceptRecurring: formData.acceptRecurring,
+      recurringLimitMonth: formData.acceptRecurring ? formData.recurringLimitMonth : null,
       
       isPublicForRegistration: formData.isPublicForRegistration,
       requiresBaptism: formData.requiresBaptism,
@@ -461,6 +538,51 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
             <h2 className="text-lg font-bold text-slate-100">Identidade do Evento</h2>
           </div>
 
+          {/* Upload de Imagem de Capa do Evento */}
+          <div className="space-y-2">
+            <Label className="text-slate-350 text-xs uppercase tracking-wider font-bold">Imagem de Capa do Evento (Upload)</Label>
+            {formData.coverImageUrl ? (
+              <div className="relative rounded-xl overflow-hidden border border-slate-850 bg-slate-950 aspect-[21/9] flex items-center justify-center group">
+                <img src={formData.coverImageUrl} alt="Capa do Evento" className="object-cover w-full h-full" />
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="font-bold text-xs"
+                    onClick={() => setFormData(prev => ({ ...prev, coverImageUrl: '' }))}
+                  >
+                    Remover Capa
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="border-2 border-dashed border-slate-850 hover:border-blue-500/50 rounded-xl p-6 text-center cursor-pointer transition-colors bg-slate-950/40 relative">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCoverUpload}
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  disabled={uploadingCover}
+                />
+                <div className="space-y-2">
+                  {uploadingCover ? (
+                    <div className="flex flex-col items-center gap-2 text-slate-400">
+                      <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                      <span className="text-xs">Subindo imagem...</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 text-slate-400">
+                      <UploadCloud className="h-8 w-8 text-slate-500" />
+                      <span className="text-xs font-bold text-slate-300">Escolha uma imagem para a capa</span>
+                      <span className="text-[10px] text-slate-500">Recomendado: proporção paisagem (ex. 1200x500)</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-1.5">
               <Label htmlFor="ministry" className="text-slate-300 text-xs uppercase tracking-wider font-bold">Nome do Ministério / Solicitante</Label>
@@ -500,6 +622,11 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
                   <SelectItem value="adm">Administrativo e Governança</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="expectedAttendance" className="text-slate-300 text-xs uppercase tracking-wider font-bold">Público Esperado (Número de Pessoas)</Label>
+              <Input required type="number" id="expectedAttendance" name="expectedAttendance" value={formData.expectedAttendance} onChange={handleChange} placeholder="Ex: 150" className="bg-slate-950 border-slate-800 focus-visible:ring-blue-500" />
             </div>
           </div>
 
@@ -805,19 +932,185 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
             </div>
 
             {formData.isPaid === 'pago' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border border-slate-800 bg-slate-950/40 rounded-xl">
-                <div className="space-y-1.5">
-                  <Label htmlFor="ticketPrice" className="text-xs text-slate-400">Preço da Inscrição (Preço por pessoa)</Label>
-                  <Input 
-                    required={formData.isPaid === 'pago'}
-                    id="ticketPrice" 
-                    name="ticketPrice" 
-                    type="number"
-                    value={formData.ticketPrice} 
-                    onChange={handleChange} 
-                    placeholder="Ex: 50.00"
-                    className="bg-slate-950 border-slate-800"
-                  />
+              <div className="space-y-6 p-4 border border-slate-800 bg-slate-950/40 rounded-xl">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ticketPrice" className="text-xs text-slate-400">Preço da Inscrição (Preço por pessoa)</Label>
+                    <Input 
+                      required={formData.isPaid === 'pago'}
+                      id="ticketPrice" 
+                      name="ticketPrice" 
+                      type="number"
+                      value={formData.ticketPrice} 
+                      onChange={handleChange} 
+                      placeholder="Ex: 50.00"
+                      className="bg-slate-950 border-slate-800 focus-visible:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Outras Formas de Captação */}
+                <div className="space-y-3 pt-4 border-t border-slate-850">
+                  <Label className="text-slate-300 text-xs font-bold uppercase tracking-wider block">Haverá outras formas de captação de recursos?</Label>
+                  <RadioGroup 
+                    value={formData.hasAlternativeFunding ? 'sim' : 'nao'} 
+                    onValueChange={(v) => setFormData(p => ({ ...p, hasAlternativeFunding: v === 'sim' }))} 
+                    className="flex gap-6 mt-1"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="sim" id="funding_yes" className="text-blue-500" />
+                      <Label htmlFor="funding_yes" className="font-medium text-sm cursor-pointer text-slate-200">Sim</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="nao" id="funding_no" className="text-blue-500" />
+                      <Label htmlFor="funding_no" className="font-medium text-sm cursor-pointer text-slate-200">Não</Label>
+                    </div>
+                  </RadioGroup>
+
+                  {formData.hasAlternativeFunding && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border border-slate-800/60 bg-slate-950/60 rounded-xl animate-fadeIn">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="alternativeFundingDetails" className="text-xs text-slate-400">Quais formas de captação?</Label>
+                        <Textarea 
+                          required={formData.hasAlternativeFunding}
+                          id="alternativeFundingDetails"
+                          name="alternativeFundingDetails"
+                          value={formData.alternativeFundingDetails}
+                          onChange={handleChange}
+                          placeholder="Ex: Patrocínios locais, venda de camisetas, cantina voluntária..."
+                          rows={2}
+                          className="bg-slate-950 border-slate-800 text-xs focus-visible:ring-blue-500"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="alternativeFundingExpectedAmount" className="text-xs text-slate-400">Valor esperado para conseguir (R$)</Label>
+                        <Input 
+                          required={formData.hasAlternativeFunding}
+                          id="alternativeFundingExpectedAmount"
+                          name="alternativeFundingExpectedAmount"
+                          type="number"
+                          value={formData.alternativeFundingExpectedAmount}
+                          onChange={handleChange}
+                          placeholder="Ex: 1500.00"
+                          className="bg-slate-950 border-slate-800 focus-visible:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Configuração de Formas de Pagamento */}
+                <div className="space-y-4 pt-4 border-t border-slate-850">
+                  <Label className="text-slate-350 text-xs font-bold uppercase tracking-wider block">Formas de Pagamento Aceitas</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    <div className="p-3.5 rounded-xl border border-slate-850 bg-slate-950/20 flex items-center space-x-2.5">
+                      <Checkbox 
+                        id="acceptPix" 
+                        checked={formData.acceptPix} 
+                        onCheckedChange={(c) => setFormData(p => ({ ...p, acceptPix: !!c }))}
+                        className="border-slate-700 data-[state=checked]:bg-blue-500"
+                      />
+                      <label htmlFor="acceptPix" className="text-xs font-semibold cursor-pointer text-slate-200">PIX</label>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl border border-slate-850 bg-slate-950/20 flex items-center space-x-2.5">
+                      <Checkbox 
+                        id="acceptCash" 
+                        checked={formData.acceptCash} 
+                        onCheckedChange={(c) => setFormData(p => ({ ...p, acceptCash: !!c }))}
+                        className="border-slate-700 data-[state=checked]:bg-blue-500"
+                      />
+                      <label htmlFor="acceptCash" className="text-xs font-semibold cursor-pointer text-slate-200">Dinheiro / À vista</label>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl border border-slate-850 bg-slate-950/20 flex items-center space-x-2.5">
+                      <Checkbox 
+                        id="acceptCard" 
+                        checked={formData.acceptCard} 
+                        onCheckedChange={(c) => setFormData(p => ({ ...p, acceptCard: !!c }))}
+                        className="border-slate-700 data-[state=checked]:bg-blue-500"
+                      />
+                      <label htmlFor="acceptCard" className="text-xs font-semibold cursor-pointer text-slate-200">Cartão de Crédito</label>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl border border-slate-850 bg-slate-950/20 flex items-center space-x-2.5">
+                      <Checkbox 
+                        id="acceptInstallments" 
+                        checked={formData.acceptInstallments} 
+                        onCheckedChange={(c) => setFormData(p => ({ ...p, acceptInstallments: !!c }))}
+                        className="border-slate-700 data-[state=checked]:bg-blue-500"
+                      />
+                      <label htmlFor="acceptInstallments" className="text-xs font-semibold cursor-pointer text-slate-200">Parcelado</label>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl border border-slate-850 bg-slate-950/20 flex items-center space-x-2.5">
+                      <Checkbox 
+                        id="acceptRecurring" 
+                        checked={formData.acceptRecurring} 
+                        onCheckedChange={(c) => setFormData(p => ({ ...p, acceptRecurring: !!c }))}
+                        className="border-slate-700 data-[state=checked]:bg-blue-500"
+                      />
+                      <label htmlFor="acceptRecurring" className="text-xs font-semibold cursor-pointer text-slate-200">Recorrência (Mensalidade)</label>
+                    </div>
+                  </div>
+
+                  {/* Parcelamento extra fields */}
+                  {formData.acceptInstallments && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border border-slate-800 bg-slate-950/60 rounded-xl animate-fadeIn">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="maxInstallments" className="text-xs text-slate-400">Número Máximo de Vezes</Label>
+                        <Select 
+                          value={formData.maxInstallments} 
+                          onValueChange={(v) => setFormData(p => ({ ...p, maxInstallments: v }))}
+                        >
+                          <SelectTrigger id="maxInstallments" className="bg-slate-950 border-slate-800">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                            {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(n => (
+                              <SelectItem key={n} value={n.toString()}>{n}x</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-slate-400 block mb-1">Tipo de Juros</Label>
+                        <RadioGroup 
+                          value={formData.installmentsInterestType} 
+                          onValueChange={(v: any) => setFormData(p => ({ ...p, installmentsInterestType: v }))} 
+                          className="flex gap-6 mt-2"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="sem_juros" id="int_free" className="text-blue-500" />
+                            <Label htmlFor="int_free" className="font-medium text-xs cursor-pointer text-slate-200">Sem Juros</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="com_juros" id="int_charged" className="text-blue-500" />
+                            <Label htmlFor="int_charged" className="font-medium text-xs cursor-pointer text-slate-200">Com Juros</Label>
+                          </div>
+                        </RadioGroup>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Recorrência extra fields */}
+                  {formData.acceptRecurring && (
+                    <div className="p-4 border border-slate-800 bg-slate-950/60 rounded-xl animate-fadeIn space-y-2">
+                      <Label htmlFor="recurringLimitMonth" className="text-xs text-slate-400">Até qual mês cobrar (Limite)?</Label>
+                      <Input 
+                        id="recurringLimitMonth" 
+                        name="recurringLimitMonth"
+                        type="month"
+                        value={formData.recurringLimitMonth}
+                        onChange={handleChange}
+                        className="bg-slate-950 border-slate-800 max-w-xs focus-visible:ring-blue-500"
+                      />
+                      <p className="text-[10px] text-slate-500">
+                        A recorrência expirará e deixará de cobrar automaticamente no mês indicado.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

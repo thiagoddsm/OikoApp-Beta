@@ -294,14 +294,28 @@ function PedagogicalLogPageContent() {
             // Validar que o timePart é apenas a hora. O `selectedDate` vindo do `format` pode ter o timezone, mas garantimos localmente.
             const dateStrWithTime = `${baseDateStr}T${timePart}`;
 
-            const logPromise = addPedagogicalLog({
+            const existingLog = pedagogicalLogs.find(l => {
+                if (l.dateStr && l.dateStr === selectedDate) return true;
+                const logDate = l.date?.toDate ? l.date.toDate() : (l.date instanceof Date ? l.date : null);
+                if (!logDate) return false;
+                return l.classId === classId && format(logDate, 'yyyy-MM-dd') === baseDateStr;
+            });
+
+            const logData = {
                 classId,
                 date: Timestamp.fromDate(new Date(dateStrWithTime)),
                 dateStr: selectedDate, // <- Chave única para múltiplas aulas no mesmo dia
                 content_taught: contentTaught || "Aula realizada",
                 student_performance: performance,
                 observations,
-            });
+            };
+
+            let logPromise;
+            if (existingLog) {
+                logPromise = updateDocumentNonBlocking(doc(firestore!, 'pedagogical_logs', existingLog.id), logData);
+            } else {
+                logPromise = addPedagogicalLog(logData);
+            }
 
             const existingAttendance = classData?.attendance || [];
             const updatedAttendance = [

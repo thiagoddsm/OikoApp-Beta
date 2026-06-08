@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { useVolunteering, getModuleIndexForDate } from '@/contexts/volunteering-context';
+import { useVolunteering, getModuleIndexForDate, getResolvedSchedule } from '@/contexts/volunteering-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
@@ -51,9 +51,14 @@ export function CourseReports({ courseId }: CourseReportsProps) {
       filteredClasses.forEach(cls => {
         if (!cls.students?.includes(student.id)) return;
 
+        const resolved = getResolvedSchedule(cls, courses.find(c => c.id === cls.courseId));
+        const activeDates = new Set(resolved.map(r => r.dateStr));
+
         // Aulas da turma filtrando por data (se aplicável)
         const classDates = new Set<string>();
         cls.attendance?.forEach(att => {
+          if (!activeDates.has(att.date)) return; // Ignora se a aula foi cancelada/excluída
+
           if (dateStart || dateEnd) {
             const date = parseISO(att.date.split('T')[0]);
             const start = dateStart ? parseISO(dateStart) : parseISO('2000-01-01');
@@ -113,7 +118,12 @@ export function CourseReports({ courseId }: CourseReportsProps) {
     const reportMap: Record<string, { date: string; title: string; present: number; total: number }> = {};
 
     filteredClasses.forEach(cls => {
+      const resolved = getResolvedSchedule(cls, courses.find(c => c.id === cls.courseId));
+      const activeDates = new Set(resolved.map(r => r.dateStr));
+
       cls.attendance?.forEach(att => {
+        if (!activeDates.has(att.date)) return; // Ignora se a aula foi cancelada/excluída
+
         if (dateStart || dateEnd) {
           const date = parseISO(att.date.split('T')[0]);
           const start = dateStart ? parseISO(dateStart) : parseISO('2000-01-01');

@@ -271,6 +271,111 @@ export function getModuleIndexForDate(dateStr: string, classData: any, syllabus:
     return -1;
 }
 
+export function getResolvedSchedule(classData: any, courseData: any) {
+    if (!classData || !classData.startDate) return [];
+    
+    const items: any[] = [];
+    const start = parseISO(classData.startDate);
+    const holidaySet = new Set(classData.holidayDates || []);
+    const overrides = classData.scheduleOverrides || {};
+    const syllabus = courseData?.syllabus || [];
+
+    // 1. Encontrar todas as datas de aula (recorrência)
+    let currentDate = start;
+    let syllabusIndex = 0;
+    let safeCounter = 0;
+
+    const targetCount = syllabus.length > 0 ? syllabus.length : 12;
+
+    while (items.length < targetCount && safeCounter < 200) {
+        safeCounter++;
+        const dateStr = format(currentDate, 'yyyy-MM-dd');
+        
+        // Pular se for feriado e não houver override forçando
+        if (holidaySet.has(dateStr) && !overrides[dateStr]) {
+            currentDate = addWeeks(currentDate, classData.frequency === 'quinzenal' ? 2 : 1);
+            continue;
+        }
+
+        const override = overrides[dateStr];
+        
+        if (override?.isCancelled) {
+            currentDate = addWeeks(currentDate, classData.frequency === 'quinzenal' ? 2 : 1);
+            continue;
+        }
+
+        const syllabusItem = override?.syllabusId 
+            ? syllabus.find((s: any) => s.id === override.syllabusId) 
+            : syllabus[syllabusIndex];
+        
+        const originalIdx = override?.syllabusId
+            ? syllabus.findIndex((s: any) => s.id === override.syllabusId)
+            : syllabusIndex;
+
+        items.push({
+            dateStr,
+            date: currentDate,
+            syllabusItem,
+            syllabusOriginalIndex: originalIdx,
+            isOverride: !!override
+        });
+
+        syllabusIndex++;
+        currentDate = addWeeks(currentDate, classData.frequency === 'quinzenal' ? 2 : 1);
+    }
+
+    // 2. Adicionar overrides que caem em datas fora da recorrência
+    Object.entries(overrides).forEach(([dateStr, override]: [string, any]) => {
+        if (override.isCancelled) return;
+        if (items.find(i => i.dateStr === dateStr)) return;
+
+        const syllabusItem = override.syllabusId 
+            ? syllabus.find((s: any) => s.id === override.syllabusId) 
+            : undefined;
+        
+        const originalIdx = override.syllabusId
+            ? syllabus.findIndex((s: any) => s.id === override.syllabusId)
+            : -1;
+
+        items.push({
+            dateStr,
+            date: parseISO(dateStr),
+            syllabusItem,
+            syllabusOriginalIndex: originalIdx,
+            isOverride: true
+        });
+    });
+
+    // 3. Adicionar aulas extras (extraSessions)
+    const extraSessions = classData.extraSessions || [];
+    extraSessions.forEach((session: any) => {
+        const uniqueDateStr = session.startTime ? `${session.date}T${session.startTime}` : `${session.date}-extra`;
+
+        if (items.find(i => i.dateStr === uniqueDateStr)) return;
+
+        const syllabusItem = session.syllabusId 
+            ? syllabus.find((s: any) => s.id === session.syllabusId) 
+            : undefined;
+        
+        const originalIdx = session.syllabusId
+            ? syllabus.findIndex((s: any) => s.id === session.syllabusId)
+            : -1;
+
+        items.push({
+            dateStr: uniqueDateStr,
+            date: parseISO(session.date),
+            syllabusItem,
+            syllabusOriginalIndex: originalIdx,
+            isOverride: true,
+            isExtraSession: true,
+            startTime: session.startTime
+        });
+    });
+
+    return items.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+}
+
+
 
 export type EnrollmentRequest = {
   id: string;
@@ -288,6 +393,7 @@ export type PedagogicalLog = {
   id: string;
   classId: string;
   date: Timestamp;
+  dateStr?: string;
   content_taught: string;
   student_performance: number;
   observations: string;
