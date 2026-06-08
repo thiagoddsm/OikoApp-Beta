@@ -77,13 +77,22 @@ const attendanceAnalysisFlow = ai.defineFlow(
       bebe: r.apresentacaoBebe ? 'Sim' : 'Não',
     }));
 
-    const response = await attendanceAnalysisPrompt({
-      recordsJson: JSON.stringify(formattedRecords, null, 2),
-      statsJson: JSON.stringify(inp.stats, null, 2),
-    }, {
-      model: 'googleai/gemini-flash-latest'
-    });
-    return response.text || "Não foi possível gerar a análise.";
+    try {
+      const response = await attendanceAnalysisPrompt({
+        recordsJson: JSON.stringify(formattedRecords, null, 2),
+        statsJson: JSON.stringify(inp.stats, null, 2),
+      }, {
+        model: 'googleai/gemini-flash-latest'
+      });
+      return response.text || "Não foi possível gerar a análise.";
+    } catch (err: any) {
+      console.error("Erro na chamada do Gemini:", err);
+      const msg = err.message || String(err);
+      if (msg.includes("prepayment credits") || msg.includes("RESOURCE_EXHAUSTED") || msg.includes("429")) {
+        return "⚠️ **Erro de API (Créditos Esgotados):** Os créditos de pré-pagamento da API do Gemini estão esgotados. Por favor, gerencie o saldo e faturamento da sua conta em [Google AI Studio](https://aistudio.google.com/).";
+      }
+      return `⚠️ **Erro no Servidor de IA:** Não foi possível realizar a análise de frequência. Detalhes: ${msg}`;
+    }
   }
 );
 
