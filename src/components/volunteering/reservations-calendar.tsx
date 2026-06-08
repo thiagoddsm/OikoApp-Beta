@@ -290,6 +290,30 @@ export function ReservationsCalendar({
           return;
         }
 
+        if (res.frequency === 'multiplas') {
+          if (Array.isArray(res.specificDates)) {
+            const startHour = moment(baseStart).format('HH:mm');
+            const endHour = moment(baseEnd).format('HH:mm');
+            res.specificDates.forEach((dateStr, sIdx) => {
+              try {
+                const occStart = new Date(`${dateStr}T${startHour}`);
+                const occEnd = new Date(`${dateStr}T${endHour}`);
+                if (isNaN(occStart.getTime()) || isNaN(occEnd.getTime())) return;
+                allOccurrences.push({
+                  id: `${res.id}_spec_${sIdx}`,
+                  title: `${res.eventName} (${res.rooms?.join(', ') || 'N/A'})`,
+                  start: occStart,
+                  end: occEnd,
+                  resource: res,
+                });
+              } catch (err) {
+                console.error("Error building occurrence for specificDate:", dateStr, err);
+              }
+            });
+          }
+          return;
+        }
+
         let current = moment(baseStart);
         const targetDay = res.dayOfWeek ? weekDayMap[res.dayOfWeek] : -1;
         let safeCounter = 0;

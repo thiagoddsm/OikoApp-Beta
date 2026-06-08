@@ -105,11 +105,12 @@ export type RoomReservation = {
   kitchenUsage?: boolean;
   requiredPatrimonyIds?: string[];
   status: 'pending' | 'approved' | 'rejected';
-  frequency?: 'pontual' | 'semanal' | 'quinzenal' | 'mensal';
+  frequency?: 'pontual' | 'semanal' | 'quinzenal' | 'mensal' | 'multiplas';
   dayOfWeek?: string;
   weekOfMonth?: '1' | '2' | '3' | '4' | 'last';
   createdAt?: Timestamp;
   categoryId?: string;
+  specificDates?: string[];
 };
 
 export type Course = {

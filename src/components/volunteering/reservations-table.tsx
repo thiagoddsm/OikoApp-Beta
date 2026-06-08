@@ -90,6 +90,11 @@ export function ReservationsTable({
         if (res.frequency === 'pontual') {
             return format(baseDate, "dd/MM/yy 'às' HH:mm", { locale: ptBR });
         }
+
+        if (res.frequency === 'multiplas') {
+            const count = res.specificDates?.length || 0;
+            return `Múltiplas datas (${count} dias) às ${timeStr}`;
+        }
         
         let freqLabel = res.frequency.charAt(0).toUpperCase() + res.frequency.slice(1);
         let dayLabel = res.dayOfWeek ? `, ${res.dayOfWeek}` : '';

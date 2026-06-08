@@ -11,6 +11,7 @@ import { Loader2, Trash2, Calendar, Sparkles } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Timestamp, query, collection } from 'firebase/firestore';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PersonSearchInput } from '@/components/common/person-search-input';
@@ -41,7 +42,9 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
   const [equipmentNotes, setEquipmentNotes] = useState('');
   const [kitchenUsage, setKitchenUsage] = useState(false);
   const [requiredPatrimonyIds, setRequiredPatrimonyIds] = useState<string[]>([]);
-  const [frequency, setFrequency] = useState<'pontual' | 'semanal' | 'quinzenal' | 'mensal'>('pontual');
+  const [frequency, setFrequency] = useState<'pontual' | 'semanal' | 'quinzenal' | 'mensal' | 'multiplas'>('pontual');
+  const [specificDates, setSpecificDates] = useState<string[]>([]);
+  const [tempDate, setTempDate] = useState('');
   const [dayOfWeek, setDayOfWeek] = useState('');
   const [weekOfMonth, setWeekOfMonth] = useState<'1' | '2' | '3' | '4' | 'last'>('1');
   const [categoryId, setCategoryId] = useState('');
@@ -74,6 +77,8 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
         setKitchenUsage(existingReservation.kitchenUsage || false);
         setRequiredPatrimonyIds(existingReservation.requiredPatrimonyIds || []);
         setFrequency(existingReservation.frequency || 'pontual');
+        setSpecificDates((existingReservation as any).specificDates || []);
+        setTempDate('');
         setDayOfWeek(existingReservation.dayOfWeek || '');
         setWeekOfMonth(existingReservation.weekOfMonth || '1');
         setCategoryId(existingReservation.categoryId || '');
@@ -106,6 +111,8 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
         setKitchenUsage(false);
         setRequiredPatrimonyIds([]);
         setFrequency('pontual');
+        setSpecificDates([]);
+        setTempDate('');
         setDayOfWeek('');
         setWeekOfMonth('1');
         const now = new Date();
@@ -134,10 +141,23 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
 
 
   const handleSave = async () => {
-    if (!eventName || !requesterId || selectedRooms.length === 0 || !startDate || !startTime || !endDate || !endTime) {
+    const isMultiplas = frequency === 'multiplas';
+    
+    if (isMultiplas && specificDates.length === 0) {
+      alert("Por favor, selecione pelo menos uma data para o evento.");
+      return;
+    }
+
+    if (!eventName || !requesterId || selectedRooms.length === 0 || !startTime || !endTime) {
       alert("Por favor, preencha todos os campos obrigatórios.");
       return;
     }
+
+    if (!isMultiplas && (!startDate || !endDate)) {
+      alert("Por favor, preencha todos os campos obrigatórios.");
+      return;
+    }
+
     setIsSaving(true);
     
     let finalCategoryId = categoryId;
@@ -147,15 +167,21 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
       finalCategoryId = (newCat as any)?.id || '';
     }
 
-    // Para reservas recorrentes, o endDateTime deve ser no mesmo dia do startDate, usando o endTime.
-    // O campo recurrenceEndDate guardará o limite final da recorrência.
-    const startDateTime = Timestamp.fromDate(new Date(`${startDate}T${startTime}`));
+    let startDateTime: Timestamp;
     let endDateTime: Timestamp;
     let recurrenceEndDate: Timestamp | null = null;
 
-    if (frequency === 'pontual') {
+    if (isMultiplas) {
+        const sorted = [...specificDates].sort();
+        const first = sorted[0];
+        const last = sorted[sorted.length - 1];
+        startDateTime = Timestamp.fromDate(new Date(`${first}T${startTime}`));
+        endDateTime = Timestamp.fromDate(new Date(`${last}T${endTime}`));
+    } else if (frequency === 'pontual') {
+        startDateTime = Timestamp.fromDate(new Date(`${startDate}T${startTime}`));
         endDateTime = Timestamp.fromDate(new Date(`${endDate}T${endTime}`));
     } else {
+        startDateTime = Timestamp.fromDate(new Date(`${startDate}T${startTime}`));
         endDateTime = Timestamp.fromDate(new Date(`${startDate}T${endTime}`));
         recurrenceEndDate = Timestamp.fromDate(new Date(`${endDate}T23:59:59`));
     }
@@ -175,6 +201,7 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
       frequency,
       dayOfWeek: ['semanal', 'quinzenal', 'mensal'].includes(frequency) ? dayOfWeek : '',
       categoryId: finalCategoryId,
+      specificDates: isMultiplas ? specificDates : [],
     };
     
     if (frequency === 'mensal') {
@@ -429,6 +456,7 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
                           <SelectItem value="semanal">Semanal</SelectItem>
                           <SelectItem value="quinzenal">Quinzenal</SelectItem>
                           <SelectItem value="mensal">Mensal</SelectItem>
+                          <SelectItem value="multiplas">Múltiplas datas</SelectItem>
                       </SelectContent>
                   </Select>
               </div>
@@ -461,27 +489,85 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
                   </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
-                  <div>
-                      <Label htmlFor="startDate">Data de Início {frequency !== 'pontual' && '(primeira ocorrência)'}</Label>
-                      <Input id="startDate" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required/>
+              {frequency !== 'multiplas' ? (
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                      <div>
+                          <Label htmlFor="startDate">Data de Início {frequency !== 'pontual' && '(primeira ocorrência)'}</Label>
+                          <Input id="startDate" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} required/>
+                      </div>
+                      <div>
+                          <Label htmlFor="startTime">Início da Ocupação</Label>
+                          <Input id="startTime" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} required/>
+                      </div>
                   </div>
-                  <div>
-                      <Label htmlFor="startTime">Início da Ocupação</Label>
-                      <Input id="startTime" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} required/>
-                  </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                  <div>
-                      <Label htmlFor="endDateRecurrence">{frequency === 'pontual' ? 'Data de Fim' : 'Data Final da Recorrência'}</Label>
-                      <Input id="endDateRecurrence" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required/>
+                  <div className="grid grid-cols-2 gap-4">
+                      <div>
+                          <Label htmlFor="endDateRecurrence">{frequency === 'pontual' ? 'Data de Fim' : 'Data Final da Recorrência'}</Label>
+                          <Input id="endDateRecurrence" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} required/>
+                      </div>
+                      <div>
+                          <Label htmlFor="endTime">Fim da Ocupação (Mesmo Dia)</Label>
+                          <Input id="endTime" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} required/>
+                      </div>
                   </div>
-                  <div>
-                      <Label htmlFor="endTime">Fim da Ocupação (Mesmo Dia)</Label>
-                      <Input id="endTime" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} required/>
+                </>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label>Datas do Evento</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="date"
+                        value={tempDate}
+                        onChange={e => setTempDate(e.target.value)}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          if (tempDate && !specificDates.includes(tempDate)) {
+                            setSpecificDates(prev => [...prev, tempDate].sort());
+                            setTempDate('');
+                          }
+                        }}
+                      >
+                        Adicionar
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 mt-2 max-h-28 overflow-y-auto p-2 border rounded-md bg-slate-50/50">
+                      {specificDates.length === 0 ? (
+                        <span className="text-xs text-muted-foreground">Nenhuma data adicionada. Insira uma data acima.</span>
+                      ) : (
+                        specificDates.map(d => (
+                          <Badge key={d} variant="secondary" className="flex items-center gap-1 text-xs py-1 px-2.5">
+                            {d.split('-').reverse().join('/')}
+                            <button
+                              type="button"
+                              onClick={() => setSpecificDates(prev => prev.filter(x => x !== d))}
+                              className="text-muted-foreground hover:text-red-500 font-bold ml-1.5 text-sm leading-none"
+                            >
+                              ×
+                            </button>
+                          </Badge>
+                        ))
+                      )}
+                    </div>
                   </div>
-              </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                      <div>
+                          <Label htmlFor="startTime">Início da Ocupação</Label>
+                          <Input id="startTime" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} required/>
+                      </div>
+                      <div>
+                          <Label htmlFor="endTime">Fim da Ocupação</Label>
+                          <Input id="endTime" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} required/>
+                      </div>
+                  </div>
+                </>
+              )}
 
               <div>
                   <Label htmlFor="notes">Observações Gerais</Label>
