@@ -24,7 +24,7 @@ interface HierarchyNode {
   nome: string;
   liderName: string;
   type: 'pastor' | 'rede' | 'area' | 'cell';
-  stats: { directChildren: number; participantes: number };
+  stats: { directChildren: number; participantes: number; totalAreas?: number };
   children: HierarchyNode[];
   liderId?: string;
   pastorId?: string;
@@ -86,7 +86,11 @@ const buildHierarchy = (users: User[], redes: Rede[], areas: Area[], cells: Cell
   return {
     id: seniorPastor.id, nome: 'Igreja Batista da Manhã', type: 'pastor' as const,
     liderName: `Pastor Sênior: ${seniorPastor.name}`,
-    stats: { directChildren: redeNodes.length, participantes: redeNodes.reduce((s, r) => s + r.stats.participantes, 0) },
+    stats: { 
+      directChildren: redeNodes.length, 
+      participantes: redeNodes.reduce((s, r) => s + r.stats.participantes, 0),
+      totalAreas: areas.length
+    },
     children: redeNodes
   };
 };
@@ -115,10 +119,14 @@ function RootCard({ node, onEdit, onToggle, isExpanded }: {
           </Button>
         </div>
 
-        <div className="relative grid grid-cols-2 gap-2">
+        <div className="relative grid grid-cols-3 gap-2">
           <div className="bg-white/10 rounded-xl p-3 text-center">
             <p className="text-2xl font-black">{node.stats.directChildren}</p>
             <p className="text-[10px] text-indigo-200 uppercase tracking-wider">Redes</p>
+          </div>
+          <div className="bg-white/10 rounded-xl p-3 text-center">
+            <p className="text-2xl font-black">{node.stats.totalAreas || 0}</p>
+            <p className="text-[10px] text-indigo-200 uppercase tracking-wider">Áreas</p>
           </div>
           <div className="bg-white/10 rounded-xl p-3 text-center">
             <p className="text-2xl font-black">{node.stats.participantes}</p>
