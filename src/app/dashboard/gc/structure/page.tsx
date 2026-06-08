@@ -24,7 +24,7 @@ interface HierarchyNode {
   nome: string;
   liderName: string;
   type: 'pastor' | 'rede' | 'area' | 'cell';
-  stats: { directChildren: number; participantes: number; totalAreas?: number };
+  stats: { directChildren: number; participantes: number; totalAreas?: number; totalCells?: number };
   children: HierarchyNode[];
   liderId?: string;
   pastorId?: string;
@@ -78,7 +78,11 @@ const buildHierarchy = (users: User[], redes: Rede[], areas: Area[], cells: Cell
     return {
       id: rede.id, nome: rede.nome, type: 'rede' as const, pastorId: rede.pastorId, liderId: rede.liderId, cor: rede.cor,
       liderName: userMap.get(rede.liderId)?.name || 'N/A',
-      stats: { directChildren: redeAreas.length, participantes: redeAreas.reduce((s, a) => s + a.stats.participantes, 0) },
+      stats: { 
+        directChildren: redeAreas.length, 
+        participantes: redeAreas.reduce((s, a) => s + a.stats.participantes, 0),
+        totalCells: redeAreas.reduce((s, a) => s + a.stats.directChildren, 0)
+      },
       children: redeAreas
     };
   });
@@ -89,7 +93,8 @@ const buildHierarchy = (users: User[], redes: Rede[], areas: Area[], cells: Cell
     stats: { 
       directChildren: redeNodes.length, 
       participantes: redeNodes.reduce((s, r) => s + r.stats.participantes, 0),
-      totalAreas: areas.length
+      totalAreas: areas.length,
+      totalCells: cells.length
     },
     children: redeNodes
   };
@@ -119,7 +124,7 @@ function RootCard({ node, onEdit, onToggle, isExpanded }: {
           </Button>
         </div>
 
-        <div className="relative grid grid-cols-3 gap-2">
+        <div className="relative grid grid-cols-2 gap-2">
           <div className="bg-white/10 rounded-xl p-3 text-center">
             <p className="text-2xl font-black">{node.stats.directChildren}</p>
             <p className="text-[10px] text-indigo-200 uppercase tracking-wider">Redes</p>
@@ -127,6 +132,10 @@ function RootCard({ node, onEdit, onToggle, isExpanded }: {
           <div className="bg-white/10 rounded-xl p-3 text-center">
             <p className="text-2xl font-black">{node.stats.totalAreas || 0}</p>
             <p className="text-[10px] text-indigo-200 uppercase tracking-wider">Áreas</p>
+          </div>
+          <div className="bg-white/10 rounded-xl p-3 text-center">
+            <p className="text-2xl font-black">{node.stats.totalCells || 0}</p>
+            <p className="text-[10px] text-indigo-200 uppercase tracking-wider">GCs</p>
           </div>
           <div className="bg-white/10 rounded-xl p-3 text-center">
             <p className="text-2xl font-black">{node.stats.participantes}</p>
@@ -175,10 +184,14 @@ function RedeCard({ node, onEdit, onDelete, onToggle, isExpanded }: {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-1.5 mb-3">
+        <div className="grid grid-cols-3 gap-1.5 mb-3">
           <div className="bg-white/80 rounded-lg p-2 text-center">
             <p className={cn("text-lg font-black leading-none", palette.text)}>{node.stats.directChildren}</p>
             <p className="text-[9px] text-muted-foreground uppercase">Áreas</p>
+          </div>
+          <div className="bg-white/80 rounded-lg p-2 text-center">
+            <p className={cn("text-lg font-black leading-none", palette.text)}>{node.stats.totalCells || 0}</p>
+            <p className="text-[9px] text-muted-foreground uppercase">GCs</p>
           </div>
           <div className="bg-white/80 rounded-lg p-2 text-center">
             <p className={cn("text-lg font-black leading-none", palette.text)}>{node.stats.participantes}</p>
