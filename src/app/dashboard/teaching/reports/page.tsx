@@ -19,6 +19,7 @@ function GeneralTeachingReportsContent() {
   const [selectedTrack, setSelectedTrack] = useState<string>('all');
   const [dateStart, setDateStart] = useState<string>('');
   const [dateEnd, setDateEnd] = useState<string>('');
+  const [attendanceViewMode, setAttendanceViewMode] = useState<'daily' | 'weekly'>('daily');
 
   // Traduzir o track
   const getTrackName = (track?: string, type?: string) => {
@@ -194,6 +195,54 @@ function GeneralTeachingReportsContent() {
     ];
   }, [courses, classes, dateStart, dateEnd]);
 
+  const dailyAttendanceData = useMemo(() => {
+    const dailyMap: Record<string, { dateObj: Date; label: string; count: number }> = {};
+
+    classes.forEach(cls => {
+      const course = courses.find(c => c.id === cls.courseId);
+      const resolved = getResolvedSchedule(cls, course);
+      const activeDates = new Set(resolved.map(r => r.dateStr));
+
+      cls.attendance?.forEach(att => {
+        if (!activeDates.has(att.date)) return;
+
+        if (dateStart || dateEnd) {
+          const date = parseISO(att.date.split('T')[0]);
+          const start = dateStart ? parseISO(dateStart) : parseISO('2000-01-01');
+          const end = dateEnd ? parseISO(dateEnd) : parseISO('2100-01-01');
+          if (!isWithinInterval(date, { start, end })) return;
+        }
+
+        const dateObj = parseISO(att.date.split('T')[0]);
+        const dateKey = att.date.split('T')[0];
+
+        const uniquePresents = new Set<string>();
+        att.presentStudentIds?.forEach(sId => uniquePresents.add(sId));
+        att.onlineStudentIds?.forEach(sId => uniquePresents.add(sId));
+        att.repositions?.forEach(r => uniquePresents.add(r.studentId));
+
+        const activeClassStudents = cls.students || [];
+        const presentInClassCount = Array.from(uniquePresents).filter(sId => activeClassStudents.includes(sId)).length;
+
+        if (!dailyMap[dateKey]) {
+          dailyMap[dateKey] = {
+            dateObj,
+            label: format(dateObj, "dd/MM", { locale: ptBR }),
+            count: 0
+          };
+        }
+        dailyMap[dateKey].count += presentInClassCount;
+      });
+    });
+
+    return Object.values(dailyMap)
+      .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime())
+      .map(item => ({
+        name: item.label,
+        'Presenças': item.count
+      }));
+  }, [classes, courses, dateStart, dateEnd]);
+
   const weeklyAttendanceData = useMemo(() => {
     const weeklyMap: Record<string, { weekStart: Date; label: string; count: number }> = {};
 
@@ -230,7 +279,7 @@ function GeneralTeachingReportsContent() {
         if (!weeklyMap[weekKey]) {
           weeklyMap[weekKey] = {
             weekStart: sunday,
-            label: format(sunday, "'Semana' dd/MM", { locale: ptBR }),
+            label: format(sunday, "'Semana de' dd/MM", { locale: ptBR }),
             count: 0
           };
         }
@@ -484,20 +533,36 @@ function GeneralTeachingReportsContent() {
             </Card>
           </div>
 
-          {/* Gráfico de Linha: Frequência Semanal */}
+          {/* Gráfico de Linha: Frequência no Tempo (Dia a Dia vs Semanal) */}
           <Card className="shadow-sm border-none bg-white p-6 print-card">
-            <CardHeader className="px-0 pt-0">
-              <CardTitle className="text-base font-black uppercase text-slate-800">Frequência por Semana</CardTitle>
-              <CardDescription>Quantidade total de alunos presentes em sala/online por semana</CardDescription>
+            <CardHeader className="px-0 pt-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <CardTitle className="text-base font-black uppercase text-slate-800">Frequência de Alunos</CardTitle>
+                <CardDescription>Quantidade total de presentes {attendanceViewMode === 'daily' ? 'por dia de aula' : 'por semana'}</CardDescription>
+              </div>
+              <div className="flex gap-1 p-1 bg-slate-100 rounded-lg border text-xs print-hidden">
+                <button 
+                  onClick={() => setAttendanceViewMode('daily')}
+                  className={`py-1.5 px-3 rounded-md font-bold transition-colors ${attendanceViewMode === 'daily' ? 'bg-white shadow-sm text-primary' : 'text-muted-foreground hover:text-slate-800'}`}
+                >
+                  Por Dia
+                </button>
+                <button 
+                  onClick={() => setAttendanceViewMode('weekly')}
+                  className={`py-1.5 px-3 rounded-md font-bold transition-colors ${attendanceViewMode === 'weekly' ? 'bg-white shadow-sm text-primary' : 'text-muted-foreground hover:text-slate-800'}`}
+                >
+                  Por Semana
+                </button>
+              </div>
             </CardHeader>
             <CardContent className="h-[280px] p-0">
-              {weeklyAttendanceData.length === 0 ? (
+              {(attendanceViewMode === 'daily' ? dailyAttendanceData : weeklyAttendanceData).length === 0 ? (
                 <div className="h-full flex items-center justify-center text-sm text-muted-foreground italic">
-                  Nenhuma presença registrada no período selecionado.
+                  Nenhum registro de aula no período selecionado.
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={weeklyAttendanceData}>
+                  <LineChart data={attendanceViewMode === 'daily' ? dailyAttendanceData : weeklyAttendanceData}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                     <XAxis dataKey="name" fontSize={11} stroke="#64748b" />
                     <YAxis fontSize={11} stroke="#64748b" />
