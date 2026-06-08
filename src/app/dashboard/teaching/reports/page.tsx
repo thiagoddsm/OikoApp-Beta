@@ -9,8 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { BarChart2, BookOpen, Users, Award, Percent, ChevronRight, FileText, Download, Printer } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { parseISO, isWithinInterval } from 'date-fns';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
+import { parseISO, isWithinInterval, startOfWeek, format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 function GeneralTeachingReportsContent() {
   const { courses, classes, users } = useVolunteering();
@@ -192,6 +193,58 @@ function GeneralTeachingReportsContent() {
       { name: 'Pendente/Reprovado', value: pending, color: '#f59e0b' }
     ];
   }, [courses, classes, dateStart, dateEnd]);
+
+  const weeklyAttendanceData = useMemo(() => {
+    const weeklyMap: Record<string, { weekStart: Date; label: string; count: number }> = {};
+
+    classes.forEach(cls => {
+      const course = courses.find(c => c.id === cls.courseId);
+      const resolved = getResolvedSchedule(cls, course);
+      const activeDates = new Set(resolved.map(r => r.dateStr));
+
+      cls.attendance?.forEach(att => {
+        if (!activeDates.has(att.date)) return; // Ignora se a aula foi excluída
+
+        // Filtro por data
+        if (dateStart || dateEnd) {
+          const date = parseISO(att.date.split('T')[0]);
+          const start = dateStart ? parseISO(dateStart) : parseISO('2000-01-01');
+          const end = dateEnd ? parseISO(dateEnd) : parseISO('2100-01-01');
+          if (!isWithinInterval(date, { start, end })) return;
+        }
+
+        const dateObj = parseISO(att.date.split('T')[0]);
+        const sunday = startOfWeek(dateObj, { weekStartsOn: 0 });
+        const weekKey = format(sunday, 'yyyy-MM-dd');
+
+        // Somar os presentes nessa aula
+        const uniquePresents = new Set<string>();
+        att.presentStudentIds?.forEach(sId => uniquePresents.add(sId));
+        att.onlineStudentIds?.forEach(sId => uniquePresents.add(sId));
+        att.repositions?.forEach(r => uniquePresents.add(r.studentId));
+
+        // Filtrar apenas se pertencem à turma
+        const activeClassStudents = cls.students || [];
+        const presentInClassCount = Array.from(uniquePresents).filter(sId => activeClassStudents.includes(sId)).length;
+
+        if (!weeklyMap[weekKey]) {
+          weeklyMap[weekKey] = {
+            weekStart: sunday,
+            label: format(sunday, "'Semana' dd/MM", { locale: ptBR }),
+            count: 0
+          };
+        }
+        weeklyMap[weekKey].count += presentInClassCount;
+      });
+    });
+
+    return Object.values(weeklyMap)
+      .sort((a, b) => a.weekStart.getTime() - b.weekStart.getTime())
+      .map(item => ({
+        name: item.label,
+        'Presenças': item.count
+      }));
+  }, [classes, courses, dateStart, dateEnd]);
 
   const handleExportConsolidatedCSV = () => {
     const headers = ['Curso', 'Trilho', 'Qtd. Turmas', 'Alunos Matriculados', 'Frequência Média (%)'];
@@ -430,6 +483,32 @@ function GeneralTeachingReportsContent() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Gráfico de Linha: Frequência Semanal */}
+          <Card className="shadow-sm border-none bg-white p-6 print-card">
+            <CardHeader className="px-0 pt-0">
+              <CardTitle className="text-base font-black uppercase text-slate-800">Frequência por Semana</CardTitle>
+              <CardDescription>Quantidade total de alunos presentes em sala/online por semana</CardDescription>
+            </CardHeader>
+            <CardContent className="h-[280px] p-0">
+              {weeklyAttendanceData.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-sm text-muted-foreground italic">
+                  Nenhuma presença registrada no período selecionado.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={weeklyAttendanceData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="name" fontSize={11} stroke="#64748b" />
+                    <YAxis fontSize={11} stroke="#64748b" />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="Presenças" stroke="#4f46e5" strokeWidth={3} activeDot={{ r: 8 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Tabela Consolidada por Curso */}
           <Card className="shadow-sm border-none bg-white print-card">
