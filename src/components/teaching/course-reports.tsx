@@ -70,7 +70,31 @@ export function CourseReports({ courseId }: CourseReportsProps) {
 
           const isPresent = att.presentStudentIds?.includes(student.id) || att.onlineStudentIds?.includes(student.id);
           const isRepo = att.repositions?.some(r => r.studentId === student.id);
-          if (isPresent || isRepo) {
+          
+          let hasCompleted = isPresent || isRepo;
+          
+          if (!hasCompleted) {
+            const modIndex = getModuleIndexForDate(att.date, cls, course?.syllabus || []);
+            if (modIndex !== -1) {
+              const hasRepoInOtherClass = courseClasses.some(otherCls => 
+                otherCls.id !== cls.id && 
+                otherCls.attendance?.some(otherAtt => 
+                  getModuleIndexForDate(otherAtt.date, otherCls, course?.syllabus || []) === modIndex &&
+                  (otherAtt.presentStudentIds?.includes(student.id) || 
+                   otherAtt.onlineStudentIds?.includes(student.id) ||
+                   otherAtt.repositions?.some(r => r.studentId === student.id))
+                )
+              );
+              
+              const isManualDone = student.journey?.memberCourseProgress?.[`module${modIndex + 1}`];
+              
+              if (hasRepoInOtherClass || isManualDone) {
+                hasCompleted = true;
+              }
+            }
+          }
+
+          if (hasCompleted) {
             attendedClasses++;
           }
           totalAttendancePossibilities++;

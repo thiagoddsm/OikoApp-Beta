@@ -3,6 +3,8 @@
 import React, { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -15,8 +17,11 @@ import {
     Baby, 
     Award, 
     FlameKindling,
-    FileText
+    FileText,
+    Sparkles,
+    Loader2
 } from 'lucide-react';
+import { runAttendanceAnalysis } from '@/ai/flows/attendance-analysis-flow';
 import {
     ResponsiveContainer,
     LineChart,
@@ -83,6 +88,42 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
   const [filtroFeriado, setFeriadoFeriado] = useState('todos'); 
   const [filtroJogo, setJogoFutebol] = useState('todos'); 
   const [filtroBebe, setApresentacaoBebe] = useState('todos'); 
+  
+  const [aiReport, setAiReport] = useState<string>('');
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+
+  // Markdown Parser Helpers
+  const parseInlineBold = (text: string) => {
+    const parts = text.split('**');
+    return parts.map((part, index) => {
+      if (index % 2 === 1) {
+        return <strong key={index} className="font-black text-slate-900">{part}</strong>;
+      }
+      return part;
+    });
+  };
+
+  const renderMarkdown = (text: string) => {
+    if (!text) return null;
+    return text.split('\n').map((line, i) => {
+      if (line.trim().startsWith('### ')) {
+        return <h4 key={i} className="text-xs font-black text-slate-800 uppercase tracking-wider mt-4 mb-2">{line.replace('### ', '')}</h4>;
+      }
+      if (line.trim().startsWith('## ')) {
+        return <h3 key={i} className="text-sm font-black text-slate-900 uppercase tracking-wide mt-5 mb-2 border-b pb-1">{line.replace('## ', '')}</h3>;
+      }
+      if (line.trim().startsWith('# ')) {
+        return <h2 key={i} className="text-base font-black text-indigo-600 uppercase mt-6 mb-3">{line.replace('# ', '')}</h2>;
+      }
+      if (line.trim().startsWith('- ') || line.trim().startsWith('* ')) {
+        return <li key={i} className="text-slate-700 ml-4 list-disc my-1 text-xs">{parseInlineBold(line.trim().substring(2))}</li>;
+      }
+      if (!line.trim()) {
+        return <div key={i} className="h-2" />;
+      }
+      return <p key={i} className="my-1.5 leading-relaxed text-slate-700 text-xs">{parseInlineBold(line)}</p>;
+    });
+  };
 
   const registrosFiltrados = useMemo(() => {
     let filtrados = [...registros];
@@ -184,6 +225,72 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
           { name: 'Sem Jogo', Média: calcMedia(semJogo) },
       ].filter(item => item.Média > 0);
   }, [registrosFiltrados]);
+
+  const analysisStats = useMemo(() => {
+    if (registrosFiltrados.length < 3) return null;
+    
+    const totals = registrosFiltrados.map(r => r.adultos + (r.criancas || 0));
+    const n = totals.length;
+    const sum = totals.reduce((a, b) => a + b, 0);
+    const mean = sum / n;
+    
+    const variance = totals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / n;
+    const stdDev = Math.sqrt(variance);
+    
+    const outliers = registrosFiltrados.map(r => {
+      const total = r.adultos + (r.criancas || 0);
+      const diff = total - mean;
+      const zScore = stdDev > 0 ? diff / stdDev : 0;
+      const pctDiff = Math.round((diff / mean) * 100);
+      
+      return {
+        record: r,
+        total,
+        zScore,
+        pctDiff,
+        isHigh: zScore >= 1.2,
+        isLow: zScore <= -1.2,
+      };
+    }).filter(o => o.isHigh || o.isLow);
+    
+    return {
+      mean: Math.round(mean),
+      stdDev: Math.round(stdDev),
+      outliers,
+    };
+  }, [registrosFiltrados]);
+
+  const handleGenerateAiReport = async () => {
+    if (registrosFiltrados.length === 0) return;
+    setIsGeneratingAi(true);
+    try {
+      const recordsForAi = registrosFiltrados.map(r => ({
+        dateStr: new Date(r.data.seconds * 1000).toLocaleDateString('pt-BR', { timeZone: 'UTC' }),
+        horario: r.horario,
+        adultos: r.adultos,
+        criancas: r.criancas || 0,
+        total: r.adultos + (r.criancas || 0),
+        serieMensagem: r.serieMensagem || '',
+        feriadoProximo: !!r.feriadoProximo,
+        jogoFutebol: !!r.jogoFutebol,
+        apresentacaoBebe: !!r.apresentacaoBebe,
+      }));
+
+      const report = await runAttendanceAnalysis({
+        records: recordsForAi,
+        stats: {
+          mean: stats.mediaGeral,
+          stdDev: analysisStats?.stdDev || 0,
+        }
+      });
+      setAiReport(report);
+    } catch (e) {
+      console.error(e);
+      alert("Erro ao gerar análise. Verifique as configurações da inteligência artificial.");
+    } finally {
+      setIsGeneratingAi(false);
+    }
+  };
 
   const handleExportCSV = () => {
     const headers = ['Data', 'Horário', 'Adultos', 'Crianças', 'Total', 'Série de Mensagem', 'Feriado Próximo', 'Jogo de Futebol', 'Apresentação Bebê'];
@@ -410,6 +517,92 @@ export function AttendanceDashboard({ registros, loading }: AttendanceDashboardP
               </ResponsiveContainer>
             </CardContent>
           </Card>
+
+          {/* Seção de Análise de Anomalias & IA */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Cards de Desvios / Outliers (Matemático) */}
+              <Card className="lg:col-span-1 shadow-sm border bg-white p-6">
+                  <CardHeader className="px-0 pt-0">
+                      <CardTitle className="text-sm font-black uppercase text-slate-800 flex items-center gap-2">
+                          <TrendingUp className="size-4 text-indigo-600" /> Desvios da Média
+                      </CardTitle>
+                      <CardDescription className="text-xs">Dias com variação acima de 1.2 desvios-padrão</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0 space-y-3 max-h-[380px] overflow-y-auto pr-1">
+                      {analysisStats && analysisStats.outliers.length > 0 ? (
+                          analysisStats.outliers.map((o, idx) => {
+                              const dateStr = new Date(o.record.data.seconds * 1000).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+                              return (
+                                  <div key={idx} className={cn(
+                                      "p-3 rounded-xl border flex flex-col gap-1.5",
+                                      o.isHigh ? "bg-emerald-50/40 border-emerald-100" : "bg-rose-50/30 border-rose-100"
+                                  )}>
+                                      <div className="flex items-center justify-between">
+                                          <span className="text-xs font-black text-slate-700">{dateStr}</span>
+                                          <Badge className={o.isHigh ? "bg-emerald-100 text-emerald-800 border-emerald-200" : "bg-rose-100 text-rose-800 border-rose-200"}>
+                                              {o.isHigh ? `+${o.pctDiff}%` : `${o.pctDiff}%`}
+                                          </Badge>
+                                      </div>
+                                      <div className="text-[11px] font-semibold text-slate-600">
+                                          Frequência: <span className="font-bold text-slate-900">{o.total}</span> (Média: {analysisStats.mean})
+                                      </div>
+                                      {/* Fatores contextuais */}
+                                      <div className="flex flex-wrap gap-1 mt-1">
+                                          {o.record.apresentacaoBebe && <Badge variant="outline" className="text-[9px] bg-sky-50 text-sky-700 border-sky-200">Bebês</Badge>}
+                                          {o.record.feriadoProximo && <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-200">Feriado</Badge>}
+                                          {o.record.jogoFutebol && <Badge variant="outline" className="text-[9px] bg-red-50 text-red-700 border-red-200">Jogo</Badge>}
+                                          {o.record.serieMensagem && <Badge variant="outline" className="text-[9px] bg-slate-100 text-slate-700 border-slate-200 truncate max-w-[120px]" title={o.record.serieMensagem}>{o.record.serieMensagem}</Badge>}
+                                      </div>
+                                  </div>
+                              );
+                          })
+                      ) : (
+                          <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                              <p className="text-xs italic">Nenhum desvio acentuado detectado no período.</p>
+                          </div>
+                      )}
+                  </CardContent>
+              </Card>
+
+              {/* Análise Gerada com IA */}
+              <Card className="lg:col-span-2 shadow-sm border bg-white p-6">
+                  <CardHeader className="px-0 pt-0 flex flex-row items-center justify-between">
+                      <div>
+                          <CardTitle className="text-sm font-black uppercase text-slate-800 flex items-center gap-2">
+                              <Sparkles className="size-4 text-indigo-600 animate-pulse" /> Relatório Estratégico IA
+                          </CardTitle>
+                          <CardDescription className="text-xs">Inteligência artificial para interpretar variações de presença</CardDescription>
+                      </div>
+                      <Button
+                          onClick={handleGenerateAiReport}
+                          disabled={isGeneratingAi || registrosFiltrados.length === 0}
+                          className="font-bold text-xs uppercase gap-1.5 h-9 bg-indigo-600 hover:bg-indigo-700 text-white"
+                      >
+                          {isGeneratingAi ? (
+                              <>
+                                  <Loader2 className="size-3.5 animate-spin" /> Analisando...
+                              </>
+                          ) : (
+                              <>
+                                  <Sparkles className="size-3.5" /> Gerar Relatório
+                              </>
+                          )}
+                      </Button>
+                  </CardHeader>
+                  <CardContent className="p-0 border-t pt-4">
+                      {aiReport ? (
+                          <div className="max-h-[380px] overflow-y-auto pr-2 custom-scrollbar space-y-1">
+                              {renderMarkdown(aiReport)}
+                          </div>
+                      ) : (
+                          <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground gap-2">
+                              <Sparkles className="size-8 opacity-25 text-indigo-500 animate-pulse" />
+                              <p className="text-xs font-medium">Clique em "Gerar Relatório" para analisar o impacto dos fatores com inteligência artificial.</p>
+                          </div>
+                      )}
+                  </CardContent>
+              </Card>
+          </div>
 
           {/* Gráficos de Média por Horários e Fatores */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
