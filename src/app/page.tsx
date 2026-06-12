@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Script from 'next/script';
 
@@ -20,6 +20,7 @@ const gcNeighborhoods = [
 ];
 
 export default function LandingPage() {
+  const [selectedCampus, setSelectedCampus] = useState<'sg' | 'nit'>('sg');
   const openNeemiasWidget = () => {
     const fab = document.querySelector('#chatbot-fab') as HTMLElement;
     if (fab) {
@@ -244,6 +245,7 @@ export default function LandingPage() {
             <a className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="#jornada">Jornada</a>
             <a className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="#igreja-em-celulas">Igreja em Células</a>
             <a className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="#trilha-discipulado">Trilha Discipulado</a>
+            <a className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="#voluntariado">Voluntariado</a>
             <a className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="https://projeto-luz-para-a-cidade-757083107524.us-west1.run.app/" target="_blank" rel="noopener noreferrer">Ação Social</a>
             <a className="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant hover:text-primary transition-all" href="#visita">Visite-nos</a>
           </div>
@@ -632,6 +634,113 @@ export default function LandingPage() {
                 </div>
               </div>
             </div>
+            <div className="mt-16 reveal-on-scroll">
+              <a href="#voluntariado" className="inline-flex bg-primary text-white px-8 py-3.5 rounded-full font-bold shadow-md hover:opacity-90 hover:scale-105 transition-all text-sm">
+                Descubra nossas áreas de atuação
+              </a>
+            </div>
+          </div>
+        </section>
+
+        {/* Voluntariado / Serviço */}
+        <section className="py-20 bg-slate-50 border-t border-outline-variant/10" id="voluntariado">
+          <div className="max-w-[1440px] mx-auto px-container-margin">
+            <div className="text-center mb-16 reveal-on-scroll">
+              <span className="font-label-sm text-label-sm text-primary uppercase tracking-widest font-bold block mb-2">FAÇA PARTE DA MISSÃO</span>
+              <h2 className="font-headline-md text-headline-md">Servir & Voluntariado</h2>
+              <p className="text-on-surface-variant mt-3 max-w-2xl mx-auto">Coloque seus talentos em ação para abençoar a igreja e mudar a cidade.</p>
+            </div>
+
+            {/* Por que servimos? */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16 reveal-on-scroll">
+              <div className="bg-white p-8 rounded-3xl apple-shadow border border-primary/5">
+                <span className="text-primary text-3xl mb-4 block">👣</span>
+                <h3 className="font-bold text-lg text-primary mb-2">Seguimos o Exemplo</h3>
+                <p className="text-sm text-on-surface-variant leading-relaxed">
+                  Jesus não veio para ser servido, mas para servir. Lavar os pés uns dos outros é a nossa marca mais profunda.
+                </p>
+              </div>
+              <div className="bg-white p-8 rounded-3xl apple-shadow border border-primary/5">
+                <span className="text-primary text-3xl mb-4 block">🏠</span>
+                <h3 className="font-bold text-lg text-primary mb-2">Geramos Pertencimento</h3>
+                <p className="text-sm text-on-surface-variant leading-relaxed">
+                  Quem serve cria raízes. O voluntariado é a melhor porta de entrada para se sentir em família e fazer amigos reais.
+                </p>
+              </div>
+              <div className="bg-white p-8 rounded-3xl apple-shadow border border-primary/5">
+                <span className="text-primary text-3xl mb-4 block">🔥</span>
+                <h3 className="font-bold text-lg text-primary mb-2">Vencemos o Egoísmo</h3>
+                <p className="text-sm text-on-surface-variant leading-relaxed">
+                  Servir nos descentraliza de nós mesmos. É uma disciplina espiritual que nos ensina a amar de forma intencional e prática.
+                </p>
+              </div>
+            </div>
+
+            {/* Áreas de Atuação */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16 reveal-on-scroll">
+              {/* Ministério de Celebração */}
+              <div className="bg-white/60 backdrop-blur-md p-10 rounded-[2.5rem] apple-shadow border border-primary/10">
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                    <span className="material-symbols-outlined text-2xl">church</span>
+                  </div>
+                  <div>
+                    <h3 className="font-headline-sm text-xl font-bold text-primary">Ministérios de Celebração</h3>
+                    <p className="text-xs text-on-surface-variant/70">Apoiando as celebrações e os cultos públicos de domingo</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-6">
+                  <div className="border-b border-outline-variant/20 pb-4">
+                    <h4 className="font-bold text-base text-on-surface mb-1">Acolhimento</h4>
+                    <p className="text-xs text-on-surface-variant">Recepção dos visitantes, integração e organização do estacionamento.</p>
+                  </div>
+                  <div className="border-b border-outline-variant/20 pb-4">
+                    <h4 className="font-bold text-base text-on-surface mb-1">Áreas Técnicas</h4>
+                    <p className="text-xs text-on-surface-variant">Operação de som, iluminação, projeção, captação de mídia e fotografia.</p>
+                  </div>
+                  <div className="border-b border-outline-variant/20 pb-4">
+                    <h4 className="font-bold text-base text-on-surface mb-1">Bastidores</h4>
+                    <p className="text-xs text-on-surface-variant">Ornamentação do templo, limpeza, suporte e preparação na copa.</p>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-base text-on-surface mb-1">Inclusão & Infantil</h4>
+                    <p className="text-xs text-on-surface-variant">Cuidado com crianças no Kids, Juniores e suporte à acessibilidade.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Ministério de Alcance */}
+              <div className="bg-white/60 backdrop-blur-md p-10 rounded-[2.5rem] apple-shadow border border-primary/10">
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="w-12 h-12 rounded-2xl bg-secondary/10 flex items-center justify-center text-secondary">
+                    <span className="material-symbols-outlined text-2xl">public</span>
+                  </div>
+                  <div>
+                    <h3 className="font-headline-sm text-xl font-bold text-secondary">Ministérios de Alcance</h3>
+                    <p className="text-xs text-on-surface-variant/70">Impactando nossa comunidade local e levando o evangelho às ruas</p>
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="border-b border-outline-variant/20 pb-4">
+                    <h4 className="font-bold text-base text-on-surface mb-1">Ação Social</h4>
+                    <p className="text-xs text-on-surface-variant">Projeto Luz para a Cidade, arrecadação e distribuição de mantimentos.</p>
+                  </div>
+                  <div className="border-b border-outline-variant/20 pb-4">
+                    <h4 className="font-bold text-base text-on-surface mb-1">Evangelismo & Capelania</h4>
+                    <p className="text-xs text-on-surface-variant">Visitas hospitalares, ações urbanas e consolidação de novos convertidos.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Chamada para ação */}
+            <div className="text-center reveal-on-scroll">
+              <Link href="/public/enrollment" className="inline-flex bg-primary text-white px-10 py-4 rounded-full font-bold shadow-lg shadow-primary/20 hover:-translate-y-1 hover:shadow-2xl transition-all">
+                QUERO SERVIR / INSCREVER-ME
+              </Link>
+            </div>
           </div>
         </section>
 
@@ -641,6 +750,22 @@ export default function LandingPage() {
             <div className="text-center mb-16 reveal-on-scroll">
               <h2 className="font-headline-md text-headline-md">Venha nos Visitar</h2>
               <p className="text-on-surface-variant mt-3 max-w-2xl mx-auto">Queremos te conhecer! Venha celebrar conosco e viver em comunidade.</p>
+              
+              {/* Campus Selector */}
+              <div className="flex justify-center mt-8 gap-4">
+                <button 
+                  onClick={() => setSelectedCampus('sg')} 
+                  className={`px-6 py-3 rounded-full font-bold text-sm transition-all shadow-md ${selectedCampus === 'sg' ? 'bg-primary text-white shadow-primary/20 scale-105' : 'bg-white text-on-surface-variant hover:bg-slate-50 border border-outline-variant/30'}`}
+                >
+                  Campus São Gonçalo
+                </button>
+                <button 
+                  onClick={() => setSelectedCampus('nit')} 
+                  className={`px-6 py-3 rounded-full font-bold text-sm transition-all shadow-md ${selectedCampus === 'nit' ? 'bg-primary text-white shadow-primary/20 scale-105' : 'bg-white text-on-surface-variant hover:bg-slate-50 border border-outline-variant/30'}`}
+                >
+                  Campus Niterói
+                </button>
+              </div>
             </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-stretch max-w-5xl mx-auto reveal-on-scroll">
@@ -652,13 +777,27 @@ export default function LandingPage() {
                   </div>
                   <div className="flex-grow">
                     <h3 className="font-bold text-lg text-primary mb-2">Nosso Endereço</h3>
-                    <p className="text-on-surface-variant font-medium">Travessa Maria Alice, 121</p>
-                    <p className="text-on-surface-variant font-medium">Mutondo, São Gonçalo - RJ</p>
-                    <p className="text-on-surface-variant/70 text-sm mb-4">CEP: 24452-140</p>
-                    <a href="https://maps.google.com/?q=Travessa+Maria+Alice,+121+-+Mutondo,+São+Gonçalo+-+RJ" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-3 bg-primary text-on-primary px-6 py-3 rounded-full font-bold shadow-md shadow-primary/10 hover:opacity-90 hover:scale-105 transition-all text-sm">
-                      <span>Como Chegar (Google Maps)</span>
-                      <span className="material-symbols-outlined text-lg">navigation</span>
-                    </a>
+                    {selectedCampus === 'sg' ? (
+                      <>
+                        <p className="text-on-surface-variant font-medium">Travessa Maria Alice, 121</p>
+                        <p className="text-on-surface-variant font-medium">Mutondo, São Gonçalo - RJ</p>
+                        <p className="text-on-surface-variant/70 text-sm mb-4">CEP: 24452-140</p>
+                        <a href="https://maps.google.com/?q=Travessa+Maria+Alice,+121+-+Mutondo,+São+Gonçalo+-+RJ" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-3 bg-primary text-white px-6 py-3 rounded-full font-bold shadow-md shadow-primary/10 hover:opacity-90 hover:scale-105 transition-all text-sm">
+                          <span>Como Chegar (Google Maps)</span>
+                          <span className="material-symbols-outlined text-lg">navigation</span>
+                        </a>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-on-surface-variant font-medium">Av. Sete de Setembro, 296</p>
+                        <p className="text-on-surface-variant font-medium">Icaraí, Niterói - RJ</p>
+                        <p className="text-on-surface-variant/70 text-sm mb-4">CEP: 24230-252</p>
+                        <a href="https://maps.google.com/?q=Av.+Sete+de+Setembro,+296+-+Icaraí,+Niterói+-+RJ" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-3 bg-primary text-white px-6 py-3 rounded-full font-bold shadow-md shadow-primary/10 hover:opacity-90 hover:scale-105 transition-all text-sm">
+                          <span>Como Chegar (Google Maps)</span>
+                          <span className="material-symbols-outlined text-lg">navigation</span>
+                        </a>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -668,24 +807,33 @@ export default function LandingPage() {
                   </div>
                   <div className="flex-grow">
                     <h3 className="font-bold text-lg text-primary mb-3">Horários de Culto</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-on-surface-variant font-bold text-sm">07h30 — Culto Clássico</p>
-                        <p className="text-on-surface-variant/70 text-xs mt-0.5">Hinos tradicionais e liturgia batista clássica.</p>
+                    {selectedCampus === 'sg' ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-on-surface-variant font-bold text-sm">07h30 — Culto Clássico</p>
+                          <p className="text-on-surface-variant/70 text-xs mt-0.5">Hinos tradicionais e liturgia batista clássica.</p>
+                        </div>
+                        <div>
+                          <p className="text-on-surface-variant font-bold text-sm">10h15 — Culto da Manhã / Família</p>
+                          <p className="text-on-surface-variant/70 text-xs mt-0.5">Ambiente leve, com crianças e louvores conhecidos.</p>
+                        </div>
+                        <div>
+                          <p className="text-on-surface-variant font-bold text-sm">17h30 — Culto da Tarde</p>
+                          <p className="text-on-surface-variant/70 text-xs mt-0.5">Linguagem atual, focado em visitantes e na cidade.</p>
+                        </div>
+                        <div>
+                          <p className="text-on-surface-variant font-bold text-sm">19h30 — Culto da Noite</p>
+                          <p className="text-on-surface-variant/70 text-xs mt-0.5">Linguagem atual, focado em visitantes e na cidade.</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-on-surface-variant font-bold text-sm">10h15 — Culto da Manhã / Família</p>
-                        <p className="text-on-surface-variant/70 text-xs mt-0.5">Ambiente leve, com crianças e louvores conhecidos.</p>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-4">
+                        <div>
+                          <p className="text-on-surface-variant font-bold text-sm">10h30 — Culto de Domingo</p>
+                          <p className="text-on-surface-variant/70 text-xs mt-0.5">Celebração contemporânea, discipulado e comunhão em Icaraí.</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-on-surface-variant font-bold text-sm">17h30 — Culto da Tarde</p>
-                        <p className="text-on-surface-variant/70 text-xs mt-0.5">Linguagem atual, focado em visitantes e na cidade.</p>
-                      </div>
-                      <div>
-                        <p className="text-on-surface-variant font-bold text-sm">19h30 — Culto da Noite</p>
-                        <p className="text-on-surface-variant/70 text-xs mt-0.5">Linguagem atual, focado em visitantes e na cidade.</p>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -693,7 +841,7 @@ export default function LandingPage() {
               {/* Mapa Stylized */}
               <div className="relative h-[350px] lg:h-full min-h-[350px] w-full rounded-3xl overflow-hidden bg-white apple-shadow border border-primary/10">
                 <iframe 
-                  src="https://maps.google.com/maps?q=Travessa%20Maria%20Alice,%20121%20-%20Mutondo,%20S%C3%A3o%20Gon%C3%A7alo%20-%20RJ&t=&z=15&ie=UTF8&iwloc=&output=embed" 
+                  src={selectedCampus === 'sg' ? "https://maps.google.com/maps?q=Travessa%20Maria%20Alice,%20121%20-%20Mutondo,%20S%C3%A3o%20Gon%C3%A7alo%20-%20RJ&t=&z=15&ie=UTF8&iwloc=&output=embed" : "https://maps.google.com/maps?q=Av.%20Sete%20de%20Setembro,%20296%20-%20Icara%C3%AD,%20Niter%C3%B3i%20-%20RJ&t=&z=15&ie=UTF8&iwloc=&output=embed"}
                   width="100%" 
                   height="100%" 
                   style={{ border: 0 }} 
@@ -719,9 +867,13 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-16 mb-20">
             <div className="md:col-span-4">
               <span className="font-headline-sm text-2xl text-on-surface font-bold tracking-tighter mb-6 block">IGREJA BATISTA DA MANHÃ</span>
-              <p className="font-body-md text-on-surface-variant mb-8 leading-relaxed">
-                Mudar a cidade através do discipulado. Nossa missão é refletir a luz da manhã em cada coração gonçalense.
+              <p className="font-body-md text-on-surface-variant mb-6 leading-relaxed">
+                Mudar a cidade através do discipulado. Nossa missão é refletir a luz da manhã em cada coração.
               </p>
+              <div className="space-y-2 mb-8 text-xs text-on-surface-variant/80">
+                <p>📍 <strong>São Gonçalo (Sede):</strong> Travessa Maria Alice, 121 - Mutondo</p>
+                <p>📍 <strong>Niterói:</strong> Av. Sete de Setembro, 296 - Icaraí</p>
+              </div>
               <div className="flex gap-4">
                 <a className="w-10 h-10 rounded-full bg-primary/5 flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all" href="https://www.youtube.com/@ibmanha" target="_blank" rel="noopener noreferrer" title="YouTube"><span className="material-symbols-outlined text-xl">videocam</span></a>
                 <a className="w-10 h-10 rounded-full bg-primary/5 flex items-center justify-center text-primary hover:bg-primary hover:text-white transition-all" href="https://www.instagram.com/ibmanha/" target="_blank" rel="noopener noreferrer" title="Instagram"><span className="material-symbols-outlined text-xl">groups</span></a>
