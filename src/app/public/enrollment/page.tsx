@@ -390,7 +390,7 @@ function EnrollmentForm() {
             if (!selectedCourseId) return;
             setIsSubmitting(true);
             try {
-                await submitEnrollmentRequest({
+                const result = await submitEnrollmentRequest({
                     userId: foundUser?.userId,
                     name: mode === 'new' ? formData.name : undefined,
                     email: emailInput.toLowerCase().trim(),
@@ -398,6 +398,11 @@ function EnrollmentForm() {
                     courseId: selectedCourseId,
                     classId: selectedClassId || undefined
                 });
+
+                if (result?.error) {
+                    throw new Error(result.error);
+                }
+
                 setIsSuccess(true);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             } catch (error) {
