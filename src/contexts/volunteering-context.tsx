@@ -127,6 +127,7 @@ export type Course = {
   requiresMemberStatus?: boolean;
   requiresBaptism?: boolean;
   prerequisiteCourseId?: string;
+  simultaneousClasses?: boolean;
 };
 
 export type SavedSchedule = {
@@ -160,6 +161,7 @@ export type Class = {
   locationId?: string;
   holidayDates?: string[];
   extraDates?: string[]; // Mantido para retrocompatibilidade
+  cycle?: string; // Ciclo ou Edição da Turma
   extraSessions?: {
     id: string;
     date: string;
@@ -179,6 +181,7 @@ export type Class = {
   }[];
   grades?: { studentId: string; assessmentName: string; grade: number }[];
   materials?: { title: string; url: string; description?: string }[];
+  status?: 'active' | 'completed';
   scheduleOverrides?: Record<string, {
     syllabusId?: string;
     teacherId?: string;
@@ -186,6 +189,10 @@ export type Class = {
     notes?: string;
     originalDate?: string;
   }>;
+  dailySlots?: {
+    startTime: string;
+    endTime: string;
+  }[];
 };
 
 export type Area = { id: string; nome: string; liderId: string; redeId: string; };
@@ -202,11 +209,70 @@ export const weekDayMap: Record<string, number> = {
     'sabado': 6
 };
 
+// Helper: encontra o N-ésimo dia da semana de um mês (para frequência mensal)
+// weekday: 0=domingo, 6=sábado. nthWeek: '1','2','3','4','5','last'
+export function getNthWeekdayOfMonth(year: number, month: number, weekday: number, nthWeek: string): Date | null {
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+
+    if (nthWeek === 'last') {
+        // Encontrar o último dia da semana desejado no mês
+        let d = lastDay;
+        while (d.getDay() !== weekday) {
+            d = new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1);
+        }
+        return d;
+    }
+
+    const nth = parseInt(nthWeek, 10);
+    if (isNaN(nth) || nth < 1 || nth > 5) return null;
+
+    // Encontrar o primeiro dia da semana desejado no mês
+    let d = firstDay;
+    while (d.getDay() !== weekday) {
+        d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+    }
+
+    // Avançar para a N-ésima ocorrência
+    const target = new Date(d.getFullYear(), d.getMonth(), d.getDate() + (nth - 1) * 7);
+    
+    // Verificar se ainda está no mesmo mês
+    if (target.getMonth() !== month) return null;
+    return target;
+}
+
+// Helper: gera todas as datas mensais de recorrência entre start e end
+export function getMonthlyOccurrences(startDate: Date, endDate: Date, weekday: number, nthWeek: string): Date[] {
+    const dates: Date[] = [];
+    let year = startDate.getFullYear();
+    let month = startDate.getMonth();
+
+    for (let safe = 0; safe < 60; safe++) {
+        const d = getNthWeekdayOfMonth(year, month, weekday, nthWeek);
+        if (d && d >= startDate && d <= endDate) {
+            dates.push(d);
+        }
+        month++;
+        if (month > 11) { month = 0; year++; }
+        if (new Date(year, month, 1) > endDate) break;
+    }
+    return dates;
+}
+
+// Helper: retorna o número de slots por ocorrência da turma
+export function getSlotsPerOccurrence(classData: any): { startTime: string; endTime: string }[] {
+    if (classData.dailySlots && classData.dailySlots.length > 1) {
+        return classData.dailySlots;
+    }
+    return [{ startTime: classData.startTime, endTime: classData.endTime }];
+}
+
 export function getModuleIndexForDate(dateStr: string, classData: any, syllabus: any[] = []): number {
     if (!classData || !classData.startDate || !dateStr) return -1;
     
     // Normalizar dateStr para apenas YYYY-MM-DD para comparação de calendário regular
     const dateOnly = dateStr.split('T')[0];
+    const timeOnly = dateStr.includes('T') ? dateStr.split('T')[1] : null;
 
     // 1. Verificar se é uma aula extra (novo modelo)
     // Tentar match exato com data e hora primeiro
@@ -221,54 +287,92 @@ export function getModuleIndexForDate(dateStr: string, classData: any, syllabus:
         return syllabus.findIndex((s: any) => s.id === extraSession.syllabusId);
     }
 
-    // 2. Verificar se existe override para esta data específica
+    // 2. Verificar se existe override para esta data específica (tentar com hora e sem hora)
     const overrides = classData.scheduleOverrides || {};
-    if (overrides[dateOnly]) {
-        const ov = overrides[dateOnly];
+    const overrideKey = overrides[dateStr] ? dateStr : overrides[dateOnly] ? dateOnly : null;
+    if (overrideKey) {
+        const ov = overrides[overrideKey];
         if (ov.isCancelled) return -1;
         if (ov.syllabusId) {
             return syllabus.findIndex((s: any) => s.id === ov.syllabusId);
         }
     }
 
+    const slots = getSlotsPerOccurrence(classData);
+    const slotsPerDay = slots.length;
 
-    // 3. Lógica de recorrência padrão
+    // 3. Lógica de recorrência
     const start = parseISO(classData.startDate);
-    const end = classData.endDate ? parseISO(classData.endDate) : addMonths(start, 6); // Aumentado para 6 meses de busca
+    const end = classData.endDate ? parseISO(classData.endDate) : addMonths(start, 12);
     const holidaySet = new Set(classData.holidayDates || []);
 
-    let current = start;
-    let safe = 0;
-    let currentIndex = 0;
+    if (classData.frequency === 'pontual') {
+        // Pontual: verificar slots do dia único
+        if (dateOnly !== format(start, 'yyyy-MM-dd')) return -1;
+        if (slotsPerDay > 1 && timeOnly) {
+            const slotIdx = slots.findIndex(s => s.startTime === timeOnly);
+            return slotIdx >= 0 ? slotIdx : 0;
+        }
+        return 0;
+    }
 
-    if (classData.frequency && classData.frequency !== 'pontual') {
-        while (safe++ < 300) { // Aumentado limite de segurança
-            const dStr = format(current, 'yyyy-MM-dd');
+    // Gerar todas as datas de ocorrência
+    let occurrenceDates: Date[] = [];
+
+    if (classData.frequency === 'mensal' && classData.weekOfMonth && classData.dayOfWeek) {
+        // Frequência mensal: usar helper
+        const dayName = classData.dayOfWeek.toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace('-feira', '');
+        const weekday = weekDayMap[dayName] ?? 0;
+        occurrenceDates = getMonthlyOccurrences(start, end, weekday, classData.weekOfMonth);
+    } else {
+        // Frequência semanal/quinzenal
+        let current = start;
+        let safe = 0;
+        const step = classData.frequency === 'quinzenal' ? 2 : 1;
+        while (safe++ < 300 && current <= end) {
+            occurrenceDates.push(new Date(current));
+            current = addWeeks(current, step);
+        }
+    }
+
+    // Iterar sobre as ocorrências para encontrar o módulo
+    let currentIndex = 0;
+    for (const occDate of occurrenceDates) {
+        const dStr = format(occDate, 'yyyy-MM-dd');
+
+        // Pular feriado sem override
+        if (holidaySet.has(dStr) && !overrides[dStr]) {
+            continue;
+        }
+
+        // Verificar cancelamento
+        if (overrides[dStr]?.isCancelled) {
+            continue;
+        }
+
+        // Verificar cada slot do dia
+        for (let slotIdx = 0; slotIdx < slotsPerDay; slotIdx++) {
+            const slotKey = slotsPerDay > 1 ? `${dStr}T${slots[slotIdx].startTime}` : dStr;
             
-            // Pular feriado sem override
-            if (holidaySet.has(dStr) && !overrides[dStr]) {
-                current = addWeeks(current, classData.frequency === 'quinzenal' ? 2 : 1);
+            // Verificar override no nível do slot
+            if (overrides[slotKey]?.isCancelled) {
+                currentIndex++;
                 continue;
             }
 
-            // Se for a data procurada e não estiver cancelada por override
-            if (dStr === dateOnly) {
-                const ov = overrides[dStr];
-                if (ov?.isCancelled) return -1;
+            if (slotKey === dateStr || (slotsPerDay === 1 && dStr === dateOnly)) {
+                // Override de syllabus no slot
+                const slotOverride = overrides[slotKey];
+                if (slotOverride?.syllabusId) {
+                    return syllabus.findIndex((s: any) => s.id === slotOverride.syllabusId);
+                }
                 return currentIndex;
             }
 
-            // Incrementar índice do syllabus apenas para aulas válidas
-            if (!overrides[dStr]?.isCancelled) {
-                currentIndex++;
-            }
-
-            current = addWeeks(current, classData.frequency === 'quinzenal' ? 2 : 1);
-            if (current > end && dStr > dateOnly) break;
+            currentIndex++;
         }
-    } else {
-        // Se for pontual, apenas a data de início conta
-        return format(start, 'yyyy-MM-dd') === dateOnly ? 0 : -1;
     }
 
     return -1;
@@ -282,55 +386,97 @@ export function getResolvedSchedule(classData: any, courseData: any) {
     const holidaySet = new Set(classData.holidayDates || []);
     const overrides = classData.scheduleOverrides || {};
     const syllabus = courseData?.syllabus || [];
+    const slots = getSlotsPerOccurrence(classData);
+    const slotsPerDay = slots.length;
 
-    // 1. Encontrar todas as datas de aula (recorrência)
-    let currentDate = start;
-    let syllabusIndex = 0;
-    let safeCounter = 0;
+    // 1. Gerar todas as datas de ocorrência
+    let occurrenceDates: Date[] = [];
+    const end = classData.endDate ? parseISO(classData.endDate) : addMonths(start, 12);
 
+    if (classData.frequency === 'pontual') {
+        occurrenceDates = [start];
+    } else if (classData.frequency === 'mensal' && classData.weekOfMonth && classData.dayOfWeek) {
+        const dayName = classData.dayOfWeek.toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace('-feira', '');
+        const weekday = weekDayMap[dayName] ?? 0;
+        occurrenceDates = getMonthlyOccurrences(start, end, weekday, classData.weekOfMonth);
+    } else {
+        // Semanal / Quinzenal
+        let currentDate = start;
+        let safeCounter = 0;
+        const step = classData.frequency === 'quinzenal' ? 2 : 1;
+        while (safeCounter++ < 300 && currentDate <= end) {
+            occurrenceDates.push(new Date(currentDate));
+            currentDate = addWeeks(currentDate, step);
+        }
+    }
+
+    // 2. Para cada ocorrência, gerar os itens do cronograma (com suporte a multi-slot)
     const targetCount = syllabus.length > 0 ? syllabus.length : 12;
+    let syllabusIndex = 0;
 
-    while (items.length < targetCount && safeCounter < 200) {
-        safeCounter++;
-        const dateStr = format(currentDate, 'yyyy-MM-dd');
+    for (const occDate of occurrenceDates) {
+        if (items.length >= targetCount) break;
+
+        const dateStr = format(occDate, 'yyyy-MM-dd');
         
         // Pular se for feriado e não houver override forçando
         if (holidaySet.has(dateStr) && !overrides[dateStr]) {
-            currentDate = addWeeks(currentDate, classData.frequency === 'quinzenal' ? 2 : 1);
             continue;
         }
 
-        const override = overrides[dateStr];
-        
-        if (override?.isCancelled) {
-            currentDate = addWeeks(currentDate, classData.frequency === 'quinzenal' ? 2 : 1);
+        // Verificar cancelamento no nível do dia inteiro
+        const dayOverride = overrides[dateStr];
+        if (dayOverride?.isCancelled) {
             continue;
         }
 
-        const syllabusItem = override?.syllabusId 
-            ? syllabus.find((s: any) => s.id === override.syllabusId) 
-            : syllabus[syllabusIndex];
-        
-        const originalIdx = override?.syllabusId
-            ? syllabus.findIndex((s: any) => s.id === override.syllabusId)
-            : syllabusIndex;
+        // Gerar entrada para cada slot do dia
+        for (let slotIdx = 0; slotIdx < slotsPerDay; slotIdx++) {
+            if (items.length >= targetCount) break;
 
-        items.push({
-            dateStr,
-            date: currentDate,
-            syllabusItem,
-            syllabusOriginalIndex: originalIdx,
-            isOverride: !!override
-        });
+            const slot = slots[slotIdx];
+            const slotDateStr = slotsPerDay > 1 ? `${dateStr}T${slot.startTime}` : dateStr;
+            
+            // Verificar override no nível do slot (para multi-slot)
+            const slotOverride = slotsPerDay > 1 ? overrides[slotDateStr] : dayOverride;
+            
+            if (slotOverride?.isCancelled) {
+                syllabusIndex++;
+                continue;
+            }
 
-        syllabusIndex++;
-        currentDate = addWeeks(currentDate, classData.frequency === 'quinzenal' ? 2 : 1);
+            const effectiveOverride = slotOverride || (slotsPerDay === 1 ? dayOverride : null);
+
+            const syllabusItem = effectiveOverride?.syllabusId 
+                ? syllabus.find((s: any) => s.id === effectiveOverride.syllabusId) 
+                : syllabus[syllabusIndex];
+            
+            const originalIdx = effectiveOverride?.syllabusId
+                ? syllabus.findIndex((s: any) => s.id === effectiveOverride.syllabusId)
+                : syllabusIndex;
+
+            items.push({
+                dateStr: slotDateStr,
+                date: occDate,
+                syllabusItem,
+                syllabusOriginalIndex: originalIdx,
+                isOverride: !!effectiveOverride,
+                startTime: slot.startTime,
+                endTime: slot.endTime,
+                slotIndex: slotsPerDay > 1 ? slotIdx : undefined,
+                slotsPerDay: slotsPerDay > 1 ? slotsPerDay : undefined,
+            });
+
+            syllabusIndex++;
+        }
     }
 
-    // 2. Adicionar overrides que caem em datas fora da recorrência
-    Object.entries(overrides).forEach(([dateStr, override]: [string, any]) => {
+    // 3. Adicionar overrides que caem em datas fora da recorrência
+    Object.entries(overrides).forEach(([oDateStr, override]: [string, any]) => {
         if (override.isCancelled) return;
-        if (items.find(i => i.dateStr === dateStr)) return;
+        if (items.find(i => i.dateStr === oDateStr)) return;
 
         const syllabusItem = override.syllabusId 
             ? syllabus.find((s: any) => s.id === override.syllabusId) 
@@ -341,15 +487,15 @@ export function getResolvedSchedule(classData: any, courseData: any) {
             : -1;
 
         items.push({
-            dateStr,
-            date: parseISO(dateStr),
+            dateStr: oDateStr,
+            date: parseISO(oDateStr.split('T')[0]),
             syllabusItem,
             syllabusOriginalIndex: originalIdx,
             isOverride: true
         });
     });
 
-    // 3. Adicionar aulas extras (extraSessions)
+    // 4. Adicionar aulas extras (extraSessions)
     const extraSessions = classData.extraSessions || [];
     extraSessions.forEach((session: any) => {
         const uniqueDateStr = session.startTime ? `${session.date}T${session.startTime}` : `${session.date}-extra`;
@@ -787,7 +933,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
       }
 
       await updateDocumentNonBlocking(doc(firestore!, 'classes', classId), { students: [...targetClass.students, studentId] });
-      await updateDocumentNonBlocking(doc(firestore!, 'enrollment_requests', requestId), { status: 'approved' });
+      await updateDocumentNonBlocking(doc(firestore!, 'enrollment_requests', requestId), { status: 'approved', classId });
     },
     updateEnrollmentRequest: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id), data); },
     deleteEnrollmentRequest: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id)); },
