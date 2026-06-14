@@ -108,13 +108,27 @@ export async function getWhatsAppClient(overrideConfig?: { server?: string, key?
 
     if (!server || !key) {
         try {
-            const { firestore } = initializeFirebase();
-            const configDoc = await getDoc(doc(firestore, 'config', 'notifications'));
+            let data: any = null;
+            if (typeof window === 'undefined') {
+                const { getAdminDb } = await import('@/lib/firebase-admin');
+                const db = getAdminDb();
+                const configDoc = await db.collection('config').doc('notifications').get();
+                if (configDoc.exists) {
+                    data = configDoc.data();
+                }
+            } else {
+                const { initializeFirebase } = await import('@/firebase');
+                const { doc, getDoc } = await import('firebase/firestore');
+                const { firestore } = initializeFirebase();
+                const configDoc = await getDoc(doc(firestore, 'config', 'notifications'));
+                if (configDoc.exists()) {
+                    data = configDoc.data();
+                }
+            }
             
-            if (configDoc.exists()) {
-                const data = configDoc.data();
-                server = server || data?.serverUrl;
-                key = key || data?.instanceKey;
+            if (data) {
+                server = server || data.serverUrl;
+                key = key || data.instanceKey;
             }
         } catch (error) {
             console.warn('Failed to fetch WhatsApp config from Firestore:', error);
