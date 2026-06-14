@@ -102,7 +102,24 @@ function EnrollmentForm() {
     const [billingResult, setBillingResult] = useState<any>(null);
 
     // Navigation Data
-    const courseClasses = useMemo(() => classes.filter(cls => cls.courseId === selectedCourseId), [classes, selectedCourseId]);
+    const courseClasses = useMemo(() => classes.filter(cls => {
+        if (cls.courseId !== selectedCourseId) return false;
+        
+        // Hide class if registrationDeadline has passed
+        if (cls.registrationDeadline) {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const day = String(now.getDate()).padStart(2, '0');
+            const todayLocalStr = `${year}-${month}-${day}`;
+            
+            if (cls.registrationDeadline < todayLocalStr) {
+                return false;
+            }
+        }
+        
+        return true;
+    }), [classes, selectedCourseId]);
     const selectedCourse = useMemo(() => courses.find(c => c.id === selectedCourseId), [courses, selectedCourseId]);
     const selectedClassObj = useMemo(() => classes.find(c => c.id === selectedClassId), [classes, selectedClassId]);
 

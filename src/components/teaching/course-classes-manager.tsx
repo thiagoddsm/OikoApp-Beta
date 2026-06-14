@@ -9,6 +9,7 @@ import { ClassFormDialog } from './class-form-dialog';
 import { useVolunteering, type Class } from '@/contexts/volunteering-context';
 import { format, addWeeks, startOfMonth, nextDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
@@ -22,6 +23,7 @@ export function CourseClassesManager({ course }: { course: any }) {
     const [editingClass, setEditingClass] = useState<Class | null>(null);
     const [classToDelete, setClassToDelete] = useState<Class | null>(null);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [cycleFilter, setCycleFilter] = useState<string>('all');
 
     const classesQuery = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -29,6 +31,22 @@ export function CourseClassesManager({ course }: { course: any }) {
     }, [firestore, course.id]);
 
     const { data: classes, isLoading: isLoadingClasses } = useCollection<Class>(classesQuery);
+
+    const availableCycles = useMemo(() => {
+        if (!classes) return [];
+        const cycles = new Set<string>();
+        classes.forEach(c => {
+            if (c.cycle) cycles.add(c.cycle);
+        });
+        return Array.from(cycles).sort();
+    }, [classes]);
+
+    const filteredClasses = useMemo(() => {
+        if (!classes) return [];
+        if (cycleFilter === 'all') return classes;
+        if (cycleFilter === 'individuals') return classes.filter(c => !c.cycle);
+        return classes.filter(c => c.cycle === cycleFilter);
+    }, [classes, cycleFilter]);
 
     const userMap = useMemo(() => new Map(users?.map(u => [u.id, u.name]) || []), [users]);
     const roomMap = useMemo(() => new Map(rooms?.map(r => [r.id, r.name]) || []), [rooms]);
@@ -111,7 +129,25 @@ export function CourseClassesManager({ course }: { course: any }) {
     return (
         <>
             <div className="flex justify-between items-center mb-4">
-                <p className="text-sm text-muted-foreground">Gerencie os ciclos e turmas ativas.</p>
+                <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Gerencie os ciclos e turmas ativas.</p>
+                    {classes && classes.length > 0 && (
+                        <div className="pt-2">
+                            <Select value={cycleFilter} onValueChange={setCycleFilter}>
+                                <SelectTrigger className="w-[300px] h-9 bg-white">
+                                    <SelectValue placeholder="Filtrar visualização..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todas as Turmas & Ciclos</SelectItem>
+                                    <SelectItem value="individuals">Apenas Turmas Individuais</SelectItem>
+                                    {availableCycles.map(cycle => (
+                                        <SelectItem key={cycle} value={cycle}>Ciclo: {cycle}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    )}
+                </div>
                 <div className="flex gap-2">
                     {isMemberCourse && (
                         <Button variant="outline" size="sm" onClick={handleGenerateCycle} disabled={isGenerating}>
@@ -137,10 +173,10 @@ export function CourseClassesManager({ course }: { course: any }) {
                     <TableBody>
                         {isLoadingClasses ? (
                             <TableRow><TableCell colSpan={6} className="text-center h-24"><Loader2 className="animate-spin mx-auto"/></TableCell></TableRow>
-                        ) : classes?.length === 0 ? (
-                            <TableRow><TableCell colSpan={6} className="text-center h-24">Nenhum ciclo cadastrado para este curso.</TableCell></TableRow>
+                        ) : filteredClasses?.length === 0 ? (
+                            <TableRow><TableCell colSpan={6} className="text-center h-24">Nenhuma turma encontrada para este filtro.</TableCell></TableRow>
                         ) : (
-                            classes?.map(cls => {
+                            filteredClasses?.map(cls => {
                                 const locationName = cls.locationId === 'the_school'
                                     ? 'The School'
                                     : (cls.locationId ? roomMap.get(cls.locationId) : '-') || '-';
@@ -151,7 +187,11 @@ export function CourseClassesManager({ course }: { course: any }) {
 
                                 return (
                                 <TableRow key={cls.id} className="group">
-                                    <TableCell className="font-medium">{cls.name}</TableCell>
+                                    <TableCell className="font-bold text-primary hover:underline">
+                                        <Link href={`/dashboard/teaching/classes/${cls.id}`}>
+                                            {cls.name}
+                                        </Link>
+                                    </TableCell>
                                     <TableCell>{userMap.get(cls.teacherId) || '-'}</TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
@@ -193,7 +233,7 @@ export function CourseClassesManager({ course }: { course: any }) {
             <ClassFormDialog
                 open={isClassFormOpen}
                 onOpenChange={setClassFormOpen}
-                existingClass={editingClass}
+                existingClass={editingClass || undefined}
                 courseId={course.id}
             />
             {classToDelete && (
