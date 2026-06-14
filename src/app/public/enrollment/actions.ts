@@ -30,9 +30,9 @@ export async function verifyMemberEmail(email: string) {
             }).join(' ');
         };
 
-        const maskPhone = (phone: string) => {
+        const maskPhone = (phone: any) => {
             if (!phone) return "";
-            const digits = phone.replace(/\D/g, '');
+            const digits = String(phone).replace(/\D/g, '');
             if (digits.length < 4) return "****";
             return `(${digits.substring(0, 2)}) *****-${digits.slice(-2)}`;
         };
