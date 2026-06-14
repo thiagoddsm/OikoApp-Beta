@@ -13,6 +13,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { VolunteeringProvider, useVolunteering } from '@/contexts/volunteering-context';
 import { CourseDetailsForm } from '@/components/teaching/course-details-form';
 import { CourseClassesManager } from '@/components/teaching/course-classes-manager';
@@ -55,26 +56,45 @@ function CourseDetailPageContent() {
     const courseClasses = useMemo(() => classes.filter(c => c.courseId === courseId), [classes, courseId]);
     const pendingRequests = useMemo(() => enrollmentRequests.filter(r => r.courseId === courseId && r.status === 'pending'), [enrollmentRequests, courseId]);
     
-    const courseStudentsCount = useMemo(() => {
-        const studentSet = new Set<string>();
-        courseClasses.forEach(c => c.students?.forEach(s => studentSet.add(s)));
-        return studentSet.size;
+    const cycles = useMemo(() => {
+        const set = new Set<string>();
+        courseClasses.forEach(c => { if (c.cycle) set.add(c.cycle); });
+        return Array.from(set).sort();
     }, [courseClasses]);
 
-    const approvedStudentsCount = useMemo(() => {
+    const [selectedCycle, setSelectedCycle] = useState<string>('all');
+
+    const filteredClasses = useMemo(() => {
+        if (selectedCycle === 'all') return courseClasses;
+        return courseClasses.filter(c => c.cycle === selectedCycle);
+    }, [courseClasses, selectedCycle]);
+
+    const courseStudentsCount = useMemo(() => {
         const studentSet = new Set<string>();
-        courseClasses.forEach(c => c.students?.forEach(s => studentSet.add(s)));
-        let count = 0;
-        studentSet.forEach(sId => {
-            const user = users.find(u => u.id === sId);
-            if (user?.journey?.courseStatus?.[courseId] === 'approved') {
-                count++;
+        filteredClasses.forEach(c => c.students?.forEach(s => studentSet.add(s)));
+        return studentSet.size;
+    }, [filteredClasses]);
+
+    const { totalExpected, totalPresent } = useMemo(() => {
+        let expected = 0;
+        let present = 0;
+        const todayStr = new Date().toISOString().split('T')[0];
+        filteredClasses.forEach(c => {
+            if (c.attendance && Array.isArray(c.attendance)) {
+                const studentsCount = c.students?.length || 0;
+                c.attendance.forEach((record: any) => {
+                    if (record.date <= todayStr) {
+                        expected += studentsCount;
+                        const presCount = (record.presentStudentIds?.length || 0) + (record.onlineStudentIds?.length || 0);
+                        present += presCount;
+                    }
+                });
             }
         });
-        return count;
-    }, [courseClasses, users, courseId]);
+        return { totalExpected: expected, totalPresent: present };
+    }, [filteredClasses]);
 
-    const courseProgressPercentage = courseStudentsCount > 0 ? (approvedStudentsCount / courseStudentsCount) * 100 : 0;
+    const globalProgressPercentage = totalExpected > 0 ? (totalPresent / totalExpected) * 100 : 0;
 
     const courseTeachersCount = useMemo(() => {
         return course?.teacherIds?.length || 0;
@@ -110,7 +130,7 @@ function CourseDetailPageContent() {
     const kpis = [
         { id: 'students', title: "Alunos Ativos", value: courseStudentsCount, icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
         { id: 'requests', title: "Pendentes", value: pendingRequests.length, icon: Inbox, color: "text-amber-600", bg: "bg-amber-50" },
-        { id: 'classes', title: "Turmas", value: courseClasses.length, icon: School, color: "text-purple-600", bg: "bg-purple-50" },
+        { id: 'classes', title: "Turmas", value: filteredClasses.length, icon: School, color: "text-purple-600", bg: "bg-purple-50" },
         { id: 'teachers', title: "Professores", value: courseTeachersCount, icon: GraduationCap, color: "text-green-600", bg: "bg-green-50" },
     ];
 
@@ -156,22 +176,40 @@ function CourseDetailPageContent() {
                 </div>
                 <CardContent className="p-6 relative z-10">
                     <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                        <div className="space-y-2 max-w-lg">
-                            <div className="flex items-center gap-2 text-primary-foreground/80 font-bold uppercase text-xs tracking-wider">
-                                <Target size={16} />
-                                Visão Consolidada de Aproveitamento
+                        <div className="space-y-4 max-w-lg">
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-2 text-primary-foreground/80 font-bold uppercase text-xs tracking-wider">
+                                    <Target size={16} />
+                                    Visão Consolidada de Frequência
+                                </div>
+                                <h3 className="text-2xl font-black">Frequência Geral do Curso</h3>
+                                <p className="text-sm text-primary-foreground/90 leading-relaxed">
+                                    Acompanhe o índice de participação baseando-se nas presenças registradas em todas as aulas dadas até hoje nas turmas selecionadas.
+                                </p>
                             </div>
-                            <h3 className="text-2xl font-black">Progresso Global do Curso</h3>
-                            <p className="text-sm text-primary-foreground/90 leading-relaxed">
-                                Acompanhe o índice de alunos aprovados em relação ao total de inscritos ativos em todas as turmas simultâneas.
-                            </p>
+                            
+                            {cycles.length > 0 && (
+                                <div className="pt-2">
+                                    <Select value={selectedCycle} onValueChange={setSelectedCycle}>
+                                        <SelectTrigger className="w-64 bg-white/10 border-white/20 text-white focus:ring-white">
+                                            <SelectValue placeholder="Todos os Ciclos" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Todas as turmas e ciclos</SelectItem>
+                                            {cycles.map(cy => (
+                                                <SelectItem key={cy} value={cy}>Ciclo: {cy}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
                         </div>
                         <div className="flex flex-col items-end gap-3 w-full md:w-1/3 min-w-[250px]">
                             <div className="flex justify-between w-full items-end">
-                                <span className="text-4xl font-black">{Math.round(courseProgressPercentage)}%</span>
-                                <span className="text-sm font-bold text-primary-foreground/80 mb-1">{approvedStudentsCount} de {courseStudentsCount} aptos</span>
+                                <span className="text-4xl font-black">{Math.round(globalProgressPercentage)}%</span>
+                                <span className="text-sm font-bold text-primary-foreground/80 mb-1">{totalPresent} de {totalExpected} presenças</span>
                             </div>
-                            <Progress value={courseProgressPercentage} className="h-3 w-full bg-black/20" />
+                            <Progress value={globalProgressPercentage} className="h-3 w-full bg-black/20" />
                         </div>
                     </div>
                 </CardContent>

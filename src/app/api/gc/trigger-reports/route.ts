@@ -37,6 +37,16 @@ export async function POST(request: Request) {
     const db = getAdminDb();
     const now = Timestamp.now();
 
+    // Parse body for optional parameters
+    let body: any = {};
+    try {
+      body = await request.json();
+    } catch (e) {
+      // Body is optional
+    }
+    const targetCellId = body.cellId;
+    const force = body.force;
+
     // 2. Cleanup de Sessões Expiradas (TTL > 24h)
     const oneDayAgo = new Date();
     oneDayAgo.setHours(oneDayAgo.getHours() - 24);
@@ -56,9 +66,19 @@ export async function POST(request: Request) {
     }
 
     // 3. Buscar células ativas
-    const cellsSnap = await db.collection('cells')
-      .where('status', '==', 'active')
-      .get();
+    let cellsQuery: any = db.collection('cells').where('status', '==', 'active');
+    
+    if (targetCellId) {
+      const singleCellDoc = await db.collection('cells').doc(targetCellId).get();
+      if (!singleCellDoc.exists || singleCellDoc.data()?.status !== 'active') {
+        return NextResponse.json({ error: 'Célula não encontrada ou inativa.' }, { status: 404 });
+      }
+      cellsQuery = { empty: false, docs: [singleCellDoc] };
+    } else {
+      cellsQuery = await cellsQuery.get();
+    }
+
+    const cellsSnap = cellsQuery;
 
     if (cellsSnap.empty) {
       return NextResponse.json({ success: true, triggeredCount: 0, cleanedSessionsCount, message: 'Nenhuma célula ativa encontrada.' });
@@ -81,16 +101,18 @@ export async function POST(request: Request) {
       }
 
       try {
-        // Verificar se já existe relatório enviado nos últimos 6 dias para esta célula
-        const reportsSnap = await db.collection('reuniao_logs')
-          .where('cellId', '==', cellId)
-          .where('date', '>=', dateLimitStr)
-          .limit(1)
-          .get();
+        if (!force) {
+          // Verificar se já existe relatório enviado nos últimos 6 dias para esta célula
+          const reportsSnap = await db.collection('reuniao_logs')
+            .where('cellId', '==', cellId)
+            .where('date', '>=', dateLimitStr)
+            .limit(1)
+            .get();
 
-        if (!reportsSnap.empty) {
-          // Relatório já enviado para esta célula esta semana, pula
-          continue;
+          if (!reportsSnap.empty) {
+            // Relatório já enviado para esta célula esta semana, pula
+            continue;
+          }
         }
 
         // Buscar líder para obter o telefone

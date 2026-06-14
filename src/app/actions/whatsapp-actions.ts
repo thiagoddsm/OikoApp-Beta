@@ -3,6 +3,7 @@
 import { getWhatsAppClient, TypeMessage, formatWhatsAppNumber } from '@/lib/whatsapp';
 import { initializeFirebase } from '@/firebase';
 import { doc, updateDoc, getDoc, setDoc } from 'firebase/firestore';
+import { startGcReportSession } from '@/lib/gc-report-bot';
 
 /**
  * Sends a test WhatsApp message.
@@ -246,3 +247,49 @@ export async function sendFinanceNotification(
         return { success: false, error: error.message };
     }
 }
+
+/**
+ * Triggers a GC report session via WhatsApp for a specific cell.
+ */
+export async function triggerGcReportForCell(cellId: string) {
+    try {
+        const db = getAdminDb();
+        const cellDoc = await db.collection('cells').doc(cellId).get();
+        
+        const status = cellDoc.data()?.status || 'active';
+        if (!cellDoc.exists || (status !== 'active' && status !== 'growing')) {
+            return { success: false, error: `Célula inativa (status: ${status}) ou não encontrada.` };
+        }
+        
+        const liderId = cellDoc.data()?.liderId;
+        if (!liderId) {
+            return { success: false, error: 'Esta célula não possui um líder vinculado.' };
+        }
+
+        const liderDoc = await db.collection('users').doc(liderId).get();
+        if (!liderDoc.exists) {
+            return { success: false, error: 'Líder não encontrado no sistema.' };
+        }
+
+        const rawPhone = liderDoc.data()?.phone || liderDoc.data()?.phoneNumber;
+        if (!rawPhone) {
+            return { success: false, error: 'O líder não possui telefone cadastrado.' };
+        }
+
+        const formattedPhone = formatWhatsAppNumber(String(rawPhone));
+        if (formattedPhone.length < 8) {
+            return { success: false, error: 'Telefone do líder é inválido.' };
+        }
+
+        const success = await startGcReportSession(cellId, formattedPhone);
+        if (success) {
+            return { success: true };
+        } else {
+            return { success: false, error: 'Já existe um preenchimento em andamento no WhatsApp ou ocorreu um erro de conexão.' };
+        }
+    } catch (e: any) {
+        console.error('GC Trigger Error:', e);
+        return { success: false, error: e.message };
+    }
+}
+

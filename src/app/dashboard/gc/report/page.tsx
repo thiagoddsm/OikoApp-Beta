@@ -13,8 +13,9 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Loader2, Send, Users, Heart, BarChart2, MessageSquare,
   ChevronRight, ChevronLeft, CheckCircle2, AlertTriangle,
-  Flame, HandHeart, UserX, UserCheck, History
+  Flame, HandHeart, UserX, UserCheck, History, BotMessageSquare
 } from 'lucide-react';
+import { triggerGcReportForCell } from '@/app/actions/whatsapp-actions';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
@@ -311,6 +312,24 @@ export default function CellReportPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [editingLogId, setEditingLogId] = useState<string | null>(null);
+  const [isTriggeringWhatsApp, setIsTriggeringWhatsApp] = useState(false);
+
+  const handleTriggerWhatsApp = async () => {
+    if (!cell?.id) return;
+    setIsTriggeringWhatsApp(true);
+    try {
+      const res = await triggerGcReportForCell(cell.id);
+      if (res.success) {
+        toast({ title: '✅ Bot acionado!', description: 'Você receberá uma mensagem no WhatsApp em instantes para preencher o relatório.' });
+      } else {
+        toast({ variant: 'destructive', title: 'Erro ao acionar Bot', description: res.error || 'Erro desconhecido.' });
+      }
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Erro ao acionar Bot', description: e.message });
+    } finally {
+      setIsTriggeringWhatsApp(false);
+    }
+  };
 
   // Role do usuário logado
   const { data: userData } = useDoc<{ hierarchy?: { role?: string } }>(
@@ -638,22 +657,35 @@ export default function CellReportPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-black text-foreground">Relatório Semanal</h1>
-        {allCells.length > 1 ? (
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-sm text-muted-foreground">Célula:</span>
-            <select
-              className="text-sm font-semibold text-primary bg-transparent border-b border-primary outline-none cursor-pointer"
-              value={cell?.id}
-              onChange={e => setSelectedCellId(e.target.value)}
-            >
-              {allCells.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-            </select>
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground mt-1">Célula: <strong>{cell?.nome}</strong></p>
-        )}
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-black text-foreground">Relatório Semanal</h1>
+          {allCells.length > 1 ? (
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-sm text-muted-foreground">Célula:</span>
+              <select
+                className="text-sm font-semibold text-primary bg-transparent border-b border-primary outline-none cursor-pointer"
+                value={cell?.id}
+                onChange={e => setSelectedCellId(e.target.value)}
+              >
+                {allCells.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground mt-1">Célula: <strong>{cell?.nome}</strong></p>
+          )}
+        </div>
+        
+        {/* Botão do WhatsApp */}
+        <Button 
+          variant="outline" 
+          onClick={handleTriggerWhatsApp}
+          disabled={isTriggeringWhatsApp}
+          className="flex items-center gap-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-700 text-emerald-600 font-bold transition-all shadow-sm"
+        >
+          {isTriggeringWhatsApp ? <Loader2 className="h-4 w-4 animate-spin" /> : <BotMessageSquare className="h-4 w-4" />}
+          {isTriggeringWhatsApp ? 'Acionando...' : 'Preencher via WhatsApp'}
+        </Button>
       </div>
 
       {/* Relatórios Recentes */}

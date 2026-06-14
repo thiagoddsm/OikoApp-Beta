@@ -3,11 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Loader2, ShieldCheck, Mail, Info, School, PlayCircle, Percent, Lock, UserCheck, CheckCircle2, GraduationCap, BookOpen, Layers } from 'lucide-react';
+import { Loader2, ShieldCheck, Mail, Info, School, PlayCircle, Percent, Lock, UserCheck, CheckCircle2, GraduationCap, BookOpen, Layers, Upload } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -16,7 +17,7 @@ import { PersonSearchInput } from '@/components/common/person-search-input';
 
 export function CourseDetailsForm({ course }: { course: any }) {
   const { users, courses, theoflixCourses, isLoading } = useVolunteering();
-  const { firestore } = useFirebase();
+  const { firestore, storage } = useFirebase();
   const { toast } = useToast();
   
   const [formData, setFormData] = useState({
@@ -34,6 +35,8 @@ export function CourseDetailsForm({ course }: { course: any }) {
     simultaneousClasses: false,
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const isLumine = course.ministryName?.toLowerCase().includes('lumine') || course.ministryName?.toLowerCase().includes('ebd');
 
@@ -58,6 +61,83 @@ export function CourseDetailsForm({ course }: { course: any }) {
 
   const handleFieldChange = (name: string, value: any) => {
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+  
+  const compressImage = (file: File, maxWidth = 800, maxHeight = 800): Promise<Blob> => {
+      return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = (event) => {
+              const img = new Image();
+              img.src = event.target?.result as string;
+              img.onload = () => {
+                  const canvas = document.createElement('canvas');
+                  let width = img.width;
+                  let height = img.height;
+
+                  if (width > height) {
+                      if (width > maxWidth) {
+                          height = Math.round((height * maxWidth) / width);
+                          width = maxWidth;
+                      }
+                  } else {
+                      if (height > maxHeight) {
+                          width = Math.round((width * maxHeight) / height);
+                          height = maxHeight;
+                      }
+                  }
+
+                  canvas.width = width;
+                  canvas.height = height;
+                  const ctx = canvas.getContext('2d');
+                  ctx?.drawImage(img, 0, 0, width, height);
+
+                  canvas.toBlob((blob) => {
+                      if (blob) {
+                          resolve(blob);
+                      } else {
+                          reject(new Error("Erro ao converter canvas em blob"));
+                      }
+                  }, 'image/jpeg', 0.85);
+              };
+              img.onerror = (err) => reject(err);
+          };
+          reader.onerror = (err) => reject(err);
+      });
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file || !storage) return;
+
+      setIsUploadingPhoto(true);
+      try {
+          const compressedBlob = await compressImage(file, 800, 800);
+          const filePath = `course-covers/${course.id}-${Date.now()}.jpg`;
+          const fileRef = ref(storage, filePath);
+          
+          await uploadBytes(fileRef, compressedBlob);
+          const downloadUrl = await getDownloadURL(fileRef);
+          
+          handleFieldChange('imageUrl', downloadUrl);
+          
+          toast({
+              title: "Sucesso!",
+              description: "Imagem de capa enviada com sucesso. Salve as configurações para confirmar.",
+          });
+      } catch (error: any) {
+          console.error("Erro ao fazer upload da capa:", error);
+          toast({
+              variant: "destructive",
+              title: "Erro no upload",
+              description: error.message || "Não foi possível carregar a imagem.",
+          });
+      } finally {
+          setIsUploadingPhoto(false);
+          if (fileInputRef.current) {
+              fileInputRef.current.value = '';
+          }
+      }
   };
   
   const handleSave = async () => {
@@ -190,16 +270,35 @@ export function CourseDetailsForm({ course }: { course: any }) {
                   </div>
 
                   <div className="space-y-2">
-                      <Label htmlFor="imageUrl">URL da Imagem de Capa</Label>
-                      <Input 
-                        id="imageUrl" 
-                        type="text" 
-                        value={formData.imageUrl} 
-                        onChange={e => handleFieldChange('imageUrl', e.target.value)}
-                        placeholder="https://exemplo.com/imagem.jpg"
-                      />
+                      <Label htmlFor="imageUrl">Imagem de Capa do Curso</Label>
+                      <div className="flex gap-2">
+                          <Input 
+                            id="imageUrl" 
+                            type="text" 
+                            value={formData.imageUrl} 
+                            onChange={e => handleFieldChange('imageUrl', e.target.value)}
+                            placeholder="https://exemplo.com/imagem.jpg"
+                            className="flex-1"
+                          />
+                          <input 
+                              type="file" 
+                              ref={fileInputRef} 
+                              className="hidden" 
+                              accept="image/*" 
+                              onChange={handlePhotoUpload}
+                          />
+                          <Button 
+                              type="button" 
+                              variant="secondary" 
+                              onClick={() => fileInputRef.current?.click()}
+                              disabled={isUploadingPhoto}
+                          >
+                              {isUploadingPhoto ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4 mr-2" />}
+                              Upload
+                          </Button>
+                      </div>
                       <p className="text-[10px] text-muted-foreground italic">
-                          URL da imagem que será exibida como capa deste curso. Se vazio, uma imagem padrão será usada.
+                          Faça upload de uma imagem ou cole uma URL direta.
                       </p>
                   </div>
               </div>
