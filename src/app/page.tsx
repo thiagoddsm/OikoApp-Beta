@@ -110,20 +110,6 @@ export default function LandingPage() {
             display: none !important;
         }
 
-        /* Garante afastamento robusto do rodapé para a seção visite-nos */
-        #visita {
-            padding-bottom: 120px !important;
-        }
-        @media (min-width: 768px) {
-            #visita {
-                padding-bottom: 180px !important;
-            }
-        }
-        @media (min-width: 1024px) {
-            #visita {
-                padding-bottom: 240px !important;
-            }
-        }
       ` }} />
       
       {/* Fonts and widget stylesheet */}
@@ -643,7 +629,7 @@ export default function LandingPage() {
         </section>
 
         {/* Voluntariado / Serviço */}
-        <section className="py-20 bg-slate-50 border-t border-outline-variant/10" id="voluntariado">
+        <section className="pt-16 pb-8 bg-slate-50 border-t border-outline-variant/10" id="voluntariado">
           <div className="max-w-[1440px] mx-auto px-container-margin">
             <div className="text-center mb-16 reveal-on-scroll">
               <span className="font-label-sm text-label-sm text-primary uppercase tracking-widest font-bold block mb-2">FAÇA PARTE DA MISSÃO</span>
@@ -679,73 +665,92 @@ export default function LandingPage() {
             {/* Áreas de Atuação */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mb-16 reveal-on-scroll">
               {/* Ministério de Celebração */}
-              <div className="bg-white/60 backdrop-blur-md p-10 rounded-[2.5rem] apple-shadow border border-primary/10">
-                <div className="flex items-center gap-4 mb-8">
-                  <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
-                    <span className="material-symbols-outlined text-2xl">church</span>
+              <div className="bg-white/80 backdrop-blur-md p-10 rounded-[2.5rem] apple-shadow border border-primary/10 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary flex-shrink-0">
+                      <span className="material-symbols-outlined text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>church</span>
+                    </div>
+                    <div>
+                      <h3 className="font-headline-sm text-xl font-bold text-primary">⛪ Ministérios de Celebração</h3>
+                      <p className="text-xs text-on-surface-variant/70">Para os nossos cultos</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-headline-sm text-xl font-bold text-primary">Ministérios de Celebração</h3>
-                    <p className="text-xs text-on-surface-variant/70">Apoiando as celebrações e os cultos públicos de domingo</p>
-                  </div>
-                </div>
-                
-                <div className="space-y-6">
-                  <div className="border-b border-outline-variant/20 pb-4">
-                    <h4 className="font-bold text-base text-on-surface mb-1">Acolhimento</h4>
-                    <p className="text-xs text-on-surface-variant">Recepção dos visitantes, integração e organização do estacionamento.</p>
-                  </div>
-                  <div className="border-b border-outline-variant/20 pb-4">
-                    <h4 className="font-bold text-base text-on-surface mb-1">Áreas Técnicas</h4>
-                    <p className="text-xs text-on-surface-variant">Operação de som, iluminação, projeção, captação de mídia e fotografia.</p>
-                  </div>
-                  <div className="border-b border-outline-variant/20 pb-4">
-                    <h4 className="font-bold text-base text-on-surface mb-1">Bastidores</h4>
-                    <p className="text-xs text-on-surface-variant">Ornamentação do templo, limpeza, suporte e preparação na copa.</p>
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-base text-on-surface mb-1">Inclusão & Infantil</h4>
-                    <p className="text-xs text-on-surface-variant">Cuidado com crianças no Kids, Juniores e suporte à acessibilidade.</p>
+                  
+                  <p className="text-sm text-on-surface-variant leading-relaxed mb-8">
+                    São as nossas <strong>23 áreas de atuação</strong> focadas em fazer os nossos cultos acontecerem com excelência. Para proteger a saúde dos nossos voluntários e evitar o "ativismo religioso", temos uma regra de ouro: <strong>o membro atua em apenas UM ministério de celebração no domingo</strong>, garantindo que ele tenha tempo para cultuar e descansar.
+                  </p>
+
+                  <div className="space-y-4 pt-4 border-t border-outline-variant/20">
+                    <div className="flex items-start gap-3">
+                      <span className="text-primary mt-1">•</span>
+                      <div>
+                        <h4 className="font-bold text-sm text-on-surface">Acolhimento e Fluxo</h4>
+                        <p className="text-xs text-on-surface-variant">Recepção, Portaria, Segurança, VIP e Estacionamento.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <span className="text-primary mt-1">•</span>
+                      <div>
+                        <h4 className="font-bold text-sm text-on-surface">Áreas Técnicas</h4>
+                        <p className="text-xs text-on-surface-variant">Som, Iluminação, Projeção, Transmissão e Fotografia.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <span className="text-primary mt-1">•</span>
+                      <div>
+                        <h4 className="font-bold text-sm text-on-surface">Bastidores</h4>
+                        <p className="text-xs text-on-surface-variant">Bistrô, Boutique, Limpeza, Saúde, Intercessão e Staff.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <span className="text-primary mt-1">•</span>
+                      <div>
+                        <h4 className="font-bold text-sm text-on-surface">Inclusão e Infantil</h4>
+                        <p className="text-xs text-on-surface-variant">Kids, Musikids e DIS (Ministério de Libras).</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Ministério de Alcance */}
-              <div className="bg-white/60 backdrop-blur-md p-10 rounded-[2.5rem] apple-shadow border border-primary/10">
-                <div className="flex items-center gap-4 mb-8">
-                  <div className="w-12 h-12 rounded-2xl bg-secondary/10 flex items-center justify-center text-secondary">
-                    <span className="material-symbols-outlined text-2xl">public</span>
+              <div className="bg-white/80 backdrop-blur-md p-10 rounded-[2.5rem] apple-shadow border border-primary/10 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-12 h-12 rounded-2xl bg-secondary/10 flex items-center justify-center text-secondary flex-shrink-0">
+                      <span className="material-symbols-outlined text-2xl" style={{ fontVariationSettings: "'FILL' 1" }}>public</span>
+                    </div>
+                    <div>
+                      <h3 className="font-headline-sm text-xl font-bold text-secondary">🌍 Ministérios de Alcance</h3>
+                      <p className="text-xs text-on-surface-variant/70">Para a cidade</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-headline-sm text-xl font-bold text-secondary">Ministérios de Alcance</h3>
-                    <p className="text-xs text-on-surface-variant/70">Impactando nossa comunidade local e levando o evangelho às ruas</p>
-                  </div>
-                </div>
-
-                <div className="space-y-6">
-                  <div className="border-b border-outline-variant/20 pb-4">
-                    <h4 className="font-bold text-base text-on-surface mb-1">Ação Social</h4>
-                    <p className="text-xs text-on-surface-variant">Projeto Luz para a Cidade, arrecadação e distribuição de mantimentos.</p>
-                  </div>
-                  <div className="border-b border-outline-variant/20 pb-4">
-                    <h4 className="font-bold text-base text-on-surface mb-1">Evangelismo & Capelania</h4>
-                    <p className="text-xs text-on-surface-variant">Visitas hospitalares, ações urbanas e consolidação de novos convertidos.</p>
-                  </div>
+                  
+                  <p className="text-sm text-on-surface-variant leading-relaxed mb-8">
+                    São os projetos focados em impactar públicos específicos fora das quatro paredes, como o <strong>Gleed</strong> (jovens e adolescentes), <strong>Twogether</strong> (casais), e o <strong>Greem</strong> (empreendedores).
+                  </p>
                 </div>
               </div>
             </div>
 
             {/* Chamada para ação */}
-            <div className="text-center reveal-on-scroll">
+            <div className="flex flex-wrap justify-center gap-4 reveal-on-scroll">
               <Link href="/public/enrollment" className="inline-flex bg-primary text-white px-10 py-4 rounded-full font-bold shadow-lg shadow-primary/20 hover:-translate-y-1 hover:shadow-2xl transition-all">
-                QUERO SERVIR / INSCREVER-ME
+                Quero me inscrever e começar a servir
               </Link>
+              <button 
+                onClick={openNeemiasWidget} 
+                className="inline-flex border-2 border-primary/30 text-primary px-10 py-4 rounded-full font-bold hover:bg-primary/5 hover:-translate-y-1 transition-all"
+              >
+                Falar com a coordenação de voluntários
+              </button>
             </div>
           </div>
         </section>
 
         {/* Setor de Visitas / Localização */}
-        <section className="pt-16 pb-28 md:pt-24 md:pb-36 lg:pt-28 lg:pb-44 bg-surface-container border-t border-outline-variant/10" id="visita">
+        <section className="pt-12 pb-16 md:pb-24 lg:pb-28 bg-surface-container border-t border-outline-variant/10" id="visita">
           <div className="max-w-[1440px] mx-auto px-container-margin">
             <div className="text-center mb-16 reveal-on-scroll">
               <h2 className="font-headline-md text-headline-md">Venha nos Visitar</h2>

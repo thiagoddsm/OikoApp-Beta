@@ -7,7 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Loader2, ShieldCheck, Mail, Info, School, PlayCircle, Percent, Lock, UserCheck, CheckCircle2, GraduationCap, BookOpen } from 'lucide-react';
+import { Loader2, ShieldCheck, Mail, Info, School, PlayCircle, Percent, Lock, UserCheck, CheckCircle2, GraduationCap, BookOpen, Layers } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -31,6 +31,7 @@ export function CourseDetailsForm({ course }: { course: any }) {
     prerequisiteCourseId: '',
     sortOrder: '0',
     imageUrl: '',
+    simultaneousClasses: false,
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -50,6 +51,7 @@ export function CourseDetailsForm({ course }: { course: any }) {
         prerequisiteCourseId: course.prerequisiteCourseId || '',
         sortOrder: course.sortOrder?.toString() || '0',
         imageUrl: course.imageUrl || '',
+        simultaneousClasses: course.simultaneousClasses || false,
       });
     }
   }, [course]);
@@ -76,6 +78,7 @@ export function CourseDetailsForm({ course }: { course: any }) {
             prerequisiteCourseId: formData.prerequisiteCourseId === 'none' ? '' : formData.prerequisiteCourseId,
             sortOrder: Number(formData.sortOrder) || 0,
             imageUrl: formData.imageUrl,
+            simultaneousClasses: formData.simultaneousClasses,
         });
         toast({ title: 'Sucesso!', description: 'As configurações do curso foram atualizadas.'});
     } catch (e) {
@@ -198,6 +201,33 @@ export function CourseDetailsForm({ course }: { course: any }) {
                       <p className="text-[10px] text-muted-foreground italic">
                           URL da imagem que será exibida como capa deste curso. Se vazio, uma imagem padrão será usada.
                       </p>
+                  </div>
+              </div>
+          </div>
+
+          {/* Seção de Arquitetura de Turmas */}
+          <div className="pt-6 border-t space-y-6">
+              <div className="flex items-center gap-2 text-primary font-bold">
+                  <Layers className="size-5" />
+                  Arquitetura de Turmas
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-6 rounded-xl border border-slate-200">
+                  <div className="space-y-4">
+                      <div className="flex items-center justify-between gap-4">
+                          <div className="space-y-0.5">
+                              <Label className="text-sm font-bold flex items-center gap-2">
+                                  Turmas Simultâneas e Reposição Cruzada
+                              </Label>
+                              <p className="text-[10px] text-muted-foreground italic">
+                                Permite que este curso tenha turmas rodando simultaneamente em dias diferentes e habilita a reposição inteligente de faltas entre elas.
+                              </p>
+                          </div>
+                          <Switch 
+                            checked={formData.simultaneousClasses} 
+                            onCheckedChange={(v) => handleFieldChange('simultaneousClasses', v)} 
+                          />
+                      </div>
                   </div>
               </div>
           </div>

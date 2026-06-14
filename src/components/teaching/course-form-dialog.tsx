@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
+import { Switch } from '@/components/ui/switch';
 
 interface CourseFormDialogProps {
   open: boolean;
@@ -22,6 +23,7 @@ export function CourseFormDialog({ open, onOpenChange, existingCourse }: CourseF
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [ministryName, setMinistryName] = useState('');
+  const [simultaneousClasses, setSimultaneousClasses] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -29,6 +31,7 @@ export function CourseFormDialog({ open, onOpenChange, existingCourse }: CourseF
       setName(existingCourse?.name || '');
       setDescription(existingCourse?.description || '');
       setMinistryName(existingCourse?.ministryName || '');
+      setSimultaneousClasses(existingCourse?.simultaneousClasses || false);
     }
   }, [open, existingCourse]);
 
@@ -38,7 +41,7 @@ export function CourseFormDialog({ open, onOpenChange, existingCourse }: CourseF
       return;
     }
     setIsSaving(true);
-    const courseData = { name, description, ministryName };
+    const courseData = { name, description, ministryName, simultaneousClasses };
 
     if (existingCourse) {
       const docRef = doc(firestore, 'courses', existingCourse.id);
@@ -75,6 +78,20 @@ export function CourseFormDialog({ open, onOpenChange, existingCourse }: CourseF
           <div>
             <Label htmlFor="description">Descrição</Label>
             <Textarea id="description" value={description} onChange={e => setDescription(e.target.value)} />
+          </div>
+          <div className="flex items-center justify-between gap-4 p-4 border rounded-lg bg-slate-50/50">
+              <div className="space-y-0.5">
+                  <Label className="text-sm font-bold flex items-center gap-2">
+                      Turmas Simultâneas
+                  </Label>
+                  <p className="text-[10px] text-muted-foreground italic">
+                    Permite que este curso tenha turmas rodando simultaneamente em dias diferentes e habilita a reposição cruzada de faltas.
+                  </p>
+              </div>
+              <Switch 
+                checked={simultaneousClasses} 
+                onCheckedChange={setSimultaneousClasses} 
+              />
           </div>
         </div>
         <DialogFooter>

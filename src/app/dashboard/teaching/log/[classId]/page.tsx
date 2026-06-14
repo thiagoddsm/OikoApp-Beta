@@ -7,10 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Loader2, ArrowLeft, CheckCircle2, ClipboardCheck, History, Plus, Save, UserPlus, Search as SearchIcon } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { format, addWeeks, isBefore, isAfter, startOfDay, parseISO, addMonths } from 'date-fns';
+import { format, addWeeks, isBefore, isAfter, startOfDay, parseISO, addMonths, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Timestamp, doc } from 'firebase/firestore';
-import { VolunteeringProvider } from '@/contexts/volunteering-context';
+import { VolunteeringProvider, getResolvedSchedule } from '@/contexts/volunteering-context';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useFirebase, updateDocumentNonBlocking } from '@/firebase';
@@ -64,108 +64,7 @@ function PedagogicalLogPageContent() {
 
 
     const resolvedSchedule = useMemo(() => {
-        if (!classData || !classData.startDate) return [];
-        
-        const items: any[] = [];
-        const start = parseISO(classData.startDate);
-        const holidaySet = new Set(classData.holidayDates || []);
-        const overrides = classData.scheduleOverrides || {};
-        const syllabus = courseData?.syllabus || [];
-
-        // 1. Encontrar todas as datas de aula (recorrência)
-        let currentDate = start;
-        let syllabusIndex = 0;
-        let safeCounter = 0;
-
-        const targetCount = syllabus.length > 0 ? syllabus.length : 12;
-
-        while (items.length < targetCount && safeCounter < 200) {
-            safeCounter++;
-            const dateStr = format(currentDate, 'yyyy-MM-dd');
-            
-            // Pular se for feriado e não houver override forçando
-            if (holidaySet.has(dateStr) && !overrides[dateStr]) {
-                currentDate = addWeeks(currentDate, classData.frequency === 'quinzenal' ? 2 : 1);
-                continue;
-            }
-
-            const override = overrides[dateStr];
-            
-            if (override?.isCancelled) {
-                currentDate = addWeeks(currentDate, classData.frequency === 'quinzenal' ? 2 : 1);
-                continue;
-            }
-
-            const syllabusItem = override?.syllabusId 
-                ? syllabus.find(s => s.id === override.syllabusId) 
-                : syllabus[syllabusIndex];
-            
-            const originalIdx = override?.syllabusId
-                ? syllabus.findIndex(s => s.id === override.syllabusId)
-                : syllabusIndex;
-
-            items.push({
-                dateStr,
-                date: currentDate,
-                syllabusItem,
-                syllabusOriginalIndex: originalIdx,
-                isOverride: !!override
-            });
-
-            syllabusIndex++;
-            currentDate = addWeeks(currentDate, classData.frequency === 'quinzenal' ? 2 : 1);
-        }
-
-        // 2. Adicionar overrides que caem em datas fora da recorrência
-        Object.entries(overrides).forEach(([dateStr, override]: [string, any]) => {
-            if (override.isCancelled) return;
-            if (items.find(i => i.dateStr === dateStr)) return;
-
-            const syllabusItem = override.syllabusId 
-                ? syllabus.find(s => s.id === override.syllabusId) 
-                : undefined;
-            
-            const originalIdx = override.syllabusId
-                ? syllabus.findIndex(s => s.id === override.syllabusId)
-                : -1;
-
-            items.push({
-                dateStr,
-                date: parseISO(dateStr),
-                syllabusItem,
-                syllabusOriginalIndex: originalIdx,
-                isOverride: true
-            });
-        });
-
-        // 3. Adicionar aulas extras (extraSessions)
-        const extraSessions = classData.extraSessions || [];
-        extraSessions.forEach((session: any) => {
-            // Em vez de usar apenas a data, usamos a data + horário para garantir unicidade
-            const uniqueDateStr = session.startTime ? `${session.date}T${session.startTime}` : `${session.date}-extra`;
-
-            if (items.find(i => i.dateStr === uniqueDateStr)) return;
-
-            const syllabusItem = session.syllabusId 
-                ? syllabus.find(s => s.id === session.syllabusId) 
-                : undefined;
-            
-            const originalIdx = session.syllabusId
-                ? syllabus.findIndex(s => s.id === session.syllabusId)
-                : -1;
-
-            items.push({
-                dateStr: uniqueDateStr,
-                date: parseISO(session.date),
-                syllabusItem,
-                syllabusOriginalIndex: originalIdx,
-                isOverride: true,
-                isExtraSession: true,
-                startTime: session.startTime
-            });
-        });
-
-        return items.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+        return getResolvedSchedule(classData, courseData);
     }, [classData, courseData]);
 
     const classOccurrences = useMemo(() => resolvedSchedule.map(i => i.dateStr), [resolvedSchedule]);
@@ -243,40 +142,67 @@ function PedagogicalLogPageContent() {
             .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
     }, [users, classData, searchTerm]);
 
-    // Alunos de TURMAS ANTERIORES do mesmo curso que faltaram a este módulo específico
+    // Alunos de OUTRAS TURMAS do mesmo curso que faltaram a este módulo específico
     const previousClassStudentsForModule = useMemo(() => {
-        if (!users || !selectedDate || currentModuleIndex === -1 || !isMemberCourse || !courseData) return [];
+        if (!users || !selectedDate || currentModuleIndex === -1 || !courseData) return [];
         const currentEnrolledIds = new Set(classData?.students || []);
+        const currentSyllabusId = currentResolvedItem?.syllabusItem?.id;
 
-        // Turmas anteriores do mesmo curso (excluindo a turma atual)
-        const siblingClasses = classes.filter(c => c.courseId === courseData.id && c.id !== classId);
+        // Turmas simultâneas ou anteriores do mesmo curso
+        const siblingClasses = classes.filter(c => c.courseId === courseData.id && c.id !== classId && (!classData?.cycle || c.cycle === classData?.cycle));
 
         const studentIds = new Set<string>();
         siblingClasses.forEach(sibling => {
+            // Descobrir as datas em que esta turma (sibling) lecionou o mesmo syllabusId
+            const siblingSchedule = getResolvedSchedule(sibling, courseData);
+            const matchingDates = siblingSchedule.filter((s: any) => s.syllabusItem?.id === currentSyllabusId).map((s: any) => s.dateStr);
+
             (sibling.students || []).forEach(sid => {
-                // Não está na turma atual
                 if (currentEnrolledIds.has(sid)) return;
-                // Ainda não tem o módulo concluído
                 const user = users.find(u => u.id === sid);
                 if (!user) return;
-                if (user.journey?.memberCourseProgress?.[currentModuleKey]) return;
-                studentIds.add(sid);
+
+                // Se for curso de membro, usamos o memberCourseProgress como fonte de verdade final
+                if (isMemberCourse && user.journey?.memberCourseProgress?.[currentModuleKey]) return;
+
+                // Verificar se o aluno teve presença em ALGUMA das datas que deram este módulo na turma dele
+                let attendedInSibling = false;
+                matchingDates.forEach(mDate => {
+                    const record = sibling.attendance?.find((a: any) => a.date === mDate);
+                    if (record?.presentStudentIds?.includes(sid)) attendedInSibling = true;
+                    // Também verificar reposições que esse aluno fez no sibling (opcional)
+                    if (record?.repositions?.some((r: any) => r.studentId === sid)) attendedInSibling = true;
+                });
+
+                // Se o módulo já passou na turma dele e ele não estava presente, ele é pendente!
+                // Mas e se o módulo ainda nem ocorreu na turma dele?
+                // Podemos mostrar alunos de turmas onde o módulo JÁ OCORREU (date <= today)
+                const moduleAlreadyPassed = matchingDates.some(mDate => isBefore(parseISO(mDate.split('T')[0]), addDays(new Date(), 1)));
+
+                if (moduleAlreadyPassed && !attendedInSibling) {
+                    studentIds.add(sid);
+                }
             });
         });
 
         return users.filter(u => studentIds.has(u.id));
-    }, [users, classes, classData, courseData, classId, selectedDate, currentModuleIndex, currentModuleKey, isMemberCourse]);
+    }, [users, classes, classData, courseData, classId, selectedDate, currentModuleIndex, currentModuleKey, isMemberCourse, currentResolvedItem]);
 
     // Lógica para sugerir alunos que precisam repor este módulo específico (pendência no progresso geral)
     const repositionSuggestions = useMemo(() => {
-        if (!users || !selectedDate || currentModuleIndex === -1 || !isMemberCourse) return [];
+        if (!users || !selectedDate || currentModuleIndex === -1) return [];
         const enrolledIds = new Set(classData?.students || []);
         const previousClassIds = new Set(previousClassStudentsForModule.map(u => u.id));
 
         return users.filter(u => {
             const isNotEnrolled = !enrolledIds.has(u.id);
-            const isNotFromPreviousClass = !previousClassIds.has(u.id); // evitar duplicata
-            const hasPending = !u.journey?.memberCourseProgress?.[currentModuleKey];
+            const isNotFromPreviousClass = !previousClassIds.has(u.id);
+            
+            let hasPending = false;
+            if (isMemberCourse) {
+                hasPending = !u.journey?.memberCourseProgress?.[currentModuleKey];
+            }
+            
             const isStudent = u.integrationStatus === 'novo_convertido' || u.integrationStatus === 'membro' || u.integrationStatus === 'consolidado';
             return isNotEnrolled && isNotFromPreviousClass && hasPending && isStudent;
         }).slice(0, 15);

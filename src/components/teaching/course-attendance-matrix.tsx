@@ -18,6 +18,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { addTimelineEvent } from '@/lib/timeline';
 import { useFirebase } from '@/firebase';
+import { RetroactiveApprovalDialog } from './retroactive-approval-dialog';
 
 
 
@@ -48,8 +49,10 @@ const Legend = () => (
 export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
     const { classes, users, courses, updateVolunteer, isLoading } = useVolunteering();
     const { toast } = useToast();
-    const { firestore, user: currentUser } = useFirebase();    const [selectedClassId, setSelectedClassId] = useState<string>('all');
+    const { firestore, user: currentUser } = useFirebase();
+    const [selectedClassId, setSelectedClassId] = useState<string>('all');
     const [isSyncing, setIsSyncing] = useState(false);
+    const [isRetroactiveOpen, setRetroactiveOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(15);
@@ -60,6 +63,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
     const course = useMemo(() => courses.find(c => c.id === courseId), [courses, courseId]);
     const isMembership = course?.name?.toLowerCase().includes('membro') || course?.name?.toLowerCase().includes('pertencer') || course?.name?.toLowerCase().includes('integração');
     const threshold = course?.minAttendanceApproval || 75;
+    const useModuleView = isMembership || (course?.simultaneousClasses && course?.syllabus && course.syllabus.length > 0) || (selectedClassId === 'all' && course?.syllabus && course.syllabus.length > 0);
 
     const courseClasses = useMemo(() => classes.filter(c => c.courseId === courseId), [classes, courseId]);
 
@@ -321,6 +325,15 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                     </div>
                     
                     <div className="flex flex-wrap items-center gap-3">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setRetroactiveOpen(true)}
+                            className="h-11 font-bold uppercase text-xs border-primary/30 text-primary hover:bg-primary/5 shadow-sm"
+                        >
+                            <Award className="mr-2 size-4 text-primary" />
+                            Aprovação Retroativa
+                        </Button>
                         {Object.values(columnFilters).some(v => v !== 'all') && (
                             <Button variant="ghost" size="sm" onClick={() => setColumnFilters({})} className="text-[10px] font-bold uppercase text-destructive">
                                 Limpar Filtros
@@ -366,7 +379,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                         <Badge variant="outline" className="text-[9px]">{filteredStudents.length} filtrados</Badge>
                                     </div>
                                 </TableHead>
-                                {isMembership ? (
+                                {useModuleView ? (
                                     modules.map((mod) => (
                                         <TableHead key={mod.id} className="text-center min-w-[180px] py-4 relative group/header">
                                             <div className="flex flex-col items-center gap-1.5">
@@ -481,7 +494,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                         <TableBody>
                             {paginatedStudents.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={isMembership ? modules.length + 2 : allDates.length + 2} className="h-32 text-center text-muted-foreground italic">
+                                    <TableCell colSpan={useModuleView ? modules.length + 2 : allDates.length + 2} className="h-32 text-center text-muted-foreground italic">
                                         Nenhum aluno atende aos filtros selecionados.
                                     </TableCell>
                                 </TableRow>
@@ -495,11 +508,18 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                             <TableCell className="sticky left-0 bg-white z-[1] font-medium border-r shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
                                                 <div className="flex items-center gap-3">
                                                     <Avatar className="h-8 w-8"><AvatarFallback>{student.name.charAt(0)}</AvatarFallback></Avatar>
-                                                    <p className="truncate text-sm font-bold">{student.name}</p>
+                                                    <div className="flex flex-col">
+                                                        <p className="truncate text-sm font-bold">{student.name}</p>
+                                                        {studentClass && selectedClassId === 'all' && (
+                                                            <span className="text-[9px] uppercase font-black text-muted-foreground mt-0.5">
+                                                                {studentClass.name}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </TableCell>
                                             
-                                            {isMembership ? (
+                                            {useModuleView ? (
                                                 modules.map(mod => {
                                                     const status = getModuleStatus(student, mod.id);
                                                     if (status.isDone && mod.type !== 'Eletivo') completedCount++;
@@ -619,7 +639,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
 
                                             <TableCell className="bg-primary/5 text-center">
                                                 {(() => {
-                                                    const total = isMembership ? modules.filter(m => m.type !== 'Eletivo').length : allDates.length;
+                                                    const total = useModuleView ? modules.filter(m => m.type !== 'Eletivo').length : allDates.length;
                                                     const percent = total > 0 ? (completedCount / total) * 100 : 0;
                                                     const isApproved = percent >= threshold;
                                                     return (
@@ -685,6 +705,13 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                 )}
 
                 <Legend />
+
+                <RetroactiveApprovalDialog
+                    open={isRetroactiveOpen}
+                    onOpenChange={setRetroactiveOpen}
+                    courseId={courseId}
+                    courseName={course?.name || ''}
+                />
             </div>
         </TooltipProvider>
     );

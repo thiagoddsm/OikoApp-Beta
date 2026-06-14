@@ -3,7 +3,7 @@ import React, { useMemo, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useVolunteering, type Class, type Course } from '@/contexts/volunteering-context';
+import { useVolunteering, type Class, type Course, getMonthlyOccurrences, getSlotsPerOccurrence, weekDayMap } from '@/contexts/volunteering-context';
 import { format, addWeeks, addDays, parseISO, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Calendar as CalendarIcon, ArrowUpDown, Clock, User, BookOpen, AlertTriangle, CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
@@ -34,51 +34,86 @@ export function ClassScheduleManager({ classData }: ClassScheduleManagerProps) {
         const start = parseISO(classData.startDate);
         const holidaySet = new Set(classData.holidayDates || []);
         const overrides = classData.scheduleOverrides || {};
+        const slots = getSlotsPerOccurrence(classData);
+        const slotsPerDay = slots.length;
 
-        // 1. Encontrar todas as datas de aula (recorrência)
-        let currentDate = start;
-        let syllabusIndex = 0;
-        let safeCounter = 0;
+        // 1. Gerar datas de ocorrência (incluindo as que podem ser canceladas)
+        let occurrenceDates: Date[] = [];
+        const end = classData.endDate ? parseISO(classData.endDate) : addWeeks(start, 52); // Buscar até 1 ano
+
+        if (classData.frequency === 'pontual') {
+            occurrenceDates = [start];
+        } else if (classData.frequency === 'mensal' && classData.weekOfMonth && classData.dayOfWeek) {
+            const dayName = classData.dayOfWeek.toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                .replace('-feira', '');
+            const weekday = weekDayMap[dayName] ?? 0;
+            occurrenceDates = getMonthlyOccurrences(start, end, weekday, classData.weekOfMonth);
+        } else {
+            // Semanal / Quinzenal
+            let currentDate = start;
+            let safeCounter = 0;
+            const step = classData.frequency === 'quinzenal' ? 2 : 1;
+            while (safeCounter++ < 300 && currentDate <= end) {
+                occurrenceDates.push(new Date(currentDate));
+                currentDate = addWeeks(currentDate, step);
+            }
+        }
 
         // Se tiver ementa, vamos gerar tantas datas quanto itens na ementa
-        // Caso contrário, usamos a data de término ou um limite padrão
         const targetCount = syllabus.length > 0 ? syllabus.length : 12;
+        let syllabusIndex = 0;
 
-        while (items.length < targetCount && safeCounter < 100) {
-            safeCounter++;
-            const dateStr = format(currentDate, 'yyyy-MM-dd');
+        for (const occDate of occurrenceDates) {
+            if (items.length >= targetCount) break;
+
+            const dateStr = format(occDate, 'yyyy-MM-dd');
             
             // Pular se for feriado e não houver override forçando
             if (holidaySet.has(dateStr) && !overrides[dateStr]) {
-                currentDate = addWeeks(currentDate, classData.frequency === 'quinzenal' ? 2 : 1);
                 continue;
             }
 
-            const override = overrides[dateStr];
-            const syllabusItem = override?.syllabusId 
-                ? syllabus.find(s => s.id === override.syllabusId) 
-                : syllabus[syllabusIndex];
+            const dayOverride = overrides[dateStr];
 
-            const teacher = override?.teacherId
-                ? users.find(u => u.id === override.teacherId)
-                : users.find(u => u.id === classData.teacherId);
+            // Gerar entrada para cada slot do dia
+            for (let slotIdx = 0; slotIdx < slotsPerDay; slotIdx++) {
+                if (items.length >= targetCount) break;
 
-            items.push({
-                date: currentDate,
-                dateStr,
-                syllabusItem,
-                teacher,
-                isOverride: !!override,
-                isCancelled: override?.isCancelled,
-                notes: override?.notes,
-                originalIndex: syllabusIndex
-            });
+                const slot = slots[slotIdx];
+                const slotDateStr = slotsPerDay > 1 ? `${dateStr}T${slot.startTime}` : dateStr;
+                
+                const slotOverride = slotsPerDay > 1 ? overrides[slotDateStr] : dayOverride;
+                const effectiveOverride = slotOverride || (slotsPerDay === 1 ? dayOverride : null);
 
-            if (!override?.isCancelled) {
-                syllabusIndex++;
+                const syllabusItem = effectiveOverride?.syllabusId 
+                    ? syllabus.find(s => s.id === effectiveOverride.syllabusId) 
+                    : syllabus[syllabusIndex];
+
+                const teacher = effectiveOverride?.teacherId
+                    ? users.find(u => u.id === effectiveOverride.teacherId)
+                    : users.find(u => u.id === classData.teacherId);
+
+                items.push({
+                    date: occDate,
+                    dateStr: slotDateStr,
+                    dayDateStr: dateStr,
+                    syllabusItem,
+                    teacher,
+                    isOverride: !!effectiveOverride,
+                    isCancelled: effectiveOverride?.isCancelled,
+                    notes: effectiveOverride?.notes,
+                    originalIndex: syllabusIndex,
+                    startTime: slot.startTime,
+                    endTime: slot.endTime,
+                    slotIndex: slotIdx,
+                    slotsPerDay
+                });
+
+                if (!effectiveOverride?.isCancelled) {
+                    syllabusIndex++;
+                }
             }
-            
-            currentDate = addWeeks(currentDate, classData.frequency === 'quinzenal' ? 2 : 1);
         }
 
         return items;
@@ -189,6 +224,11 @@ export function ClassScheduleManager({ classData }: ClassScheduleManagerProps) {
                                     </div>
                                     <div className="flex flex-col">
                                         <span className="text-xs font-bold capitalize">{format(item.date, 'EEEE', { locale: ptBR })}</span>
+                                        {item.slotsPerDay > 1 && (
+                                            <span className="text-[10px] text-muted-foreground font-mono">
+                                                {item.startTime} - {item.endTime}
+                                            </span>
+                                        )}
                                         <Popover modal={false}>
                                             <PopoverTrigger asChild>
                                                 <button className="text-[10px] text-primary hover:underline font-black uppercase tracking-widest text-left">

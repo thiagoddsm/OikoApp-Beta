@@ -7,9 +7,10 @@ import {
   Loader2, ArrowLeft, BookOpen, Users, User, FileText, 
   ClipboardCheck, Folder, Inbox, GraduationCap, TrendingUp,
   LayoutDashboard, PlusCircle, UserPlus, Waves, Lightbulb, School, HandHelping,
-  CheckCircle2, BarChart3
+  CheckCircle2, BarChart3, Trophy, Target
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VolunteeringProvider, useVolunteering } from '@/contexts/volunteering-context';
@@ -59,6 +60,21 @@ function CourseDetailPageContent() {
         courseClasses.forEach(c => c.students?.forEach(s => studentSet.add(s)));
         return studentSet.size;
     }, [courseClasses]);
+
+    const approvedStudentsCount = useMemo(() => {
+        const studentSet = new Set<string>();
+        courseClasses.forEach(c => c.students?.forEach(s => studentSet.add(s)));
+        let count = 0;
+        studentSet.forEach(sId => {
+            const user = users.find(u => u.id === sId);
+            if (user?.journey?.courseStatus?.[courseId] === 'approved') {
+                count++;
+            }
+        });
+        return count;
+    }, [courseClasses, users, courseId]);
+
+    const courseProgressPercentage = courseStudentsCount > 0 ? (approvedStudentsCount / courseStudentsCount) * 100 : 0;
 
     const courseTeachersCount = useMemo(() => {
         return course?.teacherIds?.length || 0;
@@ -132,6 +148,34 @@ function CourseDetailPageContent() {
                     </button>
                 ))}
             </div>
+
+            {/* Banner de Progresso Consolidado */}
+            <Card className="bg-gradient-to-br from-primary to-primary/80 text-white shadow-md border-none overflow-hidden relative">
+                <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
+                    <Trophy size={120} />
+                </div>
+                <CardContent className="p-6 relative z-10">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                        <div className="space-y-2 max-w-lg">
+                            <div className="flex items-center gap-2 text-primary-foreground/80 font-bold uppercase text-xs tracking-wider">
+                                <Target size={16} />
+                                Visão Consolidada de Aproveitamento
+                            </div>
+                            <h3 className="text-2xl font-black">Progresso Global do Curso</h3>
+                            <p className="text-sm text-primary-foreground/90 leading-relaxed">
+                                Acompanhe o índice de alunos aprovados em relação ao total de inscritos ativos em todas as turmas simultâneas.
+                            </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-3 w-full md:w-1/3 min-w-[250px]">
+                            <div className="flex justify-between w-full items-end">
+                                <span className="text-4xl font-black">{Math.round(courseProgressPercentage)}%</span>
+                                <span className="text-sm font-bold text-primary-foreground/80 mb-1">{approvedStudentsCount} de {courseStudentsCount} aptos</span>
+                            </div>
+                            <Progress value={courseProgressPercentage} className="h-3 w-full bg-black/20" />
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
 
             <Card>
                 <CardHeader className="flex flex-row items-center gap-4">

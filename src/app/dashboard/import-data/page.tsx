@@ -365,13 +365,21 @@ export default function ImportDataPage() {
                 const teamsQuery = query(collection(firestore, 'teams'));
                 const cellsQuery = query(collection(firestore, 'cells'));
                 const existingUsersQuery = query(collection(firestore, 'users'));
+                const coursesQuery = query(collection(firestore, 'courses'));
 
-                const [areasSnapshot, teamsSnapshot, cellsSnapshot, existingUsersSnapshot] = await Promise.all([
+                const [areasSnapshot, teamsSnapshot, cellsSnapshot, existingUsersSnapshot, coursesSnapshot] = await Promise.all([
                     getDocs(areasQuery),
                     getDocs(teamsQuery),
                     getDocs(cellsQuery),
                     getDocs(existingUsersQuery),
+                    getDocs(coursesQuery),
                 ]);
+
+                const pertencerCourse = coursesSnapshot.docs.find(d => 
+                    d.data().name?.toLowerCase().includes('pertencer') || 
+                    d.data().name?.toLowerCase().includes('membro')
+                );
+                const pertencerCourseId = pertencerCourse ? pertencerCourse.id : null;
 
                 const areaMap = new Map(areasSnapshot.docs.map(doc => [doc.data().name.toLowerCase(), doc.id]));
                 const teamMap = new Map(teamsSnapshot.docs.map(doc => [doc.data().name.toLowerCase(), doc.id]));
@@ -490,6 +498,23 @@ export default function ImportDataPage() {
                             modelo: vModelo || null,
                             cor: vCor || null,
                         } : (existingUser?.veiculo || null),
+                        journey: (() => {
+                            const isMembro = cleanStatusArrolamento && (
+                                cleanStatusArrolamento.toLowerCase().includes('membro') ||
+                                cleanStatusArrolamento.toLowerCase().includes('admiss') ||
+                                cleanStatusArrolamento.toLowerCase().includes('batismo') ||
+                                cleanStatusArrolamento.toLowerCase().includes('aclama') ||
+                                cleanStatusArrolamento.toLowerCase().includes('transfer')
+                            );
+                            const j = { ...(existingUser?.journey || {}) };
+                            if (isMembro && pertencerCourseId) {
+                                j.courseStatus = {
+                                    ...(j.courseStatus || {}),
+                                    [pertencerCourseId]: 'approved'
+                                };
+                            }
+                            return j;
+                        })(),
                         createdAt: existingUser?.createdAt || Timestamp.now(),
                     };
 
@@ -571,10 +596,18 @@ export default function ImportDataPage() {
                 // Buscar GCs para vínculo automático
                 const cellsQuery = query(collection(firestore, 'cells'));
                 const existingUsersQuery = query(collection(firestore, 'users'));
-                const [cellsSnapshot, existingUsersSnapshot] = await Promise.all([
+                const coursesQuery = query(collection(firestore, 'courses'));
+                const [cellsSnapshot, existingUsersSnapshot, coursesSnapshot] = await Promise.all([
                     getDocs(cellsQuery),
-                    getDocs(existingUsersQuery)
+                    getDocs(existingUsersQuery),
+                    getDocs(coursesQuery),
                 ]);
+
+                const pertencerCourse = coursesSnapshot.docs.find(d => 
+                    d.data().name?.toLowerCase().includes('pertencer') || 
+                    d.data().name?.toLowerCase().includes('membro')
+                );
+                const pertencerCourseId = pertencerCourse ? pertencerCourse.id : null;
                 const cellDocs = cellsSnapshot.docs;
                 setAvailableGcs(
                     cellDocs
@@ -825,6 +858,23 @@ export default function ImportDataPage() {
                             modelo: vModelo || null,
                             cor: vCor || null,
                         } : (existingUser?.veiculo || null),
+                        journey: (() => {
+                            const isMembro = cleanArrolamento && (
+                                cleanArrolamento.toLowerCase().includes('membro') ||
+                                cleanArrolamento.toLowerCase().includes('admiss') ||
+                                cleanArrolamento.toLowerCase().includes('batismo') ||
+                                cleanArrolamento.toLowerCase().includes('aclama') ||
+                                cleanArrolamento.toLowerCase().includes('transfer')
+                            );
+                            const j = { ...(existingUser?.journey || {}) };
+                            if (isMembro && pertencerCourseId) {
+                                j.courseStatus = {
+                                    ...(j.courseStatus || {}),
+                                    [pertencerCourseId]: 'approved'
+                                };
+                            }
+                            return j;
+                        })(),
                         createdAt: existingUser?.createdAt || Timestamp.now(),
                     };
 
