@@ -146,16 +146,15 @@ export async function startGcReportSession(cellId: string, liderPhone: string, i
 
       transaction.set(sessionRef, newSession);
 
-      // Disparar o convite no WhatsApp
-      await sendButtons(
-        liderPhone,
-        `Olá, líder! 👋\nA reunião do seu GC *${cellData.nome || 'Célula'}* foi recentemente. Vamos preencher o relatório semanal por aqui? É rapidinho!`,
-        [
-          { id: 'start_yes', text: 'Sim, iniciar!' },
-          { id: 'start_no', text: 'Mais tarde' }
-        ],
-        'Relatório de GC'
-      );
+      // Disparar o convite no WhatsApp (apenas texto)
+      const whatsappClient = await getWhatsAppClient();
+      await whatsappClient.sendMessage({
+          type: "TEXT",
+          body: {
+              to: liderPhone,
+              text: `Olá, líder! 👋\nA reunião do seu GC *${cellData.nome || 'Célula'}* foi recentemente. Entre no app para lançar o relatório.`
+          }
+      });
 
       return true;
     });
