@@ -156,9 +156,20 @@ export async function POST(request: Request) {
         };
     }
 
+    // ===== DEBUG: Log detalhado para diagnóstico do Bot GC =====
+    const textForDebug = msgContent.conversation || msgContent.extendedTextMessage?.text || data.text || '';
+    console.log(`[Webhook DEBUG] fromPhone=${fromPhone}, fromRaw=${fromRaw}, fromMe=${data.fromMe}, isLid=${fromRaw.includes('@lid')}, text="${textForDebug}", responseType=${responseType}`);
+
     // Interceptor para o Bot de Relatório de GC se houver sessão ativa
-    if (!data.fromMe && !fromRaw.includes('@g.us')) {
+    // Relaxar a condição: aceitar fromMe === undefined como "não é de mim"
+    const isFromMe = data.fromMe === true;
+    const isGroup = fromRaw.includes('@g.us');
+    
+    if (!isFromMe && !isGroup) {
+        console.log(`[Webhook DEBUG] Checando sessão GC para fromPhone=${fromPhone}...`);
         const sessionDoc = await db.collection('gc_report_sessions').doc(fromPhone).get();
+        console.log(`[Webhook DEBUG] Sessão GC existe? ${sessionDoc.exists}`);
+        
         if (sessionDoc.exists) {
             let messageText = '';
             if (responseType === 'button') {
@@ -169,6 +180,7 @@ export async function POST(request: Request) {
                 messageText = msgContent.conversation || msgContent.extendedTextMessage?.text || data.text || '';
             }
 
+            console.log(`[Webhook DEBUG] Encaminhando para GC Bot: messageText="${messageText}", type=${responseType || 'text'}`);
             const { handleGcReportIncomingMessage } = await import('@/lib/gc-report-bot');
             await handleGcReportIncomingMessage(
                 fromPhone,
@@ -178,6 +190,8 @@ export async function POST(request: Request) {
             );
             return NextResponse.json({ success: true });
         }
+    } else {
+        console.log(`[Webhook DEBUG] Mensagem ignorada pelo Bot GC: isFromMe=${isFromMe}, isGroup=${isGroup}`);
     }
 
     // D. Common Text
