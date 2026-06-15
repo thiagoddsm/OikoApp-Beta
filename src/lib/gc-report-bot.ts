@@ -113,40 +113,47 @@ export async function startGcReportSession(cellId: string, liderPhone: string, i
     }
     membersList.sort((a, b) => a.name.localeCompare(b.name));
 
-    // 3. Enviar mensagens no WhatsApp: boas-vindas + enquete de chamada
+    // 3. Enviar mensagens no WhatsApp: boas-vindas + TODAS as enquetes de chamada
     console.log(`[GC Bot] Enviando fluxo de relatório para ${liderPhone}...`);
     
     // 3a. Mensagem de boas-vindas
     await sendText(
       liderPhone,
-      `Olá, líder! 👋\nVamos preencher o relatório semanal do GC *${cellData.nome || 'Célula'}*? É rapidinho!\n\n📋 *Etapa 1: Chamada*\nVote na enquete abaixo marcando todos os membros que estiveram *PRESENTES* na reunião.`
+      `Olá, líder! 👋\nVamos preencher o relatório semanal do GC *${cellData.nome || 'Célula'}*? É rapidinho!\n\n📋 *Etapa 1: Chamada*\nVote nas enquetes abaixo marcando todos os membros que estiveram *PRESENTES* na reunião.`
     );
 
-    // 3b. Enquete de chamada (dividida em páginas de 10 se necessário)
+    // 3b. Enviar TODAS as páginas da enquete automaticamente com delay entre elas
     const total = membersList.length;
-    if (total <= 11) {
-      const memberNames = membersList.map(m => m.name);
-      if (memberNames.length > 0) {
-        await sendSurvey(liderPhone, 'Quem esteve PRESENTE no GC?', memberNames);
+    const PAGE_SIZE = 10;
+    const totalPages = Math.ceil(total / PAGE_SIZE);
+    
+    // Helper: delay entre mensagens
+    const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    for (let page = 0; page < totalPages; page++) {
+      const start = page * PAGE_SIZE;
+      const pageMembers = membersList.slice(start, start + PAGE_SIZE);
+      const memberNames = pageMembers.map(m => m.name);
+      
+      if (page > 0) {
+        await wait(3000); // 3 segundos de delay entre páginas
       }
-      await sendText(
-        liderPhone,
-        'Após marcar todos os presentes na enquete acima, envie *ok* para avançar.'
-      );
-    } else {
-      const firstPageMembers = membersList.slice(0, 10);
-      await sendSurvey(
-        liderPhone,
-        'Quem esteve PRESENTE no GC? (Pág. 1)',
-        firstPageMembers.map(m => m.name)
-      );
-      await sendText(
-        liderPhone,
-        'Após marcar os presentes desta página, envie *ok* para avançar.'
-      );
+      
+      const surveyTitle = totalPages === 1 
+        ? 'Quem esteve PRESENTE no GC?'
+        : `Quem esteve PRESENTE? (Pág. ${page + 1}/${totalPages})`;
+      
+      await sendSurvey(liderPhone, surveyTitle, memberNames);
     }
+    
+    // 3c. Mensagem final de instrução
+    await wait(2000);
+    await sendText(
+      liderPhone,
+      `📝 Marque os presentes em ${totalPages > 1 ? 'todas as enquetes acima' : 'na enquete acima'}.\n\nQuando terminar, envie *ok* para avançar para a próxima etapa.`
+    );
 
-    console.log('[GC Bot] Mensagens enviadas com sucesso para', liderPhone);
+    console.log(`[GC Bot] ${totalPages} página(s) de enquete enviadas para ${liderPhone}`);
 
     // 4. SÓ após enviar com sucesso, criar a sessão já no passo ATTENDANCE
     const newSession: GcReportSession = {
@@ -228,7 +235,7 @@ export async function handleGcReportIncomingMessage(
           const selectedNames = payload.selectedOptions as string[];
           const accumulated = [...(session.attendanceAccumulated || [])];
           
-          // Buscar membros de TODAS as páginas, não apenas da página atual
+          // Buscar membros de TODAS as páginas
           session.members.forEach(member => {
             const isSelected = selectedNames.includes(member.name);
             const existsInAccumulated = accumulated.includes(member.id);
@@ -241,65 +248,30 @@ export async function handleGcReportIncomingMessage(
           console.log(`[GC Bot] Presença atualizada: ${accumulated.length} presentes de ${session.members.length}`);
         }
 
-        // Avançar quando o líder digitar "ok", "pronto", etc.
-        if (type === 'text' && isAdvanceCommand(msg)) {
-          const total = session.members.length;
-          const currentPage = session.attendancePage || 0;
-          const nextPage = currentPage + 1;
-          const startIndex = nextPage * 10;
+        // "ok" -> concluir chamada e ir para CUIDADO (todas as páginas já foram enviadas)
+        if ((type === 'text' && isAdvanceCommand(msg)) || (type === 'button')) {
+          const latestSessionDoc = await sessionRef.get();
+          const latestSession = latestSessionDoc.data() as GcReportSession;
+          const accumulated = latestSession.attendanceAccumulated || [];
+          
+          const attendanceMap: { [memberId: string]: 'presente' | 'ausente_sem_justificativa' } = {};
+          session.members.forEach(member => {
+            attendanceMap[member.id] = accumulated.includes(member.id) ? 'presente' : 'ausente_sem_justificativa';
+          });
 
-          // Se tem mais páginas, enviar a próxima
-          if (startIndex < total) {
-            const pageMembers = session.members.slice(startIndex, startIndex + 10);
-            const memberNames = pageMembers.map(m => m.name);
-            
-            await sessionRef.update({ attendancePage: nextPage, updatedAt: now });
-            
-            await sendSurvey(
-              fromPhone,
-              `Quem esteve PRESENTE no GC? (Pág. ${nextPage + 1})`,
-              memberNames
-            );
-            
-            const isLastPage = (startIndex + 10) >= total;
-            if (isLastPage) {
-              await sendText(fromPhone, 'Após marcar os presentes desta página, envie *ok* para concluir a chamada.');
-            } else {
-              await sendText(fromPhone, 'Após marcar os presentes desta página, envie *ok* para avançar.');
-            }
-          } else {
-            // Concluir a chamada
-            const latestSessionDoc = await sessionRef.get();
-            const latestSession = latestSessionDoc.data() as GcReportSession;
-            const accumulated = latestSession.attendanceAccumulated || [];
-            
-            const attendanceMap: { [memberId: string]: 'presente' | 'ausente_sem_justificativa' } = {};
-            session.members.forEach(member => {
-              attendanceMap[member.id] = accumulated.includes(member.id) ? 'presente' : 'ausente_sem_justificativa';
-            });
-
-            const presentCount = Object.values(attendanceMap).filter(v => v === 'presente').length;
-            const absentCount = Object.values(attendanceMap).filter(v => v === 'ausente_sem_justificativa').length;
-            
-            await sessionRef.update({
-              attendance: attendanceMap,
-              step: 'CARE_CHOICE',
-              updatedAt: now
-            });
-            
-            await sendText(
-              fromPhone,
-              `✅ Chamada registrada! ${presentCount} presentes, ${absentCount} ausentes.\n\n❤️ *Etapa de Cuidado*\n\nAlgum membro do GC precisa de atenção ou cuidado especial esta semana?\n\nResponda *sim* ou *não*`
-            );
-          }
-        }
-        
-        // Também aceitar botão se por acaso for entregue
-        if (type === 'button') {
-          if (payload?.buttonId === 'attendance_next' || payload?.buttonId === 'attendance_done') {
-            // Simular texto "ok" para reaproveitar a lógica acima
-            return handleGcReportIncomingMessage(fromPhone, 'ok', 'text');
-          }
+          const presentCount = Object.values(attendanceMap).filter(v => v === 'presente').length;
+          const absentCount = Object.values(attendanceMap).filter(v => v === 'ausente_sem_justificativa').length;
+          
+          await sessionRef.update({
+            attendance: attendanceMap,
+            step: 'CARE_CHOICE',
+            updatedAt: now
+          });
+          
+          await sendText(
+            fromPhone,
+            `✅ Chamada registrada! ${presentCount} presentes, ${absentCount} ausentes.\n\n❤️ *Etapa de Cuidado*\n\nAlgum membro do GC precisa de atenção ou cuidado especial esta semana?\n\nResponda *sim* ou *não*`
+          );
         }
         break;
 

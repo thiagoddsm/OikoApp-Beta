@@ -159,6 +159,21 @@ export async function POST(request: Request) {
     // ===== DEBUG: Log detalhado para diagnóstico do Bot GC =====
     const textForDebug = msgContent.conversation || msgContent.extendedTextMessage?.text || data.text || '';
     console.log(`[Webhook DEBUG] fromPhone=${fromPhone}, fromRaw=${fromRaw}, fromMe=${data.fromMe}, isLid=${fromRaw.includes('@lid')}, text="${textForDebug}", responseType=${responseType}`);
+    
+    // Gravar log de debug no Firestore para diagnóstico remoto
+    try {
+      await db.collection('gc_bot_debug').add({
+        fromPhone,
+        fromRaw,
+        fromMe: data.fromMe,
+        text: textForDebug,
+        responseType: responseType || 'text',
+        isLid: fromRaw.includes('@lid'),
+        receivedAt: Timestamp.now(),
+        rawKeys: Object.keys(data).join(', '),
+        msgContentKeys: Object.keys(msgContent).join(', '),
+      });
+    } catch (e) { /* ignore */ }
 
     // Interceptor para o Bot de Relatório de GC se houver sessão ativa
     // Relaxar a condição: aceitar fromMe === undefined como "não é de mim"
