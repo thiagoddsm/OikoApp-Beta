@@ -167,8 +167,28 @@ export async function POST(request: Request) {
     
     if (!isFromMe && !isGroup) {
         console.log(`[Webhook DEBUG] Checando sessão GC para fromPhone=${fromPhone}...`);
-        const sessionDoc = await db.collection('gc_report_sessions').doc(fromPhone).get();
-        console.log(`[Webhook DEBUG] Sessão GC existe? ${sessionDoc.exists}`);
+        
+        // Tentar múltiplos formatos de telefone para encontrar a sessão
+        let sessionDoc = await db.collection('gc_report_sessions').doc(fromPhone).get();
+        let sessionPhone = fromPhone;
+        
+        if (!sessionDoc.exists && fromPhone.startsWith('55')) {
+            // Tentar sem o prefixo 55
+            const withoutPrefix = fromPhone.substring(2);
+            console.log(`[Webhook DEBUG] Sessão não encontrada com ${fromPhone}, tentando ${withoutPrefix}...`);
+            sessionDoc = await db.collection('gc_report_sessions').doc(withoutPrefix).get();
+            if (sessionDoc.exists) sessionPhone = withoutPrefix;
+        }
+        
+        if (!sessionDoc.exists && !fromPhone.startsWith('55')) {
+            // Tentar com o prefixo 55
+            const withPrefix = `55${fromPhone}`;
+            console.log(`[Webhook DEBUG] Sessão não encontrada com ${fromPhone}, tentando ${withPrefix}...`);
+            sessionDoc = await db.collection('gc_report_sessions').doc(withPrefix).get();
+            if (sessionDoc.exists) sessionPhone = withPrefix;
+        }
+        
+        console.log(`[Webhook DEBUG] Sessão GC existe? ${sessionDoc.exists} (phone usado: ${sessionPhone})`);
         
         if (sessionDoc.exists) {
             let messageText = '';
@@ -183,7 +203,7 @@ export async function POST(request: Request) {
             console.log(`[Webhook DEBUG] Encaminhando para GC Bot: messageText="${messageText}", type=${responseType || 'text'}`);
             const { handleGcReportIncomingMessage } = await import('@/lib/gc-report-bot');
             await handleGcReportIncomingMessage(
-                fromPhone,
+                sessionPhone,
                 messageText,
                 responseType || 'text',
                 payload
