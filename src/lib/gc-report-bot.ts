@@ -122,7 +122,7 @@ export async function startGcReportSession(cellId: string, liderPhone: string, i
       `Olá, líder! 👋\nVamos preencher o relatório semanal do GC *${cellData.nome || 'Célula'}*? É rapidinho!\n\n📋 *Etapa 1: Chamada*\nVote nas enquetes abaixo marcando todos os membros que estiveram *PRESENTES* na reunião.`
     );
 
-    // 3b. Enviar TODAS as páginas da enquete automaticamente com delay entre elas
+    // 3b. Enviar TODAS as páginas da enquete automaticamente com delay generoso entre elas
     const total = membersList.length;
     const PAGE_SIZE = 10;
     const totalPages = Math.ceil(total / PAGE_SIZE);
@@ -135,25 +135,34 @@ export async function startGcReportSession(cellId: string, liderPhone: string, i
       const pageMembers = membersList.slice(start, start + PAGE_SIZE);
       const memberNames = pageMembers.map(m => m.name);
       
-      if (page > 0) {
-        await wait(3000); // 3 segundos de delay entre páginas
-      }
+      await wait(5000); // 5 segundos entre cada mensagem para não engasgar a API
       
       const surveyTitle = totalPages === 1 
         ? 'Quem esteve PRESENTE no GC?'
         : `Quem esteve PRESENTE? (Pág. ${page + 1}/${totalPages})`;
       
-      await sendSurvey(liderPhone, surveyTitle, memberNames);
+      try {
+        await sendSurvey(liderPhone, surveyTitle, memberNames);
+        console.log(`[GC Bot] Enquete pág ${page + 1}/${totalPages} enviada com sucesso.`);
+      } catch (e: any) {
+        console.error(`[GC Bot] ERRO ao enviar enquete pág ${page + 1}:`, e.message);
+      }
     }
     
-    // 3c. Enquete de avanço (funciona como botão - enquetes chegam, texto não)
-    await wait(2000);
-    await sendText(
-      liderPhone,
-      `📝 Marque os presentes em ${totalPages > 1 ? 'todas as enquetes acima' : 'na enquete acima'}.\n\nQuando terminar, vote na enquete abaixo para avançar.`
-    );
-    await wait(1000);
-    await sendSurvey(liderPhone, '✅ Concluir Chamada e Avançar', ['Avançar ➡️']);
+    // 3c. Botão de avanço (com delay generoso - BOTÃO funciona, confirmado na área de notificações)
+    await wait(8000); // 8 segundos antes do botão final
+    try {
+      await sendButtons(
+        liderPhone,
+        `📝 Marque os presentes em ${totalPages > 1 ? 'todas as enquetes acima' : 'na enquete acima'}.\n\nQuando terminar, clique abaixo para avançar.`,
+        [{ id: 'attendance_done', text: 'Concluir Chamada ✅' }]
+      );
+      console.log('[GC Bot] Botão de avançar enviado com sucesso.');
+    } catch (e: any) {
+      console.error('[GC Bot] ERRO ao enviar botão de avançar:', e.message);
+      // Fallback: enviar como texto
+      await sendText(liderPhone, '📝 Marque os presentes nas enquetes acima.\n\nQuando terminar, envie *ok* para avançar.');
+    }
 
     console.log(`[GC Bot] ${totalPages} página(s) de enquete enviadas para ${liderPhone}`);
 
