@@ -149,17 +149,17 @@ export async function startGcReportSession(cellId: string, liderPhone: string, i
       }
     }
     
-    // 3c. Botão de avanço (com delay generoso - BOTÃO funciona, confirmado na área de notificações)
-    await wait(8000); // 8 segundos antes do botão final
+    // 3c. Enquete de avanço (com delay generoso - Enquetes funcionam 100% em todos os clientes, incluindo Web)
+    await wait(8000); // 8 segundos antes da enquete final
     try {
-      await sendButtons(
+      await sendSurvey(
         liderPhone,
-        `📝 Marque os presentes em ${totalPages > 1 ? 'todas as enquetes acima' : 'na enquete acima'}.\n\nQuando terminar, clique abaixo para avançar.`,
-        [{ id: 'attendance_done', text: 'Concluir Chamada ✅' }]
+        `📝 Marque os presentes em ${totalPages > 1 ? 'todas as enquetes acima' : 'na enquete acima'}.\n\nQuando terminar, vote abaixo para avançar.`,
+        ['Concluir Chamada ✅']
       );
-      console.log('[GC Bot] Botão de avançar enviado com sucesso.');
+      console.log('[GC Bot] Enquete de avançar enviada com sucesso.');
     } catch (e: any) {
-      console.error('[GC Bot] ERRO ao enviar botão de avançar:', e.message);
+      console.error('[GC Bot] ERRO ao enviar enquete de avançar:', e.message);
       // Fallback: enviar como texto
       await sendText(liderPhone, '📝 Marque os presentes nas enquetes acima.\n\nQuando terminar, envie *ok* para avançar.');
     }
@@ -598,29 +598,26 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
       if (total <= 11) {
         const memberNames = session.members.map(m => m.name);
         await sendSurvey(to, 'Quem esteve PRESENTE no GC?', memberNames);
-        await sendButtons(to, 'Clique abaixo para concluir a chamada.', [{ id: 'attendance_done', text: 'Concluir Chamada ➡️' }]);
+        await sendSurvey(to, 'Quando terminar, vote abaixo para concluir a chamada.', ['Concluir Chamada ➡️']);
       } else {
         const pageMembers = session.members.slice(pageIndex * 10, (pageIndex * 10) + 10);
         const memberNames = pageMembers.map(m => m.name);
         await sendSurvey(to, `Quem esteve PRESENTE no GC? (Pág. ${pageIndex + 1})`, memberNames);
         const isLastPage = (pageIndex * 10 + 10) >= total;
         if (isLastPage) {
-          await sendButtons(to, 'Clique abaixo para concluir a chamada.', [{ id: 'attendance_done', text: 'Concluir Chamada ➡️' }]);
+          await sendSurvey(to, 'Quando terminar, vote abaixo para concluir a chamada.', ['Concluir Chamada ➡️']);
         } else {
-          await sendButtons(to, 'Clique abaixo para avançar.', [{ id: 'attendance_next', text: 'Avançar ➡️' }]);
+          await sendSurvey(to, 'Vote abaixo para avançar de página.', ['Avançar ➡️']);
         }
       }
       break;
     case 'CARE_CHOICE':
-      await sendButtons(to, 'Algum membro do GC precisa de atenção especial?', [
-        { id: 'care_yes', text: 'Sim, selecionar' },
-        { id: 'care_no', text: 'Não, avançar' }
-      ]);
+      await sendSurvey(to, 'Algum membro do GC precisa de atenção especial?', ['Sim, selecionar', 'Não, avançar']);
       break;
     case 'CARE_SELECT':
       const presentMembers = session.members.filter(m => session.attendance[m.id] === 'presente');
       await sendSurvey(to, 'Quem precisa de atenção especial?', presentMembers.map(m => m.name).slice(0, 11));
-      await sendButtons(to, 'Clique abaixo para concluir a seleção.', [{ id: 'care_select_done', text: 'Concluir Seleção ➡️' }]);
+      await sendSurvey(to, '✅ Concluir seleção de cuidado', ['Avançar ➡️']);
       break;
     case 'CARE_MEMBER_THERMOMETER':
       const careQueueT = session.careMembersQueue || [];
@@ -643,17 +640,10 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
       await sendText(to, '👥 *Etapa 3: Visitantes*\n\nDigite os nomes separados por vírgula ou envie 0.');
       break;
     case 'METRICS_CONVERSIONS':
-      await sendButtons(to, '🎯 *Etapa 4: Conversões*\n\nHouve decisões na reunião?', [
-        { id: 'conv_0', text: 'Não (0)' },
-        { id: 'conv_1', text: 'Sim (1)' },
-        { id: 'conv_more', text: 'Mais de 1' }
-      ]);
+      await sendText(to, '🎯 *Etapa 4: Conversões*\n\nQuantas decisões por Cristo ou reconciliações aconteceram na reunião?\n\nEnvie o número (ex: *0*, *1*, *2*...)');
       break;
     case 'FEEDBACK':
-      await sendButtons(to, '💬 *Etapa 5: Feedback*\n\nQuer deixar feedback ao seu supervisor?', [
-        { id: 'feed_skip', text: 'Não, concluir' },
-        { id: 'feed_write', text: 'Sim, escrever' }
-      ]);
+      await sendText(to, '💬 *Etapa 5: Feedback ao Supervisor*\n\nQuer deixar alguma mensagem, observação de cuidado ou feedback para o seu supervisor?\n\nDigite sua mensagem ou envie *0* para concluir sem feedback.');
       break;
   }
 }
