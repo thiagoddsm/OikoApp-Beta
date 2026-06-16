@@ -152,9 +152,14 @@ export async function startGcReportSession(cellId: string, liderPhone: string, i
     // 3c. Enquete de avanço (com delay generoso - Enquetes funcionam 100% em todos os clientes, incluindo Web)
     await wait(8000); // 8 segundos antes da enquete final
     try {
+      await sendText(
+        liderPhone,
+        `📝 Marque os presentes em ${totalPages > 1 ? 'todas as enquetes acima' : 'na enquete acima'}.\n\nQuando terminar, vote abaixo para avançar.`
+      );
+      await wait(1500);
       await sendSurvey(
         liderPhone,
-        `📝 Marque os presentes em ${totalPages > 1 ? 'todas as enquetes acima' : 'na enquete acima'}.\n\nQuando terminar, vote abaixo para avançar.`,
+        '✅ Podemos avançar?',
         ['Concluir Chamada ✅']
       );
       console.log('[GC Bot] Enquete de avançar enviada com sucesso.');
