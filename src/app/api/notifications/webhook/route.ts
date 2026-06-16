@@ -11,12 +11,16 @@ export async function POST(request: Request) {
   try {
     const db = getAdminDb();
     const raw = await request.json();
+    console.log("RAW WEBHOOK PAYLOAD:", JSON.stringify(raw, null, 2));
     const data = raw.data || raw;
     const msgContent = data.msgContent || data.message || {};
     
     // 1. Sender Identification
     const fromRaw = data.key?.remoteJid || data.from || data.participant || data.author;
-    if (!fromRaw) return NextResponse.json({ success: true });
+    if (!fromRaw) {
+        console.log("NO FROM RAW! Returning early.");
+        return NextResponse.json({ success: true });
+    }
 
     // Extrair o número real, lidando com JIDs multi-device (ex: 5521999998888:1@s.whatsapp.net)
     // Pegamos a parte antes do @ e se houver :, pegamos a parte antes do :
@@ -28,46 +32,47 @@ export async function POST(request: Request) {
     const isLid = fromRaw.includes('@lid') || (fromPhone.length > 0 && !fromPhone.startsWith('55') && fromPhone.length < 13 && fromPhone.length > 8);
     
     if (isLid) {
-        // ESTRATÉGIA 1: Usar campos do payload que já contêm o número real
-        // A API api-wa.me envia 'phoneNumber' e 'jid' com o número real mesmo quando 'from' é LID
+        // ESTRATÉGIA 1: Usar phoneNumber se a API wa.me conseguir resolver
         const rawPhoneNumber = String(data.phoneNumber || '').replace(/\D/g, '');
-        const rawJid = String(data.jid || '').split('@')[0].split(':')[0].replace(/\D/g, '');
         
         if (rawPhoneNumber.length >= 10) {
             fromPhone = rawPhoneNumber.startsWith('55') ? rawPhoneNumber : `55${rawPhoneNumber}`;
-        } else if (rawJid.length >= 10 && rawJid.startsWith('55')) {
-            fromPhone = rawJid;
-        } else if (rawJid.length >= 10) {
-            fromPhone = `55${rawJid}`;
         } else {
-            // ESTRATÉGIA 2: Resolver via Firestore (mais lento mas robusto)
+            // ESTRATÉGIA 2: Tentar resolver via Firestore (se já salvamos o lid na collection de contatos)
             const lidValue = fromParts[0];
             
-            const userByLidSnap = await db.collection('users')
-                .where('lid', '==', `${lidValue}@lid`)
-                .limit(1)
-                .get();
-            
-            if (!userByLidSnap.empty) {
-                const userData = userByLidSnap.docs[0].data();
-                const resolvedPhone = String(userData.phone || '').replace(/\D/g, '');
-                if (resolvedPhone.length >= 10) {
-                    fromPhone = resolvedPhone.startsWith('55') ? resolvedPhone : `55${resolvedPhone}`;
-                }
-            } else {
-                const contactByLidSnap = await db.collection('notifications_contacts')
+            try {
+                const userByLidSnap = await db.collection('users')
                     .where('lid', '==', `${lidValue}@lid`)
                     .limit(1)
                     .get();
                 
-                if (!contactByLidSnap.empty) {
-                    const contactData = contactByLidSnap.docs[0].data();
-                    const resolvedPhone = String(contactData.phoneNumber || '').replace(/\D/g, '');
+                if (!userByLidSnap.empty) {
+                    const userData = userByLidSnap.docs[0].data();
+                    const resolvedPhone = String(userData.phone || '').replace(/\D/g, '');
                     if (resolvedPhone.length >= 10) {
-                        fromPhone = resolvedPhone;
+                        fromPhone = resolvedPhone.startsWith('55') ? resolvedPhone : `55${resolvedPhone}`;
+                    }
+                } else {
+                    const contactByLidSnap = await db.collection('notifications_contacts')
+                        .where('lid', '==', `${lidValue}@lid`)
+                        .limit(1)
+                        .get();
+                    
+                    if (!contactByLidSnap.empty) {
+                        const contactData = contactByLidSnap.docs[0].data();
+                        const resolvedPhone = String(contactData.phoneNumber || '').replace(/\D/g, '');
+                        if (resolvedPhone.length >= 10) {
+                            fromPhone = resolvedPhone;
+                        }
                     }
                 }
+            } catch (e) {
+                // Ignore DB errors during resolution
             }
+            
+            // Se não conseguimos resolver, fromPhone vai continuar sendo o número do LID (ex: 43817323462720)
+            // Isso nos permite continuar a sessão usando o LID como chave.
         }
     }
 
