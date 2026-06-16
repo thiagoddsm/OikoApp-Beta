@@ -269,7 +269,7 @@ export async function handleGcReportIncomingMessage(
 
         // Concluir chamada quando votar na enquete de avanço, ou digitar ok/pronto, ou clicar botão
         const isAdvancePoll = type === 'poll' && payload?.selectedOptions?.some((o: string) => 
-          o.toLowerCase().includes('avançar') || o.toLowerCase().includes('avancar')
+          o.toLowerCase().includes('avançar') || o.toLowerCase().includes('avancar') || o.toLowerCase().includes('concluir')
         );
         const isAdvanceText = type === 'text' && isAdvanceCommand(msg);
         const isAdvanceButton = type === 'button';
@@ -353,7 +353,7 @@ export async function handleGcReportIncomingMessage(
           
           // Verificar se é a enquete de avanço
           const isAdvancePollVote = selectedNames.some((o: string) => 
-            o.toLowerCase().includes('avançar') || o.toLowerCase().includes('avancar')
+            o.toLowerCase().includes('avançar') || o.toLowerCase().includes('avancar') || o.toLowerCase().includes('concluir')
           );
           
           if (!isAdvancePollVote) {
