@@ -160,7 +160,7 @@ export async function startGcReportSession(cellId: string, liderPhone: string, i
       await sendSurvey(
         liderPhone,
         '✅ Podemos avançar?',
-        ['Concluir Chamada ✅']
+        ['Concluir Chamada ✅', 'Ainda não ❌']
       );
       console.log('[GC Bot] Enquete de avançar enviada com sucesso.');
     } catch (e: any) {
@@ -336,7 +336,7 @@ export async function handleGcReportIncomingMessage(
             );
             
             await wait(1000);
-            await sendSurvey(fromPhone, '✅ Concluir seleção de cuidado', ['Avançar ➡️']);
+            await sendSurvey(fromPhone, '✅ Concluir seleção de cuidado', ['Avançar ➡️', 'Ainda não ❌']);
           }
         } else if (careAnswer === 'nao') {
           await sessionRef.update({ step: 'METRICS_LESSON', updatedAt: now });
@@ -603,16 +603,16 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
       if (total <= 11) {
         const memberNames = session.members.map(m => m.name);
         await sendSurvey(to, 'Quem esteve PRESENTE no GC?', memberNames);
-        await sendSurvey(to, 'Quando terminar, vote abaixo para concluir a chamada.', ['Concluir Chamada ➡️']);
+        await sendSurvey(to, 'Quando terminar, vote abaixo para concluir a chamada.', ['Concluir Chamada ➡️', 'Ainda não ❌']);
       } else {
         const pageMembers = session.members.slice(pageIndex * 10, (pageIndex * 10) + 10);
         const memberNames = pageMembers.map(m => m.name);
         await sendSurvey(to, `Quem esteve PRESENTE no GC? (Pág. ${pageIndex + 1})`, memberNames);
         const isLastPage = (pageIndex * 10 + 10) >= total;
         if (isLastPage) {
-          await sendSurvey(to, 'Quando terminar, vote abaixo para concluir a chamada.', ['Concluir Chamada ➡️']);
+          await sendSurvey(to, 'Quando terminar, vote abaixo para concluir a chamada.', ['Concluir Chamada ➡️', 'Ainda não ❌']);
         } else {
-          await sendSurvey(to, 'Vote abaixo para avançar de página.', ['Avançar ➡️']);
+          await sendSurvey(to, 'Vote abaixo para avançar de página.', ['Avançar ➡️', 'Ainda não ❌']);
         }
       }
       break;
@@ -622,7 +622,7 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
     case 'CARE_SELECT':
       const presentMembers = session.members.filter(m => session.attendance[m.id] === 'presente');
       await sendSurvey(to, 'Quem precisa de atenção especial?', presentMembers.map(m => m.name).slice(0, 11));
-      await sendSurvey(to, '✅ Concluir seleção de cuidado', ['Avançar ➡️']);
+      await sendSurvey(to, '✅ Concluir seleção de cuidado', ['Avançar ➡️', 'Ainda não ❌']);
       break;
     case 'CARE_MEMBER_THERMOMETER':
       const careQueueT = session.careMembersQueue || [];
