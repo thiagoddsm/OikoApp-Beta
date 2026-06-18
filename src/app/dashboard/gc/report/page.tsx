@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, query, where, doc, writeBatch, Timestamp, serverTimestamp, getDocs } from 'firebase/firestore';
+import { collection, query, where, doc, writeBatch, Timestamp, serverTimestamp, getDocs, deleteDoc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Loader2, Send, Users, Heart, BarChart2, MessageSquare,
   ChevronRight, ChevronLeft, CheckCircle2, AlertTriangle,
-  Flame, HandHeart, UserX, UserCheck, History, BotMessageSquare
+  Flame, HandHeart, UserX, UserCheck, History, BotMessageSquare, Trash2
 } from 'lucide-react';
 import { triggerGcReportForCell } from '@/app/actions/whatsapp-actions';
 import { useToast } from '@/hooks/use-toast';
@@ -463,6 +463,45 @@ export default function CellReportPage() {
     }
   };
 
+  const handleDeleteLog = async () => {
+    if (!editingLogId) return;
+    if (!confirm('Tem certeza que deseja excluir este relatório permanentemente? Essa ação não pode ser desfeita.')) return;
+    
+    setIsSubmitting(true);
+    try {
+      const batch = writeBatch(firestore);
+      batch.delete(doc(firestore, 'reuniao_logs', editingLogId));
+      
+      const oldPresDocs = await getDocs(
+        query(collection(firestore, 'presencas_historico'), where('reuniaoLogId', '==', editingLogId))
+      );
+      oldPresDocs.forEach(d => batch.delete(d.ref));
+      
+      await batch.commit();
+      toast({ title: 'Relatório excluído', description: 'O relatório foi removido com sucesso.' });
+      setEditingLogId(null);
+      setReportDate(getLastMeetingDate(cell?.meetingDay));
+      setMetricas({ licao: '', visitantes: '', conversoes: 0 });
+      setFeedback('');
+      if (members) {
+        setAttendance(members.map(m => ({
+          membroId: m.id,
+          membroNome: m.name,
+          status: 'presente',
+          termometro: null,
+          pedidoOracao: '',
+          observacaoCuidado: '',
+        })));
+      }
+      setStep(1);
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Erro ao excluir', description: 'Ocorreu um erro ao excluir o relatório.', variant: 'destructive' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   // Estado da chamada
   const [attendance, setAttendance] = useState<MemberAttendance[]>([]);
 
@@ -720,30 +759,42 @@ export default function CellReportPage() {
                 );
               })}
               {editingLogId && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs text-destructive hover:bg-destructive/10 h-8"
-                  onClick={() => {
-                    setEditingLogId(null);
-                    setReportDate(getLastMeetingDate(cell?.meetingDay));
-                    setMetricas({ licao: '', visitantes: '', conversoes: 0 });
-                    setFeedback('');
-                    if (members) {
-                      setAttendance(members.map(m => ({
-                        membroId: m.id,
-                        membroNome: m.name,
-                        status: 'presente',
-                        termometro: null,
-                        pedidoOracao: '',
-                        observacaoCuidado: '',
-                      })));
-                    }
-                    setStep(1);
-                  }}
-                >
-                  Cancelar Edição (Novo)
-                </Button>
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-muted-foreground hover:bg-slate-100 h-8"
+                    onClick={() => {
+                      setEditingLogId(null);
+                      setReportDate(getLastMeetingDate(cell?.meetingDay));
+                      setMetricas({ licao: '', visitantes: '', conversoes: 0 });
+                      setFeedback('');
+                      if (members) {
+                        setAttendance(members.map(m => ({
+                          membroId: m.id,
+                          membroNome: m.name,
+                          status: 'presente',
+                          termometro: null,
+                          pedidoOracao: '',
+                          observacaoCuidado: '',
+                        })));
+                      }
+                      setStep(1);
+                    }}
+                  >
+                    Cancelar Edição (Novo)
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-destructive hover:bg-destructive/10 h-8 ml-1"
+                    onClick={handleDeleteLog}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Trash2 className="h-3 w-3 mr-1" />}
+                    Excluir Relatório
+                  </Button>
+                </>
               )}
             </div>
           </CardContent>
