@@ -180,17 +180,18 @@ export async function POST(request: Request) {
     // Gravar log de debug no Firestore para diagnóstico remoto
     try {
       await db.collection('gc_bot_debug').add({
-        fromPhone,
-        fromRaw,
-        fromMe: data.fromMe,
-        text: textForDebug,
+        fromPhone: fromPhone || '',
+        fromRaw: fromRaw || '',
+        fromMe: data.fromMe || false,
+        text: textForDebug || '',
         responseType: responseType || 'text',
+        payload: payload || null,
         isLid: fromRaw.includes('@lid'),
         receivedAt: Timestamp.now(),
-        rawKeys: Object.keys(data).join(', '),
-        msgContentKeys: Object.keys(msgContent).join(', '),
+        rawKeys: Object.keys(data || {}).join(', '),
+        msgContentKeys: Object.keys(msgContent || {}).join(', '),
       });
-    } catch (e) { /* ignore */ }
+    } catch (e) { console.error("DEBUG LOG ERROR:", e); }
 
     // Interceptor para o Bot de Relatório de GC se houver sessão ativa
     // Relaxar a condição: aceitar fromMe === undefined como "não é de mim"
