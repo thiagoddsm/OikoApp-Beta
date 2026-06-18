@@ -186,6 +186,7 @@ export async function POST(request: Request) {
         text: textForDebug || '',
         responseType: responseType || 'text',
         payload: payload || null,
+        rawPollUpdate: msgContent.pollUpdateMessage || null,
         isLid: fromRaw.includes('@lid'),
         receivedAt: Timestamp.now(),
         rawKeys: Object.keys(data || {}).join(', '),
