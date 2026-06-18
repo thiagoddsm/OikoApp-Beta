@@ -47,24 +47,6 @@ async function sendButtons(to: string, text: string, buttons: { id: string; text
   });
 }
 
-/**
- * Envia uma enquete (Poll).
- */
-async function sendSurvey(to: string, name: string, options: string[]) {
-  const whatsapp = await getWhatsAppClient();
-  await whatsapp.sendMessage({
-    type: 'survey',
-    body: {
-      to,
-      name,
-      options
-    }
-  });
-}
-
-/**
- * Envia uma mensagem de texto simples.
- */
 async function sendText(to: string, text: string) {
   const whatsapp = await getWhatsAppClient();
   await whatsapp.sendMessage({
@@ -74,6 +56,83 @@ async function sendText(to: string, text: string) {
       text
     }
   });
+}
+
+/**
+ * Envia uma mensagem com botões interativos (Quick Replies).
+ */
+async function sendButton(to: string, text: string, buttons: { id: string, text: string }[], title?: string, footer?: string) {
+  const whatsapp = await getWhatsAppClient();
+  await whatsapp.sendMessage({
+    type: 'button',
+    body: {
+      to,
+      text,
+      title,
+      footer,
+      buttons
+    }
+  });
+}
+
+/**
+ * Envia uma mensagem de lista interativa (Menu).
+ */
+async function sendList(to: string, text: string, buttonText: string, sections: any[], title?: string, footer?: string) {
+  const whatsapp = await getWhatsAppClient();
+  await whatsapp.sendMessage({
+    type: 'list',
+    body: {
+      to,
+      text,
+      buttonText,
+      title,
+      footer,
+      sections
+    }
+  });
+}
+
+/**
+ * Envia uma enquete de múltipla escolha.
+ */
+async function sendPoll(to: string, name: string, options: string[], selectableCount: number) {
+  const whatsapp = await getWhatsAppClient();
+  await whatsapp.sendMessage({
+    type: 'poll',
+    body: {
+      to,
+      name,
+      options,
+      selectableCount
+    }
+  });
+}
+
+/**
+ * Envia enquetes de múltipla escolha paginadas (max 12 opções) e um botão de concluir.
+ */
+async function sendMembersPolls(to: string, membersList: { id: string; name: string }[], isCare = false) {
+  const options = membersList.map((m, i) => `${i + 1}. ${m.name.substring(0, 20)}`);
+  const chunkSize = 12;
+  const numPages = Math.ceil(options.length / chunkSize);
+  const title = isCare ? 'Quem precisa de cuidado?' : 'Quem estava PRESENTE?';
+  
+  if (options.length === 0) {
+    await sendText(to, isCare ? 'Nenhum membro cadastrado.' : 'Nenhum membro cadastrado.');
+  } else {
+    for (let i = 0; i < numPages; i++) {
+      const chunk = options.slice(i * chunkSize, (i + 1) * chunkSize);
+      const pageTitle = numPages > 1 ? `${title} (Pág ${i + 1}/${numPages})` : title;
+      await sendPoll(to, pageTitle, chunk, chunk.length);
+    }
+  }
+
+  // Enviar instrução de conclusão por texto em vez de botão
+  await sendText(
+    to,
+    '👉 Quando terminar de marcar na enquete, responda com *OK* para continuarmos.'
+  );
 }
 
 /**
@@ -113,19 +172,27 @@ export async function startGcReportSession(cellId: string, liderPhone: string, i
     }
     membersList.sort((a, b) => a.name.localeCompare(b.name));
 
-    // 3. Enviar mensagens no WhatsApp: boas-vindas + TODAS as enquetes de chamada
+    // 3. Enviar mensagens no WhatsApp: boas-vindas + Lista de Chamada
     console.log(`[GC Bot] Enviando fluxo de relatório para ${liderPhone}...`);
     
+    // Buscar nome do líder para saudação personalizada
+    let liderName = '';
+    if (liderId) {
+      const liderDoc = await db.collection('users').doc(liderId).get();
+      if (liderDoc.exists) {
+        liderName = ` ${liderDoc.data()!.name?.split(' ')[0]}`;
+      }
+    }
+
     // Mensagem de boas-vindas
-    const listaChamada = membersList.map((m, i) => `${i + 1}. ${m.name}`).join('\n');
     await sendText(
       liderPhone,
-      `Olá, líder! 👋\nVamos preencher o relatório semanal do GC *${cellData.nome || 'Célula'}*? É rapidinho!\n\n📋 *Etapa 1: Chamada*\nQuem esteve *PRESENTE* na reunião?\n\n${listaChamada}\n\n👉 *Responda com os NÚMEROS dos presentes separados por vírgula (Ex: 1, 3, 5).* Se ninguém estava presente, digite *0*.`
+      `Olá, líder${liderName}! 👋\nVamos preencher o relatório semanal do GC *${cellData.nome || 'Célula'}*? É rapidinho!\n\n📋 *Etapa 1: Chamada*\nMarque na enquete abaixo quem esteve *PRESENTE* na reunião.`
     );
+    
+    await sendMembersPolls(liderPhone, membersList, false);
 
-
-
-    // 4. SÓ após enviar com sucesso, criar a sessão já no passo ATTENDANCE
+    // 4. Salvar estado da sessão na coleção `gc_report_sessions`
     const newSession: GcReportSession = {
       id: liderPhone,
       cellId,
@@ -202,51 +269,83 @@ export async function handleGcReportIncomingMessage(
         }
         break;
 
-      case 'ATTENDANCE':
-        if (type !== 'text') {
-           await sendText(fromPhone, 'Por favor, envie os *números* dos presentes, separados por vírgula (ex: 1, 3, 5). Se ninguém faltou, digite *todos*. Se ninguém esteve presente, digite *0*.');
-           return true;
-        }
+      case 'ATTENDANCE': {
+        const latestDoc = await sessionRef.get();
+        const latest = latestDoc.data() as GcReportSession;
 
-        let presentIds: string[] = [];
-        if (msg === 'todos' || msg === 'todo mundo') {
-           presentIds = session.members.map(m => m.id);
-        } else if (msg !== '0' && msg !== 'nenhum') {
-           const nums = msg.split(/[,; e]+/).map(n => parseInt(n.trim(), 10)).filter(n => !isNaN(n) && n > 0 && n <= session.members.length);
-           presentIds = nums.map(n => session.members[n - 1].id);
-           
-           if (presentIds.length === 0) {
-             await sendText(fromPhone, 'Não entendi os números. Envie no formato: *1, 3, 5* ou digite *0* se ninguém esteve presente.');
-             return true;
+        if (type === 'poll' && payload?.selectedOptions) {
+          const options = payload.selectedOptions as string[];
+          const pollOptionsMap = new Map();
+          session.members.forEach((m, i) => {
+            pollOptionsMap.set(`${i + 1}. ${m.name.substring(0, 20)}`, m.id);
+          });
+          
+          const selectedMemberIds: string[] = [];
+          options.forEach((opt: string) => {
+             const id = pollOptionsMap.get(opt);
+             if (id) selectedMemberIds.push(id);
+          });
+          
+          let pollSelections: any = latest.pollSelections || {};
+          pollSelections[payload.pollName || 'poll'] = selectedMemberIds;
+
+          await sessionRef.update({
+            pollSelections,
+            updatedAt: now
+          });
+          return true; // Aguarda o usuário responder OK
+        } else if ((type === 'button' && payload?.buttonId === 'attendance_done') || (type === 'text' && isAdvanceCommand(msg))) {
+          const pollSelections: any = latest.pollSelections || {};
+          let presentIds: string[] = [];
+          Object.values(pollSelections).forEach((ids: any) => presentIds.push(...ids));
+          
+          // Remove duplicatas (caso raro)
+          presentIds = [...new Set(presentIds)];
+
+          const attendanceMap: { [memberId: string]: 'presente' | 'ausente_sem_justificativa' } = {};
+          session.members.forEach(member => {
+            attendanceMap[member.id] = presentIds.includes(member.id) ? 'presente' : 'ausente_sem_justificativa';
+          });
+
+          const presentCount = presentIds.length;
+          const absentCount = session.members.length - presentCount;
+
+          await sessionRef.update({
+            attendance: attendanceMap,
+            attendanceAccumulated: presentIds,
+            step: 'CARE_CHOICE',
+            updatedAt: now
+          });
+          
+          await sendText(
+            fromPhone,
+            `✅ Chamada registrada! ${presentCount} presentes, ${absentCount} ausentes.\n\n❤️ *Etapa de Cuidado*\n\nAlgum membro do GC precisa de atenção ou cuidado especial esta semana?`
+          );
+          await wait(1000);
+          await sendPoll(fromPhone, 'Algum membro precisa de cuidado?', ['Sim', 'Não'], 1);
+        } else if (type === 'text') {
+           // Aceitar fallback em texto ("ok" ou número se preencher na mão)
+           if (msg === 'ok' || msg === 'pronto' || msg === '0') {
+             // Simular botão done
+             return handleGcReportIncomingMessage(fromPhone, '', 'button', { buttonId: 'attendance_done' });
            }
         }
-        
-        const attendanceMap: { [memberId: string]: 'presente' | 'ausente_sem_justificativa' } = {};
-        session.members.forEach(member => {
-          attendanceMap[member.id] = presentIds.includes(member.id) ? 'presente' : 'ausente_sem_justificativa';
-        });
-
-        const presentCount = presentIds.length;
-        const absentCount = session.members.length - presentCount;
-        
-        await sessionRef.update({
-          attendance: attendanceMap,
-          step: 'CARE_CHOICE',
-          updatedAt: now
-        });
-        
-        await sendText(
-          fromPhone,
-          `✅ Chamada registrada! ${presentCount} presentes, ${absentCount} ausentes.\n\n❤️ *Etapa de Cuidado*\n\nAlgum membro do GC precisa de atenção ou cuidado especial esta semana?\n\n👉 *Responda SIM ou NÃO*`
-        );
         break;
 
       case 'CARE_CHOICE': {
+        // Detectar resposta via enquete (Sim/Não) ou texto
         let careAnswer: 'sim' | 'nao' | null = null;
         
-        if (type === 'text') {
-          if (msg === 'sim' || msg === 's' || msg.includes('sim')) careAnswer = 'sim';
-          else if (msg === 'não' || msg === 'nao' || msg === 'n' || msg.includes('nao') || msg.includes('não')) careAnswer = 'nao';
+        if (type === 'poll' && payload?.selectedOptions) {
+          const options = (payload.selectedOptions as string[]).map((o: string) => o.toLowerCase());
+          if (options.some((o: string) => o.includes('sim'))) careAnswer = 'sim';
+          else if (options.some((o: string) => o.includes('não') || o.includes('nao'))) careAnswer = 'nao';
+        } else if (type === 'text') {
+          if (msg === 'sim' || msg === 's') careAnswer = 'sim';
+          else if (msg === 'não' || msg === 'nao' || msg === 'n') careAnswer = 'nao';
+        } else if (type === 'button') {
+          if (payload?.buttonId === 'care_yes') careAnswer = 'sim';
+          if (payload?.buttonId === 'care_no') careAnswer = 'nao';
         }
         
         if (careAnswer === 'sim') {
@@ -255,71 +354,88 @@ export async function handleGcReportIncomingMessage(
           if (presentMembers.length === 0) {
             await sendText(fromPhone, 'Nenhum membro foi marcado como presente. Avançando para a lição...');
             await sessionRef.update({ step: 'METRICS_LESSON', updatedAt: now });
-            await sendText(fromPhone, '📖 *Etapa 2: Tema da Lição*\n\nQual foi o tema ou título da lição ministrada no GC esta semana?');
+            await sendText(fromPhone, '📖 *Etapa 2: Tema da Lição*\n\nQual foi o tema ou título da lição ministrada no GC esta semana?\n\n_Envie o título por mensagem de texto._');
           } else {
             await sessionRef.update({ step: 'CARE_SELECT', updatedAt: now });
-            const listaCuidado = presentMembers.map((m, i) => `${i + 1}. ${m.name}`).join('\n');
-            
-            await sendText(
-              fromPhone,
-              `Quem precisa de atenção especial?\n\n${listaCuidado}\n\n👉 *Responda com os NÚMEROS separados por vírgula*.`
-            );
+            await sendText(fromPhone, 'Marque na enquete abaixo quem precisa de atenção especial nesta semana.');
+            await sendMembersPolls(fromPhone, presentMembers, true);
           }
         } else if (careAnswer === 'nao') {
           await sessionRef.update({ step: 'METRICS_LESSON', updatedAt: now });
           await sendText(fromPhone, '📖 *Etapa 2: Tema da Lição*\n\nQual foi o tema ou título da lição ministrada no GC esta semana?\n\n_Envie o título por mensagem de texto._');
-        } else {
-          await sendText(fromPhone, 'Responda com *Sim* se algum membro precisa de cuidado, ou *Não* para avançar.');
+        } else if (type === 'text') {
+          await sendText(fromPhone, 'Vote na enquete acima: *Sim* se algum membro precisa de cuidado, ou *Não* para avançar.');
         }
         break;
       }
 
-      case 'CARE_SELECT':
-        if (type !== 'text') {
-           await sendText(fromPhone, 'Por favor, envie os *números* dos membros que precisam de cuidado (ex: 1, 3).');
-           return true;
-        }
+      case 'CARE_SELECT': {
+        const latestDocCare = await sessionRef.get();
+        const latestCare = latestDocCare.data() as GcReportSession;
 
-        const presentMembersCare = session.members.filter(m => session.attendance[m.id] === 'presente');
-        
-        let careIds: string[] = [];
-        if (msg === 'todos' || msg === 'todo mundo') {
-           careIds = presentMembersCare.map(m => m.id);
-        } else if (msg !== '0' && msg !== 'nenhum') {
-           const nums = msg.split(/[,; e]+/).map(n => parseInt(n.trim(), 10)).filter(n => !isNaN(n) && n > 0 && n <= presentMembersCare.length);
-           careIds = nums.map(n => presentMembersCare[n - 1].id);
-           
-           if (careIds.length === 0) {
-             await sendText(fromPhone, 'Não entendi os números. Envie no formato: *1, 3, 5* ou digite *0* para pular.');
-             return true;
-           }
-        }
-
-        await sessionRef.update({ careMembersQueue: careIds, updatedAt: now });
-
-        if (careIds.length === 0) {
-          await sessionRef.update({ step: 'METRICS_LESSON', updatedAt: now });
-          await sendText(fromPhone, 'Ninguém selecionado para cuidado.\n\n📖 *Etapa 2: Tema da Lição*\n\nQual foi o tema ou título da lição ministrada no GC esta semana?');
-        } else {
-          await sessionRef.update({
-            step: 'CARE_MEMBER_THERMOMETER',
-            currentCareIndex: 0,
-            updatedAt: now
+        if (type === 'poll' && payload?.selectedOptions) {
+          const options = payload.selectedOptions as string[];
+          
+          const pollOptionsMap = new Map();
+          session.members.forEach((m, i) => {
+            pollOptionsMap.set(`${i + 1}. ${m.name.substring(0, 20)}`, m.id);
           });
           
-          const firstMemberId = careIds[0];
-          const firstMember = session.members.find(m => m.id === firstMemberId);
-          await sendText(
-            fromPhone,
-            `🌡️ *Termômetro: ${firstMember?.name} (1/${careIds.length})*\n\nComo você avalia o momento atual dele(a)?\n👉 *Responda com uma nota de 1 a 10* (1 = muita ajuda, 10 = excelente).`
-          );
+          const selectedMemberIds: string[] = [];
+          options.forEach((opt: string) => {
+             const id = pollOptionsMap.get(opt);
+             if (id) selectedMemberIds.push(id);
+          });
+          
+          let careSelections: any = latestCare.careSelections || {};
+          careSelections[payload.pollName || 'poll'] = selectedMemberIds;
+
+          await sessionRef.update({
+            careSelections,
+            updatedAt: now
+          });
+          return true; // Aguarda o usuário responder OK
+        } else if ((type === 'button' && payload?.buttonId === 'care_done') || (type === 'text' && isAdvanceCommand(msg))) {
+          const careSelections: any = latestCare.careSelections || {};
+          let careQueue: string[] = [];
+          Object.values(careSelections).forEach((ids: any) => careQueue.push(...ids));
+          
+          // Remove duplicatas
+          careQueue = [...new Set(careQueue)];
+          
+          if (careQueue.length === 0) {
+            await sendText(fromPhone, 'Nenhum membro foi selecionado para cuidado. Avançando para a lição...');
+            await sessionRef.update({ step: 'METRICS_LESSON', updatedAt: now });
+            await sendText(fromPhone, '📖 *Etapa 2: Tema da Lição*\n\nQual foi o tema ou título da lição ministrada no GC esta semana?\n\n_Envie o título por mensagem de texto._');
+          } else {
+            await sessionRef.update({
+              careMembersQueue: careQueue,
+              step: 'CARE_MEMBER_THERMOMETER',
+              currentCareIndex: 0,
+              updatedAt: now
+            });
+            
+            const firstMemberId = careQueue[0];
+            const firstMember = session.members.find(m => m.id === firstMemberId);
+            await sendText(
+              fromPhone,
+              `🌡️ *Termômetro: ${firstMember?.name} (1/${careQueue.length})*\n\nComo você avalia o momento atual dele(a)?\n👉 *Responda com uma nota de 1 a 10* (1 = muita ajuda, 10 = excelente).`
+            );
+          }
+        } else if (type === 'text') {
+           if (msg === 'ok' || msg === 'pronto' || msg === '0') {
+             return handleGcReportIncomingMessage(fromPhone, '', 'button', { buttonId: 'care_done' });
+           } else {
+             await sendText(fromPhone, '👉 Quando terminar de marcar na enquete acima, responda com *OK* para continuarmos.');
+           }
         }
         break;
+      }
 
       case 'CARE_MEMBER_THERMOMETER':
-        if (type === 'text') {
-          const ratingText = messageText.trim();
-          const rating = parseInt(ratingText, 10);
+        if (type === 'text' || type === 'button') {
+          const ratingText = type === 'button' ? payload?.buttonId : messageText.trim();
+          const rating = parseInt(ratingText || '', 10);
           
           if (isNaN(rating) || rating < 1 || rating > 10) {
             await sendText(fromPhone, 'Por favor, envie um número de *1 a 10* para o termômetro espiritual.');
@@ -379,7 +495,7 @@ export async function handleGcReportIncomingMessage(
             const nextMember = session.members.find(m => m.id === nextMemberId);
             await sendText(
               fromPhone,
-              `🌡️ *Cuidado: ${nextMember?.name || 'Membro'} (${nextIdx + 1}/${careQueue.length})*\n\nDe 1 a 10, qual o termômetro espiritual dele(a) no momento?`
+              `🌡️ *Termômetro: ${nextMember?.name} (${nextIdx + 1}/${careQueue.length})*\n\nComo você avalia o momento atual dele(a)?\n👉 *Responda com uma nota de 1 a 10* (1 = muita ajuda, 10 = excelente).`
             );
           } else {
             await sessionRef.update({
@@ -492,38 +608,56 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
       await startGcReportSession(session.cellId, to, session.isTestData);
       break;
     case 'ATTENDANCE':
-      const total = session.members.length;
-      const pageIndex = session.attendancePage || 0;
-      if (total <= 11) {
-        const memberNames = session.members.map(m => m.name);
-        await sendSurvey(to, 'Quem esteve PRESENTE no GC?', memberNames);
-        await sendSurvey(to, 'Quando terminar, vote abaixo para concluir a chamada.', ['Concluir Chamada ➡️', 'Ainda não ❌']);
-      } else {
-        const pageMembers = session.members.slice(pageIndex * 10, (pageIndex * 10) + 10);
-        const memberNames = pageMembers.map(m => m.name);
-        await sendSurvey(to, `Quem esteve PRESENTE no GC? (Pág. ${pageIndex + 1})`, memberNames);
-        const isLastPage = (pageIndex * 10 + 10) >= total;
-        if (isLastPage) {
-          await sendSurvey(to, 'Quando terminar, vote abaixo para concluir a chamada.', ['Concluir Chamada ➡️', 'Ainda não ❌']);
-        } else {
-          await sendSurvey(to, 'Vote abaixo para avançar de página.', ['Avançar ➡️', 'Ainda não ❌']);
-        }
-      }
+      await sendText(
+        to,
+        `📋 *Etapa 1: Chamada*\nMarque na enquete abaixo quem esteve *PRESENTE* na reunião.`
+      );
+      await sendMembersPolls(to, session.members, false);
       break;
     case 'CARE_CHOICE':
-      await sendSurvey(to, 'Algum membro do GC precisa de atenção especial?', ['Sim, selecionar', 'Não, avançar']);
+      await sendButton(
+        to,
+        'Algum membro do GC precisa de atenção ou cuidado especial esta semana?',
+        [
+          { id: 'care_yes', text: 'Sim' },
+          { id: 'care_no', text: 'Não' }
+        ],
+        '❤️ Etapa de Cuidado'
+      );
       break;
     case 'CARE_SELECT':
       const presentMembers = session.members.filter(m => session.attendance[m.id] === 'presente');
-      await sendSurvey(to, 'Quem precisa de atenção especial?', presentMembers.map(m => m.name).slice(0, 11));
-      await sendSurvey(to, '✅ Concluir seleção de cuidado', ['Avançar ➡️', 'Ainda não ❌']);
+      await sendText(to, 'Marque na enquete abaixo quem precisa de atenção especial nesta semana.');
+      await sendMembersPolls(to, presentMembers, true);
       break;
     case 'CARE_MEMBER_THERMOMETER':
       const careQueueT = session.careMembersQueue || [];
       const idxT = session.currentCareIndex || 0;
       const mIdT = careQueueT[idxT];
       const memberT = session.members.find(m => m.id === mIdT);
-      await sendText(to, `🌡️ *Cuidado: ${memberT?.name || 'Membro'}*\n\nDe 1 a 10, qual o termômetro espiritual dele(a) no momento?`);
+      await sendList(
+        to,
+        'Como você avalia o momento atual dele(a)?',
+        'Ver Notas',
+        [
+          {
+            title: 'Notas (1 a 10)',
+            rows: [
+              { rowId: '1', title: '1 - Precisando de muita ajuda' },
+              { rowId: '2', title: '2' },
+              { rowId: '3', title: '3' },
+              { rowId: '4', title: '4' },
+              { rowId: '5', title: '5' },
+              { rowId: '6', title: '6' },
+              { rowId: '7', title: '7' },
+              { rowId: '8', title: '8' },
+              { rowId: '9', title: '9' },
+              { rowId: '10', title: '10 - Excelente' }
+            ]
+          }
+        ],
+        `🌡️ Termômetro: ${memberT?.name} (${idxT + 1}/${careQueueT.length})`
+      );
       break;
     case 'CARE_MEMBER_PRAYER':
       const careQueueP = session.careMembersQueue || [];
