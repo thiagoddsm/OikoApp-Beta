@@ -169,7 +169,8 @@ export async function POST(request: Request) {
         responseType = 'poll';
         payload = {
             pollName,
-            selectedOptions: options
+            selectedOptions: options,
+            pollDataString: JSON.stringify(pollData)
         };
     }
 
