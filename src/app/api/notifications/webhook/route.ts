@@ -185,6 +185,7 @@ export async function POST(request: Request) {
         fromMe: data.fromMe || false,
         text: textForDebug || '',
         responseType: responseType || 'text',
+        payload: payload || null,
         isLid: fromRaw.includes('@lid'),
         receivedAt: Timestamp.now(),
         rawKeys: Object.keys(data || {}).join(', '),
