@@ -12,10 +12,12 @@ export interface GcReportSession {
   // Controle da Chamada
   attendancePage?: number;
   attendanceAccumulated?: string[]; // IDs dos membros marcados como presentes
+  pollSelections?: any; // Mapeamento de seleções das enquetes
   
   // Controle de Cuidado
   careMembersQueue?: string[];      // IDs dos membros que precisam de cuidado
   currentCareIndex?: number;        // Índice na fila de cuidado
+  careSelections?: any; // Mapeamento de seleções de cuidado
   
   attendance: { [memberId: string]: 'presente' | 'ausente_sem_justificativa' };
   thermometers?: { [memberId: string]: { termometro: number; pedidoOracao: string } };
@@ -331,6 +333,7 @@ export async function handleGcReportIncomingMessage(
            }
         }
         break;
+      }
 
       case 'CARE_CHOICE': {
         // Detectar resposta via enquete (Sim/Não) ou texto
