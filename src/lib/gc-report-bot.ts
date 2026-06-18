@@ -282,11 +282,25 @@ export async function handleGcReportIncomingMessage(
             pollOptionsMap.set(`${i + 1}. ${m.name.substring(0, 20)}`, m.id);
           });
           
+          console.log('[GC Bot DEBUG] Poll received options:', JSON.stringify(options));
+          console.log('[GC Bot DEBUG] pollOptionsMap keys:', JSON.stringify(Array.from(pollOptionsMap.keys())));
+
           const selectedMemberIds: string[] = [];
           options.forEach((opt: string) => {
-             const id = pollOptionsMap.get(opt);
+             // Tratamento: verificar "includes" como fallback se match exato falhar
+             let id = pollOptionsMap.get(opt);
+             if (!id) {
+               for (const [key, val] of pollOptionsMap.entries()) {
+                 if (opt.includes(key) || key.includes(opt)) {
+                   id = val;
+                   break;
+                 }
+               }
+             }
              if (id) selectedMemberIds.push(id);
           });
+          
+          console.log('[GC Bot DEBUG] Matched selectedMemberIds:', selectedMemberIds);
           
           let pollSelections: any = latest.pollSelections || {};
           pollSelections[payload.pollName || 'poll'] = selectedMemberIds;
@@ -384,9 +398,19 @@ export async function handleGcReportIncomingMessage(
             pollOptionsMap.set(`${i + 1}. ${m.name.substring(0, 20)}`, m.id);
           });
           
+          console.log('[GC Bot DEBUG] CARE_SELECT Poll options:', JSON.stringify(options));
+          
           const selectedMemberIds: string[] = [];
           options.forEach((opt: string) => {
-             const id = pollOptionsMap.get(opt);
+             let id = pollOptionsMap.get(opt);
+             if (!id) {
+               for (const [key, val] of pollOptionsMap.entries()) {
+                 if (opt.includes(key) || key.includes(opt)) {
+                   id = val;
+                   break;
+                 }
+               }
+             }
              if (id) selectedMemberIds.push(id);
           });
           
