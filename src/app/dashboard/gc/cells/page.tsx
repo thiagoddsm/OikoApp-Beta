@@ -5,7 +5,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking, useMemoFirebase, useDoc } from '@/firebase';
-import { collection, doc, query, deleteDoc } from 'firebase/firestore';
+import { collection, doc, query, deleteDoc, writeBatch } from 'firebase/firestore';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -197,9 +197,30 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
     };
     if (existingCell) {
       updateDocumentNonBlocking(doc(firestore, 'cells', existingCell.id), cellData);
+
+      const removedMembers = (existingCell.membros || []).filter((uid: string) => !finalMembers.includes(uid));
+      const batch = writeBatch(firestore);
+      finalMembers.forEach(uid => {
+         batch.update(doc(firestore, 'users', uid), { 'hierarchy.celulaId': existingCell.id });
+      });
+      removedMembers.forEach(uid => {
+         batch.update(doc(firestore, 'users', uid), { 'hierarchy.celulaId': null });
+      });
+      await batch.commit();
+
       toast({ title: "Sucesso!", description: `A célula "${nome}" foi atualizada.` });
     } else {
-      addDocumentNonBlocking(collection(firestore, 'cells'), cellData);
+      const promise = addDocumentNonBlocking(collection(firestore, 'cells'), cellData);
+      const docRef = await promise;
+      
+      if (docRef) {
+        const batch = writeBatch(firestore);
+        finalMembers.forEach(uid => {
+           batch.update(doc(firestore, 'users', uid), { 'hierarchy.celulaId': docRef.id });
+        });
+        await batch.commit();
+      }
+
       toast({ title: "Sucesso!", description: `A célula "${nome}" foi criada.` });
     }
     setIsSaving(false);

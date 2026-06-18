@@ -121,13 +121,19 @@ export default function CellDetailPage() {
     return dates;
   }, [presencas]);
 
+  // Dual read: Array original da célula + quem já foi migrado na tabela users
+  const computedMembroIds = useMemo(() => {
+    const explicitUsers = (allUsers || []).filter((u: any) => u.hierarchy?.celulaId === cellId).map(u => u.id);
+    return Array.from(new Set([...(cell?.membros || []), ...explicitUsers]));
+  }, [allUsers, cellId, cell]);
+
   const members = useMemo(() =>
-    (cell?.membros || []).map(id => userMap.get(id)).filter(Boolean) as UserType[],
-    [cell, userMap]);
+    computedMembroIds.map(id => userMap.get(id)).filter(Boolean) as UserType[],
+    [computedMembroIds, userMap]);
 
   const nonMembers = useMemo(() =>
-    (allUsers || []).filter(u => !(cell?.membros || []).includes(u.id)),
-    [allUsers, cell]);
+    (allUsers || []).filter(u => !computedMembroIds.includes(u.id)),
+    [allUsers, computedMembroIds]);
 
   // --- Visitor state ---
   const [isAddVisitorOpen, setAddVisitorOpen] = useState(false);
@@ -147,18 +153,33 @@ export default function CellDetailPage() {
     updateDocumentNonBlocking(doc(firestore, 'cells', cellId), data);
   };
 
-  const handleAddMember = (userId: string) => {
+  const handleAddMember = async (userId: string) => {
+    if (!firestore || !cellId) return;
+    
+    // Dual write: atualiza array antigo e o perfil do usuário
     const newMembros = [...(cell?.membros || []), userId];
     updateCell({ membros: newMembros });
+    
+    await updateDocumentNonBlocking(doc(firestore, 'users', userId), {
+      'hierarchy.celulaId': cellId
+    });
     setAddMemberOpen(false);
     setMemberSearchTerm('');
     toast({ title: 'Membro adicionado!' });
   };
 
-  const handleRemoveMember = (userId: string) => {
+  const handleRemoveMember = async (userId: string) => {
     if (userId === cell?.liderId) { toast({ variant: 'destructive', title: 'Não é possível remover o líder.' }); return; }
+    if (!firestore) return;
+    
+    // Dual write: remove do array antigo e limpa o perfil
     const newMembros = (cell?.membros || []).filter(id => id !== userId);
     updateCell({ membros: newMembros });
+
+    await updateDocumentNonBlocking(doc(firestore, 'users', userId), {
+      'hierarchy.celulaId': null
+    });
+    toast({ title: 'Membro removido.' });
   };
 
   const handleRoleChange = (userId: string, role: string) => {

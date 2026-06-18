@@ -35,11 +35,13 @@ export class OikoWhatsAppClient {
                 };
                 break;
             case 'survey':
-                endpoint = 'message/survey';
+            case 'poll':
+                endpoint = 'message/poll';
                 data = {
                     to: body.to,
                     name: body.name || body.text,
-                    options: body.options
+                    values: body.options, // API requires 'values' for message/poll
+                    selectableCount: body.selectableCount || (body.multiple === false ? 1 : body.options.length)
                 };
                 break;
             case 'list':

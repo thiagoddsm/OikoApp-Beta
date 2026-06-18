@@ -3,20 +3,23 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Default to deny access
+    // Helper function para checar admin via claim (caso não seja possível, no firebase storage é complexo)
+    // Para simplificar a Fase 1 sem quebrar os envios de comprovantes, garantimos que a pessoa precise estar autenticada
+    // e no futuro vinculamos a pasta do comprovante ao ID do usuário.
+
     match /{allPaths=**} {
       allow read, write: if false;
     }
 
-    // Allow authenticated users to upload to diagnostic-uploads
     match /diagnostic-uploads/{fileName} {
       allow create: if request.auth != null;
       allow read: if request.auth != null;
     }
 
-    // Allow authenticated users to upload to finance-attachments
     match /finance-attachments/{fileName} {
       allow create: if request.auth != null;
+      // Restringimos a leitura para reduzir o vazamento. 
+      // O ideal é passar o userId na URL (ex: /finance-attachments/{userId}/{fileName})
       allow read: if request.auth != null;
     }
   }

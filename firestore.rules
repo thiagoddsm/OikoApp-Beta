@@ -2,17 +2,14 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper para verificar se o usuário está autenticado
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Helper para verificar se o documento pertence ao usuário logado
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Helper para verificar se o usuário logado é Administrador ou Pastor Sênior
     function isAdmin() {
       return isAuthenticated() && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
@@ -22,12 +19,13 @@ service cloud.firestore {
         );
     }
 
-    // Regras Públicas: Essenciais para o Portal de Inscrições e TheoFlix
     match /courses/{courseId} {
       allow read: if true;
+      allow write: if isAuthenticated();
     }
     match /classes/{classId} {
       allow read: if true;
+      allow write: if isAuthenticated();
     }
     match /theoflix_courses/{courseId} {
       allow read: if true;
@@ -38,25 +36,27 @@ service cloud.firestore {
       allow write: if isAuthenticated();
     }
 
-    // Usuários: Apenas usuários autenticados podem ler/buscar perfis. Escrita pelo próprio ou Admin.
+    // CORREÇÃO CRÍTICA 1: Bloquear elevação de privilégio (Self-Elevation)
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow create: if isAuthenticated() && isOwner(userId);
+      // Se for o dono do perfil, permite update APENAS SE não estiver alterando a própria hierarquia ou roles
+      allow update: if isAuthenticated() && (
+        isAdmin() || 
+        (isOwner(userId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['hierarchy', 'roles', 'isTeacher', 'globalRoles'])))
+      );
+      allow delete: if isAdmin();
     }
 
-    // Subcoleção de anotações/linha do tempo de usuários
     match /users/{userId}/notes/{noteId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+      allow read, write: if isAuthenticated();
     }
 
-    // Inscrições: Qualquer um pode criar, autenticado pode ler
     match /enrollment_requests/{requestId} {
       allow create: if true;
       allow read, write: if isAuthenticated();
     }
 
-    // Pagamentos Wave: Usuário pode ler apenas os próprios, admin lê tudo
     match /wave_payments/{paymentId} {
       allow read: if isAuthenticated() && (
         resource == null || resource.data.userId == request.auth.uid || isAdmin()
@@ -65,7 +65,6 @@ service cloud.firestore {
       allow write: if isAuthenticated() && isAdmin();
     }
 
-    // Pagamentos DIS: Usuário pode ler apenas os próprios, admin lê tudo
     match /dis_payments/{paymentId} {
       allow read: if isAuthenticated() && (
         resource == null || resource.data.userId == request.auth.uid || isAdmin()
@@ -74,35 +73,29 @@ service cloud.firestore {
       allow write: if isAuthenticated() && isAdmin();
     }
 
-    // Logs Pedagógicos: Autenticado pode ler e escrever
     match /pedagogical_logs/{logId} {
       allow read, write: if isAuthenticated();
     }
 
-    // Financeiro: Protocolos de requisição (Qualquer pessoa pode criar, mas apenas autenticados leem/escrevem)
     match /finance_requests/{reqId} {
       allow create: if true;
       allow read, write: if isAuthenticated();
     }
 
-    // Transações Financeiras: Apenas Admins podem ver ou modificar
     match /financial_transactions/{txId} {
       allow read, write: if isAdmin();
     }
 
-    // Perfis de Acesso e Permissões: Apenas Admins
     match /access_profiles/{profileId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
 
-    // Configurações públicas ou do sistema acessíveis a usuários autenticados
     match /config/theoflix {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
 
-    // Campanhas de Notificação
     match /notification_campaigns/{campaignId} {
       allow read, write: if isAuthenticated();
     }
@@ -117,8 +110,6 @@ service cloud.firestore {
     match /redes/{redeId} {
       allow read, write: if isAuthenticated();
     }
-
-    // Histórico de Presenças e Logs de Reunião
     match /reuniao_logs/{logId} {
       allow read, write: if isAuthenticated();
     }
@@ -126,9 +117,34 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
-    // Regra Geral de Fallback: Qualquer usuário autenticado pode ler e escrever o restante
-    match /{document=**} {
-      allow read, write: if isAuthenticated();
+    // CORREÇÃO CRÍTICA 2: Mapeamento Explícito das Coleções Órfãs (Substitui o Fallback Global)
+    match /system_settings/{document=**} {
+      allow read, write: if isAdmin(); // Protege o token do Asaas Webhook
     }
+    match /asaasPayments/{document=**} {
+      allow read, write: if isAdmin();
+    }
+    match /asaasSubscriptions/{document=**} {
+      allow read, write: if isAdmin();
+    }
+    match /asaasAnticipations/{document=**} {
+      allow read, write: if isAdmin();
+    }
+
+    // Eventos e Voluntariado
+    match /event_registrations/{document=**} { allow read, write: if isAuthenticated(); }
+    match /volunteering_events/{document=**} { allow read, write: if isAuthenticated(); }
+    match /teams/{document=**} { allow read, write: if isAuthenticated(); }
+    match /areas_of_service/{document=**} { allow read, write: if isAuthenticated(); }
+    match /room_reservations/{document=**} { allow read, write: if isAuthenticated(); }
+    match /strategic_events/{document=**} { allow read, write: if isAuthenticated(); }
+    match /reservation_categories/{document=**} { allow read, write: if isAuthenticated(); }
+    match /rooms/{document=**} { allow read, write: if isAuthenticated(); }
+    match /saved_schedules/{document=**} { allow read, write: if isAuthenticated(); }
+    match /wave_plans/{document=**} { allow read, write: if isAuthenticated(); }
+    match /dis_plans/{document=**} { allow read, write: if isAuthenticated(); }
+    match /wave_expenses/{document=**} { allow read, write: if isAuthenticated(); }
+
+    // O FALLBACK INSEGURO FOI REMOVIDO
   }
 }

@@ -12,11 +12,23 @@ export async function POST(request: Request) {
     const db = getAdminDb();
     const raw = await request.json();
     console.log("RAW WEBHOOK PAYLOAD:", JSON.stringify(raw, null, 2));
-    const data = raw.data || raw;
+    
+    // Tratamento para arrays (ex: pollUpdates) e estrutura de dados
+    let data = raw.data || raw;
+    if (Array.isArray(data)) data = data[0];
     const msgContent = data.msgContent || data.message || {};
     
     // 1. Sender Identification
-    const fromRaw = data.key?.remoteJid || data.from || data.participant || data.author;
+    // Extrair fromRaw considerando o padrão pollCreationMessageKey
+    let fromRaw = String(
+        data.from || 
+        data.key?.remoteJid || 
+        data.participant || 
+        data.author || 
+        data.pollCreationMessageKey?.remoteJid || 
+        ''
+    );
+
     if (!fromRaw) {
         console.log("NO FROM RAW! Returning early.");
         return NextResponse.json({ success: true });
