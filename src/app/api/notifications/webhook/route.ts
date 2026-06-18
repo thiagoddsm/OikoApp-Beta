@@ -152,8 +152,8 @@ export async function POST(request: Request) {
         };
     }
     // C. Poll Update (pollUpdateMessage)
-    else if (msgContent.pollUpdateMessage || data.pollUpdates || data.pollUpdate || data.pollUpdateMessage) {
-        const pollData = msgContent.pollUpdateMessage || data.pollUpdates || data.pollUpdate || data.pollUpdateMessage || {};
+    else if (msgContent.pollUpdateMessage || data.pollUpdates || data.pollUpdate || data.pollUpdateMessage || data.update?.pollUpdates) {
+        const pollData = msgContent.pollUpdateMessage || data.pollUpdates || data.pollUpdate || data.pollUpdateMessage || data.update?.pollUpdates || {};
         
         const pollUpdate = Array.isArray(pollData) ? pollData[0] : pollData;
         
