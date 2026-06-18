@@ -804,21 +804,17 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   const { data: cells, isLoading: lce } = useCollection<Cell>(cellsQ);
   const { data: gcAreas, isLoading: lga } = useCollection<Area>(gcAreasQ);
   const { data: redes, isLoading: lre } = useCollection<Rede>(redesQ);
-
   const isLoading = loadingRole || loadingProfile || (user ? lu : false) || la || lt || le || (user ? lr : false) || lres || lse || lco || lcl || ler || lpl || lwp || ldp || lwpn || ldpn || lwe || loadingCategories || (user ? loadingTheoflix : false) || lft || lfr || lss || lce || lga || lre;
 
-  // Enriquecimento dinâmico (Dual Read durante transição):
-  // Lê do array antigo e dos perfis atualizados para não sumir com quem ainda não migrou.
+  // Enriquecimento dinâmico: A fonte da verdade para membros de uma célula
+  // é exclusivamente a propriedade 'hierarchy.celulaId' no documento do usuário.
   const enrichedCells = useMemo(() => {
     if (!cells) return [];
     if (!users) return cells; // fallback if users not loaded
-    return cells.map(c => {
-      const explicitUsers = users.filter(u => u.hierarchy?.celulaId === c.id).map(u => u.id);
-      return {
-        ...c,
-        membros: Array.from(new Set([...(c.membros || []), ...explicitUsers]))
-      };
-    });
+    return cells.map(c => ({
+      ...c,
+      membros: users.filter(u => u.hierarchy?.celulaId === c.id).map(u => u.id)
+    }));
   }, [cells, users]);
 
   const value = useMemo(() => ({

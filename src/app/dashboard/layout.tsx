@@ -74,6 +74,7 @@ import { PendingAccess } from "@/components/auth/pending-access";
 import { userRoles } from '@/lib/roles';
 import { Input } from "@/components/ui/input";
 import type { AccessProfile } from '@/app/dashboard/settings/page';
+import { TenantProvider } from '@/contexts/tenant-context';
 
 const menuItems = [
     { href: "/dashboard", label: "Painel Geral", icon: Home, permissionId: 'dashboard' },
@@ -393,11 +394,12 @@ export default function DashboardLayout({
     const userRoleLabel = userRole ? userRoles[userRole] : 'Membro';
 
     return (
-      <SidebarProvider>
-        <div className="min-h-screen w-full flex bg-slate-50">
-          {/* --- Desktop Sidebar --- */}
-          <aside className="hidden lg:flex lg:flex-col lg:w-72 lg:border-r lg:border-slate-200 bg-white">
-            <SidebarHeader className="border-b border-slate-200">
+      <TenantProvider>
+        <SidebarProvider>
+          <div className="min-h-screen w-full flex bg-slate-50">
+            {/* --- Desktop Sidebar --- */}
+            <aside className="hidden lg:flex lg:flex-col lg:w-72 lg:border-r lg:border-slate-200 bg-white">
+              <SidebarHeader className="border-b border-slate-200">
               <div className="flex items-center justify-start px-6 h-20 w-full">
                 <img 
                   src="https://firebasestorage.googleapis.com/v0/b/studio-1424813022-71754.firebasestorage.app/o/pwa%2FChatGPT%20Image%207%20de%20mai.%20de%202026%2C%2016_45_54.png?alt=media&token=c8100c94-fb27-4b1f-87b8-74bd1f8d3fe5" 
@@ -499,9 +501,10 @@ export default function DashboardLayout({
              <main className="flex-1 p-4 md:p-6 bg-slate-50 overflow-y-auto">
                 {children}
              </main>
+            </div>
           </div>
-        </div>
-      </SidebarProvider>
+        </SidebarProvider>
+      </TenantProvider>
     );
   }
 

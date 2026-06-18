@@ -121,11 +121,11 @@ export default function CellDetailPage() {
     return dates;
   }, [presencas]);
 
-  // Dual read: Array original da célula + quem já foi migrado na tabela users
+  // Identifica membros da célula baseado exclusivamente na tabela de usuários.
+  // (A lógica de ponte / dual read foi removida)
   const computedMembroIds = useMemo(() => {
-    const explicitUsers = (allUsers || []).filter((u: any) => u.hierarchy?.celulaId === cellId).map(u => u.id);
-    return Array.from(new Set([...(cell?.membros || []), ...explicitUsers]));
-  }, [allUsers, cellId, cell]);
+    return (allUsers || []).filter((u: any) => u.hierarchy?.celulaId === cellId).map(u => u.id);
+  }, [allUsers, cellId]);
 
   const members = useMemo(() =>
     computedMembroIds.map(id => userMap.get(id)).filter(Boolean) as UserType[],
@@ -156,10 +156,6 @@ export default function CellDetailPage() {
   const handleAddMember = async (userId: string) => {
     if (!firestore || !cellId) return;
     
-    // Dual write: atualiza array antigo e o perfil do usuário
-    const newMembros = [...(cell?.membros || []), userId];
-    updateCell({ membros: newMembros });
-    
     await updateDocumentNonBlocking(doc(firestore, 'users', userId), {
       'hierarchy.celulaId': cellId
     });
@@ -172,10 +168,6 @@ export default function CellDetailPage() {
     if (userId === cell?.liderId) { toast({ variant: 'destructive', title: 'Não é possível remover o líder.' }); return; }
     if (!firestore) return;
     
-    // Dual write: remove do array antigo e limpa o perfil
-    const newMembros = (cell?.membros || []).filter(id => id !== userId);
-    updateCell({ membros: newMembros });
-
     await updateDocumentNonBlocking(doc(firestore, 'users', userId), {
       'hierarchy.celulaId': null
     });
