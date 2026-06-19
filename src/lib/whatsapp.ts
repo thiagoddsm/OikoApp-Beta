@@ -25,8 +25,8 @@ export class OikoWhatsAppClient {
                 data = {
                     to: body.to,
                     text: body.text || ' ', 
-                    header: body.title ? { title: body.title } : undefined,
-                    footer: body.footer,
+                    header: { title: body.title || 'Opções' },
+                    footer: body.footer || ' ',
                     buttons: (body.buttons || []).map((b: any) => ({
                         type: 'quick_reply',
                         id: b.id || Math.random().toString(36).substring(7),
@@ -92,7 +92,19 @@ export class OikoWhatsAppClient {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
-            return await response.json();
+            const responseText = await response.text();
+            let responseJson;
+            try {
+                responseJson = JSON.parse(responseText);
+            } catch (e) {
+                responseJson = responseText;
+            }
+            if (!response.ok) {
+                console.error(`[WhatsApp API Error] HTTP ${response.status} for ${url}:`, responseJson);
+            } else {
+                console.log(`[WhatsApp API Success] ${url}:`, responseJson);
+            }
+            return responseJson;
         } catch (error) {
             console.error(`WhatsApp API Error (${type}):`, error);
             throw error;
