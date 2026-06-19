@@ -111,33 +111,22 @@ async function sendPoll(to: string, name: string, options: string[], selectableC
   });
 }
 
-async function sendMembersButtons(to: string, membersList: { id: string; name: string }[], isCare = false) {
+async function sendMembersListAsText(to: string, membersList: { id: string; name: string }[], isCare = false) {
   const title = isCare ? 'Quem precisa de cuidado?' : 'Quem estava PRESENTE?';
   
   if (membersList.length === 0) {
     await sendText(to, 'Nenhum membro cadastrado.');
     return;
   }
-  
-  await sendText(to, `*${title}*\n👉 Clique nos botões de quem estava/precisa, um por um. Quando terminar, clique em *Finalizar*.`);
-  
-  // WhatsApp permite até 3 botões por mensagem
-  const chunkSize = 3;
-  for (let i = 0; i < membersList.length; i += chunkSize) {
-    const chunk = membersList.slice(i, i + chunkSize);
-    const buttons = chunk.map(m => ({
-      id: m.id,
-      text: m.name.substring(0, 20)
-    }));
-    await sendButtons(to, 'Selecione:', buttons);
-  }
-  
-  // Botão de finalizar separado
-  await sendButtons(to, 'Avançar para a próxima etapa:', [
-    { id: isCare ? 'care_done' : 'attendance_done', text: '✅ Finalizar' }
-  ]);
-}
 
+  let text = `*${title}*\n\nDigite os *números* correspondentes (ex: 1, 3, 4):\n\n`;
+  membersList.forEach((m, index) => {
+    text += `${index + 1}. ${m.name}\n`;
+  });
+  
+  await sendText(to, text);
+  await sendText(to, '👉 Quando terminar de enviar os números, responda com *OK* para continuarmos.');
+}
 /**
  * Inicializa a sessão do relatório de GC para um líder.
  */
@@ -193,7 +182,7 @@ export async function startGcReportSession(cellId: string, liderPhone: string, i
       `Olá, líder${liderName}! 👋\nVamos preencher o relatório semanal do GC *${cellData.nome || 'Célula'}*? É rapidinho!\n\n📋 *Etapa 1: Chamada*\nResponda na lista abaixo quem esteve *PRESENTE* na reunião.`
     );
     
-    await sendMembersButtons(liderPhone, membersList, false);
+    await sendMembersListAsText(liderPhone, membersList, false);
 
     // 4. Salvar estado da sessão na coleção `gc_report_sessions`
     const newSession: GcReportSession = {
@@ -408,7 +397,7 @@ export async function handleGcReportIncomingMessage(
           } else {
             await sessionRef.update({ step: 'CARE_SELECT', updatedAt: now });
             await sendText(fromPhone, 'Responda na lista abaixo quem precisa de atenção especial nesta semana.');
-            await sendMembersButtons(fromPhone, presentMembers, true);
+            await sendMembersListAsText(fromPhone, presentMembers, true);
           }
         } else if (careAnswer === 'nao') {
           await sessionRef.update({ step: 'METRICS_LESSON', updatedAt: now });
