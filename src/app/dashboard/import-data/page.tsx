@@ -710,21 +710,34 @@ export default function ImportDataPage() {
                         if (!foundMatchDoc) {
                             const targetForAi = gcCandidates[0] || rawGcName;
                             const normalizedRaw = normalizeString(targetForAi);
+                            
+                            // Initialize promise cache if it doesn't exist on the outer scope
+                            if (!(globalThis as any)._aiGcPromiseCache) {
+                                (globalThis as any)._aiGcPromiseCache = new Map<string, Promise<string | null>>();
+                            }
+                            const promiseCache = (globalThis as any)._aiGcPromiseCache;
+
                             if (aiGcCache.has(normalizedRaw)) {
                                 const cachedName = aiGcCache.get(normalizedRaw);
                                 foundMatchDoc = cachedName ? cellDocs.find(doc => doc.data().nome === cachedName) : null;
                             } else {
-                                const actualGcs = cellDocs.map(doc => {
-                                    const cellData = doc.data();
-                                    const leaderId = cellData.liderId || cellData.leaderId || cellData.supervisorId || '';
-                                    const leaderUser = existingUsers.find(u => u.id === leaderId);
-                                    return {
-                                        name: cellData.nome,
-                                        leaderName: leaderUser ? leaderUser.name : null
-                                    };
-                                });
-                                const matchedName = await matchGcWithAi(targetForAi, actualGcs);
-                                aiGcCache.set(normalizedRaw, matchedName);
+                                if (!promiseCache.has(normalizedRaw)) {
+                                    const actualGcs = cellDocs.map(doc => {
+                                        const cellData = doc.data();
+                                        const leaderId = cellData.liderId || cellData.leaderId || cellData.supervisorId || '';
+                                        const leaderUser = existingUsers.find(u => u.id === leaderId);
+                                        return {
+                                            name: cellData.nome,
+                                            leaderName: leaderUser ? leaderUser.name : null
+                                        };
+                                    });
+                                    const p = matchGcWithAi(targetForAi, actualGcs).then(matchedName => {
+                                        aiGcCache.set(normalizedRaw, matchedName);
+                                        return matchedName;
+                                    });
+                                    promiseCache.set(normalizedRaw, p);
+                                }
+                                const matchedName = await promiseCache.get(normalizedRaw);
                                 foundMatchDoc = matchedName ? cellDocs.find(doc => doc.data().nome === matchedName) : null;
                             }
                         }
