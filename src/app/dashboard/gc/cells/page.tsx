@@ -132,7 +132,8 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
       setMeetingDay(existingCell.meetingDay || '');
       setMeetingTime(existingCell.meetingTime || '');
       setMultiplicationDate(existingCell.multiplicationDate || '');
-      setSelectedMembers(existingCell.membros || []);
+      const computedMembers = users.filter((u: any) => u.hierarchy?.celulaId === existingCell.id).map((u: any) => u.id);
+      setSelectedMembers(computedMembers);
       setStatus(existingCell.status || 'active');
       setAnfitriaoElegiveiIds(existingCell.anfitriaoElegiveiIds || []);
       setLiderEAnfitriao(existingCell.liderEAnfitriao === true || (!!existingCell.anfitriaoId && existingCell.anfitriaoId === existingCell.liderId));
@@ -198,9 +199,12 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
     if (existingCell) {
       updateDocumentNonBlocking(doc(firestore, 'cells', existingCell.id), cellData);
 
-      const removedMembers = (existingCell.membros || []).filter((uid: string) => !finalMembers.includes(uid));
+      const currentMembers = users.filter((u: any) => u.hierarchy?.celulaId === existingCell.id).map((u: any) => u.id);
+      const removedMembers = currentMembers.filter((uid: string) => !finalMembers.includes(uid));
+      // update members
+      const newMembers = finalMembers.filter(uid => !currentMembers.includes(uid));
       const batch = writeBatch(firestore);
-      finalMembers.forEach(uid => {
+      newMembers.forEach(uid => {
          batch.update(doc(firestore, 'users', uid), { 'hierarchy.celulaId': existingCell.id });
       });
       removedMembers.forEach(uid => {
@@ -695,7 +699,7 @@ export default function CellsPage() {
                   const statusCfg = cellStatusConfig[cell.status || 'active'];
                   
                   // Enriquecer membros
-                  const memberUsers = (cell.membros || []).map(id => userMap.get(id)).filter(Boolean) as UserType[];
+                  const memberUsers = (users || []).filter(u => u.hierarchy?.celulaId === cell.id) as UserType[];
                   const naoBatizadosCount = memberUsers.filter(u => !(u.batizado === 'sim' || u.dataBatismo || u.churchData?.baptismDate)).length;
                   const previewMembers = memberUsers.slice(0, 4);
                   const extraCount = memberUsers.length - previewMembers.length;
