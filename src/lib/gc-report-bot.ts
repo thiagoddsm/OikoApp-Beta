@@ -483,6 +483,23 @@ export async function handleGcReportIncomingMessage(
                });
                await sendText(fromPhone, `👍 Cuidado registrado! Se tiver mais alguém, envie o número, senão, envie *OK* para avançar.`);
              }
+           } else {
+             const msgLower = msg.trim();
+             const presentMembers = session.members.filter(m => session.attendance[m.id] === 'presente');
+             const matchedMember = presentMembers.find(m => m.name.toLowerCase().substring(0, 20) === msgLower.substring(0, 20));
+             if (matchedMember) {
+                 const memberId = matchedMember.id;
+                 let careSelections: any = latestCare.careSelections || {};
+                 careSelections['buttons'] = (careSelections['buttons'] || []);
+                 if (!careSelections['buttons'].includes(memberId)) {
+                     careSelections['buttons'].push(memberId);
+                     await sessionRef.update({ careSelections, updatedAt: now });
+                     await sendText(fromPhone, `✅ ${matchedMember.name} marcado(a) para cuidado!`);
+                 } else {
+                     await sendText(fromPhone, `⚠️ Esse membro já foi marcado.`);
+                 }
+                 return true;
+             }
            }
         } else if (type === 'button' && payload?.buttonId !== 'care_done') {
            const memberId = payload.buttonId;
