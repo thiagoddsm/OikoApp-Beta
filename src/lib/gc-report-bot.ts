@@ -111,25 +111,31 @@ async function sendPoll(to: string, name: string, options: string[], selectableC
   });
 }
 
-/**
- * Envia enquetes de múltipla escolha paginadas (max 12 opções) e um botão de concluir.
- */
-async function sendMembersPolls(to: string, membersList: { id: string; name: string }[], isCare = false) {
-  const options = membersList.map((m, i) => `${i + 1}. ${m.name}`);
+async function sendMembersButtons(to: string, membersList: { id: string; name: string }[], isCare = false) {
   const title = isCare ? 'Quem precisa de cuidado?' : 'Quem estava PRESENTE?';
   
-  if (options.length === 0) {
+  if (membersList.length === 0) {
     await sendText(to, 'Nenhum membro cadastrado.');
     return;
   }
   
-  let instruction = isCare 
-    ? '👉 *Responda com os números* de quem precisa de cuidado, separados por vírgula (Ex: 1, 3).\nSe ninguém precisar, responda *0*.'
-    : '👉 *Responda com os números* de quem estava presente, separados por vírgula (Ex: 1, 3, 4).\nSe ninguém estava, responda *0*.';
-
-  const text = `*${title}*\n\n${options.join('\n')}\n\n${instruction}`;
+  await sendText(to, `*${title}*\n👉 Clique nos botões de quem estava/precisa, um por um. Quando terminar, clique em *Finalizar*.`);
   
-  await sendText(to, text);
+  // WhatsApp permite até 3 botões por mensagem
+  const chunkSize = 3;
+  for (let i = 0; i < membersList.length; i += chunkSize) {
+    const chunk = membersList.slice(i, i + chunkSize);
+    const buttons = chunk.map(m => ({
+      id: m.id,
+      text: m.name.substring(0, 20)
+    }));
+    await sendButtons(to, 'Selecione:', buttons);
+  }
+  
+  // Botão de finalizar separado
+  await sendButtons(to, 'Avançar para a próxima etapa:', [
+    { id: isCare ? 'care_done' : 'attendance_done', text: '✅ Finalizar' }
+  ]);
 }
 
 /**
@@ -187,7 +193,7 @@ export async function startGcReportSession(cellId: string, liderPhone: string, i
       `Olá, líder${liderName}! 👋\nVamos preencher o relatório semanal do GC *${cellData.nome || 'Célula'}*? É rapidinho!\n\n📋 *Etapa 1: Chamada*\nResponda na lista abaixo quem esteve *PRESENTE* na reunião.`
     );
     
-    await sendMembersPolls(liderPhone, membersList, false);
+    await sendMembersButtons(liderPhone, membersList, false);
 
     // 4. Salvar estado da sessão na coleção `gc_report_sessions`
     const newSession: GcReportSession = {
@@ -305,6 +311,23 @@ export async function handleGcReportIncomingMessage(
             updatedAt: now
           });
           return true; // Aguarda o usuário responder OK
+        } else if (type === 'button' && payload?.buttonId !== 'attendance_done') {
+           const memberId = payload.buttonId;
+           let pollSelections: any = latest.pollSelections || {};
+           pollSelections['buttons'] = (pollSelections['buttons'] || []);
+           
+           if (!pollSelections['buttons'].includes(memberId)) {
+               pollSelections['buttons'].push(memberId);
+               await sessionRef.update({ pollSelections, updatedAt: now });
+               
+               const clickedMember = session.members.find(m => m.id === memberId);
+               if (clickedMember) {
+                   await sendText(fromPhone, `✅ ${clickedMember.name} marcado(a)!`);
+               }
+           } else {
+               await sendText(fromPhone, `⚠️ Esse membro já foi marcado.`);
+           }
+           return true;
         } else if ((type === 'button' && payload?.buttonId === 'attendance_done') || (type === 'text' && isAdvanceCommand(msg))) {
           const pollSelections: any = latest.pollSelections || {};
           let presentIds: string[] = [];
@@ -385,7 +408,7 @@ export async function handleGcReportIncomingMessage(
           } else {
             await sessionRef.update({ step: 'CARE_SELECT', updatedAt: now });
             await sendText(fromPhone, 'Responda na lista abaixo quem precisa de atenção especial nesta semana.');
-            await sendMembersPolls(fromPhone, presentMembers, true);
+            await sendMembersButtons(fromPhone, presentMembers, true);
           }
         } else if (careAnswer === 'nao') {
           await sessionRef.update({ step: 'METRICS_LESSON', updatedAt: now });
@@ -461,6 +484,23 @@ export async function handleGcReportIncomingMessage(
                await sendText(fromPhone, `👍 Cuidado registrado! Se tiver mais alguém, envie o número, senão, envie *OK* para avançar.`);
              }
            }
+        } else if (type === 'button' && payload?.buttonId !== 'care_done') {
+           const memberId = payload.buttonId;
+           let careSelections: any = latestCare.careSelections || {};
+           careSelections['buttons'] = (careSelections['buttons'] || []);
+           
+           if (!careSelections['buttons'].includes(memberId)) {
+               careSelections['buttons'].push(memberId);
+               await sessionRef.update({ careSelections, updatedAt: now });
+               
+               const clickedMember = session.members.find(m => m.id === memberId);
+               if (clickedMember) {
+                   await sendText(fromPhone, `✅ ${clickedMember.name} marcado(a) para cuidado!`);
+               }
+           } else {
+               await sendText(fromPhone, `⚠️ Esse membro já foi marcado.`);
+           }
+           return true;
         } else if ((type === 'button' && payload?.buttonId === 'care_done') || (type === 'text' && isAdvanceCommand(msg))) {
           const careSelections: any = latestCare.careSelections || {};
           let careQueue: string[] = [];
@@ -679,7 +719,7 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
         to,
         `📋 *Etapa 1: Chamada*\nMarque na enquete abaixo quem esteve *PRESENTE* na reunião.`
       );
-      await sendMembersPolls(to, session.members, false);
+      await sendMembersButtons(to, session.members, false);
       break;
     case 'CARE_CHOICE':
       await sendButton(
@@ -695,7 +735,7 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
     case 'CARE_SELECT':
       const presentMembers = session.members.filter(m => session.attendance[m.id] === 'presente');
       await sendText(to, 'Marque na enquete abaixo quem precisa de atenção especial nesta semana.');
-      await sendMembersPolls(to, presentMembers, true);
+      await sendMembersButtons(to, presentMembers, true);
       break;
     case 'CARE_MEMBER_THERMOMETER':
       const careQueueT = session.careMembersQueue || [];
