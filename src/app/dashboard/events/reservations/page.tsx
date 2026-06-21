@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useEventsData } from "@/hooks/useDomainData";
 
 const ReservationsCalendar = dynamic(
     () => import('@/components/volunteering/reservations-calendar').then(mod => mod.ReservationsCalendar),
@@ -31,7 +32,8 @@ const ReservationsCalendar = dynamic(
 );
 
 function ReservationsPageContent() {
-    const { rooms, reservationCategories } = useVolunteering();
+    const { events, reservations, rooms, strategicEvents, reservationCategories } = useEventsData();
+
     const [isDialogOpen, setDialogOpen] = useState(false);
     const [selectedReservation, setSelectedReservation] = useState<any>(null);
     

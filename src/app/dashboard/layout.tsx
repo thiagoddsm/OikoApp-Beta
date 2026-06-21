@@ -41,7 +41,10 @@ import {
   BarChart2,
   Search,
   Bell,
-  Moon
+  Moon,
+  Sun,
+  Zap,
+  Activity
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -85,6 +88,14 @@ const menuItems = [
         { href: "/dashboard/people/journey", label: "Integração", icon: Footprints, permissionId: 'pessoas_journey' },
         { href: "/dashboard/people/list", label: "Lista de Pessoas", icon: Users2, permissionId: 'pessoas_list' },
         { href: "/dashboard/people/settings", label: "Configurações", icon: Settings, permissionId: 'pessoas_settings' },
+      ]
+    },
+    { 
+      label: "Engajamento", 
+      icon: Activity,
+      subItems: [
+        { href: "/dashboard/engajamento/jornada", label: "Jornada", icon: Footprints, permissionId: 'dashboard' },
+        { href: "/dashboard/engajamento/automacoes", label: "Automações", icon: Zap, permissionId: 'dashboard' },
       ]
     },
     { 
@@ -355,6 +366,24 @@ export default function DashboardLayout({
     }
   }, [isLoading, user, router]);
 
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  useEffect(() => {
+    const isDark = document.documentElement.classList.contains('dark');
+    setTheme(isDark ? 'dark' : 'light');
+  }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(nextTheme);
+    if (nextTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -463,8 +492,8 @@ export default function DashboardLayout({
                         <span className="sr-only">Buscar</span>
                     </Button>
                 </div>
-                <Button variant="ghost" size="icon" className="rounded-full">
-                    <Moon className="h-5 w-5" />
+                <Button variant="ghost" size="icon" className="rounded-full" onClick={toggleTheme}>
+                    {theme === 'dark' ? <Sun className="h-5 w-5 text-amber-500" /> : <Moon className="h-5 w-5" />}
                 </Button>
                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>

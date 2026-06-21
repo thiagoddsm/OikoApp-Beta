@@ -7,7 +7,6 @@ export type User = {
   phone?: string;
   avatar?: string;
   integrationStatus?: string;
-  cpf?: string;
   sexo?: string;
   escolaridade?: string;
   profissao?: string;
@@ -52,6 +51,8 @@ export type User = {
 };
 
 export type Member = User & {
-  // Opcionais campos que possam existir só no member
+  // Dados exclusivos e restritos do Tenant local
   tenantId?: string;
+  cpf?: string;
+  cpfCnpj?: string;
 };

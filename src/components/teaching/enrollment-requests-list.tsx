@@ -13,9 +13,12 @@ import { cn } from '@/lib/utils';
 
 import { useDoc } from '@/firebase';
 import { sendEnrollmentMessage } from '@/app/actions/whatsapp-actions';
+import { useCoursesData } from "@/hooks/useDomainData";
 
 export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
-    const { enrollmentRequests, classes, courses, approveEnrollmentRequest, updateEnrollmentRequest, deleteEnrollmentRequest, isLoading } = useVolunteering();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+    const { approveEnrollmentRequest, updateEnrollmentRequest, deleteEnrollmentRequest, isLoading } = useVolunteering();
     const { data: config } = useDoc<any>('config/notifications');
     const { toast } = useToast();
     const [selectedClassMap, setSelectedClassMap] = useState<Record<string, string>>({});

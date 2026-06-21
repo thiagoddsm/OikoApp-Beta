@@ -4,7 +4,7 @@ import { getPayment } from '@/lib/asaas';
 export const runtime = 'nodejs';
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -14,7 +14,10 @@ export async function GET(
       return NextResponse.json({ error: 'ID do pagamento é obrigatório.' }, { status: 400 });
     }
 
-    const payment = await getPayment(id);
+    const { searchParams } = new URL(request.url);
+    const tenantId = searchParams.get('tenantId') || undefined;
+
+    const payment = await getPayment(id, tenantId);
     return NextResponse.json(payment);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Erro desconhecido';

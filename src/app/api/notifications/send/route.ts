@@ -204,6 +204,9 @@ export async function POST(request: Request) {
             } else if (rest.type === 'media' || rest.type === 'image') {
                 messageBody.caption = personalizedBody || ' ';
                 messageBody.url = rest.mediaUrl;
+            } else if (rest.type === 'contact') {
+                messageBody.name = rest.contactName || 'Contato';
+                messageBody.vcardPhone = rest.contactPhone || '';
             } else {
                 messageBody.text = personalizedBody;
             }

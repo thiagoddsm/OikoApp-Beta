@@ -23,7 +23,11 @@ export default function NotificationSettingsPage() {
     
     // Config States
     const [serverUrl, setServerUrl] = useState('');
+    const [instanceName, setInstanceName] = useState('');
     const [instanceKey, setInstanceKey] = useState('');
+    const [evolutionUrl, setEvolutionUrl] = useState('');
+    const [evolutionInstance, setEvolutionInstance] = useState('');
+    const [evolutionKey, setEvolutionKey] = useState('');
     const [webhookUrl, setWebhookUrl] = useState('');
     const [enabled, setEnabled] = useState(true);
     
@@ -51,11 +55,15 @@ export default function NotificationSettingsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [instanceStatus, setInstanceStatus] = useState<any>(null);
+    const [evolutionStatus, setEvolutionStatus] = useState<any>(null);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const [isRefreshingEvolution, setIsRefreshingEvolution] = useState(false);
+    const [isLoggingOutEvolution, setIsLoggingOutEvolution] = useState(false);
     const [isSyncingContacts, setIsSyncingContacts] = useState(false);
 
     const isConnected = instanceStatus?.parsedStatus === 'connected';
+    const isEvolutionConnected = evolutionStatus?.parsedStatus === 'connected';
 
     const checkStatus = async () => {
         if (!instanceKey) {
@@ -64,7 +72,7 @@ export default function NotificationSettingsPage() {
         }
         setIsRefreshing(true);
         try {
-            const res = await fetch(`/api/notifications/instance?key=${instanceKey}&server=${encodeURIComponent(serverUrl)}`, { 
+            const res = await fetch(`/api/notifications/instance?key=${instanceKey}&server=${encodeURIComponent(serverUrl)}&instance=${encodeURIComponent(instanceName)}`, { 
                 cache: 'no-store' 
             });
             const data = await res.json();
@@ -87,6 +95,33 @@ export default function NotificationSettingsPage() {
         }
     };
 
+    const checkEvolutionStatus = async () => {
+        if (!evolutionKey) {
+            setEvolutionStatus(null);
+            return;
+        }
+        try {
+            const res = await fetch(`/api/notifications/instance?key=${evolutionKey}&server=${encodeURIComponent(evolutionUrl)}&instance=${encodeURIComponent(evolutionInstance)}`, { 
+                cache: 'no-store' 
+            });
+            const data = await res.json();
+            
+            if (data.status === 'error' || data.error) {
+                 setEvolutionStatus((prev: any) => ({ ...prev, status: 'offline', message: data.message || data.error || 'Erro na API' }));
+            } else {
+                 setEvolutionStatus((prev: any) => {
+                     const parsedStatus = data.parsedStatus;
+                     const qr = parsedStatus === 'connected' ? null : (data.qr || data.instance?.qr || data.data?.qr || data.qrcode || prev?.qr);
+                     return { ...data, qr, parsedStatus };
+                 });
+            }
+        } catch (e) {
+            setEvolutionStatus({ status: 'offline', message: 'Erro de rede' });
+        } finally {
+            setIsRefreshingEvolution(false);
+        }
+    };
+
     // Auto-polling when in pairing mode
     useEffect(() => {
         let interval: NodeJS.Timeout;
@@ -95,8 +130,13 @@ export default function NotificationSettingsPage() {
                 checkStatus();
             }, 5000); // Check every 5 seconds
         }
+        if (evolutionStatus?.parsedStatus === 'pairing' && !isEvolutionConnected) {
+            interval = setInterval(() => {
+                checkEvolutionStatus();
+            }, 5000); // Check every 5 seconds
+        }
         return () => { if (interval) clearInterval(interval); };
-    }, [instanceStatus?.parsedStatus, isConnected]);
+    }, [instanceStatus?.parsedStatus, isConnected, evolutionStatus?.parsedStatus, isEvolutionConnected]);
 
     useEffect(() => {
         async function load() {
@@ -109,7 +149,11 @@ export default function NotificationSettingsPage() {
                 if (configSnap.exists()) {
                     const config = configSnap.data();
                     setServerUrl(config.serverUrl || 'https://us.api-wa.me');
+                    setInstanceName(config.instanceName || '');
                     setInstanceKey(config.instanceKey || '');
+                    setEvolutionUrl(config.evolutionUrl || 'https://api.ibmanha.com.br');
+                    setEvolutionInstance(config.evolutionInstance || 'IBM');
+                    setEvolutionKey(config.evolutionKey || '');
                     // Forçamos o webhook para o domínio atual para corrigir o problema de localhost salvo
                     const currentWebhook = typeof window !== 'undefined' ? `${window.location.origin}/api/notifications/webhook` : '';
                     setWebhookUrl(currentWebhook);
@@ -145,7 +189,10 @@ export default function NotificationSettingsPage() {
         if (instanceKey && !isLoading) {
             checkStatus();
         }
-    }, [instanceKey, isLoading]);
+        if (evolutionKey && !isLoading) {
+            checkEvolutionStatus();
+        }
+    }, [instanceKey, evolutionKey, isLoading]);
 
     const handleSaveConfig = async () => {
         if (!firestore) return;
@@ -155,7 +202,11 @@ export default function NotificationSettingsPage() {
             const configRef = doc(firestore, 'config', 'notifications');
             await setDocumentNonBlocking(configRef, {
                 serverUrl,
+                instanceName,
                 instanceKey,
+                evolutionUrl,
+                evolutionInstance,
+                evolutionKey,
                 enabled,
                 webhookUrl,
                 notifyWelcome,
@@ -174,6 +225,7 @@ export default function NotificationSettingsPage() {
 
             toast({ title: "Configurações Salvas", description: "O gateway de WhatsApp foi atualizado com sucesso." });
             checkStatus();
+            checkEvolutionStatus();
         } catch (error: any) {
             toast({ title: "Erro ao Salvar", description: error.message || "Erro de permissão no Firebase.", variant: "destructive" });
         } finally {
@@ -189,7 +241,7 @@ export default function NotificationSettingsPage() {
             const res = await fetch('/api/notifications/instance', { 
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ key: instanceKey, server: serverUrl }),
+                body: JSON.stringify({ key: instanceKey, server: serverUrl, instance: instanceName }),
                 cache: 'no-store' 
             });
             const data = await res.json();
@@ -208,6 +260,35 @@ export default function NotificationSettingsPage() {
         } finally { setIsRefreshing(false); }
     };
 
+    const handleEvolutionConnect = async () => {
+        if (!evolutionKey) return;
+        setIsRefreshingEvolution(true);
+        try {
+            const res = await fetch('/api/notifications/instance', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: evolutionKey, server: evolutionUrl, instance: evolutionInstance }),
+                cache: 'no-store' 
+            });
+            const data = await res.json();
+            
+            if (data.status === 'error' || data.error) {
+                toast({ title: "Erro ao Conectar Evolution", description: data.message || data.error, variant: "destructive" });
+            } else {
+                setEvolutionStatus((prev: any) => {
+                    const parsedStatus = data.parsedStatus || (data?.instance?.state === 'open' ? 'connected' : 'pairing');
+                    const qr = parsedStatus === 'connected' ? null : (data.qr || data.instance?.qr || data.data?.qr || data.qrcode || prev?.qr);
+                    return { ...data, qr, parsedStatus };
+                });
+                toast({ title: "Comando Enviado", description: "Escaneie o QR Code para conectar a Evolution API." });
+            }
+        } catch (error: any) {
+            toast({ title: "Erro na Conexão Evolution", description: error.message || "Erro desconhecido", variant: "destructive" });
+        } finally {
+            setIsRefreshingEvolution(false);
+        }
+    };
+
     const handleTestMessage = async () => {
         if (!testPhone) {
             toast({ title: "Número necessário", description: "Digite um número de telefone para o teste.", variant: "destructive" });
@@ -217,12 +298,14 @@ export default function NotificationSettingsPage() {
         setIsTesting(true);
         const result = await sendTestWhatsAppMessage(testPhone, testMessage, {
             serverUrl,
+            instanceName,
             instanceKey
         });
 
         if (result.success) {
             toast({ title: "Mensagem Enviada!", description: "Verifique o seu WhatsApp." });
             checkStatus();
+            checkEvolutionStatus();
         } else {
             toast({ title: "Falha no Envio", description: result.error, variant: "destructive" });
         }
@@ -240,6 +323,7 @@ export default function NotificationSettingsPage() {
         try {
             const params = new URLSearchParams({ key: instanceKey });
             if (serverUrl) params.set('server', serverUrl);
+            if (instanceName) params.set('instance', instanceName);
             const res = await fetch(`/api/notifications/instance?${params.toString()}`, { method: 'DELETE' });
             const data = await res.json();
             if (data.error) {
@@ -252,6 +336,23 @@ export default function NotificationSettingsPage() {
             toast({ variant: 'destructive', title: 'Erro ao desconectar' });
         } finally {
             setIsLoggingOut(false);
+        }
+    };
+
+    const handleEvolutionLogout = async () => {
+        if (!evolutionKey) return;
+        setIsLoggingOutEvolution(true);
+        try {
+            const res = await fetch(`/api/notifications/instance?key=${evolutionKey}&server=${encodeURIComponent(evolutionUrl)}&instance=${encodeURIComponent(evolutionInstance)}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (data.success || data.error) {
+                toast({ title: "Evolution Desconectado", description: "O gateway secundário foi desligado." });
+                setEvolutionStatus(null);
+            }
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Erro ao desconectar Evolution' });
+        } finally {
+            setIsLoggingOutEvolution(false);
         }
     };
 
@@ -272,7 +373,7 @@ export default function NotificationSettingsPage() {
                     <h1 className="text-3xl font-black tracking-tight text-slate-900">Configurações de Notificação</h1>
                     <p className="text-muted-foreground mt-1">Gerencie seu gateway de WhatsApp e automações de mensagens.</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-col items-end gap-2">
                     <div className={cn(
                         "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border shadow-sm",
                         isConnected ? "bg-emerald-50 text-emerald-700 border-emerald-200" : 
@@ -282,7 +383,18 @@ export default function NotificationSettingsPage() {
                         <div className={cn("size-2 rounded-full animate-pulse", 
                             isConnected ? "bg-emerald-500" : instanceStatus?.status === 'offline' ? "bg-red-500" : "bg-slate-400"
                         )} />
-                        {isConnected ? "Gateway Ativo" : instanceStatus?.status === 'offline' ? "Desconectado" : "Status Desconhecido"}
+                        WAME: {isConnected ? "Ativo" : instanceStatus?.status === 'offline' ? "Desconectado" : "Desconhecido"}
+                    </div>
+                    <div className={cn(
+                        "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border shadow-sm",
+                        isEvolutionConnected ? "bg-emerald-50 text-emerald-700 border-emerald-200" : 
+                        evolutionStatus?.status === 'offline' ? "bg-red-50 text-red-700 border-red-200" : 
+                        "bg-slate-50 text-slate-500 border-slate-200"
+                    )}>
+                        <div className={cn("size-2 rounded-full animate-pulse", 
+                            isEvolutionConnected ? "bg-emerald-500" : evolutionStatus?.status === 'offline' ? "bg-red-500" : "bg-slate-400"
+                        )} />
+                        Evolution: {isEvolutionConnected ? "Ativo" : evolutionStatus?.status === 'offline' ? "Desconectado" : "Desconhecido"}
                     </div>
                 </div>
             </div>
@@ -328,12 +440,57 @@ export default function NotificationSettingsPage() {
                                         <Button onClick={handleCopyWebhook} variant="outline" size="icon" className="h-11 w-11 shrink-0"><Copy size={16}/></Button>
                                     </div>
                                     <p className="text-[10px] text-muted-foreground italic flex items-center gap-1">
-                                        <Info size={10} /> Copie esta URL e cole nos campos de Webhook do portal api-wa.me para capturar respostas.
+                                        <Info size={10} /> Copie esta URL e cole nos campos de Webhook do portal api-wa.me e Evolution API para capturar respostas.
                                     </p>
                                 </div>
                             </div>
+                        </CardContent>
+                    </Card>
 
-                            <div className="flex items-center justify-between p-4 bg-primary/5 rounded-xl border border-primary/10">
+                    <Card className="border-2 shadow-md">
+                        <CardHeader className="bg-slate-50/50">
+                            <div className="flex items-center gap-2 text-primary">
+                                <Zap className="size-5" />
+                                <CardTitle>Gateway Secundário (Evolution API)</CardTitle>
+                            </div>
+                            <CardDescription>Usado exclusivamente para envio de Enquetes e Contatos.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="pt-6 space-y-6">
+                            <div className="grid grid-cols-1 gap-6">
+                                <div className="space-y-2">
+                                    <Label htmlFor="evolutionUrl" className="text-xs font-black uppercase text-muted-foreground">URL da Evolution API</Label>
+                                    <Input 
+                                        id="evolutionUrl" 
+                                        value={evolutionUrl} 
+                                        onChange={(e) => setEvolutionUrl(e.target.value)} 
+                                        placeholder="https://api.ibmanha.com.br"
+                                        className="h-11 font-medium"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="evolutionInstance" className="text-xs font-black uppercase text-muted-foreground">Nome da Instância</Label>
+                                    <Input 
+                                        id="evolutionInstance" 
+                                        value={evolutionInstance} 
+                                        onChange={(e) => setEvolutionInstance(e.target.value)} 
+                                        placeholder="Ex: IBM"
+                                        className="h-11 font-medium"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="evolutionKey" className="text-xs font-black uppercase text-muted-foreground">Global API Key</Label>
+                                    <Input 
+                                        id="evolutionKey" 
+                                        type="password"
+                                        value={evolutionKey} 
+                                        onChange={(e) => setEvolutionKey(e.target.value)} 
+                                        placeholder="Sua chave secreta..."
+                                        className="h-11 font-medium"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 bg-primary/5 rounded-xl border border-primary/10 mt-6">
                                 <div className="space-y-0.5">
                                     <Label className="text-sm font-bold">Ativar Disparos</Label>
                                     <p className="text-xs text-muted-foreground">Habilita ou desabilita todos os disparos automáticos.</p>
@@ -547,7 +704,7 @@ export default function NotificationSettingsPage() {
 
                 {/* Right Column: Connection & Testing */}
                 <div className="space-y-8">
-                    {/* Status Card */}
+                    {/* Status Card WAME */}
                     <Card className={cn(
                         "border-2 shadow-lg",
                         isConnected ? "border-emerald-200 bg-emerald-50/30" : 
@@ -555,7 +712,7 @@ export default function NotificationSettingsPage() {
                         "border-slate-200 bg-slate-50/30"
                     )}>
                         <CardHeader className="border-b bg-white/50">
-                            <CardTitle className="text-xs font-black uppercase flex items-center gap-2">Status do Gateway</CardTitle>
+                            <CardTitle className="text-xs font-black uppercase flex items-center gap-2">Status do Gateway (WAME)</CardTitle>
                         </CardHeader>
                         <CardContent className="pt-8 flex flex-col items-center justify-center text-center min-h-[250px]">
                             {isRefreshing ? <Loader2 className="animate-spin size-8 text-primary opacity-40" /> : 
@@ -611,6 +768,76 @@ export default function NotificationSettingsPage() {
                                             <QrCode className="size-3 mr-2" /> Gerar QR Code
                                         </Button>
                                         <Button size="sm" variant="ghost" onClick={checkStatus} className="text-[10px] font-black uppercase tracking-widest"><RefreshCw className="size-3" /></Button>
+                                    </div>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Status Card Evolution */}
+                    <Card className={cn(
+                        "border-2 shadow-lg",
+                        isEvolutionConnected ? "border-emerald-200 bg-emerald-50/30" : 
+                        evolutionStatus?.parsedStatus === 'pairing' ? "border-amber-200 bg-amber-50/30" :
+                        "border-slate-200 bg-slate-50/30"
+                    )}>
+                        <CardHeader className="border-b bg-white/50">
+                            <CardTitle className="text-xs font-black uppercase flex items-center gap-2">Status do Gateway (Evolution)</CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-8 flex flex-col items-center justify-center text-center min-h-[250px]">
+                            {isRefreshingEvolution ? <Loader2 className="animate-spin size-8 text-primary opacity-40" /> : 
+                            isEvolutionConnected ? (
+                                <div className="space-y-4">
+                                    <div className="size-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner border border-emerald-200"><CheckCircle size={32} /></div>
+                                    <div>
+                                        <h4 className="font-black text-emerald-900 uppercase">Evolution Conectado</h4>
+                                        <p className="text-[10px] text-emerald-700 font-bold mt-1">Gateway secundário pronto.</p>
+                                    </div>
+                                    <div className="flex gap-2 justify-center">
+                                        <Button size="sm" variant="ghost" onClick={checkEvolutionStatus} className="text-[10px] font-black uppercase tracking-widest text-emerald-800">
+                                            <RefreshCw className="size-3 mr-2" /> Sincronizar
+                                        </Button>
+                                        <Button 
+                                            size="sm" 
+                                            variant="ghost" 
+                                            onClick={handleEvolutionLogout} 
+                                            disabled={isLoggingOutEvolution}
+                                            className="text-[10px] font-black uppercase tracking-widest text-red-600 hover:text-red-700 hover:bg-red-50"
+                                        >
+                                            {isLoggingOutEvolution 
+                                                ? <Loader2 className="size-3 mr-2 animate-spin" /> 
+                                                : <LogOut className="size-3 mr-2" />} 
+                                            Desconectar
+                                        </Button>
+                                    </div>
+                                </div>
+                            ) : evolutionStatus?.parsedStatus === 'pairing' && evolutionStatus?.qr ? (
+                                <div className="space-y-4">
+                                    <div className="bg-white p-3 border-2 border-primary/20 rounded-2xl shadow-md inline-block">
+                                        <img 
+                                            src={evolutionStatus.qr.startsWith('data:image') ? evolutionStatus.qr : `data:image/png;base64,${evolutionStatus.qr}`} 
+                                            alt="QR Code Evolution" 
+                                            className="w-44 h-44" 
+                                        />
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-black text-primary uppercase animate-pulse">Escaneie o QR Code</p>
+                                        <p className="text-[10px] text-muted-foreground mt-1 px-4">Abra o WhatsApp {'>'} Configurações {'>'} Dispositivos Conectados</p>
+                                    </div>
+                                    <Button size="sm" variant="outline" onClick={checkEvolutionStatus} className="text-[10px] font-black uppercase tracking-widest w-full"><RefreshCw className="size-3 mr-2" /> Já escaneei</Button>
+                                </div>
+                            ) : (
+                                <div className="space-y-4 opacity-70">
+                                    <Smartphone size={48} className="mx-auto text-slate-400" />
+                                    <div>
+                                        <p className="text-xs font-black uppercase tracking-widest text-slate-600">Desconectado</p>
+                                        <p className="text-[10px] text-muted-foreground mt-1">Gere o QR Code da Evolution API.</p>
+                                    </div>
+                                    <div className="flex gap-2 justify-center pt-2">
+                                        <Button size="sm" variant="default" onClick={handleEvolutionConnect} className="text-[10px] font-black uppercase tracking-widest">
+                                            <QrCode className="size-3 mr-2" /> Gerar QR Code
+                                        </Button>
+                                        <Button size="sm" variant="ghost" onClick={checkEvolutionStatus} className="text-[10px] font-black uppercase tracking-widest"><RefreshCw className="size-3" /></Button>
                                     </div>
                                 </div>
                             )}

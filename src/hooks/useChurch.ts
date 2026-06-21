@@ -1,11 +1,16 @@
 import { useMemo } from 'react';
 import { query, collection, where } from 'firebase/firestore';
-import { useCollection, firestore } from '@/firebase';
+import { useCollection, useFirebase, useDoc } from '@/firebase';
 import { useTenant } from '@/contexts/tenant-context';
 import { Cell, Area, Rede } from '@/domain/cell';
 
 export const useChurch = () => {
   const { tenantId } = useTenant();
+  const { firestore } = useFirebase();
+
+  const { data: tenant, isLoading: loadingTenant } = useDoc<any>(
+    tenantId ? `tenants/${tenantId}` : null
+  );
 
   // Queries baseadas no tenant
   const cellsQ = useMemo(() => {
@@ -29,9 +34,11 @@ export const useChurch = () => {
   const { data: redes, isLoading: loadingRedes } = useCollection<Rede>(redesQ);
 
   return {
+    tenantId,
+    tenant,
     cells: cells || [],
     areas: areas || [],
     redes: redes || [],
-    isLoading: loadingCells || loadingAreas || loadingRedes
+    isLoading: loadingCells || loadingAreas || loadingRedes || loadingTenant
   };
 };

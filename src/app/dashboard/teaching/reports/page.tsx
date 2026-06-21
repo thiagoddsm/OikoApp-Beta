@@ -12,9 +12,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { parseISO, isWithinInterval, startOfWeek, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 function GeneralTeachingReportsContent() {
-  const { courses, classes, users } = useVolunteering();
+    const { users } = useMembersData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
   const [selectedCourseId, setSelectedCourseId] = useState<string>('all');
   const [selectedTrack, setSelectedTrack] = useState<string>('all');
   const [dateStart, setDateStart] = useState<string>('');

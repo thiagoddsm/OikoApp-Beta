@@ -32,15 +32,25 @@ const EVENT_STATUS_MAP: Record<string, string> = {
 };
 
 export async function POST(request: Request) {
-  // Validação do token do webhook — busca dinamicamente do Firestore
+  const { searchParams } = new URL(request.url);
+  const tenantId = searchParams.get('tenantId');
+
   const webhookToken = request.headers.get('asaas-access-token');
   
   let expectedToken = 'ibm_webhook_secret_2025'; // Fallback
   try {
     const db = getAdminDb();
-    const configSnap = await db.collection('system_settings').doc('finance').get();
-    if (configSnap.exists && configSnap.data()?.asaasWebhookToken) {
-      expectedToken = configSnap.data()!.asaasWebhookToken;
+    
+    if (tenantId) {
+      const tenantSnap = await db.collection('tenants').doc(tenantId).get();
+      if (tenantSnap.exists && tenantSnap.data()?.asaasWebhookToken) {
+        expectedToken = tenantSnap.data()!.asaasWebhookToken;
+      }
+    } else {
+      const configSnap = await db.collection('system_settings').doc('finance').get();
+      if (configSnap.exists && configSnap.data()?.asaasWebhookToken) {
+        expectedToken = configSnap.data()!.asaasWebhookToken;
+      }
     }
   } catch (error) {
     console.error('[Asaas Webhook] Erro ao buscar token de validação do Firestore:', error);
@@ -53,7 +63,7 @@ export async function POST(request: Request) {
 
   // Retornar 200 imediatamente é crucial para o Asaas não desativar o webhook
   // O processamento ocorre de forma assíncrona após o retorno
-  const responsePromise = processWebhookEvent(request);
+  const responsePromise = processWebhookEvent(request, tenantId || undefined);
 
   // Fire-and-forget: não bloquear o retorno
   responsePromise.catch((err: unknown) => {
@@ -64,9 +74,10 @@ export async function POST(request: Request) {
   return NextResponse.json({ received: true }, { status: 200 });
 }
 
-async function processWebhookEvent(request: Request): Promise<void> {
+async function processWebhookEvent(request: Request, tenantId?: string): Promise<void> {
   let body: { 
     event?: string; 
+    id?: string;
     payment?: Record<string, any>; 
     subscription?: Record<string, any>;
     anticipation?: Record<string, any>;
@@ -80,7 +91,7 @@ async function processWebhookEvent(request: Request): Promise<void> {
     return;
   }
 
-  const { event, payment, subscription, anticipation } = body;
+  const { event, payment, subscription, anticipation, id: eventId } = body;
 
   if (!event) {
     console.warn('[Asaas Webhook] Payload inválido — event ausente:', body);
@@ -91,6 +102,17 @@ async function processWebhookEvent(request: Request): Promise<void> {
   const db = getAdminDb();
   const now = Timestamp.now();
 
+  // Verificação de Idempotência
+  if (eventId) {
+    const processedRef = db.collection('processed_webhooks').doc(eventId);
+    const processedSnap = await processedRef.get();
+    if (processedSnap.exists) {
+      console.log(`[Asaas Webhook] Evento ${eventId} já processado anteriormente. Ignorando duplicidade.`);
+      return;
+    }
+    await processedRef.set({ processedAt: now, event, tenantId: tenantId ?? null });
+  }
+
   try {
     // 1. Processar Eventos de Cobrança (Payment)
     if (payment && payment.id) {
@@ -100,6 +122,7 @@ async function processWebhookEvent(request: Request): Promise<void> {
           status: internalStatus,
           asaasStatus: payment.status ?? null,
           asaasEvent: event,
+          tenantId: tenantId ?? null,
           updatedAt: now,
           ...(payment.value !== undefined && { value: payment.value }),
           ...(payment.dueDate !== undefined && { dueDate: payment.dueDate }),
@@ -179,6 +202,7 @@ async function processWebhookEvent(request: Request): Promise<void> {
           status: internalStatus,
           asaasStatus: subscription.status ?? null,
           asaasEvent: event,
+          tenantId: tenantId ?? null,
           updatedAt: now,
           ...(subscription.value !== undefined && { value: subscription.value }),
           ...(subscription.billingType !== undefined && { billingType: subscription.billingType }),
@@ -202,6 +226,7 @@ async function processWebhookEvent(request: Request): Promise<void> {
           status: internalStatus,
           asaasStatus: anticipation.status ?? null,
           asaasEvent: event,
+          tenantId: tenantId ?? null,
           updatedAt: now,
           ...(anticipation.value !== undefined && { value: anticipation.value }),
           ...(anticipation.fee !== undefined && { fee: anticipation.fee }),

@@ -14,13 +14,17 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Check, ChevronsUpDown, Search } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 interface ClassScheduleManagerProps {
     classData: Class;
 }
 
 export function ClassScheduleManager({ classData }: ClassScheduleManagerProps) {
-    const { courses, users, updateClass } = useVolunteering();
+    const { users } = useMembersData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+    const { updateClass } = useVolunteering();
     const { toast } = useToast();
     const course = useMemo(() => courses.find(c => c.id === classData.courseId), [courses, classData.courseId]);
     const syllabus = course?.syllabus || [];

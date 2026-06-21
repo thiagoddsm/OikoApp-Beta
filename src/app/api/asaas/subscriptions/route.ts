@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   try {
-    const { customerId, billingType, value, dueDate, description, externalReference, cycle } = await request.json();
+    const { customerId, billingType, value, dueDate, description, externalReference, cycle, tenantId } = await request.json();
 
     if (!customerId || !value || !dueDate) {
       return NextResponse.json(
@@ -23,7 +23,8 @@ export async function POST(request: Request) {
       dueDate,
       description,
       externalReference,
-      cycle: cycle || 'MONTHLY'
+      cycle: cycle || 'MONTHLY',
+      tenantId
     });
 
     // Registrar assinatura no Firestore
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
         status: subscription.status || 'ACTIVE',
         description: subscription.description || '',
         externalReference: subscription.externalReference || '',
+        tenantId: tenantId || null,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now()
       });

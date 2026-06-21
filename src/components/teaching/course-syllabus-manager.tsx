@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useVolunteering } from '@/contexts/volunteering-context';
+import { useCoursesData } from "@/hooks/useDomainData";
 
 type SyllabusModule = {
   id: string;
@@ -41,8 +42,8 @@ interface CourseSyllabusManagerProps {
 export function CourseSyllabusManager({ course }: CourseSyllabusManagerProps) {
   const { firestore } = useFirebase();
   const { toast } = useToast();
-  const { theoflixCourses } = useVolunteering();
-  
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
   const [modules, setModules] = useState<SyllabusModule[]>(course.syllabus || []);
   const [isSaving, setIsSaving] = useState(false);
   const [editingModuleId, setEditingModuleId] = useState<string | null>(null);

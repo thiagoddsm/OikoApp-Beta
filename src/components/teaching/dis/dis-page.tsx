@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering } from '@/contexts/volunteering-context';
+import { useCoursesData } from "@/hooks/useDomainData";
 
 const modules = [
     {
@@ -31,7 +32,7 @@ const modules = [
 
 export function DisSchoolPage() {
   const { toast } = useToast();
-  const { courses } = useVolunteering();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
 
   const handleCopyLink = async () => {
     const disCourse = courses.find(c => c.ministryName.toLowerCase() === 'dis' || c.name.toLowerCase().includes('libras'));

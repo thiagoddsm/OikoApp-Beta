@@ -11,10 +11,14 @@ import { Calendar, Clock, DollarSign, Loader2, MessageSquare, CreditCard, Gradua
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { useCoursesData, useTeachingFinance } from "@/hooks/useDomainData";
 
 export function DisStudentArea() {
   const { user } = useFirebase();
-  const { classes, courses, disPayments, pedagogicalLogs, isLoading } = useVolunteering();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+    const { wavePayments, disPayments, wavePlans, disPlans, waveExpenses } = useTeachingFinance();
+
+  const { isLoading } = useVolunteering();
 
   const myClasses = useMemo(() => {
     if (!user) return [];

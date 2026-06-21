@@ -17,6 +17,7 @@ import { StudentsManagement } from '../students-management';
 import { TeachersManagement } from '../teachers-management';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 const growthData = [
   { name: 'Jul', matriculas: 12, solicitacoes: 18 },
@@ -26,7 +27,10 @@ const growthData = [
 ];
 
 export function DisAdminDashboard() {
-  const { users, classes, courses, enrollmentRequests, isLoading } = useVolunteering();
+    const { users } = useMembersData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+  const { isLoading } = useVolunteering();
   const [activeTab, setActiveTab] = useState('overview');
   const [isEnrollmentOpen, setEnrollmentOpen] = useState(false);
   const [isClassFormOpen, setClassFormOpen] = useState(false);

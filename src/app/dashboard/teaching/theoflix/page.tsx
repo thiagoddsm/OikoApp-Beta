@@ -34,6 +34,7 @@ import { collection, query, doc, orderBy } from 'firebase/firestore';
 import { TheoflixManager } from '@/components/teaching/theoflix/theoflix-manager';
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering, VolunteeringProvider } from '@/contexts/volunteering-context';
+import { useCoursesData } from "@/hooks/useDomainData";
 
 export type TheoLevel = {
     id: string;
@@ -71,7 +72,9 @@ declare global {
 
 function TheoFlixContent() {
   const { firestore, user } = useFirebase();
-  const { markAttendanceByTheoflix, classes, courses: physicalCourses } = useVolunteering();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+  const { markAttendanceByTheoflix } = useVolunteering();
   const { toast } = useToast();
   const { data: userData } = useDoc<any>(user ? `users/${user.uid}` : null);
   const isAdmin = userData?.hierarchy?.role === 'admin' || userData?.hierarchy?.role === 'pastor_senior';

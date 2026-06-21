@@ -8,9 +8,12 @@ import { Input } from '@/components/ui/input';
 import { PlusCircle, Save, Loader2, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { useMembersData } from "@/hooks/useDomainData";
 
 export function ClassGradesManager({ classData }: { classData: Class }) {
-    const { users, updateClass } = useVolunteering();
+    const { users } = useMembersData();
+
+    const { updateClass } = useVolunteering();
     const { toast } = useToast();
     const [newAssessment, setNewAssessment] = useState('');
     const [isSaving, setIsSaving] = useState(false);

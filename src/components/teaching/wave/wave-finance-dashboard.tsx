@@ -17,7 +17,7 @@ import { PaymentFormDialog } from './payment-form-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { WaveExpensesManagement } from './wave-expenses-management';
-
+import { useMembersData, useTeachingFinance } from "@/hooks/useDomainData";
 
 const statusConfig: Record<string, { label: string; icon: React.ElementType; color: string; }> = {
   paid: { label: 'Pago', icon: CheckCircle, color: 'bg-green-100 text-green-800' },
@@ -26,7 +26,10 @@ const statusConfig: Record<string, { label: string; icon: React.ElementType; col
 };
 
 export function WaveFinanceDashboard() {
-  const { wavePayments, users, wavePlans, isLoading, deleteWavePayment } = useVolunteering();
+    const { users } = useMembersData();
+    const { wavePayments, disPayments, wavePlans, disPlans, waveExpenses } = useTeachingFinance();
+
+  const { isLoading, deleteWavePayment } = useVolunteering();
   const [filter, setFilter] = useState('all');
   const [isFormOpen, setFormOpen] = useState(false);
   const [isDeleteOpen, setDeleteOpen] = useState(false);

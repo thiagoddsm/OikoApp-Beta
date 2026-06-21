@@ -9,9 +9,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Loader2, PlusCircle, MoreHorizontal, Pencil, Trash2, Copy, Download } from 'lucide-react';
 import { CreateEventDialog } from './create-event-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
+import { useEventsData, useVolunteeringServiceData } from "@/hooks/useDomainData";
 
 function ImportEventsButton() {
-    const { addEvent, events } = useVolunteering();
+    const { events, reservations, rooms, strategicEvents, reservationCategories } = useEventsData();
+    const { serviceAreas: areas, teams, savedSchedules } = useVolunteeringServiceData();
+
+    const { addEvent } = useVolunteering();
     const { toast } = useToast();
     const [isImporting, setIsImporting] = useState(false);
 
@@ -60,7 +64,7 @@ function ImportEventsButton() {
 }
 
 function ImportAreasButton() {
-    const { addArea, serviceAreas: areas } = useVolunteering();
+    const { addArea } = useVolunteering();
     const { toast } = useToast();
     const [isImporting, setIsImporting] = useState(false);
 
@@ -108,7 +112,9 @@ function ImportAreasButton() {
 }
 
 export function EventsManagement() {
-  const { events, serviceAreas: areas, isLoading, deleteEvent } = useVolunteering();
+  const { serviceAreas: areas } = useVolunteeringServiceData();
+  const { events } = useEventsData();
+  const { isLoading, deleteEvent } = useVolunteering();
   const [isFormOpen, setFormOpen] = useState(false);
   const [isDeleteOpen, setDeleteOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<VolunteeringEvent | null>(null);

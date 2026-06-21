@@ -7,9 +7,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { DeleteConfirmationDialog } from '../structure/delete-confirmation-dialog';
 import { Input } from '../ui/input';
 import { useRouter } from 'next/navigation';
+import { useVolunteeringServiceData } from "@/hooks/useDomainData";
 
 export function SavedSchedulesList() {
-    const { savedSchedules, isLoading, deleteSchedule } = useVolunteering();
+    const { serviceAreas: areas, teams, savedSchedules } = useVolunteeringServiceData();
+
+    const { isLoading, deleteSchedule } = useVolunteering();
     const router = useRouter();
     const [searchTerm, setSearchTerm] = useState('');
     const [scheduleToDelete, setScheduleToDelete] = useState<SavedSchedule | null>(null);

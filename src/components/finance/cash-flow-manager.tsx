@@ -13,9 +13,12 @@ import { Loader2, PlusCircle, Trash2, ArrowUpCircle, ArrowDownCircle, Filter, Ch
 import { Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { useMinisterialFinance } from "@/hooks/useDomainData";
 
 export function CashFlowManager() {
-  const { financialTransactions, addFinancialTransaction, updateFinancialTransaction, deleteFinancialTransaction, isLoading } = useVolunteering();
+    const { financialTransactions, financeRequests } = useMinisterialFinance();
+
+  const { addFinancialTransaction, updateFinancialTransaction, deleteFinancialTransaction, isLoading } = useVolunteering();
   
   const [isSaving, setIsSaving] = useState(false);
   const [filterType, setFilterType] = useState('all');

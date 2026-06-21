@@ -25,6 +25,7 @@ import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { useMembersData } from "@/hooks/useDomainData";
 
 interface ClassNotificationsManagerProps {
     classData: Class;
@@ -148,7 +149,9 @@ function CampaignsPanel({ classId, onResume }: { classId: string; onResume: (cam
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export function ClassNotificationsManager({ classData, courseData }: ClassNotificationsManagerProps) {
-    const { users, isLoading } = useVolunteering();
+    const { users } = useMembersData();
+
+    const { isLoading } = useVolunteering();
     const { toast } = useToast();
 
     const [targetFilter, setTargetFilter] = useState('all');

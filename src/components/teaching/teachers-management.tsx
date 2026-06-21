@@ -9,13 +9,17 @@ import { Button } from '@/components/ui/button';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useVolunteering, type User } from '@/contexts/volunteering-context';
 import { EditTeacherCoursesDialog } from './edit-teacher-courses-dialog';
+import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 interface TeachersManagementProps {
     filterCourseIds?: string[];
 }
 
 export function TeachersManagement({ filterCourseIds }: TeachersManagementProps) {
-    const { users, courses, isLoading } = useVolunteering();
+    const { users } = useMembersData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+    const { isLoading } = useVolunteering();
     
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);

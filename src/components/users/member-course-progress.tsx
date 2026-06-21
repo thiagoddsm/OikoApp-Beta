@@ -8,11 +8,12 @@ import { useVolunteering, getModuleIndexForDate, weekDayMap } from '@/contexts/v
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '../ui/badge';
 import { format, parseISO, addWeeks, addMonths, isBefore } from 'date-fns';
-
-
+import { useCoursesData } from "@/hooks/useDomainData";
 
 export function MemberCourseProgress({ user }: { user: any }) {
-    const { updateVolunteer, classes, courses } = useVolunteering();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+    const { updateVolunteer } = useVolunteering();
     const { toast } = useToast();
     const [isSyncing, setIsSyncing] = useState(false);
 

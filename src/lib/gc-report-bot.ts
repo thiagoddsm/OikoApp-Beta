@@ -61,7 +61,8 @@ async function sendText(to: string, text: string) {
 }
 
 /**
- * Envia uma mensagem com botões interativos (Quick Replies).
+ * Envia um botão interativo via WAME.
+ * Quando o usuário clica, o Evolution recebe a resposta como buttonsResponseMessage.
  */
 async function sendButton(to: string, text: string, buttons: { id: string, text: string }[], title?: string, footer?: string) {
   const whatsapp = await getWhatsAppClient();
@@ -76,6 +77,7 @@ async function sendButton(to: string, text: string, buttons: { id: string, text:
     }
   });
 }
+
 
 /**
  * Envia uma mensagem de lista interativa (Menu).
@@ -111,22 +113,47 @@ async function sendPoll(to: string, name: string, options: string[], selectableC
   });
 }
 
-async function sendMembersListAsText(to: string, membersList: { id: string; name: string }[], isCare = false) {
-  const title = isCare ? 'Quem precisa de cuidado?' : 'Quem estava PRESENTE?';
-  
+async function sendMembersListAsPoll(to: string, membersList: { id: string; name: string }[], isCare: boolean) {
+  const whatsapp = await getWhatsAppClient();
+  const title = isCare ? 'Quem precisa de CUIDADO?' : 'Quem estava PRESENTE?';
   if (membersList.length === 0) {
-    await sendText(to, 'Nenhum membro cadastrado.');
+    await sendText(to, 'Nenhum membro encontrado na célula.');
     return;
   }
 
-  let text = `*${title}*\n\nDigite os *números* correspondentes (ex: 1, 3, 4):\n\n`;
-  membersList.forEach((m, index) => {
-    text += `${index + 1}. ${m.name}\n`;
-  });
+  const chunkSize = 10;
+  for (let i = 0; i < membersList.length; i += chunkSize) {
+    const chunk = membersList.slice(i, i + chunkSize);
+    const options = chunk.map(m => m.name.substring(0, 50));
+    
+    let pollName = title;
+    if (membersList.length > chunkSize) {
+      pollName = `${title} (Parte ${Math.floor(i / chunkSize) + 1})`;
+    }
+    
+    await whatsapp.sendMessage({
+      type: 'poll',
+      body: {
+        to,
+        name: pollName,
+        options,
+        selectableCount: options.length
+      }
+    });
+  }
   
-  await sendText(to, text);
-  await sendText(to, '👉 Quando terminar de enviar os números, responda com *OK* para continuarmos.');
+  const buttonId = isCare ? 'care_done' : 'attendance_done';
+  const buttonText = isCare ? 'Concluir Seleção' : 'Finalizar lançamento de presença';
+  await sendButton(
+    to,
+    '👉 Quando terminar de marcar na(s) enquete(s) acima, clique no botão abaixo para avançarmos.',
+    [{ id: buttonId, text: buttonText }],
+    'Igreja Batista da Manhã',
+    'Opções do Relatório'
+  );
+
 }
+
 /**
  * Inicializa a sessão do relatório de GC para um líder.
  */
@@ -182,7 +209,7 @@ export async function startGcReportSession(cellId: string, liderPhone: string, i
       `Olá, líder${liderName}! 👋\nVamos preencher o relatório semanal do GC *${cellData.nome || 'Célula'}*? É rapidinho!\n\n📋 *Etapa 1: Chamada*\nResponda na lista abaixo quem esteve *PRESENTE* na reunião.`
     );
     
-    await sendMembersListAsText(liderPhone, membersList, false);
+    await sendMembersListAsPoll(liderPhone, membersList, false);
 
     // 4. Salvar estado da sessão na coleção `gc_report_sessions`
     const newSession: GcReportSession = {
@@ -246,7 +273,10 @@ export async function handleGcReportIncomingMessage(
   }
 
   // Helper: detecta palavras de avanço
-  const isAdvanceCommand = (t: string) => ['ok', 'pronto', 'avançar', 'avancar', 'proximo', 'próximo', 'concluir', 'done', 'sim'].includes(t.toLowerCase().trim());
+  const isAdvanceCommand = (t: string) => [
+    'ok', 'pronto', 'avançar', 'avancar', 'proximo', 'próximo', 'concluir', 'done', 'sim',
+    'finalizar lançamento de presença', 'finalizar lançamento de presenca', 'finalizar chamada'
+  ].includes(t.toLowerCase().trim());
 
   // Helper: delay entre mensagens
   const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -269,7 +299,7 @@ export async function handleGcReportIncomingMessage(
           const options = payload.selectedOptions as string[];
           const pollOptionsMap = new Map();
           session.members.forEach((m, i) => {
-            pollOptionsMap.set(`${i + 1}. ${m.name.substring(0, 20)}`, m.id);
+            pollOptionsMap.set(m.name.substring(0, 50), m.id);
           });
           
           console.log('[GC Bot DEBUG] Poll received options:', JSON.stringify(options));
@@ -293,14 +323,48 @@ export async function handleGcReportIncomingMessage(
           console.log('[GC Bot DEBUG] Matched selectedMemberIds:', selectedMemberIds);
           
           let pollSelections: any = latest.pollSelections || {};
-          pollSelections[payload.pollName || 'poll'] = selectedMemberIds;
+          const pollKey = payload.pollId || payload.pollName || 'poll';
+          pollSelections[pollKey] = selectedMemberIds;
 
           await sessionRef.update({
             pollSelections,
             updatedAt: now
           });
           return true; // Aguarda o usuário responder OK
-        } else if (type === 'button' && payload?.buttonId !== 'attendance_done') {
+        } else if ((type === 'button' && payload?.buttonId === 'attendance_done') || (type === 'text' && isAdvanceCommand(msg))) {
+          // Computar presentes/ausentes
+          const pollSelections: any = latest.pollSelections || {};
+          let presentIds: string[] = [];
+          Object.values(pollSelections).forEach((ids: any) => presentIds.push(...ids));
+          
+          // Remove duplicatas (caso raro)
+          presentIds = [...new Set(presentIds)];
+
+          const attendanceMap: { [memberId: string]: 'presente' | 'ausente' } = {};
+          session.members.forEach(member => {
+            attendanceMap[member.id] = presentIds.includes(member.id) ? 'presente' : 'ausente';
+          });
+
+          const presentCount = presentIds.length;
+          const absentCount = session.members.length - presentCount;
+          
+          await sessionRef.update({
+            attendance: attendanceMap,
+            attendanceAccumulated: presentIds,
+            step: 'METRICS_LESSON',
+            updatedAt: now
+          });
+          
+          await sendText(
+            fromPhone,
+            `✅ Chamada registrada! ${presentCount} presentes, ${absentCount} ausentes.`
+          );
+          
+          await sendText(
+            fromPhone,
+            '📖 *Etapa 2: Tema da Lição*\n\nQual foi o tema ou título da lição ministrada no GC esta semana?\n\n_Envie o título por mensagem de texto._'
+          );
+        } else if (type === 'button') {
            const memberId = payload.buttonId;
            let pollSelections: any = latest.pollSelections || {};
            pollSelections['buttons'] = (pollSelections['buttons'] || []);
@@ -317,33 +381,6 @@ export async function handleGcReportIncomingMessage(
                await sendText(fromPhone, `⚠️ Esse membro já foi marcado.`);
            }
            return true;
-        } else if ((type === 'button' && payload?.buttonId === 'attendance_done') || (type === 'text' && isAdvanceCommand(msg))) {
-          const pollSelections: any = latest.pollSelections || {};
-          let presentIds: string[] = [];
-          Object.values(pollSelections).forEach((ids: any) => presentIds.push(...ids));
-          
-          // Remove duplicatas (caso raro)
-          presentIds = [...new Set(presentIds)];
-
-          const attendanceMap: { [memberId: string]: 'presente' | 'ausente_sem_justificativa' } = {};
-          session.members.forEach(member => {
-            attendanceMap[member.id] = presentIds.includes(member.id) ? 'presente' : 'ausente_sem_justificativa';
-          });
-
-          const presentCount = presentIds.length;
-          const absentCount = session.members.length - presentCount;
-
-          await sessionRef.update({
-            attendance: attendanceMap,
-            attendanceAccumulated: presentIds,
-            step: 'CARE_CHOICE',
-            updatedAt: now
-          });
-          
-          await sendText(
-            fromPhone,
-            `✅ Chamada registrada! ${presentCount} presentes, ${absentCount} ausentes.\n\n❤️ *Etapa de Cuidado*\n\nAlgum membro do GC precisa de atenção ou cuidado especial esta semana?\n\nResponda *Sim* ou *Não*.`
-          );
         } else if (type === 'text') {
            if (msg === 'ok' || msg === 'pronto' || msg === '0' || msg === 'nenhum' || msg === 'ninguem') {
              return handleGcReportIncomingMessage(fromPhone, '', 'button', { buttonId: 'attendance_done' });
@@ -370,259 +407,6 @@ export async function handleGcReportIncomingMessage(
         }
         break;
       }
-
-      case 'CARE_CHOICE': {
-        // Detectar resposta via enquete (Sim/Não) ou texto
-        let careAnswer: 'sim' | 'nao' | null = null;
-        
-        if (type === 'poll' && payload?.selectedOptions) {
-          const options = (payload.selectedOptions as string[]).map((o: string) => o.toLowerCase());
-          if (options.some((o: string) => o.includes('sim'))) careAnswer = 'sim';
-          else if (options.some((o: string) => o.includes('não') || o.includes('nao'))) careAnswer = 'nao';
-        } else if (type === 'text') {
-          if (msg === 'sim' || msg === 's') careAnswer = 'sim';
-          else if (msg === 'não' || msg === 'nao' || msg === 'n') careAnswer = 'nao';
-        } else if (type === 'button') {
-          if (payload?.buttonId === 'care_yes') careAnswer = 'sim';
-          if (payload?.buttonId === 'care_no') careAnswer = 'nao';
-        }
-        
-        if (careAnswer === 'sim') {
-          const presentMembers = session.members.filter(m => session.attendance[m.id] === 'presente');
-          
-          if (presentMembers.length === 0) {
-            await sendText(fromPhone, 'Nenhum membro foi marcado como presente. Avançando para a lição...');
-            await sessionRef.update({ step: 'METRICS_LESSON', updatedAt: now });
-            await sendText(fromPhone, '📖 *Etapa 2: Tema da Lição*\n\nQual foi o tema ou título da lição ministrada no GC esta semana?\n\n_Envie o título por mensagem de texto._');
-          } else {
-            await sessionRef.update({ step: 'CARE_SELECT', updatedAt: now });
-            await sendText(fromPhone, 'Responda na lista abaixo quem precisa de atenção especial nesta semana.');
-            await sendMembersListAsText(fromPhone, presentMembers, true);
-          }
-        } else if (careAnswer === 'nao') {
-          await sessionRef.update({ step: 'METRICS_LESSON', updatedAt: now });
-          await sendText(fromPhone, '📖 *Etapa 2: Tema da Lição*\n\nQual foi o tema ou título da lição ministrada no GC esta semana?\n\n_Envie o título por mensagem de texto._');
-        } else if (type === 'text') {
-          await sendText(fromPhone, 'Responda *Sim* se algum membro precisa de cuidado, ou *Não* para avançar.');
-        }
-        break;
-      }
-
-      case 'CARE_SELECT': {
-        const latestDocCare = await sessionRef.get();
-        const latestCare = latestDocCare.data() as GcReportSession;
-
-        if (type === 'poll' && payload?.selectedOptions) {
-          const options = payload.selectedOptions as string[];
-          
-          const pollOptionsMap = new Map();
-          session.members.forEach((m, i) => {
-            pollOptionsMap.set(`${i + 1}. ${m.name.substring(0, 20)}`, m.id);
-          });
-          
-          console.log('[GC Bot DEBUG] CARE_SELECT Poll options:', JSON.stringify(options));
-          
-          const selectedMemberIds: string[] = [];
-          options.forEach((opt: string) => {
-             let id = pollOptionsMap.get(opt);
-             if (!id) {
-               for (const [key, val] of pollOptionsMap.entries()) {
-                 if (opt.includes(key) || key.includes(opt)) {
-                   id = val;
-                   break;
-                 }
-               }
-             }
-             if (id) selectedMemberIds.push(id);
-          });
-          
-          let careSelections: any = latestCare.careSelections || {};
-          careSelections[payload.pollName || 'poll'] = selectedMemberIds;
-
-          await sessionRef.update({
-            careSelections,
-            updatedAt: now
-          });
-          return true; // Aguarda o usuário responder OK
-        } else if (type === 'text') {
-           if (msg === 'ok' || msg === 'pronto' || msg === '0' || msg === 'nenhum' || msg === 'ninguem') {
-             return handleGcReportIncomingMessage(fromPhone, '', 'button', { buttonId: 'care_done' });
-           } else if (/^[\d\s,.\-e]+$/.test(msg)) {
-             // Aceita: "1, 2, 3" ou "1 2 3" ou "1 e 2"
-             const nums = msg.replace(/e/g, ',').split(/[,.\-\s]+/).map(n => parseInt(n.trim())).filter(n => !isNaN(n));
-             const selectedMemberIds: string[] = [];
-             
-             // Aqui precisa ser baseado na lista filtrada "presentMembers" que a gente não salvou na session diretamente...
-             // Wait, a pessoa digitou os números baseados na lista que foi exibida!
-             // E a lista exibida foi `presentMembers`.
-             const presentMembers = session.members.filter(m => session.attendance[m.id] === 'presente');
-             
-             nums.forEach(num => {
-                if (num > 0 && num <= presentMembers.length) {
-                   selectedMemberIds.push(presentMembers[num - 1].id);
-                }
-             });
-             
-             if (selectedMemberIds.length > 0) {
-               let careSelections: any = latestCare.careSelections || {};
-               careSelections['text_input'] = (careSelections['text_input'] || []).concat(selectedMemberIds);
-               await sessionRef.update({
-                 careSelections,
-                 updatedAt: now
-               });
-               await sendText(fromPhone, `👍 Cuidado registrado! Se tiver mais alguém, envie o número, senão, envie *OK* para avançar.`);
-             }
-           } else {
-             const msgLower = msg.trim();
-             const presentMembers = session.members.filter(m => session.attendance[m.id] === 'presente');
-             const matchedMember = presentMembers.find(m => m.name.toLowerCase().substring(0, 20) === msgLower.substring(0, 20));
-             if (matchedMember) {
-                 const memberId = matchedMember.id;
-                 let careSelections: any = latestCare.careSelections || {};
-                 careSelections['buttons'] = (careSelections['buttons'] || []);
-                 if (!careSelections['buttons'].includes(memberId)) {
-                     careSelections['buttons'].push(memberId);
-                     await sessionRef.update({ careSelections, updatedAt: now });
-                     await sendText(fromPhone, `✅ ${matchedMember.name} marcado(a) para cuidado!`);
-                 } else {
-                     await sendText(fromPhone, `⚠️ Esse membro já foi marcado.`);
-                 }
-                 return true;
-             }
-           }
-        } else if (type === 'button' && payload?.buttonId !== 'care_done') {
-           const memberId = payload.buttonId;
-           let careSelections: any = latestCare.careSelections || {};
-           careSelections['buttons'] = (careSelections['buttons'] || []);
-           
-           if (!careSelections['buttons'].includes(memberId)) {
-               careSelections['buttons'].push(memberId);
-               await sessionRef.update({ careSelections, updatedAt: now });
-               
-               const clickedMember = session.members.find(m => m.id === memberId);
-               if (clickedMember) {
-                   await sendText(fromPhone, `✅ ${clickedMember.name} marcado(a) para cuidado!`);
-               }
-           } else {
-               await sendText(fromPhone, `⚠️ Esse membro já foi marcado.`);
-           }
-           return true;
-        } else if ((type === 'button' && payload?.buttonId === 'care_done') || (type === 'text' && isAdvanceCommand(msg))) {
-          const careSelections: any = latestCare.careSelections || {};
-          let careQueue: string[] = [];
-          Object.values(careSelections).forEach((ids: any) => careQueue.push(...ids));
-          
-          // Remove duplicatas
-          careQueue = [...new Set(careQueue)];
-
-          
-          if (careQueue.length === 0) {
-            await sendText(fromPhone, 'Nenhum membro foi selecionado para cuidado. Avançando para a lição...');
-            await sessionRef.update({ step: 'METRICS_LESSON', updatedAt: now });
-            await sendText(fromPhone, '📖 *Etapa 2: Tema da Lição*\n\nQual foi o tema ou título da lição ministrada no GC esta semana?\n\n_Envie o título por mensagem de texto._');
-          } else {
-            await sessionRef.update({
-              careMembersQueue: careQueue,
-              step: 'CARE_MEMBER_THERMOMETER',
-              currentCareIndex: 0,
-              updatedAt: now
-            });
-            
-            const firstMemberId = careQueue[0];
-            const firstMember = session.members.find(m => m.id === firstMemberId);
-            await sendText(
-              fromPhone,
-              `🌡️ *Termômetro: ${firstMember?.name} (1/${careQueue.length})*\n\nComo você avalia o momento atual dele(a)?\n👉 *Responda com uma nota de 1 a 10* (1 = muita ajuda, 10 = excelente).`
-            );
-          }
-        } else if (type === 'text') {
-           if (msg === 'ok' || msg === 'pronto' || msg === '0') {
-             return handleGcReportIncomingMessage(fromPhone, '', 'button', { buttonId: 'care_done' });
-           } else {
-             await sendText(fromPhone, '👉 Quando terminar de enviar os números, responda com *OK* para continuarmos.');
-           }
-        }
-        break;
-      }
-
-      case 'CARE_MEMBER_THERMOMETER':
-        if (type === 'text' || type === 'button') {
-          const ratingText = type === 'button' ? payload?.buttonId : messageText.trim();
-          const rating = parseInt(ratingText || '', 10);
-          
-          if (isNaN(rating) || rating < 1 || rating > 10) {
-            await sendText(fromPhone, 'Por favor, envie um número de *1 a 10* para o termômetro espiritual.');
-            return true;
-          }
-          
-          const latestDoc = await sessionRef.get();
-          const latest = latestDoc.data() as GcReportSession;
-          const careQueue = latest.careMembersQueue || [];
-          const idx = latest.currentCareIndex || 0;
-          const memberId = careQueue[idx];
-          
-          const thermometers = latest.thermometers || {};
-          thermometers[memberId] = { termometro: rating, pedidoOracao: '' };
-          
-          await sessionRef.update({
-            thermometers,
-            step: 'CARE_MEMBER_PRAYER',
-            updatedAt: now
-          });
-          
-          const member = session.members.find(m => m.id === memberId);
-          await sendText(
-            fromPhone,
-            `🙏 *Pedido de Oração: ${member?.name || 'Membro'}*\n\nQual é o pedido de oração ou situação de cuidado dele(a)?\n\n_(Envie o pedido ou digite *pular* se não houver)_`
-          );
-        }
-        break;
-
-      case 'CARE_MEMBER_PRAYER':
-        if (type === 'text') {
-          const prayer = (msg === 'pular' || msg === '-') ? '' : messageText.trim();
-          
-          const latestDoc = await sessionRef.get();
-          const latest = latestDoc.data() as GcReportSession;
-          const careQueue = latest.careMembersQueue || [];
-          const idx = latest.currentCareIndex || 0;
-          const memberId = careQueue[idx];
-          
-          const thermometers = latest.thermometers || {};
-          if (thermometers[memberId]) {
-            thermometers[memberId].pedidoOracao = prayer;
-          } else {
-            thermometers[memberId] = { termometro: 5, pedidoOracao: prayer };
-          }
-          
-          const nextIdx = idx + 1;
-          if (nextIdx < careQueue.length) {
-            await sessionRef.update({
-              thermometers,
-              currentCareIndex: nextIdx,
-              step: 'CARE_MEMBER_THERMOMETER',
-              updatedAt: now
-            });
-            
-            const nextMemberId = careQueue[nextIdx];
-            const nextMember = session.members.find(m => m.id === nextMemberId);
-            await sendText(
-              fromPhone,
-              `🌡️ *Termômetro: ${nextMember?.name} (${nextIdx + 1}/${careQueue.length})*\n\nComo você avalia o momento atual dele(a)?\n👉 *Responda com uma nota de 1 a 10* (1 = muita ajuda, 10 = excelente).`
-            );
-          } else {
-            await sessionRef.update({
-              thermometers,
-              step: 'METRICS_LESSON',
-              updatedAt: now
-            });
-            await sendText(
-              fromPhone,
-              '📖 *Etapa 2: Tema da Lição*\n\nQual foi o tema ou título da lição ministrada no GC esta semana?'
-            );
-          }
-        }
-        break;
 
       case 'METRICS_LESSON':
         if (type === 'text') {
@@ -726,58 +510,6 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
         `📋 *Etapa 1: Chamada*\nMarque na enquete abaixo quem esteve *PRESENTE* na reunião.`
       );
       await sendMembersButtons(to, session.members, false);
-      break;
-    case 'CARE_CHOICE':
-      await sendButton(
-        to,
-        'Algum membro do GC precisa de atenção ou cuidado especial esta semana?',
-        [
-          { id: 'care_yes', text: 'Sim' },
-          { id: 'care_no', text: 'Não' }
-        ],
-        '❤️ Etapa de Cuidado'
-      );
-      break;
-    case 'CARE_SELECT':
-      const presentMembers = session.members.filter(m => session.attendance[m.id] === 'presente');
-      await sendText(to, 'Marque na enquete abaixo quem precisa de atenção especial nesta semana.');
-      await sendMembersButtons(to, presentMembers, true);
-      break;
-    case 'CARE_MEMBER_THERMOMETER':
-      const careQueueT = session.careMembersQueue || [];
-      const idxT = session.currentCareIndex || 0;
-      const mIdT = careQueueT[idxT];
-      const memberT = session.members.find(m => m.id === mIdT);
-      await sendList(
-        to,
-        'Como você avalia o momento atual dele(a)?',
-        'Ver Notas',
-        [
-          {
-            title: 'Notas (1 a 10)',
-            rows: [
-              { rowId: '1', title: '1 - Precisando de muita ajuda' },
-              { rowId: '2', title: '2' },
-              { rowId: '3', title: '3' },
-              { rowId: '4', title: '4' },
-              { rowId: '5', title: '5' },
-              { rowId: '6', title: '6' },
-              { rowId: '7', title: '7' },
-              { rowId: '8', title: '8' },
-              { rowId: '9', title: '9' },
-              { rowId: '10', title: '10 - Excelente' }
-            ]
-          }
-        ],
-        `🌡️ Termômetro: ${memberT?.name} (${idxT + 1}/${careQueueT.length})`
-      );
-      break;
-    case 'CARE_MEMBER_PRAYER':
-      const careQueueP = session.careMembersQueue || [];
-      const idxP = session.currentCareIndex || 0;
-      const mIdP = careQueueP[idxP];
-      const memberP = session.members.find(m => m.id === mIdP);
-      await sendText(to, `🙏 *Pedido de Oração: ${memberP?.name || 'Membro'}*\n\nQual é o pedido de oração ou situação de cuidado dele(a)?`);
       break;
     case 'METRICS_LESSON':
       await sendText(to, '📖 *Etapa 2: Tema da Lição*\n\nQual foi o tema ou título da lição ministrada no GC esta semana?');

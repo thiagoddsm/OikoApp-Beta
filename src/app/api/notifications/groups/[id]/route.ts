@@ -28,7 +28,8 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     let waKey: string | null = searchParams.get('key');
-    let serverUrl = searchParams.get('server') || 'https://us.api-wa.me';
+    let serverUrl = searchParams.get('server');
+    let instanceName = searchParams.get('instance');
     const groupId = searchParams.get('id');
 
     if (!groupId) {
@@ -41,8 +42,9 @@ export async function GET(request: Request) {
           const configSnap = await db.collection('config').doc('notifications').get();
           if (configSnap.exists) {
               const cfg = configSnap.data();
-              waKey = cfg?.instanceKey || cfg?.whatsappApiKey || null;
-              serverUrl = cfg?.serverUrl || serverUrl;
+              waKey = waKey || cfg?.instanceKey || cfg?.whatsappApiKey || null;
+              serverUrl = serverUrl || cfg?.serverUrl || 'https://api.ibmanha.com.br';
+              instanceName = instanceName || cfg?.instanceName || 'IBM';
           }
       } catch (e: any) {
           console.warn('Falha ao ler config (Admin):', e.message);
@@ -53,12 +55,12 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'API Key não configurada.' }, { status: 400 });
     }
 
-    const baseUrl = serverUrl.replace(/\/$/, '');
+    const baseUrl = (serverUrl || 'https://api.ibmanha.com.br').replace(/\/$/, '');
     const encodedId = encodeURIComponent(groupId);
 
-    const response = await fetch(`${baseUrl}/${waKey}/groups/${encodedId}`, {
+    const response = await fetch(`${baseUrl}/group/findGroupInfos/${instanceName}?groupJid=${encodedId}`, {
         method: 'GET',
-        headers: { 'accept': '*/*' },
+        headers: { 'accept': '*/*', 'apikey': waKey },
         cache: 'no-store',
     });
 

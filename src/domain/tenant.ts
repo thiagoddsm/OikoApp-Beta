@@ -4,6 +4,9 @@ export type Tenant = {
   domain?: string;
   asaasApiKey?: string;
   asaasWalletId?: string;
+  asaasWebhookToken?: string;
+  asaasBaseUrl?: string;
+  asaasEnv?: 'sandbox' | 'production';
   createdAt: Date;
   status: 'active' | 'inactive' | 'suspended';
   config?: {

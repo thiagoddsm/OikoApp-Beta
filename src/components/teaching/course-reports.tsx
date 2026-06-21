@@ -11,14 +11,17 @@ import { Button } from '@/components/ui/button';
 import { BarChart3, Users, Award, Percent, BookOpen, Download, Calendar, Printer } from 'lucide-react';
 import { format, parseISO, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ComposedChart, Bar, Legend } from 'recharts';
+import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 interface CourseReportsProps {
   courseId: string;
 }
 
 export function CourseReports({ courseId }: CourseReportsProps) {
-  const { classes, users, courses } = useVolunteering();
+    const { users } = useMembersData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
   const [selectedClassId, setSelectedClassId] = useState<string>('all');
   const [dateStart, setDateStart] = useState<string>('');
   const [dateEnd, setDateEnd] = useState<string>('');
@@ -260,16 +263,21 @@ export function CourseReports({ courseId }: CourseReportsProps) {
           </CardHeader>
           <CardContent className="h-[200px] p-0">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={classByClassReport.map(session => ({
+              <ComposedChart data={classByClassReport.map(session => ({
                 date: format(parseISO(session.date.split('T')[0]), 'dd/MM'),
-                'Freq. (%)': session.total > 0 ? Math.round((session.present / session.total) * 100) : 0
+                'Freq. (%)': session.total > 0 ? Math.round((session.present / session.total) * 100) : 0,
+                'Alunos Presentes': session.present,
+                'Alunos Totais': session.total
               }))}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="date" fontSize={11} stroke="#64748b" />
-                <YAxis domain={[0, 100]} fontSize={11} stroke="#64748b" />
-                <Tooltip />
-                <Line type="monotone" dataKey="Freq. (%)" stroke="#4f46e5" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-              </LineChart>
+                <YAxis yAxisId="left" domain={[0, 100]} fontSize={11} stroke="#64748b" tickFormatter={(value) => `${value}%`} />
+                <YAxis yAxisId="right" orientation="right" fontSize={11} stroke="#64748b" />
+                <Tooltip formatter={(value: number, name: string) => name === '% de presença' ? [`${value}%`, name] : [value, name]} />
+                <Legend wrapperStyle={{ fontSize: '11px' }} />
+                <Bar yAxisId="right" dataKey="Alunos Presentes" name="Presença" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
+                <Line yAxisId="left" type="monotone" dataKey="Freq. (%)" name="% de presença" stroke="#4f46e5" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+              </ComposedChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>

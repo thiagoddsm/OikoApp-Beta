@@ -8,9 +8,12 @@ import { Loader2, PlusCircle, Edit, Trash2 } from 'lucide-react';
 import { PlanFormDialog } from './plan-form-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { useTeachingFinance } from "@/hooks/useDomainData";
 
 export function WavePlansManagement() {
-  const { wavePlans, isLoading, deleteWavePlan } = useVolunteering();
+    const { wavePayments, disPayments, wavePlans, disPlans, waveExpenses } = useTeachingFinance();
+
+  const { isLoading, deleteWavePlan } = useVolunteering();
   const [isFormOpen, setFormOpen] = useState(false);
   const [isDeleteOpen, setDeleteOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<WavePlan | null>(null);

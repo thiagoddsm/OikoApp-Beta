@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PersonSearchInput } from '@/components/common/person-search-input';
+import { useMembersData, useEventsData } from "@/hooks/useDomainData";
 
 interface CreateReservationDialogProps {
   open: boolean;
@@ -26,7 +27,10 @@ const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Q
 
 export function CreateReservationDialog({ open, onOpenChange, existingReservation }: CreateReservationDialogProps) {
   const { user, firestore } = useFirebase();
-  const { addReservation, updateReservation, deleteReservation, users, rooms: availableRooms, reservationCategories, addReservationCategory, isLoading: isLoadingContext } = useVolunteering();
+    const { users } = useMembersData();
+    const { events, reservations, rooms: availableRooms, strategicEvents, reservationCategories } = useEventsData();
+
+  const { addReservation, updateReservation, deleteReservation, addReservationCategory, isLoading: isLoadingContext } = useVolunteering();
   
   const patrimonioQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'patrimonio')) : null, [firestore]);
   const { data: patrimonioItems, isLoading: isLoadingPatrimonio } = useCollection(patrimonioQuery);

@@ -11,9 +11,11 @@ import { Button } from '@/components/ui/button';
 import { BookOpen, School, Waves, GraduationCap, ArrowRight, CheckCircle2, Music, HeartHandshake } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useCoursesData } from "@/hooks/useDomainData";
 
 export function EnrollmentPortalContent() {
-    const { courses, classes } = useVolunteering();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
     const searchParams = useSearchParams();
     const defaultTab = searchParams.get('tab') || 'lumine';
 

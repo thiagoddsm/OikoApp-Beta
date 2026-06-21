@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
+import { useChurch } from '@/hooks/useChurch';
 import { Loader2, Calendar, RefreshCw, Terminal, Play, Sparkles, ExternalLink, Check, Copy, Key, Shield } from "lucide-react";
 import { PersonSearchInput } from '@/components/common/person-search-input';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
@@ -15,6 +16,7 @@ import { collection, doc, setDoc, query, orderBy, limit, getDocs } from 'firebas
 export function FinancialSettings() {
   const { firestore } = useFirebase();
   const { toast } = useToast();
+  const { tenantId } = useChurch();
   
   // Estados de loading
   const [loading, setLoading] = useState(true);
@@ -46,13 +48,13 @@ export function FinancialSettings() {
 
   // Buscar logs recentes do webhook gravados no Firestore
   const logsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !tenantId) return null;
     return query(
       collection(firestore, 'asaasPayments'),
       orderBy('updatedAt', 'desc'),
       limit(5)
     );
-  }, [firestore]);
+  }, [firestore, tenantId]);
 
   const { data: recentPayments, isLoading: loadingLogs } = useCollection<any>(logsQuery);
 
@@ -174,7 +176,8 @@ export function FinancialSettings() {
           email: member.email || 'financeiro@ibmanha.com.br',
           phone: member.phone || '',
           cpfCnpj: cpfCnpj.replace(/\D/g, ''),
-          userId: selectedMemberId
+          userId: selectedMemberId,
+          tenantId
         })
       });
 
@@ -201,6 +204,7 @@ export function FinancialSettings() {
           dueDate: dueDateStr,
           description: `${isSubscription ? 'Assinatura' : 'Cobrança'} de Teste Oiko — ${member.name}`,
           externalReference: selectedMemberId,
+          tenantId,
           ...(!isSubscription && chargeType === 'INSTALLMENT' && { installmentCount: installments })
         })
       });

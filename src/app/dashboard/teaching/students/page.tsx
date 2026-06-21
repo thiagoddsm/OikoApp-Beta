@@ -8,10 +8,14 @@ import { VolunteeringProvider, useVolunteering } from '@/contexts/volunteering-c
 import { useFirebase } from '@/firebase';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { User, Shield, Users, Loader2 } from 'lucide-react';
+import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 function StudentsPageContent() {
   const { user } = useFirebase();
-  const { users, classes, isLoading } = useVolunteering();
+    const { users } = useMembersData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+  const { isLoading } = useVolunteering();
 
   const currentUserData = users.find(u => u.id === user?.uid);
   const isAdmin = currentUserData?.hierarchy?.role === 'admin' || currentUserData?.hierarchy?.role === 'pastor_senior';

@@ -6,9 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, PlusCircle, Trash2 } from 'lucide-react';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
+import { useEventsData } from "@/hooks/useDomainData";
 
 export function RoomsManagement() {
-  const { rooms, isLoading, addRoom, deleteRoom } = useVolunteering();
+    const { events, reservations, rooms, strategicEvents, reservationCategories } = useEventsData();
+
+  const { isLoading, addRoom, deleteRoom } = useVolunteering();
   const [newRoomName, setNewRoomName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleteOpen, setDeleteOpen] = useState(false);

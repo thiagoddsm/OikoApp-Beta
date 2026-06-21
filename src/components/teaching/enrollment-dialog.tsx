@@ -21,6 +21,9 @@ import {
 import { PlusCircle } from 'lucide-react';
 import { format, parseISO, isAfter } from 'date-fns';
 
+import { usePeople } from "@/hooks/usePeople";
+import { useCoursesData } from "@/hooks/useDomainData";
+
 interface EnrollmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -29,7 +32,9 @@ interface EnrollmentDialogProps {
 }
 
 export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initialCourseId }: EnrollmentDialogProps) {
-  const { users, classes, courses, enrollStudent, addUser, isLoading } = useVolunteering();
+  const { members: users } = usePeople();
+  const { courses, classes } = useCoursesData();
+  const { enrollStudent, addUser, isLoading } = useVolunteering();
   const { data: config } = useDoc<any>('config/notifications');
   const { toast } = useToast();
 
@@ -185,6 +190,15 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
 
         if (targetName && targetPhone) {
             sendEnrollmentMessage(targetName, String(targetPhone), courseName, className, undefined, selectedCourseId, finalStudentId);
+        }
+
+        // Sync WhatsApp Group
+        if (targetClass?.whatsappGroupId) {
+            fetch('/api/notifications/groups/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ classId })
+            }).catch(err => console.error('Failed to sync WhatsApp group after enrollment:', err));
         }
 
         toast({ title: 'Sucesso!', description: 'Matrícula realizada com sucesso.' });

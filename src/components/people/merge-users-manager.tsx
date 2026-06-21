@@ -14,6 +14,7 @@ import { writeBatch, collection, doc, getDocs } from 'firebase/firestore';
 import { useFirebase } from '@/firebase';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { formatPhone, formatCPF } from '@/lib/utils';
+import { useMembersData } from "@/hooks/useDomainData";
 
 type User = {
     id: string;
@@ -41,7 +42,9 @@ function normalizeNumber(num?: string | number) {
 }
 
 export function MergeUsersManager() {
-    const { users, isLoading } = useVolunteering();
+    const { users } = useMembersData();
+
+    const { isLoading } = useVolunteering();
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const [isProcessing, setIsProcessing] = useState(false);

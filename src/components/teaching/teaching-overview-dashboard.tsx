@@ -32,11 +32,15 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 const COLORS = ['#6750A4', '#9A89C6', '#BDB2D9', '#D9D3E9', '#F2F0F7'];
 
 export function TeachingOverviewDashboard() {
-  const { classes, courses, enrollmentRequests, users, isLoading } = useVolunteering();
+    const { users } = useMembersData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+  const { isLoading } = useVolunteering();
 
   const [selectedMinistry, setSelectedMinistry] = useState<string | null>(null);
 

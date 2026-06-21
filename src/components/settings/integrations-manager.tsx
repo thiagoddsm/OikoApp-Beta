@@ -5,7 +5,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, RefreshCw, CheckCircle2, AlertTriangle, Link2, Link2Off, Wallet } from "lucide-react";
+import { Loader2, RefreshCw, CheckCircle2, AlertTriangle, Link2, Link2Off } from "lucide-react";
+import { AsaasConfig } from './asaas-config';
 
 export function IntegrationsManager() {
   const { toast } = useToast();
@@ -204,37 +205,8 @@ export function IntegrationsManager() {
         </CardContent>
       </Card>
 
-      {/* Asaas Card */}
-      <Card className="bg-white border-slate-100 shadow-sm">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
-                <Wallet className="size-5" />
-              </div>
-              <div>
-                <CardTitle className="text-slate-800 font-bold">Asaas Pagamentos</CardTitle>
-                <CardDescription>Recebimento de inscrições e eventos.</CardDescription>
-              </div>
-            </div>
-            <div>
-              <Badge className="bg-emerald-100 text-emerald-800 border-none hover:bg-emerald-100">
-                <CheckCircle2 className="size-3 mr-1" /> Disponível
-              </Badge>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-xs text-slate-500 leading-relaxed">
-            O Oiko Studio está configurado para emitir cobranças via Pix, Boleto e Cartão de Crédito integrados com a conta Asaas da igreja. Os pagamentos são compensados diretamente na conta PJ.
-          </p>
-          <div className="text-xs space-y-1 text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
-            <p><strong>Configuração:</strong> API Key de Produção Ativa</p>
-            <p><strong>Webhooks:</strong> Habilitados em real-time</p>
-            <p><strong>Fluxo:</strong> Inscrições pagos aprovam instantaneamente</p>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Asaas Card (Novo Componente Multitenant) */}
+      <AsaasConfig />
     </div>
   );
 }

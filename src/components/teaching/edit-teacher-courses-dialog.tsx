@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2 } from 'lucide-react';
+import { useCoursesData } from "@/hooks/useDomainData";
 
 interface EditTeacherCoursesDialogProps {
   open: boolean;
@@ -17,7 +18,9 @@ interface EditTeacherCoursesDialogProps {
 }
 
 export function EditTeacherCoursesDialog({ open, onOpenChange, user }: EditTeacherCoursesDialogProps) {
-  const { courses, updateVolunteer, isLoading } = useVolunteering();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+  const { updateVolunteer, isLoading } = useVolunteering();
   const [isSaving, setIsSaving] = useState(false);
   const [isTeacher, setIsTeacher] = useState(false);
   const [taughtCourseIds, setTaughtCourseIds] = useState<string[]>([]);

@@ -8,6 +8,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     let apiKey = searchParams.get('key');
     let serverUrl = searchParams.get('server');
+    let instanceName = searchParams.get('instance');
 
     // Se não vier por parâmetro, tenta buscar no Firestore (legado/fallback)
     if (!apiKey || !serverUrl) {
@@ -18,7 +19,8 @@ export async function GET(request: Request) {
             if (configSnap.exists) {
                 const data = configSnap.data();
                 apiKey = apiKey || data?.instanceKey || data?.whatsappApiKey;
-                serverUrl = serverUrl || data?.serverUrl || 'https://us.api-wa.me';
+                serverUrl = serverUrl || data?.serverUrl || 'https://api.ibmanha.com.br';
+                instanceName = instanceName || data?.instanceName || 'IBM';
             }
         } catch (e) {
             console.warn("Firestore read failed in API, relying on params if available.");
@@ -29,13 +31,22 @@ export async function GET(request: Request) {
         return NextResponse.json({ status: 'offline', message: "Instância não configurada. Chave ausente." }, { status: 400 });
     }
 
-    const baseUrl = (serverUrl || 'https://us.api-wa.me').replace(/\/$/, '');
+    const baseUrl = (serverUrl || 'https://api.ibmanha.com.br').replace(/\/$/, '');
+    const isWame = baseUrl.includes('api-wa.me');
     
-    const response = await fetch(`${baseUrl}/${apiKey}/instance`, {
-        method: 'GET',
-        headers: { 'accept': '*/*' },
-        cache: 'no-store'
-    });
+    let response;
+    if (isWame) {
+        response = await fetch(`${baseUrl}/${apiKey}/instance`, {
+            method: 'GET',
+            cache: 'no-store'
+        });
+    } else {
+        response = await fetch(`${baseUrl}/instance/connectionState/${instanceName}`, {
+            method: 'GET',
+            headers: { 'accept': '*/*', 'apikey': apiKey },
+            cache: 'no-store'
+        });
+    }
 
     if (!response.ok) {
         const errorText = await response.text();
@@ -44,10 +55,19 @@ export async function GET(request: Request) {
 
     const result = await response.json();
     let parsedStatus = 'offline';
-    if (result?.instance?.phoneConnected) {
-        parsedStatus = 'connected';
-    } else if (result?.instance?.socketConnection === 0 || !result?.instance?.user) {
-        parsedStatus = 'pairing';
+    if (isWame) {
+        if (result?.instance?.phoneConnected || result?.phoneConnected) {
+            parsedStatus = 'connected';
+        } else if (result?.instance?.socketConnection === 0 || !result?.instance?.user || result?.qr || result?.qrcode) {
+            parsedStatus = 'pairing';
+        }
+    } else {
+        const state = result?.instance?.state || result?.state || result?.instance?.status || result?.status;
+        if (state === 'open' || state === 'connected') {
+            parsedStatus = 'connected';
+        } else {
+            parsedStatus = 'pairing';
+        }
     }
 
     return NextResponse.json({ ...result, parsedStatus });
@@ -62,6 +82,7 @@ export async function DELETE(request: Request) {
         const { searchParams } = new URL(request.url);
         let apiKey = searchParams.get('key');
         let serverUrl = searchParams.get('server');
+        let instanceName = searchParams.get('instance');
 
         if (!apiKey || !serverUrl) {
             try {
@@ -70,7 +91,8 @@ export async function DELETE(request: Request) {
                 if (configSnap.exists) {
                     const data = configSnap.data();
                     apiKey = apiKey || data?.instanceKey || data?.whatsappApiKey;
-                    serverUrl = serverUrl || data?.serverUrl || 'https://us.api-wa.me';
+                    serverUrl = serverUrl || data?.serverUrl || 'https://api.ibmanha.com.br';
+                    instanceName = instanceName || data?.instanceName || 'IBM';
                 }
             } catch (e) {}
         }
@@ -79,11 +101,20 @@ export async function DELETE(request: Request) {
             return NextResponse.json({ error: 'Chave da instância não fornecida.' }, { status: 400 });
         }
 
-        const baseUrl = (serverUrl || 'https://us.api-wa.me').replace(/\/$/, '');
-        const response = await fetch(`${baseUrl}/${apiKey}/instance`, {
-            method: 'DELETE',
-            headers: { 'accept': '*/*' },
-        });
+        const baseUrl = (serverUrl || 'https://api.ibmanha.com.br').replace(/\/$/, '');
+        const isWame = baseUrl.includes('api-wa.me');
+
+        let response;
+        if (isWame) {
+            response = await fetch(`${baseUrl}/${apiKey}/instance`, {
+                method: 'DELETE',
+            });
+        } else {
+            response = await fetch(`${baseUrl}/instance/logout/${instanceName}`, {
+                method: 'DELETE',
+                headers: { 'accept': '*/*', 'apikey': apiKey },
+            });
+        }
 
         const text = await response.text();
         let result: any = {};
@@ -98,7 +129,7 @@ export async function DELETE(request: Request) {
 export async function POST(request: Request) {
     try {
         const body = await request.json().catch(() => ({}));
-        let { key: apiKey, server: serverUrl } = body;
+        let { key: apiKey, server: serverUrl, instance: instanceName } = body;
 
         // Fallback para Firestore se não vier no body
         if (!apiKey || !serverUrl) {
@@ -108,7 +139,8 @@ export async function POST(request: Request) {
                 if (configSnap.exists) {
                     const data = configSnap.data();
                     apiKey = apiKey || data?.instanceKey || data?.whatsappApiKey;
-                    serverUrl = serverUrl || data?.serverUrl || 'https://us.api-wa.me';
+                    serverUrl = serverUrl || data?.serverUrl || 'https://api.ibmanha.com.br';
+                    instanceName = instanceName || data?.instanceName || 'IBM';
                 }
             } catch (e) {}
         }
@@ -117,11 +149,20 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: "Chave da instância não fornecida." }, { status: 400 });
         }
 
-        const baseUrl = (serverUrl || 'https://us.api-wa.me').replace(/\/$/, '');
-        const response = await fetch(`${baseUrl}/${apiKey}/instance`, {
-            method: 'POST',
-            headers: { 'accept': '*/*' }
-        });
+        const baseUrl = (serverUrl || 'https://api.ibmanha.com.br').replace(/\/$/, '');
+        const isWame = baseUrl.includes('api-wa.me');
+        
+        let response;
+        if (isWame) {
+            response = await fetch(`${baseUrl}/${apiKey}/instance`, {
+                method: 'POST'
+            });
+        } else {
+            response = await fetch(`${baseUrl}/instance/connect/${instanceName}`, {
+                method: 'GET',
+                headers: { 'accept': '*/*', 'apikey': apiKey }
+            });
+        }
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -131,10 +172,17 @@ export async function POST(request: Request) {
         const data = await response.json();
         
         // Padroniza a resposta para o frontend
-        const parsedStatus = data.phoneConnected ? 'connected' : 'pairing';
+        let parsedStatus = 'pairing';
+        if (isWame) {
+            parsedStatus = (data.phoneConnected || data.instance?.phoneConnected) ? 'connected' : 'pairing';
+        } else {
+            const state = data?.instance?.state || data?.state || data?.instance?.status || data?.status;
+            parsedStatus = (state === 'open' || state === 'connected') ? 'connected' : 'pairing';
+        }
+        
         return NextResponse.json({ 
             ...data, 
-            qr: data.qrcode || data.qr, 
+            qr: data.qrcode || data.base64 || data.qr || data.instance?.qr, 
             parsedStatus 
         });
 

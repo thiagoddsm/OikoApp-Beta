@@ -182,6 +182,7 @@ export type Class = {
   grades?: { studentId: string; assessmentName: string; grade: number }[];
   materials?: { title: string; url: string; description?: string }[];
   status?: 'active' | 'completed';
+  whatsappGroupId?: string;
   scheduleOverrides?: Record<string, {
     syllabusId?: string;
     teacherId?: string;
@@ -711,99 +712,59 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
   const isPublicRoute = typeof window !== 'undefined' && (window.location.pathname.includes('/public/') || window.location.pathname.includes('/calendario'));
   const shouldLoadPublicData = isAnonymous || isPublicRoute;
 
-  // Queries sensíveis que exigem login e papel adequado (só rodam após papel ser conhecido)
-  const usersQ = useMemoFirebase(() => (firestore && user && roleResolved && (can('pessoas_list') || can('teaching_courses', 'view_students') || can('teaching_wave', 'view_teacher_area') || can('teaching_dis', 'view_teacher_area'))) ? query(collection(firestore, 'users')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-  const serviceAreasQ = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    if (shouldLoadPublicData || (roleResolved && can('servico_areas'))) {
-      return query(collection(firestore, 'areas_of_service'));
-    }
-    return null;
-  }, [firestore, user, roleResolved, isAdmin, permissions, shouldLoadPublicData]);
-  const teamsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('servico_teams')) ? query(collection(firestore, 'teams')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-  const eventsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('servico_events')) ? query(collection(firestore, 'volunteering_events')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-  const reservationsQ = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    if (shouldLoadPublicData || (roleResolved && can('ministerial_reservations'))) {
-      return query(collection(firestore, 'room_reservations'));
-    }
-    return null;
-  }, [firestore, user, roleResolved, isAdmin, permissions, shouldLoadPublicData]);
-  const enrollmentRequestsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('teaching_courses')) ? query(collection(firestore, 'enrollment_requests')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-
-  const pedagogicalLogsQ = useMemoFirebase(() => {
-    if (!firestore || !user || !roleResolved) return null;
-    if (can('teaching_courses')) return query(collection(firestore, 'pedagogical_logs'));
-    return null;
-  }, [firestore, user, roleResolved, isAdmin, permissions]);
-
-  const wavePlansQ = useMemoFirebase(() => (firestore && user && roleResolved) ? query(collection(firestore, 'wave_plans')) : null, [firestore, user, roleResolved]);
-  const disPlansQ = useMemoFirebase(() => (firestore && user && roleResolved) ? query(collection(firestore, 'dis_plans')) : null, [firestore, user, roleResolved]);
-
-  // Pagamentos: apenas admins. Alunos buscam diretamente no StudentDashboard.
-  const wavePaymentsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('teaching_wave', 'view_finance')) ? query(collection(firestore, 'wave_payments')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-  const disPaymentsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('teaching_dis', 'view_finance')) ? query(collection(firestore, 'dis_payments')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-
-  const waveExpensesQ = useMemoFirebase(() => (firestore && user && roleResolved && can('teaching_wave', 'view_finance')) ? query(collection(firestore, 'wave_expenses')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-  const financialTransactionsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('ministerial_finance')) ? query(collection(firestore, 'financial_transactions')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-  const financeRequestsQ = useMemoFirebase(() => (firestore && user && roleResolved && can('ministerial_finance')) ? query(collection(firestore, 'finance_requests')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-  const savedSchedulesQ = useMemoFirebase(() => (firestore && user && roleResolved && can('servico_schedule')) ? query(collection(firestore, 'saved_schedules')) : null, [firestore, user, roleResolved, isAdmin, permissions]);
-  const roomsQ = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    if (shouldLoadPublicData || (roleResolved && can('ministerial_reservations'))) {
-      return query(collection(firestore, 'rooms'));
-    }
-    return null;
-  }, [firestore, user, roleResolved, isAdmin, permissions, shouldLoadPublicData]);
-  const strategicEventsQ = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    if (shouldLoadPublicData || roleResolved) {
-      return query(collection(firestore, 'strategic_events'));
-    }
-    return null;
-  }, [firestore, user, roleResolved, shouldLoadPublicData]);
-  const theoflixCoursesQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'theoflix_courses')) : null, [firestore, user]);
-  const reservationCategoriesQ = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    if (shouldLoadPublicData || (roleResolved && can('ministerial_reservations'))) {
-      return query(collection(firestore, 'reservation_categories'));
-    }
-    return null;
-  }, [firestore, user, roleResolved, isAdmin, permissions, shouldLoadPublicData]);
+  // As queries foram movidas para hooks em `useDomainData.ts` na Fase 7A para matar o God Context.
+  // O contexto agora serve apenas como Service Locator para as funções de mutação.
   
-  // GC Hierarchy Queries (Exige login para respeitar as regras do Firestore)
-  const cellsQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'cells')) : null, [firestore, user]);
-  const gcAreasQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'areas')) : null, [firestore, user]);
-  const redesQ = useMemoFirebase(() => (firestore && user) ? query(collection(firestore, 'redes')) : null, [firestore, user]);
+  const users: User[] = [];
+  const serviceAreas: AreaOfService[] = [];
+  const teams: Team[] = [];
+  const events: VolunteeringEvent[] = [];
+  const rooms: Room[] = [];
+  const reservations: RoomReservation[] = [];
+  const strategicEvents: any[] = [];
+  const courses: Course[] = [];
+  const classes: Class[] = [];
+  const enrollmentRequests: EnrollmentRequest[] = [];
+  const pedagogicalLogs: PedagogicalLog[] = [];
+  const wavePayments: WavePayment[] = [];
+  const disPayments: DisPayment[] = [];
+  const wavePlans: WavePlan[] = [];
+  const disPlans: DisPlan[] = [];
+  const waveExpenses: WaveExpense[] = [];
+  const reservationCategories: ReservationCategory[] = [];
+  const theoflixCourses: any[] = [];
+  const financialTransactions: FinancialTransaction[] = [];
+  const financeRequests: FinanceRequest[] = [];
+  const savedSchedules: SavedSchedule[] = [];
+  const cells: Cell[] = [];
+  const areas: Area[] = [];
+  const redes: Rede[] = [];
+  
+  const lu = false;
+  const la = false;
+  const lt = false;
+  const le = false;
+  const lr = false;
+  const lres = false;
+  const lse = false;
+  const lco = false;
+  const lcl = false;
+  const ler = false;
+  const lpl = false;
+  const lwp = false;
+  const ldp = false;
+  const lwpn = false;
+  const ldpn = false;
+  const lwe = false;
+  const loadingCategories = false;
+  const loadingTheoflix = false;
+  const lft = false;
+  const lfr = false;
+  const lss = false;
+  const lce = false;
+  const lga = false;
+  const lre = false;
 
-  // Queries públicas necessárias para matrículas
-  const coursesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses')) : null, [firestore]);
-  const classesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'classes')) : null, [firestore]);
-
-  const { data: users, isLoading: lu } = useCollection<User>(usersQ);
-  const { data: serviceAreas, isLoading: la } = useCollection<AreaOfService>(serviceAreasQ);
-  const { data: teams, isLoading: lt } = useCollection<Team>(teamsQ);
-  const { data: events, isLoading: le } = useCollection<VolunteeringEvent>(eventsQ);
-  const { data: rooms, isLoading: lr } = useCollection<Room>(roomsQ);
-  const { data: reservations, isLoading: lres } = useCollection<RoomReservation>(reservationsQ);
-  const { data: strategicEvents, isLoading: lse } = useCollection<any>(strategicEventsQ);
-  const { data: courses, isLoading: lco } = useCollection<Course>(coursesQ);
-  const { data: classes, isLoading: lcl } = useCollection<Class>(classesQ);
-  const { data: enrollmentRequests, isLoading: ler } = useCollection<EnrollmentRequest>(enrollmentRequestsQ);
-  const { data: pedagogicalLogs, isLoading: lpl } = useCollection<PedagogicalLog>(pedagogicalLogsQ);
-  const { data: wavePayments, isLoading: lwp } = useCollection<WavePayment>(wavePaymentsQ);
-  const { data: disPayments, isLoading: ldp } = useCollection<DisPayment>(disPaymentsQ);
-  const { data: wavePlans, isLoading: lwpn } = useCollection<WavePlan>(wavePlansQ);
-  const { data: disPlans, isLoading: ldpn } = useCollection<DisPlan>(disPlansQ);
-  const { data: waveExpenses, isLoading: lwe } = useCollection<WaveExpense>(waveExpensesQ);
-  const { data: reservationCategories = [], isLoading: loadingCategories } = useCollection<ReservationCategory>(reservationCategoriesQ);
-  const { data: theoflixCourses = [], isLoading: loadingTheoflix } = useCollection<any>(theoflixCoursesQ);
-  const { data: financialTransactions, isLoading: lft } = useCollection<FinancialTransaction>(financialTransactionsQ);
-  const { data: financeRequests, isLoading: lfr } = useCollection<FinanceRequest>(financeRequestsQ);
-  const { data: savedSchedules, isLoading: lss } = useCollection<SavedSchedule>(savedSchedulesQ);
-  const { data: cells, isLoading: lce } = useCollection<Cell>(cellsQ);
-  const { data: gcAreas, isLoading: lga } = useCollection<Area>(gcAreasQ);
-  const { data: redes, isLoading: lre } = useCollection<Rede>(redesQ);
   const isLoading = loadingRole || loadingProfile || (user ? lu : false) || la || lt || le || (user ? lr : false) || lres || lse || lco || lcl || ler || lpl || lwp || ldp || lwpn || ldpn || lwe || loadingCategories || (user ? loadingTheoflix : false) || lft || lfr || lss || lce || lga || lre;
 
   // Enriquecimento dinâmico: A fonte da verdade para membros de uma célula
@@ -840,7 +801,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
     savedSchedules: savedSchedules || [],
     reservationCategories: reservationCategories || [],
     cells: enrichedCells,
-    areas: gcAreas || [],
+    areas: areas || [],
     redes: redes || [],
     isLoading,
     addArea: async (data: any) => { await addDoc(collection(firestore!, 'areas_of_service'), data); },
@@ -1094,7 +1055,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
       await setDocumentNonBlocking(doc(firestore!, 'saved_schedules', id), data);
     },
     deleteSchedule: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'saved_schedules', id)); },
-  }), [users, serviceAreas, gcAreas, cells, redes, teams, events, rooms, reservations, reservationCategories, courses, classes, enrollmentRequests, pedagogicalLogs, wavePayments, disPayments, wavePlans, disPlans, waveExpenses, theoflixCourses, financialTransactions, financeRequests, savedSchedules, isLoading, firestore]);
+  }), [users, serviceAreas, areas, enrichedCells, redes, teams, events, rooms, reservations, reservationCategories, courses, classes, enrollmentRequests, pedagogicalLogs, wavePayments, disPayments, wavePlans, disPlans, waveExpenses, theoflixCourses, financialTransactions, financeRequests, savedSchedules, isLoading, firestore]);
 
   return (
     <VolunteeringContext.Provider value={value}>

@@ -35,13 +35,18 @@ import { VolunteerServiceForm } from '@/components/volunteering/volunteer-servic
 import { AIProfileAnalysis } from '@/components/users/ai-profile-analysis';
 import { EditUserDialog } from '@/components/users/edit-user-dialog';
 import { InviteUserButton } from '@/components/users/invite-user-button';
+import { useMembersData, useCoursesData, useGCData } from "@/hooks/useDomainData";
 
 function PersonProfilePageContent() {
     const params = useParams();
     const router = useRouter();
     const userId = params.userId as string;
     const { toast } = useToast();
-    const { users, cells, areas, redes, courses, isLoading: isContextLoading } = useVolunteering();
+    const { users } = useMembersData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+    const { cells, areas, redes } = useGCData();
+
+    const { isLoading: isContextLoading } = useVolunteering();
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isSyncingPhoto, setIsSyncingPhoto] = useState(false);
     const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);

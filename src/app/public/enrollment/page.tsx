@@ -24,6 +24,7 @@ import { Logo } from '@/components/icons';
 import { cn } from '@/lib/utils';
 import { verifyMemberEmail, submitEnrollmentRequest } from './actions';
 import { useFirebase } from '@/firebase';
+import { useEventsData, useCoursesData } from "@/hooks/useDomainData";
 
 const STEPS = [
     { id: 1, name: 'Identificação', icon: Sparkles },
@@ -67,7 +68,9 @@ function Stepper({ currentStep }: { currentStep: number }) {
 
 function EnrollmentForm() {
     const { firestore } = useFirebase();
-    const { courses, classes, strategicEvents } = useVolunteering();
+    const { events, reservations, rooms, strategicEvents, reservationCategories } = useEventsData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
     const { toast } = useToast();
 
     // Global Flow State
@@ -271,7 +274,8 @@ function EnrollmentForm() {
                             email: finalEmail,
                             phone: finalPhone || '',
                             cpfCnpj: finalCpf.replace(/\D/g, ''),
-                            userId: userId || undefined
+                            userId: userId || undefined,
+                            tenantId: new URLSearchParams(window.location.search).get('tenantId') || undefined
                         }),
                     });
 
@@ -299,7 +303,8 @@ function EnrollmentForm() {
                             value: selectedEvent.ticketPrice || 0,
                             dueDate: tomorrowStr,
                             description: `Inscrição Evento: ${selectedEvent.eventName}`,
-                            externalReference: userId || undefined
+                            externalReference: userId || undefined,
+                            tenantId: new URLSearchParams(window.location.search).get('tenantId') || undefined
                         }),
                     });
 
@@ -347,7 +352,11 @@ function EnrollmentForm() {
                         // Obter QR Code se for PIX
                         if (paymentMethod === 'PIX' && asaasCharge.id) {
                             try {
-                                const qrRes = await fetch(`/api/asaas/payments/${asaasCharge.id}/pix`);
+                                const tenantId = new URLSearchParams(window.location.search).get('tenantId');
+                                const url = new URL(window.location.origin + `/api/asaas/payments/${asaasCharge.id}/pix`);
+                                if (tenantId) url.searchParams.set('tenantId', tenantId);
+
+                                const qrRes = await fetch(url.toString());
                                 if (qrRes.ok) {
                                     const qrData = await qrRes.json();
                                     regData.payment.pixQrCodeImage = qrData.encodedImage;

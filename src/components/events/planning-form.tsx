@@ -25,6 +25,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useEventsData, useCoursesData, useVolunteeringServiceData } from "@/hooks/useDomainData";
 
 export interface PlanningEvent {
     id: string;
@@ -114,7 +115,10 @@ function getAreaIcon(name: string) {
 
 export function EventPlanningForm({ existingEvent = null }: { existingEvent?: PlanningEvent | null }) {
   const { firestore, storage } = useFirebase();
-  const { rooms, serviceAreas: areas, courses } = useVolunteering();
+    const { events, reservations, rooms, strategicEvents, reservationCategories } = useEventsData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+    const { serviceAreas, teams, savedSchedules } = useVolunteeringServiceData();
+
   const { toast } = useToast();
   const [uploadingCover, setUploadingCover] = useState(false);
 
@@ -807,7 +811,7 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
             <Label className="text-slate-350 text-xs">Marque as equipes necessárias para dar suporte ao evento:</Label>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {areas.map(area => {
+              {serviceAreas.map(area => {
                 const selected = formData.requiredServiceAreas.find(ra => ra.areaId === area.id);
                 const isSelected = !!selected;
 

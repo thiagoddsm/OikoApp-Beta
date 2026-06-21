@@ -10,6 +10,7 @@ import { Loader2, Calendar, MapPin, ArrowLeft, ShieldAlert } from 'lucide-react'
 import Link from 'next/link';
 import { useVolunteering, VolunteeringProvider } from '@/contexts/volunteering-context';
 import { RegistrationDialog } from '@/components/events/registration-dialog';
+import { useCoursesData } from "@/hooks/useDomainData";
 
 type StrategicEvent = {
   id: string;
@@ -44,7 +45,7 @@ export default function PublicEventsPage() {
 
 function EventsListContent() {
   const { firestore, user } = useFirebase();
-  const { courses } = useVolunteering();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
 
   const [selectedEvent, setSelectedEvent] = useState<StrategicEvent | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
