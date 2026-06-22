@@ -509,7 +509,7 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
         to,
         `📋 *Etapa 1: Chamada*\nMarque na enquete abaixo quem esteve *PRESENTE* na reunião.`
       );
-      await sendMembersButtons(to, session.members, false);
+      await sendMembersListAsPoll(to, session.members, false);
       break;
     case 'METRICS_LESSON':
       await sendText(to, '📖 *Etapa 2: Tema da Lição*\n\nQual foi o tema ou título da lição ministrada no GC esta semana?');

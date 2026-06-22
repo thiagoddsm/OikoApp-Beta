@@ -273,7 +273,7 @@ export function CourseReports({ courseId }: CourseReportsProps) {
                 <XAxis dataKey="date" fontSize={11} stroke="#64748b" />
                 <YAxis yAxisId="left" domain={[0, 100]} fontSize={11} stroke="#64748b" tickFormatter={(value) => `${value}%`} />
                 <YAxis yAxisId="right" orientation="right" fontSize={11} stroke="#64748b" />
-                <Tooltip formatter={(value: number, name: string) => name === '% de presença' ? [`${value}%`, name] : [value, name]} />
+                <Tooltip formatter={(value: any, name: any) => name === '% de presença' ? [`${value}%`, name] : [value, name]} />
                 <Legend wrapperStyle={{ fontSize: '11px' }} />
                 <Bar yAxisId="right" dataKey="Alunos Presentes" name="Presença" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
                 <Line yAxisId="left" type="monotone" dataKey="Freq. (%)" name="% de presença" stroke="#4f46e5" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
