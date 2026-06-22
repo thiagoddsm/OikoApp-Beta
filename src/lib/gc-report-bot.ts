@@ -143,7 +143,7 @@ async function sendMembersListAsPoll(to: string, membersList: { id: string; name
   }
   
   const buttonId = isCare ? 'care_done' : 'attendance_done';
-  const buttonText = isCare ? 'Concluir Seleção' : 'Finalizar lançamento de presença';
+  const buttonText = isCare ? 'Concluir Seleção' : 'Concluir Chamada';
   await sendButton(
     to,
     '👉 Quando terminar de marcar na(s) enquete(s) acima, clique no botão abaixo para avançarmos.',
@@ -453,7 +453,7 @@ export async function handleGcReportIncomingMessage(
           await sendButton(
             fromPhone,
             'Quer deixar alguma mensagem, observação de cuidado ou feedback para o seu supervisor?\n\nDigite sua mensagem ou clique no botão para finalizar.',
-            [{ id: 'feed_skip', text: 'Concluir sem Feedback' }],
+            [{ id: 'feed_skip', text: 'Pular Feedback' }],
             '💬 *Etapa 5: Feedback*'
           );
         }
@@ -526,7 +526,7 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
       await sendButton(
         to,
         'Quer deixar alguma mensagem, observação de cuidado ou feedback para o seu supervisor?\n\nDigite sua mensagem ou clique no botão para finalizar.',
-        [{ id: 'feed_skip', text: 'Concluir sem Feedback' }],
+        [{ id: 'feed_skip', text: 'Pular Feedback' }],
         '💬 *Etapa 5: Feedback*'
       );
       break;
