@@ -450,9 +450,11 @@ export async function handleGcReportIncomingMessage(
             step: 'FEEDBACK',
             updatedAt: now
           });
-          await sendText(
+          await sendButton(
             fromPhone,
-            '💬 *Etapa 5: Feedback ao Supervisor*\n\nQuer deixar alguma mensagem, observação de cuidado ou feedback para o seu supervisor?\n\nDigite sua mensagem ou envie *0* para concluir sem feedback.'
+            'Quer deixar alguma mensagem, observação de cuidado ou feedback para o seu supervisor?\n\nDigite sua mensagem ou clique no botão para finalizar.',
+            [{ id: 'feed_skip', text: 'Concluir sem Feedback' }],
+            '💬 *Etapa 5: Feedback*'
           );
         }
         // Aceitar botão legado
@@ -521,7 +523,12 @@ async function resendCurrentStepMessage(to: string, session: GcReportSession) {
       await sendText(to, '🎯 *Etapa 4: Conversões*\n\nQuantas decisões por Cristo ou reconciliações aconteceram na reunião?\n\nEnvie o número (ex: *0*, *1*, *2*...)');
       break;
     case 'FEEDBACK':
-      await sendText(to, '💬 *Etapa 5: Feedback ao Supervisor*\n\nQuer deixar alguma mensagem, observação de cuidado ou feedback para o seu supervisor?\n\nDigite sua mensagem ou envie *0* para concluir sem feedback.');
+      await sendButton(
+        to,
+        'Quer deixar alguma mensagem, observação de cuidado ou feedback para o seu supervisor?\n\nDigite sua mensagem ou clique no botão para finalizar.',
+        [{ id: 'feed_skip', text: 'Concluir sem Feedback' }],
+        '💬 *Etapa 5: Feedback*'
+      );
       break;
   }
 }
