@@ -380,7 +380,7 @@ export default function SupervisorPage() {
       byMembro[p.membroId].push(p);
     });
 
-    const alertas: { membroId: string; membroNome: string; cellId: string; faltasConsecutivas: number; ultimaPresenca: string }[] = [];
+    const alertas: { membroId: string; membroNome: string; cellId: string; faltasConsecutivas: number; ultimaPresenca: string; nivel: 'Atenção' | 'Alerta' | 'Desistência' }[] = [];
 
     Object.entries(byMembro).forEach(([membroId, registros]) => {
       const byCellMembro: Record<string, PresencaDoc[]> = {};
@@ -396,9 +396,14 @@ export default function SupervisorPage() {
           if (r.status === 'ausente_sem_justificativa') consecutive++;
           else break;
         }
-        if (consecutive >= 2) {
+        if (consecutive >= 3) {
           const ultimaPresenca = sorted.find(r => r.status === 'presente')?.date || '—';
-          alertas.push({ membroId, membroNome: regs[0].membroNome, cellId, faltasConsecutivas: consecutive, ultimaPresenca });
+          
+          let nivel: 'Atenção' | 'Alerta' | 'Desistência' = 'Atenção';
+          if (consecutive >= 4 && consecutive <= 8) nivel = 'Alerta';
+          else if (consecutive > 8) nivel = 'Desistência';
+
+          alertas.push({ membroId, membroNome: regs[0].membroNome, cellId, faltasConsecutivas: consecutive, ultimaPresenca, nivel });
         }
       });
     });
@@ -727,9 +732,9 @@ export default function SupervisorPage() {
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-black flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-red-500" /> Alertas — Luz Vermelha
+                  <AlertTriangle className="h-4 w-4 text-red-500" /> Radar de Faltas
                 </CardTitle>
-                <CardDescription>Membros com 2 ou mais faltas sem justificativa consecutivas</CardDescription>
+                <CardDescription>Acompanhe os membros que estão faltando às reuniões (3+ faltas seguidas)</CardDescription>
               </CardHeader>
               <CardContent>
                 {luzVermelhaAlertas.length === 0 ? (
@@ -740,15 +745,38 @@ export default function SupervisorPage() {
                 ) : (
                   <div className="space-y-2">
                     {luzVermelhaAlertas.map(a => (
-                      <div key={`${a.membroId}-${a.cellId}`} className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-3">
-                        <Avatar className="h-8 w-8 border border-red-200 flex-shrink-0">
-                          <AvatarFallback className="text-xs font-bold bg-red-100 text-red-700">{a.membroNome.charAt(0)}</AvatarFallback>
+                      <div key={`${a.membroId}-${a.cellId}`} className={`flex items-center gap-3 rounded-xl border p-3 ${
+                        a.nivel === 'Desistência' ? 'border-neutral-200 bg-neutral-50' : 
+                        a.nivel === 'Alerta' ? 'border-red-200 bg-red-50' : 
+                        'border-amber-200 bg-amber-50'
+                      }`}>
+                        <Avatar className={`h-8 w-8 border flex-shrink-0 ${
+                          a.nivel === 'Desistência' ? 'border-neutral-200' : 
+                          a.nivel === 'Alerta' ? 'border-red-200' : 
+                          'border-amber-200'
+                        }`}>
+                          <AvatarFallback className={`text-xs font-bold ${
+                            a.nivel === 'Desistência' ? 'bg-neutral-100 text-neutral-700' : 
+                            a.nivel === 'Alerta' ? 'bg-red-100 text-red-700' : 
+                            'bg-amber-100 text-amber-700'
+                          }`}>{a.membroNome.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold truncate">{a.membroNome}</p>
+                          <p className="text-sm font-bold truncate flex items-center gap-2">
+                            {a.membroNome}
+                            <Badge variant="outline" className={`text-[9px] h-4 px-1 border-transparent ${
+                              a.nivel === 'Desistência' ? 'bg-neutral-200 text-neutral-700' : 
+                              a.nivel === 'Alerta' ? 'bg-red-200 text-red-700' : 
+                              'bg-amber-200 text-amber-700'
+                            }`}>{a.nivel}</Badge>
+                          </p>
                           <p className="text-[11px] text-muted-foreground">Célula: {celulaRanking.find(c => c.cellId === a.cellId)?.cellNome || a.cellId}</p>
                         </div>
-                        <Badge variant="destructive" className="flex-shrink-0 text-[11px]">
+                        <Badge className={`flex-shrink-0 text-[11px] ${
+                          a.nivel === 'Desistência' ? 'bg-neutral-600 hover:bg-neutral-700 text-white' : 
+                          a.nivel === 'Alerta' ? 'bg-red-600 hover:bg-red-700 text-white' : 
+                          'bg-amber-500 hover:bg-amber-600 text-white'
+                        }`}>
                           {a.faltasConsecutivas}x seguidas
                         </Badge>
                       </div>
