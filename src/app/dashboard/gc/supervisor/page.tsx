@@ -762,14 +762,14 @@ export default function SupervisorPage() {
                           }`}>{a.membroNome.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold truncate flex items-center gap-2">
+                          <div className="text-sm font-bold truncate flex items-center gap-2">
                             {a.membroNome}
                             <Badge variant="outline" className={`text-[9px] h-4 px-1 border-transparent ${
                               a.nivel === 'Desistência' ? 'bg-neutral-200 text-neutral-700' : 
                               a.nivel === 'Alerta' ? 'bg-red-200 text-red-700' : 
                               'bg-amber-200 text-amber-700'
                             }`}>{a.nivel}</Badge>
-                          </p>
+                          </div>
                           <p className="text-[11px] text-muted-foreground">Célula: {celulaRanking.find(c => c.cellId === a.cellId)?.cellNome || a.cellId}</p>
                         </div>
                         <Badge className={`flex-shrink-0 text-[11px] ${
