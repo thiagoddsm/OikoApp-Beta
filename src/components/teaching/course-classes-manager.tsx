@@ -14,10 +14,14 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
+import { useMembersData, useEventsData } from "@/hooks/useDomainData";
 
 export function CourseClassesManager({ course }: { course: any }) {
     const { firestore } = useFirebase();
-    const { users, rooms, deleteClass, addClass } = useVolunteering();
+    const { users } = useMembersData();
+    const { events, reservations, rooms, strategicEvents, reservationCategories } = useEventsData();
+
+    const { deleteClass, addClass } = useVolunteering();
     const { toast } = useToast();
     const [isClassFormOpen, setClassFormOpen] = useState(false);
     const [editingClass, setEditingClass] = useState<Class | null>(null);

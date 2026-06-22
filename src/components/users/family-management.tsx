@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { useVolunteering } from '@/contexts/volunteering-context';
+import { useMembersData } from "@/hooks/useDomainData";
 
 type FamilyLink = {
     name: string;
@@ -32,7 +33,8 @@ interface FamilyManagementProps {
 
 export function FamilyManagement({ user }: FamilyManagementProps) {
     const { firestore } = useFirebase();
-    const { users } = useVolunteering();
+    const { users } = useMembersData();
+
     const { toast } = useToast();
     const [isAdding, setIsAdding] = useState(false);
     

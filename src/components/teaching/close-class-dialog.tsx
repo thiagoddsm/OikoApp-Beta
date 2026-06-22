@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useVolunteering, type Class, type Course } from '@/contexts/volunteering-context';
 import { addTimelineEvent } from '@/lib/timeline';
 import { useFirebase } from '@/firebase';
+import { usePeople } from "@/hooks/usePeople";
 
 interface CloseClassDialogProps {
   open: boolean;
@@ -21,7 +22,9 @@ interface CloseClassDialogProps {
 }
 
 export function CloseClassDialog({ open, onOpenChange, classData, courseData }: CloseClassDialogProps) {
-  const { users, updateClass, updateVolunteer } = useVolunteering();
+    const { members: users } = usePeople();
+
+  const { updateClass, updateVolunteer } = useVolunteering();
   const { firestore, user: currentUser } = useFirebase();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
@@ -155,6 +158,14 @@ export function CloseClassDialog({ open, onOpenChange, classData, courseData }: 
         status: 'completed',
         endDate: classData.endDate || new Date().toISOString().split('T')[0]
       });
+
+      if (classData.whatsappGroupId) {
+        fetch('/api/notifications/groups/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ classId: classData.id })
+        }).catch(err => console.error('Failed to sync WhatsApp group on close:', err));
+      }
 
       toast({
         title: "Turma Encerrada com Sucesso",

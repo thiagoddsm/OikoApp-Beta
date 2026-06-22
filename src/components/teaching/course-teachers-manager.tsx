@@ -15,9 +15,12 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Badge } from '@/components/ui/badge';
 import { UserCheck, PlusCircle, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { useMembersData } from "@/hooks/useDomainData";
 
 export function CourseTeachersManager({ course }: { course: any }) {
-  const { users, isLoading } = useVolunteering();
+    const { users } = useMembersData();
+
+  const { isLoading } = useVolunteering();
   const { firestore } = useFirebase();
   const { toast } = useToast();
   

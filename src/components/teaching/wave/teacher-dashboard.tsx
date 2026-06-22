@@ -9,10 +9,14 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useFirebase } from '@/firebase';
 import { useVolunteering } from '@/contexts/volunteering-context';
+import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 export function TeacherDashboard() {
   const { user } = useFirebase();
-  const { classes, courses, users, isLoading } = useVolunteering();
+    const { users } = useMembersData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+  const { isLoading } = useVolunteering();
 
   const teacherClasses = useMemo(() => {
     if (!user || !classes) return [];

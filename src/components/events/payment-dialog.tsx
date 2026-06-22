@@ -32,6 +32,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useChurch } from '@/hooks/useChurch';
 
 interface EventPaymentDialogProps {
   open: boolean;
@@ -78,6 +79,7 @@ export function EventPaymentDialog({
   eventTitle,
 }: EventPaymentDialogProps) {
   const { toast } = useToast();
+  const { tenantId } = useChurch();
 
   // Form state
   const [method, setMethod] = useState<PaymentMethod>('PIX');
@@ -144,6 +146,7 @@ export function EventPaymentDialog({
           phone: registration.userMetadata.phone || '',
           cpfCnpj: cpfCnpj.trim(),
           userId: registration.userId,
+          tenantId,
         }),
       });
 
@@ -162,6 +165,7 @@ export function EventPaymentDialog({
         dueDate,
         description: `Inscrição: ${eventTitle}`,
         externalReference: registration.id,
+        tenantId,
       };
 
       if (method === 'CREDIT_CARD') {
@@ -196,15 +200,36 @@ export function EventPaymentDialog({
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Ocorreu um erro inesperado.';
       console.error('[PaymentDialog]', err);
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao gerar cobrança',
-        description: message,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+          toast({
+            variant: 'destructive',
+            title: 'Erro ao gerar cobrança',
+            description: message,
+          });
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      const fetchPixQrCode = async (paymentId: string) => {
+        try {
+          const url = new URL(window.location.origin + `/api/asaas/payments/${paymentId}/pix`);
+          if (tenantId) url.searchParams.set('tenantId', tenantId);
+          
+          const qrRes = await fetch(url.toString());
+          if (qrRes.ok) {
+            const qrData = await qrRes.json();
+            setResult((prev) => prev ? {
+              ...prev,
+              pixQrCodeImage: qrData.encodedImage,
+              pixCopyPaste: qrData.payload,
+            } : null);
+          }
+        } catch (e) {
+          console.error('Erro ao buscar QR Code Pix:', e);
+        }
+      };
+
+      // Atualize o handleGenerate para chamar fetchPixQrCode se PIX (opicional, pois a API já retorna o QRCode na criação do payment)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

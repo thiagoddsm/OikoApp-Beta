@@ -1,0 +1,1 @@
+import { NextResponse } from 'next/server'; import { getAdminDb } from '@/lib/firebase-admin'; export async function GET() { const db = getAdminDb(); const snap = await db.collection('gc_bot_debug').get(); let data = snap.docs.map(d => d.data()); data = data.sort((a,b) => b.receivedAt._seconds - a.receivedAt._seconds).slice(0,10); return NextResponse.json(data); }

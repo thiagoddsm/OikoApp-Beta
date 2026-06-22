@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
 import { 
     Loader2, Send, Settings, Key, History, MessageSquare, 
     Users, CheckCircle2, Search, UserPlus, X, Info, RefreshCw, 
@@ -346,7 +347,7 @@ function WhatsappSender({ config }: { config: any }) {
         }).filter(c => c.phone.length >= 8);
         setImportedContacts(contacts);
     };
-    const [msgType, setMsgType] = useState<'text' | 'button' | 'survey' | 'media' | 'list'>('text');
+    const [msgType, setMsgType] = useState<'text' | 'button' | 'survey' | 'media' | 'list' | 'contact'>('text');
 
     // WA Contacts & Groups from API
     const [waContacts, setWaContacts] = useState<any[]>([]);
@@ -388,6 +389,8 @@ function WhatsappSender({ config }: { config: any }) {
     const [listSections, setListSections] = useState([
         { title: 'Sessão 1', rows: [{ title: 'Opção 1', description: '', rowId: `row_${Date.now()}` }] }
     ]);
+    const [contactName, setContactName] = useState('');
+    const [contactPhone, setContactPhone] = useState('');
 
     const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
     const { data: users } = useCollection<any>(usersQuery);
@@ -668,6 +671,9 @@ function WhatsappSender({ config }: { config: any }) {
             payload.buttonText = listButtonText;
             payload.description = listDescription;
             payload.sections = listSections;
+        } else if (msgType === 'contact') {
+            payload.contactName = contactName;
+            payload.contactPhone = contactPhone;
         }
 
         try {
@@ -716,6 +722,7 @@ function WhatsappSender({ config }: { config: any }) {
                                 <SelectItem value="survey">Enquete Nativa</SelectItem>
                                 <SelectItem value="list">Menu Interativo (Lista)</SelectItem>
                                 <SelectItem value="media">Mídia (Documentos, Áudio, Imagem/Vídeo)</SelectItem>
+                                <SelectItem value="contact">Cartão de Contato</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -1171,6 +1178,21 @@ function WhatsappSender({ config }: { config: any }) {
                             <Button type="button" variant="outline" size="sm" onClick={() => {
                                 setListSections([...listSections, { title: 'Nova Sessão', rows: [{ title: 'Item 1', description: '', rowId: `row_${Date.now()}` }] }]);
                             }} className="w-full font-bold">+ Criar Nova Sessão</Button>
+                        </div>
+                    </div>
+                )}
+
+                {msgType === 'contact' && (
+                    <div className="p-4 border-2 border-dashed rounded-xl bg-cyan-50/50 space-y-4 animate-in slide-in-from-top-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase text-cyan-800">Nome do Contato</Label>
+                                <Input value={contactName} onChange={e => setContactName(e.target.value)} className="bg-white h-9" placeholder="Ex: Suporte Oiko" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase text-cyan-800">Telefone do Contato</Label>
+                                <Input value={contactPhone} onChange={e => setContactPhone(e.target.value)} className="bg-white h-9" placeholder="Ex: 5521999999999" />
+                            </div>
                         </div>
                     </div>
                 )}
@@ -2134,18 +2156,63 @@ function NotificationsConfig() {
 }
 
 function WhatsappGroupsManager({ config }: { config: any }) {
+    const { firestore } = useFirebase();
+    const { toast } = useToast();
     const [groups, setGroups] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [search, setSearch] = useState('');
     const [selectedGroup, setSelectedGroup] = useState<any | null>(null);
     const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
+    // Group editing states
+    const [editName, setEditName] = useState('');
+    const [editDesc, setEditDesc] = useState('');
+    const [editPhoto, setEditPhoto] = useState('');
+    const [isUpdatingGroup, setIsUpdatingGroup] = useState(false);
+
+    // Participant search
+    const [participantSearch, setParticipantSearch] = useState('');
+
+    // Create Group states
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [newGroupName, setNewGroupName] = useState('');
+    const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
+    const [isCreating, setIsCreating] = useState(false);
+    const [userSearch, setUserSearch] = useState('');
+
+    const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
+    const { data: users } = useCollection<any>(usersQuery);
+
+    const waContactsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'notifications_contacts')) : null, [firestore]);
+    const { data: waContacts } = useCollection<any>(waContactsQuery);
+
+    // States for adding participant in detail sheet
+    const [addSearchInput, setAddSearchInput] = useState('');
+    const [updatingParticipantsMap, setUpdatingParticipantsMap] = useState<Record<string, boolean>>({});
+
+    const filteredUsers = useMemo(() => {
+        return (users || []).filter((u: any) => {
+            const name = u.name?.toLowerCase() || '';
+            const phone = String(u.phone || u.phoneNumber || '');
+            return phone && (name.includes(userSearch.toLowerCase()) || phone.includes(userSearch));
+        });
+    }, [users, userSearch]);
+
+    const filteredUsersForAdding = useMemo(() => {
+        return (users || []).filter((u: any) => {
+            const name = u.name?.toLowerCase() || '';
+            const phone = String(u.phone || u.phoneNumber || '');
+            return phone && (name.includes(addSearchInput.toLowerCase()) || phone.includes(addSearchInput));
+        });
+    }, [users, addSearchInput]);
+
     const fetchGroups = async () => {
-        const apiKey = config?.instanceKey || config?.whatsappApiKey;
+        const apiKey = config?.evolutionKey || config?.instanceKey || config?.whatsappApiKey;
         if (!apiKey) return;
         setIsLoading(true);
-        const params = new URLSearchParams({ key: apiKey });
-        if (config?.serverUrl) params.set('server', config.serverUrl);
+        const params = new URLSearchParams({ key: apiKey, getParticipants: 'true' });
+        if (config?.evolutionUrl || config?.serverUrl) params.set('server', config.evolutionUrl || config.serverUrl);
+        if (config?.evolutionInstance || config?.instanceName) params.set('instance', config.evolutionInstance || config.instanceName);
         try {
             const res = await fetch(`/api/notifications/groups?${params.toString()}`);
             const data = await res.json();
@@ -2155,19 +2222,180 @@ function WhatsappGroupsManager({ config }: { config: any }) {
     };
 
     const openGroupDetail = async (g: any) => {
-        const apiKey = config?.instanceKey || config?.whatsappApiKey;
+        const apiKey = config?.evolutionKey || config?.instanceKey || config?.whatsappApiKey;
         if (!apiKey) return;
         setSelectedGroup({ ...g, _loading: true });
         setIsLoadingDetail(true);
-        const params = new URLSearchParams({ key: apiKey });
-        if (config?.serverUrl) params.set('server', config.serverUrl);
+        const params = new URLSearchParams({ key: apiKey, id: g.id });
+        if (config?.evolutionUrl || config?.serverUrl) params.set('server', config.evolutionUrl || config.serverUrl);
+        if (config?.evolutionInstance || config?.instanceName) params.set('instance', config.evolutionInstance || config.instanceName);
         try {
-            params.set('id', g.id);
             const res = await fetch(`/api/notifications/groups?${params.toString()}`);
             const data = await res.json();
             setSelectedGroup(data);
+            setEditName(data.name || '');
+            setEditDesc(data.description || '');
+            setEditPhoto('');
+            setParticipantSearch('');
         } catch { setSelectedGroup({ ...g, _error: true }); }
         finally { setIsLoadingDetail(false); }
+    };
+
+    const handleUpdateGroup = async (field: 'name' | 'description' | 'photo') => {
+        if (!selectedGroup) return;
+        setIsUpdatingGroup(true);
+        const payload: any = { groupId: selectedGroup.id };
+        if (field === 'name') payload.name = editName;
+        if (field === 'description') payload.description = editDesc;
+        if (field === 'photo') payload.picture = editPhoto;
+
+        try {
+            const res = await fetch('/api/notifications/groups', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                toast({ title: 'Grupo atualizado com sucesso!' });
+                setSelectedGroup((prev: any) => ({
+                    ...prev,
+                    name: field === 'name' ? editName : prev.name,
+                    description: field === 'description' ? editDesc : prev.description
+                }));
+                if (field === 'photo') setEditPhoto('');
+                fetchGroups();
+            } else {
+                toast({ variant: 'destructive', title: 'Erro ao atualizar', description: data.error || 'Erro desconhecido' });
+            }
+        } catch (e: any) {
+            toast({ variant: 'destructive', title: 'Erro de conexão', description: e.message });
+        } finally {
+            setIsUpdatingGroup(false);
+        }
+    };
+
+    const handleCreateGroup = async () => {
+        if (!newGroupName.trim()) {
+            toast({ variant: 'destructive', title: 'Nome do grupo requerido' });
+            return;
+        }
+        if (selectedParticipants.length === 0) {
+            toast({ variant: 'destructive', title: 'Selecione ao menos um participante' });
+            return;
+        }
+
+        setIsCreating(true);
+        try {
+            const res = await fetch('/api/notifications/groups', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    groupName: newGroupName,
+                    participants: selectedParticipants
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                toast({ title: 'Grupo criado com sucesso!' });
+                setIsCreateOpen(false);
+                setNewGroupName('');
+                setSelectedParticipants([]);
+                fetchGroups();
+            } else {
+                toast({ variant: 'destructive', title: 'Erro ao criar grupo', description: data.error || 'Erro desconhecido' });
+            }
+        } catch (e: any) {
+            toast({ variant: 'destructive', title: 'Erro de conexão', description: e.message });
+        } finally {
+            setIsCreating(false);
+        }
+    };
+
+    const toggleParticipantSelection = (phone: string) => {
+        setSelectedParticipants(prev =>
+            prev.includes(phone) ? prev.filter(p => p !== phone) : [...prev, phone]
+        );
+    };
+
+    const enrichParticipant = (pId: string, pName?: string) => {
+        const rawId = (pId || '').split('@')[0];
+        
+        if (rawId === '60765784527084') {
+            return {
+                name: 'Igreja Batista da Manhã',
+                phone: 'Instância Conectada',
+                lid: pId.endsWith('@lid') ? pId : null,
+                isMatched: true
+            };
+        }
+
+        // Find matched user
+        const matchedUser = users?.find((u: any) => {
+            const uPhone = String(u.phone || u.phoneNumber || '').replace(/\D/g, '');
+            const uLid = String(u.lid || '').split('@')[0];
+            const uJid = String(u.jid || '').split('@')[0];
+            
+            if (uPhone && uPhone.length >= 8) {
+                const uPhoneNoCountry = uPhone.startsWith('55') ? uPhone.substring(2) : uPhone;
+                const uPhoneNo9 = uPhoneNoCountry.length === 11 ? uPhoneNoCountry.slice(0, 2) + uPhoneNoCountry.slice(3) : null;
+                const uPhoneLast8 = uPhoneNoCountry.slice(-8);
+                const idDigits = rawId.replace(/\D/g, '');
+                if (idDigits.includes(uPhoneNoCountry) || (uPhoneNo9 && idDigits.includes(uPhoneNo9)) || (uPhoneLast8.length === 8 && idDigits.includes(uPhoneLast8))) return true;
+            }
+
+            return (uLid && rawId === uLid) || (uJid && rawId === uJid);
+        });
+
+        // Find matched contact
+        const matchedWA = waContacts?.find((c: any) => {
+            const cPhone = String(c.phoneNumber || '').replace(/\D/g, '');
+            const cLid = String(c.lid || '').split('@')[0];
+            const cJid = String(c.jid || '').split('@')[0];
+            
+            return (cPhone && (rawId.includes(cPhone) || cPhone.includes(rawId))) || 
+                   (cLid && rawId === cLid) || 
+                   (cJid && rawId === cJid);
+        });
+
+        const displayName = matchedUser?.name || matchedWA?.name || pName || rawId;
+        const displayPhone = matchedUser?.phone || matchedUser?.phoneNumber || matchedWA?.phoneNumber || rawId;
+        const displayLid = matchedUser?.lid || matchedWA?.lid || (pId.endsWith('@lid') ? pId : null);
+        
+        return {
+            name: displayName,
+            phone: displayPhone,
+            lid: displayLid,
+            isMatched: !!(matchedUser || matchedWA)
+        };
+    };
+
+    const handleUpdateParticipant = async (action: 'add' | 'remove' | 'promote' | 'demote', participantId: string) => {
+        if (!selectedGroup) return;
+        setUpdatingParticipantsMap(prev => ({ ...prev, [participantId]: true }));
+        try {
+            const res = await fetch('/api/notifications/groups', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    groupId: selectedGroup.id,
+                    action,
+                    participants: [participantId]
+                })
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                toast({ title: 'Sucesso', description: `Participante alterado com sucesso (${action})` });
+                // Re-fetch group info to update layout/state
+                await openGroupDetail(selectedGroup);
+            } else {
+                toast({ variant: 'destructive', title: 'Erro ao alterar participante', description: data.error || 'Erro desconhecido' });
+            }
+        } catch (e: any) {
+            toast({ variant: 'destructive', title: 'Erro de conexão', description: e.message });
+        } finally {
+            setUpdatingParticipantsMap(prev => ({ ...prev, [participantId]: false }));
+        }
     };
 
     useEffect(() => { if (config) fetchGroups(); }, [config]);
@@ -2185,10 +2413,86 @@ function WhatsappGroupsManager({ config }: { config: any }) {
                     <h2 className="text-xl font-black">Gerenciar Grupos</h2>
                     <p className="text-sm text-muted-foreground">Visualize e gerencie seus grupos do WhatsApp</p>
                 </div>
-                <Button variant="outline" size="sm" onClick={fetchGroups} disabled={isLoading} className="gap-2 font-bold">
-                    <RefreshCw className={cn("size-4", isLoading && "animate-spin")} />
-                    Atualizar
-                </Button>
+                <div className="flex gap-2">
+                    <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+                        <DialogTrigger asChild>
+                            <Button className="font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
+                                <UserPlus size={16} />
+                                Criar Grupo
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-md max-h-[85vh] flex flex-col">
+                            <DialogHeader>
+                                <DialogTitle>Criar Novo Grupo</DialogTitle>
+                                <DialogDescription>Crie um novo grupo de WhatsApp adicionando membros cadastrados.</DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-4 flex-1 overflow-y-auto py-2">
+                                <div className="space-y-2">
+                                    <Label className="font-bold text-xs">Nome do Grupo</Label>
+                                    <Input 
+                                        placeholder="Ex: Ministério de Louvor" 
+                                        value={newGroupName} 
+                                        onChange={e => setNewGroupName(e.target.value)} 
+                                    />
+                                </div>
+                                <div className="space-y-2 flex flex-col h-64">
+                                    <Label className="font-bold text-xs">Selecionar Participantes ({selectedParticipants.length})</Label>
+                                    <div className="relative">
+                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
+                                        <Input 
+                                            placeholder="Buscar membros..." 
+                                            value={userSearch} 
+                                            onChange={e => setUserSearch(e.target.value)}
+                                            className="pl-8 h-8 text-xs"
+                                        />
+                                    </div>
+                                    <ScrollArea className="flex-1 border rounded-lg p-2 bg-muted/20">
+                                        {filteredUsers.length === 0 ? (
+                                            <p className="text-xs text-center text-muted-foreground py-4">Nenhum membro encontrado</p>
+                                        ) : filteredUsers.map((u: any) => {
+                                            const isSelected = selectedParticipants.includes(u.phone);
+                                            return (
+                                                <div 
+                                                    key={u.id} 
+                                                    onClick={() => toggleParticipantSelection(u.phone)}
+                                                    className={cn(
+                                                        "flex items-center gap-2 p-2 rounded-md cursor-pointer text-xs select-none transition-colors",
+                                                        isSelected ? "bg-emerald-50 text-emerald-800 font-bold" : "hover:bg-muted/50"
+                                                    )}
+                                                >
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={isSelected} 
+                                                        readOnly 
+                                                        className="accent-emerald-600 rounded"
+                                                    />
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="truncate">{u.name}</p>
+                                                        <p className="text-[10px] text-muted-foreground">{u.phone}</p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </ScrollArea>
+                                </div>
+                            </div>
+                            <DialogFooter className="mt-4">
+                                <Button variant="outline" onClick={() => setIsCreateOpen(false)} disabled={isCreating} className="font-bold">
+                                    Cancelar
+                                </Button>
+                                <Button onClick={handleCreateGroup} disabled={isCreating} className="font-bold bg-emerald-600 hover:bg-emerald-700 text-white">
+                                    {isCreating && <Loader2 className="animate-spin size-4 mr-2" />}
+                                    Criar Grupo
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    <Button variant="outline" size="sm" onClick={fetchGroups} disabled={isLoading} className="gap-2 font-bold">
+                        <RefreshCw className={cn("size-4", isLoading && "animate-spin")} />
+                        Atualizar
+                    </Button>
+                </div>
             </div>
 
             {/* Search */}
@@ -2289,7 +2593,59 @@ function WhatsappGroupsManager({ config }: { config: any }) {
                             <Loader2 className="animate-spin size-8 text-primary opacity-40" />
                         </div>
                     ) : selectedGroup && (
-                        <div className="space-y-4">
+                        <div className="space-y-6">
+                            {/* Edit Group Info Form */}
+                            <div className="p-4 bg-muted/30 rounded-xl border space-y-4">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Editar Dados do Grupo</p>
+                                
+                                {/* Edit Name */}
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-bold">Assunto/Nome</Label>
+                                    <div className="flex gap-2">
+                                        <Input 
+                                            value={editName} 
+                                            onChange={e => setEditName(e.target.value)} 
+                                            className="h-9 text-xs"
+                                        />
+                                        <Button onClick={() => handleUpdateGroup('name')} disabled={isUpdatingGroup} size="sm" className="font-bold bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9">
+                                            Salvar
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {/* Edit Description */}
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-bold">Descrição</Label>
+                                    <div className="flex gap-2">
+                                        <Input 
+                                            value={editDesc} 
+                                            onChange={e => setEditDesc(e.target.value)} 
+                                            className="h-9 text-xs"
+                                        />
+                                        <Button onClick={() => handleUpdateGroup('description')} disabled={isUpdatingGroup} size="sm" className="font-bold bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9">
+                                            Salvar
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                {/* Edit Photo */}
+                                <div className="space-y-1">
+                                    <Label className="text-xs font-bold">Alterar Foto (URL)</Label>
+                                    <div className="flex gap-2">
+                                        <Input 
+                                            placeholder="URL da nova imagem..." 
+                                            value={editPhoto} 
+                                            onChange={e => setEditPhoto(e.target.value)} 
+                                            className="h-9 text-xs"
+                                        />
+                                        <Button onClick={() => handleUpdateGroup('photo')} disabled={isUpdatingGroup || !editPhoto} size="sm" className="font-bold bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9">
+                                            Alterar
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Configs */}
                             <div className="p-4 bg-muted/30 rounded-xl border space-y-3">
                                 <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Configurações</p>
                                 <div className="grid grid-cols-1 gap-2">
@@ -2313,21 +2669,166 @@ function WhatsappGroupsManager({ config }: { config: any }) {
                                             {selectedGroup.restrict ? 'Restrito' : 'Aberto'}
                                         </Badge>
                                     </div>
-                                    {selectedGroup.isCommunity !== undefined && (
-                                        <div className={cn("flex items-center gap-3 p-2.5 rounded-lg", selectedGroup.isCommunity || selectedGroup.isCommunityAnnounce ? "bg-blue-50 border border-blue-200" : "bg-muted/20")}>
-                                            <Users size={16} className={selectedGroup.isCommunity || selectedGroup.isCommunityAnnounce ? "text-blue-600" : "text-muted-foreground"} />
-                                            <div className="flex-1">
-                                                <p className="text-xs font-bold">Tipo</p>
-                                                <p className="text-[10px] text-muted-foreground">
-                                                    {selectedGroup.isCommunity ? 'Grupo principal da comunidade' : selectedGroup.isCommunityAnnounce ? 'Canal de anúncios da comunidade' : 'Grupo independente'}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
 
-                            {selectedGroup.admins && selectedGroup.admins.length > 0 && (
+                            {/* Adicionar Participante */}
+                            {selectedGroup.id && (
+                                <div className="p-4 bg-muted/30 rounded-xl border space-y-2">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Adicionar Participante</p>
+                                    <div className="relative">
+                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
+                                        <Input 
+                                            placeholder="Buscar usuário do sistema por nome ou telefone..." 
+                                            value={addSearchInput} 
+                                            onChange={e => setAddSearchInput(e.target.value)}
+                                            className="h-8 text-xs pl-8"
+                                        />
+                                    </div>
+                                    {addSearchInput && (
+                                        <div className="max-h-40 overflow-y-auto space-y-1 border rounded-lg bg-card p-1 text-xs">
+                                            {filteredUsersForAdding.length > 0 ? (
+                                                filteredUsersForAdding.map((u: any) => {
+                                                    const uPhone = u.phone || u.phoneNumber || '';
+                                                    const targetId = uPhone || u.lid;
+                                                    const isAlreadyIn = selectedGroup.participants?.some((p: any) => p.id?.includes(uPhone) || (u.lid && p.id?.includes(u.lid)));
+                                                    return (
+                                                        <div key={u.uid || u.id} className="flex items-center justify-between p-1.5 hover:bg-muted/50 rounded transition-colors">
+                                                            <div className="min-w-0 flex-1 pr-2">
+                                                                <p className="font-bold truncate">{u.name}</p>
+                                                                <p className="text-[9px] text-muted-foreground font-mono truncate">{uPhone}{u.lid && ` | LID: ${u.lid}`}</p>
+                                                            </div>
+                                                            {isAlreadyIn ? (
+                                                                <Badge variant="outline" className="text-[8px] text-muted-foreground">Já está</Badge>
+                                                            ) : (
+                                                                <Button 
+                                                                    size="sm"
+                                                                    onClick={() => {
+                                                                        handleUpdateParticipant('add', targetId);
+                                                                        setAddSearchInput('');
+                                                                    }}
+                                                                    className="h-6 px-2 text-[9px] font-black uppercase tracking-widest bg-emerald-600 hover:bg-emerald-700 text-white"
+                                                                >
+                                                                    Adicionar
+                                                                </Button>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })
+                                            ) : (
+                                                <div className="p-2 text-center text-muted-foreground text-[10px] space-y-2">
+                                                    <p>Nenhum usuário correspondente encontrado.</p>
+                                                    <Button
+                                                        size="sm"
+                                                        onClick={() => {
+                                                            handleUpdateParticipant('add', addSearchInput);
+                                                            setAddSearchInput('');
+                                                        }}
+                                                        className="w-full text-[9px] h-7 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                                                    >
+                                                        Adicionar &quot;{addSearchInput}&quot; diretamente
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Searchable Participants List */}
+                            {selectedGroup.participants && selectedGroup.participants.length > 0 ? (
+                                <div className="p-4 bg-muted/30 rounded-xl border space-y-2">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Membros / Participantes ({selectedGroup.participants.length})</p>
+                                    <div className="relative">
+                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3 text-muted-foreground" />
+                                        <Input 
+                                            placeholder="Buscar participante..." 
+                                            value={participantSearch} 
+                                            onChange={e => setParticipantSearch(e.target.value)}
+                                            className="h-8 text-xs pl-8"
+                                        />
+                                    </div>
+                                    <div className="max-h-80 overflow-y-auto space-y-1 pr-1 border rounded-lg bg-card p-1">
+                                        {selectedGroup.participants
+                                            .map((p: any) => ({
+                                                ...p,
+                                                enriched: enrichParticipant(p.id, p.name)
+                                            }))
+                                            .filter((p: any) => {
+                                                const term = participantSearch.toLowerCase();
+                                                return p.id?.toLowerCase().includes(term) || 
+                                                       p.name?.toLowerCase().includes(term) ||
+                                                       p.enriched.name?.toLowerCase().includes(term) ||
+                                                       p.enriched.phone?.toLowerCase().includes(term) ||
+                                                       p.enriched.lid?.toLowerCase().includes(term);
+                                            })
+                                            .map((p: any) => {
+                                                const isUpdating = !!updatingParticipantsMap[p.id];
+                                                const isAdmin = p.admin === 'admin' || p.admin === 'superadmin';
+                                                return (
+                                                    <div key={p.id} className="flex items-center gap-2 p-1.5 hover:bg-muted/50 rounded-md transition-colors text-xs">
+                                                        <Avatar className="h-7 w-7">
+                                                            <AvatarFallback className="text-[10px] font-bold bg-emerald-50 text-emerald-800">
+                                                                {p.enriched.name?.charAt(0)}
+                                                            </AvatarFallback>
+                                                        </Avatar>
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <p className="font-bold truncate">{p.enriched.name}</p>
+                                                                {isAdmin && (
+                                                                    <Badge variant="outline" className="text-[8px] px-1.5 py-0 capitalize border-emerald-500 text-emerald-600 bg-emerald-50 shrink-0">
+                                                                        Admin
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                            <div className="flex flex-col gap-0.5 text-[9px] text-muted-foreground font-mono">
+                                                                {p.enriched.phone && p.enriched.phone !== p.enriched.name && (
+                                                                    <span>Tel: {p.enriched.phone}</span>
+                                                                )}
+                                                                {p.enriched.lid && p.enriched.lid !== p.id && (
+                                                                    <span>LID: {p.enriched.lid}</span>
+                                                                )}
+                                                                <span className="text-[8px] text-muted-foreground/60">{p.id}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 shrink-0">
+                                                            <Button
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                className="h-6 w-6"
+                                                                disabled={isUpdating}
+                                                                title={isAdmin ? "Remover admin" : "Tornar admin"}
+                                                                onClick={() => handleUpdateParticipant(isAdmin ? 'demote' : 'promote', p.id)}
+                                                            >
+                                                                {isUpdating ? (
+                                                                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                                                                ) : isAdmin ? (
+                                                                    <UserCheck className="h-3 w-3 text-emerald-600" />
+                                                                ) : (
+                                                                    <ShieldCheck className="h-3 w-3 text-muted-foreground hover:text-emerald-600" />
+                                                                )}
+                                                            </Button>
+                                                            <Button
+                                                                size="icon"
+                                                                variant="ghost"
+                                                                className="h-6 w-6 hover:bg-red-50"
+                                                                disabled={isUpdating}
+                                                                title="Remover do grupo"
+                                                                onClick={() => handleUpdateParticipant('remove', p.id)}
+                                                            >
+                                                                {isUpdating ? (
+                                                                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                                                                ) : (
+                                                                    <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+                                                                )}
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                    </div>
+                                </div>
+                            ) : selectedGroup.admins && selectedGroup.admins.length > 0 && (
                                 <div className="p-4 bg-muted/30 rounded-xl border space-y-2">
                                     <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Administradores ({selectedGroup.admins.length})</p>
                                     {selectedGroup.admins.map((admin: any) => (
@@ -2353,6 +2854,171 @@ function WhatsappGroupsManager({ config }: { config: any }) {
     );
 }
 
+function WhatsappProfileManager({ config }: { config: any }) {
+    const [profileName, setProfileName] = useState('');
+    const [profileStatus, setProfileStatus] = useState('');
+    const [profilePictureUrl, setProfilePictureUrl] = useState('');
+    const [newPictureUrl, setNewPictureUrl] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const { toast } = useToast();
+
+    const fetchProfile = async () => {
+        const apiKey = config?.evolutionKey || config?.instanceKey || config?.whatsappApiKey;
+        if (!apiKey) return;
+        setIsLoading(true);
+        const params = new URLSearchParams({ key: apiKey });
+        if (config?.evolutionUrl || config?.serverUrl) params.set('server', config.evolutionUrl || config.serverUrl);
+        if (config?.evolutionInstance || config?.instanceName) params.set('instance', config.evolutionInstance || config.instanceName);
+        try {
+            const res = await fetch(`/api/notifications/profile?${params.toString()}`);
+            const data = await res.json();
+            const instance = data?.instance || data;
+            setProfileName(instance?.profileName || instance?.name || '');
+            setProfileStatus(instance?.profileStatus || instance?.status || '');
+            setProfilePictureUrl(instance?.profilePictureUrl || instance?.picture || '');
+        } catch (e: any) {
+            toast({ variant: 'destructive', title: 'Erro ao carregar perfil', description: e.message });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => { if (config) fetchProfile(); }, [config]);
+
+    const handleSave = async (field: 'name' | 'status' | 'picture') => {
+        const apiKey = config?.evolutionKey || config?.instanceKey || config?.whatsappApiKey;
+        if (!apiKey) return;
+        setIsSaving(true);
+        
+        const payload: any = {
+            key: apiKey,
+            server: config.evolutionUrl || config.serverUrl,
+            instance: config.evolutionInstance || config.instanceName
+        };
+
+        if (field === 'name') payload.name = profileName;
+        if (field === 'status') payload.status = profileStatus;
+        if (field === 'picture') {
+            payload.picture = newPictureUrl;
+            if (!newPictureUrl) {
+                toast({ variant: 'destructive', title: 'URL da Imagem requerida' });
+                setIsSaving(false);
+                return;
+            }
+        }
+
+        try {
+            const res = await fetch('/api/notifications/profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                toast({ title: 'Perfil atualizado com sucesso!' });
+                if (field === 'picture') {
+                    setProfilePictureUrl(newPictureUrl);
+                    setNewPictureUrl('');
+                }
+                fetchProfile();
+            } else {
+                toast({ variant: 'destructive', title: 'Erro ao atualizar', description: data.error || 'Erro desconhecido' });
+            }
+        } catch (e: any) {
+            toast({ variant: 'destructive', title: 'Erro de conexão', description: e.message });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <Card className="max-w-2xl mx-auto border-2 shadow-sm rounded-2xl overflow-hidden">
+            <CardHeader className="bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-emerald-100 p-6">
+                <CardTitle className="text-xl font-black text-emerald-950 flex items-center gap-2">
+                    <Smartphone className="size-5 text-emerald-600" />
+                    Perfil do WhatsApp
+                </CardTitle>
+                <CardDescription className="text-emerald-800/80 font-medium">
+                    Gerencie o nome, foto e status do WhatsApp conectado a esta instância
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6 space-y-6">
+                {isLoading ? (
+                    <div className="flex flex-col items-center justify-center py-12 gap-3">
+                        <Loader2 className="animate-spin size-8 text-emerald-600 opacity-60" />
+                        <p className="text-xs text-muted-foreground font-bold">Carregando informações do perfil...</p>
+                    </div>
+                ) : (
+                    <div className="space-y-6">
+                        <div className="flex flex-col sm:flex-row items-center gap-4 p-4 bg-muted/30 rounded-2xl border">
+                            <Avatar className="h-20 w-20 border-4 border-white shadow-md">
+                                <AvatarImage src={profilePictureUrl} />
+                                <AvatarFallback className="text-2xl font-black bg-emerald-100 text-emerald-800">
+                                    {profileName?.charAt(0) || 'WA'}
+                                </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0 text-center sm:text-left space-y-1">
+                                <h3 className="font-bold text-base truncate">{profileName || 'Sem nome configurado'}</h3>
+                                <p className="text-xs text-muted-foreground truncate">{profileStatus || 'Sem status/recado'}</p>
+                            </div>
+                            <Button variant="outline" size="sm" onClick={fetchProfile} className="gap-2 font-bold shrink-0">
+                                <RefreshCw className="size-4" />
+                                Recarregar
+                            </Button>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="font-bold text-xs">Nome do Perfil</Label>
+                            <div className="flex gap-2">
+                                <Input 
+                                    placeholder="Ex: Igreja Batista da Manhã" 
+                                    value={profileName} 
+                                    onChange={e => setProfileName(e.target.value)} 
+                                    className="flex-1"
+                                />
+                                <Button onClick={() => handleSave('name')} disabled={isSaving} className="font-bold bg-emerald-600 hover:bg-emerald-700 text-white">
+                                    Atualizar
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="font-bold text-xs">Recado (Status)</Label>
+                            <div className="flex gap-2">
+                                <Input 
+                                    placeholder="Ex: Deus é fiel! 🙏" 
+                                    value={profileStatus} 
+                                    onChange={e => setProfileStatus(e.target.value)} 
+                                    className="flex-1"
+                                />
+                                <Button onClick={() => handleSave('status')} disabled={isSaving} className="font-bold bg-emerald-600 hover:bg-emerald-700 text-white">
+                                    Atualizar
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label className="font-bold text-xs">Alterar Foto de Perfil (URL da Imagem)</Label>
+                            <div className="flex gap-2">
+                                <Input 
+                                    placeholder="https://exemplo.com/sua-foto.jpg" 
+                                    value={newPictureUrl} 
+                                    onChange={e => setNewPictureUrl(e.target.value)} 
+                                    className="flex-1"
+                                />
+                                <Button onClick={() => handleSave('picture')} disabled={isSaving || !newPictureUrl} className="font-bold bg-emerald-600 hover:bg-emerald-700 text-white">
+                                    Alterar Foto
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
 export default function NotificationsPage() {
   const { data: config } = useDoc<any>('config/notifications');
 
@@ -2363,6 +3029,7 @@ export default function NotificationsPage() {
                 <div className="overflow-x-auto">
                     <TabsList className="flex h-auto justify-start bg-muted/50 p-1 rounded-xl w-fit min-w-max border-2">
                         <TabsTrigger value="sender" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Disparador</TabsTrigger>
+                        <TabsTrigger value="profile" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Perfil</TabsTrigger>
                         <TabsTrigger value="groups" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Grupos</TabsTrigger>
                         <TabsTrigger value="chats" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Conversas</TabsTrigger>
                         <TabsTrigger value="responses" className="rounded-lg font-bold py-2 px-6 data-[state=active]:bg-white data-[state=active]:shadow-sm">Respostas</TabsTrigger>
@@ -2379,6 +3046,9 @@ export default function NotificationsPage() {
             
             <TabsContent value="sender" className="mt-0 animate-in fade-in-50 duration-300">
                 <WhatsappSender config={config} />
+            </TabsContent>
+            <TabsContent value="profile" className="mt-0 animate-in fade-in-50 duration-300">
+                <WhatsappProfileManager config={config} />
             </TabsContent>
             <TabsContent value="groups" className="mt-0 animate-in fade-in-50 duration-300">
                 <WhatsappGroupsManager config={config} />

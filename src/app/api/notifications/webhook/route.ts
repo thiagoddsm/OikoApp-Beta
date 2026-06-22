@@ -16,16 +16,19 @@ export async function POST(request: Request) {
     // Tratamento para arrays (ex: pollUpdates) e estrutura de dados
     let data = raw.data || raw;
     if (Array.isArray(data)) data = data[0];
-    const msgContent = data.msgContent || data.message || {};
+    
+    // Suporte para Evolution API v2 (messages.upsert)
+    const isEvolutionV2 = raw.event === 'messages.upsert' && !!data.message;
+    const msgObject = isEvolutionV2 ? data.message : data;
+    const msgContent = isEvolutionV2 ? (msgObject.message || {}) : (msgObject.msgContent || msgObject.message || {});
     
     // 1. Sender Identification
-    // Extrair fromRaw considerando o padrão pollCreationMessageKey
     let fromRaw = String(
-        data.from || 
-        data.key?.remoteJid || 
-        data.participant || 
-        data.author || 
-        data.pollCreationMessageKey?.remoteJid || 
+        msgObject.from || 
+        msgObject.key?.remoteJid || 
+        msgObject.participant || 
+        msgObject.author || 
+        msgObject.pollCreationMessageKey?.remoteJid || 
         ''
     );
 
@@ -44,8 +47,8 @@ export async function POST(request: Request) {
     const isLid = fromRaw.includes('@lid') || (fromPhone.length > 0 && !fromPhone.startsWith('55') && fromPhone.length < 13 && fromPhone.length > 8);
     
     if (isLid) {
-        // ESTRATÉGIA 1: Usar phoneNumber se a API wa.me conseguir resolver
-        const rawPhoneNumber = String(data.phoneNumber || '').replace(/\D/g, '');
+        // ESTRATÉGIA 1: Usar phoneNumber se a API conseguir resolver
+        const rawPhoneNumber = String(msgObject.phoneNumber || data.phoneNumber || '').replace(/\D/g, '');
         
         if (rawPhoneNumber.length >= 10) {
             fromPhone = rawPhoneNumber.startsWith('55') ? rawPhoneNumber : `55${rawPhoneNumber}`;
@@ -89,7 +92,7 @@ export async function POST(request: Request) {
     }
 
     // Pegamos o ID da mensagem que está sendo respondida (se houver)
-    let stanzaId = msgContent.contextInfo?.stanzaId || data.contextInfo?.stanzaId || data.stanzaId || null;
+    let stanzaId = msgContent.contextInfo?.stanzaId || msgObject.contextInfo?.stanzaId || msgObject.stanzaId || null;
     
     if (!stanzaId && msgContent.interactiveResponseMessage?.contextInfo?.stanzaId) {
         stanzaId = msgContent.interactiveResponseMessage.contextInfo.stanzaId;
@@ -106,13 +109,13 @@ export async function POST(request: Request) {
 
     // Para enquetes, o ID da mensagem original costuma estar em pollCreationMessageKey.id
     if (!stanzaId) {
-        const pollData = msgContent.pollUpdateMessage || data.pollUpdates || data.pollUpdate || data.pollUpdateMessage || {};
+        const pollData = msgContent.pollUpdateMessage || msgObject.pollUpdates || msgObject.pollUpdate || msgObject.pollUpdateMessage || {};
         const pollUpdate = Array.isArray(pollData) ? pollData[0] : pollData;
-        stanzaId = pollUpdate.pollCreationMessageKey?.id || data.pollCreationMessageKey?.id || null;
+        stanzaId = pollUpdate.pollCreationMessageKey?.id || msgObject.pollCreationMessageKey?.id || null;
     }
 
     // Também tentar extrair stanzaId do key.id (para mensagens interativas respondidas)
-    if (!stanzaId && data.key?.id) {
+    if (!stanzaId && msgObject.key?.id) {
         // Não usar key.id como stanzaId se for a própria mensagem; só usar se houver contexto
     }
 
@@ -125,15 +128,15 @@ export async function POST(request: Request) {
         msgContent.buttonsResponseMessage || 
         msgContent.templateButtonReplyMessage || 
         msgContent.listResponseMessage ||
-        data.buttonsResponseMessage ||
-        data.templateButtonReplyMessage ||
-        data.listResponseMessage ||
+        msgObject.buttonsResponseMessage ||
+        msgObject.templateButtonReplyMessage ||
+        msgObject.listResponseMessage ||
         msgContent.interactiveResponseMessage
     ) {
-        const btn = msgContent.buttonsResponseMessage || data.buttonsResponseMessage || {};
-        const tmpl = msgContent.templateButtonReplyMessage || data.templateButtonReplyMessage || {};
-        const list = msgContent.listResponseMessage || data.listResponseMessage || {};
-        const interactive = msgContent.interactiveResponseMessage || data.interactiveResponseMessage || {};
+        const btn = msgContent.buttonsResponseMessage || msgObject.buttonsResponseMessage || {};
+        const tmpl = msgContent.templateButtonReplyMessage || msgObject.templateButtonReplyMessage || {};
+        const list = msgContent.listResponseMessage || msgObject.listResponseMessage || {};
+        const interactive = msgContent.interactiveResponseMessage || msgObject.interactiveResponseMessage || {};
         
         let buttonId = btn.selectedButtonId || tmpl.selectedId || list.singleSelectReply?.selectedRowId;
         let buttonText = btn.selectedDisplayText || tmpl.selectedDisplayText || list.title;
@@ -152,38 +155,100 @@ export async function POST(request: Request) {
         };
     }
     // C. Poll Update (pollUpdateMessage)
-    else if (msgContent.pollUpdateMessage || data.pollUpdates || data.pollUpdate || data.pollUpdateMessage || data.update?.pollUpdates) {
-        const pollData = msgContent.pollUpdateMessage || data.pollUpdates || data.pollUpdate || data.pollUpdateMessage || data.update?.pollUpdates || {};
+    else if (msgContent.pollUpdateMessage || msgObject.pollUpdates || msgObject.pollUpdate || msgObject.pollUpdateMessage || msgObject.update?.pollUpdates) {
+        const pollData = msgContent.pollUpdateMessage || msgObject.pollUpdates || msgObject.pollUpdate || msgObject.pollUpdateMessage || msgObject.update?.pollUpdates || {};
         
         const pollUpdate = Array.isArray(pollData) ? pollData[0] : pollData;
         
-        let options = pollUpdate.vote?.selectedOptions || pollUpdate.selectedOptions || data.selectedOptions || [];
+        let options = pollUpdate.vote?.selectedOptions || pollUpdate.selectedOptions || msgObject.selectedOptions || [];
         if (!Array.isArray(options)) options = [options].filter(Boolean);
         
         // IMPORTANTE: NÃO usar pollCreationMessageKey.id como pollName — é um message ID, não um nome legível!
-        const pollName = data.pollName || pollUpdate.name || pollUpdate.pollName || msgContent.pollCreationMessage?.name || 'Enquete';
+        const pollName = msgObject.pollName || pollUpdate.name || pollUpdate.pollName || msgContent.pollCreationMessage?.name || 'Enquete';
 
         options = options.map((o: any) => typeof o === 'string' ? o : o.label || o.text || o.name).filter(Boolean);
         if (options.length === 0) options = ['Voto registrado'];
 
         responseType = 'poll';
         payload = {
-            pollName,
+            pollName: pollName,
+            pollId: stanzaId || pollName, // Fallback para pollName se não houver stanzaId
             selectedOptions: options,
-            pollDataString: JSON.stringify(pollData)
+            pollDataString: typeof pollUpdate === 'string' ? pollUpdate : JSON.stringify(pollUpdate)
         };
+
+        // WAME não consegue ler votos de enquetes (ele só repassa o payload criptografado ou vazio).
+        // Se a requisição não tiver o formato da Evolution API (que manda raw.event), ignoramos
+        // para que a deduplicação não bloqueie o webhook correto da Evolution API que chegará depois.
+        if (!raw.event && (!options || options.length === 0 || typeof pollData.vote?.encPayload !== 'undefined')) {
+            console.log('[Webhook DEBUG] Ignorando webhook de poll do WAME (sem opções legíveis), aguardando Evolution API...');
+            return NextResponse.json({ success: true, ignored: true, reason: 'wame_poll_ignore' });
+        }
     }
 
     // ===== DEBUG: Log detalhado para diagnóstico do Bot GC =====
-    const textForDebug = msgContent.conversation || msgContent.extendedTextMessage?.text || data.text || '';
-    console.log(`[Webhook DEBUG] fromPhone=${fromPhone}, fromRaw=${fromRaw}, fromMe=${data.fromMe}, isLid=${fromRaw.includes('@lid')}, text="${textForDebug}", responseType=${responseType}`);
+    const textForDebug = msgContent.conversation || msgContent.extendedTextMessage?.text || msgObject.text || '';
+    console.log(`[Webhook DEBUG] fromPhone=${fromPhone}, fromRaw=${fromRaw}, fromMe=${msgObject.key?.fromMe ?? msgObject.fromMe}, isLid=${fromRaw.includes('@lid')}, text="${textForDebug}", responseType=${responseType}`);
+    
+    // Deduplicação de Mensagens (Evitar que WAME e Evolution processem a mesma mensagem 2 vezes)
+    // Como WAME e Evolution geram IDs diferentes para a mesma mensagem recebida, 
+    // vamos deduplicar por (fromPhone + hash(texto/botao)).
+    const contentString = (responseType === 'button' ? (msgObject.buttonsResponseMessage?.selectedButtonId || msgObject.templateButtonReplyMessage?.selectedId || msgObject.listResponseMessage?.singleSelectReply?.selectedRowId) : textForDebug) || 'empty';
+    // Limita o tamanho para usar como ID do Firestore
+    const contentHash = contentString.substring(0, 50).replace(/[^a-zA-Z0-9_-]/g, '');
+    const dedupKey = `${fromPhone}_${contentHash}`;
+    
+    if (responseType === 'text' || responseType === 'button') {
+        try {
+            const dedupRef = db.collection('webhook_dedup').doc(dedupKey);
+            const isDuplicate = await db.runTransaction(async (t) => {
+                const dedupDoc = await t.get(dedupRef);
+                if (dedupDoc.exists) {
+                    const data = dedupDoc.data();
+                    const diffMs = Date.now() - (data?.timestamp?.toMillis() || 0);
+                    if (diffMs < 5000) {
+                        return true;
+                    }
+                }
+                t.set(dedupRef, { timestamp: Timestamp.now() });
+                return false;
+            });
+            
+            if (isDuplicate) {
+                console.log(`[Webhook DEBUG] Mensagem duplicada ignorada (Transação atômica): ${dedupKey}`);
+                return NextResponse.json({ success: true, ignored: true, reason: 'duplicate' });
+            }
+        } catch (e) {
+            console.error("DEDUP LOG ERROR:", e); 
+        }
+    }
+    
+    // Para enquetes, o messageId no WAME e Evolution podem ser do voto, então vamos deduplicar por (pollId + fromPhone)
+    if (responseType === 'poll' && stanzaId) {
+        try {
+            const dedupPollId = `${stanzaId}_${fromPhone}`;
+            // Como votos podem mudar, não podemos bloquear para sempre.
+            // Mas para evitar duas requisições no mesmo segundo, salvamos com o timestamp atual.
+            const dedupRef = db.collection('webhook_dedup').doc(dedupPollId);
+            const dedupDoc = await dedupRef.get();
+            if (dedupDoc.exists) {
+                const data = dedupDoc.data();
+                // Se o último processamento foi há menos de 2 segundos, ignora como duplicado
+                if (data && (Date.now() - data.timestamp.toMillis() < 2000)) {
+                    console.log(`[Webhook DEBUG] Voto de enquete duplicado ignorado: ${dedupPollId}`);
+                    return NextResponse.json({ success: true, ignored: true, reason: 'duplicate_poll' });
+                }
+            }
+            await dedupRef.set({ timestamp: Timestamp.now() });
+        } catch (e) { console.error("DEDUP POLL ERROR:", e); }
+    }
     
     // Gravar log de debug no Firestore para diagnóstico remoto
     try {
       await db.collection('gc_bot_debug').add({
         fromPhone: fromPhone || '',
         fromRaw: fromRaw || '',
-        fromMe: data.fromMe || false,
+        fromMe: msgObject.key?.fromMe ?? msgObject.fromMe ?? false,
         text: textForDebug || '',
         responseType: responseType || 'text',
         payload: payload || null,
@@ -195,9 +260,10 @@ export async function POST(request: Request) {
       });
     } catch (e) { console.error("DEBUG LOG ERROR:", e); }
 
-    // Interceptor para o Bot de Relatório de GC se houver sessão ativa
     // Relaxar a condição: aceitar fromMe === undefined como "não é de mim"
-    const isFromMe = data.fromMe === true;
+    // IMPORTANTE: Para Enquetes (responseType === 'poll'), o msgObject.key refere-se à mensagem ORIGINAL (enviada pelo bot). 
+    // Logo, fromMe virá true. Para não bloquear o voto do usuário, ignoramos o fromMe se for poll update.
+    const isFromMe = (msgObject.key?.fromMe === true || msgObject.fromMe === true) && responseType !== 'poll';
     const isGroup = fromRaw.includes('@g.us');
     
     if (!isFromMe && !isGroup) {
@@ -228,11 +294,11 @@ export async function POST(request: Request) {
         if (sessionDoc.exists) {
             let messageText = '';
             if (responseType === 'button') {
-                messageText = payload?.buttonText || '';
+                messageText = payload?.buttonId || payload?.buttonText || '';
             } else if (responseType === 'poll') {
                 messageText = Array.isArray(payload?.selectedOptions) ? payload.selectedOptions.join(', ') : '';
             } else {
-                messageText = msgContent.conversation || msgContent.extendedTextMessage?.text || data.text || '';
+                messageText = msgContent.conversation || msgContent.extendedTextMessage?.text || msgObject.text || '';
             }
 
             console.log(`[Webhook DEBUG] Encaminhando para GC Bot: messageText="${messageText}", type=${responseType || 'text'}`);
@@ -249,31 +315,46 @@ export async function POST(request: Request) {
         console.log(`[Webhook DEBUG] Mensagem ignorada pelo Bot GC: isFromMe=${isFromMe}, isGroup=${isGroup}`);
     }
 
-    // D. Common Text
-    if (msgContent.conversation || msgContent.extendedTextMessage?.text || data.text) {
-        const messageText = msgContent.conversation || msgContent.extendedTextMessage?.text || data.text || '[Mídia]';
-        const senderPushName = data.pushName || data.senderName || data.verifiedName || null;
+    // D. Common Text and Interactions
+    let messageText = '';
+    if (responseType === 'button') {
+        messageText = `[Botão] ${payload?.buttonText || ''}`;
+    } else if (responseType === 'poll') {
+        messageText = `[Enquete] ${Array.isArray(payload?.selectedOptions) ? payload.selectedOptions.join(', ') : ''}`;
+    } else {
+        messageText = msgContent.conversation || msgContent.extendedTextMessage?.text || msgObject.text || '';
+        if (!messageText && raw.event === 'messages.upsert') {
+             // Tratamento genérico para outras mídias
+             if (msgContent.imageMessage) messageText = '[Imagem]';
+             else if (msgContent.audioMessage) messageText = '[Áudio]';
+             else if (msgContent.videoMessage) messageText = '[Vídeo]';
+             else if (msgContent.documentMessage) messageText = '[Documento]';
+             else if (msgContent.contactMessage) messageText = '[Contato]';
+        }
+    }
 
-        
+    if (messageText) {
+        const senderPushName = msgObject.pushName || msgObject.senderName || msgObject.verifiedName || null;
+
         await db.collection('notifications_messages').add({
           from: fromPhone,
-          fromMe: data.fromMe || false,
+          fromMe: isFromMe,
           content: messageText,
-          type: 'text',
+          type: responseType || 'text',
           receivedAt: Timestamp.now()
         });
 
         await db.collection('notifications_chats').doc(fromPhone).set({
             lastMessage: messageText,
             lastMessageAt: Timestamp.now(),
-            unreadCount: data.fromMe ? 0 : 1,
+            unreadCount: isFromMe ? 0 : 1,
             phoneNumber: fromPhone,
             userName: senderPushName, // Salva o nome vindo do WhatsApp como fallback
             isGroup: fromRaw.includes('@g.us')
         }, { merge: true });
 
         // Detecção de Opt-Out / Opt-In (somente mensagens individuais recebidas)
-        if (!data.fromMe && !fromRaw.includes('@g.us')) {
+        if (!isFromMe && !isGroup) {
             const normalizedText = messageText.trim().toLowerCase();
             const optOutKeywords = ['sair', 'parar', 'cancelar', 'descadastrar', 'unsubscribe', 'remover'];
             const optInKeywords = ['iniciar', 'começar', 'voltar', 'subscribe', 'ativar'];

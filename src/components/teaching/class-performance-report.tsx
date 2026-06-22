@@ -11,6 +11,7 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { format, parseISO, isBefore, addWeeks, addMonths } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 const weekDayMap: Record<string, number> = {
     "Domingo": 0, "Segunda-feira": 1, "Terça-feira": 2, "Quarta-feira": 3,
@@ -18,7 +19,10 @@ const weekDayMap: Record<string, number> = {
 };
 
 export function ClassPerformanceReport({ classData }: { classData: Class }) {
-    const { users, pedagogicalLogs, isLoading } = useVolunteering();
+    const { users } = useMembersData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+    const { isLoading } = useVolunteering();
 
     const enrolledStudents = useMemo(() => {
         if (!users || !classData?.students) return [];

@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { format, parseISO, addWeeks, addMonths, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -298,7 +299,10 @@ function ClassAttendanceCard({ cls, courseName, userId, today }: ClassAttendance
 
 export function StudentDashboard() {
   const { user } = useFirebase();
-  const { classes, courses, users, isLoading } = useVolunteering();
+    const { users } = useMembersData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+  const { isLoading } = useVolunteering();
   const today = useMemo(() => startOfDay(new Date()), []);
 
   // Turmas do aluno agrupadas por curso

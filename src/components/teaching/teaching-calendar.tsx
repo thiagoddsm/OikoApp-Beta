@@ -7,6 +7,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { useVolunteering, type Class } from '@/contexts/volunteering-context';
 import { Loader2, GraduationCap, Star } from 'lucide-react';
 import { Card } from '../ui/card';
+import { useEventsData, useCoursesData } from "@/hooks/useDomainData";
 
 moment.locale('pt-br');
 const localizer = momentLocalizer(moment);
@@ -27,7 +28,10 @@ interface TeachingCalendarProps {
 }
 
 export function TeachingCalendar({ onEventClick, searchTerm = '' }: TeachingCalendarProps) {
-  const { classes, courses, rooms, isLoading } = useVolunteering();
+    const { reservations, rooms, strategicEvents, reservationCategories } = useEventsData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+  const { isLoading } = useVolunteering();
   const [date, setDate] = useState(new Date());
   const [view, setView] = useState<View>(Views.MONTH);
 
@@ -236,7 +240,7 @@ export function TeachingCalendar({ onEventClick, searchTerm = '' }: TeachingCale
 
   return (
     <Card className="p-4 h-[75vh] w-full overflow-hidden shadow-lg bg-white">
-        <Calendar
+        <Calendar<any>
             localizer={localizer}
             events={events}
             startAccessor="start"

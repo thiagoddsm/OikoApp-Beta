@@ -15,6 +15,7 @@ import { DisPlansManagement } from './dis-plans-management';
 import { DisPaymentFormDialog } from './dis-payment-form-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { useMembersData, useTeachingFinance } from "@/hooks/useDomainData";
 
 const statusConfig: Record<string, { label: string; icon: React.ElementType; color: string; }> = {
   paid: { label: 'Pago', icon: CheckCircle, color: 'bg-green-100 text-green-800' },
@@ -23,7 +24,10 @@ const statusConfig: Record<string, { label: string; icon: React.ElementType; col
 };
 
 export function DisFinanceDashboard() {
-  const { disPayments, users, disPlans, isLoading, deleteDisPayment } = useVolunteering();
+    const { users } = useMembersData();
+    const { wavePayments, disPayments, wavePlans, disPlans, waveExpenses } = useTeachingFinance();
+
+  const { isLoading, deleteDisPayment } = useVolunteering();
   const { toast } = useToast();
   const [filter, setFilter] = useState('all');
   const [isFormOpen, setFormOpen] = useState(false);

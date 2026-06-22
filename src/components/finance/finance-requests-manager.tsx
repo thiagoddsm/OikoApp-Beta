@@ -22,9 +22,12 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { useMinisterialFinance } from "@/hooks/useDomainData";
 
 export function FinanceRequestsManager() {
-  const { financeRequests, addFinanceRequest, updateFinanceRequest, deleteFinanceRequest, isLoading } = useVolunteering();
+    const { financialTransactions, financeRequests } = useMinisterialFinance();
+
+  const { addFinanceRequest, updateFinanceRequest, deleteFinanceRequest, isLoading } = useVolunteering();
   const { storage } = useFirebase();
   const { toast } = useToast();
 

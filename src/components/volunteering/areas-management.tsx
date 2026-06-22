@@ -8,9 +8,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Loader2, PlusCircle, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { CreateAreaDialog } from './create-area-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
+import { useMembersData, useVolunteeringServiceData } from "@/hooks/useDomainData";
 
 export function AreasManagement() {
-  const { serviceAreas: areas, users, isLoading, deleteArea } = useVolunteering();
+    const { users } = useMembersData();
+    const { serviceAreas: areas, teams, savedSchedules } = useVolunteeringServiceData();
+
+  const { isLoading, deleteArea } = useVolunteering();
   const [isFormOpen, setFormOpen] = useState(false);
   const [isDeleteOpen, setDeleteOpen] = useState(false);
   const [selectedArea, setSelectedArea] = useState<AreaOfService | null>(null);

@@ -10,10 +10,13 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { BookOpen, Users, Loader2, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
+import { useCoursesData } from "@/hooks/useDomainData";
 
 export function DisTeacherArea() {
   const { user } = useFirebase();
-  const { classes, courses, isLoading } = useVolunteering();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+  const { isLoading } = useVolunteering();
 
   const myClasses = useMemo(() => {
     if (!user) return [];

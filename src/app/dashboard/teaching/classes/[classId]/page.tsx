@@ -18,18 +18,20 @@ import { ClassFormDialog } from '@/components/teaching/class-form-dialog';
 import { CloseClassDialog } from '@/components/teaching/close-class-dialog';
 import { ClassNotificationsManager } from '@/components/teaching/class-notifications-manager';
 import { ClassScheduleManager } from '@/components/teaching/class-schedule-manager';
-import { Send, Calendar as CalendarIcon } from 'lucide-react';
+import { ClassWhatsappManager } from '@/components/teaching/class-whatsapp-manager';
+import { Send, Calendar as CalendarIcon, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
-
-
+import { useCoursesData } from "@/hooks/useDomainData";
 
 function ClassDetailPageContent() {
     const params = useParams();
     const router = useRouter();
     const classId = params.classId as string;
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
     
-    const { classes, courses, updateClass, isLoading: isContextLoading } = useVolunteering();
+    const { updateClass, isLoading: isContextLoading } = useVolunteering();
     const { toast } = useToast();
     
     const classData = useMemo(() => classes.find(c => c.id === classId), [classes, classId]);
@@ -45,6 +47,15 @@ function ClassDetailPageContent() {
         setIsReopening(true);
         try {
             await updateClass(classId, { status: 'active' });
+            
+            if (classData?.whatsappGroupId) {
+                fetch('/api/notifications/groups/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ classId })
+                }).catch(err => console.error('Failed to sync WhatsApp group after reopening:', err));
+            }
+
             toast({
                 title: "Turma Reaberta",
                 description: "O status da turma foi alterado de volta para 'Em Andamento'."
@@ -123,6 +134,7 @@ function ClassDetailPageContent() {
                             <TabsTrigger value="log"><BookOpen className="mr-2 h-4 w-4"/>Diário</TabsTrigger>
                             <TabsTrigger value="materials"><Folder className="mr-2 h-4 w-4"/>Materiais</TabsTrigger>
                             <TabsTrigger value="notifications"><Send className="mr-2 h-4 w-4"/>Notificações</TabsTrigger>
+                            <TabsTrigger value="whatsapp"><MessageCircle className="mr-2 h-4 w-4"/>Grupo do WhatsApp</TabsTrigger>
                         </TabsList>
                         
                         <TabsContent value="students" className="mt-6">
@@ -158,6 +170,10 @@ function ClassDetailPageContent() {
 
                         <TabsContent value="notifications" className="mt-6">
                              <ClassNotificationsManager classData={classData} courseData={courseData} />
+                        </TabsContent>
+
+                        <TabsContent value="whatsapp" className="mt-6">
+                             <ClassWhatsappManager classData={classData} courseData={courseData} />
                         </TabsContent>
                     </Tabs>
                 </CardContent>

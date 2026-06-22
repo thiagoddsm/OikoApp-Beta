@@ -12,9 +12,11 @@ import { CashFlowManager } from '@/components/finance/cash-flow-manager';
 import { FinanceRequestsManager } from '@/components/finance/finance-requests-manager';
 import { ContaAzulManager } from '@/components/finance/conta-azul-manager';
 import { useVolunteering, VolunteeringProvider } from '@/contexts/volunteering-context';
+import { useMinisterialFinance } from "@/hooks/useDomainData";
 
 function FinancePageContent() {
-    const { financialTransactions } = useVolunteering();
+    const { financialTransactions, financeRequests } = useMinisterialFinance();
+
     const [activeTab, setActiveTab] = useState('dashboard');
 
     const summaryData = useMemo(() => {

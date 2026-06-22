@@ -2,6 +2,7 @@
 import { getAdminDb } from '@/lib/firebase-admin';
 import dotenv from 'dotenv';
 import path from 'path';
+import { decrypt } from '@/lib/encryption';
 
 export interface AsaasCustomer {
   id: string;
@@ -43,8 +44,9 @@ interface AsaasListResponse<T> {
 
 /**
  * Obtém as credenciais do Asaas dinamicamente de 3 fontes redundantes.
+ * Prioridade: 1) Tenant (Igreja local) 2) System_settings (Oiko Root) 3) .env
  */
-async function getAsaasCredentials(): Promise<{ apiKey: string; baseUrl: string }> {
+async function getAsaasCredentials(tenantId?: string): Promise<{ apiKey: string; baseUrl: string }> {
   try {
     dotenv.config({ path: path.resolve(process.cwd(), '.env') });
   } catch (e) {
@@ -53,13 +55,29 @@ async function getAsaasCredentials(): Promise<{ apiKey: string; baseUrl: string 
 
   try {
     const db = getAdminDb();
+    
+    // 1. Tenta buscar a API Key específica da Igreja (Tenant)
+    if (tenantId) {
+      const tenantSnap = await db.collection('tenants').doc(tenantId).get();
+      if (tenantSnap.exists) {
+        const tenantData = tenantSnap.data();
+        if (tenantData?.asaasApiKey) {
+          return {
+            apiKey: decrypt(tenantData.asaasApiKey),
+            baseUrl: tenantData.asaasBaseUrl || (tenantData.asaasEnv === 'sandbox' ? 'https://sandbox.asaas.com/api/v3' : 'https://api.asaas.com/v3')
+          };
+        }
+      }
+    }
+
+    // 2. Fallback para configuração global (legado/root)
     const snap = await db.collection('system_settings').doc('finance').get();
     
     if (snap.exists) {
       const data = snap.data()!;
       if (data.asaasApiKey) {
         return {
-          apiKey: data.asaasApiKey,
+          apiKey: decrypt(data.asaasApiKey),
           baseUrl: data.asaasBaseUrl || 'https://api.asaas.com/v3'
         };
       }
@@ -80,9 +98,10 @@ async function getAsaasCredentials(): Promise<{ apiKey: string; baseUrl: string 
 async function asaasRequest<T = unknown>(
   path: string,
   method: 'GET' | 'POST' | 'DELETE' | 'PUT' = 'GET',
-  body?: object
+  body?: object,
+  tenantId?: string
 ): Promise<T> {
-  const { apiKey, baseUrl } = await getAsaasCredentials();
+  const { apiKey, baseUrl } = await getAsaasCredentials(tenantId);
 
   if (!apiKey || apiKey.includes('COLE_AQUI')) {
     throw new Error('Chave de API do Asaas não configurada. Salve-a na aba financeira de configurações ou no .env');
@@ -139,6 +158,7 @@ export async function findOrCreateCustomer(data: {
   email?: string;
   phone?: string;
   externalReference: string;
+  tenantId?: string;
 }): Promise<AsaasCustomer> {
   const cleanCpfCnpj = data.cpfCnpj ? data.cpfCnpj.replace(/\D/g, '') : '';
   
@@ -165,7 +185,7 @@ export async function findOrCreateCustomer(data: {
     email: data.email || undefined,
     phone: data.phone || undefined,
     externalReference: data.externalReference,
-  });
+  }, data.tenantId);
 
   return customer;
 }
@@ -179,6 +199,7 @@ export async function createPayment(data: {
   externalReference?: string;
   installmentCount?: number;
   installmentValue?: number;
+  tenantId?: string;
 }): Promise<AsaasPayment> {
   const payload: any = {
     customer: data.customerId,
@@ -197,27 +218,29 @@ export async function createPayment(data: {
     payload.value = data.value;
   }
 
-  return asaasRequest<AsaasPayment>('/payments', 'POST', payload);
+  return asaasRequest<AsaasPayment>('/payments', 'POST', payload, data.tenantId);
 }
 
-export async function getPayment(paymentId: string): Promise<AsaasPayment> {
-  return asaasRequest<AsaasPayment>(`/payments/${paymentId}`);
+export async function getPayment(paymentId: string, tenantId?: string): Promise<AsaasPayment> {
+  return asaasRequest<AsaasPayment>(`/payments/${paymentId}`, 'GET', undefined, tenantId);
 }
 
-export async function getPixQrCode(paymentId: string): Promise<AsaasPixQrCode> {
-  return asaasRequest<AsaasPixQrCode>(`/payments/${paymentId}/pixQrCode`);
+export async function getPixQrCode(paymentId: string, tenantId?: string): Promise<AsaasPixQrCode> {
+  return asaasRequest<AsaasPixQrCode>(`/payments/${paymentId}/pixQrCode`, 'GET', undefined, tenantId);
 }
 
 export async function listPayments(
-  externalReference: string
+  externalReference: string,
+  tenantId?: string
 ): Promise<AsaasListResponse<AsaasPayment>> {
   return asaasRequest<AsaasListResponse<AsaasPayment>>(
-    `/payments?externalReference=${encodeURIComponent(externalReference)}`
+    `/payments?externalReference=${encodeURIComponent(externalReference)}`,
+    'GET', undefined, tenantId
   );
 }
 
-export async function cancelPayment(paymentId: string): Promise<{ deleted: boolean }> {
-  return asaasRequest<{ deleted: boolean }>(`/payments/${paymentId}`, 'DELETE');
+export async function cancelPayment(paymentId: string, tenantId?: string): Promise<{ deleted: boolean }> {
+  return asaasRequest<{ deleted: boolean }>(`/payments/${paymentId}`, 'DELETE', undefined, tenantId);
 }
 
 /**
@@ -231,6 +254,7 @@ export async function createSubscription(data: {
   description?: string;
   externalReference?: string;
   cycle?: 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUALLY' | 'YEARLY';
+  tenantId?: string;
 }): Promise<any> {
   return asaasRequest<any>('/subscriptions', 'POST', {
     customer: data.customerId,
@@ -240,6 +264,6 @@ export async function createSubscription(data: {
     cycle: data.cycle || 'MONTHLY',
     description: data.description,
     externalReference: data.externalReference,
-  });
+  }, data.tenantId);
 }
 

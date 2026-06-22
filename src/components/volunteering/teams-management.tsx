@@ -9,9 +9,12 @@ import { Loader2, PlusCircle, MoreHorizontal, Pencil, Trash2 } from 'lucide-reac
 import { TeamFormDialog } from './team-form-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { useVolunteeringServiceData } from "@/hooks/useDomainData";
 
 export function TeamsManagement() {
-  const { teams, isLoading, deleteTeam } = useVolunteering();
+    const { serviceAreas: areas, teams, savedSchedules } = useVolunteeringServiceData();
+
+  const { isLoading, deleteTeam } = useVolunteering();
   const [isFormOpen, setFormOpen] = useState(false);
   const [isDeleteOpen, setDeleteOpen] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);

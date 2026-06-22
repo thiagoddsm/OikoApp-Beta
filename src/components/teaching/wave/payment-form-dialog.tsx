@@ -9,6 +9,7 @@ import { Loader2 } from 'lucide-react';
 import { useVolunteering, type WavePayment, type User, type WavePlan } from '@/contexts/volunteering-context';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
+import { useMembersData, useTeachingFinance } from "@/hooks/useDomainData";
 
 interface PaymentFormDialogProps {
   open: boolean;
@@ -17,7 +18,10 @@ interface PaymentFormDialogProps {
 }
 
 export function PaymentFormDialog({ open, onOpenChange, existingPayment }: PaymentFormDialogProps) {
-  const { users, wavePlans, addWavePayment, updateWavePayment, isLoading } = useVolunteering();
+    const { users } = useMembersData();
+    const { wavePayments, disPayments, wavePlans, disPlans, waveExpenses } = useTeachingFinance();
+
+  const { addWavePayment, updateWavePayment, isLoading } = useVolunteering();
   
   const [userId, setUserId] = useState('');
   const [planId, setPlanId] = useState('');

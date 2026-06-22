@@ -16,6 +16,7 @@ export async function POST(request: Request) {
       externalReference,
       installmentCount,
       installmentValue,
+      tenantId,
     } = await request.json();
 
     if (!customerId || !billingType || !value || !dueDate) {
@@ -34,12 +35,13 @@ export async function POST(request: Request) {
       externalReference,
       installmentCount,
       installmentValue,
+      tenantId,
     });
 
     let pixQrCode = null;
     if (billingType === 'PIX') {
       try {
-        pixQrCode = await getPixQrCode(payment.id);
+        pixQrCode = await getPixQrCode(payment.id, tenantId);
       } catch (pixError: unknown) {
         const msg = pixError instanceof Error ? pixError.message : 'Erro ao buscar QR Code PIX';
         console.warn('[Asaas] Aviso: falha ao buscar QR Code PIX:', msg);
@@ -52,6 +54,7 @@ export async function POST(request: Request) {
       await db.collection('asaasPayments').doc(payment.id).set({
         ...payment,
         pixQrCode: pixQrCode ?? null,
+        tenantId: tenantId ?? null,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
       });

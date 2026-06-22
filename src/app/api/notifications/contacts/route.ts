@@ -6,26 +6,40 @@ export const runtime = 'nodejs';
 export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
-        const apiKey = searchParams.get('key');
-        const serverUrl = searchParams.get('server') || 'https://us.api-wa.me';
+        let apiKey = searchParams.get('key');
+        let serverUrl = searchParams.get('server');
+        let instanceName = searchParams.get('instance');
+
+        if (!apiKey || !serverUrl) {
+            try {
+                const db = getAdminDb();
+                const configSnap = await db.collection('config').doc('notifications').get();
+                if (configSnap.exists) {
+                    const data = configSnap.data();
+                    apiKey = apiKey || data?.instanceKey || data?.whatsappApiKey;
+                    serverUrl = serverUrl || data?.serverUrl || 'https://api.ibmanha.com.br';
+                    instanceName = instanceName || data?.instanceName || 'IBM';
+                }
+            } catch (e) {}
+        }
 
         if (!apiKey) {
             return NextResponse.json({ error: 'Chave da instância não fornecida.' }, { status: 400 });
         }
 
-        const baseUrl = serverUrl.replace(/\/$/, '');
-        const response = await fetch(`${baseUrl}/${apiKey}/contacts`, {
+        const baseUrl = (serverUrl || 'https://api.ibmanha.com.br').replace(/\/$/, '');
+        const response = await fetch(`${baseUrl}/chat/findContacts/${instanceName}`, {
             method: 'GET',
-            headers: { 'accept': '*/*' },
+            headers: { 'accept': '*/*', 'apikey': apiKey },
         });
 
         const data = await response.json();
         
-        if (data.status !== 200) {
-            return NextResponse.json({ error: data.message || 'Erro ao buscar contatos' }, { status: data.status || 500 });
+        if (!response.ok) {
+            return NextResponse.json({ error: data.message || 'Erro ao buscar contatos' }, { status: response.status || 500 });
         }
 
-        const contacts = data.contacts || [];
+        const contacts = Array.isArray(data) ? data : (data.contacts || []);
         const db = getAdminDb();
         const batch = db.batch();
         let count = 0;
@@ -78,10 +92,15 @@ export async function GET(request: Request) {
                 // Garante o formato brasileiro com ou sem 55
                 const queryPhone = phone.startsWith('55') ? phone : `55${phone}`;
 
-                const regRes = await fetch(`${baseUrl}/${apiKey}/actions/registered?number=${queryPhone}`);
+                const regRes = await fetch(`${baseUrl}/chat/whatsappNumbers/${instanceName}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+                    body: JSON.stringify({ numbers: [queryPhone] })
+                });
+                
                 const regData = await regRes.json();
                 
-                const waInfo = regData["0"] || regData;
+                const waInfo = Array.isArray(regData) ? regData[0] : (regData["0"] || regData);
                 if (waInfo && waInfo.exists) {
                     const contactRef = db.collection('notifications_contacts').doc(phone);
                     await contactRef.set({

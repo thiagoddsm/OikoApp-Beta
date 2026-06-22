@@ -23,9 +23,12 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useCoursesData } from "@/hooks/useDomainData";
 
 export function EnrollmentForm({ initialCourseId }: { initialCourseId?: string }) {
-    const { courses, classes, addEnrollmentRequest, isLoading } = useVolunteering();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+    const { addEnrollmentRequest, isLoading } = useVolunteering();
     const { toast } = useToast();
     
     const [step, setStep] = useState(1);

@@ -6,6 +6,7 @@ import { Save, Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { SavedScheduleDetails } from '@/components/volunteering/saved-schedule-details';
+import { useVolunteeringServiceData } from "@/hooks/useDomainData";
 
 const months = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -17,7 +18,9 @@ const years = [currentYear -1, currentYear, currentYear + 1];
 
 
 function SavedSchedulesPageContent() {
-    const { serviceAreas, isLoading } = useVolunteering();
+    const { serviceAreas, teams, savedSchedules } = useVolunteeringServiceData();
+
+    const { isLoading } = useVolunteering();
     const [selectedAreaId, setSelectedAreaId] = useState<string | undefined>(undefined);
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
     const [selectedYear, setSelectedYear] = useState(currentYear);

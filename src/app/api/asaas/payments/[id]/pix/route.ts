@@ -4,7 +4,7 @@ import { getPixQrCode } from '@/lib/asaas';
 export const runtime = 'nodejs';
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -14,7 +14,10 @@ export async function GET(
       return NextResponse.json({ error: 'ID do pagamento é obrigatório.' }, { status: 400 });
     }
 
-    const qrCode = await getPixQrCode(id);
+    const { searchParams } = new URL(request.url);
+    const tenantId = searchParams.get('tenantId') || undefined;
+
+    const qrCode = await getPixQrCode(id, tenantId);
 
     return NextResponse.json({
       encodedImage: qrCode.encodedImage,

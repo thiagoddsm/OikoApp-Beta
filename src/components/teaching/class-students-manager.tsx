@@ -7,13 +7,16 @@ import { Button } from '@/components/ui/button';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Loader2, PlusCircle, UserX } from 'lucide-react';
 import { EnrollmentDialog } from './enrollment-dialog';
+import { usePeople } from "@/hooks/usePeople";
 
 interface ClassStudentsManagerProps {
     classData: Class;
 }
 
 export function ClassStudentsManager({ classData }: ClassStudentsManagerProps) {
-    const { users, isLoading, updateClass } = useVolunteering();
+    const { members: users } = usePeople();
+
+    const { isLoading, updateClass } = useVolunteering();
     const [isEnrollmentOpen, setEnrollmentOpen] = useState(false);
 
     const enrolledStudents = useMemo(() => {
@@ -29,6 +32,14 @@ export function ClassStudentsManager({ classData }: ClassStudentsManagerProps) {
         if (confirm('Tem certeza que deseja remover este aluno da turma?')) {
             const updatedStudents = classData.students.filter((id: string) => id !== studentId);
             await updateClass(classData.id, { students: updatedStudents });
+
+            if (classData.whatsappGroupId) {
+                fetch('/api/notifications/groups/sync', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ classId: classData.id })
+                }).catch(err => console.error('Failed to sync WhatsApp group:', err));
+            }
         }
     };
 

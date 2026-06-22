@@ -10,6 +10,7 @@ import { useVolunteering, type DisPayment } from '@/contexts/volunteering-contex
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { format } from 'date-fns';
 import { PersonSearchInput } from '@/components/common/person-search-input';
+import { useMembersData, useTeachingFinance } from "@/hooks/useDomainData";
 
 interface DisPaymentFormDialogProps {
   open: boolean;
@@ -18,7 +19,10 @@ interface DisPaymentFormDialogProps {
 }
 
 export function DisPaymentFormDialog({ open, onOpenChange, existingPayment }: DisPaymentFormDialogProps) {
-  const { users, disPlans, addDisPayment, updateDisPayment, isLoading } = useVolunteering();
+    const { users } = useMembersData();
+    const { wavePayments, disPayments, wavePlans, disPlans, waveExpenses } = useTeachingFinance();
+
+  const { addDisPayment, updateDisPayment, isLoading } = useVolunteering();
   
   const [userId, setUserId] = useState('');
   const [planId, setPlanId] = useState('');

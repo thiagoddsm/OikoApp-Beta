@@ -14,11 +14,15 @@ import { DeleteConfirmationDialog } from '@/components/structure/delete-confirma
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useToast } from '@/hooks/use-toast';
+import { useMembersData, useVolunteeringServiceData } from "@/hooks/useDomainData";
 
 const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
 export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, monthFilter: string }) {
-    const { users, serviceAreas: areas, isLoading: isContextLoading, deleteSchedule } = useVolunteering();
+    const { users } = useMembersData();
+    const { serviceAreas: areas, teams, savedSchedules } = useVolunteeringServiceData();
+
+    const { isLoading: isContextLoading, deleteSchedule } = useVolunteering();
     const { toast } = useToast();
     const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
     

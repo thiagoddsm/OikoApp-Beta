@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useVolunteering, type Course } from '@/contexts/volunteering-context';
 import { addTimelineEvent } from '@/lib/timeline';
 import { useFirebase } from '@/firebase';
+import { useMembersData } from "@/hooks/useDomainData";
 
 interface RetroactiveApprovalDialogProps {
   open: boolean;
@@ -21,7 +22,9 @@ interface RetroactiveApprovalDialogProps {
 }
 
 export function RetroactiveApprovalDialog({ open, onOpenChange, courseId, courseName }: RetroactiveApprovalDialogProps) {
-  const { users, updateVolunteer, isLoading } = useVolunteering();
+    const { users } = useMembersData();
+
+  const { updateVolunteer, isLoading } = useVolunteering();
   const { firestore, user: currentUser } = useFirebase();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');

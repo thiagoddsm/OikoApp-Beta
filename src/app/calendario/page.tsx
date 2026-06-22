@@ -16,6 +16,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import moment from 'moment';
+import { useMembersData, useEventsData } from "@/hooks/useDomainData";
 
 const ReservationsCalendar = dynamic(
     () => import('@/components/volunteering/reservations-calendar').then(mod => mod.ReservationsCalendar),
@@ -30,7 +31,9 @@ const ReservationsCalendar = dynamic(
 );
 
 function PublicCalendarContent() {
-    const { rooms, reservationCategories, users } = useVolunteering();
+    const { users } = useMembersData();
+    const { events, reservations, rooms, strategicEvents, reservationCategories } = useEventsData();
+
     const [selectedReservation, setSelectedReservation] = useState<any>(null);
     const [isDetailsOpen, setDetailsOpen] = useState(false);
     

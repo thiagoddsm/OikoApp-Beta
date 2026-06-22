@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
+import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 const weekDayMap: Record<string, number> = {
     "Domingo": 0, "Segunda-feira": 1, "Terça-feira": 2, "Quarta-feira": 3,
@@ -32,15 +33,10 @@ function PedagogicalLogPageContent() {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const classId = params.classId as string;
-    const {
-        classes,
-        courses,
-        users,
-        pedagogicalLogs,
-        addPedagogicalLog,
-        updateClass,
-        isLoading
-    } = useVolunteering();
+    const { users } = useMembersData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+    const { addPedagogicalLog, updateClass, isLoading } = useVolunteering();
 
     const [selectedDate, setSelectedDate] = useState<string>('');
     const [contentTaught, setContentTaught] = useState('');

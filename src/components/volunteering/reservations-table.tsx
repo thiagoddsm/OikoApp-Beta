@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CreateReservationDialog } from './create-reservation-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
+import { useMembersData, useEventsData } from "@/hooks/useDomainData";
 
 interface ReservationsTableProps {
     searchTerm?: string;
@@ -22,7 +23,10 @@ export function ReservationsTable({
     roomFilter = 'all', 
     categoryFilter = [] 
 }: ReservationsTableProps) {
-    const { reservations, users, reservationCategories, updateReservation, deleteReservation, isLoading } = useVolunteering();
+    const { users } = useMembersData();
+    const { events, reservations, rooms, strategicEvents, reservationCategories } = useEventsData();
+
+    const { updateReservation, deleteReservation, isLoading } = useVolunteering();
     const [isFormOpen, setFormOpen] = useState(false);
     const [isDeleteOpen, setDeleteOpen] = useState(false);
     const [selectedReservation, setSelectedReservation] = useState<RoomReservation | null>(null);

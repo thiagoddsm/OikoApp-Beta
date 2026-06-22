@@ -16,13 +16,17 @@ import { EnrollmentDialog } from './enrollment-dialog';
 import { ImportEnrollmentsDialog } from './import-enrollments-dialog';
 import { useToast } from '@/hooks/use-toast';
 import * as XLSX from 'xlsx';
+import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 interface StudentsManagementProps {
     filterCourseIds?: string[];
 }
 
 export function StudentsManagement({ filterCourseIds }: StudentsManagementProps) {
-  const { users, classes, courses, isLoading, updateClass } = useVolunteering();
+    const { users } = useMembersData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+  const { isLoading, updateClass } = useVolunteering();
   const { toast } = useToast();
   
   const [searchTerm, setSearchTerm] = useState('');

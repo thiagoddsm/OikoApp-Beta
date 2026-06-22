@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PersonSearchInput } from '@/components/common/person-search-input';
+import { useMembersData } from "@/hooks/useDomainData";
 
 interface CreateAreaDialogProps {
   open: boolean;
@@ -17,7 +18,9 @@ interface CreateAreaDialogProps {
 }
 
 export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAreaDialogProps) {
-  const { users, addArea, updateArea, isLoading } = useVolunteering();
+    const { users } = useMembersData();
+
+  const { addArea, updateArea, isLoading } = useVolunteering();
   
   const [name, setName] = useState('');
   const [leaderId, setLeaderId] = useState('');

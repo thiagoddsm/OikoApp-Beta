@@ -14,9 +14,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { PersonSearchInput } from '@/components/common/person-search-input';
+import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 export function CourseDetailsForm({ course }: { course: any }) {
-  const { users, courses, theoflixCourses, isLoading } = useVolunteering();
+    const { users } = useMembersData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+  const { isLoading } = useVolunteering();
   const { firestore, storage } = useFirebase();
   const { toast } = useToast();
   

@@ -5,7 +5,7 @@ export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   try {
-    const { name, cpfCnpj, email, phone, userId } = await request.json();
+    const { name, cpfCnpj, email, phone, userId, tenantId } = await request.json();
 
     console.log('[API Debug] Recebido no POST /api/asaas/customers:', { name, cpfCnpj, userId });
     console.log('[API Debug] process.env.ASAAS_API_KEY (Mascarada):', process.env.ASAAS_API_KEY ? `${process.env.ASAAS_API_KEY.substring(0, 15)}...` : 'NÃO CONFIGURADA EM PROCESS.ENV');
@@ -23,6 +23,7 @@ export async function POST(request: Request) {
       email,
       phone,
       externalReference: userId,
+      tenantId,
     });
 
     return NextResponse.json({ customerId: customer.id });

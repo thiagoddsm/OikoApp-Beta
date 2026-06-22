@@ -4,14 +4,20 @@ import { getAdminDb } from '@/lib/firebase-admin';
 export const runtime = 'nodejs';
 
 /**
- * API Route to manage WhatsApp Groups using api-wa.me
+ * API Route to manage WhatsApp Groups using api-wa.me / Evolution API
  */
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     let waKey: string | null = searchParams.get('key');
-    let serverUrl = searchParams.get('server') || 'https://us.api-wa.me';
+    let serverUrl = searchParams.get('server');
+    let instanceName = searchParams.get('instance');
     const groupId = searchParams.get('id');
+    const getParticipantsParam = searchParams.get('getParticipants') === 'true';
+
+    if (waKey === 'undefined' || waKey === 'null') waKey = null;
+    if (serverUrl === 'undefined' || serverUrl === 'null') serverUrl = null;
+    if (instanceName === 'undefined' || instanceName === 'null') instanceName = null;
 
     // Se não vier por parâmetro, tenta buscar no Firestore Admin (fallback)
     if (!waKey) {
@@ -20,8 +26,9 @@ export async function GET(request: Request) {
           const configSnap = await db.collection('config').doc('notifications').get();
           if (configSnap.exists) {
               const data = configSnap.data();
-              waKey = data?.instanceKey || data?.whatsappApiKey || null;
-              serverUrl = data?.serverUrl || serverUrl;
+              waKey = waKey || data?.evolutionKey || data?.instanceKey || data?.whatsappApiKey || null;
+              serverUrl = serverUrl || data?.evolutionUrl || data?.serverUrl || 'https://api.ibmanha.com.br';
+              instanceName = instanceName || data?.evolutionInstance || data?.instanceName || 'IBM';
           }
       } catch (e: any) {
           console.warn('Falha ao ler config de notificações (Admin):', e.message);
@@ -35,16 +42,15 @@ export async function GET(request: Request) {
         });
     }
 
-    const baseUrl = serverUrl.replace(/\/$/, '');
+    const baseUrl = (serverUrl || 'https://api.ibmanha.com.br').replace(/\/$/, '');
 
     // CASO 1: Buscar detalhe de um grupo específico
     if (groupId) {
-        const encodedId = encodeURIComponent(groupId);
-        const detailUrl = `${baseUrl}/${waKey}/groups/${encodedId}`;
+        const detailUrl = `${baseUrl}/group/findGroupInfos/${instanceName}?groupJid=${encodeURIComponent(groupId)}`;
         
         const response = await fetch(detailUrl, {
             method: 'GET',
-            headers: { 'accept': '*/*' },
+            headers: { 'accept': '*/*', 'apikey': waKey },
             cache: 'no-store',
         });
 
@@ -69,20 +75,22 @@ export async function GET(request: Request) {
             isCommunityAnnounce: groupData.isCommunityAnnounce ?? false,
             admins,
             createdAt: groupData.creation ? new Date(groupData.creation * 1000).toISOString() : null,
+            participants: groupData.participants || []
         });
     }
 
-    // CASO 2: Listar todos os grupos (comportamento original)
-    const apiUrl = `${baseUrl}/${waKey}/groups`;
+    // CASO 2: Listar todos os grupos
+    const apiUrl = `${baseUrl}/group/fetchAllGroups/${instanceName}?getParticipants=${getParticipantsParam ? 'true' : 'false'}`;
     const response = await fetch(apiUrl, {
         method: 'GET',
-        headers: { 'accept': '*/*' },
+        headers: { 'accept': '*/*', 'apikey': waKey },
         cache: 'no-store',
     });
 
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
+        console.error(`[Groups GET Error] URL: ${apiUrl}, Status: ${response.status}, Data:`, data);
         return NextResponse.json({ 
             groups: [],
             error: data.message || `API retornou erro ${response.status}`,
@@ -104,6 +112,7 @@ export async function GET(request: Request) {
         name: g.subject || g.name || g.groupName || 'Grupo sem Nome',
         participantCount: g.totalParticipants || g.size || g.participants?.length || g.count || 0,
         description: g.desc || '',
+        participants: g.participants || []
     })).sort((a: any, b: any) => b.participantCount - a.participantCount);
 
     return NextResponse.json({ groups: normalizedGroups });
@@ -113,43 +122,148 @@ export async function GET(request: Request) {
   }
 }
 
-export async function PUT(request: Request) {
+/**
+ * POST /api/notifications/groups
+ * Cria um novo grupo na Evolution API
+ */
+export async function POST(request: Request) {
     try {
         const db = getAdminDb();
         const configSnap = await db.collection('config').doc('notifications').get();
         const configData = configSnap.exists ? configSnap.data() : {};
-        const waKey = configData?.instanceKey || configData?.whatsappApiKey || null;
-        const serverUrl = (configData?.serverUrl || 'https://us.api-wa.me').replace(/\/$/, '');
+        const waKey = configData?.evolutionKey || configData?.instanceKey || configData?.whatsappApiKey || null;
+        const serverUrl = (configData?.evolutionUrl || configData?.serverUrl || 'https://api.ibmanha.com.br').replace(/\/$/, '');
+        const instanceName = configData?.evolutionInstance || configData?.instanceName || 'IBM';
 
-        const { groupId, description, name } = await request.json();
+        const { groupName, participants } = await request.json();
 
         if (!waKey) {
             return NextResponse.json({ success: false, error: 'API Key não configurada.' }, { status: 400 });
         }
 
-        const endpoints = [
-            { url: `${serverUrl}/${waKey}/groups/${groupId}/description`, method: 'POST', body: { description } },
-            { url: `${serverUrl}/${waKey}/group/${groupId}/description`, method: 'POST', body: { description } },
-            { url: `${serverUrl}/${waKey}/groups/${groupId}`, method: 'PUT', body: { subject: name, description } },
-        ];
+        const res = await fetch(`${serverUrl}/group/create/${instanceName}`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'apikey': waKey 
+            },
+            body: JSON.stringify({
+                groupName,
+                participants: (participants || []).map((p: string) => p.replace(/\D/g, ''))
+            }),
+        });
 
-        let success = false;
+        const resData = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            return NextResponse.json({ success: false, error: resData.message || `Erro ${res.status} ao criar grupo` }, { status: res.status });
+        }
+
+        return NextResponse.json({ success: true, group: resData.data || resData });
+    } catch (error: any) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+}
+
+/**
+ * PUT /api/notifications/groups
+ * Atualiza nome, descrição ou foto do grupo
+ */
+export async function PUT(request: Request) {
+    try {
+        const db = getAdminDb();
+        const configSnap = await db.collection('config').doc('notifications').get();
+        const configData = configSnap.exists ? configSnap.data() : {};
+        const waKey = configData?.evolutionKey || configData?.instanceKey || configData?.whatsappApiKey || null;
+        const serverUrl = (configData?.evolutionUrl || configData?.serverUrl || 'https://api.ibmanha.com.br').replace(/\/$/, '');
+        const instanceName = configData?.evolutionInstance || configData?.instanceName || 'IBM';
+
+        const { groupId, description, name, picture, action, participants } = await request.json();
+
+        if (!waKey) {
+            return NextResponse.json({ success: false, error: 'API Key não configurada.' }, { status: 400 });
+        }
+
+        let success = true;
         let lastError = '';
-        for (const endpoint of endpoints) {
-            if (success) break;
+
+        if (description !== undefined) {
             try {
-                const res = await fetch(endpoint.url, {
-                    method: endpoint.method,
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(endpoint.body),
+                const res = await fetch(`${serverUrl}/group/updateGroupDescription/${instanceName}?groupJid=${groupId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'apikey': waKey },
+                    body: JSON.stringify({ description }),
                 });
-                if (res.ok) {
-                    success = true;
-                } else {
+                if (!res.ok) {
+                    success = false;
                     const errorData = await res.json().catch(() => ({}));
-                    lastError = errorData.message || `Erro ${res.status}`;
+                    lastError = errorData.message || `Erro ${res.status} ao atualizar descrição`;
                 }
             } catch (e: any) {
+                success = false;
+                lastError = e.message;
+            }
+        }
+
+        if (success && name !== undefined) {
+            try {
+                const res = await fetch(`${serverUrl}/group/updateGroupSubject/${instanceName}?groupJid=${groupId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'apikey': waKey },
+                    body: JSON.stringify({ subject: name }),
+                });
+                if (!res.ok) {
+                    success = false;
+                    const errorData = await res.json().catch(() => ({}));
+                    lastError = errorData.message || `Erro ${res.status} ao atualizar nome`;
+                }
+            } catch (e: any) {
+                success = false;
+                lastError = e.message;
+            }
+        }
+
+        if (success && picture !== undefined) {
+            try {
+                const res = await fetch(`${serverUrl}/group/updateGroupPicture/${instanceName}?groupJid=${groupId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'apikey': waKey },
+                    body: JSON.stringify({ image: picture }),
+                });
+                if (!res.ok) {
+                    success = false;
+                    const errorData = await res.json().catch(() => ({}));
+                    lastError = errorData.message || `Erro ${res.status} ao atualizar foto do grupo`;
+                }
+            } catch (e: any) {
+                success = false;
+                lastError = e.message;
+            }
+        }
+
+        if (success && action !== undefined && participants !== undefined) {
+            try {
+                const formattedParticipants = (participants || []).map((p: string) => {
+                    if (p.includes('@')) return p;
+                    const clean = p.replace(/\D/g, '');
+                    if (clean.length > 15) {
+                        return `${clean}@lid`;
+                    }
+                    const withCountry = clean.startsWith('55') ? clean : `55${clean}`;
+                    return `${withCountry}@s.whatsapp.net`;
+                });
+
+                const res = await fetch(`${serverUrl}/group/updateParticipant/${instanceName}?groupJid=${groupId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'apikey': waKey },
+                    body: JSON.stringify({ action, participants: formattedParticipants }),
+                });
+                if (!res.ok) {
+                    success = false;
+                    const errorData = await res.json().catch(() => ({}));
+                    lastError = errorData.message || `Erro ${res.status} ao alterar participantes (${action})`;
+                }
+            } catch (e: any) {
+                success = false;
                 lastError = e.message;
             }
         }
@@ -163,3 +277,4 @@ export async function PUT(request: Request) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
+

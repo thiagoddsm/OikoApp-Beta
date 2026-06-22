@@ -20,7 +20,7 @@ import { EnrollmentDialog } from '../teaching/enrollment-dialog';
 import { sendJourneyAdvanceMessage } from '@/app/actions/whatsapp-actions';
 import { Badge } from '../ui/badge';
 import { addTimelineEvent, INTEGRATION_STATUS_TO_EVENT } from '@/lib/timeline';
-
+import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 const weekDayMap: Record<string, number> = {
     "Domingo": 0, "Segunda-feira": 1, "Terça-feira": 2, "Quarta-feira": 3,
@@ -53,7 +53,10 @@ export function DiscipleshipNotes({ memberId, memberName, currentStatusId }: { m
     const { firestore, user: currentUser } = useFirebase();
     const { data: config } = useDoc<any>('config/notifications');
     const { toast } = useToast();
-    const { updateVolunteer, classes, courses, users } = useVolunteering();
+    const { users } = useMembersData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+    const { updateVolunteer } = useVolunteering();
     const [isSaving, setIsSaving] = useState<string | null>(null);
     const [isEnrollmentOpen, setEnrollmentOpen] = useState(false);
     

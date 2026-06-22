@@ -19,8 +19,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadio
 import { addTimelineEvent } from '@/lib/timeline';
 import { useFirebase } from '@/firebase';
 import { RetroactiveApprovalDialog } from './retroactive-approval-dialog';
-
-
+import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 const Legend = () => (
     <div className="pt-4 mt-6 border-t">
@@ -47,7 +46,10 @@ const Legend = () => (
 );
 
 export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
-    const { classes, users, courses, updateVolunteer, isLoading } = useVolunteering();
+    const { users } = useMembersData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+    const { updateVolunteer, isLoading } = useVolunteering();
     const { toast } = useToast();
     const { firestore, user: currentUser } = useFirebase();
     const [selectedClassId, setSelectedClassId] = useState<string>('all');

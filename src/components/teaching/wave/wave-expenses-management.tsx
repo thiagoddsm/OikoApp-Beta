@@ -11,6 +11,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
+import { useTeachingFinance } from "@/hooks/useDomainData";
 
 interface ExpenseFormDialogProps {
     open: boolean;
@@ -19,6 +20,8 @@ interface ExpenseFormDialogProps {
 }
 
 function ExpenseFormDialog({ open, onOpenChange, existingExpense }: ExpenseFormDialogProps) {
+    const { wavePayments, disPayments, wavePlans, disPlans, waveExpenses } = useTeachingFinance();
+
   const { addWaveExpense, updateWaveExpense } = useVolunteering();
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
@@ -98,7 +101,7 @@ function ExpenseFormDialog({ open, onOpenChange, existingExpense }: ExpenseFormD
 
 
 export function WaveExpensesManagement() {
-  const { waveExpenses, isLoading, deleteWaveExpense } = useVolunteering();
+  const { isLoading, deleteWaveExpense } = useVolunteering();
   const [isFormOpen, setFormOpen] = useState(false);
   const [isDeleteOpen, setDeleteOpen] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<WaveExpense | null>(null);

@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '../ui/checkbox';
 import { Textarea } from '../ui/textarea';
+import { useEventsData, useVolunteeringServiceData } from "@/hooks/useDomainData";
 
 interface CreateEventDialogProps {
   open: boolean;
@@ -24,7 +25,10 @@ type RequiredAreaState = {
 }
 
 export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplicating }: CreateEventDialogProps) {
-  const { rooms, serviceAreas: areas, addEvent, updateEvent } = useVolunteering();
+    const { events, reservations, rooms, strategicEvents, reservationCategories } = useEventsData();
+    const { serviceAreas: areas, teams, savedSchedules } = useVolunteeringServiceData();
+
+  const { addEvent, updateEvent } = useVolunteering();
   
   const [name, setName] = useState('');
   const [time, setTime] = useState('');

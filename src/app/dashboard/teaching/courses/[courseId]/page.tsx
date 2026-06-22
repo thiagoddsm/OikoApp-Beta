@@ -26,6 +26,7 @@ import { CourseReports } from '@/components/teaching/course-reports';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 type Course = {
   id: string;
@@ -45,7 +46,10 @@ function CourseDetailPageContent() {
     const params = useParams();
     const router = useRouter();
     const courseId = params.courseId as string;
-    const { classes, enrollmentRequests, users, isLoading: isContextLoading } = useVolunteering();
+    const { users } = useMembersData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+    const { isLoading: isContextLoading } = useVolunteering();
     const [activeTab, setActiveTab] = useState('overview');
     
     const { data: course, isLoading: isCourseLoading } = useDoc<Course>(courseId ? `courses/${courseId}` : null);

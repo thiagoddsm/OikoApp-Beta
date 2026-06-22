@@ -41,7 +41,10 @@ import {
   BarChart2,
   Search,
   Bell,
-  Moon
+  Moon,
+  Sun,
+  Zap,
+  Activity
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -74,6 +77,7 @@ import { PendingAccess } from "@/components/auth/pending-access";
 import { userRoles } from '@/lib/roles';
 import { Input } from "@/components/ui/input";
 import type { AccessProfile } from '@/app/dashboard/settings/page';
+import { TenantProvider } from '@/contexts/tenant-context';
 
 const menuItems = [
     { href: "/dashboard", label: "Painel Geral", icon: Home, permissionId: 'dashboard' },
@@ -84,6 +88,14 @@ const menuItems = [
         { href: "/dashboard/people/journey", label: "Integração", icon: Footprints, permissionId: 'pessoas_journey' },
         { href: "/dashboard/people/list", label: "Lista de Pessoas", icon: Users2, permissionId: 'pessoas_list' },
         { href: "/dashboard/people/settings", label: "Configurações", icon: Settings, permissionId: 'pessoas_settings' },
+      ]
+    },
+    { 
+      label: "Engajamento", 
+      icon: Activity,
+      subItems: [
+        { href: "/dashboard/engajamento/jornada", label: "Jornada", icon: Footprints, permissionId: 'dashboard' },
+        { href: "/dashboard/engajamento/automacoes", label: "Automações", icon: Zap, permissionId: 'dashboard' },
       ]
     },
     { 
@@ -354,6 +366,24 @@ export default function DashboardLayout({
     }
   }, [isLoading, user, router]);
 
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+
+  useEffect(() => {
+    const isDark = document.documentElement.classList.contains('dark');
+    setTheme(isDark ? 'dark' : 'light');
+  }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(nextTheme);
+    if (nextTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -393,11 +423,12 @@ export default function DashboardLayout({
     const userRoleLabel = userRole ? userRoles[userRole] : 'Membro';
 
     return (
-      <SidebarProvider>
-        <div className="min-h-screen w-full flex bg-slate-50">
-          {/* --- Desktop Sidebar --- */}
-          <aside className="hidden lg:flex lg:flex-col lg:w-72 lg:border-r lg:border-slate-200 bg-white">
-            <SidebarHeader className="border-b border-slate-200">
+      <TenantProvider>
+        <SidebarProvider>
+          <div className="min-h-screen w-full flex bg-slate-50">
+            {/* --- Desktop Sidebar --- */}
+            <aside className="hidden lg:flex lg:flex-col lg:w-72 lg:border-r lg:border-slate-200 bg-white">
+              <SidebarHeader className="border-b border-slate-200">
               <div className="flex items-center justify-start px-6 h-20 w-full">
                 <img 
                   src="https://firebasestorage.googleapis.com/v0/b/studio-1424813022-71754.firebasestorage.app/o/pwa%2FChatGPT%20Image%207%20de%20mai.%20de%202026%2C%2016_45_54.png?alt=media&token=c8100c94-fb27-4b1f-87b8-74bd1f8d3fe5" 
@@ -461,8 +492,8 @@ export default function DashboardLayout({
                         <span className="sr-only">Buscar</span>
                     </Button>
                 </div>
-                <Button variant="ghost" size="icon" className="rounded-full">
-                    <Moon className="h-5 w-5" />
+                <Button variant="ghost" size="icon" className="rounded-full" onClick={toggleTheme}>
+                    {theme === 'dark' ? <Sun className="h-5 w-5 text-amber-500" /> : <Moon className="h-5 w-5" />}
                 </Button>
                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -499,9 +530,10 @@ export default function DashboardLayout({
              <main className="flex-1 p-4 md:p-6 bg-slate-50 overflow-y-auto">
                 {children}
              </main>
+            </div>
           </div>
-        </div>
-      </SidebarProvider>
+        </SidebarProvider>
+      </TenantProvider>
     );
   }
 

@@ -27,6 +27,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useVolunteering } from '@/contexts/volunteering-context';
+import { useCoursesData } from "@/hooks/useDomainData";
 
 type Course = { 
   id: string; 
@@ -55,7 +56,9 @@ const getDiscipleshipWeight = (name: string) => {
 export function CoursesManagement() {
   const { firestore } = useFirebase();
   const { toast } = useToast();
-  const { courses, classes, isLoading: isLoadingContext } = useVolunteering();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+  const { isLoading: isLoadingContext } = useVolunteering();
 
   const [isCourseFormOpen, setCourseFormOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);

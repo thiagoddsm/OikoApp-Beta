@@ -12,11 +12,18 @@ export async function POST() {
     try {
         const { firestore } = initializeFirebase();
         let waKey = null;
+        let serverUrl = 'https://api.ibmanha.com.br';
+        let instanceName = 'IBM';
         
         try {
             const configRef = doc(firestore, 'config', 'notifications');
             const configSnap = await getDoc(configRef);
-            waKey = configSnap.exists() ? configSnap.data()?.whatsappApiKey : null;
+            if (configSnap.exists()) {
+                const data = configSnap.data();
+                waKey = data?.instanceKey || data?.whatsappApiKey;
+                serverUrl = data?.serverUrl || serverUrl;
+                instanceName = data?.instanceName || instanceName;
+            }
         } catch (e) {
             return NextResponse.json({ error: "Erro de permissão no Firebase." }, { status: 500 });
         }
@@ -25,9 +32,13 @@ export async function POST() {
             return NextResponse.json({ error: "Chave de API não configurada." }, { status: 400 });
         }
 
-        const response = await fetch(`https://us.api-wa.me/${waKey}/instance/restart`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
+        const baseUrl = serverUrl.replace(/\/$/, '');
+        const response = await fetch(`${baseUrl}/instance/restart/${instanceName}`, {
+            method: 'PUT',
+            headers: { 
+                'Content-Type': 'application/json',
+                'apikey': waKey 
+            }
         });
 
         if (!response.ok) {

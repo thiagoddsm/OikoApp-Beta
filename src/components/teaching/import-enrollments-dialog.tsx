@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering, type Course, type Class } from '@/contexts/volunteering-context';
 import * as XLSX from 'xlsx';
+import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 interface ImportEnrollmentsDialogProps {
   open: boolean;
@@ -31,7 +32,10 @@ interface PendingMapping {
 }
 
 export function ImportEnrollmentsDialog({ open, onOpenChange }: ImportEnrollmentsDialogProps) {
-  const { users, courses, classes, addUser, enrollStudent } = useVolunteering();
+    const { users } = useMembersData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+  const { addUser, enrollStudent } = useVolunteering();
   const { toast } = useToast();
   
   const [step, setStep] = useState<'upload' | 'mapping'>('upload');

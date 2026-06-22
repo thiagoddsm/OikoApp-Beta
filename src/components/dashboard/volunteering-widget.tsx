@@ -8,10 +8,14 @@ import { useFirebase } from '@/firebase';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { format, parseISO, isAfter, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useMembersData, useVolunteeringServiceData } from "@/hooks/useDomainData";
 
 export function VolunteeringWidget() {
   const { user } = useFirebase();
-  const { users, serviceAreas, teams, savedSchedules, isLoading } = useVolunteering();
+    const { users } = useMembersData();
+    const { serviceAreas, teams, savedSchedules } = useVolunteeringServiceData();
+
+  const { isLoading } = useVolunteering();
 
   const currentUserDoc = useMemo(() => {
     if (!user || !users) return null;

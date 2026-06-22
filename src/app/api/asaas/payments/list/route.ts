@@ -15,7 +15,9 @@ export async function GET(request: Request) {
       );
     }
 
-    const result = await listPayments(externalReference);
+    const tenantId = searchParams.get('tenantId') || undefined;
+
+    const result = await listPayments(externalReference, tenantId);
     return NextResponse.json(result);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Erro desconhecido';

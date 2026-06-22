@@ -9,10 +9,13 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useFirebase } from '@/firebase';
 import { useVolunteering } from '@/contexts/volunteering-context';
+import { useCoursesData } from "@/hooks/useDomainData";
 
 export function TeacherDashboard() {
   const { user } = useFirebase();
-  const { classes, courses, isLoading } = useVolunteering();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+  const { isLoading } = useVolunteering();
 
   // Filtra todas as turmas do professor logado (independente do curso/ministério)
   const teacherClasses = useMemo(() => {

@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useFirebase } from '@/firebase';
 import { useVolunteering } from '@/contexts/volunteering-context';
+import { useMembersData, useCoursesData, useTeachingFinance } from "@/hooks/useDomainData";
 
 const paymentStatusConfig: Record<string, { label: string; color: string }> = {
     'paid': { label: 'Pago', color: 'bg-green-100 text-green-800' },
@@ -19,7 +20,11 @@ const teacherAvatar = PlaceHolderImages.find(p => p.id === 'avatar-3');
 
 export function StudentDashboard() {
     const { user } = useFirebase();
-    const { classes, courses, users, wavePayments, pedagogicalLogs, isLoading } = useVolunteering();
+    const { users } = useMembersData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+    const { wavePayments, disPayments, wavePlans, disPlans, waveExpenses } = useTeachingFinance();
+
+    const { isLoading } = useVolunteering();
 
     const studentClasses = useMemo(() => {
         if (!user || !classes) return [];

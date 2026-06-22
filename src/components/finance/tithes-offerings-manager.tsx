@@ -14,9 +14,13 @@ import { Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { PersonSearchInput } from '@/components/common/person-search-input';
+import { useMembersData, useMinisterialFinance } from "@/hooks/useDomainData";
 
 export function TithesOfferingsManager() {
-  const { users, financialTransactions, addFinancialTransaction, deleteFinancialTransaction } = useVolunteering();
+    const { users } = useMembersData();
+    const { financialTransactions, financeRequests } = useMinisterialFinance();
+
+  const { addFinancialTransaction, deleteFinancialTransaction } = useVolunteering();
   const { toast } = useToast();
   
   const [isSaving, setIsSaving] = useState(false);

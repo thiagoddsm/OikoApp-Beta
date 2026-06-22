@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle2, AlertTriangle, QrCode, Copy, Check, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 interface RegistrationDialogProps {
   open: boolean;
@@ -31,7 +32,9 @@ interface RegistrationDialogProps {
 
 export function RegistrationDialog({ open, onOpenChange, event }: RegistrationDialogProps) {
   const { firestore, user } = useFirebase();
-  const { users, courses, classes } = useVolunteering();
+    const { users } = useMembersData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
   const { toast } = useToast();
 
   const [companionName, setCompanionName] = useState('');

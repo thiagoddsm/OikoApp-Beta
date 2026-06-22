@@ -8,9 +8,13 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { Switch } from '../ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Input } from '../ui/input';
+import { useMembersData, useVolunteeringServiceData } from "@/hooks/useDomainData";
 
 export function VolunteersManagement() {
-  const { users, serviceAreas: areas, teams, isLoading, updateVolunteer } = useVolunteering();
+    const { users } = useMembersData();
+    const { serviceAreas: areas, teams, savedSchedules } = useVolunteeringServiceData();
+
+  const { isLoading, updateVolunteer } = useVolunteering();
   const [search, setSearch] = useState('');
 
   const handleStatusChange = (user: User, checked: boolean) => {

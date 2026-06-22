@@ -8,13 +8,14 @@ import { startGcReportSession } from '@/lib/gc-report-bot';
 /**
  * Sends a test WhatsApp message.
  */
-export async function sendTestWhatsAppMessage(phone: string, message: string, configOverride?: { serverUrl?: string, instanceKey?: string }) {
+export async function sendTestWhatsAppMessage(phone: string, message: string, configOverride?: { serverUrl?: string, instanceName?: string, instanceKey?: string }) {
     try {
         const formattedPhone = formatWhatsAppNumber(phone);
         
         // Passamos os overrides para o cliente se existirem
         const whatsapp = await getWhatsAppClient({
             server: configOverride?.serverUrl,
+            instance: configOverride?.instanceName,
             key: configOverride?.instanceKey
         });
 
@@ -55,6 +56,9 @@ export async function getWhatsAppConfig() {
         return {
             serverUrl: process.env.WHATSAPP_SERVER_URL || '',
             instanceKey: process.env.WHATSAPP_INSTANCE_KEY || '',
+            evolutionUrl: 'https://api.ibmanha.com.br',
+            evolutionInstance: 'IBM',
+            evolutionKey: '',
             enabled: true
         };
     } catch (error) {

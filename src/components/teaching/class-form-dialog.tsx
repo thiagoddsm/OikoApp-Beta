@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '../ui/badge';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Check, ChevronsUpDown, Search } from "lucide-react";
+import { useMembersData, useEventsData, useCoursesData } from "@/hooks/useDomainData";
 
 type User = { id: string; name: string; isTeacher?: boolean; };
 const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
@@ -29,7 +30,11 @@ interface ClassFormDialogProps {
 }
 
 export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }: ClassFormDialogProps) {
-  const { addClass, updateClass, users, rooms, courses, isLoading: isLoadingContext } = useVolunteering();
+    const { users } = useMembersData();
+    const { events, reservations, rooms, strategicEvents, reservationCategories } = useEventsData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+
+  const { addClass, updateClass, isLoading: isLoadingContext } = useVolunteering();
   const { toast } = useToast();
 
   const [name, setName] = useState('');

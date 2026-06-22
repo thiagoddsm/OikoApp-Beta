@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Timestamp } from 'firebase/firestore';
 import { useDoc } from '@/firebase';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useMembersData, useEventsData, useVolunteeringServiceData } from "@/hooks/useDomainData";
 
 const months = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -51,7 +52,11 @@ const getAllFifthWeeksOfYear = (year: number) => {
 }
 
 export function ScheduleGenerator() {
-  const { serviceAreas: areas, teams, events, users, isLoading, saveSchedule } = useVolunteering();
+    const { users } = useMembersData();
+    const { events, reservations, rooms, strategicEvents, reservationCategories } = useEventsData();
+    const { serviceAreas: areas, teams, savedSchedules } = useVolunteeringServiceData();
+
+  const { isLoading, saveSchedule } = useVolunteering();
   const { toast } = useToast();
   const { data: waConfig } = useDoc<any>('config/notifications');
   const [notifyOnSave, setNotifyOnSave] = useState(true);

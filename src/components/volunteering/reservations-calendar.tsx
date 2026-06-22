@@ -10,6 +10,8 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
+import { useEventsData } from "@/hooks/useDomainData";
+
 // Removendo date-fns para evitar conflito de timezone/locale com o moment usado no calendário
 
 moment.locale('pt-br');
@@ -211,7 +213,9 @@ export function ReservationsCalendar({
     roomFilter = 'all',
     categoryFilter = []
 }: ReservationsCalendarProps) {
-  const { reservations, reservationCategories, strategicEvents, isLoading } = useVolunteering();
+    const { reservations, rooms, strategicEvents, reservationCategories } = useEventsData();
+
+  const { isLoading } = useVolunteering();
   const [date, setDate] = useState(new Date());
   const [calView, setCalView] = useState<View>(Views.MONTH);
   const [displayMode, setDisplayMode] = useState<'calendar' | 'list'>('calendar');

@@ -9,13 +9,18 @@ import { Calendar } from '@/components/ui/calendar';
 import { format, parse } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { ScrollArea } from '../ui/scroll-area';
+import { useEventsData, useCoursesData, useVolunteeringServiceData } from "@/hooks/useDomainData";
 
 interface VolunteerServiceFormProps {
   user: User;
 }
 
 export function VolunteerServiceForm({ user }: VolunteerServiceFormProps) {
-  const { serviceAreas: areas, teams, events, courses, isLoading, updateVolunteer } = useVolunteering();
+    const { events, reservations, rooms, strategicEvents, reservationCategories } = useEventsData();
+    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+    const { serviceAreas: areas, teams, savedSchedules } = useVolunteeringServiceData();
+
+  const { isLoading, updateVolunteer } = useVolunteering();
 
   const handleStatusChange = (checked: boolean) => {
     const newStatus = checked ? 'serving' : 'not_serving';

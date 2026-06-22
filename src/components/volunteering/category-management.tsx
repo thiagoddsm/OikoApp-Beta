@@ -10,9 +10,12 @@ import { Input } from '@/components/ui/input';
 import { Loader2, PlusCircle, Trash2, Tag, Pencil, Check, X } from 'lucide-react';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { useEventsData } from "@/hooks/useDomainData";
 
 export function CategoryManagement() {
-  const { reservationCategories, isLoading, addReservationCategory, deleteReservationCategory } = useVolunteering();
+    const { events, reservations, rooms, strategicEvents, reservationCategories } = useEventsData();
+
+  const { isLoading, addReservationCategory, deleteReservationCategory } = useVolunteering();
   const { firestore } = useFirebase();
   const { toast } = useToast();
 
