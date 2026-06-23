@@ -12,7 +12,7 @@ const TenantContext = createContext<TenantContextType | undefined>(undefined);
 export const TenantProvider = ({ children }: { children: ReactNode }) => {
   // Inicializamos com o tenant padrão fixo que criamos no script de backfill.
   // Futuramente isso será inferido a partir do AuthContext ou do subdomínio.
-  const [tenantId, setTenantId] = useState<string>('tenant_default');
+  const [tenantId, setTenantId] = useState<string>('w3m93SHQeBRhiDnt7208');
 
   return (
     <TenantContext.Provider value={{ tenantId, setTenantId }}>

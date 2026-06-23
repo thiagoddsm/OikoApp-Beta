@@ -8,7 +8,7 @@ import { JourneyStage } from '@/domains/engagement/entities/JourneyStage';
 import { AutomationRule } from '@/domains/engagement/entities/Automation';
 import { useTenant } from '@/contexts/tenant-context';
 
-export function useMembersData(pageSize = 30) {
+export function useMembersData(pageSize?: number) {
   const { firestore, user } = useFirebase();
   const { data: userData, isLoading: loadingRole } = useDoc<{ hierarchy?: { role?: string }; }>(user ? `users/${user.uid}` : null);
   const roleResolved = !loadingRole && (userData !== undefined || !user);
@@ -17,14 +17,20 @@ export function useMembersData(pageSize = 30) {
 
   const usersQ = useMemoFirebase(() => {
     if (!firestore || !user || !roleResolved) return null;
-    let q = query(collection(firestore, 'users'), limit(pageSize));
-    if (lastDoc) {
-       q = query(collection(firestore, 'users'), startAfter(lastDoc), limit(pageSize));
+    if (pageSize !== undefined) {
+      // Paginação: aplica limit e startAfter
+      let q = query(collection(firestore, 'users'), limit(pageSize));
+      if (lastDoc) {
+        q = query(collection(firestore, 'users'), startAfter(lastDoc), limit(pageSize));
+      }
+      return q;
+    } else {
+      // Sem limite: busca todos os membros (para telas de turmas, chamada, etc.)
+      return query(collection(firestore, 'users'), orderBy('name'));
     }
-    return q;
   }, [firestore, user, roleResolved, lastDoc, pageSize]);
 
-  const { data: users, isLoading: lu } = useCollection<any>(usersQ); // Pode ser Member ou User, mantemos any por segurança
+  const { data: users, isLoading: lu } = useCollection<any>(usersQ);
 
   const loadMore = (lastVisibleDoc: any) => setLastDoc(lastVisibleDoc);
 
