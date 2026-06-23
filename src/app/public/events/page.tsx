@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Calendar, MapPin, ArrowLeft, ShieldAlert } from 'lucide-react';
 import Link from 'next/link';
 import { useVolunteering, VolunteeringProvider } from '@/contexts/volunteering-context';
+import { TenantProvider } from '@/contexts/tenant-context';
 import { RegistrationDialog } from '@/components/events/registration-dialog';
 import { useCoursesData } from "@/hooks/useDomainData";
 
@@ -37,9 +38,11 @@ type StrategicEvent = {
 
 export default function PublicEventsPage() {
   return (
-    <VolunteeringProvider>
-      <EventsListContent />
-    </VolunteeringProvider>
+    <TenantProvider>
+      <VolunteeringProvider>
+        <EventsListContent />
+      </VolunteeringProvider>
+    </TenantProvider>
   );
 }
 

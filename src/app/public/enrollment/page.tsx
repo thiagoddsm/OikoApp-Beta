@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { VolunteeringProvider, useVolunteering } from '@/contexts/volunteering-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { TenantProvider } from '@/contexts/tenant-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -827,7 +828,7 @@ function EnrollmentForm() {
                                                 }}
                                             >
                                                 <div className="relative aspect-video bg-slate-100">
-                                                    <img src={course.imageUrl || `https://picsum.photos/seed/${course.id}/600/300`} alt="" className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-700" />
+                                                    <img src={(course as any).imageUrl || `https://picsum.photos/seed/${course.id}/600/300`} alt="" className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-700" />
                                                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent z-10" />
                                                     <div className="absolute bottom-4 left-5 z-20 pr-4">
                                                         <Badge className="bg-primary backdrop-blur-md text-white border-none mb-2 text-[8px] font-black uppercase tracking-widest">{course.ministryName}</Badge>
@@ -1073,9 +1074,11 @@ function EnrollmentForm() {
 export default function EnrollmentPage() {
     return (
         <main className="min-h-screen bg-[#F8F9FA] pb-24 selection:bg-primary/20">
-            <VolunteeringProvider>
-                <EnrollmentForm />
-            </VolunteeringProvider>
+            <TenantProvider>
+                <VolunteeringProvider>
+                    <EnrollmentForm />
+                </VolunteeringProvider>
+            </TenantProvider>
         </main>
     );
 }
