@@ -29,6 +29,8 @@ export async function POST(request: Request) {
         msgObject.participant || 
         msgObject.author || 
         msgObject.pollCreationMessageKey?.remoteJid || 
+        data.key?.remoteJid || 
+        data.participant ||
         ''
     );
 
@@ -120,7 +122,7 @@ export async function POST(request: Request) {
     }
 
     // 2. Identify Message Type and Payload
-    let responseType: 'button' | 'poll' | 'text' | null = null;
+    let responseType: string | null = null;
     let payload: any = null;
 
     // B. Button / List / Interactive Response
@@ -156,11 +158,21 @@ export async function POST(request: Request) {
     }
     // C. Poll Update (pollUpdateMessage)
     else if (msgContent.pollUpdateMessage || msgObject.pollUpdates || msgObject.pollUpdate || msgObject.pollUpdateMessage || msgObject.update?.pollUpdates) {
-        const pollData = msgContent.pollUpdateMessage || msgObject.pollUpdates || msgObject.pollUpdate || msgObject.pollUpdateMessage || msgObject.update?.pollUpdates || {};
+        const pollData = msgContent.pollUpdateMessage || msgObject.pollUpdates || msgObject.pollUpdateMessage || msgObject.pollUpdate || msgObject.update?.pollUpdates || data.pollUpdates || {};
         
         const pollUpdate = Array.isArray(pollData) ? pollData[0] : pollData;
         
+        // Em Evolution API v2, selectedOptions vem no message.pollUpdateMessage.vote.selectedOptions ou no data.pollUpdates
         let options = pollUpdate.vote?.selectedOptions || pollUpdate.selectedOptions || msgObject.selectedOptions || [];
+        
+        // Se vier no array "pollUpdates" da raiz do data (formato customizado de algumas versoes)
+        if (options.length === 0 && Array.isArray(data.pollUpdates)) {
+            data.pollUpdates.forEach((pu: any) => {
+                if (pu.voters && pu.voters.length > 0) {
+                    options.push(pu.name);
+                }
+            });
+        }
         if (!Array.isArray(options)) options = [options].filter(Boolean);
         
         // IMPORTANTE: NÃO usar pollCreationMessageKey.id como pollName — é um message ID, não um nome legível!
@@ -306,7 +318,7 @@ export async function POST(request: Request) {
             await handleGcReportIncomingMessage(
                 sessionPhone,
                 messageText,
-                responseType || 'text',
+                (responseType || 'text') as 'text' | 'button' | 'poll',
                 payload
             );
             return NextResponse.json({ success: true });
@@ -424,7 +436,7 @@ export async function POST(request: Request) {
     }
 
     // LOG: Salvar log bruto para depuração se não for apenas texto comum ou se o usuário pediu
-    if (responseType && responseType !== 'text') {
+    if (responseType && (responseType as string) !== 'text') {
         try {
             await db.collection('notifications_logs').add({
                 receivedAt: Timestamp.now(),
