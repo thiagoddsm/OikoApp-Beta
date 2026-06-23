@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { VolunteeringProvider, useVolunteering, type RoomReservation } from '@/contexts/volunteering-context';
+import { TenantProvider } from '@/contexts/tenant-context';
 import { CalendarClock, Search, X, ChevronDown, Check, MapPin, Tag, Clock, CalendarDays, CheckCircle2, XCircle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -203,10 +204,10 @@ function PublicCalendarContent() {
                                                             id={`cat-${cat.id}`}
                                                         />
                                                         <span className="text-sm">{cat.name}</span>
-                                                        {cat.color && (
+                                                        {(cat as any).color && (
                                                             <span
                                                                 className="ml-auto h-3 w-3 rounded-full shrink-0"
-                                                                style={{ backgroundColor: cat.color }}
+                                                                style={{ backgroundColor: (cat as any).color }}
                                                             />
                                                         )}
                                                     </label>
@@ -362,9 +363,11 @@ export default function PublicCalendarPage() {
     return (
         <div className="min-h-screen bg-[#F8F9FA] flex flex-col">
             <PublicNavbar />
-            <VolunteeringProvider>
-                <PublicCalendarContent />
-            </VolunteeringProvider>
+            <TenantProvider>
+                <VolunteeringProvider>
+                    <PublicCalendarContent />
+                </VolunteeringProvider>
+            </TenantProvider>
             <PublicFooter />
         </div>
     );
