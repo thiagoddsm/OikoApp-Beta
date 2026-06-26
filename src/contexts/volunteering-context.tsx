@@ -5,6 +5,7 @@ import React, { createContext, useContext, ReactNode, useMemo, useEffect } from 
 import { format, addWeeks, addMonths, parseISO } from 'date-fns';
 import { useFirebase, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, useDoc } from '@/firebase';
 import { collection, query, doc, Timestamp, addDoc, where, getDoc } from 'firebase/firestore';
+import { useTenant } from '@/contexts/tenant-context';
 
 export type User = {
   id: string;
@@ -685,6 +686,7 @@ interface VolunteeringContextType {
 const VolunteeringContext = createContext<VolunteeringContextType | undefined>(undefined);
 
 export function VolunteeringProvider({ children }: { children: ReactNode }) {
+  const { tenantId } = useTenant();
   const { firestore, user, auth, isUserLoading } = useFirebase();
 
   useEffect(() => {
@@ -822,7 +824,9 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
     deleteReservation: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'room_reservations', id)); },
     updateVolunteer: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'users', id), data); },
     addUser: async (data: any) => {
-      const res = await addDoc(collection(firestore!, 'users'), { ...data, createdAt: Timestamp.now() });
+      const payload = { ...data, createdAt: Timestamp.now() };
+      if (tenantId && !payload.tenantId) payload.tenantId = tenantId;
+      const res = await addDoc(collection(firestore!, 'users'), payload);
       return res.id;
     },
     addCourse: async (data: any) => { await addDoc(collection(firestore!, 'courses'), data); },

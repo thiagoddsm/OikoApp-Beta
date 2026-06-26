@@ -280,7 +280,7 @@ function TheoFlixContent() {
     if (isAdmin) return true;
 
     // Verifica se existe algum curso presencial que esteja vinculado a este curso do TheoFlix
-    const linkedPhysicalCourses = physicalCourses.filter(pc => 
+    const linkedPhysicalCourses = courses.filter((pc: any) => 
         pc.linkedTheoflixId === course.id || pc.id === course.id
     );
 
@@ -559,7 +559,7 @@ function TheoFlixContent() {
 
                                 // Procura se este episódio está associado a alguma aula física
                                 const matchedLesson = (() => {
-                                    const physicalCourse = physicalCourses?.find(pc => 
+                                    const physicalCourse = courses?.find((pc: any) => 
                                         pc.linkedTheoflixId === selectedCourse.id || pc.id === selectedCourse.id
                                     );
                                     const syllabus = physicalCourse?.syllabus || [];

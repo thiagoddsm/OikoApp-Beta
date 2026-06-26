@@ -699,7 +699,7 @@ export default function CellsPage() {
                   const statusCfg = cellStatusConfig[cell.status || 'active'];
                   
                   // Enriquecer membros
-                  const memberUsers = (users || []).filter(u => u.hierarchy?.celulaId === cell.id) as UserType[];
+                  const memberUsers = (users || []).filter(u => (u.hierarchy as any)?.celulaId === cell.id) as UserType[];
                   const naoBatizadosCount = memberUsers.filter(u => !(u.batizado === 'sim' || u.dataBatismo || u.churchData?.baptismDate)).length;
                   const previewMembers = memberUsers.slice(0, 4);
                   const extraCount = memberUsers.length - previewMembers.length;

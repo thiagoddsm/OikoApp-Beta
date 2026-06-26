@@ -65,6 +65,7 @@ function ImportEventsButton() {
 
 function ImportAreasButton() {
     const { addArea } = useVolunteering();
+    const { serviceAreas: areas } = useVolunteeringServiceData();
     const { toast } = useToast();
     const [isImporting, setIsImporting] = useState(false);
 

@@ -36,14 +36,14 @@ export function TeachersManagement({ filterCourseIds }: TeachersManagementProps)
         if (filterCourseIds && filterCourseIds.length > 0) {
             filteredUsers = users.filter(user => 
                 user.isTeacher === true && 
-                user.taughtCourseIds?.some(id => filterCourseIds.includes(id))
+                user.taughtCourseIds?.some((id: string) => filterCourseIds.includes(id))
             );
         }
 
         return filteredUsers.map(user => ({
             ...user,
             isTeacher: user.isTeacher === true,
-            taughtCourses: user.taughtCourseIds?.map(id => courseMap.get(id) || 'Curso não encontrado') || []
+            taughtCourses: user.taughtCourseIds?.map((id: string) => courseMap.get(id) || 'Curso não encontrado') || []
         })).sort((a, b) => {
             if (a.isTeacher && !b.isTeacher) return -1;
             if (!a.isTeacher && b.isTeacher) return 1;
@@ -119,7 +119,7 @@ export function TeachersManagement({ filterCourseIds }: TeachersManagementProps)
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex flex-wrap gap-1">
-                                                    {teacher.taughtCourses.map(courseName => (
+                                                    {teacher.taughtCourses.map((courseName: string) => (
                                                         <Badge key={courseName} variant="secondary">{courseName}</Badge>
                                                     ))}
                                                 </div>

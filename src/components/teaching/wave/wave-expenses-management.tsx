@@ -102,6 +102,7 @@ function ExpenseFormDialog({ open, onOpenChange, existingExpense }: ExpenseFormD
 
 export function WaveExpensesManagement() {
   const { isLoading, deleteWaveExpense } = useVolunteering();
+  const { waveExpenses } = useTeachingFinance();
   const [isFormOpen, setFormOpen] = useState(false);
   const [isDeleteOpen, setDeleteOpen] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<WaveExpense | null>(null);

@@ -37,6 +37,13 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "oiko-saas-core",
+    "scratch",
+    "temp_old_bot.ts",
+    "verify-students.ts",
+    "check-tenant.ts",
+    "fix-tenant.ts",
+    "scripts/migrate-timeline.ts"
   ]
 }

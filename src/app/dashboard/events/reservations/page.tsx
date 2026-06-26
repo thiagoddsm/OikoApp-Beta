@@ -173,10 +173,10 @@ function ReservationsPageContent() {
                                                     id={`cat-${cat.id}`}
                                                 />
                                                 <span className="text-sm">{cat.name}</span>
-                                                {cat.color && (
+                                                {(cat as any).color && (
                                                     <span
                                                         className="ml-auto h-3 w-3 rounded-full shrink-0"
-                                                        style={{ backgroundColor: cat.color }}
+                                                        style={{ backgroundColor: (cat as any).color }}
                                                     />
                                                 )}
                                             </label>

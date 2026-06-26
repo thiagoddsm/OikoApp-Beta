@@ -15,7 +15,7 @@ export async function sendTestWhatsAppMessage(phone: string, message: string, co
         // Passamos os overrides para o cliente se existirem
         const whatsapp = await getWhatsAppClient({
             server: configOverride?.serverUrl,
-            instance: configOverride?.instanceName,
+            evolutionInstance: configOverride?.instanceName,
             key: configOverride?.instanceKey
         });
 

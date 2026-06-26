@@ -75,8 +75,9 @@ export async function performDeepUserMigration(
       lastLoginAt: FieldValue.serverTimestamp(),
     };
 
-    delete mergedData.migratedToUid;
-    delete mergedData.migratedAt;
+    (mergedData as Record<string, any>).migratedToUid = undefined;
+    delete (mergedData as Record<string, any>).migratedToUid;
+    delete (mergedData as Record<string, any>).migratedAt;
 
     const operations: FirestoreOperation[] = [];
 

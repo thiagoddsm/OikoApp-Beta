@@ -62,7 +62,7 @@ export function DisAdminDashboard() {
   }, [disClasses]);
 
   const disTeachers = useMemo(() => 
-    users.filter(u => u.isTeacher && u.taughtCourseIds?.some(id => disCourseIds.includes(id))),
+    users.filter(u => u.isTeacher && u.taughtCourseIds?.some((id: string) => disCourseIds.includes(id))),
     [users, disCourseIds]
   );
 

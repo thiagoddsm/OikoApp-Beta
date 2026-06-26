@@ -467,7 +467,7 @@ export function ClassFormDialog({ open, onOpenChange, existingClass, courseId }:
                     <Label htmlFor="startDate" className="text-[10px] uppercase font-black text-muted-foreground">Data de Início</Label>
                     <Input id="startDate" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required className="h-11"/>
                 </div>
-                {(creationMode === 'cycle' || frequency !== 'pontual') && (
+                {((creationMode as string) === 'cycle' || frequency !== 'pontual') && (
                     <div className="space-y-2">
                         <Label htmlFor="endDate" className="text-[10px] uppercase font-black text-muted-foreground">Data de Término</Label>
                         <Input id="endDate" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="h-11" />

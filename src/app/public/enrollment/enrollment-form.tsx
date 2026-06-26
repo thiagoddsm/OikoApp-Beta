@@ -3,6 +3,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { useVolunteering } from '@/contexts/volunteering-context';
+import { useFirebase } from '@/firebase';
+import { addDoc, collection } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,7 +30,8 @@ import { useCoursesData } from "@/hooks/useDomainData";
 export function EnrollmentForm({ initialCourseId }: { initialCourseId?: string }) {
     const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
 
-    const { addEnrollmentRequest, isLoading } = useVolunteering();
+    const { isLoading } = useVolunteering();
+    const { firestore } = useFirebase();
     const { toast } = useToast();
     
     const [step, setStep] = useState(1);
@@ -69,7 +72,7 @@ export function EnrollmentForm({ initialCourseId }: { initialCourseId?: string }
 
         setIsSubmitting(true);
         try {
-            await addEnrollmentRequest({
+            await addDoc(collection(firestore!, 'enrollment_requests'), {
                 name: formData.name,
                 email: formData.email,
                 phone: formData.phone,

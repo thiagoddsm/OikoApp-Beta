@@ -39,7 +39,7 @@ export default function PalcoPage() {
     const durationInSeconds = (currentItem?.duration || 0) * 60;
     const remainingTime = durationInSeconds - elapsed;
     
-    const formatTime = (s) => {
+    const formatTime = (s: number) => {
         const isNegative = s < 0;
         const absSeconds = Math.abs(s);
         const minutes = String(Math.floor(absSeconds / 60)).padStart(2, '0');

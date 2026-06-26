@@ -161,6 +161,11 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
   const allUsersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
   const { data: allUsers, isLoading: isLoadingUsers } = useCollection<User>(allUsersQuery);
  
+  const statusLabels: { [key: string]: string } = journeyColumns.reduce((acc: Record<string, string>, col) => {
+    acc[col.id] = col.title;
+    return acc;
+}, {});
+
   const supervisors = useMemo(() => {
     if (!allUsers) return [];
     const leaderRoles = ['lider_gc', 'lider_area', 'lider_rede', 'pastor', 'pastor_senior', 'admin'];
@@ -358,7 +363,7 @@ export function EditUserDialog({ user, open, onOpenChange }: EditUserDialogProps
         }
     }
     
-    const existingFamilyMembers = isEditing && user ? (user.familyMembers || []) : [];
+    const existingFamilyMembers = isEditing && user ? ((user as any).familyMembers || []) : [];
     const updatedFamilyMembers = [...existingFamilyMembers];
     if (formData.conjuge) {
         const conjugeClean = formatName(formData.conjuge);
