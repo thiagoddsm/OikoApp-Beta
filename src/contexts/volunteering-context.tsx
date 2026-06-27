@@ -856,16 +856,20 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
       if (classId) {
         const classRef = doc(firestore!, 'classes', classId);
         const cls = (classes || []).find(c => c.id === classId);
-        if (cls && !cls.students.includes(studentId)) {
-          await updateDocumentNonBlocking(classRef, { students: [...cls.students, studentId] });
+        if (cls) {
+          const students = cls.students || [];
+          if (!students.includes(studentId)) {
+            await updateDocumentNonBlocking(classRef, { students: [...students, studentId] });
+          }
         }
       } else {
         // Se não passou classId, tenta encontrar se há apenas UMA turma para este curso
         const relevantClasses = (classes || []).filter(c => c.courseId === courseId);
         if (relevantClasses.length === 1) {
             const cls = relevantClasses[0];
-            if (!cls.students.includes(studentId)) {
-                await updateDocumentNonBlocking(doc(firestore!, 'classes', cls.id), { students: [...cls.students, studentId] });
+            const students = cls.students || [];
+            if (!students.includes(studentId)) {
+                await updateDocumentNonBlocking(doc(firestore!, 'classes', cls.id), { students: [...students, studentId] });
             }
         }
         // Se houver mais de uma, não faz nada (o usuário deve selecionar no UI)
