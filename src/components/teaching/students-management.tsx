@@ -48,6 +48,7 @@ export function StudentsManagement({ filterCourseIds }: StudentsManagementProps)
     const courseMap = new Map(courses.map(c => [c.id, c]));
 
     const allEnrollments: { id: string; user: User; class: Class; course: Course }[] = [];
+    const seenKeys = new Set<string>();
 
     classes.forEach(cls => {
         if (filterCourseIds && !filterCourseIds.includes(cls.courseId)) return;
@@ -57,12 +58,16 @@ export function StudentsManagement({ filterCourseIds }: StudentsManagementProps)
             cls.students?.forEach(studentId => {
                 const user = userMap.get(studentId);
                 if (user) {
-                    allEnrollments.push({
-                        id: `${user.id}-${cls.id}`,
-                        user,
-                        class: cls,
-                        course
-                    });
+                    const key = `${user.id}-${cls.id}`;
+                    if (!seenKeys.has(key)) {
+                        seenKeys.add(key);
+                        allEnrollments.push({
+                            id: key,
+                            user,
+                            class: cls,
+                            course
+                        });
+                    }
                 }
             });
         }
