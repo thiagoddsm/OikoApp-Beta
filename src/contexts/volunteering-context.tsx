@@ -143,6 +143,12 @@ export type SavedSchedule = {
     teamName: string | null;
     memberIds: string[];
   }[];
+  confirmations?: Record<string, {
+    status: 'pending' | 'confirmed' | 'declined';
+    phone: string;
+    updatedAt: Timestamp;
+  }>;
+  notificationSentAt?: Timestamp;
 };
 
 export type Class = {

@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { useVolunteering, type SavedSchedule } from '@/contexts/volunteering-context';
 import { useDoc } from '@/firebase';
-import { Loader2, Download, Send, Trash2, ChevronDown, Mail, MessageSquare, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, Download, Send, Trash2, ChevronDown, Mail, MessageSquare, CheckCircle, XCircle, Clock, CheckCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -37,6 +37,7 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
     const [eventFilter, setEventFilter] = useState('all');
     const [teamFilter, setTeamFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
+    const [confirmFilter, setConfirmFilter] = useState('all');
     
     const userMap = useMemo(() => new Map(users.map(u => [u.id, u.name])), [users]);
     const areaMap = useMemo(() => new Map(areas.map(a => [a.id, a.name])), [areas]);
@@ -62,7 +63,16 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
             const hasVolunteers = item.memberIds.length > 0;
             const statusMatch = statusFilter === 'all' || (statusFilter === 'filled' && hasVolunteers) || (statusFilter === 'failed' && !hasVolunteers);
 
-            return searchMatch && dayMatch && eventMatch && teamMatch && statusMatch;
+            const confirmStatus = item.memberIds.length > 0
+                ? (schedule?.confirmations?.[item.memberIds[0]]?.status || 'pending')
+                : null;
+
+            const confirmMatch = confirmFilter === 'all' ||
+                (confirmFilter === 'confirmed' && confirmStatus === 'confirmed') ||
+                (confirmFilter === 'declined' && confirmStatus === 'declined') ||
+                (confirmFilter === 'pending' && confirmStatus === 'pending');
+
+            return searchMatch && dayMatch && eventMatch && teamMatch && statusMatch && confirmMatch;
         });
 
     }, [schedule, searchTerm, dayFilter, eventFilter, teamFilter, statusFilter, userMap]);
@@ -112,6 +122,60 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
             startY: 30,
         });
         doc.save(`escala_${areaName}_${monthFilter}.pdf`);
+    };
+
+    const handleConfirmationNotification = async () => {
+        const areaName = areaMap.get(areaId) || 'Área Desconhecida';
+        const monthName = new Date(monthFilter + '-02').toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
+        const scheduleData = schedule;
+        if (!scheduleData?.schedule) return;
+
+        const uniqueMemberIds = Array.from(new Set(
+            scheduleData.schedule.flatMap((item: any) => item.memberIds || [])
+        )) as string[];
+        const volunteers = uniqueMemberIds
+            .map(id => users.find(u => u.id === id))
+            .filter((u): u is typeof users[0] => !!u && !!u.phone);
+
+        if (volunteers.length === 0) {
+            toast({ variant: 'destructive', title: 'Nenhum destinatário', description: 'Não há voluntários com telefone nesta escala.' });
+            return;
+        }
+
+        toast({ title: 'Enviando notificações de confirmação...', description: `Enviando para ${volunteers.length} voluntários via WhatsApp.` });
+
+        let successCount = 0;
+        for (const volunteer of volunteers) {
+            const firstName = volunteer.name
+                ? (volunteer.name.trim().split(' ')[0].charAt(0).toUpperCase() + volunteer.name.trim().split(' ')[0].slice(1).toLowerCase())
+                : 'Membro';
+
+            const scheduledItems = scheduleData.schedule.filter((item: any) => item.memberIds.includes(volunteer.id));
+            const formattedDates = scheduledItems.map((item: any) => {
+                const day = getDayOfWeek(item.date);
+                return `• ${item.date} (${day}) - ${item.eventName}${item.teamName ? ` [Equipe ${item.teamName}]` : ''}`;
+            }).join('\n');
+
+            const message = `Olá, ${firstName}! 🗓️ Segue sua escala de *${areaName}* para ${monthName.toLowerCase()}:\n\n${formattedDates}\n\nConfirme sua participação respondendo:\n✅ *SIM* — para confirmar todos os dias\n❌ *NÃO* — se tiver algum impedimento`;
+
+            try {
+                const response = await fetch('/api/notifications/send', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        channel: 'whatsapp',
+                        audience: 'specific_members',
+                        targets: [{ id: volunteer.id, name: volunteer.name, phone: volunteer.phone }],
+                        message,
+                        instanceKey: waConfig?.instanceKey || waConfig?.whatsappApiKey,
+                        serverUrl: waConfig?.serverUrl,
+                    }),
+                });
+                if (response.ok) successCount++;
+            } catch { /* ignore per-volunteer errors */ }
+        }
+
+        toast({ title: `✅ ${successCount} notificações enviadas!`, description: 'Aguarde as confirmações de SIM/NÃO no WhatsApp.' });
     };
 
     const handleNotification = async (channel: 'email' | 'whatsapp', audience: 'all' | string) => {
@@ -248,6 +312,40 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
 
     return (
         <>
+            {/* KPI cards */}
+            {schedule && (() => {
+                const allItems = schedule.schedule || [];
+                const withVolunteer = allItems.filter((i: any) => i.memberIds?.length > 0);
+                const confirmations = schedule.confirmations || {};
+                const confirmed = withVolunteer.filter((i: any) => confirmations[i.memberIds[0]]?.status === 'confirmed').length;
+                const declined = withVolunteer.filter((i: any) => confirmations[i.memberIds[0]]?.status === 'declined').length;
+                const pending = withVolunteer.filter((i: any) => !confirmations[i.memberIds[0]] || confirmations[i.memberIds[0]]?.status === 'pending').length;
+                const filled = withVolunteer.length;
+                const total = allItems.length;
+
+                return (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                        <div className="bg-white border border-slate-200 rounded-xl p-3">
+                            <p className="text-xs text-slate-500">Total de vagas</p>
+                            <p className="text-2xl font-bold text-slate-800">{total}</p>
+                            <p className="text-xs text-slate-400">{filled} preenchidas</p>
+                        </div>
+                        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3">
+                            <p className="text-xs text-emerald-600">Confirmados ✅</p>
+                            <p className="text-2xl font-bold text-emerald-700">{confirmed}</p>
+                        </div>
+                        <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+                            <p className="text-xs text-red-600">Recusaram ❌</p>
+                            <p className="text-2xl font-bold text-red-700">{declined}</p>
+                        </div>
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                            <p className="text-xs text-amber-600">Pendentes ⏳</p>
+                            <p className="text-2xl font-bold text-amber-700">{pending}</p>
+                        </div>
+                    </div>
+                );
+            })()}
+
             <Card className="border-dashed">
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
@@ -256,6 +354,9 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
                     </div>
                      <div className="flex gap-2">
                         <Button variant="outline" onClick={handleExportPDF}><Download className="mr-2"/>Exportar PDF</Button>
+                        <Button variant="outline" onClick={handleConfirmationNotification}>
+                            <CheckCheck className="mr-2 h-4 w-4" /> Notificar + Pedir Confirmação
+                        </Button>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button><Send className="mr-2"/> Notificar</Button>
@@ -311,11 +412,12 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
                             <TableHead>Equipe</TableHead>
                             <TableHead>Voluntário</TableHead>
                             <TableHead>Status</TableHead>
+                            <TableHead>Confirmação</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {filteredScheduleItems.length === 0 ? (
-                           <TableRow><TableCell colSpan={6} className="h-24 text-center">Nenhum item encontrado.</TableCell></TableRow>
+                           <TableRow><TableCell colSpan={7} className="h-24 text-center">Nenhum item encontrado.</TableCell></TableRow>
                         ) : (
                             filteredScheduleItems.map((item: any, index: number) => {
                                 const hasVolunteers = item.memberIds.length > 0;
@@ -333,6 +435,14 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
                                             {hasVolunteers ? <CheckCircle className="h-3 w-3 mr-1"/> : <XCircle className="h-3 w-3 mr-1"/>}
                                             {hasVolunteers ? 'Preenchida' : 'Falha'}
                                         </Badge>
+                                    </TableCell>
+                                    <TableCell>
+                                        {hasVolunteers ? (() => {
+                                            const confStatus = schedule?.confirmations?.[item.memberIds[0]]?.status;
+                                            if (confStatus === 'confirmed') return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200"><CheckCircle className="h-3 w-3 mr-1" />Confirmado</Badge>;
+                                            if (confStatus === 'declined') return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Recusou</Badge>;
+                                            return <Badge variant="outline" className="text-amber-600 border-amber-300"><Clock className="h-3 w-3 mr-1" />Pendente</Badge>;
+                                        })() : <span className="text-slate-300 text-xs">—</span>}
                                     </TableCell>
                                 </TableRow>
                             )})

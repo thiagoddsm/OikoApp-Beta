@@ -1,8 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, ReactNode } from 'react';
-import { useFirebase, useCollection } from '@/firebase';
-import { collection, query, where, orderBy, doc, addDoc, updateDoc, deleteDoc, setDoc, Timestamp } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where, orderBy, doc, addDoc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { useTenant } from '@/contexts/tenant-context';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -14,14 +14,14 @@ export type WorshipItem = {
   type: WorshipItemType;
   order: number;
   title: string;
-  /** Duration in seconds (allows MM:SS) */
+  /** Duration in seconds (allows MM:SS display) */
   durationSeconds?: number;
   notes?: string;
   // Song-specific fields
-  key?: string;      // Ex: "Sol", "Si♭", "Dó"
+  key?: string;
   bpm?: number;
   arrangement?: string;
-  // Item color tag (inspired by PCS row colors)
+  // PCS-inspired row color tag
   color?: 'none' | 'purple' | 'blue' | 'green' | 'yellow' | 'red' | 'gray';
 };
 
@@ -30,8 +30,8 @@ export type WorshipPlan = {
   title: string;
   serviceEventId?: string;
   serviceEventName?: string;
-  date: string;            // "YYYY-MM-DD"
-  startTime: string;       // "HH:mm"
+  date: string;         // "YYYY-MM-DD"
+  startTime: string;    // "HH:mm"
   notes?: string;
   templateId?: string;
   items: WorshipItem[];
@@ -55,12 +55,10 @@ interface WorshipContextValue {
   plans: WorshipPlan[];
   templates: WorshipTemplate[];
   isLoading: boolean;
-  // Plans
   createPlan: (data: Omit<WorshipPlan, 'id' | 'tenantId' | 'createdAt' | 'updatedAt'>) => Promise<string>;
   updatePlan: (id: string, data: Partial<WorshipPlan>) => Promise<void>;
   deletePlan: (id: string) => Promise<void>;
   updatePlanItems: (id: string, items: WorshipItem[]) => Promise<void>;
-  // Templates
   createTemplate: (data: Omit<WorshipTemplate, 'id' | 'tenantId' | 'createdAt'>) => Promise<string>;
   updateTemplate: (id: string, data: Partial<WorshipTemplate>) => Promise<void>;
   deleteTemplate: (id: string) => Promise<void>;
@@ -79,25 +77,34 @@ export function useWorship() {
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function WorshipProvider({ children }: { children: ReactNode }) {
-  const { db } = useFirebase();
+  const { firestore } = useFirebase();
   const { tenantId } = useTenant();
 
-  const plansQuery = tenantId
-    ? query(collection(db, 'worship_plans'), where('tenantId', '==', tenantId), orderBy('date', 'desc'))
-    : null;
-  const templatesQuery = tenantId
-    ? query(collection(db, 'worship_templates'), where('tenantId', '==', tenantId), orderBy('createdAt', 'desc'))
-    : null;
+  const plansQ = useMemoFirebase(
+    () => (firestore && tenantId)
+      ? query(collection(firestore, 'worship_plans'), where('tenantId', '==', tenantId), orderBy('date', 'desc'))
+      : null,
+    [firestore, tenantId]
+  );
+  const templatesQ = useMemoFirebase(
+    () => (firestore && tenantId)
+      ? query(collection(firestore, 'worship_templates'), where('tenantId', '==', tenantId), orderBy('createdAt', 'desc'))
+      : null,
+    [firestore, tenantId]
+  );
 
-  const { data: plans = [], isLoading: plansLoading } = useCollection<WorshipPlan>(plansQuery);
-  const { data: templates = [], isLoading: templatesLoading } = useCollection<WorshipTemplate>(templatesQuery);
+  const { data: plansRaw, isLoading: plansLoading } = useCollection<WorshipPlan>(plansQ);
+  const { data: templatesRaw, isLoading: templatesLoading } = useCollection<WorshipTemplate>(templatesQ);
 
+  const plans: WorshipPlan[] = plansRaw ?? [];
+  const templates: WorshipTemplate[] = templatesRaw ?? [];
   const isLoading = plansLoading || templatesLoading;
 
-  // ── Plans ────────────────────────────────────────────────────────────────
+  // ── Plans ─────────────────────────────────────────────────────────────────
 
   const createPlan = async (data: Omit<WorshipPlan, 'id' | 'tenantId' | 'createdAt' | 'updatedAt'>) => {
-    const ref = await addDoc(collection(db, 'worship_plans'), {
+    if (!firestore) throw new Error('Firestore not available');
+    const ref = await addDoc(collection(firestore, 'worship_plans'), {
       ...data,
       tenantId,
       createdAt: Timestamp.now(),
@@ -107,21 +114,25 @@ export function WorshipProvider({ children }: { children: ReactNode }) {
   };
 
   const updatePlan = async (id: string, data: Partial<WorshipPlan>) => {
-    await updateDoc(doc(db, 'worship_plans', id), { ...data, updatedAt: Timestamp.now() });
+    if (!firestore) return;
+    await updateDoc(doc(firestore, 'worship_plans', id), { ...data, updatedAt: Timestamp.now() });
   };
 
   const deletePlan = async (id: string) => {
-    await deleteDoc(doc(db, 'worship_plans', id));
+    if (!firestore) return;
+    await deleteDoc(doc(firestore, 'worship_plans', id));
   };
 
   const updatePlanItems = async (id: string, items: WorshipItem[]) => {
-    await updateDoc(doc(db, 'worship_plans', id), { items, updatedAt: Timestamp.now() });
+    if (!firestore) return;
+    await updateDoc(doc(firestore, 'worship_plans', id), { items, updatedAt: Timestamp.now() });
   };
 
-  // ── Templates ────────────────────────────────────────────────────────────
+  // ── Templates ─────────────────────────────────────────────────────────────
 
   const createTemplate = async (data: Omit<WorshipTemplate, 'id' | 'tenantId' | 'createdAt'>) => {
-    const ref = await addDoc(collection(db, 'worship_templates'), {
+    if (!firestore) throw new Error('Firestore not available');
+    const ref = await addDoc(collection(firestore, 'worship_templates'), {
       ...data,
       tenantId,
       createdAt: Timestamp.now(),
@@ -130,11 +141,13 @@ export function WorshipProvider({ children }: { children: ReactNode }) {
   };
 
   const updateTemplate = async (id: string, data: Partial<WorshipTemplate>) => {
-    await updateDoc(doc(db, 'worship_templates', id), data);
+    if (!firestore) return;
+    await updateDoc(doc(firestore, 'worship_templates', id), data);
   };
 
   const deleteTemplate = async (id: string) => {
-    await deleteDoc(doc(db, 'worship_templates', id));
+    if (!firestore) return;
+    await deleteDoc(doc(firestore, 'worship_templates', id));
   };
 
   const savePlanAsTemplate = async (planId: string, templateName: string) => {
@@ -146,7 +159,6 @@ export function WorshipProvider({ children }: { children: ReactNode }) {
   const applyTemplate = async (templateId: string, planId: string) => {
     const template = templates.find(t => t.id === templateId);
     if (!template) return;
-    // Re-number order indices to be safe
     const items = template.items.map((item, idx) => ({ ...item, order: idx }));
     await updatePlanItems(planId, items);
   };
@@ -164,13 +176,13 @@ export function WorshipProvider({ children }: { children: ReactNode }) {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Compute the wall-clock time for each item given a plan start time */
+/** Compute wall-clock time for each item given plan start time */
 export function computeScheduledTimes(
   items: WorshipItem[],
-  startTime: string // "HH:mm"
+  startTime: string
 ): (WorshipItem & { scheduledTime?: string })[] {
   const [startH, startM] = startTime.split(':').map(Number);
-  let totalSeconds = (startH * 60 + startM) * 60;
+  let totalSeconds = ((startH || 0) * 60 + (startM || 0)) * 60;
 
   return items.map(item => {
     const h = Math.floor(totalSeconds / 3600);
@@ -187,7 +199,7 @@ export function computeScheduledTimes(
   });
 }
 
-/** Format seconds as "M:SS" (e.g. 270 → "4:30") */
+/** Format seconds as "M:SS" */
 export function formatDuration(seconds: number): string {
   if (!seconds) return '';
   const m = Math.floor(seconds / 60);

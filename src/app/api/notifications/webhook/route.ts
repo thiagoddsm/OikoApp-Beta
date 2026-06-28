@@ -279,6 +279,25 @@ export async function POST(request: Request) {
     const isGroup = fromRaw.includes('@g.us');
     
     if (!isFromMe && !isGroup) {
+        // ── Confirmação de Escala via WhatsApp ──────────────────────────────
+        // Intercept SIM / NÃO replies before passing to GC Bot
+        const rawTextForConfirm = (msgContent.conversation || msgContent.extendedTextMessage?.text || msgObject.text || '').trim().toUpperCase();
+        if (rawTextForConfirm === 'SIM' || rawTextForConfirm === 'NÃO' || rawTextForConfirm === 'NAO') {
+            try {
+                const configSnap = await db.collection('config').doc('notifications').get();
+                const waConf = configSnap.exists ? configSnap.data() : {};
+                const { handleScheduleConfirmation } = await import('@/lib/schedule-confirmation');
+                const wasHandled = await handleScheduleConfirmation(fromPhone, rawTextForConfirm, waConf);
+                if (wasHandled) {
+                    console.log(`[Webhook] Resposta de escala processada para ${fromPhone}: ${rawTextForConfirm}`);
+                    return NextResponse.json({ success: true });
+                }
+            } catch (confErr: any) {
+                console.error('[Webhook] Erro no handler de confirmação de escala:', confErr.message);
+            }
+        }
+        // ── Fim confirmação de escala ──────────────────────────────────────
+
         console.log(`[Webhook DEBUG] Checando sessão GC para fromPhone=${fromPhone}...`);
         
         // Tentar múltiplos formatos de telefone para encontrar a sessão

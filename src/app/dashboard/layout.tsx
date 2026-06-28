@@ -31,6 +31,7 @@ import {
   CalendarCog,
   Bot,
   Footprints,
+  ListMusic,
   FileText,
   HandHelping,
   Shield,
@@ -118,6 +119,7 @@ const menuItems = [
         { href: "/dashboard/volunteering/events", label: "Gerenciar Eventos", icon: CalendarPlus, permissionId: 'servico_events' },
         { href: "/dashboard/volunteering/schedule", label: "Gerar Escala", icon: CalendarCog, permissionId: 'servico_schedule' },
         { href: "/dashboard/volunteering/saved-schedules", label: "Escalas Salvas", icon: Save, permissionId: 'servico_saved' },
+        { href: "/dashboard/volunteering/worship", label: "Ordem de Culto", icon: ListMusic, permissionId: 'servico_worship' },
       ]
     },
     { 

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { WorshipProvider, useWorship, WorshipItem, WorshipPlan, formatDuration } from '@/contexts/worship-context';
+import { WorshipProvider, useWorship, WorshipItem, WorshipPlan, formatDuration, generateItemId } from '@/contexts/worship-context';
 import { WorshipPlanEditor } from '@/components/worship/worship-plan-editor';
 import { TemplateManager } from '@/components/worship/template-manager';
 import { Button } from '@/components/ui/button';
@@ -83,7 +83,6 @@ function PlanEditorInner({ planId }: { planId: string }) {
   };
 
   const addItem = useCallback((type: 'header' | 'item' | 'song') => {
-    const { generateItemId } = require('@/contexts/worship-context');
     const newItem: WorshipItem = {
       id: generateItemId(),
       type,
