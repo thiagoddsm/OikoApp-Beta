@@ -149,7 +149,14 @@ export async function POST(request: Request) {
             },
             body: JSON.stringify({
                 groupName,
-                participants: (participants || []).map((p: string) => p.replace(/\D/g, ''))
+                participants: (participants || []).map((p: string) => {
+                    const clean = p.replace(/\D/g, '');
+                    if (clean.length > 15) {
+                        return `${clean}@lid`;
+                    }
+                    // Adiciona o DDI '55' do Brasil se não estiver presente
+                    return clean.startsWith('55') ? clean : `55${clean}`;
+                })
             }),
         });
 
