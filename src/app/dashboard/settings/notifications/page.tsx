@@ -10,17 +10,20 @@ import { useToast } from '@/hooks/use-toast';
 import { 
     Loader2, MessageSquare, ShieldCheck, Send, Settings2, 
     RefreshCw, CheckCircle2, XCircle, Zap, Copy, Info, 
-    Smartphone, QrCode, CheckCircle, LogOut
+    Smartphone, QrCode, CheckCircle, LogOut, MessageCircle
 } from 'lucide-react';
 import { useFirebase, setDocumentNonBlocking } from '@/firebase';
 import { doc, Timestamp, getDoc } from 'firebase/firestore';
 import { sendTestWhatsAppMessage, getWhatsAppConfig } from '@/app/actions/whatsapp-actions';
+import { useMembersData } from "@/hooks/useDomainData";
 import { cn } from '@/lib/utils';
 
 export default function NotificationSettingsPage() {
     const { toast } = useToast();
     const { firestore } = useFirebase();
     
+    const { users: allMembers = [] } = useMembersData();
+
     // Config States
     const [serverUrl, setServerUrl] = useState('');
     const [instanceName, setInstanceName] = useState('');
@@ -50,6 +53,12 @@ export default function NotificationSettingsPage() {
     const [testPhone, setTestPhone] = useState('');
     const [testMessage, setTestMessage] = useState('Olá! Este é um teste do sistema Oiko Studio. 🚀');
     const [isTesting, setIsTesting] = useState(false);
+
+    // Group Test States
+    const [testGroupName, setTestGroupName] = useState('Grupo Teste Oiko');
+    const [searchMemberQuery, setSearchMemberQuery] = useState('');
+    const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+    const [isCreatingTestGroup, setIsCreatingTestGroup] = useState(false);
     
     // UI States
     const [isLoading, setIsLoading] = useState(true);
@@ -310,6 +319,62 @@ export default function NotificationSettingsPage() {
             toast({ title: "Falha no Envio", description: result.error, variant: "destructive" });
         }
         setIsTesting(false);
+    };
+
+    const handleCreateTestGroup = async () => {
+        if (!testGroupName.trim()) {
+            toast({ title: "Nome do grupo necessário", description: "Escreva um nome para o grupo de teste.", variant: "destructive" });
+            return;
+        }
+
+        setIsCreatingTestGroup(true);
+        try {
+            // Resolve selected member phone numbers / jids
+            const participantNumbers: string[] = [];
+            selectedMembers.forEach(mId => {
+                const u = allMembers.find(usr => usr.id === mId);
+                if (u) {
+                    const phone = u.phone || u.phoneNumber || '';
+                    if (u.lid) {
+                        participantNumbers.push(u.lid);
+                    } else if (phone) {
+                        participantNumbers.push(phone);
+                    }
+                }
+            });
+
+            const res = await fetch('/api/notifications/groups', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    groupName: testGroupName,
+                    participants: participantNumbers
+                })
+            });
+
+            const data = await res.json();
+            if (res.ok && data.success) {
+                toast({
+                    title: "Grupo de Teste Criado!",
+                    description: `Grupo "${testGroupName}" criado com sucesso no WhatsApp.`
+                });
+                setSelectedMembers([]);
+            } else {
+                toast({
+                    variant: "destructive",
+                    title: "Falha ao criar grupo",
+                    description: data.error || "Erro desconhecido ao criar o grupo de teste."
+                });
+            }
+        } catch (err: any) {
+            toast({
+                variant: "destructive",
+                title: "Erro de conexão",
+                description: err.message || "Não foi possível conectar à API de grupos."
+            });
+        } finally {
+            setIsCreatingTestGroup(false);
+        }
     };
 
     const handleCopyWebhook = () => {
@@ -869,6 +934,88 @@ export default function NotificationSettingsPage() {
                                 variant="outline"
                             >
                                 {isTesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Enviar Teste"}
+                            </Button>
+                        </CardContent>
+                    </Card>
+
+                    {/* Grupo de Teste Card */}
+                    <Card className="border-2 border-primary/20 shadow-md">
+                        <CardHeader>
+                            <div className="flex items-center gap-2 text-primary">
+                                <MessageCircle className="size-5" />
+                                <CardTitle>Criar Grupo de Teste</CardTitle>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-1">
+                                <Label htmlFor="testGroupName" className="text-[10px] font-black uppercase text-muted-foreground">Nome do Grupo</Label>
+                                <Input 
+                                    id="testGroupName"
+                                    value={testGroupName} 
+                                    onChange={(e) => setTestGroupName(e.target.value)} 
+                                    placeholder="Ex: Grupo Teste Liderança"
+                                    className="h-10 font-bold"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className="text-[10px] font-black uppercase text-muted-foreground flex justify-between">
+                                    <span>Selecionar Membros ({selectedMembers.length} selecionados)</span>
+                                </Label>
+                                <Input 
+                                    value={searchMemberQuery} 
+                                    onChange={(e) => setSearchMemberQuery(e.target.value)} 
+                                    placeholder="Buscar membro..."
+                                    className="h-9 text-xs"
+                                />
+                                
+                                <div className="border rounded-lg max-h-48 overflow-y-auto divide-y bg-white">
+                                    {allMembers
+                                        .filter(m => {
+                                            if (!searchMemberQuery.trim()) return true;
+                                            return m.name?.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(
+                                                searchMemberQuery.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                                            );
+                                        })
+                                        .slice(0, 50)
+                                        .map(member => {
+                                            const isSelected = selectedMembers.includes(member.id);
+                                            const phone = member.phone || member.phoneNumber || 'Sem telefone';
+                                            return (
+                                                <div 
+                                                    key={member.id} 
+                                                    onClick={() => {
+                                                        setSelectedMembers(prev => 
+                                                            isSelected ? prev.filter(id => id !== member.id) : [...prev, member.id]
+                                                        );
+                                                    }}
+                                                    className={cn(
+                                                        "flex items-center justify-between p-2.5 text-xs cursor-pointer hover:bg-slate-50 transition-colors",
+                                                        isSelected && "bg-primary/5"
+                                                    )}
+                                                >
+                                                    <div>
+                                                        <p className="font-semibold text-slate-800">{member.name}</p>
+                                                        <p className="text-[10px] text-muted-foreground font-mono">{phone}</p>
+                                                    </div>
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={isSelected}
+                                                        onChange={() => {}}
+                                                        className="rounded border-slate-300 text-primary focus:ring-primary size-3.5"
+                                                    />
+                                                </div>
+                                            );
+                                        })}
+                                </div>
+                            </div>
+
+                            <Button 
+                                onClick={handleCreateTestGroup} 
+                                disabled={isCreatingTestGroup || !instanceKey || selectedMembers.length === 0}
+                                className="w-full font-black uppercase h-10 bg-emerald-600 hover:bg-emerald-700 text-white"
+                            >
+                                {isCreatingTestGroup ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Criar Grupo"}
                             </Button>
                         </CardContent>
                     </Card>

@@ -78,44 +78,68 @@ export function ClassScheduleManager({ classData }: ClassScheduleManagerProps) {
                 continue;
             }
 
-            const dayOverride = overrides[dateStr];
+            // Coletar overrides para este dia (principal e sufixados, ex: YYYY-MM-DD, YYYY-MM-DD-1, YYYY-MM-DD-2)
+            const dayOverridesForThisDate: { key: string; val: any }[] = [];
+            if (overrides[dateStr]) {
+                dayOverridesForThisDate.push({ key: dateStr, val: overrides[dateStr] });
+            }
+            let suffixIdx = 1;
+            while (overrides[`${dateStr}-${suffixIdx}`]) {
+                dayOverridesForThisDate.push({ key: `${dateStr}-${suffixIdx}`, val: overrides[`${dateStr}-${suffixIdx}`] });
+                suffixIdx++;
+            }
 
-            // Gerar entrada para cada slot do dia
-            for (let slotIdx = 0; slotIdx < slotsPerDay; slotIdx++) {
+            // Se não houver overrides, usamos o comportamento padrão (aula regular)
+            if (dayOverridesForThisDate.length === 0) {
+                dayOverridesForThisDate.push({ key: dateStr, val: null });
+            }
+
+            for (const { key: activeKey, val: activeOverride } of dayOverridesForThisDate) {
                 if (items.length >= targetCount) break;
+                if (activeOverride?.isCancelled) {
+                    continue;
+                }
 
-                const slot = slots[slotIdx];
-                const slotDateStr = slotsPerDay > 1 ? `${dateStr}T${slot.startTime}` : dateStr;
-                
-                const slotOverride = slotsPerDay > 1 ? overrides[slotDateStr] : dayOverride;
-                const effectiveOverride = slotOverride || (slotsPerDay === 1 ? dayOverride : null);
+                // Gerar entrada para cada slot do dia
+                for (let slotIdx = 0; slotIdx < slotsPerDay; slotIdx++) {
+                    if (items.length >= targetCount) break;
 
-                const syllabusItem = effectiveOverride?.syllabusId 
-                    ? syllabus.find(s => s.id === effectiveOverride.syllabusId) 
-                    : syllabus[syllabusIndex];
+                    const slot = slots[slotIdx];
+                    const slotDateStr = slotsPerDay > 1 
+                        ? (activeKey === dateStr ? `${dateStr}T${slot.startTime}` : `${activeKey}T${slot.startTime}`)
+                        : activeKey;
+                    
+                    const syllabusItem = activeOverride?.syllabusId 
+                        ? syllabus.find(s => s.id === activeOverride.syllabusId) 
+                        : syllabus[syllabusIndex];
 
-                const teacher = effectiveOverride?.teacherId
-                    ? users.find(u => u.id === effectiveOverride.teacherId)
-                    : users.find(u => u.id === classData.teacherId);
+                    const teacher = activeOverride?.teacherId
+                        ? users.find(u => u.id === activeOverride.teacherId)
+                        : users.find(u => u.id === classData.teacherId);
 
-                items.push({
-                    date: occDate,
-                    dateStr: slotDateStr,
-                    dayDateStr: dateStr,
-                    syllabusItem,
-                    teacher,
-                    isOverride: !!effectiveOverride,
-                    isCancelled: effectiveOverride?.isCancelled,
-                    notes: effectiveOverride?.notes,
-                    originalIndex: syllabusIndex,
-                    startTime: slot.startTime,
-                    endTime: slot.endTime,
-                    slotIndex: slotIdx,
-                    slotsPerDay
-                });
+                    items.push({
+                        date: occDate,
+                        dateStr: slotDateStr,
+                        dayDateStr: dateStr,
+                        syllabusItem,
+                        teacher,
+                        isOverride: !!activeOverride,
+                        isCancelled: activeOverride?.isCancelled,
+                        notes: activeOverride?.notes,
+                        originalIndex: syllabusIndex,
+                        startTime: slot.startTime,
+                        endTime: slot.endTime,
+                        slotIndex: slotIdx,
+                        slotsPerDay
+                    });
 
-                if (!effectiveOverride?.isCancelled) {
-                    syllabusIndex++;
+                    if (!activeOverride) {
+                        syllabusIndex++;
+                    } else if (activeOverride.syllabusId) {
+                        if (syllabus[syllabusIndex]?.id === activeOverride.syllabusId) {
+                            syllabusIndex++;
+                        }
+                    }
                 }
             }
         }
@@ -142,12 +166,28 @@ export function ClassScheduleManager({ classData }: ClassScheduleManagerProps) {
     const handleMoveDate = async (oldDateStr: string, newDateStr: string, item: any) => {
         const newOverrides = { ...(classData.scheduleOverrides || {}) };
         
-        // 1. Cancelar a data antiga (se ela for de recorrência)
-        newOverrides[oldDateStr] = { ...(newOverrides[oldDateStr] || {}), isCancelled: true };
+        // 1. Cancelar a data antiga (ou se for override sufixado, podemos simplesmente deletar a chave antiga)
+        if (oldDateStr.includes('-')) {
+            // Se for chave com sufixo ou data normal modificada
+            newOverrides[oldDateStr] = { ...(newOverrides[oldDateStr] || {}), isCancelled: true };
+        } else {
+            newOverrides[oldDateStr] = { ...(newOverrides[oldDateStr] || {}), isCancelled: true };
+        }
         
-        // 2. Definir a nova data com o conteúdo da antiga
-        newOverrides[newDateStr] = { 
-            ...(newOverrides[newDateStr] || {}), 
+        // 2. Definir a nova chave de destino. Se já houver aula ativa no dia, usamos sufixo indexado
+        let targetKey = newDateStr;
+        const isTargetOccupied = schedule.some(i => i.dayDateStr === newDateStr && !i.isCancelled && i.dateStr !== oldDateStr);
+        
+        if (isTargetOccupied) {
+            let suffix = 1;
+            while (newOverrides[`${newDateStr}-${suffix}`] && !newOverrides[`${newDateStr}-${suffix}`].isCancelled) {
+                suffix++;
+            }
+            targetKey = `${newDateStr}-${suffix}`;
+        }
+
+        newOverrides[targetKey] = { 
+            ...(newOverrides[targetKey] || {}), 
             syllabusId: item.syllabusItem?.id, 
             teacherId: item.teacher?.id,
             isCancelled: false 

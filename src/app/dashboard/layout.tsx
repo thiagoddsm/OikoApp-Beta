@@ -425,7 +425,7 @@ export default function DashboardLayout({
     return (
       <TenantProvider>
         <SidebarProvider>
-          <div className="min-h-screen w-full flex bg-slate-50">
+          <div className="h-screen w-full flex bg-slate-50 overflow-hidden">
             {/* --- Desktop Sidebar --- */}
             <aside className="hidden lg:flex lg:flex-col lg:w-72 lg:border-r lg:border-slate-200 bg-white">
               <SidebarHeader className="border-b border-slate-200">

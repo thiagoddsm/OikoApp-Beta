@@ -414,11 +414,80 @@ export function getResolvedSchedule(classData: any, courseData: any) {
         }
     }
 
+    // 2. Gerar os itens do cronograma baseados nas ocorrências calculadas
+    const targetCount = syllabus.length > 0 ? syllabus.length : 12;
+    let syllabusIndex = 0;
 
-                slotsPerDay: slotsPerDay > 1 ? slotsPerDay : undefined,
-            });
+    for (const occDate of occurrenceDates) {
+        if (items.length >= targetCount) break;
 
-            syllabusIndex++;
+        const dateStr = format(occDate, 'yyyy-MM-dd');
+        
+        // Pular se for feriado e não houver override forçando
+        if (holidaySet.has(dateStr) && !overrides[dateStr]) {
+            continue;
+        }
+
+        // Coletar overrides para este dia (principal e sufixados para aulas agrupadas, ex: YYYY-MM-DD, YYYY-MM-DD-1, YYYY-MM-DD-2)
+        const dayOverridesForThisDate: { key: string; val: any }[] = [];
+        if (overrides[dateStr]) {
+            dayOverridesForThisDate.push({ key: dateStr, val: overrides[dateStr] });
+        }
+        let suffixIdx = 1;
+        while (overrides[`${dateStr}-${suffixIdx}`]) {
+            dayOverridesForThisDate.push({ key: `${dateStr}-${suffixIdx}`, val: overrides[`${dateStr}-${suffixIdx}`] });
+            suffixIdx++;
+        }
+
+        // Se não houver overrides, usamos o comportamento padrão (aula regular)
+        if (dayOverridesForThisDate.length === 0) {
+            dayOverridesForThisDate.push({ key: dateStr, val: null });
+        }
+
+        for (const { key: activeKey, val: activeOverride } of dayOverridesForThisDate) {
+            if (items.length >= targetCount) break;
+            if (activeOverride?.isCancelled) {
+                continue;
+            }
+
+            // Gerar entrada para cada slot do dia
+            for (let slotIdx = 0; slotIdx < slotsPerDay; slotIdx++) {
+                if (items.length >= targetCount) break;
+
+                const slot = slots[slotIdx];
+                const slotDateStr = slotsPerDay > 1 
+                    ? (activeKey === dateStr ? `${dateStr}T${slot.startTime}` : `${activeKey}T${slot.startTime}`)
+                    : activeKey;
+
+                const syllabusItem = activeOverride?.syllabusId 
+                    ? syllabus.find((s: any) => s.id === activeOverride.syllabusId) 
+                    : syllabus[syllabusIndex];
+                
+                const originalIdx = activeOverride?.syllabusId
+                    ? syllabus.findIndex((s: any) => s.id === activeOverride.syllabusId)
+                    : syllabusIndex;
+
+                items.push({
+                    dateStr: slotDateStr,
+                    date: occDate,
+                    syllabusItem,
+                    syllabusOriginalIndex: originalIdx,
+                    isOverride: !!activeOverride,
+                    startTime: slot.startTime,
+                    endTime: slot.endTime,
+                    slotIndex: slotsPerDay > 1 ? slotIdx : undefined,
+                    slotsPerDay: slotsPerDay > 1 ? slotsPerDay : undefined
+                });
+
+                if (!activeOverride) {
+                    syllabusIndex++;
+                } else if (activeOverride.syllabusId) {
+                    // Se coincidir com o item atual do syllabus regular, incrementamos
+                    if (syllabus[syllabusIndex]?.id === activeOverride.syllabusId) {
+                        syllabusIndex++;
+                    }
+                }
+            }
         }
     }
 
