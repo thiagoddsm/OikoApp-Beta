@@ -11,6 +11,7 @@ import { AccessProfileManager } from '@/components/settings/access-profile-manag
 import { UserRoleAssignment } from '@/components/settings/user-role-assignment';
 import { IntegrationsManager } from '@/components/settings/integrations-manager';
 import { FinancialSettings } from '@/components/settings/financial-settings';
+import { CertificateSettings } from '@/components/settings/certificate-settings';
 import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 
@@ -127,6 +128,21 @@ export default function SettingsPage() {
             </CardContent>
         </Card>
         
+        <Separator />
+
+        <Card>
+            <CardHeader>
+                <div className="flex items-center gap-4">
+                    <Shield className="size-6 text-primary" />
+                    <CardTitle>Configurações de Certificados</CardTitle>
+                </div>
+                <CardDescription>Configure a assinatura global do pastor e o nome do signatário para a emissão de certificados.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <CertificateSettings />
+            </CardContent>
+        </Card>
+
         <Separator />
 
         <Card>

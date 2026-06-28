@@ -4,7 +4,7 @@
 import React, { createContext, useContext, ReactNode, useMemo, useEffect } from 'react';
 import { format, addWeeks, addMonths, parseISO } from 'date-fns';
 import { useFirebase, useCollection, useMemoFirebase, updateDocumentNonBlocking, deleteDocumentNonBlocking, setDocumentNonBlocking, useDoc } from '@/firebase';
-import { collection, query, doc, Timestamp, addDoc, where, getDoc } from 'firebase/firestore';
+import { collection, query, doc, Timestamp, addDoc, where, getDoc, getDocs } from 'firebase/firestore';
 import { useTenant } from '@/contexts/tenant-context';
 
 export type User = {
@@ -854,25 +854,28 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
     deleteClass: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'classes', id)); },
     enrollStudent: async (studentId: string, courseId: string, classId?: string) => {
       if (classId) {
+        // Busca o documento da turma diretamente do Firestore (estado local pode estar vazio)
         const classRef = doc(firestore!, 'classes', classId);
-        const cls = (classes || []).find(c => c.id === classId);
-        if (cls) {
-          const students = cls.students || [];
+        const classSnap = await getDoc(classRef);
+        if (classSnap.exists()) {
+          const classData = classSnap.data() as any;
+          const students: string[] = classData.students || [];
           if (!students.includes(studentId)) {
             await updateDocumentNonBlocking(classRef, { students: [...students, studentId] });
           }
         }
       } else {
-        // Se não passou classId, tenta encontrar se há apenas UMA turma para este curso
-        const relevantClasses = (classes || []).filter(c => c.courseId === courseId);
-        if (relevantClasses.length === 1) {
-            const cls = relevantClasses[0];
-            const students = cls.students || [];
-            if (!students.includes(studentId)) {
-                await updateDocumentNonBlocking(doc(firestore!, 'classes', cls.id), { students: [...students, studentId] });
-            }
+        // Se não passou classId, busca todas as turmas do curso diretamente no Firestore
+        const classesSnap = await getDocs(query(collection(firestore!, 'classes'), where('courseId', '==', courseId)));
+        if (classesSnap.size === 1) {
+          const clsDoc = classesSnap.docs[0];
+          const clsData = clsDoc.data() as any;
+          const students: string[] = clsData.students || [];
+          if (!students.includes(studentId)) {
+            await updateDocumentNonBlocking(doc(firestore!, 'classes', clsDoc.id), { students: [...students, studentId] });
+          }
         }
-        // Se houver mais de uma, não faz nada (o usuário deve selecionar no UI)
+        // Se houver mais de uma turma, não faz nada (o usuário deve selecionar no UI)
       }
     },
     addPedagogicalLog: async (data: any) => { await addDoc(collection(firestore!, 'pedagogical_logs'), data); },
@@ -898,12 +901,25 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
     updateFinanceRequest: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'finance_requests', id), data); },
     deleteFinanceRequest: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'finance_requests', id)); },
     approveEnrollmentRequest: async (requestId: string, classId: string) => {
-      const req = (enrollmentRequests || []).find(r => r.id === requestId);
-      if (!req) return;
-      const targetClass = (classes || []).find(c => c.id === classId);
-      if (!targetClass) return;
+      // Busca o pedido e a turma diretamente do Firestore (estado local pode estar vazio)
+      const reqSnap = await getDoc(doc(firestore!, 'enrollment_requests', requestId));
+      if (!reqSnap.exists()) return;
+      const req = reqSnap.data() as any;
 
-      let studentId = (users || []).find(u => u.email === req.email || u.phone === req.phone)?.id;
+      const classSnap = await getDoc(doc(firestore!, 'classes', classId));
+      if (!classSnap.exists()) return;
+      const targetClass = classSnap.data() as any;
+
+      // Busca o usuário pelo email ou telefone
+      let studentId: string | undefined;
+      const byEmailSnap = req.email ? await getDocs(query(collection(firestore!, 'users'), where('email', '==', req.email))) : null;
+      if (byEmailSnap && !byEmailSnap.empty) {
+        studentId = byEmailSnap.docs[0].id;
+      } else if (req.phone) {
+        const byPhoneSnap = await getDocs(query(collection(firestore!, 'users'), where('phone', '==', req.phone)));
+        if (!byPhoneSnap.empty) studentId = byPhoneSnap.docs[0].id;
+      }
+
       if (!studentId) {
         const newUser = await addDoc(collection(firestore!, 'users'), {
           name: req.name, email: req.email, phone: req.phone, integrationStatus: 'nao_alcancado', createdAt: Timestamp.now()
@@ -911,24 +927,34 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
         studentId = newUser.id;
       }
 
-      await updateDocumentNonBlocking(doc(firestore!, 'classes', classId), { students: [...targetClass.students, studentId] });
+      const currentStudents: string[] = targetClass.students || [];
+      if (!currentStudents.includes(studentId)) {
+        await updateDocumentNonBlocking(doc(firestore!, 'classes', classId), { students: [...currentStudents, studentId] });
+      }
       await updateDocumentNonBlocking(doc(firestore!, 'enrollment_requests', requestId), { status: 'approved', classId });
     },
     updateEnrollmentRequest: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id), data); },
     deleteEnrollmentRequest: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id)); },
     markAttendanceByTheoflix: async (userId: string, theoflixCourseId: string, episodeIndex: number, lessonNotes?: string) => {
+      // Busca cursos e turmas diretamente do Firestore (estado local pode estar vazio)
+      const allCoursesSnap = await getDocs(collection(firestore!, 'courses'));
+      const allCourses = allCoursesSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+
       // Find physical courses linked to this theoflixCourseId
-      const linkedCourses = (courses || []).filter(c => 
+      const linkedCourses = allCourses.filter((c: any) => 
          c.id === theoflixCourseId || 
          c.linkedTheoflixId === theoflixCourseId || 
          c.syllabus?.some((s: any) => s.theoflixCourseId === theoflixCourseId)
       );
-      const linkedCourseIds = linkedCourses.map(c => c.id);
+      const linkedCourseIds = linkedCourses.map((c: any) => c.id);
 
-      // Find classes where user is enrolled for these physical courses
-      const relevantClasses = (classes || []).filter(c => 
-         linkedCourseIds.includes(c.courseId) && c.students?.includes(userId)
-      );
+      if (linkedCourseIds.length === 0) return;
+
+      // Find classes where user is enrolled for these physical courses (busca no Firestore)
+      const allClassesSnap = await getDocs(collection(firestore!, 'classes'));
+      const relevantClasses = allClassesSnap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter((c: any) => linkedCourseIds.includes(c.courseId) && c.students?.includes(userId)) as any[];
 
       for (const cls of relevantClasses) {
         const physicalCourse = linkedCourses.find(c => c.id === cls.courseId);
@@ -977,7 +1003,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
                     continue;
                 }
 
-                const originalIdx = override?.syllabusId ? syllabus.findIndex(s => s.id === override.syllabusId) : syllabusIndex;
+                const originalIdx = override?.syllabusId ? syllabus.findIndex((s: any) => s.id === override.syllabusId) : syllabusIndex;
                 items.push({ dateStr, syllabusOriginalIndex: originalIdx });
                 
                 syllabusIndex++;
@@ -987,14 +1013,14 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
             Object.entries(overrides).forEach(([dateStr, override]: [string, any]) => {
                 if (override.isCancelled) return;
                 if (items.find(i => i.dateStr === dateStr)) return;
-                const originalIdx = override.syllabusId ? syllabus.findIndex(s => s.id === override.syllabusId) : -1;
+                const originalIdx = override.syllabusId ? syllabus.findIndex((s: any) => s.id === override.syllabusId) : -1;
                 items.push({ dateStr, syllabusOriginalIndex: originalIdx });
             });
 
             const extraSessions = cls.extraSessions || [];
             extraSessions.forEach((session: any) => {
                 if (items.find(i => i.dateStr === session.date)) return;
-                const originalIdx = session.syllabusId ? syllabus.findIndex(s => s.id === session.syllabusId) : -1;
+                const originalIdx = session.syllabusId ? syllabus.findIndex((s: any) => s.id === session.syllabusId) : -1;
                 items.push({ dateStr: session.date, syllabusOriginalIndex: originalIdx });
             });
             

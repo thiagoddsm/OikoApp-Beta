@@ -17,6 +17,8 @@ import Link from 'next/link';
 import { format, parseISO, addWeeks, addMonths, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
+import { CertificateView } from './certificate-view';
+import { Award } from 'lucide-react';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -304,6 +306,14 @@ export function StudentDashboard() {
 
   const { isLoading } = useVolunteering();
   const today = useMemo(() => startOfDay(new Date()), []);
+  
+  // Estado para visualização de certificados
+  const [selectedCert, setSelectedCert] = useState<{
+    studentName: string;
+    courseName: string;
+    className: string;
+    completionDate?: string;
+  } | null>(null);
 
   // Turmas do aluno agrupadas por curso
   const myClasses = useMemo(() => {
@@ -486,6 +496,83 @@ export function StudentDashboard() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* ── Meus Certificados ──────────────────────────────────────────────── */}
+      {(() => {
+        // Encontra turmas concluídas nas quais o aluno está inscrito e possui frequência >= 75%
+        const completedClassesWithCertificates = myClasses.filter(cls => {
+          if (cls.status !== 'completed') return false;
+          
+          const schedule = resolveClassSchedule(cls);
+          const past = schedule.filter(s => !s.isRepositionOnly);
+          const presentCount = past.filter(s => {
+            const status = getStudentStatus(s.dateStr, cls, user.uid, today);
+            return status === 'present' || status === 'online' || status === 'makeup';
+          }).length;
+          
+          const total = past.length;
+          const pct = total > 0 ? (presentCount / total) * 100 : 0;
+          return pct >= 75;
+        });
+
+        if (completedClassesWithCertificates.length === 0) return null;
+
+        return (
+          <div className="space-y-4 mt-8">
+            <div className="flex items-center gap-3">
+              <div className="bg-primary/10 p-2 rounded-xl text-primary">
+                <Award className="size-5" />
+              </div>
+              <div>
+                <h2 className="text-sm font-black uppercase tracking-tight">Meus Certificados</h2>
+                <p className="text-[11px] text-muted-foreground">Cursos concluídos com aproveitamento</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {completedClassesWithCertificates.map(cls => {
+                const course = courseMap.get(cls.courseId);
+                return (
+                  <Card key={cls.id} className="border-2 border-primary/10 hover:border-primary/20 transition-all">
+                    <CardHeader className="pb-3">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">
+                        {course?.ministryName || 'Ensino'}
+                      </p>
+                      <CardTitle className="text-base font-black truncate">{course?.name}</CardTitle>
+                      <CardDescription className="text-xs">Turma: {cls.name}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <Button
+                        size="sm"
+                        onClick={() => setSelectedCert({
+                          studentName: user.displayName || 'Aluno',
+                          courseName: course?.name || 'Curso',
+                          className: cls.name,
+                          completionDate: cls.endDate
+                        })}
+                        className="w-full text-xs font-black uppercase tracking-wider gap-1.5 shadow-sm"
+                      >
+                        <Award className="size-4" /> Visualizar / Baixar
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
+
+      {selectedCert && (
+        <CertificateView
+          open={!!selectedCert}
+          onOpenChange={(open) => !open && setSelectedCert(null)}
+          studentName={selectedCert.studentName}
+          courseName={selectedCert.courseName}
+          className={selectedCert.className}
+          completionDate={selectedCert.completionDate}
+        />
       )}
     </div>
   );

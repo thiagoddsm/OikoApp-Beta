@@ -45,6 +45,7 @@
     "firebase": "^11.9.1",
     "firebase-admin": "^13.1.0",
     "genkit": "^1.20.0",
+    "html2canvas": "^1.4.1",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.475.0",

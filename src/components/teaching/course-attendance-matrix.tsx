@@ -19,6 +19,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadio
 import { addTimelineEvent } from '@/lib/timeline';
 import { useFirebase } from '@/firebase';
 import { RetroactiveApprovalDialog } from './retroactive-approval-dialog';
+import { CertificateView } from './certificate-view';
 import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 const Legend = () => (
@@ -61,6 +62,14 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
     
     // Filtros de coluna
     const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
+    
+    // Estado para o modal do certificado
+    const [selectedCertificate, setSelectedCertificate] = useState<{
+        studentName: string;
+        courseName: string;
+        className: string;
+        completionDate?: string;
+    } | null>(null);
 
     const course = useMemo(() => courses.find(c => c.id === courseId), [courses, courseId]);
     const isMembership = course?.name?.toLowerCase().includes('membro') || course?.name?.toLowerCase().includes('pertencer') || course?.name?.toLowerCase().includes('integração');
@@ -644,10 +653,30 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                                     const total = useModuleView ? modules.filter(m => m.type !== 'Eletivo').length : allDates.length;
                                                     const percent = total > 0 ? (completedCount / total) * 100 : 0;
                                                     const isApproved = percent >= threshold;
+                                                    
                                                     return (
-                                                        <Badge variant={isApproved ? "default" : "outline"} className={cn("text-[10px] uppercase font-black", isApproved ? "bg-emerald-600" : "")}>
-                                                            {isApproved ? "APTO" : `${Math.round(percent)}%`}
-                                                        </Badge>
+                                                        <div className="flex items-center justify-center gap-1.5">
+                                                            <Badge 
+                                                              variant={isApproved ? "default" : "outline"} 
+                                                              className={cn("text-[10px] uppercase font-black", isApproved ? "bg-emerald-600" : "")}
+                                                            >
+                                                                {isApproved ? "APTO" : `${Math.round(percent)}%`}
+                                                            </Badge>
+                                                            {isApproved && (
+                                                                <button
+                                                                    title="Ver Certificado"
+                                                                    onClick={() => setSelectedCertificate({
+                                                                        studentName: student.name,
+                                                                        courseName: course?.name || 'Curso',
+                                                                        className: studentClass?.name || 'Geral',
+                                                                        completionDate: studentClass?.endDate
+                                                                    })}
+                                                                    className="p-1 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                                                                >
+                                                                    <Award size={14} />
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     )
                                                 })()}
                                             </TableCell>
@@ -714,6 +743,17 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                     courseId={courseId}
                     courseName={course?.name || ''}
                 />
+
+                {selectedCertificate && (
+                    <CertificateView
+                        open={!!selectedCertificate}
+                        onOpenChange={(open) => !open && setSelectedCertificate(null)}
+                        studentName={selectedCertificate.studentName}
+                        courseName={selectedCertificate.courseName}
+                        className={selectedCertificate.className}
+                        completionDate={selectedCertificate.completionDate}
+                    />
+                )}
             </div>
         </TooltipProvider>
     );
