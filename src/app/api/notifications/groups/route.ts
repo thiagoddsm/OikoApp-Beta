@@ -148,7 +148,7 @@ export async function POST(request: Request) {
                 'apikey': waKey 
             },
             body: JSON.stringify({
-                groupName,
+                subject: groupName,
                 participants: (participants || []).map((p: string) => {
                     const clean = p.replace(/\D/g, '');
                     if (clean.length > 15) {

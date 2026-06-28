@@ -16,12 +16,24 @@ interface ReservationsTableProps {
     searchTerm?: string;
     roomFilter?: string;
     categoryFilter?: string[];
+    ministryFilter?: string;
 }
+
+const ministryNames: Record<string, string> = {
+    geral: 'Geral / Outro',
+    gleed: 'Gleed',
+    homens: 'Homens',
+    mulheres: 'Mulheres',
+    greem: 'Greem',
+    kids: 'Kids',
+    jovens: 'Jovens'
+};
 
 export function ReservationsTable({ 
     searchTerm = '', 
     roomFilter = 'all', 
-    categoryFilter = [] 
+    categoryFilter = [],
+    ministryFilter = 'all'
 }: ReservationsTableProps) {
     const { users } = useMembersData();
     const { events, reservations, rooms, strategicEvents, reservationCategories } = useEventsData();
@@ -44,6 +56,9 @@ export function ReservationsTable({
             // Filtro de Ambiente
             if (roomFilter !== 'all' && !res.rooms?.includes(roomFilter)) return false;
 
+            // Filtro de Ministério
+            if (ministryFilter !== 'all' && ((res as any).ministry || 'geral') !== ministryFilter) return false;
+
             // Filtro de Busca
             if (searchTerm && !res.eventName.toLowerCase().includes(searchTerm.toLowerCase())) return false;
 
@@ -53,7 +68,7 @@ export function ReservationsTable({
             const timeB = b.createdAt?.toMillis?.() || 0;
             return timeB - timeA;
         });
-    }, [reservations, searchTerm, roomFilter, categoryFilter]);
+    }, [reservations, searchTerm, roomFilter, categoryFilter, ministryFilter]);
 
 
     const handleEdit = (reservation: RoomReservation) => {
@@ -156,7 +171,12 @@ export function ReservationsTable({
                                                 )}
                                                 {res.categoryId && !isFromClass && (
                                                     <Badge variant="outline" className="w-fit text-[9px] mt-1 h-4 bg-slate-100 text-slate-700 border-slate-200">
-                                                        {categoryMap.get(res.categoryId)}
+                                                        {res.categoryId === 'regular' ? 'Regular' : res.categoryId === 'eventual' ? 'Eventual' : res.categoryId}
+                                                    </Badge>
+                                                )}
+                                                {(res as any).ministry && (res as any).ministry !== 'geral' && (
+                                                    <Badge variant="outline" className="w-fit text-[9px] mt-1 h-4 bg-primary/5 text-primary border-primary/20">
+                                                        {ministryNames[(res as any).ministry] || (res as any).ministry}
                                                     </Badge>
                                                 )}
                                             </div>

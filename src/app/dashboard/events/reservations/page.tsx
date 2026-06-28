@@ -41,6 +41,12 @@ function ReservationsPageContent() {
     const [searchTerm, setSearchTerm] = useState('');
     const [roomFilter, setRoomFilter] = useState('all');
     const [categoryFilter, setCategoryFilter] = useState<string[]>([]); // [] = todas
+    const [ministryFilter, setMinistryFilter] = useState('all');
+
+    const staticCategories = [
+        { id: 'regular', name: 'Regular' },
+        { id: 'eventual', name: 'Eventual' }
+    ];
 
     const handleNewReservation = () => {
         setSelectedReservation(null);
@@ -56,6 +62,7 @@ function ReservationsPageContent() {
         setSearchTerm('');
         setRoomFilter('all');
         setCategoryFilter([]);
+        setMinistryFilter('all');
     };
 
     const toggleCategory = (catId: string) => {
@@ -64,12 +71,12 @@ function ReservationsPageContent() {
         );
     };
 
-    const hasActiveFilters = searchTerm !== '' || roomFilter !== 'all' || categoryFilter.length > 0;
+    const hasActiveFilters = searchTerm !== '' || roomFilter !== 'all' || categoryFilter.length > 0 || ministryFilter !== 'all';
 
     const categoryLabel = categoryFilter.length === 0
         ? 'Todas Categorias'
         : categoryFilter.length === 1
-            ? reservationCategories.find(c => c.id === categoryFilter[0])?.name ?? '1 categoria'
+            ? staticCategories.find(c => c.id === categoryFilter[0])?.name ?? '1 categoria'
             : `${categoryFilter.length} categorias`;
 
     return (
@@ -161,8 +168,7 @@ function ReservationsPageContent() {
 
                                         <div className="border-t my-1" />
 
-                                        {/* Categorias individuais */}
-                                        {reservationCategories.map(cat => (
+                                        {staticCategories.map(cat => (
                                             <label
                                                 key={cat.id}
                                                 className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer transition-colors"
@@ -173,17 +179,30 @@ function ReservationsPageContent() {
                                                     id={`cat-${cat.id}`}
                                                 />
                                                 <span className="text-sm">{cat.name}</span>
-                                                {(cat as any).color && (
-                                                    <span
-                                                        className="ml-auto h-3 w-3 rounded-full shrink-0"
-                                                        style={{ backgroundColor: (cat as any).color }}
-                                                    />
-                                                )}
                                             </label>
                                         ))}
                                     </div>
                                 </PopoverContent>
                             </Popover>
+                        </div>
+
+                        <div className="w-[180px] space-y-1.5">
+                             <label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Ministério</label>
+                             <Select value={ministryFilter} onValueChange={setMinistryFilter}>
+                                 <SelectTrigger className="bg-background">
+                                     <SelectValue placeholder="Todos Ministérios" />
+                                 </SelectTrigger>
+                                 <SelectContent>
+                                     <SelectItem value="all">Todos Ministérios</SelectItem>
+                                     <SelectItem value="geral">Geral / Outro</SelectItem>
+                                     <SelectItem value="gleed">Gleed</SelectItem>
+                                     <SelectItem value="homens">Homens</SelectItem>
+                                     <SelectItem value="mulheres">Mulheres</SelectItem>
+                                     <SelectItem value="greem">Greem</SelectItem>
+                                     <SelectItem value="kids">Kids</SelectItem>
+                                     <SelectItem value="jovens">Jovens</SelectItem>
+                                 </SelectContent>
+                             </Select>
                         </div>
 
                         {hasActiveFilters && (
@@ -195,11 +214,10 @@ function ReservationsPageContent() {
 
 
                     <Tabs defaultValue="calendar">
-                        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto gap-1">
+                        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 h-auto gap-1">
                             <TabsTrigger value="calendar">Calendário</TabsTrigger>
                             <TabsTrigger value="list">Lista de Solicitações</TabsTrigger>
                             <TabsTrigger value="rooms">Ambientes</TabsTrigger>
-                            <TabsTrigger value="categories">Categorias</TabsTrigger>
                         </TabsList>
                         
                         <TabsContent value="calendar" className="mt-4">
@@ -208,6 +226,7 @@ function ReservationsPageContent() {
                                 searchTerm={searchTerm}
                                 roomFilter={roomFilter}
                                 categoryFilter={categoryFilter}
+                                ministryFilter={ministryFilter}
                             />
                         </TabsContent>
                         
@@ -216,15 +235,12 @@ function ReservationsPageContent() {
                                 searchTerm={searchTerm}
                                 roomFilter={roomFilter}
                                 categoryFilter={categoryFilter}
+                                ministryFilter={ministryFilter}
                             />
                         </TabsContent>
                         
                         <TabsContent value="rooms" className="mt-4">
                             <RoomsManagement />
-                        </TabsContent>
-                        
-                        <TabsContent value="categories" className="mt-4">
-                            <CategoryManagement />
                         </TabsContent>
                     </Tabs>
                 </CardContent>

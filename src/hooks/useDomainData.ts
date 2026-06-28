@@ -47,12 +47,14 @@ export function useEventsData() {
   const roomsQ = useMemoFirebase(() => (firestore && user && roleResolved) ? query(collection(firestore, 'rooms')) : null, [firestore, user, roleResolved]);
   const strategicEventsQ = useMemoFirebase(() => (firestore && user && roleResolved) ? query(collection(firestore, 'strategic_events')) : null, [firestore, user, roleResolved]);
   const reservationCategoriesQ = useMemoFirebase(() => (firestore && user && roleResolved) ? query(collection(firestore, 'reservation_categories')) : null, [firestore, user, roleResolved]);
+  const ministriesQ = useMemoFirebase(() => (firestore && user && roleResolved) ? query(collection(firestore, 'ministries')) : null, [firestore, user, roleResolved]);
 
   const { data: events, isLoading: le } = useCollection<VolunteeringEvent>(eventsQ);
   const { data: reservations, isLoading: lres } = useCollection<RoomReservation>(reservationsQ);
   const { data: rooms, isLoading: lr } = useCollection<Room>(roomsQ);
   const { data: strategicEvents, isLoading: lse } = useCollection<any>(strategicEventsQ);
   const { data: reservationCategories, isLoading: lrc } = useCollection<ReservationCategory>(reservationCategoriesQ);
+  const { data: ministries, isLoading: lm } = useCollection<any>(ministriesQ);
 
   return { 
     events: events || [], 
@@ -60,7 +62,8 @@ export function useEventsData() {
     rooms: rooms || [], 
     strategicEvents: strategicEvents || [], 
     reservationCategories: reservationCategories || [],
-    isLoading: le || lres || lr || lse || lrc 
+    ministries: ministries || [],
+    isLoading: le || lres || lr || lse || lrc || lm
   };
 }
 

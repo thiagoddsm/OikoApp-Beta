@@ -211,7 +211,8 @@ export function ReservationsCalendar({
     onEventClick,
     searchTerm = '',
     roomFilter = 'all',
-    categoryFilter = []
+    categoryFilter = [],
+    ministryFilter = 'all'
 }: ReservationsCalendarProps) {
     const { reservations, rooms, strategicEvents, reservationCategories } = useEventsData();
 
@@ -229,6 +230,7 @@ export function ReservationsCalendar({
         if (evt.status !== 'aprovado') return;
         if (categoryFilter.length > 0) return; // Ocultar se houver filtro por categoria de reserva
         if (roomFilter !== 'all' && evt.space !== roomFilter) return;
+        if (ministryFilter !== 'all' && ministryFilter !== 'geral') return; // Ocultar se filtrar por outro ministério
         if (searchTerm && !evt.eventName.toLowerCase().includes(searchTerm.toLowerCase())) return;
 
         try {
@@ -260,6 +262,7 @@ export function ReservationsCalendar({
     const filteredBase = reservations.filter(res => {
         if (categoryFilter.length > 0 && (!res.categoryId || !categoryFilter.includes(res.categoryId))) return false;
         if (roomFilter !== 'all' && !res.rooms?.includes(roomFilter)) return false;
+        if (ministryFilter !== 'all' && ((res as any).ministry || 'geral') !== ministryFilter) return false;
         if (searchTerm && !res.eventName.toLowerCase().includes(searchTerm.toLowerCase())) return false;
         return true;
     });
@@ -283,10 +286,14 @@ export function ReservationsCalendar({
             recurrenceStop = limitDate.toDate();
         }
 
+        const ministryKey = (res as any).ministry || 'geral';
+        const ministryPrefix = ministryKey !== 'geral' ? `[${ministryNames[ministryKey] || ministryKey}] ` : '';
+        const eventTitle = `${ministryPrefix}${res.eventName} (${res.rooms?.join(', ') || 'N/A'})`;
+
         if (!res.frequency || res.frequency === 'pontual') {
           allOccurrences.push({
             id: res.id,
-            title: `${res.eventName} (${res.rooms?.join(', ') || 'N/A'})`,
+            title: eventTitle,
             start: baseStart,
             end: baseEnd,
             resource: res,
@@ -305,7 +312,7 @@ export function ReservationsCalendar({
                 if (isNaN(occStart.getTime()) || isNaN(occEnd.getTime())) return;
                 allOccurrences.push({
                   id: `${res.id}_spec_${sIdx}`,
-                  title: `${res.eventName} (${res.rooms?.join(', ') || 'N/A'})`,
+                  title: eventTitle,
                   start: occStart,
                   end: occEnd,
                   resource: res,
@@ -348,7 +355,7 @@ export function ReservationsCalendar({
 
                 allOccurrences.push({
                     id: `${res.id}_${occStart.getTime()}`,
-                    title: `${res.eventName} (${res.rooms?.join(', ') || 'N/A'})`,
+                    title: eventTitle,
                     start: occStart,
                     end: occEnd,
                     resource: res,
@@ -362,7 +369,7 @@ export function ReservationsCalendar({
     });
 
     return allOccurrences;
-  }, [reservations, strategicEvents, searchTerm, roomFilter, categoryFilter]);
+  }, [reservations, strategicEvents, searchTerm, roomFilter, categoryFilter, ministryFilter]);
 
   const eventStyleGetter = (event: any) => {
     const status = event.resource?.status || 'pending';

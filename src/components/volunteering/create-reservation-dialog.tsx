@@ -51,7 +51,8 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
   const [tempDate, setTempDate] = useState('');
   const [dayOfWeek, setDayOfWeek] = useState('');
   const [weekOfMonth, setWeekOfMonth] = useState<'1' | '2' | '3' | '4' | 'last'>('1');
-  const [categoryId, setCategoryId] = useState('');
+  const [categoryId, setCategoryId] = useState('regular');
+  const [ministry, setMinistry] = useState('geral');
   const [newCategoryName, setNewCategoryName] = useState('');
   const [isCreatingCategory, setIsCreatingCategory] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -85,7 +86,8 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
         setTempDate('');
         setDayOfWeek(existingReservation.dayOfWeek || '');
         setWeekOfMonth(existingReservation.weekOfMonth || '1');
-        setCategoryId(existingReservation.categoryId || '');
+        setCategoryId(existingReservation.categoryId || 'regular');
+        setMinistry((existingReservation as any).ministry || 'geral');
         setIsCreatingCategory(false);
         setNewCategoryName('');
 
@@ -124,7 +126,8 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
         setStartTime("19:00");
         setEndDate(now.toISOString().split('T')[0]);
         setEndTime("21:00");
-        setCategoryId('');
+        setCategoryId('regular');
+        setMinistry('geral');
         setIsCreatingCategory(false);
         setNewCategoryName('');
       }
@@ -204,7 +207,8 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
       status: existingReservation?.status || 'pending',
       frequency,
       dayOfWeek: ['semanal', 'quinzenal', 'mensal'].includes(frequency) ? dayOfWeek : '',
-      categoryId: finalCategoryId,
+      categoryId: categoryId,
+      ministry: ministry,
       specificDates: isMultiplas ? specificDates : [],
     };
     
@@ -409,27 +413,32 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
               />
             </div>
               </div>
-              <div>
-                <Label htmlFor="categoryId">Categoria</Label>
-                {isCreatingCategory ? (
-                  <div className="flex gap-2">
-                    <Input 
-                      placeholder="Nome da nova categoria..." 
-                      value={newCategoryName} 
-                      onChange={e => setNewCategoryName(e.target.value)}
-                      autoFocus
-                    />
-                    <Button variant="outline" size="sm" onClick={() => { setIsCreatingCategory(false); setNewCategoryName(''); }}>Cancelar</Button>
-                  </div>
-                ) : (
-                  <Select value={categoryId} onValueChange={(v) => { if (v === 'new') { setIsCreatingCategory(true); } else { setCategoryId(v); } }}>
-                    <SelectTrigger id="categoryId"><SelectValue placeholder="Selecione uma categoria" /></SelectTrigger>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="categoryId">Categoria</Label>
+                  <Select value={categoryId} onValueChange={(v) => setCategoryId(v)}>
+                    <SelectTrigger id="categoryId"><SelectValue placeholder="Categoria" /></SelectTrigger>
                     <SelectContent>
-                        {reservationCategories.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}
-                        <SelectItem value="new" className="text-primary font-bold">+ Criar Nova Categoria...</SelectItem>
+                      <SelectItem value="regular">Regular</SelectItem>
+                      <SelectItem value="eventual">Eventual</SelectItem>
                     </SelectContent>
                   </Select>
-                )}
+                </div>
+                <div>
+                  <Label htmlFor="ministry">Ministério</Label>
+                  <Select value={ministry} onValueChange={(v) => setMinistry(v)}>
+                    <SelectTrigger id="ministry"><SelectValue placeholder="Ministério" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="geral">Geral / Outro</SelectItem>
+                      <SelectItem value="gleed">Gleed</SelectItem>
+                      <SelectItem value="homens">Homens</SelectItem>
+                      <SelectItem value="mulheres">Mulheres</SelectItem>
+                      <SelectItem value="greem">Greem</SelectItem>
+                      <SelectItem value="kids">Kids</SelectItem>
+                      <SelectItem value="jovens">Jovens</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div>
                   <Label>Salas/Ambientes</Label>

@@ -141,6 +141,8 @@ service cloud.firestore {
     match /reservation_categories/{document=**} { allow read, write: if isAuthenticated(); }
     match /rooms/{document=**} { allow read, write: if isAuthenticated(); }
     match /saved_schedules/{document=**} { allow read, write: if isAuthenticated(); }
+    match /worship_plans/{document=**} { allow read, write: if isAuthenticated(); }
+    match /worship_templates/{document=**} { allow read, write: if isAuthenticated(); }
     match /wave_plans/{document=**} { allow read, write: if isAuthenticated(); }
     match /dis_plans/{document=**} { allow read, write: if isAuthenticated(); }
     match /wave_expenses/{document=**} { allow read, write: if isAuthenticated(); }

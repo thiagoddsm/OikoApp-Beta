@@ -665,6 +665,9 @@ interface VolunteeringContextType {
   deleteRoom: (id: string) => Promise<void>;
   addReservationCategory: (data: Omit<ReservationCategory, 'id'>) => Promise<void>;
   deleteReservationCategory: (id: string) => Promise<void>;
+  addMinistry: (data: any) => Promise<void>;
+  updateMinistry: (id: string, data: any) => Promise<void>;
+  deleteMinistry: (id: string) => Promise<void>;
   addReservation: (data: Omit<RoomReservation, 'id'>) => Promise<void>;
   updateReservation: (id: string, data: Partial<RoomReservation>) => Promise<void>;
   deleteReservation: (id: string) => Promise<void>;
@@ -841,6 +844,9 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
     deleteRoom: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'rooms', id)); },
     addReservationCategory: async (data: any) => { await addDoc(collection(firestore!, 'reservation_categories'), data); },
     deleteReservationCategory: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'reservation_categories', id)); },
+    addMinistry: async (data: any) => { await addDoc(collection(firestore!, 'ministries'), data); },
+    updateMinistry: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'ministries', id), data); },
+    deleteMinistry: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'ministries', id)); },
     addReservation: async (data: any) => { await addDoc(collection(firestore!, 'room_reservations'), data); },
     updateReservation: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'room_reservations', id), data); },
     deleteReservation: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'room_reservations', id)); },
