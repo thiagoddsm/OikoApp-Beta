@@ -154,8 +154,8 @@ export async function POST(request: Request) {
                     if (clean.length > 15) {
                         return `${clean}@lid`;
                     }
-                    // Adiciona o DDI '55' do Brasil se não estiver presente
-                    return clean.startsWith('55') ? clean : `55${clean}`;
+                    const withCountry = clean.startsWith('55') ? clean : `55${clean}`;
+                    return `${withCountry}@s.whatsapp.net`;
                 })
             }),
         });
