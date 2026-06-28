@@ -77,20 +77,20 @@ export function useWorship() {
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function WorshipProvider({ children }: { children: ReactNode }) {
-  const { firestore } = useFirebase();
+  const { firestore, user } = useFirebase();
   const { tenantId } = useTenant();
 
   const plansQ = useMemoFirebase(
-    () => (firestore && tenantId)
+    () => (firestore && tenantId && user)
       ? query(collection(firestore, 'worship_plans'), where('tenantId', '==', tenantId), orderBy('date', 'desc'))
       : null,
-    [firestore, tenantId]
+    [firestore, tenantId, user]
   );
   const templatesQ = useMemoFirebase(
-    () => (firestore && tenantId)
+    () => (firestore && tenantId && user)
       ? query(collection(firestore, 'worship_templates'), where('tenantId', '==', tenantId), orderBy('createdAt', 'desc'))
       : null,
-    [firestore, tenantId]
+    [firestore, tenantId, user]
   );
 
   const { data: plansRaw, isLoading: plansLoading } = useCollection<WorshipPlan>(plansQ);
