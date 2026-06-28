@@ -162,11 +162,17 @@ export async function POST(request: Request) {
 
         const resData = await res.json().catch(() => ({}));
         if (!res.ok) {
-            return NextResponse.json({ success: false, error: resData.message || `Erro ${res.status} ao criar grupo` }, { status: res.status });
+            console.error("Evolution API Group Create Error Payload:", resData);
+            const detailError = resData.message || (Array.isArray(resData.error) ? resData.error.join(', ') : resData.error) || null;
+            return NextResponse.json({ 
+                success: false, 
+                error: detailError || `Erro ${res.status} ao criar grupo no WhatsApp` 
+            }, { status: res.status });
         }
 
         return NextResponse.json({ success: true, group: resData.data || resData });
     } catch (error: any) {
+        console.error("Internal Server Error in Group POST route:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
