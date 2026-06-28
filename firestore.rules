@@ -116,6 +116,9 @@ service cloud.firestore {
     match /presencas_historico/{presencaId} {
       allow read, write: if isAuthenticated();
     }
+    match /registros_de_presenca/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
 
     // CORREÇÃO CRÍTICA 2: Mapeamento Explícito das Coleções Órfãs (Substitui o Fallback Global)
     match /system_settings/{document=**} {
