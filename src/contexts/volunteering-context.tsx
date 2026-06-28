@@ -414,60 +414,7 @@ export function getResolvedSchedule(classData: any, courseData: any) {
         }
     }
 
-    // 2. Para cada ocorrência, gerar os itens do cronograma (com suporte a multi-slot)
-    const targetCount = syllabus.length > 0 ? syllabus.length : 12;
-    let syllabusIndex = 0;
 
-    for (const occDate of occurrenceDates) {
-        if (items.length >= targetCount) break;
-
-        const dateStr = format(occDate, 'yyyy-MM-dd');
-        
-        // Pular se for feriado e não houver override forçando
-        if (holidaySet.has(dateStr) && !overrides[dateStr]) {
-            continue;
-        }
-
-        // Verificar cancelamento no nível do dia inteiro
-        const dayOverride = overrides[dateStr];
-        if (dayOverride?.isCancelled) {
-            continue;
-        }
-
-        // Gerar entrada para cada slot do dia
-        for (let slotIdx = 0; slotIdx < slotsPerDay; slotIdx++) {
-            if (items.length >= targetCount) break;
-
-            const slot = slots[slotIdx];
-            const slotDateStr = slotsPerDay > 1 ? `${dateStr}T${slot.startTime}` : dateStr;
-            
-            // Verificar override no nível do slot (para multi-slot)
-            const slotOverride = slotsPerDay > 1 ? overrides[slotDateStr] : dayOverride;
-            
-            if (slotOverride?.isCancelled) {
-                syllabusIndex++;
-                continue;
-            }
-
-            const effectiveOverride = slotOverride || (slotsPerDay === 1 ? dayOverride : null);
-
-            const syllabusItem = effectiveOverride?.syllabusId 
-                ? syllabus.find((s: any) => s.id === effectiveOverride.syllabusId) 
-                : syllabus[syllabusIndex];
-            
-            const originalIdx = effectiveOverride?.syllabusId
-                ? syllabus.findIndex((s: any) => s.id === effectiveOverride.syllabusId)
-                : syllabusIndex;
-
-            items.push({
-                dateStr: slotDateStr,
-                date: occDate,
-                syllabusItem,
-                syllabusOriginalIndex: originalIdx,
-                isOverride: !!effectiveOverride,
-                startTime: slot.startTime,
-                endTime: slot.endTime,
-                slotIndex: slotsPerDay > 1 ? slotIdx : undefined,
                 slotsPerDay: slotsPerDay > 1 ? slotsPerDay : undefined,
             });
 

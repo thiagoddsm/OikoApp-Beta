@@ -4,7 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { useVolunteering, getModuleIndexForDate, weekDayMap, Course, Class } from '@/contexts/volunteering-context';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Clock, Award, Loader2, Users, GraduationCap, ChevronRight, XCircle, Minus, Video, PlayCircle, Star, Filter, RefreshCw, Send, Info, ListFilter, Search } from 'lucide-react';
+import { CheckCircle2, Clock, Award, Loader2, Users, GraduationCap, ChevronRight, XCircle, Minus, Video, PlayCircle, Star, Filter, RefreshCw, Send, Info, ListFilter, Search, Upload, FileText } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -18,6 +18,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { addTimelineEvent } from '@/lib/timeline';
 import { useFirebase } from '@/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { RetroactiveApprovalDialog } from './retroactive-approval-dialog';
 import { CertificateView } from './certificate-view';
 import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
@@ -52,7 +53,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
 
     const { updateVolunteer, isLoading } = useVolunteering();
     const { toast } = useToast();
-    const { firestore, user: currentUser } = useFirebase();
+    const { firestore, storage, user: currentUser } = useFirebase();
     const [selectedClassId, setSelectedClassId] = useState<string>('all');
     const [isSyncing, setIsSyncing] = useState(false);
     const [isRetroactiveOpen, setRetroactiveOpen] = useState(false);
@@ -67,8 +68,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
     const [selectedCertificate, setSelectedCertificate] = useState<{
         studentName: string;
         courseName: string;
-        className: string;
-        completionDate?: string;
+        pdfUrl: string;
     } | null>(null);
 
     const course = useMemo(() => courses.find(c => c.id === courseId), [courses, courseId]);
@@ -653,7 +653,35 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                                     const total = useModuleView ? modules.filter(m => m.type !== 'Eletivo').length : allDates.length;
                                                     const percent = total > 0 ? (completedCount / total) * 100 : 0;
                                                     const isApproved = percent >= threshold;
+                                                    const uploadedPdfUrl = student.journey?.certificates?.[courseId];
                                                     
+                                                    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+                                                        const file = e.target.files?.[0];
+                                                        if (!file || !storage) return;
+
+                                                        try {
+                                                            const fileRef = ref(storage, `certificates/${student.id}/${courseId}.pdf`);
+                                                            await uploadBytes(fileRef, file);
+                                                            const downloadUrl = await getDownloadURL(fileRef);
+
+                                                            await updateVolunteer(student.id, {
+                                                                [`journey.certificates.${courseId}`]: downloadUrl
+                                                            });
+
+                                                            toast({
+                                                                title: "Certificado Enviado",
+                                                                description: `O certificado em PDF para ${student.name} foi salvo com sucesso.`
+                                                            });
+                                                        } catch (err: any) {
+                                                            console.error(err);
+                                                            toast({
+                                                                variant: "destructive",
+                                                                title: "Falha no Upload",
+                                                                description: err.message || "Erro desconhecido."
+                                                            });
+                                                        }
+                                                    };
+
                                                     return (
                                                         <div className="flex items-center justify-center gap-1.5">
                                                             <Badge 
@@ -662,20 +690,38 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                                             >
                                                                 {isApproved ? "APTO" : `${Math.round(percent)}%`}
                                                             </Badge>
-                                                            {isApproved && (
+
+                                                            {/* Upload de Certificado PDF */}
+                                                            <div className="flex items-center gap-1">
+                                                                <input
+                                                                    type="file"
+                                                                    accept="application/pdf"
+                                                                    onChange={handleFileUpload}
+                                                                    className="hidden"
+                                                                    id={`pdf-upload-${student.id}`}
+                                                                />
                                                                 <button
-                                                                    title="Ver Certificado"
-                                                                    onClick={() => setSelectedCertificate({
-                                                                        studentName: student.name,
-                                                                        courseName: course?.name || 'Curso',
-                                                                        className: studentClass?.name || 'Geral',
-                                                                        completionDate: studentClass?.endDate
-                                                                    })}
-                                                                    className="p-1 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors"
+                                                                    title="Fazer Upload de Certificado (PDF)"
+                                                                    onClick={() => document.getElementById(`pdf-upload-${student.id}`)?.click()}
+                                                                    className="p-1 rounded bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
                                                                 >
-                                                                    <Award size={14} />
+                                                                    <Upload size={14} />
                                                                 </button>
-                                                            )}
+
+                                                                {uploadedPdfUrl ? (
+                                                                    <button
+                                                                        title="Ver Certificado Uploaded"
+                                                                        onClick={() => setSelectedCertificate({
+                                                                            studentName: student.name,
+                                                                            courseName: course?.name || 'Curso',
+                                                                            pdfUrl: uploadedPdfUrl
+                                                                        })}
+                                                                        className="p-1 rounded bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors"
+                                                                    >
+                                                                        <FileText size={14} />
+                                                                    </button>
+                                                                ) : null}
+                                                            </div>
                                                         </div>
                                                     )
                                                 })()}
@@ -750,8 +796,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                         onOpenChange={(open) => !open && setSelectedCertificate(null)}
                         studentName={selectedCertificate.studentName}
                         courseName={selectedCertificate.courseName}
-                        className={selectedCertificate.className}
-                        completionDate={selectedCertificate.completionDate}
+                        pdfUrl={selectedCertificate.pdfUrl}
                     />
                 )}
             </div>
