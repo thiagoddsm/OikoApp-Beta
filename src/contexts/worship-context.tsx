@@ -1,8 +1,8 @@
 'use client';
 
-import React, { createContext, useContext, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode, useMemo } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy, doc, addDoc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, doc, addDoc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import { useTenant } from '@/contexts/tenant-context';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -86,15 +86,17 @@ export function WorshipProvider({ children }: { children: ReactNode }) {
   // INTERNAL ASSERTION FAILED crash (ID ca9 / b815).
   const ready = !isUserLoading && !!user && !!firestore && !!tenantId;
 
+  // Queries WITHOUT orderBy — avoids the need for composite indexes on the
+  // Firebase server.  Sorting is done in-memory below (useMemo).
   const plansQ = useMemoFirebase(
     () => ready
-      ? query(collection(firestore!, 'worship_plans'), where('tenantId', '==', tenantId), orderBy('date', 'desc'))
+      ? query(collection(firestore!, 'worship_plans'), where('tenantId', '==', tenantId))
       : null,
     [ready, firestore, tenantId]
   );
   const templatesQ = useMemoFirebase(
     () => ready
-      ? query(collection(firestore!, 'worship_templates'), where('tenantId', '==', tenantId), orderBy('createdAt', 'desc'))
+      ? query(collection(firestore!, 'worship_templates'), where('tenantId', '==', tenantId))
       : null,
     [ready, firestore, tenantId]
   );
@@ -102,8 +104,19 @@ export function WorshipProvider({ children }: { children: ReactNode }) {
   const { data: plansRaw, isLoading: plansLoading } = useCollection<WorshipPlan>(plansQ);
   const { data: templatesRaw, isLoading: templatesLoading } = useCollection<WorshipTemplate>(templatesQ);
 
-  const plans: WorshipPlan[] = plansRaw ?? [];
-  const templates: WorshipTemplate[] = templatesRaw ?? [];
+  // Sort in JavaScript instead of Firestore — no composite index required.
+  const plans: WorshipPlan[] = useMemo(
+    () => [...(plansRaw ?? [])].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '')),
+    [plansRaw]
+  );
+  const templates: WorshipTemplate[] = useMemo(
+    () => [...(templatesRaw ?? [])].sort((a, b) => {
+      const aTime = a.createdAt?.seconds ?? 0;
+      const bTime = b.createdAt?.seconds ?? 0;
+      return bTime - aTime;
+    }),
+    [templatesRaw]
+  );
   const isLoading = plansLoading || templatesLoading;
 
   // ── Plans ─────────────────────────────────────────────────────────────────
