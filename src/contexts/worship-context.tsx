@@ -77,20 +77,26 @@ export function useWorship() {
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function WorshipProvider({ children }: { children: ReactNode }) {
-  const { firestore, user } = useFirebase();
+  const { firestore, user, isUserLoading } = useFirebase();
   const { tenantId } = useTenant();
 
+  // Only fire queries once auth has resolved AND user is confirmed non-null.
+  // isUserLoading=true means Firebase hasn't confirmed session yet — firing
+  // a query in that state causes an auth-race that triggers Firestore's
+  // INTERNAL ASSERTION FAILED crash (ID ca9 / b815).
+  const ready = !isUserLoading && !!user && !!firestore && !!tenantId;
+
   const plansQ = useMemoFirebase(
-    () => (firestore && tenantId && user)
-      ? query(collection(firestore, 'worship_plans'), where('tenantId', '==', tenantId), orderBy('date', 'desc'))
+    () => ready
+      ? query(collection(firestore!, 'worship_plans'), where('tenantId', '==', tenantId), orderBy('date', 'desc'))
       : null,
-    [firestore, tenantId, user]
+    [ready, firestore, tenantId]
   );
   const templatesQ = useMemoFirebase(
-    () => (firestore && tenantId && user)
-      ? query(collection(firestore, 'worship_templates'), where('tenantId', '==', tenantId), orderBy('createdAt', 'desc'))
+    () => ready
+      ? query(collection(firestore!, 'worship_templates'), where('tenantId', '==', tenantId), orderBy('createdAt', 'desc'))
       : null,
-    [firestore, tenantId, user]
+    [ready, firestore, tenantId]
   );
 
   const { data: plansRaw, isLoading: plansLoading } = useCollection<WorshipPlan>(plansQ);
