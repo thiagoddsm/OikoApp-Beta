@@ -9,20 +9,53 @@ import { useTenant } from '@/contexts/tenant-context';
 
 export type WorshipItemType = 'header' | 'item' | 'song';
 
+export type SongAttachment = {
+  name: string;
+  url: string;
+  type: 'pdf' | 'mp3' | 'link';
+};
+
+export type DepartmentNotes = {
+  general?: string;
+  audio?: string;
+  video?: string;
+  banda?: string;
+  [key: string]: string | undefined;
+};
+
 export type WorshipItem = {
   id: string;
   type: WorshipItemType;
   order: number;
   title: string;
-  /** Duration in seconds (allows MM:SS display) */
+  /** Duration in seconds (allows MM:SS display). Can be negative for countdowns/pre-service. */
   durationSeconds?: number;
+  /** If true, this item occurs before the official start time (subtracts from startTime calculations) */
+  isPreService?: boolean;
   notes?: string;
+  departmentNotes?: DepartmentNotes;
   // Song-specific fields
   key?: string;
   bpm?: number;
   arrangement?: string;
+  attachments?: SongAttachment[];
   // PCS-inspired row color tag
   color?: 'none' | 'purple' | 'blue' | 'green' | 'yellow' | 'red' | 'gray';
+};
+
+export type WorshipTimeSlot = {
+  id: string;
+  type: 'service' | 'rehearsal' | 'other';
+  name: string;      // e.g. "Passagem de Som", "Culto Principal", "Call Time"
+  date?: string;     // YYYY-MM-DD (defaults to plan date if missing)
+  time: string;      // HH:mm
+};
+
+export type NeededPosition = {
+  id: string;
+  role: string;       // e.g., "Baterista", "Vocais", "Câmera 1"
+  userId?: string;    // Assigned user ID if any
+  userName?: string;  // Cache user name
 };
 
 export type WorshipPlan = {
@@ -31,10 +64,12 @@ export type WorshipPlan = {
   serviceEventId?: string;
   serviceEventName?: string;
   date: string;         // "YYYY-MM-DD"
-  startTime: string;    // "HH:mm"
+  startTime: string;    // "HH:mm" - Main service start time
   notes?: string;
   templateId?: string;
   items: WorshipItem[];
+  timeSlots?: WorshipTimeSlot[];
+  neededPositions?: NeededPosition[];
   tenantId: string;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
@@ -45,6 +80,7 @@ export type WorshipTemplate = {
   name: string;
   description?: string;
   items: WorshipItem[];
+  neededPositions?: NeededPosition[];
   tenantId: string;
   createdAt?: Timestamp;
 };
@@ -172,14 +208,27 @@ export function WorshipProvider({ children }: { children: ReactNode }) {
   const savePlanAsTemplate = async (planId: string, templateName: string) => {
     const plan = plans.find(p => p.id === planId);
     if (!plan) return;
-    await createTemplate({ name: templateName, items: plan.items });
+    await createTemplate({
+      name: templateName,
+      items: plan.items,
+      neededPositions: plan.neededPositions || [],
+    });
   };
 
   const applyTemplate = async (templateId: string, planId: string) => {
     const template = templates.find(t => t.id === templateId);
     if (!template) return;
     const items = template.items.map((item, idx) => ({ ...item, order: idx }));
+    const neededPositions = (template.neededPositions || []).map(p => ({
+      ...p,
+      userId: p.userId || undefined, // keep fixed volunteers, clear dynamic assignments if necessary
+      userName: p.userName || undefined,
+    }));
     await updatePlanItems(planId, items);
+    await updateDoc(doc(firestore!, 'worship_plans', planId), {
+      neededPositions,
+      updatedAt: Timestamp.now(),
+    });
   };
 
   return (
@@ -195,23 +244,36 @@ export function WorshipProvider({ children }: { children: ReactNode }) {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Compute wall-clock time for each item given plan start time */
+/** Compute wall-clock time for each item given plan start time, including pre-service items */
 export function computeScheduledTimes(
   items: WorshipItem[],
   startTime: string
 ): (WorshipItem & { scheduledTime?: string })[] {
   const [startH, startM] = startTime.split(':').map(Number);
-  let totalSeconds = ((startH || 0) * 60 + (startM || 0)) * 60;
+  const baseSeconds = ((startH || 0) * 60 + (startM || 0)) * 60;
+
+  // First pass: calculate total pre-service duration to find the start time of the first item
+  const preServiceSeconds = items
+    .filter(item => item.type !== 'header' && item.isPreService && item.durationSeconds)
+    .reduce((acc, item) => acc + (item.durationSeconds || 0), 0);
+
+  let currentSeconds = baseSeconds - preServiceSeconds;
 
   return items.map(item => {
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    const scheduledTime = item.type !== 'header'
-      ? `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-      : undefined;
+    // If it's a header, we don't display a time slot.
+    if (item.type === 'header') {
+      return { ...item, scheduledTime: undefined };
+    }
 
-    if (item.type !== 'header' && item.durationSeconds) {
-      totalSeconds += item.durationSeconds;
+    // Convert current seconds to 24h format (handling values below zero if necessary, though currentSeconds starts negative)
+    // To keep it positive and wrap nicely:
+    const normalizedSeconds = (currentSeconds + 24 * 3600) % (24 * 3600);
+    const h = Math.floor(normalizedSeconds / 3600);
+    const m = Math.floor((normalizedSeconds % 3600) / 60);
+    const scheduledTime = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+
+    if (item.durationSeconds) {
+      currentSeconds += item.durationSeconds;
     }
 
     return { ...item, scheduledTime };
