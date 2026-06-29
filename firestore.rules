@@ -11,7 +11,7 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isAuthenticated() && 
+      return isAuthenticated() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         (
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.hierarchy.role == 'admin' ||
@@ -19,6 +19,28 @@ service cloud.firestore {
         );
     }
 
+    // ── Usuários ───────────────────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isOwner(userId);
+      allow update: if isAuthenticated() && (
+        isAdmin() ||
+        (isOwner(userId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['hierarchy', 'roles', 'isTeacher', 'globalRoles'])))
+      );
+      allow delete: if isAdmin();
+    }
+    match /users/{userId}/notes/{noteId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /member_notes/{document=**} { allow read, write: if isAuthenticated(); }
+
+    // ── Inscrições e Matrículas ────────────────────────────────────────────────
+    match /enrollment_requests/{requestId} {
+      allow create: if true;
+      allow read, write: if isAuthenticated();
+    }
+
+    // ── Ensino (Cursos, Aulas, Logs) ───────────────────────────────────────────
     match /courses/{courseId} {
       allow read: if true;
       allow write: if isAuthenticated();
@@ -27,114 +49,60 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAuthenticated();
     }
-    match /theoflix_courses/{courseId} {
+    match /theoflix_courses/{document=**} {
       allow read: if true;
       allow write: if isAuthenticated();
     }
-    match /theoflix_levels/{levelId} {
+    match /theoflix_levels/{document=**} {
       allow read: if true;
       allow write: if isAuthenticated();
     }
+    match /pedagogical_logs/{document=**} { allow read, write: if isAuthenticated(); }
+    match /discipleship_checklists/{document=**} { allow read, write: if isAuthenticated(); }
+    match /journey_stages/{document=**} { allow read, write: if isAuthenticated(); }
+    match /journey_phase_requirements/{document=**} { allow read, write: if isAuthenticated(); }
 
-    // CORREÇÃO CRÍTICA 1: Bloquear elevação de privilégio (Self-Elevation)
-    match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && isOwner(userId);
-      // Se for o dono do perfil, permite update APENAS SE não estiver alterando a própria hierarquia ou roles
-      allow update: if isAuthenticated() && (
-        isAdmin() || 
-        (isOwner(userId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['hierarchy', 'roles', 'isTeacher', 'globalRoles'])))
-      );
-      allow delete: if isAdmin();
-    }
-
-    match /users/{userId}/notes/{noteId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    match /enrollment_requests/{requestId} {
-      allow create: if true;
-      allow read, write: if isAuthenticated();
-    }
-
-    match /wave_payments/{paymentId} {
-      allow read: if isAuthenticated() && (
-        resource == null || resource.data.userId == request.auth.uid || isAdmin()
-      );
-      allow list: if isAuthenticated();
-      allow write: if isAuthenticated() && isAdmin();
-    }
-
-    match /dis_payments/{paymentId} {
-      allow read: if isAuthenticated() && (
-        resource == null || resource.data.userId == request.auth.uid || isAdmin()
-      );
-      allow list: if isAuthenticated();
-      allow write: if isAuthenticated() && isAdmin();
-    }
-
-    match /pedagogical_logs/{logId} {
-      allow read, write: if isAuthenticated();
-    }
-
+    // ── Finanças ───────────────────────────────────────────────────────────────
     match /finance_requests/{reqId} {
       allow create: if true;
       allow read, write: if isAuthenticated();
     }
+    match /financial_transactions/{txId} { allow read, write: if isAdmin(); }
+    match /wave_payments/{paymentId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isAuthenticated();
+      allow write: if isAuthenticated() && isAdmin();
+    }
+    match /dis_payments/{paymentId} {
+      allow read: if isAuthenticated() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isAuthenticated();
+      allow write: if isAuthenticated() && isAdmin();
+    }
+    match /wave_plans/{document=**} { allow read, write: if isAuthenticated(); }
+    match /dis_plans/{document=**} { allow read, write: if isAuthenticated(); }
+    match /wave_expenses/{document=**} { allow read, write: if isAuthenticated(); }
+    match /contaAzulEntries/{document=**} { allow read, write: if isAuthenticated(); }
+    match /beneficiaries/{document=**} { allow read, write: if isAuthenticated(); }
 
-    match /financial_transactions/{txId} {
-      allow read, write: if isAdmin();
-    }
+    // ── Patrimônio ────────────────────────────────────────────────────────────
+    match /patrimonio/{document=**} { allow read, write: if isAuthenticated(); }
 
-    match /access_profiles/{profileId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
+    // ── Metas ─────────────────────────────────────────────────────────────────
+    match /goals/{document=**} { allow read, write: if isAuthenticated(); }
 
-    match /config/theoflix {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
+    // ── Presença e Frequência ─────────────────────────────────────────────────
+    match /registros_de_presenca/{document=**} { allow read, write: if isAuthenticated(); }
+    match /presencas_historico/{document=**} { allow read, write: if isAuthenticated(); }
+    match /attendance_reports/{document=**} { allow read, write: if isAuthenticated(); }
 
-    match /notification_campaigns/{campaignId} {
-      allow read, write: if isAuthenticated();
-    }
+    // ── Células, Áreas e Redes (GC) ───────────────────────────────────────────
+    match /cells/{document=**} { allow read, write: if isAuthenticated(); }
+    match /areas/{document=**} { allow read, write: if isAuthenticated(); }
+    match /redes/{document=**} { allow read, write: if isAuthenticated(); }
+    match /reuniao_logs/{document=**} { allow read, write: if isAuthenticated(); }
+    match /ministries/{document=**} { allow read, write: if isAuthenticated(); }
 
-    // Células, Áreas e Redes (GC)
-    match /cells/{cellId} {
-      allow read, write: if isAuthenticated();
-    }
-    match /areas/{areaId} {
-      allow read, write: if isAuthenticated();
-    }
-    match /redes/{redeId} {
-      allow read, write: if isAuthenticated();
-    }
-    match /reuniao_logs/{logId} {
-      allow read, write: if isAuthenticated();
-    }
-    match /presencas_historico/{presencaId} {
-      allow read, write: if isAuthenticated();
-    }
-    match /registros_de_presenca/{document=**} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // CORREÇÃO CRÍTICA 2: Mapeamento Explícito das Coleções Órfãs (Substitui o Fallback Global)
-    match /system_settings/{document=**} {
-      allow read, write: if isAdmin(); // Protege o token do Asaas Webhook
-    }
-    match /asaasPayments/{document=**} {
-      allow read, write: if isAdmin();
-    }
-    match /asaasSubscriptions/{document=**} {
-      allow read, write: if isAdmin();
-    }
-    match /asaasAnticipations/{document=**} {
-      allow read, write: if isAdmin();
-    }
-
-    // Eventos e Voluntariado
+    // ── Eventos e Voluntariado ─────────────────────────────────────────────────
     match /event_registrations/{document=**} { allow read, write: if isAuthenticated(); }
     match /volunteering_events/{document=**} { allow read, write: if isAuthenticated(); }
     match /teams/{document=**} { allow read, write: if isAuthenticated(); }
@@ -144,12 +112,41 @@ service cloud.firestore {
     match /reservation_categories/{document=**} { allow read, write: if isAuthenticated(); }
     match /rooms/{document=**} { allow read, write: if isAuthenticated(); }
     match /saved_schedules/{document=**} { allow read, write: if isAuthenticated(); }
+
+    // ── Ordem de Culto ─────────────────────────────────────────────────────────
     match /worship_plans/{document=**} { allow read, write: if isAuthenticated(); }
     match /worship_templates/{document=**} { allow read, write: if isAuthenticated(); }
-    match /wave_plans/{document=**} { allow read, write: if isAuthenticated(); }
-    match /dis_plans/{document=**} { allow read, write: if isAuthenticated(); }
-    match /wave_expenses/{document=**} { allow read, write: if isAuthenticated(); }
 
-    // O FALLBACK INSEGURO FOI REMOVIDO
+    // ── Notificações / WhatsApp ────────────────────────────────────────────────
+    match /notification_campaigns/{document=**} { allow read, write: if isAuthenticated(); }
+    match /notifications_blacklist/{document=**} { allow read, write: if isAuthenticated(); }
+    match /notifications_chats/{document=**} { allow read, write: if isAuthenticated(); }
+    match /notifications_contacts/{document=**} { allow read, write: if isAuthenticated(); }
+    match /notifications_history/{document=**} { allow read, write: if isAuthenticated(); }
+    match /notifications_messages/{document=**} { allow read, write: if isAuthenticated(); }
+    match /notifications_responses/{document=**} { allow read, write: if isAuthenticated(); }
+    match /automation_rules/{document=**} { allow read, write: if isAuthenticated(); }
+
+    // ── Orações / Social ───────────────────────────────────────────────────────
+    match /prayer_requests/{document=**} { allow read, write: if isAuthenticated(); }
+    match /social_actions/{document=**} { allow read, write: if isAuthenticated(); }
+
+    // ── Controle de Acesso ────────────────────────────────────────────────────
+    match /access_profiles/{profileId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ── Configurações ─────────────────────────────────────────────────────────
+    match /config/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ── Asaas (Financeiro externo) ────────────────────────────────────────────
+    match /system_settings/{document=**} { allow read, write: if isAdmin(); }
+    match /asaasPayments/{document=**} { allow read, write: if isAdmin(); }
+    match /asaasSubscriptions/{document=**} { allow read, write: if isAdmin(); }
+    match /asaasAnticipations/{document=**} { allow read, write: if isAdmin(); }
   }
 }
