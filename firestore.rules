@@ -137,6 +137,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ── Tenants ───────────────────────────────────────────────────────────────
+    match /tenants/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
     // ── Configurações ─────────────────────────────────────────────────────────
     match /config/{document=**} {
       allow read: if isAuthenticated();
