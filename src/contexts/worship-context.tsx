@@ -88,13 +88,13 @@ export function WorshipProvider({ children }: { children: ReactNode }) {
 
   const plansQ = useMemoFirebase(
     () => ready
-      ? query(collection(firestore!, 'worship_plans'), where('tenantId', '==', tenantId), orderBy('date', 'desc'))
+      ? query(collection(firestore!, 'worship_plans'), where('tenantId', '==', tenantId))
       : null,
     [ready, firestore, tenantId]
   );
   const templatesQ = useMemoFirebase(
     () => ready
-      ? query(collection(firestore!, 'worship_templates'), where('tenantId', '==', tenantId), orderBy('createdAt', 'desc'))
+      ? query(collection(firestore!, 'worship_templates'), where('tenantId', '==', tenantId))
       : null,
     [ready, firestore, tenantId]
   );
