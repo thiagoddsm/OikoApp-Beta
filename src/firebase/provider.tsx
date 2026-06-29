@@ -82,6 +82,14 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   }, [firestore]);
 
   useEffect(() => {
+    if (typeof window !== 'undefined' && firestore && auth) {
+      (window as any).db = firestore;
+      (window as any).auth = auth;
+      console.log('🔥 [FirebaseProvider] Exposed window.db and window.auth for developer console debugging.');
+    }
+  }, [firestore, auth]);
+
+  useEffect(() => {
     if (!auth) {
       setUserAuthState({ user: null, isUserLoading: false, userError: new Error("Auth service not provided.") });
       return;
