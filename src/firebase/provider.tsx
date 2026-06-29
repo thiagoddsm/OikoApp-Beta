@@ -94,6 +94,13 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       (firebaseUser) => {
         setUserAuthState({ user: firebaseUser, isUserLoading: false, userError: null });
 
+        if (firebaseUser) {
+          // Force refreshing the auth ID token to prevent expired/cached token issues that lead to Permission Denied errors
+          firebaseUser.getIdToken(true)
+            .then(() => console.log('🔥 [FirebaseProvider] Auth ID Token successfully refreshed.'))
+            .catch(e => console.error('🔥 [FirebaseProvider] Failed to force-refresh ID Token:', e));
+        }
+
         // Sincroniza lastLoginAt, email e displayName no Firestore quando o usuário retoma sessão.
         // IMPORTANTE: usa updateDoc (não setDoc/merge) para NÃO criar o documento caso ele
         // ainda não exista — a criação/migração é responsabilidade de resolveUserProfile().
