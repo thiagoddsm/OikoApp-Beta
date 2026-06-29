@@ -76,6 +76,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   useInactivityLogout(userAuthState.user ? auth : null, INACTIVITY_HOURS);
 
   useEffect(() => {
+    if (firestore) {
+      console.log('🔥 [FirebaseProvider] Active Firestore Project ID:', (firestore as any)._databaseId?.projectId || firestore.app?.options?.projectId);
+    }
+  }, [firestore]);
+
+  useEffect(() => {
     if (!auth) {
       setUserAuthState({ user: null, isUserLoading: false, userError: new Error("Auth service not provided.") });
       return;
