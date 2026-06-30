@@ -173,7 +173,15 @@ function PedagogicalLogPageContent() {
                 // Se o módulo já passou na turma dele e ele não estava presente, ele é pendente!
                 // Mas e se o módulo ainda nem ocorreu na turma dele?
                 // Podemos mostrar alunos de turmas onde o módulo JÁ OCORREU (date <= today)
-                const moduleAlreadyPassed = matchingDates.some(mDate => isBefore(parseISO(mDate.split('T')[0]), addDays(new Date(), 1)));
+                const moduleAlreadyPassed = matchingDates.some(mDate => {
+                    if (!mDate) return false;
+                    try {
+                        const parsed = parseISO(mDate.split('T')[0]);
+                        return !isNaN(parsed.getTime()) && isBefore(parsed, addDays(new Date(), 1));
+                    } catch (e) {
+                        return false;
+                    }
+                });
 
                 if (moduleAlreadyPassed && !attendedInSibling) {
                     studentIds.add(sid);
@@ -559,8 +567,21 @@ function PedagogicalLogPageContent() {
                                     const startTime = resolvedSchedule[idx]?.startTime;
                                     const titlePrefix = isExtra ? 'AULA EXTRA' : `AULA ${idx + 1}`;
                                     
-                                    const baseDateStr = date.split('T')[0];
+                                    const baseDateStr = date ? date.split('T')[0] : '';
                                     const timeDisplay = startTime ? ` às ${startTime}` : '';
+
+                                    // Validar se a data é válida antes de formatar
+                                    let formattedDate = 'Data Pendente';
+                                    if (baseDateStr) {
+                                        try {
+                                            const parsed = parseISO(baseDateStr);
+                                            if (!isNaN(parsed.getTime())) {
+                                                formattedDate = format(parsed, 'dd/MM/yyyy');
+                                            }
+                                        } catch (e) {
+                                            console.error(e);
+                                        }
+                                    }
 
                                     return (
                                         <button key={date} onClick={() => setSelectedDate(date)} className={cn(
@@ -572,7 +593,7 @@ function PedagogicalLogPageContent() {
                                                     {titlePrefix} {mName ? `- ${mName}` : ''}
                                                 </p>
                                                 <p className="text-sm font-bold flex items-center gap-2">
-                                                    {format(parseISO(baseDateStr), 'dd/MM/yyyy')}{timeDisplay}
+                                                    {formattedDate}{timeDisplay}
                                                     {isRepoOnly && <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 text-[9px] h-4 px-1 py-0 uppercase">Reposição</Badge>}
                                                 </p>
                                             </div>
