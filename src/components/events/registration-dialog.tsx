@@ -27,6 +27,18 @@ interface RegistrationDialogProps {
     requiredCourseId?: string;
     registrationPageType?: 'system' | 'custom_html';
     customHtmlCode?: string;
+
+    // Novos atributos opcionais
+    tickets?: {
+      id: string;
+      name: string;
+      description: string;
+      price: number;
+      limit?: number;
+      isActive: boolean;
+    }[];
+    allowCompanions?: boolean;
+    maxCompanions?: number;
   };
 }
 
@@ -37,7 +49,8 @@ export function RegistrationDialog({ open, onOpenChange, event }: RegistrationDi
 
   const { toast } = useToast();
 
-  const [companionName, setCompanionName] = useState('');
+  const [selectedTicketId, setSelectedTicketId] = useState<string>('');
+  const [companions, setCompanions] = useState<{ name: string; age: string }[]>([]);
   const [step, setStep] = useState<'details' | 'payment' | 'success'>('details');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -124,17 +137,30 @@ export function RegistrationDialog({ open, onOpenChange, event }: RegistrationDi
   useEffect(() => {
     if (open) {
       setStep('details');
-      setCompanionName('');
+      setCompanions([]);
+      setSelectedTicketId(event.tickets && event.tickets.length > 0 ? event.tickets[0].id : '');
       setCopied(false);
       setRegistrationId('');
     }
-  }, [open]);
+  }, [open, event]);
+
+  // Encontrar o ticket selecionado
+  const selectedTicket = useMemo(() => {
+    if (!event.tickets || event.tickets.length === 0) return null;
+    return event.tickets.find(t => t.id === selectedTicketId) || event.tickets[0];
+  }, [event.tickets, selectedTicketId]);
+
+  // Preço final calculado (do lote selecionado ou o preço global do evento)
+  const finalPrice = useMemo(() => {
+    if (selectedTicket) return selectedTicket.price;
+    return event.isPaid === 'pago' ? (event.ticketPrice || 0) : 0;
+  }, [selectedTicket, event]);
 
   const pixKey = "pix.ibmcamp.com.br";
   const pixCode = useMemo(() => {
-    const priceStr = (event.ticketPrice || 0).toFixed(2);
+    const priceStr = finalPrice.toFixed(2);
     return `00020101021226830014br.gov.bcb.pix2561${pixKey}/oiko/event/${event.id}520400005303986540${priceStr.length}${priceStr}5802BR5915Igreja Batista6009Sao Paulo62070503ibm6304abcd`;
-  }, [event]);
+  }, [event, finalPrice]);
 
   const handleCopyPix = () => {
     navigator.clipboard.writeText(pixCode);
@@ -159,7 +185,9 @@ export function RegistrationDialog({ open, onOpenChange, event }: RegistrationDi
 
     setIsSubmitting(true);
     try {
-      const isPaid = event.isPaid === 'pago';
+      // É pago apenas se o preço final for maior que 0 e o evento estiver configurado como pago
+      const finalPriceValue = finalPrice;
+      const isPaid = event.isPaid === 'pago' && finalPriceValue > 0;
       const initialPaymentStatus = isPaid ? 'pending' : 'approved';
 
       const regData = {
@@ -174,7 +202,7 @@ export function RegistrationDialog({ open, onOpenChange, event }: RegistrationDi
         payment: {
           status: initialPaymentStatus,
           method: isPaid ? 'pix' : 'free',
-          valuePaid: isPaid ? (event.ticketPrice || 0) : 0,
+          valuePaid: finalPriceValue,
           paidAt: isPaid ? null : Timestamp.now(),
           transactionId: isPaid ? `pix_${Math.random().toString(36).substring(2, 11)}` : 'free'
         },
@@ -183,7 +211,10 @@ export function RegistrationDialog({ open, onOpenChange, event }: RegistrationDi
           checkedInAt: null,
           checkedInBy: null
         },
-        companionName: companionName.trim(),
+        ticketId: selectedTicket?.id || 'standard',
+        ticketName: selectedTicket?.name || 'Inscrição Padrão',
+        companions: companions.filter(c => c.name.trim() !== ''),
+        companionName: companions.length > 0 ? companions.map(c => `${c.name} (${c.age}a)`).join(', ') : '',
         createdAt: Timestamp.now()
       };
 
@@ -319,22 +350,81 @@ export function RegistrationDialog({ open, onOpenChange, event }: RegistrationDi
             </div>
 
             {gateValidation.ok ? (
-              <div className="space-y-3">
-                <div>
-                  <Label htmlFor="companionName" className="text-xs text-slate-400">Nome do Acompanhante (Opcional)</Label>
-                  <Input
-                    id="companionName"
-                    value={companionName}
-                    onChange={(e) => setCompanionName(e.target.value)}
-                    placeholder="Se for levar cônjuge ou convidado..."
-                    className="bg-slate-950 border-slate-800 text-white placeholder-slate-600 focus-visible:ring-blue-500"
-                  />
-                </div>
+              <div className="space-y-4">
+                {/* Seleção de Ingressos (Lotes) */}
+                {event.tickets && event.tickets.length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="ticketSelect" className="text-xs text-slate-400">Tipo de Ingresso</Label>
+                    <select
+                      id="ticketSelect"
+                      value={selectedTicketId}
+                      onChange={(e) => setSelectedTicketId(e.target.value)}
+                      className="w-full rounded-md bg-slate-950 border border-slate-800 text-white text-xs h-9 px-2 focus:ring-blue-500"
+                    >
+                      {event.tickets.map(t => (
+                        <option key={t.id} value={t.id}>
+                          {t.name} - {t.price > 0 ? `R$ ${t.price.toFixed(2)}` : 'Grátis'} ({t.description})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Lista Dinâmica de Acompanhantes */}
+                {event.allowCompanions && (
+                  <div className="space-y-3 border-t border-slate-850 pt-3">
+                    <div className="flex justify-between items-center">
+                      <Label className="text-xs text-slate-400 font-bold uppercase">Acompanhantes</Label>
+                      {companions.length < (event.maxCompanions || 1) && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="h-6 text-[10px] text-blue-400 p-0 font-bold hover:bg-transparent"
+                          onClick={() => setCompanions([...companions, { name: '', age: '' }])}
+                        >
+                          + Adicionar
+                        </Button>
+                      )}
+                    </div>
+                    {companions.map((comp, idx) => (
+                      <div key={idx} className="flex gap-2 items-center animate-fadeIn">
+                        <Input
+                          placeholder="Nome Completo"
+                          value={comp.name}
+                          onChange={(e) => {
+                            const copy = [...companions];
+                            copy[idx].name = e.target.value;
+                            setCompanions(copy);
+                          }}
+                          className="bg-slate-950 border-slate-850 h-8 text-xs text-white"
+                        />
+                        <Input
+                          placeholder="Idade"
+                          value={comp.age}
+                          type="number"
+                          onChange={(e) => {
+                            const copy = [...companions];
+                            copy[idx].age = e.target.value;
+                            setCompanions(copy);
+                          }}
+                          className="bg-slate-950 border-slate-850 h-8 text-xs text-white w-16"
+                        />
+                        <button
+                          type="button"
+                          className="text-slate-500 hover:text-red-400 text-xs shrink-0"
+                          onClick={() => setCompanions(companions.filter((_, i) => i !== idx))}
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <div className="bg-slate-950/50 p-3 rounded-lg border border-slate-800 flex justify-between items-center">
-                  <span className="text-xs text-slate-400">Valor da Inscrição:</span>
+                  <span className="text-xs text-slate-400">Valor Final da Inscrição:</span>
                   <span className="font-bold text-sm text-amber-400">
-                    {event.isPaid === 'pago' ? `R$ ${event.ticketPrice?.toFixed(2)}` : 'Gratuito'}
+                    {finalPrice > 0 ? `R$ ${finalPrice.toFixed(2)}` : 'Gratuito'}
                   </span>
                 </div>
               </div>
@@ -381,7 +471,7 @@ export function RegistrationDialog({ open, onOpenChange, event }: RegistrationDi
             <div className="bg-slate-950/60 p-3.5 rounded-xl border border-slate-800 w-full flex items-center justify-between text-xs">
               <div className="text-left">
                 <p className="text-slate-400">Valor Total</p>
-                <p className="font-black text-amber-400 text-base mt-0.5">R$ {event.ticketPrice?.toFixed(2)}</p>
+                <p className="font-black text-amber-400 text-base mt-0.5">R$ {finalPrice.toFixed(2)}</p>
               </div>
               <Badge className="bg-blue-950 text-blue-300 border-blue-800 text-[10px]">
                 Aguardando Pix...
@@ -412,10 +502,18 @@ export function RegistrationDialog({ open, onOpenChange, event }: RegistrationDi
                 <span className="text-slate-400">Status do Pagamento:</span>
                 <span className="font-bold text-emerald-400">Confirmado (Aprovado)</span>
               </div>
-              {companionName && (
+              {selectedTicket && (
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Acompanhante:</span>
-                  <span className="font-bold text-slate-300">{companionName}</span>
+                  <span className="text-slate-400">Tipo de Ingresso:</span>
+                  <span className="font-bold text-slate-300">{selectedTicket.name}</span>
+                </div>
+              )}
+              {companions.length > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Acompanhante(s):</span>
+                  <span className="font-bold text-slate-300">
+                    {companions.map(c => `${c.name} (${c.age}a)`).join(', ')}
+                  </span>
                 </div>
               )}
           </div>

@@ -425,7 +425,7 @@ export function getResolvedSchedule(classData: any, courseData: any) {
     let syllabusIndex = 0;
 
     for (const occDate of occurrenceDates) {
-        if (items.length >= targetCount) break;
+        if (syllabusIndex >= targetCount) break;
 
         const dateStr = format(occDate, 'yyyy-MM-dd');
         
@@ -451,14 +451,14 @@ export function getResolvedSchedule(classData: any, courseData: any) {
         }
 
         for (const { key: activeKey, val: activeOverride } of dayOverridesForThisDate) {
-            if (items.length >= targetCount) break;
+            if (syllabusIndex >= targetCount) break;
             if (activeOverride?.isCancelled) {
                 continue;
             }
 
             // Gerar entrada para cada slot do dia
             for (let slotIdx = 0; slotIdx < slotsPerDay; slotIdx++) {
-                if (items.length >= targetCount) break;
+                if (syllabusIndex >= targetCount) break;
 
                 const slot = slots[slotIdx];
                 const slotDateStr = slotsPerDay > 1 

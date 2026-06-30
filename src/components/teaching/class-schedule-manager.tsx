@@ -69,7 +69,7 @@ export function ClassScheduleManager({ classData }: ClassScheduleManagerProps) {
         let syllabusIndex = 0;
 
         for (const occDate of occurrenceDates) {
-            if (items.length >= targetCount) break;
+            if (syllabusIndex >= targetCount) break;
 
             const dateStr = format(occDate, 'yyyy-MM-dd');
             
@@ -95,14 +95,14 @@ export function ClassScheduleManager({ classData }: ClassScheduleManagerProps) {
             }
 
             for (const { key: activeKey, val: activeOverride } of dayOverridesForThisDate) {
-                if (items.length >= targetCount) break;
+                if (syllabusIndex >= targetCount) break;
                 if (activeOverride?.isCancelled) {
                     continue;
                 }
 
                 // Gerar entrada para cada slot do dia
                 for (let slotIdx = 0; slotIdx < slotsPerDay; slotIdx++) {
-                    if (items.length >= targetCount) break;
+                    if (syllabusIndex >= targetCount) break;
 
                     const slot = slots[slotIdx];
                     const slotDateStr = slotsPerDay > 1 
@@ -127,8 +127,8 @@ export function ClassScheduleManager({ classData }: ClassScheduleManagerProps) {
                         isCancelled: activeOverride?.isCancelled,
                         notes: activeOverride?.notes,
                         originalIndex: syllabusIndex,
-                        startTime: slot.startTime,
-                        endTime: slot.endTime,
+                        startTime: activeOverride?.startTime || slot.startTime,
+                        endTime: activeOverride?.endTime || slot.endTime,
                         slotIndex: slotIdx,
                         slotsPerDay
                     });
@@ -166,12 +166,12 @@ export function ClassScheduleManager({ classData }: ClassScheduleManagerProps) {
     const handleMoveDate = async (oldDateStr: string, newDateStr: string, item: any) => {
         const newOverrides = { ...(classData.scheduleOverrides || {}) };
         
-        // 1. Cancelar a data antiga (ou se for override sufixado, podemos simplesmente deletar a chave antiga)
-        if (oldDateStr.includes('-')) {
-            // Se for chave com sufixo ou data normal modificada
-            newOverrides[oldDateStr] = { ...(newOverrides[oldDateStr] || {}), isCancelled: true };
+        // 1. Cancelar a ocorrência na data anterior. Se ela possuía dados, desativamos
+        if (newOverrides[oldDateStr]) {
+            newOverrides[oldDateStr] = { ...newOverrides[oldDateStr], isCancelled: true };
         } else {
-            newOverrides[oldDateStr] = { ...(newOverrides[oldDateStr] || {}), isCancelled: true };
+            // Criar entrada de cancelamento para o dia regular antigo
+            newOverrides[oldDateStr] = { isCancelled: true };
         }
         
         // 2. Definir a nova chave de destino. Se já houver aula ativa no dia, usamos sufixo indexado
@@ -186,10 +186,13 @@ export function ClassScheduleManager({ classData }: ClassScheduleManagerProps) {
             targetKey = `${newDateStr}-${suffix}`;
         }
 
+        // Criar ou atualizar a ocorrência de destino, mantendo a ementa correta e adicionando campo para horário customizado
         newOverrides[targetKey] = { 
             ...(newOverrides[targetKey] || {}), 
             syllabusId: item.syllabusItem?.id, 
             teacherId: item.teacher?.id,
+            startTime: item.startTime || classData.timeStart,
+            endTime: item.endTime || classData.timeEnd,
             isCancelled: false 
         };
 
@@ -268,14 +271,24 @@ export function ClassScheduleManager({ classData }: ClassScheduleManagerProps) {
                                     </div>
                                     <div className="flex flex-col">
                                         <span className="text-xs font-bold capitalize">{format(item.date, 'EEEE', { locale: ptBR })}</span>
-                                        {item.slotsPerDay > 1 && (
-                                            <span className="text-[10px] text-muted-foreground font-mono">
-                                                {item.startTime} - {item.endTime}
-                                            </span>
-                                        )}
+                                        <div className="flex items-center gap-1 mt-0.5">
+                                            <input 
+                                                type="time" 
+                                                value={item.startTime || ''} 
+                                                className="bg-transparent border-none text-[10px] text-slate-500 hover:text-slate-900 font-mono w-10 focus:ring-0 p-0"
+                                                onChange={(e) => handleUpdateOverride(item.dateStr, { startTime: e.target.value })}
+                                            />
+                                            <span className="text-[10px] text-slate-400 font-mono">-</span>
+                                            <input 
+                                                type="time" 
+                                                value={item.endTime || ''} 
+                                                className="bg-transparent border-none text-[10px] text-slate-500 hover:text-slate-900 font-mono w-10 focus:ring-0 p-0"
+                                                onChange={(e) => handleUpdateOverride(item.dateStr, { endTime: e.target.value })}
+                                            />
+                                        </div>
                                         <Popover modal={false}>
                                             <PopoverTrigger asChild>
-                                                <button className="text-[10px] text-primary hover:underline font-black uppercase tracking-widest text-left">
+                                                <button className="text-[10px] text-primary hover:underline font-black uppercase tracking-widest text-left mt-1">
                                                     Alterar Data
                                                 </button>
                                             </PopoverTrigger>

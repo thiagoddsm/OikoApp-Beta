@@ -85,6 +85,19 @@ export interface PlanningEvent {
     requiredCourseId?: string;
     registrationPageType?: 'system' | 'custom_html';
     customHtmlCode?: string;
+
+    // Novos atributos: múltiplos ingressos e acompanhantes
+    tickets?: {
+        id: string;
+        name: string;
+        description: string;
+        price: number;
+        limit?: number;
+        sold?: number;
+        isActive: boolean;
+    }[];
+    allowCompanions?: boolean;
+    maxCompanions?: number;
 }
 
 const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
@@ -205,6 +218,11 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
     requiredCourseId: '',
     registrationPageType: 'system',
     customHtmlCode: '',
+
+    // Novos campos
+    tickets: [] as { id: string; name: string; description: string; price: number; limit?: number; isActive: boolean }[],
+    allowCompanions: false,
+    maxCompanions: 1,
   });
 
   // Load existing event data & map technical fields to simplified fields
@@ -261,6 +279,11 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
         requiredCourseId: existingEvent.requiredCourseId || '',
         registrationPageType: existingEvent.registrationPageType || 'system',
         customHtmlCode: existingEvent.customHtmlCode || '',
+
+        // Novos campos
+        tickets: existingEvent.tickets || [],
+        allowCompanions: existingEvent.allowCompanions || false,
+        maxCompanions: existingEvent.maxCompanions || 1,
       });
     }
   }, [existingEvent]);
@@ -404,6 +427,11 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
       requiredCourseId: formData.requiredCourseId,
       registrationPageType: formData.registrationPageType,
       customHtmlCode: formData.customHtmlCode,
+
+      // Novos campos salvos no Firestore
+      tickets: formData.tickets,
+      allowCompanions: formData.allowCompanions,
+      maxCompanions: formData.maxCompanions,
     };
 
     try {
@@ -1115,6 +1143,148 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
                       </p>
                     </div>
                   )}
+
+                  {/* Gerenciamento de Múltiplos Ingressos (Lotes / Categorias) */}
+                  <div className="space-y-4 pt-6 border-t border-slate-850">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-slate-200 text-xs font-bold uppercase tracking-wider block">Tipos de Ingresso / Lotes</Label>
+                        <span className="text-[10px] text-slate-500">Cadastre opções pagas ou gratuitas para inscrições neste evento.</span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="border-slate-800 text-blue-400 hover:bg-slate-800 text-xs font-bold"
+                        onClick={() => setFormData(p => ({
+                          ...p,
+                          tickets: [...(p.tickets || []), {
+                            id: `ticket_${Math.random().toString(36).substring(2, 9)}`,
+                            name: '',
+                            description: '',
+                            price: 0,
+                            limit: undefined,
+                            isActive: true
+                          }]
+                        }))}
+                      >
+                        <Plus className="size-4 mr-1" /> Add Ingresso
+                      </Button>
+                    </div>
+
+                    {formData.tickets && formData.tickets.length > 0 ? (
+                      <div className="space-y-3">
+                        {formData.tickets.map((ticket, tIndex) => (
+                          <div key={ticket.id} className="p-4 rounded-xl border border-slate-800 bg-slate-950/60 space-y-3 relative">
+                            <button
+                              type="button"
+                              className="absolute top-3 right-3 text-slate-500 hover:text-red-400 text-xs font-bold"
+                              onClick={() => setFormData(p => ({
+                                ...p,
+                                tickets: p.tickets.filter(t => t.id !== ticket.id)
+                              }))}
+                            >
+                              Excluir
+                            </button>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              <div className="space-y-1">
+                                <Label className="text-[10px] text-slate-400 font-bold uppercase">Nome do Ingresso</Label>
+                                <Input
+                                  required
+                                  value={ticket.name}
+                                  placeholder="Ex: Lote Promocional, VIP, Voluntário"
+                                  className="h-8 text-xs bg-slate-950 border-slate-800"
+                                  onChange={(e) => {
+                                    const updated = [...formData.tickets];
+                                    updated[tIndex].name = e.target.value;
+                                    setFormData(p => ({ ...p, tickets: updated }));
+                                  }}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-[10px] text-slate-400 font-bold uppercase">Preço (R$ 0,00 se Grátis)</Label>
+                                <Input
+                                  type="number"
+                                  required
+                                  value={ticket.price}
+                                  placeholder="0.00"
+                                  className="h-8 text-xs bg-slate-950 border-slate-800"
+                                  onChange={(e) => {
+                                    const updated = [...formData.tickets];
+                                    updated[tIndex].price = parseFloat(e.target.value) || 0;
+                                    setFormData(p => ({ ...p, tickets: updated }));
+                                  }}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-[10px] text-slate-400 font-bold uppercase">Vagas Limitadas (Opcional)</Label>
+                                <Input
+                                  type="number"
+                                  value={ticket.limit || ''}
+                                  placeholder="Ilimitado"
+                                  className="h-8 text-xs bg-slate-950 border-slate-800"
+                                  onChange={(e) => {
+                                    const updated = [...formData.tickets];
+                                    const val = parseInt(e.target.value);
+                                    updated[tIndex].limit = isNaN(val) ? undefined : val;
+                                    setFormData(p => ({ ...p, tickets: updated }));
+                                  }}
+                                />
+                              </div>
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[10px] text-slate-400 font-bold uppercase">Descrição / Informações</Label>
+                              <Input
+                                value={ticket.description}
+                                placeholder="Descrição explicando quem pode utilizar e o que está incluso no ingresso..."
+                                className="h-8 text-xs bg-slate-950 border-slate-800"
+                                onChange={(e) => {
+                                  const updated = [...formData.tickets];
+                                  updated[tIndex].description = e.target.value;
+                                  setFormData(p => ({ ...p, tickets: updated }));
+                                }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500 italic bg-slate-950/20 p-3 rounded-lg border border-dashed border-slate-850">
+                        Nenhum ingresso customizado criado. O evento utilizará o preço de inscrição padrão de R$ {formData.ticketPrice || '0.00'}.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Configuração de Acompanhantes */}
+                  <div className="space-y-4 pt-6 border-t border-slate-850">
+                    <div className="flex items-center justify-between p-3.5 rounded-xl border border-slate-850 bg-slate-950/20">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="allowCompanions" className="text-xs font-bold cursor-pointer text-slate-200">Permitir Acompanhantes</Label>
+                        <span className="text-[10px] text-slate-500 block">Habilita o formulário de cadastro de acompanhantes na inscrição do evento.</span>
+                      </div>
+                      <Checkbox
+                        id="allowCompanions"
+                        checked={formData.allowCompanions}
+                        onCheckedChange={(c) => setFormData(p => ({ ...p, allowCompanions: !!c }))}
+                        className="border-slate-700 data-[state=checked]:bg-blue-500"
+                      />
+                    </div>
+
+                    {formData.allowCompanions && (
+                      <div className="p-4 border border-slate-800 bg-slate-950/60 rounded-xl space-y-3 animate-fadeIn max-w-xs">
+                        <Label htmlFor="maxCompanions" className="text-xs text-slate-400">Limite Máximo de Acompanhantes</Label>
+                        <Input
+                          type="number"
+                          id="maxCompanions"
+                          name="maxCompanions"
+                          value={formData.maxCompanions}
+                          onChange={(e) => setFormData(p => ({ ...p, maxCompanions: parseInt(e.target.value) || 1 }))}
+                          className="bg-slate-950 border-slate-800 focus-visible:ring-blue-500"
+                          min={1}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

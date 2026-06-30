@@ -7,7 +7,7 @@ import {
   Loader2, ArrowLeft, BookOpen, Users, User, FileText, 
   ClipboardCheck, Folder, Inbox, GraduationCap, TrendingUp,
   LayoutDashboard, PlusCircle, UserPlus, Waves, Lightbulb, School, HandHelping,
-  CheckCircle2, BarChart3, Trophy, Target
+  CheckCircle2, BarChart3, Trophy, Target, HelpCircle
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -23,6 +23,7 @@ import { StudentsManagement } from '@/components/teaching/students-management';
 import { CourseAttendanceMatrix } from '@/components/teaching/course-attendance-matrix';
 import { CourseSyllabusManager } from '@/components/teaching/course-syllabus-manager';
 import { CourseReports } from '@/components/teaching/course-reports';
+import { TeachingTutorialTab } from '@/components/teaching/teaching-tutorial-tab';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
@@ -241,6 +242,7 @@ function CourseDetailPageContent() {
                                 <TabsTrigger value="teachers">Professores</TabsTrigger>
                                 <TabsTrigger value="syllabus">Ementa</TabsTrigger>
                                 <TabsTrigger value="reports"><BarChart3 className="mr-2 size-4"/>Relatórios</TabsTrigger>
+                                <TabsTrigger value="tutorial"><HelpCircle className="mr-2 size-4"/>Tutoriais</TabsTrigger>
                             </TabsList>
                         </div>
 
@@ -274,6 +276,10 @@ function CourseDetailPageContent() {
 
                         <TabsContent value="reports" className="mt-0 animate-in slide-in-from-left-4 duration-300">
                             <CourseReports courseId={course.id} />
+                        </TabsContent>
+
+                        <TabsContent value="tutorial" className="mt-0 animate-in slide-in-from-left-4 duration-300">
+                            <TeachingTutorialTab />
                         </TabsContent>
                     </Tabs>
                 </CardContent>

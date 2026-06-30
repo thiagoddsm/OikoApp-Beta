@@ -287,8 +287,15 @@ export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false,
                         {/* Participant info */}
                         <TableCell>
                           <div className="font-bold text-slate-800 text-sm">{reg.userMetadata?.name}</div>
-                          <div className="text-[10px] text-muted-foreground">
-                            Inscrito em: {reg.createdAt?.toDate ? reg.createdAt.toDate().toLocaleDateString('pt-BR') : 'Data Indisponível'}
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[10px] text-slate-400">
+                              Inscrito em: {reg.createdAt?.toDate ? reg.createdAt.toDate().toLocaleDateString('pt-BR') : 'Data Indisponível'}
+                            </span>
+                            {(reg as any).ticketName && (
+                              <Badge variant="outline" className="text-[9px] uppercase px-1.5 h-4 bg-slate-50 border-slate-200 text-slate-500 font-bold">
+                                {(reg as any).ticketName}
+                              </Badge>
+                            )}
                           </div>
                         </TableCell>
 
@@ -306,7 +313,15 @@ export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false,
 
                         {/* Companion */}
                         <TableCell className="text-xs text-slate-600 font-medium">
-                          {reg.companionName ? (
+                          {(reg as any).companions && (reg as any).companions.length > 0 ? (
+                            <div className="space-y-0.5">
+                              {(reg as any).companions.map((c: any, index: number) => (
+                                <span key={index} className="flex items-center gap-1 text-[11px] text-slate-700">
+                                  <UserPlus className="size-3 text-slate-400" /> {c.name} ({c.age}a)
+                                </span>
+                              ))}
+                            </div>
+                          ) : reg.companionName ? (
                             <span className="flex items-center gap-1">
                               <UserPlus className="size-3 text-slate-400" /> {reg.companionName}
                             </span>
