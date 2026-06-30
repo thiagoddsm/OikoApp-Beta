@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useVolunteering, type Class, type Course, getMonthlyOccurrences, getSlotsPerOccurrence, weekDayMap } from '@/contexts/volunteering-context';
 import { format, addWeeks, addDays, parseISO, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Calendar as CalendarIcon, ArrowUpDown, Clock, User, BookOpen, AlertTriangle, CheckCircle2, XCircle, RotateCcw } from 'lucide-react';
+import { Calendar as CalendarIcon, ArrowUpDown, Clock, User, BookOpen, AlertTriangle, CheckCircle2, XCircle, RotateCcw, PlusCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
