@@ -499,13 +499,16 @@ export function getResolvedSchedule(classData: any, courseData: any) {
 
     // 3. Adicionar overrides que caem em datas fora da recorrência
     Object.entries(overrides).forEach(([oDateStr, override]: [string, any]) => {
-        if (override.isCancelled) return;
+        if (!override || override.isCancelled) return;
         if (items.find(i => i.dateStr === oDateStr)) return;
 
         const syllabusItem = override.syllabusId 
             ? syllabus.find((s: any) => s.id === override.syllabusId) 
             : undefined;
         
+        // Se o override não tiver ementa atrelada e for um resto de dados antigos, omitir
+        if (!syllabusItem) return;
+
         const originalIdx = override.syllabusId
             ? syllabus.findIndex((s: any) => s.id === override.syllabusId)
             : -1;

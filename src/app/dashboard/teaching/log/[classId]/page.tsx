@@ -281,9 +281,24 @@ function PedagogicalLogPageContent() {
                 });
             }
 
-            await Promise.all([logPromise, attendancePromise, ...progressPromises]);
-            toast({ title: 'Registro Salvo!', description: `A presença de ${format(parseISO(selectedDate), 'dd/MM')} foi processada.` });
+            await Promise.all([
+                logPromise, 
+                attendancePromise, 
+                ...progressPromises.filter(p => p !== undefined)
+            ]);
+
+            // Formatação segura para a mensagem de sucesso
+            let formattedSuccessDate = 'Chamada';
+            try {
+                const parsed = parseISO(selectedDate.split('T')[0]);
+                if (!isNaN(parsed.getTime())) {
+                    formattedSuccessDate = format(parsed, 'dd/MM');
+                }
+            } catch (e) {}
+
+            toast({ title: 'Registro Salvo!', description: `A presença de ${formattedSuccessDate} foi processada.` });
         } catch (error) {
+            console.error(error);
             toast({ variant: 'destructive', title: 'Erro ao salvar', description: 'Tente novamente.' });
         } finally {
             setIsSaving(false);
