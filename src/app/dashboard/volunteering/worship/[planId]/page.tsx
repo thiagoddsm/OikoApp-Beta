@@ -26,9 +26,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, ChevronLeft, LayoutTemplate, Clock, Music, Ellipsis, BookMarked } from 'lucide-react';
+import { Loader2, Save, ChevronLeft, LayoutTemplate, Clock, Music, Ellipsis, BookMarked, Radio } from 'lucide-react';
 import { useEventsData } from '@/hooks/useDomainData';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useFirebase } from '@/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 
 // keyboard shortcut hook
 function useKeyboardShortcuts(addItem: (type: 'header' | 'item' | 'song') => void) {
@@ -96,6 +98,96 @@ function PlanEditorInner({ planId }: { planId: string }) {
   }, [localItems.length]);
 
   useKeyboardShortcuts(addItem);
+
+  const { firestore } = useFirebase();
+  const [isTransmitting, setIsTransmitting] = useState(false);
+
+  const handleTransmitLive = async () => {
+    if (!plan) return;
+    setIsTransmitting(true);
+    try {
+      const findPosition = (roles: string[]) => {
+        const match = plan.neededPositions?.find(p => 
+          roles.some(r => p.role.toLowerCase().includes(r.toLowerCase()))
+        );
+        return match?.userName || 'A definir';
+      };
+
+      const cultInfo = {
+        date: new Date(localMeta.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }),
+        coordenadorTecnico: findPosition(['coordenador', 'liderança', 'técnica', 'direção']),
+        som: findPosition(['som', 'áudio', 'sonoplasta', 'mesa']),
+        projecao: findPosition(['projeção', 'slides', 'projeção', 'lyrics']),
+        iluminacao: findPosition(['iluminação', 'luz', 'luzes']),
+        transmissao: findPosition(['transmissão', 'câmera', 'vídeo', 'stream']),
+        lead: findPosition(['dirigente', 'líder', 'ministro']),
+        pregador: findPosition(['pregador', 'palavra', 'pastor', 'ministrador']),
+        staff: 'A definir',
+        startTime: localMeta.startTime || '19:00'
+      };
+
+      const mappedItems = localItems.map(item => {
+        let responsible = 'A definir';
+        if (item.type === 'song') {
+          responsible = item.arrangement || 'Louvor';
+        } else if (item.type === 'header') {
+          responsible = 'Transição';
+        }
+
+        return {
+          id: item.id,
+          title: item.title,
+          duration: Math.max(1, Math.round((item.durationSeconds || 300) / 60)),
+          type: item.type === 'song' ? 'louvor' : item.type === 'header' ? 'transição' : 'palavra',
+          responsible,
+          description: item.notes || '',
+          technical: {
+            projection: { text: item.type === 'song' ? `Cifras/Letras (${item.key || 'Tom'})` : '-' },
+            sound: { text: '-' },
+            microphone: { text: '-' },
+            lighting: { text: '-' },
+            camera: { text: '-' }
+          },
+          completed: false,
+          actualDuration: null,
+          actualStartTime: null,
+          actualEndTime: null
+        };
+      });
+
+      const activeLiveState = {
+        currentItemIndex: 0,
+        isRunning: false,
+        itemStartTime: null,
+        accumulatedTime: 0,
+        actualStartTime: null,
+        announcement: null
+      };
+
+      const worshipDataBaseRef = doc(firestore, "artifacts", "gestao-de-culto", "public", "data", "worship-order", "singleton");
+      await setDoc(worshipDataBaseRef, {
+        items: mappedItems,
+        cultInfo,
+        liveState: activeLiveState
+      }, { merge: true });
+
+      toast({
+        title: '🎥 Culto transmitido para a técnica!',
+        description: 'Os dados foram sincronizados com o painel ao vivo (/tecnica).'
+      });
+
+      window.open('/tecnica', '_blank');
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: '❌ Falha ao transmitir',
+        description: 'Ocorreu um erro ao sincronizar os dados com o painel técnico.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsTransmitting(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!plan) return;
@@ -171,6 +263,11 @@ function PlanEditorInner({ planId }: { planId: string }) {
 
         <div className="flex items-center gap-2 shrink-0">
           {isDirty && <Badge variant="outline" className="text-xs text-amber-600 border-amber-300 bg-amber-50">Não salvo</Badge>}
+
+          <Button variant="outline" size="sm" className="h-8 text-xs text-red-600 border-red-200 bg-red-50 hover:bg-red-100" onClick={handleTransmitLive} disabled={isTransmitting}>
+            {isTransmitting ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Radio className="mr-1.5 h-3.5 w-3.5" />}
+            Ao Vivo
+          </Button>
 
           <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => setShowApplyDialog(true)}>
             <LayoutTemplate className="mr-1.5 h-3.5 w-3.5" />
