@@ -333,9 +333,15 @@ export async function handleGcReportIncomingMessage(
           return true; // Aguarda o usuário responder OK
         } else if ((type === 'button' && payload?.buttonId === 'attendance_done') || (type === 'text' && isAdvanceCommand(msg))) {
           // Computar presentes/ausentes
-          const pollSelections: any = latest.pollSelections || {};
+          const freshDoc = await sessionRef.get();
+          const freshSession = freshDoc.data() as GcReportSession;
+          const pollSelections: any = freshSession?.pollSelections || {};
           let presentIds: string[] = [];
-          Object.values(pollSelections).forEach((ids: any) => presentIds.push(...ids));
+          Object.values(pollSelections).forEach((ids: any) => {
+            if (Array.isArray(ids)) {
+              presentIds.push(...ids);
+            }
+          });
           
           // Remove duplicatas (caso raro)
           presentIds = [...new Set(presentIds)];

@@ -205,7 +205,7 @@ export async function POST(request: Request) {
     // Deduplicação de Mensagens (Evitar que WAME e Evolution processem a mesma mensagem 2 vezes)
     // Como WAME e Evolution geram IDs diferentes para a mesma mensagem recebida, 
     // vamos deduplicar por (fromPhone + hash(texto/botao)).
-    const contentString = (responseType === 'button' ? (msgObject.buttonsResponseMessage?.selectedButtonId || msgObject.templateButtonReplyMessage?.selectedId || msgObject.listResponseMessage?.singleSelectReply?.selectedRowId) : textForDebug) || 'empty';
+    const contentString = (responseType === 'button' ? (payload?.buttonId || payload?.buttonText || 'click') : textForDebug) || 'empty';
     // Limita o tamanho para usar como ID do Firestore
     const contentHash = contentString.substring(0, 50).replace(/[^a-zA-Z0-9_-]/g, '');
     const dedupKey = `${fromPhone}_${contentHash}`;
