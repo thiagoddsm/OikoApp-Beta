@@ -29,8 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, Save, ChevronLeft, LayoutTemplate, Clock, Music, Ellipsis, BookMarked, Radio } from 'lucide-react';
 import { useEventsData } from '@/hooks/useDomainData';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useFirebase } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { syncLiveWorshipOrder } from '../actions';
 
 // keyboard shortcut hook
 function useKeyboardShortcuts(addItem: (type: 'header' | 'item' | 'song') => void) {
@@ -99,7 +98,6 @@ function PlanEditorInner({ planId }: { planId: string }) {
 
   useKeyboardShortcuts(addItem);
 
-  const { firestore } = useFirebase();
   const [isTransmitting, setIsTransmitting] = useState(false);
 
   const handleTransmitLive = async () => {
@@ -164,12 +162,15 @@ function PlanEditorInner({ planId }: { planId: string }) {
         announcement: null
       };
 
-      const worshipDataBaseRef = doc(firestore, "artifacts", "gestao-de-culto", "public", "data", "worship-order", "singleton");
-      await setDoc(worshipDataBaseRef, {
+      const res = await syncLiveWorshipOrder({
         items: mappedItems,
         cultInfo,
         liveState: activeLiveState
-      }, { merge: true });
+      });
+
+      if (!res.success) {
+        throw new Error(res.error || 'Erro na resposta da server action');
+      }
 
       toast({
         title: '🎥 Culto transmitido para a técnica!',
@@ -177,11 +178,11 @@ function PlanEditorInner({ planId }: { planId: string }) {
       });
 
       window.open('/tecnica', '_blank');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       toast({
         title: '❌ Falha ao transmitir',
-        description: 'Ocorreu um erro ao sincronizar os dados com o painel técnico.',
+        description: err?.message || 'Ocorreu um erro ao sincronizar os dados com o painel técnico.',
         variant: 'destructive'
       });
     } finally {
