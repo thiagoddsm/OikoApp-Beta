@@ -337,13 +337,16 @@ export async function handleGcReportIncomingMessage(
           const freshSession = freshDoc.data() as GcReportSession;
           const pollSelections: any = freshSession?.pollSelections || {};
           let presentIds: string[] = [];
-          Object.values(pollSelections).forEach((ids: any) => {
+          
+          // Consolidar todos os IDs das enquetes de forma robusta
+          Object.keys(pollSelections).forEach((key) => {
+            const ids = pollSelections[key];
             if (Array.isArray(ids)) {
               presentIds.push(...ids);
             }
           });
           
-          // Remove duplicatas (caso raro)
+          // Remove duplicatas
           presentIds = [...new Set(presentIds)];
 
           const attendanceMap: { [memberId: string]: 'presente' | 'ausente' } = {};
