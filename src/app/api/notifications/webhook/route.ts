@@ -175,8 +175,8 @@ export async function POST(request: Request) {
         }
         if (!Array.isArray(options)) options = [options].filter(Boolean);
         
-        // IMPORTANTE: NÃO usar pollCreationMessageKey.id como pollName — é um message ID, não um nome legível!
-        const pollName = msgObject.pollName || pollUpdate.name || pollUpdate.pollName || msgContent.pollCreationMessage?.name || 'Enquete';
+        // IMPORTANTE: Priorizar o título legível da enquete (contendo Parte 1, Parte 2 etc) para evitar colisões
+        const pollName = msgContent.pollCreationMessage?.name || pollUpdate.name || pollUpdate.pollName || msgObject.pollName || 'Enquete';
 
         options = options.map((o: any) => typeof o === 'string' ? o : o.label || o.text || o.name).filter(Boolean);
         if (options.length === 0) options = ['Voto registrado'];
