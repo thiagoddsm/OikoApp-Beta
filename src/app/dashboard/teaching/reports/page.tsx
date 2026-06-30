@@ -33,8 +33,11 @@ function GeneralTeachingReportsContent() {
 
   // Estados dos filtros
   const [selectedCycle, setSelectedCycle] = useState<string>('all');
+  const [selectedTrack, setSelectedTrack] = useState<string>('all');
   const [selectedCourseId, setSelectedCourseId] = useState<string>('all');
   const [selectedClassId, setSelectedClassId] = useState<string>('all');
+  const [dateStart, setDateStart] = useState<string>('');
+  const [dateEnd, setDateEnd] = useState<string>('');
 
   // Controle de expansão das aulas por curso
   const [expandedCourses, setExpandedCourses] = useState<Record<string, boolean>>({});
@@ -46,24 +49,42 @@ function GeneralTeachingReportsContent() {
     return Array.from(set).sort((a, b) => b.localeCompare(a));
   }, [classes]);
 
-  // Se 'all' for selecionado, mas existirem ciclos, podemos mostrar todos ou focar no mais recente.
-  // Vamos permitir filtrar por 'all' (Todos os Ciclos) ou ciclo específico.
+  // Helper de comparação rápida de datas (ISO string compare)
+  const isDateInRange = (dateStr: string) => {
+    const cleanDate = dateStr.split('T')[0];
+    if (dateStart && cleanDate < dateStart) return false;
+    if (dateEnd && cleanDate > dateEnd) return false;
+    return true;
+  };
 
-  // Filtrar turmas pelo ciclo ativo
-  const filteredClassesByCycle = useMemo(() => {
-    if (selectedCycle === 'all') return classes;
-    return classes.filter(c => c.cycle === selectedCycle);
-  }, [classes, selectedCycle]);
+  // Filtrar turmas pelo ciclo ativo e trilho selecionado
+  const filteredClassesByCycleAndTrack = useMemo(() => {
+    let result = classes;
+    if (selectedCycle !== 'all') {
+      result = result.filter(c => c.cycle === selectedCycle);
+    }
+    if (selectedTrack !== 'all') {
+      result = result.filter(c => {
+        const course = courses.find(co => co.id === c.courseId);
+        if (!course) return false;
+        if (selectedTrack === 'eletivo') {
+          return course.ebdTrack === 'eletivo' || course.type === 'eletivo';
+        }
+        return course.ebdTrack === selectedTrack;
+      });
+    }
+    return result;
+  }, [classes, courses, selectedCycle, selectedTrack]);
 
-  // Obter cursos únicos baseados nas turmas filtradas pelo ciclo
+  // Obter cursos únicos baseados nas turmas filtradas pelo ciclo/trilho
   const filteredCoursesByCycle = useMemo(() => {
-    const courseIds = new Set(filteredClassesByCycle.map(c => c.courseId));
+    const courseIds = new Set(filteredClassesByCycleAndTrack.map(c => c.courseId));
     return courses.filter(c => courseIds.has(c.id));
-  }, [courses, filteredClassesByCycle]);
+  }, [courses, filteredClassesByCycleAndTrack]);
 
-  // Filtrar turmas considerando também o curso selecionado
+  // Filtrar turmas considerando também o curso selecionado e a turma selecionada
   const filteredClasses = useMemo(() => {
-    let result = filteredClassesByCycle;
+    let result = filteredClassesByCycleAndTrack;
     if (selectedCourseId !== 'all') {
       result = result.filter(c => c.courseId === selectedCourseId);
     }
@@ -71,7 +92,7 @@ function GeneralTeachingReportsContent() {
       result = result.filter(c => c.id === selectedClassId);
     }
     return result;
-  }, [filteredClassesByCycle, selectedCourseId, selectedClassId]);
+  }, [filteredClassesByCycleAndTrack, selectedCourseId, selectedClassId]);
 
   const toggleCourseExpanded = (courseId: string) => {
     setExpandedCourses(prev => ({ ...prev, [courseId]: !prev[courseId] }));
@@ -125,6 +146,7 @@ function GeneralTeachingReportsContent() {
       cls.students?.forEach(studentId => {
         cls.attendance?.forEach(att => {
           if (!activeDates.has(att.date)) return;
+          if (!isDateInRange(att.date)) return; // Filtro de data
 
           const isPresent = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
           const isRepo = att.repositions?.some(r => r.studentId === studentId);
@@ -155,7 +177,7 @@ function GeneralTeachingReportsContent() {
       totalPresences: totalPresents,
       courseAverages: list
     };
-  }, [filteredClasses, courses]);
+  }, [filteredClasses, courses, dateStart, dateEnd]);
 
   // ── 3. DETALHAMENTO DE FREQUÊNCIA POR AULA ────────────────────────────────────
   const classesAndLessonsDetail = useMemo(() => {
@@ -174,14 +196,16 @@ function GeneralTeachingReportsContent() {
       const course = courses.find(c => c.id === cls.courseId);
       if (!course) return;
 
-      if (!result[course.id]) {
-        result[course.id] = { courseName: course.name, lessons: [] };
-      }
-
       const resolved = getResolvedSchedule(cls, course);
       const activeDates = new Set(resolved.map(r => r.dateStr));
 
       resolved.forEach((session, index) => {
+        if (!isDateInRange(session.dateStr)) return; // Filtro de data
+
+        if (!result[course.id]) {
+          result[course.id] = { courseName: course.name, lessons: [] };
+        }
+
         const attRecord = cls.attendance?.find(a => a.date === session.dateStr);
         const uniquePresents = new Set<string>();
         attRecord?.presentStudentIds?.forEach(id => uniquePresents.add(id));
@@ -205,7 +229,7 @@ function GeneralTeachingReportsContent() {
     });
 
     return result;
-  }, [filteredClasses, courses]);
+  }, [filteredClasses, courses, dateStart, dateEnd]);
 
   // ── 4. PROJEÇÃO DE APROVAÇÃO / REPROVAÇÃO ──────────────────────────────────────
   const approvalProjections = useMemo(() => {
@@ -219,7 +243,7 @@ function GeneralTeachingReportsContent() {
       if (!course) return;
 
       const resolved = getResolvedSchedule(cls, course);
-      const totalLessons = resolved.length;
+      const totalLessons = resolved.filter(r => isDateInRange(r.dateStr)).length;
       if (totalLessons === 0) return;
 
       const minAttendanceRate = course.minAttendanceApproval || 75;
@@ -234,9 +258,10 @@ function GeneralTeachingReportsContent() {
         let presentsCount = 0;
 
         cls.attendance?.forEach(att => {
-          // Apenas contar aulas válidas no cronograma
+          // Apenas contar aulas válidas no cronograma e no intervalo de datas
           const isValidSession = resolved.some(r => r.dateStr === att.date);
           if (!isValidSession) return;
+          if (!isDateInRange(att.date)) return;
 
           lessonsConducted++;
           const isPresent = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
@@ -276,7 +301,7 @@ function GeneralTeachingReportsContent() {
       projAprovados,
       projReprovados
     };
-  }, [filteredClasses, courses]);
+  }, [filteredClasses, courses, dateStart, dateEnd]);
 
   const handlePrint = () => {
     window.print();
@@ -325,8 +350,29 @@ function GeneralTeachingReportsContent() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto print-hide">
+          {/* Seletor de Trilho */}
+          <div className="w-[160px] space-y-1.5">
+            <Label className="text-[10px] font-black uppercase text-slate-500">Trilho</Label>
+            <Select value={selectedTrack} onValueChange={(val) => {
+              setSelectedTrack(val);
+              setSelectedCourseId('all');
+              setSelectedClassId('all');
+            }}>
+              <SelectTrigger className="bg-white font-bold h-10">
+                <SelectValue placeholder="Selecione o Trilho" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Trilhos</SelectItem>
+                <SelectItem value="discipulado">Trilho de Discipulado</SelectItem>
+                <SelectItem value="biblico">Trilho Bíblico</SelectItem>
+                <SelectItem value="teologico">Trilho Teológico</SelectItem>
+                <SelectItem value="eletivo">Eletivas & Outros</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Seletor de Ciclo */}
-          <div className="w-[150px] space-y-1.5">
+          <div className="w-[130px] space-y-1.5">
             <Label className="text-[10px] font-black uppercase text-slate-500">Ciclo</Label>
             <Select value={selectedCycle} onValueChange={(val) => {
               setSelectedCycle(val);
@@ -346,7 +392,7 @@ function GeneralTeachingReportsContent() {
           </div>
 
           {/* Seletor de Curso */}
-          <div className="w-[180px] space-y-1.5">
+          <div className="w-[160px] space-y-1.5">
             <Label className="text-[10px] font-black uppercase text-slate-500">Curso</Label>
             <Select value={selectedCourseId} onValueChange={(val) => {
               setSelectedCourseId(val);
@@ -365,7 +411,7 @@ function GeneralTeachingReportsContent() {
           </div>
 
           {/* Seletor de Turma */}
-          <div className="w-[180px] space-y-1.5">
+          <div className="w-[160px] space-y-1.5">
             <Label className="text-[10px] font-black uppercase text-slate-500">Turma</Label>
             <Select value={selectedClassId} onValueChange={setSelectedClassId}>
               <SelectTrigger className="bg-white font-bold h-10">
@@ -373,13 +419,35 @@ function GeneralTeachingReportsContent() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas as Turmas</SelectItem>
-                {filteredClassesByCycle
+                {filteredClassesByCycleAndTrack
                   .filter(c => selectedCourseId === 'all' || c.courseId === selectedCourseId)
                   .map(cls => (
                     <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
                   ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Data Início */}
+          <div className="w-[130px] space-y-1.5">
+            <Label className="text-[10px] font-black uppercase text-slate-500 font-bold">Início</Label>
+            <input
+              type="date"
+              className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 font-bold"
+              value={dateStart}
+              onChange={(e) => setDateStart(e.target.value)}
+            />
+          </div>
+
+          {/* Data Fim */}
+          <div className="w-[130px] space-y-1.5">
+            <Label className="text-[10px] font-black uppercase text-slate-500 font-bold">Fim</Label>
+            <input
+              type="date"
+              className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 font-bold"
+              value={dateEnd}
+              onChange={(e) => setDateEnd(e.target.value)}
+            />
           </div>
 
           <Button onClick={handlePrint} variant="outline" className="h-10 mt-5 font-bold uppercase gap-1.5">
