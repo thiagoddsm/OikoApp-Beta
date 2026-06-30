@@ -84,7 +84,19 @@ function PedagogicalLogPageContent() {
     useEffect(() => {
         if (classOccurrences.length > 0 && !selectedDate) {
             const todayStr = format(new Date(), 'yyyy-MM-dd');
-            const closest = classOccurrences.find(d => d === todayStr) || classOccurrences.find(d => isAfter(parseISO(d), new Date())) || classOccurrences[0];
+            const closest = classOccurrences.find(d => d.split('T')[0] === todayStr) || classOccurrences.find(d => {
+                let cleanD = d.split('T')[0];
+                const dashCount = (cleanD.match(/-/g) || []).length;
+                if (dashCount > 2) {
+                    const parts = cleanD.split('-');
+                    cleanD = `${parts[0]}-${parts[1]}-${parts[2]}`;
+                }
+                try {
+                    return isAfter(parseISO(cleanD), new Date());
+                } catch (e) {
+                    return false;
+                }
+            }) || classOccurrences[0];
             setSelectedDate(closest);
         }
     }, [classOccurrences, selectedDate]);
@@ -228,10 +240,18 @@ function PedagogicalLogPageContent() {
         if (!selectedDate) return;
         setIsSaving(true);
         try {
-            const baseDateStr = selectedDate.split('T')[0];
+            // Se selectedDate contiver sufixos como YYYY-MM-DD-1, removemos o sufixo numérico da data base
+            let rawDatePart = selectedDate.split('T')[0];
+            const dashCount = (rawDatePart.match(/-/g) || []).length;
+            if (dashCount > 2) {
+                // YYYY-MM-DD-1 -> mantemos apenas YYYY-MM-DD
+                const parts = rawDatePart.split('-');
+                rawDatePart = `${parts[0]}-${parts[1]}-${parts[2]}`;
+            }
+
+            const baseDateStr = rawDatePart;
             const timePart = selectedDate.includes('T') ? selectedDate.split('T')[1] : '12:00:00';
-            // Validar que o timePart é apenas a hora. O `selectedDate` vindo do `format` pode ter o timezone, mas garantimos localmente.
-            const dateStrWithTime = `${baseDateStr}T${timePart}`;
+            const dateStrWithTime = `${baseDateStr}T${timePart.substring(0, 8)}`; // Garante limite de hh:mm:ss
 
             const existingLog = pedagogicalLogs.find(l => {
                 if (l.dateStr && l.dateStr === selectedDate) return true;
@@ -243,7 +263,7 @@ function PedagogicalLogPageContent() {
             const logData = {
                 classId,
                 date: Timestamp.fromDate(new Date(dateStrWithTime)),
-                dateStr: selectedDate, // <- Chave única para múltiplas aulas no mesmo dia
+                dateStr: selectedDate, // <- Chave única original (com sufixo) mantida para isolar diários no mesmo dia
                 content_taught: contentTaught || "Aula realizada",
                 student_performance: performance,
                 observations,
@@ -586,10 +606,17 @@ function PedagogicalLogPageContent() {
                                     const timeDisplay = startTime ? ` às ${startTime}` : '';
 
                                     // Validar se a data é válida antes de formatar
+                                    let cleanDateStr = baseDateStr;
+                                    const dashCount = (baseDateStr.match(/-/g) || []).length;
+                                    if (dashCount > 2) {
+                                        const parts = baseDateStr.split('-');
+                                        cleanDateStr = `${parts[0]}-${parts[1]}-${parts[2]}`;
+                                    }
+
                                     let formattedDate = 'Data Pendente';
-                                    if (baseDateStr) {
+                                    if (cleanDateStr) {
                                         try {
-                                            const parsed = parseISO(baseDateStr);
+                                            const parsed = parseISO(cleanDateStr);
                                             if (!isNaN(parsed.getTime())) {
                                                 formattedDate = format(parsed, 'dd/MM/yyyy');
                                             }
