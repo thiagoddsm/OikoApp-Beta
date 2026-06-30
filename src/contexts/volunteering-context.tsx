@@ -479,8 +479,8 @@ export function getResolvedSchedule(classData: any, courseData: any) {
                     syllabusItem,
                     syllabusOriginalIndex: originalIdx,
                     isOverride: !!activeOverride,
-                    startTime: slot.startTime,
-                    endTime: slot.endTime,
+                    startTime: activeOverride?.startTime || slot.startTime,
+                    endTime: activeOverride?.endTime || slot.endTime,
                     slotIndex: slotsPerDay > 1 ? slotIdx : undefined,
                     slotsPerDay: slotsPerDay > 1 ? slotsPerDay : undefined
                 });
