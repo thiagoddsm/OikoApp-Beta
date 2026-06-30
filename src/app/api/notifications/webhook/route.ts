@@ -157,42 +157,49 @@ export async function POST(request: Request) {
         };
     }
     // C. Poll Update (pollUpdateMessage)
-    else if (msgContent.pollUpdateMessage || msgObject.pollUpdates || msgObject.pollUpdate || msgObject.pollUpdateMessage || msgObject.update?.pollUpdates) {
-        const pollData = msgContent.pollUpdateMessage || msgObject.pollUpdates || msgObject.pollUpdateMessage || msgObject.pollUpdate || msgObject.update?.pollUpdates || data.pollUpdates || {};
+    // Detecta tanto pelo messageType no data como pelo conteúdo do message
+    else if (data.messageType === 'pollUpdateMessage' || msgContent.pollUpdateMessage || msgObject.pollUpdateMessage || msgObject.pollUpdates || msgObject.pollUpdate) {
         
-        const pollUpdate = Array.isArray(pollData) ? pollData[0] : pollData;
+        // ─── ESTRATÉGIA PRINCIPAL: Evolution API v2 descriptografa os votos e entrega
+        // em data.pollUpdates como array de { name: string, voters: string[] }.
+        // O estado é ACUMULADO: a cada evento, representa quem votou ATÉ AGORA.
+        // Nomes com voters.length > 0 = votaram. Nomes com voters = [] = não votaram / desmarcaram.
+        let options: string[] = [];
         
-        // Em Evolution API v2, selectedOptions vem no message.pollUpdateMessage.vote.selectedOptions ou no data.pollUpdates
-        let options = pollUpdate.vote?.selectedOptions || pollUpdate.selectedOptions || msgObject.selectedOptions || [];
-        
-        // Se vier no array "pollUpdates" da raiz do data (formato customizado de algumas versoes)
-        if (options.length === 0 && Array.isArray(data.pollUpdates)) {
-            data.pollUpdates.forEach((pu: any) => {
-                if (pu.voters && pu.voters.length > 0) {
-                    options.push(pu.name);
-                }
-            });
+        if (Array.isArray(data.pollUpdates) && data.pollUpdates.length > 0) {
+            options = data.pollUpdates
+                .filter((pu: any) => Array.isArray(pu.voters) && pu.voters.length > 0)
+                .map((pu: any) => String(pu.name || '').trim())
+                .filter(Boolean);
         }
-        if (!Array.isArray(options)) options = [options].filter(Boolean);
         
-        // IMPORTANTE: Priorizar o título legível da enquete (contendo Parte 1, Parte 2 etc) para evitar colisões
-        const pollName = msgContent.pollCreationMessage?.name || pollUpdate.name || pollUpdate.pollName || msgObject.pollName || 'Enquete';
+        // Fallback: tentar extrair de pollUpdateMessage.vote.selectedOptions (para outros formatos)
+        if (options.length === 0) {
+            const pollUpdateMsg = msgObject.pollUpdateMessage || msgContent.pollUpdateMessage || {};
+            const rawSelected = pollUpdateMsg.vote?.selectedOptions || [];
+            options = rawSelected
+                .map((o: any) => typeof o === 'string' ? o : o.name || o.label || o.text || '')
+                .filter(Boolean);
+        }
 
-        options = options.map((o: any) => typeof o === 'string' ? o : o.label || o.text || o.name).filter(Boolean);
+        if (!Array.isArray(options)) options = [options].filter(Boolean);
         if (options.length === 0) options = ['Voto registrado'];
+        
+        // Nome da enquete
+        const pollUpdateMsg = msgObject.pollUpdateMessage || msgContent.pollUpdateMessage || {};
+        const pollName = msgContent.pollCreationMessage?.name || msgObject.pollName || 'Enquete';
+        const pollCreationId = pollUpdateMsg.pollCreationMessageKey?.id || stanzaId;
 
         responseType = 'poll';
         payload = {
-            pollName: pollName,
-            pollId: stanzaId || pollName, // Fallback para pollName se não houver stanzaId
-            selectedOptions: options,
-            pollDataString: typeof pollUpdate === 'string' ? pollUpdate : JSON.stringify(pollUpdate)
+            pollName,
+            pollId: pollCreationId || pollName,
+            selectedOptions: options,  // Lista de quem ATUALMENTE tem voto nesta enquete
+            allPollUpdates: data.pollUpdates || [], // Estado completo: útil para o bot comparar
         };
 
-        // WAME não consegue ler votos de enquetes (ele só repassa o payload criptografado ou vazio).
-        // Se a requisição não tiver o formato da Evolution API (que manda raw.event), ignoramos
-        // para que a deduplicação não bloqueie o webhook correto da Evolution API que chegará depois.
-        if (!raw.event && (!options || options.length === 0 || typeof pollData.vote?.encPayload !== 'undefined')) {
+        // Ignorar webhooks WAME sem dados legíveis (o payload do voto é criptografado no WAME)
+        if (!raw.event && options.length === 0) {
             console.log('[Webhook DEBUG] Ignorando webhook de poll do WAME (sem opções legíveis), aguardando Evolution API...');
             return NextResponse.json({ success: true, ignored: true, reason: 'wame_poll_ignore' });
         }
@@ -235,23 +242,25 @@ export async function POST(request: Request) {
         }
     }
     
-    // Para enquetes, o messageId no WAME e Evolution podem ser do voto, então vamos deduplicar por (pollId + fromPhone)
-    if (responseType === 'poll' && stanzaId) {
+    // Para enquetes: cada evento de voto tem um data.key.id ÚNICO.
+    // Usamos ele como chave de dedup para garantir que CADA MUDANÇA de voto seja processada,
+    // inclusive múltiplas pessoas votando no mesmo segundo.
+    if (responseType === 'poll') {
         try {
-            const dedupPollId = `${stanzaId}_${fromPhone}`;
-            // Como votos podem mudar, não podemos bloquear para sempre.
-            // Mas para evitar duas requisições no mesmo segundo, salvamos com o timestamp atual.
+            const voteMessageId = data.key?.id || msgObject.key?.id;
+            // Se temos um ID único do evento de voto, usamos ele. Fallback: stanzaId+phone+timestamp
+            const dedupPollId = voteMessageId
+                ? `poll_vote_${voteMessageId}`
+                : `${stanzaId}_${fromPhone}_${Date.now()}`;
+            
             const dedupRef = db.collection('webhook_dedup').doc(dedupPollId);
             const dedupDoc = await dedupRef.get();
             if (dedupDoc.exists) {
-                const data = dedupDoc.data();
-                // Se o último processamento foi há menos de 2 segundos, ignora como duplicado
-                if (data && (Date.now() - data.timestamp.toMillis() < 2000)) {
-                    console.log(`[Webhook DEBUG] Voto de enquete duplicado ignorado: ${dedupPollId}`);
-                    return NextResponse.json({ success: true, ignored: true, reason: 'duplicate_poll' });
-                }
+                console.log(`[Webhook DEBUG] Evento de enquete duplicado ignorado (mesmo key.id): ${dedupPollId}`);
+                return NextResponse.json({ success: true, ignored: true, reason: 'duplicate_poll' });
             }
-            await dedupRef.set({ timestamp: Timestamp.now() });
+            // TTL implícito: salvar com timestamp para eventual limpeza
+            await dedupRef.set({ timestamp: Timestamp.now(), stanzaId: stanzaId || null });
         } catch (e) { console.error("DEDUP POLL ERROR:", e); }
     }
     
