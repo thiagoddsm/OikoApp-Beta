@@ -192,10 +192,10 @@ export async function POST(request: Request) {
 
         responseType = 'poll';
         payload = {
-            pollName,
+            pollName: pollName, // Garante que a propriedade do payload seja exatamente pollName (com minúsculas/maiúsculas consistentes)
             pollId: pollCreationId || pollName,
-            selectedOptions: options,  // Lista de quem ATUALMENTE tem voto nesta enquete
-            allPollUpdates: data.pollUpdates || [], // Estado completo: útil para o bot comparar
+            selectedOptions: options,
+            allPollUpdates: data.pollUpdates || [],
         };
 
         // Ignorar webhooks WAME sem dados legíveis (o payload do voto é criptografado no WAME)
