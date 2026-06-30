@@ -28,7 +28,7 @@ const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Q
 export function CreateReservationDialog({ open, onOpenChange, existingReservation }: CreateReservationDialogProps) {
   const { user, firestore } = useFirebase();
     const { users } = useMembersData();
-    const { events, reservations, rooms: availableRooms, strategicEvents, reservationCategories } = useEventsData();
+    const { events, reservations, rooms: availableRooms, strategicEvents, reservationCategories, ministries } = useEventsData();
 
   const { addReservation, updateReservation, deleteReservation, addReservationCategory, isLoading: isLoadingContext } = useVolunteering();
   
@@ -430,12 +430,9 @@ export function CreateReservationDialog({ open, onOpenChange, existingReservatio
                     <SelectTrigger id="ministry"><SelectValue placeholder="Ministério" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="geral">Geral / Outro</SelectItem>
-                      <SelectItem value="gleed">Gleed</SelectItem>
-                      <SelectItem value="homens">Homens</SelectItem>
-                      <SelectItem value="mulheres">Mulheres</SelectItem>
-                      <SelectItem value="greem">Greem</SelectItem>
-                      <SelectItem value="kids">Kids</SelectItem>
-                      <SelectItem value="jovens">Jovens</SelectItem>
+                      {ministries.map((min: any) => (
+                        <SelectItem key={min.id} value={min.id}>{min.name}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

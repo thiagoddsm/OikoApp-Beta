@@ -38,6 +38,7 @@ interface ReservationsCalendarProps {
     searchTerm?: string;
     roomFilter?: string;
     categoryFilter?: string[];
+    ministryFilter?: string;
 }
 
 // ─── Componente de visualização em Lista ────────────────────────────────────
@@ -46,13 +47,15 @@ function EventListView({
     onEventClick, 
     reservationCategories,
     currentDate,
-    onNavigate
+    onNavigate,
+    ministries
 }: { 
     events: any[], 
     onEventClick?: (res: RoomReservation) => void, 
     reservationCategories: any[],
     currentDate: Date,
-    onNavigate: (d: Date) => void
+    onNavigate: (d: Date) => void,
+    ministries: any[]
 }) {
     const categoryMap = useMemo(() => new Map(reservationCategories.map(c => [c.id, c.name])), [reservationCategories]);
 
@@ -131,6 +134,7 @@ function EventListView({
                         const isApproved = res.status === 'approved';
                         const isRecurring = res.frequency && res.frequency !== 'pontual';
                         const categoryName = res.categoryId ? categoryMap.get(res.categoryId) : null;
+                        const ministry = (res as any).ministry;
 
                         return (
                             <button
@@ -182,6 +186,23 @@ function EventListView({
                                             {isApproved ? 'Confirmado' : 'Pendente'}
                                         </Badge>
                                         <div className="flex items-center gap-1">
+                                            {ministry && ministry !== 'geral' && (() => {
+                                                const min = ministries.find(m => m.id === ministry);
+                                                const minColor = min?.color || '#3B82F6';
+                                                return (
+                                                    <Badge 
+                                                        variant="outline" 
+                                                        className="text-[10px] h-5 border font-semibold"
+                                                        style={{
+                                                            backgroundColor: `${minColor}15`,
+                                                            color: minColor,
+                                                            borderColor: `${minColor}30`
+                                                        }}
+                                                    >
+                                                        {min?.name || ministry}
+                                                    </Badge>
+                                                );
+                                            })()}
                                             {categoryName && (
                                                 <Badge variant="outline" className="text-[10px] h-5 bg-slate-100 text-slate-600 border-slate-200">
                                                     <Tag className="size-2.5 mr-1" />
@@ -214,7 +235,7 @@ export function ReservationsCalendar({
     categoryFilter = [],
     ministryFilter = 'all'
 }: ReservationsCalendarProps) {
-    const { reservations, rooms, strategicEvents, reservationCategories } = useEventsData();
+    const { reservations, rooms, strategicEvents, reservationCategories, ministries } = useEventsData();
 
   const { isLoading } = useVolunteering();
   const [date, setDate] = useState(new Date());
@@ -287,7 +308,8 @@ export function ReservationsCalendar({
         }
 
         const ministryKey = (res as any).ministry || 'geral';
-        const ministryPrefix = ministryKey !== 'geral' ? `[${ministryNames[ministryKey] || ministryKey}] ` : '';
+        const matchedMin = ministries.find(m => m.id === ministryKey);
+        const ministryPrefix = matchedMin ? `[${matchedMin.name}] ` : '';
         const eventTitle = `${ministryPrefix}${res.eventName} (${res.rooms?.join(', ') || 'N/A'})`;
 
         if (!res.frequency || res.frequency === 'pontual') {
@@ -369,7 +391,7 @@ export function ReservationsCalendar({
     });
 
     return allOccurrences;
-  }, [reservations, strategicEvents, searchTerm, roomFilter, categoryFilter, ministryFilter]);
+  }, [reservations, strategicEvents, searchTerm, roomFilter, categoryFilter, ministryFilter, ministries]);
 
   const eventStyleGetter = (event: any) => {
     const status = event.resource?.status || 'pending';
@@ -489,6 +511,7 @@ export function ReservationsCalendar({
                     reservationCategories={reservationCategories}
                     currentDate={date}
                     onNavigate={setDate}
+                    ministries={ministries}
                 />
             </div>
         )}

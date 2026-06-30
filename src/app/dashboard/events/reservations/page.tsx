@@ -18,6 +18,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useEventsData } from "@/hooks/useDomainData";
+import { MinistryManagement } from '@/components/volunteering/ministry-management';
 
 const ReservationsCalendar = dynamic(
     () => import('@/components/volunteering/reservations-calendar').then(mod => mod.ReservationsCalendar),
@@ -32,7 +33,7 @@ const ReservationsCalendar = dynamic(
 );
 
 function ReservationsPageContent() {
-    const { events, reservations, rooms, strategicEvents, reservationCategories } = useEventsData();
+    const { events, reservations, rooms, strategicEvents, reservationCategories, ministries } = useEventsData();
 
     const [isDialogOpen, setDialogOpen] = useState(false);
     const [selectedReservation, setSelectedReservation] = useState<any>(null);
@@ -195,12 +196,9 @@ function ReservationsPageContent() {
                                  <SelectContent>
                                      <SelectItem value="all">Todos Ministérios</SelectItem>
                                      <SelectItem value="geral">Geral / Outro</SelectItem>
-                                     <SelectItem value="gleed">Gleed</SelectItem>
-                                     <SelectItem value="homens">Homens</SelectItem>
-                                     <SelectItem value="mulheres">Mulheres</SelectItem>
-                                     <SelectItem value="greem">Greem</SelectItem>
-                                     <SelectItem value="kids">Kids</SelectItem>
-                                     <SelectItem value="jovens">Jovens</SelectItem>
+                                     {ministries.map((min: any) => (
+                                         <SelectItem key={min.id} value={min.id}>{min.name}</SelectItem>
+                                     ))}
                                  </SelectContent>
                              </Select>
                         </div>
@@ -214,10 +212,11 @@ function ReservationsPageContent() {
 
 
                     <Tabs defaultValue="calendar">
-                        <TabsList className="grid w-full grid-cols-2 md:grid-cols-3 h-auto gap-1">
+                        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto gap-1">
                             <TabsTrigger value="calendar">Calendário</TabsTrigger>
                             <TabsTrigger value="list">Lista de Solicitações</TabsTrigger>
                             <TabsTrigger value="rooms">Ambientes</TabsTrigger>
+                            <TabsTrigger value="ministries">Ministérios</TabsTrigger>
                         </TabsList>
                         
                         <TabsContent value="calendar" className="mt-4">
@@ -241,6 +240,10 @@ function ReservationsPageContent() {
                         
                         <TabsContent value="rooms" className="mt-4">
                             <RoomsManagement />
+                        </TabsContent>
+
+                        <TabsContent value="ministries" className="mt-4">
+                            <MinistryManagement />
                         </TabsContent>
                     </Tabs>
                 </CardContent>
