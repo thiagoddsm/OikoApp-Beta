@@ -869,28 +869,39 @@
             const mainBgColor = isReadOnly ? 'bg-gray-900' : 'bg-gray-800';
             const timelineBgColor = isReadOnly ? 'bg-gray-800/50' : 'bg-gray-800';
 
+            const balanceLabel = balance !== 0 
+                ? `${Math.abs(Math.round(balance))}m ${balance > 0 ? 'Ahead' : 'Behind'}` 
+                : 'On Time';
+            const balanceBg = balance > 0 ? 'bg-emerald-600' : balance < 0 ? 'bg-rose-600' : 'bg-blue-600';
+
             return (
                 <>
                     <Modal {...modalState} onClose={hideModal} />
                     <div className="space-y-4">
-                        <div className={`${mainBgColor} ${mainContentColor} rounded-lg p-6 shadow-xl`}>
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <h2 className="text-3xl lg:text-5xl font-bold">{currentItem.title}</h2>
-                                    <p className="text-lg lg:text-2xl text-blue-300">{currentItem.responsible}</p>
-                                </div>
-                                <div className="text-right">
-                                    <div className="text-sm lg:text-base text-gray-300">Horário Previsto</div>
-                                    <div className="text-2xl lg:text-4xl font-mono text-white">{currentItem.startTime}</div>
-                                </div>
+                        <div className={`${mainBgColor} ${mainContentColor} rounded-lg overflow-hidden shadow-xl`}>
+                            {/* Ahead/Behind Status Bar */}
+                            <div className={`${balanceBg} text-white text-center py-2.5 px-4 font-black text-[11px] uppercase tracking-widest`}>
+                                O CULTO ESTÁ {balanceLabel} · TÉRMINO PREVISTO: {estimatedEndTime}
                             </div>
-                            <div className="my-6 text-center">
-                                <div className={`text-7xl lg:text-9xl font-mono ${isOvertime ? 'text-red-400' : 'text-green-400'}`}>{formatTime(displayTime)}</div>
-                                <div className="text-gray-400 lg:text-lg">Planejado: {formatTime(plannedDurationInSeconds)}</div>
+                            <div className="p-6">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <h2 className="text-3xl lg:text-5xl font-bold">{currentItem.title}</h2>
+                                        <p className="text-lg lg:text-2xl text-blue-300">{currentItem.responsible}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-sm lg:text-base text-gray-300">Horário Previsto</div>
+                                        <div className="text-2xl lg:text-4xl font-mono text-white">{currentItem.startTime}</div>
+                                    </div>
+                                </div>
+                                <div className="my-6 text-center">
+                                    <div className={`text-7xl lg:text-9xl font-mono ${isOvertime ? 'text-red-400' : 'text-green-400'}`}>{formatTime(displayTime)}</div>
+                                    <div className="text-gray-400 lg:text-lg">Planejado: {formatTime(plannedDurationInSeconds)}</div>
+                                </div>
+                                <div className="w-full bg-gray-700 rounded-full h-4 mb-6"><div className={`h-4 rounded-full transition-all duration-500 ${isOvertime ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: `${progressPercentage}%` }} /></div>
+                                {(currentItem.description || (currentItem.technical && Object.values(currentItem.technical).some(v => v && (v.text.trim() !== '-' || v.color !== '#ffffff')))) && (<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 bg-black/20 p-4 rounded-lg"> {currentItem.description && (<div> <h4 className="font-semibold text-blue-300 mb-1 flex items-center gap-2"><icons.Info size={16} /> Descrição</h4> <p className="text-sm text-gray-300 whitespace-pre-wrap">{currentItem.description}</p> </div>)} <TechDetailsDisplay technical={currentItem.technical} /> </div>)}
+                                {!isReadOnly && (<div className="flex justify-center flex-wrap gap-4"> <button onClick={handlePrevious} className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg disabled:opacity-50" disabled={currentItemIndex === 0}>Anterior</button> <button onClick={handleToggleTimer} className={`px-6 py-2 rounded-lg flex items-center gap-2 text-lg ${isRunning ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600'}`}> {isRunning ? <icons.Pause size={20} /> : <icons.Play size={20} />} {isRunning ? 'Pausar' : 'Iniciar'} </button> <button onClick={handleResetTimer} className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg flex items-center gap-2"><icons.RotateCcw size={18} /> Resetar Timer</button> {currentItemIndex < items.length - 1 ? (<button onClick={handleNext} className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg">Próximo</button>) : (<button onClick={handleEndWorship} className="bg-red-600 hover:bg-red-500 px-4 py-2 rounded-lg flex items-center gap-2"> <icons.CheckCircle size={18} /> Encerrar Culto</button>)} <button onClick={handleResetWorship} className="bg-red-800 hover:bg-red-700 px-4 py-2 rounded-lg flex items-center gap-2"><icons.Power size={18} /> Reiniciar Culto</button> </div>)}
                             </div>
-                            <div className="w-full bg-gray-700 rounded-full h-4 mb-6"><div className={`h-4 rounded-full transition-all duration-500 ${isOvertime ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: `${progressPercentage}%` }} /></div>
-                            {(currentItem.description || (currentItem.technical && Object.values(currentItem.technical).some(v => v && (v.text.trim() !== '-' || v.color !== '#ffffff')))) && (<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 bg-black/20 p-4 rounded-lg"> {currentItem.description && (<div> <h4 className="font-semibold text-blue-300 mb-1 flex items-center gap-2"><icons.Info size={16} /> Descrição</h4> <p className="text-sm text-gray-300 whitespace-pre-wrap">{currentItem.description}</p> </div>)} <TechDetailsDisplay technical={currentItem.technical} /> </div>)}
-                            {!isReadOnly && (<div className="flex justify-center flex-wrap gap-4"> <button onClick={handlePrevious} className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg disabled:opacity-50" disabled={currentItemIndex === 0}>Anterior</button> <button onClick={handleToggleTimer} className={`px-6 py-2 rounded-lg flex items-center gap-2 text-lg ${isRunning ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-green-500 hover:bg-green-600'}`}> {isRunning ? <icons.Pause size={20} /> : <icons.Play size={20} />} {isRunning ? 'Pausar' : 'Iniciar'} </button> <button onClick={handleResetTimer} className="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded-lg flex items-center gap-2"><icons.RotateCcw size={18} /> Resetar Timer</button> {currentItemIndex < items.length - 1 ? (<button onClick={handleNext} className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg">Próximo</button>) : (<button onClick={handleEndWorship} className="bg-red-600 hover:bg-red-500 px-4 py-2 rounded-lg flex items-center gap-2"> <icons.CheckCircle size={18} /> Encerrar Culto</button>)} <button onClick={handleResetWorship} className="bg-red-800 hover:bg-red-700 px-4 py-2 rounded-lg flex items-center gap-2"><icons.Power size={18} /> Reiniciar Culto</button> </div>)}
                         </div>
                         {nextItem && (
                             <div className="bg-gray-700 text-white rounded-lg p-4 shadow-lg opacity-90">

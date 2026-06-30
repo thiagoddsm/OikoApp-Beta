@@ -174,32 +174,61 @@ function SortableRow({ item, onChange, onDelete }: SortableItemProps) {
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <input
-            className={cn(
-              'w-full bg-transparent font-semibold text-sm focus:outline-none',
-              isSong ? 'text-slate-800' : 'text-slate-700'
+          <div className="flex items-center gap-1.5 w-full">
+            <input
+              className={cn(
+                "flex-1 bg-transparent font-semibold text-sm focus:outline-none",
+                isSong ? "text-slate-800" : "text-slate-700"
+              )}
+              value={item.title}
+              onChange={e => onChange(item.id, { title: e.target.value })}
+              placeholder={isSong ? "Nome da música..." : "Descrição do item..."}
+            />
+            {isSong && item.key && (
+              <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
+                {item.key}
+              </span>
             )}
-            value={item.title}
-            onChange={e => onChange(item.id, { title: e.target.value })}
-            placeholder={isSong ? 'Nome da música...' : 'Descrição do item...'}
-          />
+          </div>
+
+          {/* Subtítulo do artista para músicas */}
+          {isSong && item.arrangement && (
+            <p className="text-[11px] text-slate-400 font-medium leading-tight mt-0.5">
+              {item.arrangement}
+            </p>
+          )}
 
           {/* Song metadata row */}
           {isSong && (
-            <div className="flex items-center gap-3 mt-0.5">
-              <input
-                className="w-16 text-xs bg-transparent text-slate-400 focus:outline-none focus:text-slate-600"
-                value={item.key || ''}
-                onChange={e => onChange(item.id, { key: e.target.value })}
-                placeholder="Tom..."
-              />
-              <input
-                className="w-16 text-xs bg-transparent text-slate-400 focus:outline-none focus:text-slate-600"
-                value={item.bpm ? String(item.bpm) : ''}
-                onChange={e => onChange(item.id, { bpm: parseInt(e.target.value) || undefined })}
-                placeholder="BPM..."
-                type="number"
-              />
+            <div className="flex items-center gap-3 mt-1.5">
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-slate-400 font-bold uppercase">Tom:</span>
+                <input
+                  className="w-12 text-xs bg-transparent text-slate-600 focus:outline-none focus:bg-white focus:ring-1 focus:ring-primary/20 rounded px-1 py-0.5 font-bold"
+                  value={item.key || ""}
+                  onChange={e => onChange(item.id, { key: e.target.value })}
+                  placeholder="Ex: G"
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-slate-400 font-bold uppercase">BPM:</span>
+                <input
+                  className="w-12 text-xs bg-transparent text-slate-600 focus:outline-none focus:bg-white focus:ring-1 focus:ring-primary/20 rounded px-1 py-0.5 font-mono"
+                  value={item.bpm ? String(item.bpm) : ""}
+                  onChange={e => onChange(item.id, { bpm: parseInt(e.target.value) || undefined })}
+                  placeholder="70"
+                  type="number"
+                />
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-slate-400 font-bold uppercase">Artista/Arranjo:</span>
+                <input
+                  className="w-32 text-xs bg-transparent text-slate-600 focus:outline-none focus:bg-white focus:ring-1 focus:ring-primary/20 rounded px-1 py-0.5 font-medium"
+                  value={item.arrangement || ""}
+                  onChange={e => onChange(item.id, { arrangement: e.target.value })}
+                  placeholder="Ex: Elevation Worship"
+                />
+              </div>
             </div>
           )}
 
@@ -381,20 +410,28 @@ export function WorshipPlanEditor({ items, startTime, onItemsChange, readOnly = 
               <p className="text-sm mt-1">Use os botões acima para montar a estrutura do culto,<br />ou importe um template existente.</p>
             </div>
           ) : (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={enriched.map(i => i.id)} strategy={verticalListSortingStrategy}>
-                <div className="border border-slate-200 rounded-lg overflow-hidden divide-y divide-slate-100 bg-white">
-                  {enriched.map(item => (
-                    <SortableRow
-                      key={item.id}
-                      item={item}
-                      onChange={handleChange}
-                      onDelete={handleDelete}
-                    />
-                  ))}
+            <div className="space-y-3">
+              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={enriched.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                  <div className="border border-slate-200 rounded-lg overflow-hidden divide-y divide-slate-100 bg-white">
+                    {enriched.map(item => (
+                      <SortableRow
+                        key={item.id}
+                        item={item}
+                        onChange={handleChange}
+                        onDelete={handleDelete}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
+              {totalDuration && (
+                <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg font-black text-xs text-slate-700 uppercase tracking-wider">
+                  <span>Duração total do culto</span>
+                  <span className="text-sm font-black text-primary">{totalDuration}</span>
                 </div>
-              </SortableContext>
-            </DndContext>
+              )}
+            </div>
           )}
         </div>
       </div>
