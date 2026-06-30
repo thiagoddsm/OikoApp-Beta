@@ -502,6 +502,9 @@ export function getResolvedSchedule(classData: any, courseData: any) {
         if (!override || override.isCancelled) return;
         if (items.find(i => i.dateStr === oDateStr)) return;
 
+        // Se for a data antiga que deseja excluir definitivamente do fluxo da chamada
+        if (oDateStr.startsWith('2026-06-27')) return;
+
         const syllabusItem = override.syllabusId 
             ? syllabus.find((s: any) => s.id === override.syllabusId) 
             : undefined;
