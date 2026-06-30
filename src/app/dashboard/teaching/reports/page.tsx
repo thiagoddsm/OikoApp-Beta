@@ -2,644 +2,675 @@
 
 import React, { useState, useMemo } from 'react';
 import { VolunteeringProvider, useVolunteering, getResolvedSchedule } from '@/contexts/volunteering-context';
-import { CourseReports } from '@/components/teaching/course-reports';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { BarChart2, BookOpen, Users, Award, Percent, ChevronRight, FileText, Download, Printer } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { 
+  BarChart2, 
+  BookOpen, 
+  Users, 
+  Percent, 
+  Printer, 
+  Calendar, 
+  TrendingUp, 
+  AlertTriangle, 
+  CheckCircle2, 
+  XCircle, 
+  ChevronDown, 
+  ChevronUp, 
+  Award 
+} from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { parseISO, isWithinInterval, startOfWeek, format } from 'date-fns';
+import { parseISO, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 function GeneralTeachingReportsContent() {
-    const { users } = useMembersData();
-    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+  const { users } = useMembersData();
+  const { courses, classes } = useCoursesData();
 
+  // Estados dos filtros
+  const [selectedCycle, setSelectedCycle] = useState<string>('all');
   const [selectedCourseId, setSelectedCourseId] = useState<string>('all');
-  const [selectedTrack, setSelectedTrack] = useState<string>('all');
-  const [dateStart, setDateStart] = useState<string>('');
-  const [dateEnd, setDateEnd] = useState<string>('');
-  const [attendanceViewMode, setAttendanceViewMode] = useState<'daily' | 'weekly'>('daily');
+  const [selectedClassId, setSelectedClassId] = useState<string>('all');
 
-  // Traduzir o track
-  const getTrackName = (track?: string, type?: string) => {
-    if (type === 'eletivo') return 'Eletivas & Outros';
-    if (track === 'discipulado') return 'Trilho de Discipulado';
-    if (track === 'biblico') return 'Trilho Bíblico';
-    if (track === 'teologico') return 'Trilho Teológico';
-    return 'Eletivas & Outros';
+  // Controle de expansão das aulas por curso
+  const [expandedCourses, setExpandedCourses] = useState<Record<string, boolean>>({});
+
+  // Obter ciclos únicos ordenados
+  const cycles = useMemo(() => {
+    const set = new Set<string>();
+    classes.forEach(c => { if (c.cycle) set.add(c.cycle); });
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [classes]);
+
+  // Se 'all' for selecionado, mas existirem ciclos, podemos mostrar todos ou focar no mais recente.
+  // Vamos permitir filtrar por 'all' (Todos os Ciclos) ou ciclo específico.
+
+  // Filtrar turmas pelo ciclo ativo
+  const filteredClassesByCycle = useMemo(() => {
+    if (selectedCycle === 'all') return classes;
+    return classes.filter(c => c.cycle === selectedCycle);
+  }, [classes, selectedCycle]);
+
+  // Obter cursos únicos baseados nas turmas filtradas pelo ciclo
+  const filteredCoursesByCycle = useMemo(() => {
+    const courseIds = new Set(filteredClassesByCycle.map(c => c.courseId));
+    return courses.filter(c => courseIds.has(c.id));
+  }, [courses, filteredClassesByCycle]);
+
+  // Filtrar turmas considerando também o curso selecionado
+  const filteredClasses = useMemo(() => {
+    let result = filteredClassesByCycle;
+    if (selectedCourseId !== 'all') {
+      result = result.filter(c => c.courseId === selectedCourseId);
+    }
+    if (selectedClassId !== 'all') {
+      result = result.filter(c => c.id === selectedClassId);
+    }
+    return result;
+  }, [filteredClassesByCycle, selectedCourseId, selectedClassId]);
+
+  const toggleCourseExpanded = (courseId: string) => {
+    setExpandedCourses(prev => ({ ...prev, [courseId]: !prev[courseId] }));
   };
 
-  // Calcular estatísticas consolidadas por curso
-  const courseStats = useMemo(() => {
-    return courses.map(course => {
-      const courseClasses = classes.filter(c => c.courseId === course.id);
-      const studentSet = new Set<string>();
-      courseClasses.forEach(cls => cls.students?.forEach(sId => studentSet.add(sId)));
-      const enrolledCount = studentSet.size;
+  // ── 1. CÁLCULO DE INSCRITOS POR CURSO ─────────────────────────────────────────
+  const enrollmentStats = useMemo(() => {
+    let totalInscritos = 0;
+    const distribution: Record<string, { name: string; count: number; track: string }> = {};
 
-      // Calcular frequência média para o curso
-      let totalAttendancePossibilities = 0;
-      let totalPresentCount = 0;
+    filteredClasses.forEach(cls => {
+      const course = courses.find(c => c.id === cls.courseId);
+      if (!course) return;
 
-      courseClasses.forEach(cls => {
-        const resolved = getResolvedSchedule(cls, course);
-        const activeDates = new Set(resolved.map(r => r.dateStr));
+      const studentCount = cls.students?.length || 0;
+      totalInscritos += studentCount;
 
-        cls.students?.forEach(studentId => {
-          cls.attendance?.forEach(att => {
-            if (!activeDates.has(att.date)) return; // Ignora se a aula foi excluída
+      if (!distribution[course.id]) {
+        distribution[course.id] = { 
+          name: course.name, 
+          count: 0, 
+          track: course.ebdTrack || 'discipulado' 
+        };
+      }
+      distribution[course.id].count += studentCount;
+    });
 
-            if (dateStart || dateEnd) {
-              const date = parseISO(att.date.split('T')[0]);
-              const start = dateStart ? parseISO(dateStart) : parseISO('2000-01-01');
-              const end = dateEnd ? parseISO(dateEnd) : parseISO('2100-01-01');
-              if (!isWithinInterval(date, { start, end })) return;
-            }
+    return {
+      total: totalInscritos,
+      list: Object.entries(distribution).map(([id, info]) => ({ id, ...info })).sort((a, b) => b.count - a.count)
+    };
+  }, [filteredClasses, courses]);
 
-            const isPresent = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
-            const isRepo = att.repositions?.some(r => r.studentId === studentId);
-            if (isPresent || isRepo) {
-              totalPresentCount++;
-            }
-            totalAttendancePossibilities++;
-          });
-        });
-      });
-
-      const averageAttendance = totalAttendancePossibilities > 0 
-        ? Math.round((totalPresentCount / totalAttendancePossibilities) * 100) 
-        : 0;
-
-      return {
-        id: course.id,
-        name: course.name,
-        ministryName: course.ministryName || 'Ensino',
-        track: course.ebdTrack || 'eletivo',
-        type: course.type || 'eletivo',
-        classesCount: courseClasses.length,
-        enrolledCount,
-        averageAttendance,
-      };
-    })
-    .filter(c => selectedTrack === 'all' || c.track === selectedTrack || (selectedTrack === 'eletivo' && c.type === 'eletivo'))
-    .sort((a, b) => b.enrolledCount - a.enrolledCount);
-  }, [courses, classes, selectedTrack, dateStart, dateEnd]);
-
-  // KPIs globais de todo o Ensino
-  const globalKpis = useMemo(() => {
-    const totalCourses = courses.length;
-    const totalClasses = classes.length;
-    
-    // Contar alunos únicos em todas as turmas
-    const uniqueStudents = new Set<string>();
-    classes.forEach(cls => cls.students?.forEach(sId => uniqueStudents.add(sId)));
-    
-    // Média de frequência global
+  // ── 2. CÁLCULO DE FREQUÊNCIA E PRESENÇAS ──────────────────────────────────────
+  const frequencyStats = useMemo(() => {
     let totalPossibilities = 0;
     let totalPresents = 0;
-    classes.forEach(cls => {
+    const courseFreq: Record<string, { total: number; presents: number }> = {};
+
+    filteredClasses.forEach(cls => {
       const course = courses.find(c => c.id === cls.courseId);
+      if (!course) return;
+
       const resolved = getResolvedSchedule(cls, course);
       const activeDates = new Set(resolved.map(r => r.dateStr));
+
+      if (!courseFreq[course.id]) {
+        courseFreq[course.id] = { total: 0, presents: 0 };
+      }
 
       cls.students?.forEach(studentId => {
         cls.attendance?.forEach(att => {
-          if (!activeDates.has(att.date)) return; // Ignora se a aula foi excluída
-
-          if (dateStart || dateEnd) {
-            const date = parseISO(att.date.split('T')[0]);
-            const start = dateStart ? parseISO(dateStart) : parseISO('2000-01-01');
-            const end = dateEnd ? parseISO(dateEnd) : parseISO('2100-01-01');
-            if (!isWithinInterval(date, { start, end })) return;
-          }
+          if (!activeDates.has(att.date)) return;
 
           const isPresent = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
           const isRepo = att.repositions?.some(r => r.studentId === studentId);
+
           if (isPresent || isRepo) {
             totalPresents++;
+            courseFreq[course.id].presents++;
           }
           totalPossibilities++;
+          courseFreq[course.id].total++;
         });
       });
     });
 
-    const globalAverage = totalPossibilities > 0 ? Math.round((totalPresents / totalPossibilities) * 100) : 0;
+    const averageGlobal = totalPossibilities > 0 ? Math.round((totalPresents / totalPossibilities) * 100) : 0;
+
+    const list = Object.entries(courseFreq).map(([id, stats]) => {
+      const course = courses.find(c => c.id === id);
+      return {
+        id,
+        name: course?.name || 'Desconhecido',
+        average: stats.total > 0 ? Math.round((stats.presents / stats.total) * 100) : 0
+      };
+    }).sort((a, b) => b.average - a.average);
 
     return {
-      totalCourses,
-      totalClasses,
-      totalStudents: uniqueStudents.size,
-      globalAverage,
+      globalAverage: averageGlobal,
+      totalPresences: totalPresents,
+      courseAverages: list
     };
-  }, [courses, classes, dateStart, dateEnd]);
+  }, [filteredClasses, courses]);
 
-  // Gráfico de barras: alunos por curso
-  const chartData = useMemo(() => {
-    return courseStats.slice(0, 8).map(c => ({
-      name: c.name.length > 15 ? c.name.substring(0, 13) + '...' : c.name,
-      'Alunos': c.enrolledCount,
-      'Freq. Média (%)': c.averageAttendance
-    }));
-  }, [courseStats]);
+  // ── 3. DETALHAMENTO DE FREQUÊNCIA POR AULA ────────────────────────────────────
+  const classesAndLessonsDetail = useMemo(() => {
+    const result: Record<string, {
+      courseName: string;
+      lessons: {
+        title: string;
+        date: string;
+        present: number;
+        absent: number;
+        rate: number;
+      }[];
+    }> = {};
 
-  // Gráfico de pizza: aprovados vs reprovados gerais
-  const pieData = useMemo(() => {
-    let approved = 0;
-    let pending = 0;
+    filteredClasses.forEach(cls => {
+      const course = courses.find(c => c.id === cls.courseId);
+      if (!course) return;
 
-    courses.forEach(course => {
-      const courseClasses = classes.filter(c => c.courseId === course.id);
-      const studentSet = new Set<string>();
-      courseClasses.forEach(cls => cls.students?.forEach(sId => studentSet.add(sId)));
-      const threshold = course.minAttendanceApproval || 75;
+      if (!result[course.id]) {
+        result[course.id] = { courseName: course.name, lessons: [] };
+      }
 
-      studentSet.forEach(studentId => {
-        let attended = 0;
-        let total = 0;
+      const resolved = getResolvedSchedule(cls, course);
+      const activeDates = new Set(resolved.map(r => r.dateStr));
 
-        courseClasses.forEach(cls => {
-          if (!cls.students?.includes(studentId)) return;
-          const resolved = getResolvedSchedule(cls, course);
-          const activeDates = new Set(resolved.map(r => r.dateStr));
+      resolved.forEach((session, index) => {
+        const attRecord = cls.attendance?.find(a => a.date === session.dateStr);
+        const uniquePresents = new Set<string>();
+        attRecord?.presentStudentIds?.forEach(id => uniquePresents.add(id));
+        attRecord?.onlineStudentIds?.forEach(id => uniquePresents.add(id));
+        attRecord?.repositions?.forEach(r => uniquePresents.add(r.studentId));
 
-          cls.attendance?.forEach(att => {
-            if (!activeDates.has(att.date)) return;
+        const activeStudents = cls.students || [];
+        const presentCount = Array.from(uniquePresents).filter(id => activeStudents.includes(id)).length;
+        const totalStudents = activeStudents.length;
+        const absentCount = Math.max(0, totalStudents - presentCount);
+        const rate = totalStudents > 0 ? Math.round((presentCount / totalStudents) * 100) : 0;
 
-            if (dateStart || dateEnd) {
-              const date = parseISO(att.date.split('T')[0]);
-              const start = dateStart ? parseISO(dateStart) : parseISO('2000-01-01');
-              const end = dateEnd ? parseISO(dateEnd) : parseISO('2100-01-01');
-              if (!isWithinInterval(date, { start, end })) return;
-            }
+        result[course.id].lessons.push({
+          title: session.title || `Aula ${index + 1}`,
+          date: session.dateStr,
+          present: presentCount,
+          absent: absentCount,
+          rate
+        });
+      });
+    });
 
-            const isPresent = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
-            const isRepo = att.repositions?.some(r => r.studentId === studentId);
-            if (isPresent || isRepo) attended++;
-            total++;
-          });
+    return result;
+  }, [filteredClasses, courses]);
+
+  // ── 4. PROJEÇÃO DE APROVAÇÃO / REPROVAÇÃO ──────────────────────────────────────
+  const approvalProjections = useMemo(() => {
+    let totalInscritos = 0;
+    let elegiveisHoje = 0;
+    let projAprovados = 0;
+    let projReprovados = 0;
+
+    filteredClasses.forEach(cls => {
+      const course = courses.find(c => c.id === cls.courseId);
+      if (!course) return;
+
+      const resolved = getResolvedSchedule(cls, course);
+      const totalLessons = resolved.length;
+      if (totalLessons === 0) return;
+
+      const minAttendanceRate = course.minAttendanceApproval || 75;
+      const maxAbsencesAllowed = Math.floor((1 - (minAttendanceRate / 100)) * totalLessons);
+
+      const activeStudents = cls.students || [];
+      totalInscritos += activeStudents.length;
+
+      activeStudents.forEach(studentId => {
+        let absencesCount = 0;
+        let lessonsConducted = 0;
+        let presentsCount = 0;
+
+        cls.attendance?.forEach(att => {
+          // Apenas contar aulas válidas no cronograma
+          const isValidSession = resolved.some(r => r.dateStr === att.date);
+          if (!isValidSession) return;
+
+          lessonsConducted++;
+          const isPresent = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
+          const isRepo = att.repositions?.some(r => r.studentId === studentId);
+
+          if (isPresent || isRepo) {
+            presentsCount++;
+          } else {
+            absencesCount++;
+          }
         });
 
-        const rate = total > 0 ? (attended / total) * 100 : 0;
-        if (rate >= threshold) {
-          approved++;
+        // ELEGÍVEL HOJE: Suas faltas atuais não ultrapassam o limite máximo de faltas do curso inteiro.
+        const isEligible = absencesCount <= maxAbsencesAllowed;
+        if (isEligible) {
+          elegiveisHoje++;
+        }
+
+        // PROJEÇÃO DE APROVAÇÃO:
+        // Assumindo que nas aulas restantes o aluno mantém sua frequência média histórica.
+        const historicalRate = lessonsConducted > 0 ? (presentsCount / lessonsConducted) : 1.0;
+        const remainingLessons = Math.max(0, totalLessons - lessonsConducted);
+        const projectedPresents = presentsCount + (remainingLessons * historicalRate);
+        const projectedRate = (projectedPresents / totalLessons) * 100;
+
+        if (projectedRate >= minAttendanceRate && isEligible) {
+          projAprovados++;
         } else {
-          pending++;
+          projReprovados++;
         }
       });
     });
 
-    return [
-      { name: 'Apto (Aprovado)', value: approved, color: '#10b981' },
-      { name: 'Pendente/Reprovado', value: pending, color: '#f59e0b' }
-    ];
-  }, [courses, classes, dateStart, dateEnd]);
-
-  const dailyAttendanceData = useMemo(() => {
-    const dailyMap: Record<string, { dateObj: Date; label: string; count: number }> = {};
-
-    classes.forEach(cls => {
-      const course = courses.find(c => c.id === cls.courseId);
-      const resolved = getResolvedSchedule(cls, course);
-      const activeDates = new Set(resolved.map(r => r.dateStr));
-
-      cls.attendance?.forEach(att => {
-        if (!activeDates.has(att.date)) return;
-
-        if (dateStart || dateEnd) {
-          const date = parseISO(att.date.split('T')[0]);
-          const start = dateStart ? parseISO(dateStart) : parseISO('2000-01-01');
-          const end = dateEnd ? parseISO(dateEnd) : parseISO('2100-01-01');
-          if (!isWithinInterval(date, { start, end })) return;
-        }
-
-        const dateObj = parseISO(att.date.split('T')[0]);
-        const dateKey = att.date.split('T')[0];
-
-        const uniquePresents = new Set<string>();
-        att.presentStudentIds?.forEach(sId => uniquePresents.add(sId));
-        att.onlineStudentIds?.forEach(sId => uniquePresents.add(sId));
-        att.repositions?.forEach(r => uniquePresents.add(r.studentId));
-
-        const activeClassStudents = cls.students || [];
-        const presentInClassCount = Array.from(uniquePresents).filter(sId => activeClassStudents.includes(sId)).length;
-
-        if (!dailyMap[dateKey]) {
-          dailyMap[dateKey] = {
-            dateObj,
-            label: format(dateObj, "dd/MM", { locale: ptBR }),
-            count: 0
-          };
-        }
-        dailyMap[dateKey].count += presentInClassCount;
-      });
-    });
-
-    return Object.values(dailyMap)
-      .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime())
-      .map(item => ({
-        name: item.label,
-        'Presenças': item.count
-      }));
-  }, [classes, courses, dateStart, dateEnd]);
-
-  const weeklyAttendanceData = useMemo(() => {
-    const weeklyMap: Record<string, { weekStart: Date; label: string; count: number }> = {};
-
-    classes.forEach(cls => {
-      const course = courses.find(c => c.id === cls.courseId);
-      const resolved = getResolvedSchedule(cls, course);
-      const activeDates = new Set(resolved.map(r => r.dateStr));
-
-      cls.attendance?.forEach(att => {
-        if (!activeDates.has(att.date)) return; // Ignora se a aula foi excluída
-
-        // Filtro por data
-        if (dateStart || dateEnd) {
-          const date = parseISO(att.date.split('T')[0]);
-          const start = dateStart ? parseISO(dateStart) : parseISO('2000-01-01');
-          const end = dateEnd ? parseISO(dateEnd) : parseISO('2100-01-01');
-          if (!isWithinInterval(date, { start, end })) return;
-        }
-
-        const dateObj = parseISO(att.date.split('T')[0]);
-        const sunday = startOfWeek(dateObj, { weekStartsOn: 0 });
-        const weekKey = format(sunday, 'yyyy-MM-dd');
-
-        // Somar os presentes nessa aula
-        const uniquePresents = new Set<string>();
-        att.presentStudentIds?.forEach(sId => uniquePresents.add(sId));
-        att.onlineStudentIds?.forEach(sId => uniquePresents.add(sId));
-        att.repositions?.forEach(r => uniquePresents.add(r.studentId));
-
-        // Filtrar apenas se pertencem à turma
-        const activeClassStudents = cls.students || [];
-        const presentInClassCount = Array.from(uniquePresents).filter(sId => activeClassStudents.includes(sId)).length;
-
-        if (!weeklyMap[weekKey]) {
-          weeklyMap[weekKey] = {
-            weekStart: sunday,
-            label: format(sunday, "'Semana de' dd/MM", { locale: ptBR }),
-            count: 0
-          };
-        }
-        weeklyMap[weekKey].count += presentInClassCount;
-      });
-    });
-
-    return Object.values(weeklyMap)
-      .sort((a, b) => a.weekStart.getTime() - b.weekStart.getTime())
-      .map(item => ({
-        name: item.label,
-        'Presenças': item.count
-      }));
-  }, [classes, courses, dateStart, dateEnd]);
-
-  const handleExportConsolidatedCSV = () => {
-    const headers = ['Curso', 'Trilho', 'Qtd. Turmas', 'Alunos Matriculados', 'Frequência Média (%)'];
-    const rows = courseStats.map(c => [
-      c.name,
-      getTrackName(c.track, c.type),
-      c.classesCount,
-      c.enrolledCount,
-      `${c.averageAttendance}%`
-    ]);
-
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(e => e.map(val => `"${val}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'relatorio_consolidado_ensino.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+    return {
+      totalInscritos,
+      elegiveisHoje,
+      projAprovados,
+      projReprovados
+    };
+  }, [filteredClasses, courses]);
 
   const handlePrint = () => {
     window.print();
   };
 
   return (
-    <div className="space-y-6 print-content">
-      {/* CSS específico para impressão em PDF */}
+    <div className="space-y-6 print:space-y-4 print:p-0">
+      {/* CSS para Impressão PDF */}
       <style dangerouslySetInnerHTML={{__html: `
         @media print {
           body {
             background: white !important;
             color: black !important;
+            font-size: 12px !important;
           }
-          header, nav, aside, footer, button, .print-hidden, .no-print, [role="tablist"], select {
+          .print-hide {
             display: none !important;
           }
-          main, .print-content {
+          .print-full {
             width: 100% !important;
-            padding: 0 !important;
-            margin: 0 !important;
+            max-width: 100% !important;
             box-shadow: none !important;
             border: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
           .print-card {
             page-break-inside: avoid !important;
-            box-shadow: none !important;
-            border: 1px solid #e2e8f0 !important;
-            margin-bottom: 1.5rem !important;
-          }
-          .print-title {
-            font-size: 24px !important;
-            font-weight: 900 !important;
+            border: 1px solid #cbd5e1 !important;
+            border-radius: 8px !important;
+            margin-bottom: 12px !important;
           }
         }
       `}} />
 
-      {/* Top Header & Selector */}
+      {/* Cabeçalho */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl border shadow-sm print-card">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2 print-title">
-            <BarChart2 className="size-6 text-primary print-hidden" />
-            Relatórios de Ensino
+        <div>
+          <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+            <Award className="size-6 text-primary print-hide" />
+            Dashboard Gerencial do Ensino
           </h1>
           <p className="text-xs text-muted-foreground">
-            Acompanhe o desempenho, frequência e conclusão dos alunos por curso ou de forma consolidada.
+            Acompanhe a saúde pedagógica, frequência e projeções de aprovação do Trilho de Discipulado.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto print-hidden">
-          <div className="w-[180px] space-y-1.5">
-            <Label htmlFor="trackSelector" className="text-[10px] font-black uppercase text-muted-foreground ml-1">Trilho</Label>
-            <Select value={selectedTrack} onValueChange={setSelectedTrack}>
-              <SelectTrigger id="trackSelector" className="bg-white font-bold h-10">
-                <SelectValue />
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto print-hide">
+          {/* Seletor de Ciclo */}
+          <div className="w-[150px] space-y-1.5">
+            <Label className="text-[10px] font-black uppercase text-slate-500">Ciclo</Label>
+            <Select value={selectedCycle} onValueChange={(val) => {
+              setSelectedCycle(val);
+              setSelectedCourseId('all');
+              setSelectedClassId('all');
+            }}>
+              <SelectTrigger className="bg-white font-bold h-10">
+                <SelectValue placeholder="Selecione o Ciclo" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos os Trilhos</SelectItem>
-                <SelectItem value="discipulado">Trilho de Discipulado</SelectItem>
-                <SelectItem value="biblico">Trilho Bíblico</SelectItem>
-                <SelectItem value="teologico">Trilho Teológico</SelectItem>
-                <SelectItem value="eletivo">Eletivas & Outros</SelectItem>
+                <SelectItem value="all">Todos os Ciclos</SelectItem>
+                {cycles.map(c => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
 
-          <div className="w-[220px] space-y-1.5">
-            <Label htmlFor="courseSelector" className="text-[10px] font-black uppercase text-muted-foreground ml-1">Selecionar Curso</Label>
-            <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
-              <SelectTrigger id="courseSelector" className="bg-white font-bold h-10">
-                <SelectValue />
+          {/* Seletor de Curso */}
+          <div className="w-[180px] space-y-1.5">
+            <Label className="text-[10px] font-black uppercase text-slate-500">Curso</Label>
+            <Select value={selectedCourseId} onValueChange={(val) => {
+              setSelectedCourseId(val);
+              setSelectedClassId('all');
+            }}>
+              <SelectTrigger className="bg-white font-bold h-10">
+                <SelectValue placeholder="Todos os Cursos" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Visão Geral (Todos os Cursos)</SelectItem>
-                {courses.map(course => (
+                <SelectItem value="all">Todos os Cursos</SelectItem>
+                {filteredCoursesByCycle.map(course => (
                   <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
 
-          {selectedCourseId === 'all' && (
-            <>
-              <div className="w-[140px] space-y-1.5 animate-in fade-in duration-200">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">De</Label>
-                <input
-                  type="date"
-                  className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 font-bold"
-                  value={dateStart}
-                  onChange={(e) => setDateStart(e.target.value)}
-                />
-              </div>
+          {/* Seletor de Turma */}
+          <div className="w-[180px] space-y-1.5">
+            <Label className="text-[10px] font-black uppercase text-slate-500">Turma</Label>
+            <Select value={selectedClassId} onValueChange={setSelectedClassId}>
+              <SelectTrigger className="bg-white font-bold h-10">
+                <SelectValue placeholder="Todas as Turmas" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as Turmas</SelectItem>
+                {filteredClassesByCycle
+                  .filter(c => selectedCourseId === 'all' || c.courseId === selectedCourseId)
+                  .map(cls => (
+                    <SelectItem key={cls.id} value={cls.id}>{cls.name}</SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-              <div className="w-[140px] space-y-1.5 animate-in fade-in duration-200">
-                <Label className="text-[10px] font-black uppercase text-muted-foreground ml-1">Até</Label>
-                <input
-                  type="date"
-                  className="flex h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 font-bold"
-                  value={dateEnd}
-                  onChange={(e) => setDateEnd(e.target.value)}
-                />
-              </div>
-            </>
-          )}
-
-          <Button onClick={handlePrint} variant="outline" size="sm" className="h-10 mt-5 font-bold uppercase gap-1.5">
-            <Printer className="size-4" /> PDF
+          <Button onClick={handlePrint} variant="outline" className="h-10 mt-5 font-bold uppercase gap-1.5">
+            <Printer className="size-4" /> Imprimir Relatório
           </Button>
         </div>
       </div>
 
-      {selectedCourseId === 'all' ? (
-        // VISÃO GERAL CONSOLIDADA
-        <div className="space-y-6">
-          {/* KPIs Globais */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="shadow-sm border-none bg-white print-card">
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Cursos Ativos</CardTitle>
-                <BookOpen className="size-4 text-blue-600 print-hidden" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-black">{globalKpis.totalCourses}</div>
-                <p className="text-[10px] text-muted-foreground mt-1">Total de cursos catalogados</p>
-              </CardContent>
-            </Card>
+      {/* Indicadores do Ciclo (KPI Cards) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 print-card">
+        {/* Inscrições */}
+        <Card className="shadow-sm border border-slate-100 bg-white">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Inscrições</CardTitle>
+            <Users className="size-4 text-indigo-500 print-hide" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-black text-indigo-600">{enrollmentStats.total}</div>
+            <p className="text-[10px] text-muted-foreground mt-1">Alunos inscritos ativos</p>
+          </CardContent>
+        </Card>
 
-            <Card className="shadow-sm border-none bg-white print-card">
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Turmas Registradas</CardTitle>
-                <FileText className="size-4 text-emerald-600 print-hidden" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-black">{globalKpis.totalClasses}</div>
-                <p className="text-[10px] text-muted-foreground mt-1">Turmas abertas neste ciclo</p>
-              </CardContent>
-            </Card>
+        {/* Frequência Média */}
+        <Card className="shadow-sm border border-slate-100 bg-white">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Presença Média</CardTitle>
+            <Percent className="size-4 text-emerald-500 print-hide" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-black text-emerald-600">{frequencyStats.globalAverage}%</div>
+            <p className="text-[10px] text-muted-foreground mt-1">{frequencyStats.totalPresences} presenças registradas</p>
+          </CardContent>
+        </Card>
 
-            <Card className="shadow-sm border-none bg-white print-card">
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Alunos Ativos</CardTitle>
-                <Users className="size-4 text-indigo-600 print-hidden" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-black">{globalKpis.totalStudents}</div>
-                <p className="text-[10px] text-muted-foreground mt-1">Membros únicos matriculados</p>
-              </CardContent>
-            </Card>
+        {/* Elegíveis Hoje */}
+        <Card className="shadow-sm border border-slate-100 bg-white">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Elegíveis Hoje</CardTitle>
+            <TrendingUp className="size-4 text-blue-500 print-hide" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-black text-blue-600">{approvalProjections.elegiveisHoje}</div>
+            <p className="text-[10px] text-muted-foreground mt-1">Dentro da margem de faltas permitidas</p>
+          </CardContent>
+        </Card>
 
-            <Card className="shadow-sm border-none bg-white print-card">
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Freq. Média Geral</CardTitle>
-                <Percent className="size-4 text-amber-600 print-hidden" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-black text-amber-600">{globalKpis.globalAverage}%</div>
-                <p className="text-[10px] text-muted-foreground mt-1">Presença média global em todas as aulas</p>
-              </CardContent>
-            </Card>
-          </div>
+        {/* Projeção de Aprovação */}
+        <Card className="shadow-sm border border-slate-100 bg-white">
+          <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+            <CardTitle className="text-xs font-bold uppercase text-muted-foreground">Projeção Aprovados</CardTitle>
+            <CheckCircle2 className="size-4 text-violet-500 print-hide" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-black text-violet-600">{approvalProjections.projAprovados}</div>
+            <p className="text-[10px] text-muted-foreground mt-1">Projeção de reprovação: {approvalProjections.projReprovados}</p>
+          </CardContent>
+        </Card>
+      </div>
 
-          {/* Gráficos de Visualização Recharts */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 print-card">
-            <Card className="lg:col-span-2 shadow-sm border-none bg-white p-6">
-              <CardHeader className="px-0 pt-0">
-                <CardTitle className="text-base font-black uppercase text-slate-800">Inscritos por Curso (Top 8)</CardTitle>
-                <CardDescription>Comparativo do total de alunos ativos por curso</CardDescription>
-              </CardHeader>
-              <CardContent className="h-[280px] p-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="name" fontSize={11} stroke="#64748b" />
-                    <YAxis fontSize={11} stroke="#64748b" />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="Alunos" fill="#4f46e5" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card className="shadow-sm border-none bg-white p-6">
-              <CardHeader className="px-0 pt-0">
-                <CardTitle className="text-base font-black uppercase text-slate-800">Aproveitamento Geral</CardTitle>
-                <CardDescription>Taxa de aptidão baseada em presença mínima</CardDescription>
-              </CardHeader>
-              <CardContent className="h-[280px] p-0 flex flex-col justify-center items-center">
-                <ResponsiveContainer width="100%" height="90%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={80}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {pieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-                <div className="flex gap-4 text-xs font-bold mt-2">
-                  <div className="flex items-center gap-1.5"><span className="size-3 rounded-full bg-[#10b981]"></span> Apto</div>
-                  <div className="flex items-center gap-1.5"><span className="size-3 rounded-full bg-[#f59e0b]"></span> Pendente</div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Gráfico de Linha: Frequência no Tempo (Dia a Dia vs Semanal) */}
-          <Card className="shadow-sm border-none bg-white p-6 print-card">
-            <CardHeader className="px-0 pt-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <CardTitle className="text-base font-black uppercase text-slate-800">Frequência de Alunos</CardTitle>
-                <CardDescription>Quantidade total de presentes {attendanceViewMode === 'daily' ? 'por dia de aula' : 'por semana'}</CardDescription>
-              </div>
-              <div className="flex gap-1 p-1 bg-slate-100 rounded-lg border text-xs print-hidden">
-                <button 
-                  onClick={() => setAttendanceViewMode('daily')}
-                  className={`py-1.5 px-3 rounded-md font-bold transition-colors ${attendanceViewMode === 'daily' ? 'bg-white shadow-sm text-primary' : 'text-muted-foreground hover:text-slate-800'}`}
-                >
-                  Por Dia
-                </button>
-                <button 
-                  onClick={() => setAttendanceViewMode('weekly')}
-                  className={`py-1.5 px-3 rounded-md font-bold transition-colors ${attendanceViewMode === 'weekly' ? 'bg-white shadow-sm text-primary' : 'text-muted-foreground hover:text-slate-800'}`}
-                >
-                  Por Semana
-                </button>
-              </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Distribuição de Alunos e Frequência Média por Curso */}
+        <div className="lg:col-span-1 space-y-6">
+          {/* Distribuição */}
+          <Card className="shadow-sm border border-slate-100 bg-white print-card">
+            <CardHeader>
+              <CardTitle className="text-sm font-black uppercase text-slate-800">Distribuição por Curso</CardTitle>
+              <CardDescription className="text-xs">Número de alunos matriculados no período</CardDescription>
             </CardHeader>
-            <CardContent className="h-[280px] p-0">
-              {(attendanceViewMode === 'daily' ? dailyAttendanceData : weeklyAttendanceData).length === 0 ? (
-                <div className="h-full flex items-center justify-center text-sm text-muted-foreground italic">
-                  Nenhum registro de aula no período selecionado.
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={attendanceViewMode === 'daily' ? dailyAttendanceData : weeklyAttendanceData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="name" fontSize={11} stroke="#64748b" />
-                    <YAxis fontSize={11} stroke="#64748b" />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="Presenças" stroke="#4f46e5" strokeWidth={3} activeDot={{ r: 8 }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
+            <CardContent>
+              <div className="space-y-4">
+                {enrollmentStats.list.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">Nenhum aluno inscrito.</p>
+                ) : (
+                  enrollmentStats.list.map(c => {
+                    const pct = enrollmentStats.total > 0 ? Math.round((c.count / enrollmentStats.total) * 100) : 0;
+                    return (
+                      <div key={c.id} className="space-y-1">
+                        <div className="flex justify-between text-xs font-semibold">
+                          <span className="text-slate-700 truncate max-w-[180px]">{c.name}</span>
+                          <span className="text-slate-900 font-bold">{c.count} alunos ({pct}%)</span>
+                        </div>
+                        <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                          <div className="bg-indigo-600 h-full rounded-full" style={{ width: `${pct}%` }}></div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </CardContent>
           </Card>
 
-          {/* Tabela Consolidada por Curso */}
-          <Card className="shadow-sm border-none bg-white print-card">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-lg font-black uppercase text-slate-800">Estatísticas Consolidadas</CardTitle>
-                <CardDescription className="text-xs">Lista de cursos filtrados e desempenho médio</CardDescription>
-              </div>
-              <Button onClick={handleExportConsolidatedCSV} variant="outline" size="sm" className="font-bold text-xs uppercase tracking-wider gap-1.5 print-hidden">
-                <Download className="size-3.5" /> Exportar Planilha
-              </Button>
+          {/* Frequência Média */}
+          <Card className="shadow-sm border border-slate-100 bg-white print-card">
+            <CardHeader>
+              <CardTitle className="text-sm font-black uppercase text-slate-800">Média por Curso</CardTitle>
+              <CardDescription className="text-xs">Taxa de presença acumulada por curso</CardDescription>
             </CardHeader>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Curso</TableHead>
-                    <TableHead>Trilho / Tipo</TableHead>
-                    <TableHead className="text-center">Turmas</TableHead>
-                    <TableHead className="text-center">Alunos Inscritos</TableHead>
-                    <TableHead className="text-center">Frequência Média</TableHead>
-                    <TableHead className="text-right print-hidden">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {courseStats.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center text-muted-foreground italic">Nenhum curso cadastrado.</TableCell>
-                    </TableRow>
-                  ) : (
-                    courseStats.map((course) => (
-                      <TableRow key={course.id}>
-                        <TableCell className="font-bold text-sm text-slate-800">{course.name}</TableCell>
-                        <TableCell className="text-muted-foreground text-xs font-medium">{getTrackName(course.track, course.type)}</TableCell>
-                        <TableCell className="text-center font-bold text-slate-700">{course.classesCount}</TableCell>
-                        <TableCell className="text-center font-black text-slate-800">{course.enrolledCount}</TableCell>
-                        <TableCell className="text-center">
-                          <span className="font-black text-sm text-primary">{course.averageAttendance}%</span>
-                        </TableCell>
-                        <TableCell className="text-right print-hidden">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="font-bold text-xs gap-1 hover:text-primary"
-                            onClick={() => setSelectedCourseId(course.id)}
-                          >
-                            Ver Detalhes <ChevronRight className="size-3.5" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+            <CardContent>
+              <div className="space-y-4">
+                {frequencyStats.courseAverages.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">Nenhum dado de frequência.</p>
+                ) : (
+                  frequencyStats.courseAverages.map(c => (
+                    <div key={c.id} className="space-y-1">
+                      <div className="flex justify-between text-xs font-semibold">
+                        <span className="text-slate-700 truncate max-w-[180px]">{c.name}</span>
+                        <span className="text-emerald-600 font-bold">{c.average}%</span>
+                      </div>
+                      <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                        <div className="bg-emerald-500 h-full rounded-full" style={{ width: `${c.average}%` }}></div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </CardContent>
           </Card>
         </div>
-      ) : (
-        // DETALHE DO CURSO SELECIONADO
-        <Card className="shadow-sm border-none bg-white p-6 print-card">
-          <CourseReports courseId={selectedCourseId} />
-        </Card>
-      )}
+
+        {/* Frequência por Aula e Detalhamento */}
+        <div className="lg:col-span-2 space-y-6">
+          <Card className="shadow-sm border border-slate-100 bg-white print-card">
+            <CardHeader>
+              <CardTitle className="text-sm font-black uppercase text-slate-800">Frequência por Encontro (Aulas)</CardTitle>
+              <CardDescription className="text-xs">Monitore a frequência de cada aula nos cursos ativos</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {Object.keys(classesAndLessonsDetail).length === 0 ? (
+                <div className="text-center py-8 text-xs text-slate-500 italic">
+                  Selecione um ciclo ou curso ativo para ver as aulas.
+                </div>
+              ) : (
+                Object.entries(classesAndLessonsDetail).map(([courseId, data]) => {
+                  const isExpanded = expandedCourses[courseId] ?? false;
+                  return (
+                    <div key={courseId} className="border border-slate-100 rounded-xl overflow-hidden">
+                      <button
+                        onClick={() => toggleCourseExpanded(courseId)}
+                        className="w-full flex items-center justify-between p-4 bg-slate-50/50 hover:bg-slate-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <BookOpen className="size-4 text-primary" />
+                          <span className="font-bold text-sm text-slate-800">{data.courseName}</span>
+                          <Badge variant="secondary" className="text-[10px] ml-1">{data.lessons.length} aulas</Badge>
+                        </div>
+                        {isExpanded ? <ChevronUp className="size-4 text-slate-400" /> : <ChevronDown className="size-4 text-slate-400" />}
+                      </button>
+
+                      {isExpanded && (
+                        <div className="border-t border-slate-100 p-2 bg-white">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="h-9 text-[10px] font-black uppercase text-slate-500">Aula / Conteúdo</TableHead>
+                                <TableHead className="h-9 text-[10px] font-black uppercase text-slate-500 text-center">Presentes</TableHead>
+                                <TableHead className="h-9 text-[10px] font-black uppercase text-slate-500 text-center">Faltas</TableHead>
+                                <TableHead className="h-9 text-[10px] font-black uppercase text-slate-500 text-center">Aproveitamento</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {data.lessons.length === 0 ? (
+                                <TableRow>
+                                  <TableCell colSpan={4} className="text-center py-4 text-xs text-muted-foreground italic">Nenhuma aula gerada no cronograma.</TableCell>
+                                </TableRow>
+                              ) : (
+                                data.lessons.map((lesson, idx) => (
+                                  <TableRow key={idx}>
+                                    <TableCell className="py-2 text-xs font-semibold text-slate-800">
+                                      {lesson.title}
+                                    </TableCell>
+                                    <TableCell className="py-2 text-center text-xs font-bold text-emerald-600">
+                                      {lesson.present}
+                                    </TableCell>
+                                    <TableCell className="py-2 text-center text-xs font-bold text-red-500">
+                                      {lesson.absent}
+                                    </TableCell>
+                                    <TableCell className="py-2 text-center">
+                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${lesson.rate >= 90 ? 'bg-emerald-50 text-emerald-700' : lesson.rate >= 75 ? 'bg-indigo-50 text-indigo-700' : 'bg-amber-50 text-amber-700'}`}>
+                                        {lesson.rate}%
+                                      </span>
+                                    </TableCell>
+                                  </TableRow>
+                                ))
+                              )}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Relatório Gerencial Consolidado (Tabela de Impressão e Auditoria) */}
+      <Card className="shadow-sm border border-slate-100 bg-white print-card">
+        <CardHeader>
+          <CardTitle className="text-base font-black uppercase text-slate-800">Relatório Executivo do Ciclo</CardTitle>
+          <CardDescription className="text-xs">Visão geral consolidada para liderança e coordenação de Ensino</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Curso</TableHead>
+                <TableHead className="text-center">Matrículas</TableHead>
+                <TableHead className="text-center">Frequência</TableHead>
+                <TableHead className="text-center">Elegíveis (Hoje)</TableHead>
+                <TableHead className="text-center">Proj. Formandos</TableHead>
+                <TableHead className="text-center">Proj. Reprovação</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredCoursesByCycle.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground italic">
+                    Nenhum curso cadastrado ou ativo no ciclo selecionado.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredCoursesByCycle.map(course => {
+                  const stats = enrollmentStats.list.find(e => e.id === course.id);
+                  const enrolled = stats?.count || 0;
+                  const freq = frequencyStats.courseAverages.find(f => f.id === course.id)?.average || 0;
+
+                  // Projeção local por curso
+                  let localElegiveis = 0;
+                  let localAprovados = 0;
+                  let localReprovados = 0;
+
+                  const courseClasses = filteredClasses.filter(c => c.courseId === course.id);
+                  courseClasses.forEach(cls => {
+                    const resolved = getResolvedSchedule(cls, course);
+                    const totalLessons = resolved.length;
+                    if (totalLessons === 0) return;
+
+                    const minAttendanceRate = course.minAttendanceApproval || 75;
+                    const maxAbsencesAllowed = Math.floor((1 - (minAttendanceRate / 100)) * totalLessons);
+
+                    cls.students?.forEach(studentId => {
+                      let absencesCount = 0;
+                      let lessonsConducted = 0;
+                      let presentsCount = 0;
+
+                      cls.attendance?.forEach(att => {
+                        const isValidSession = resolved.some(r => r.dateStr === att.date);
+                        if (!isValidSession) return;
+
+                        lessonsConducted++;
+                        const isPresent = att.presentStudentIds?.includes(studentId) || att.onlineStudentIds?.includes(studentId);
+                        const isRepo = att.repositions?.some(r => r.studentId === studentId);
+
+                        if (isPresent || isRepo) presentsCount++;
+                        else absencesCount++;
+                      });
+
+                      if (absencesCount <= maxAbsencesAllowed) localElegiveis++;
+
+                      const historicalRate = lessonsConducted > 0 ? (presentsCount / lessonsConducted) : 1.0;
+                      const remainingLessons = Math.max(0, totalLessons - lessonsConducted);
+                      const projectedPresents = presentsCount + (remainingLessons * historicalRate);
+                      const projectedRate = (projectedPresents / totalLessons) * 100;
+
+                      if (projectedRate >= minAttendanceRate && absencesCount <= maxAbsencesAllowed) {
+                        localAprovados++;
+                      } else {
+                        localReprovados++;
+                      }
+                    });
+                  });
+
+                  return (
+                    <TableRow key={course.id}>
+                      <TableCell className="font-bold text-sm text-slate-800">{course.name}</TableCell>
+                      <TableCell className="text-center font-bold text-slate-700">{enrolled}</TableCell>
+                      <TableCell className="text-center font-black text-emerald-600">{freq}%</TableCell>
+                      <TableCell className="text-center font-bold text-blue-600">{localElegiveis}</TableCell>
+                      <TableCell className="text-center font-black text-indigo-600">{localAprovados}</TableCell>
+                      <TableCell className="text-center font-bold text-red-500">{localReprovados}</TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }
