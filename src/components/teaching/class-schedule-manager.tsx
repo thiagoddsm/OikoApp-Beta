@@ -15,6 +15,9 @@ import { Check, ChevronsUpDown, Search } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface ClassScheduleManagerProps {
     classData: Class;
@@ -29,6 +32,13 @@ export function ClassScheduleManager({ classData }: ClassScheduleManagerProps) {
     const course = useMemo(() => courses.find(c => c.id === classData.courseId), [courses, classData.courseId]);
     const syllabus = course?.syllabus || [];
     const teachers = useMemo(() => users.filter(u => u.isTeacher), [users]);
+
+    // Novos states para o modal de Aula Extra
+    const [isAddOpen, setIsAddOpen] = useState(false);
+    const [newClassDate, setNewClassDate] = useState('');
+    const [newClassSyllabusId, setNewClassSyllabusId] = useState('');
+    const [newClassStartTime, setNewClassStartTime] = useState('09:00');
+    const [newClassEndTime, setNewClassEndTime] = useState('10:00');
 
     // Calcular as datas base do cronograma
     const schedule = useMemo(() => {
@@ -204,6 +214,44 @@ export function ClassScheduleManager({ classData }: ClassScheduleManagerProps) {
         }
     };
 
+    const handleAddClass = async () => {
+        if (!newClassDate || !newClassSyllabusId) {
+            toast({ variant: "destructive", title: "Campos obrigatórios", description: "Defina a data e o tema da aula extra." });
+            return;
+        }
+
+        const newOverrides = { ...(classData.scheduleOverrides || {}) };
+        
+        let targetKey = newClassDate;
+        // Se a data de destino já estiver ocupada no cronograma, criamos um sufixo
+        const isTargetOccupied = schedule.some(i => i.dayDateStr === newClassDate && !i.isCancelled);
+        if (isTargetOccupied) {
+            let suffix = 1;
+            while (newOverrides[`${newClassDate}-${suffix}`] && !newOverrides[`${newClassDate}-${suffix}`].isCancelled) {
+                suffix++;
+            }
+            targetKey = `${newClassDate}-${suffix}`;
+        }
+
+        newOverrides[targetKey] = {
+            syllabusId: newClassSyllabusId,
+            teacherId: classData.teacherId || '',
+            startTime: newClassStartTime,
+            endTime: newClassEndTime,
+            isCancelled: false
+        };
+
+        try {
+            await updateClass(classData.id, { scheduleOverrides: newOverrides });
+            toast({ title: "Aula extra adicionada", description: "O cronograma foi atualizado com sucesso." });
+            setIsAddOpen(false);
+            setNewClassDate('');
+            setNewClassSyllabusId('');
+        } catch (error) {
+            toast({ variant: "destructive", title: "Erro ao adicionar", description: "Não foi possível registrar a nova aula." });
+        }
+    };
+
     const handleSwap = async (date1: string, date2: string) => {
         const item1 = schedule.find(i => i.dateStr === date1);
         const item2 = schedule.find(i => i.dateStr === date2);
@@ -252,7 +300,95 @@ export function ClassScheduleManager({ classData }: ClassScheduleManagerProps) {
                     </h3>
                     <p className="text-xs text-muted-foreground font-medium">Ajuste datas, temas e professores conforme a necessidade.</p>
                 </div>
+                
+                {/* Botão para disparar o Dialog de Aula Extra */}
+                <Button 
+                    onClick={() => {
+                        setNewClassSyllabusId(syllabus[0]?.id || '');
+                        setIsAddOpen(true);
+                    }}
+                    className="bg-primary hover:bg-primary/95 text-white font-bold h-9 text-xs flex items-center gap-2 px-3 shadow"
+                >
+                    <PlusCircle className="size-4" /> Nova Aula Extra
+                </Button>
             </div>
+
+            <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+                <DialogContent className="bg-slate-900 border-slate-800 text-white sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+                            Nova Aula Extra
+                        </DialogTitle>
+                        <DialogDescription className="text-slate-400 text-xs">
+                            Crie uma ocorrência fora do cronograma padrão e vincule a um tema da ementa.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-3">
+                        <div className="space-y-1.5">
+                            <Label htmlFor="extra_date" className="text-xs text-slate-400 font-bold uppercase">Data da Aula</Label>
+                            <Input
+                                id="extra_date"
+                                type="date"
+                                value={newClassDate}
+                                onChange={(e) => setNewClassDate(e.target.value)}
+                                className="bg-slate-950 border-slate-800 text-white"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="extra_start" className="text-xs text-slate-400 font-bold uppercase">Início</Label>
+                                <Input
+                                    id="extra_start"
+                                    type="time"
+                                    value={newClassStartTime}
+                                    onChange={(e) => setNewClassStartTime(e.target.value)}
+                                    className="bg-slate-950 border-slate-800 text-white"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="extra_end" className="text-xs text-slate-400 font-bold uppercase">Término</Label>
+                                <Input
+                                    id="extra_end"
+                                    type="time"
+                                    value={newClassEndTime}
+                                    onChange={(e) => setNewClassEndTime(e.target.value)}
+                                    className="bg-slate-950 border-slate-800 text-white"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label htmlFor="extra_syllabus" className="text-xs text-slate-400 font-bold uppercase">Tema da Ementa</Label>
+                            <select
+                                id="extra_syllabus"
+                                value={newClassSyllabusId}
+                                onChange={(e) => setNewClassSyllabusId(e.target.value)}
+                                className="w-full rounded-md bg-slate-950 border border-slate-800 text-white text-xs h-9 px-2 focus:ring-blue-500"
+                            >
+                                {syllabus.map(s => (
+                                    <option key={s.id} value={s.id}>{s.title}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <DialogFooter className="flex flex-col sm:flex-row gap-2">
+                        <DialogClose asChild>
+                            <Button variant="outline" className="border-slate-800 text-slate-350 hover:bg-slate-800 w-full sm:w-auto">
+                                Cancelar
+                            </Button>
+                        </DialogClose>
+                        <Button 
+                            onClick={handleAddClass} 
+                            className="bg-blue-600 hover:bg-blue-500 text-white font-bold w-full sm:w-auto"
+                        >
+                            Adicionar Aula
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <div className="grid grid-cols-1 gap-4">
                 {schedule.map((item, index) => (
