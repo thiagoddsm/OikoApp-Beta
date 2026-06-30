@@ -222,10 +222,12 @@ export async function resolveUserProfile(params: {
     const userSnap = await userRef.get();
 
     if (userSnap.exists) {
+      const currentData = userSnap.data() || {};
+      const currentName = currentData.name || '';
       await userRef.update({
         lastLoginAt: FieldValue.serverTimestamp(),
         ...(email ? { email } : {}),
-        ...(displayName ? { name: displayName } : {}),
+        ...(!currentName && displayName ? { name: displayName } : {}),
       });
       return { action: 'existing' };
     }
@@ -236,9 +238,11 @@ export async function resolveUserProfile(params: {
         const oldDoc = byEmailSnap.docs[0];
         const oldDocId = oldDoc.id;
         if (oldDocId !== uid) {
+          const oldDocData = oldDoc.data() || {};
+          const oldName = oldDocData.name || '';
           const migrationResult = await performDeepUserMigration(uid, oldDocId, {
             email: email || undefined,
-            name: displayName || undefined
+            name: oldName || displayName || undefined
           });
           if (!migrationResult.success) throw new Error(migrationResult.message);
           return { action: 'linked', linkedFromDocId: oldDocId };
