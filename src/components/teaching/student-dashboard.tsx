@@ -501,7 +501,8 @@ export function StudentDashboard() {
       {(() => {
         // Encontra os certificados enviados para o aluno (lendo do perfil do usuário atual no Firebase)
         const currentUserProfile = users.find(u => u.id === user.uid);
-        const certificates = currentUserProfile?.journey?.certificates || {};
+        if (!currentUserProfile) return null;
+        const certificates = currentUserProfile.journey?.certificates || {};
         const activeCertificatesCourseIds = Object.keys(certificates).filter(courseId => !!certificates[courseId]);
 
         if (activeCertificatesCourseIds.length === 0) return null;
