@@ -173,9 +173,17 @@ export async function POST(request: Request) {
                 .filter(Boolean);
         }
         
-        // Fallback: tentar extrair de pollUpdateMessage.vote.selectedOptions (para outros formatos)
+        // Fallback 1: Se a Evolution API enviar no update com pollUpdates dentro do objeto root de data
+        if (options.length === 0 && Array.isArray(data.pollUpdate?.pollUpdates)) {
+            options = data.pollUpdate.pollUpdates
+                .filter((pu: any) => Array.isArray(pu.voters) && pu.voters.length > 0)
+                .map((pu: any) => String(pu.name || '').trim())
+                .filter(Boolean);
+        }
+        
+        // Fallback 2: tentar extrair de pollUpdateMessage.vote.selectedOptions (decodificado pela Evolution API em algumas instâncias de webhook)
         if (options.length === 0) {
-            const pollUpdateMsg = msgObject.pollUpdateMessage || msgContent.pollUpdateMessage || {};
+            const pollUpdateMsg = data.message?.pollUpdateMessage || msgObject.pollUpdateMessage || msgContent.pollUpdateMessage || {};
             const rawSelected = pollUpdateMsg.vote?.selectedOptions || [];
             options = rawSelected
                 .map((o: any) => typeof o === 'string' ? o : o.name || o.label || o.text || '')
