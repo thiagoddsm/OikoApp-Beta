@@ -399,7 +399,7 @@ function EnrollmentForm() {
                         regData.payment.asaasPaymentId = asaasCharge.id;
                         regData.payment.asaasStatus = asaasCharge.status || 'PENDING';
                         regData.payment.invoiceUrl = asaasCharge.invoiceUrl;
-                    }               regData.payment.bankSlipUrl = asaasCharge.bankSlipUrl;
+                        regData.payment.bankSlipUrl = asaasCharge.bankSlipUrl;
 
                         // Obter QR Code se for PIX
                         if (paymentMethod === 'PIX' && asaasCharge.id) {
@@ -427,7 +427,7 @@ function EnrollmentForm() {
                         registrationId: docRef.id,
                         paymentMethod,
                         chargeType,
-                        value: selectedEvent.ticketPrice,
+                        value: finalPrice,
                         invoiceUrl: asaasCharge?.invoiceUrl || regData.payment.invoiceUrl || '',
                         bankSlipUrl: asaasCharge?.bankSlipUrl || regData.payment.bankSlipUrl || '',
                         pixQrCodeImage: asaasCharge?.pixQrCodeImage || regData.payment.pixQrCodeImage || '',
