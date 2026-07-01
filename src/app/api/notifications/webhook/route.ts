@@ -211,6 +211,8 @@ export async function POST(request: Request) {
             console.log('[Webhook DEBUG] Ignorando webhook de poll do WAME (sem opções legíveis), aguardando Evolution API...');
             return NextResponse.json({ success: true, ignored: true, reason: 'wame_poll_ignore' });
         }
+    } else {
+        responseType = 'text';
     }
 
     // ===== DEBUG: Log detalhado para diagnóstico do Bot GC =====
