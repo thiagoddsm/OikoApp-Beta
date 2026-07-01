@@ -219,6 +219,11 @@ export async function POST(request: Request) {
     const textForDebug = msgContent.conversation || msgContent.extendedTextMessage?.text || msgObject.text || '';
     console.log(`[Webhook DEBUG] fromPhone=${fromPhone}, fromRaw=${fromRaw}, fromMe=${msgObject.key?.fromMe ?? msgObject.fromMe}, isLid=${fromRaw.includes('@lid')}, text="${textForDebug}", responseType=${responseType}`);
     
+    if (responseType === 'text' && !textForDebug.trim()) {
+        console.log(`[Webhook DEBUG] Ignorando webhook com texto vazio para type=text (provavelmente ack de leitura ou sync): fromRaw=${fromRaw}`);
+        return NextResponse.json({ success: true, ignored: true, reason: 'empty_text' });
+    }
+
     // Deduplicação de Mensagens (Evitar que WAME e Evolution processem a mesma mensagem 2 vezes)
     // Como WAME e Evolution geram IDs diferentes para a mesma mensagem recebida, 
     // vamos deduplicar por (fromPhone + hash(texto/botao)).
