@@ -53,6 +53,18 @@ export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false,
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedRegistration, setSelectedRegistration] = useState<Registration | null>(null);
+  const [eventData, setEventData] = useState<any>(null);
+
+  React.useEffect(() => {
+    if (!firestore || !eventId) return;
+    const { onSnapshot } = require('firebase/firestore');
+    const unsub = onSnapshot(doc(firestore, 'strategic_events', eventId), (snapshot: any) => {
+      if (snapshot.exists()) {
+        setEventData({ id: snapshot.id, ...snapshot.data() });
+      }
+    });
+    return () => unsub();
+  }, [firestore, eventId]);
 
   // Fetch registrations for this event
   const registrationsQuery = useMemoFirebase(() => {
@@ -272,6 +284,7 @@ export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false,
                     <TableHead className="text-xs font-bold text-slate-700">Participante</TableHead>
                     <TableHead className="text-xs font-bold text-slate-700">Contato</TableHead>
                     <TableHead className="text-xs font-bold text-slate-700">Acompanhante</TableHead>
+                    <TableHead className="text-xs font-bold text-slate-700">Respostas</TableHead>
                     <TableHead className="text-xs font-bold text-slate-700">Pagamento</TableHead>
                     <TableHead className="text-xs font-bold text-slate-700">Presença</TableHead>
                     <TableHead className="text-xs font-bold text-slate-700 text-right">Ações</TableHead>
@@ -327,6 +340,29 @@ export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false,
                             </span>
                           ) : (
                             <span className="text-muted-foreground/60 italic">-</span>
+                          )}
+                        </TableCell>
+
+                        {/* Custom Questions Answers */}
+                        <TableCell className="text-xs max-w-[220px]">
+                          {eventData?.customQuestions && eventData.customQuestions.length > 0 ? (
+                            <div className="space-y-1">
+                              {eventData.customQuestions.map((q: any) => {
+                                const answer = (reg as any).customAnswers?.[q.id];
+                                if (!answer) return null;
+                                return (
+                                  <div key={q.id} className="text-[11px] leading-tight flex flex-col">
+                                    <span className="font-semibold text-slate-500 uppercase text-[9px] tracking-wider leading-none mt-0.5">{q.label}</span>
+                                    <span className="text-slate-800 font-bold mb-1">{answer}</span>
+                                  </div>
+                                );
+                              })}
+                              {!Object.values((reg as any).customAnswers || {}).some(Boolean) && (
+                                <span className="text-slate-400 italic">Sem respostas</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-slate-300 italic">-</span>
                           )}
                         </TableCell>
 
