@@ -302,13 +302,13 @@ export async function handleGcReportIncomingMessage(
             pollOptionsMap.set(m.name.substring(0, 50), m.id);
           });
           
-          console.log('[GC Bot DEBUG] Poll received options:', JSON.stringify(options));
+           console.log('[GC Bot DEBUG] Poll received options:', JSON.stringify(options));
           console.log('[GC Bot DEBUG] pollOptionsMap keys:', JSON.stringify(Array.from(pollOptionsMap.keys())));
 
           const selectedMemberIds: string[] = [];
           options.forEach((opt: string) => {
              const cleanOpt = opt.trim().toLowerCase();
-             // 1. Procurar por match exato (com minúsculas)
+             // 1. Procurar por match exato (case-insensitive)
              let id: string | null = null;
              for (const [key, val] of pollOptionsMap.entries()) {
                if (key.trim().toLowerCase() === cleanOpt) {
@@ -316,11 +316,11 @@ export async function handleGcReportIncomingMessage(
                  break;
                }
              }
-             // 2. Fallback de aproximação se match exato falhar
-             if (!id) {
+             // 2. Fallback de aproximação, mas APENAS se o nome for longo (> 5 chars) para evitar falsos positivos
+             if (!id && cleanOpt.length > 5) {
                for (const [key, val] of pollOptionsMap.entries()) {
                  const cleanKey = key.trim().toLowerCase();
-                 if (cleanOpt.includes(cleanKey) || cleanKey.includes(cleanOpt)) {
+                 if (cleanKey.length > 5 && (cleanOpt.includes(cleanKey) || cleanKey.includes(cleanOpt))) {
                    id = val;
                    break;
                  }
@@ -441,6 +441,7 @@ export async function handleGcReportIncomingMessage(
             step: 'METRICS_VISITORS',
             updatedAt: now
           });
+          await wait(1000);
           await sendText(
             fromPhone,
             '👥 *Etapa 3: Visitantes*\n\nDigite o nome dos visitantes que estiveram presentes (separados por vírgula).\n\n*Caso não tenha havido nenhum visitante, envie 0.*'
@@ -456,6 +457,7 @@ export async function handleGcReportIncomingMessage(
             step: 'METRICS_CONVERSIONS',
             updatedAt: now
           });
+          await wait(1000);
           await sendText(
             fromPhone,
             '🎯 *Etapa 4: Conversões*\n\nQuantas decisões por Cristo ou reconciliações aconteceram na reunião?\n\nEnvie o número (ex: *0*, *1*, *2*...)'
