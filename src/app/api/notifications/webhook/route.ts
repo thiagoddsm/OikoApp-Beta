@@ -80,7 +80,7 @@ export async function POST(request: Request) {
                         const contactData = contactByLidSnap.docs[0].data();
                         const resolvedPhone = String(contactData.phoneNumber || '').replace(/\D/g, '');
                         if (resolvedPhone.length >= 10) {
-                            fromPhone = resolvedPhone;
+                            fromPhone = resolvedPhone.startsWith('55') ? resolvedPhone : `55${resolvedPhone}`;
                         }
                     }
                 }
