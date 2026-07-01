@@ -332,7 +332,7 @@ export async function handleGcReportIncomingMessage(
           console.log('[GC Bot DEBUG] Matched selectedMemberIds:', selectedMemberIds);
           
           let pollSelections: any = latest.pollSelections || {};
-          const pollKey = payload.pollName || payload.pollId || 'poll';
+          const pollKey = payload.pollId || payload.pollName || 'poll';
           pollSelections[pollKey] = selectedMemberIds;
 
           await sessionRef.update({
