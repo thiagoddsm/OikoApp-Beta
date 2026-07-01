@@ -68,7 +68,7 @@ function GeneralTeachingReportsContent() {
         const course = courses.find(co => co.id === c.courseId);
         if (!course) return false;
         if (selectedTrack === 'eletivo') {
-          return course.ebdTrack === 'eletivo' || course.type === 'eletivo';
+          return course.ebdTrack === 'eletivo' || (course as any).type === 'eletivo';
         }
         return course.ebdTrack === selectedTrack;
       });

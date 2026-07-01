@@ -196,6 +196,8 @@ export type Class = {
     isCancelled?: boolean;
     notes?: string;
     originalDate?: string;
+    startTime?: string;
+    endTime?: string;
   }>;
   dailySlots?: {
     startTime: string;

@@ -116,14 +116,15 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
             const presence: Record<string, string> = {};
 
             classOccurrences.forEach(date => {
+                const cleanDate = date.split('-').slice(0, 3).join('-');
                 const record = classData.attendance?.find(a => a.date === date);
                 if (record) {
                     totalClassesTaken++;
                     const isPresent = record.presentStudentIds?.includes(student.id) || record.onlineStudentIds?.includes(student.id);
                     if (isPresent) presentCount++;
-                    presence[format(parseISO(date), 'dd/MM')] = isPresent ? 'P' : 'F';
+                    presence[format(parseISO(cleanDate), 'dd/MM')] = isPresent ? 'P' : 'F';
                 } else {
-                    presence[format(parseISO(date), 'dd/MM')] = '-';
+                    presence[format(parseISO(cleanDate), 'dd/MM')] = '-';
                 }
             });
 
@@ -179,11 +180,14 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
                             <TableRow className="bg-muted/50 hover:bg-muted/50 border-b-2">
                                 <TableHead className="min-w-[220px] sticky left-0 bg-muted/50 z-20 border-r">Aluno</TableHead>
                                 <TableHead className="text-center bg-blue-50/50 min-w-[100px]">Freq. %</TableHead>
-                                {classOccurrences.map(date => (
-                                    <TableHead key={date} className="text-center min-w-[70px] text-[10px] uppercase font-black px-1">
-                                        {format(parseISO(date), 'dd/MM')}
-                                    </TableHead>
-                                ))}
+                                {classOccurrences.map(date => {
+                                    const cleanDate = date.split('-').slice(0, 3).join('-');
+                                    return (
+                                        <TableHead key={date} className="text-center min-w-[70px] text-[10px] uppercase font-black px-1">
+                                            {format(parseISO(cleanDate), 'dd/MM')}
+                                        </TableHead>
+                                    );
+                                })}
                                 <TableHead className="text-center bg-amber-50/50 min-w-[80px] border-l-2">Média</TableHead>
                                 {assessments.map(assessment => (
                                     <TableHead key={assessment} className="text-center min-w-[100px] text-[10px] uppercase font-bold px-2">

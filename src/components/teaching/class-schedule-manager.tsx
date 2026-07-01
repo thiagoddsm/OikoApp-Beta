@@ -201,8 +201,8 @@ export function ClassScheduleManager({ classData }: ClassScheduleManagerProps) {
             ...(newOverrides[targetKey] || {}), 
             syllabusId: item.syllabusItem?.id, 
             teacherId: item.teacher?.id,
-            startTime: item.startTime || classData.timeStart,
-            endTime: item.endTime || classData.timeEnd,
+            startTime: item.startTime || classData.startTime,
+            endTime: item.endTime || classData.endTime,
             isCancelled: false 
         };
 
