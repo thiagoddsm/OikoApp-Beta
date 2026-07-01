@@ -109,6 +109,11 @@ function EnrollmentForm() {
     const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
     const [customAnswers, setCustomAnswers] = useState<Record<string, string>>({});
 
+    const selectedEvent = useMemo(() => {
+        if (!strategicEvents || !selectedEventId) return null;
+        return strategicEvents.find(e => e.id === selectedEventId);
+    }, [strategicEvents, selectedEventId]);
+
     const selectedTicket = useMemo(() => {
         if (!selectedEvent?.tickets || !selectedTicketId) return null;
         return selectedEvent.tickets.find((t: any) => t.id === selectedTicketId);
@@ -148,11 +153,6 @@ function EnrollmentForm() {
     }), [classes, selectedCourseId]);
     const selectedCourse = useMemo(() => courses.find(c => c.id === selectedCourseId), [courses, selectedCourseId]);
     const selectedClassObj = useMemo(() => classes.find(c => c.id === selectedClassId), [classes, selectedClassId]);
-
-    const selectedEvent = useMemo(() => {
-        if (!strategicEvents || !selectedEventId) return null;
-        return strategicEvents.find(e => e.id === selectedEventId);
-    }, [strategicEvents, selectedEventId]);
 
     const filteredCourses = useMemo(() => {
         if (!courses || selectedCategory === 'eventos' || !selectedCategory) return [];
