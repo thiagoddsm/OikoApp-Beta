@@ -340,8 +340,12 @@ export async function handleGcReportIncomingMessage(
             updatedAt: now
           });
           return true; // Aguarda o usuário responder OK
-        } else if ((type === 'button' && payload?.buttonId === 'attendance_done') || (type === 'text' && isAdvanceCommand(msg))) {
-          // Computar presentes/ausentes
+         } else if ((type === 'button' && payload?.buttonId === 'attendance_done') || (type === 'text' && isAdvanceCommand(msg))) {
+           // Enviar aviso de sincronização
+           await sendText(fromPhone, '⏳ _Aguardando sincronização final com o WhatsApp (5 segundos)..._');
+           await wait(5000);
+
+           // Computar presentes/ausentes pós-sincronização
           let freshDoc = await sessionRef.get();
           let freshSession = freshDoc.data() as GcReportSession;
           let pollSelections: any = freshSession?.pollSelections || {};
@@ -360,18 +364,6 @@ export async function handleGcReportIncomingMessage(
           };
 
           presentIds = extractPresentIds(pollSelections);
-
-          // SEGURANÇA: Se o líder marcou votos mas o webhook descriptografado ainda não assentou
-          // (ex: clicou em Concluir muito rápido), aguardar 1.8s e ler novamente do Firestore
-          if (presentIds.length === 0) {
-            console.log('[GC Bot] Chamada zerada detectada no clique inicial de Concluir. Aguardando 1.8s por descriptografia tardia...');
-            await wait(1800);
-            freshDoc = await sessionRef.get();
-            freshSession = freshDoc.data() as GcReportSession;
-            pollSelections = freshSession?.pollSelections || {};
-            presentIds = extractPresentIds(pollSelections);
-            console.log('[GC Bot] Retomada pós-delay. Presentes encontrados:', presentIds.length);
-          }
  
           const attendanceMap: { [memberId: string]: 'presente' | 'ausente' } = {};
           session.members.forEach(member => {
