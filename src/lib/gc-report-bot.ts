@@ -342,22 +342,37 @@ export async function handleGcReportIncomingMessage(
           return true; // Aguarda o usuário responder OK
         } else if ((type === 'button' && payload?.buttonId === 'attendance_done') || (type === 'text' && isAdvanceCommand(msg))) {
           // Computar presentes/ausentes
-          const freshDoc = await sessionRef.get();
-          const freshSession = freshDoc.data() as GcReportSession;
-          const pollSelections: any = freshSession?.pollSelections || {};
+          let freshDoc = await sessionRef.get();
+          let freshSession = freshDoc.data() as GcReportSession;
+          let pollSelections: any = freshSession?.pollSelections || {};
           let presentIds: string[] = [];
           
-          // Consolidar todos os IDs das enquetes de forma robusta
-          Object.keys(pollSelections).forEach((key) => {
-            const ids = pollSelections[key];
-            if (Array.isArray(ids)) {
-              presentIds.push(...ids);
-            }
-          });
-          
-          // Remove duplicatas
-          presentIds = [...new Set(presentIds)];
+          // Helper para extrair presentes do objeto de seleção
+          const extractPresentIds = (selections: any) => {
+            const ids: string[] = [];
+            Object.keys(selections).forEach((key) => {
+              const val = selections[key];
+              if (Array.isArray(val)) {
+                ids.push(...val);
+              }
+            });
+            return [...new Set(ids)];
+          };
 
+          presentIds = extractPresentIds(pollSelections);
+
+          // SEGURANÇA: Se o líder marcou votos mas o webhook descriptografado ainda não assentou
+          // (ex: clicou em Concluir muito rápido), aguardar 1.8s e ler novamente do Firestore
+          if (presentIds.length === 0) {
+            console.log('[GC Bot] Chamada zerada detectada no clique inicial de Concluir. Aguardando 1.8s por descriptografia tardia...');
+            await wait(1800);
+            freshDoc = await sessionRef.get();
+            freshSession = freshDoc.data() as GcReportSession;
+            pollSelections = freshSession?.pollSelections || {};
+            presentIds = extractPresentIds(pollSelections);
+            console.log('[GC Bot] Retomada pós-delay. Presentes encontrados:', presentIds.length);
+          }
+ 
           const attendanceMap: { [memberId: string]: 'presente' | 'ausente' } = {};
           session.members.forEach(member => {
             attendanceMap[member.id] = presentIds.includes(member.id) ? 'presente' : 'ausente';
