@@ -98,6 +98,13 @@ export interface PlanningEvent {
     }[];
     allowCompanions?: boolean;
     maxCompanions?: number;
+    customQuestions?: {
+        id: string;
+        label: string;
+        type: 'text' | 'select';
+        options?: string[];
+        isRequired: boolean;
+    }[];
 }
 
 const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
@@ -223,6 +230,7 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
     tickets: [] as { id: string; name: string; description: string; price: number; limit?: number; isActive: boolean }[],
     allowCompanions: false,
     maxCompanions: 1,
+    customQuestions: [] as { id: string; label: string; type: 'text' | 'select'; options?: string[]; isRequired: boolean }[],
   });
 
   // Load existing event data & map technical fields to simplified fields
@@ -284,6 +292,7 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
         tickets: existingEvent.tickets || [],
         allowCompanions: existingEvent.allowCompanions || false,
         maxCompanions: existingEvent.maxCompanions || 1,
+        customQuestions: existingEvent.customQuestions || [],
       });
     }
   }, [existingEvent]);
@@ -432,6 +441,7 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
       tickets: formData.tickets,
       allowCompanions: formData.allowCompanions,
       maxCompanions: formData.maxCompanions,
+      customQuestions: formData.customQuestions || [],
     };
 
     try {
@@ -1380,6 +1390,120 @@ export function EventPlanningForm({ existingEvent = null }: { existingEvent?: Pl
                       Página Própria / HTML Customizado (embed iframe etc)
                     </label>
                   </div>
+
+                  {formData.registrationPageType !== 'custom_html' && (
+                    <div className="space-y-4 pt-4 border-t border-slate-850">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <Label className="text-xs text-slate-200 font-bold uppercase tracking-wider block">Perguntas Personalizadas (Formulário)</Label>
+                          <span className="text-[10px] text-slate-500">Colete dados extras como tamanho de camisa ou área de interesse durante a inscrição.</span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="border-slate-800 text-blue-400 hover:bg-slate-800 text-xs font-bold"
+                          onClick={() => setFormData(p => ({
+                            ...p,
+                            customQuestions: [...(p.customQuestions || []), {
+                              id: `q_${Math.random().toString(36).substring(2, 9)}`,
+                              label: '',
+                              type: 'text',
+                              options: [],
+                              isRequired: false
+                            }]
+                          }))}
+                        >
+                          <Plus className="size-4 mr-1" /> Add Pergunta
+                        </Button>
+                      </div>
+
+                      {formData.customQuestions && formData.customQuestions.length > 0 ? (
+                        <div className="space-y-3">
+                          {formData.customQuestions.map((q, qIdx) => (
+                            <div key={q.id} className="p-4 rounded-xl border border-slate-800 bg-slate-950/60 space-y-3 relative">
+                              <button
+                                type="button"
+                                className="absolute top-3 right-3 text-slate-500 hover:text-red-400 text-xs font-bold"
+                                onClick={() => setFormData(p => ({
+                                  ...p,
+                                  customQuestions: p.customQuestions?.filter(item => item.id !== q.id)
+                                }))}
+                              >
+                                Excluir
+                              </button>
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pr-14">
+                                <div className="space-y-1">
+                                  <Label className="text-[10px] text-slate-400 font-bold uppercase">Pergunta / Rótulo</Label>
+                                  <Input
+                                    required
+                                    value={q.label}
+                                    placeholder="Ex: Tamanho da Camisa"
+                                    className="h-8 text-xs bg-slate-950 border-slate-800"
+                                    onChange={(e) => {
+                                      const updated = [...(formData.customQuestions || [])];
+                                      updated[qIdx].label = e.target.value;
+                                      setFormData(p => ({ ...p, customQuestions: updated }));
+                                    }}
+                                  />
+                                </div>
+                                <div className="space-y-1">
+                                  <Label className="text-[10px] text-slate-400 font-bold uppercase">Tipo de Resposta</Label>
+                                  <select
+                                    value={q.type}
+                                    className="w-full rounded-md bg-slate-950 border border-slate-800 text-white text-xs h-8 px-2"
+                                    onChange={(e) => {
+                                      const updated = [...(formData.customQuestions || [])];
+                                      updated[qIdx].type = e.target.value as 'text' | 'select';
+                                      setFormData(p => ({ ...p, customQuestions: updated }));
+                                    }}
+                                  >
+                                    <option value="text">Resposta curta (Texto)</option>
+                                    <option value="select">Múltipla Escolha (Opções)</option>
+                                  </select>
+                                </div>
+                                <div className="flex items-center gap-2 pt-5">
+                                  <input
+                                    type="checkbox"
+                                    id={`req-${q.id}`}
+                                    checked={q.isRequired}
+                                    onChange={(e) => {
+                                      const updated = [...(formData.customQuestions || [])];
+                                      updated[qIdx].isRequired = e.target.checked;
+                                      setFormData(p => ({ ...p, customQuestions: updated }));
+                                    }}
+                                    className="rounded border-slate-800 text-blue-600 focus:ring-blue-500"
+                                  />
+                                  <Label htmlFor={`req-${q.id}`} className="text-[10px] text-slate-400 font-bold uppercase cursor-pointer">Obrigatória</Label>
+                                </div>
+                              </div>
+
+                              {q.type === 'select' && (
+                                <div className="space-y-1">
+                                  <Label className="text-[10px] text-slate-400 font-bold uppercase">Opções (Separadas por vírgula)</Label>
+                                  <Input
+                                    required
+                                    value={q.options?.join(', ') || ''}
+                                    placeholder="Ex: P, M, G, GG"
+                                    className="h-8 text-xs bg-slate-950 border-slate-800"
+                                    onChange={(e) => {
+                                      const updated = [...(formData.customQuestions || [])];
+                                      updated[qIdx].options = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                                      setFormData(p => ({ ...p, customQuestions: updated }));
+                                    }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="py-4 text-center border border-dashed border-slate-800 rounded-xl bg-slate-950/20">
+                          <span className="text-slate-500 text-xs font-semibold">Nenhuma pergunta personalizada adicionada.</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {formData.registrationPageType === 'custom_html' && (
                     <div className="space-y-2 pt-2 animate-fadeIn">

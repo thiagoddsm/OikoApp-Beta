@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { VolunteeringProvider, useVolunteering } from '@/contexts/volunteering-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { TenantProvider } from '@/contexts/tenant-context';
@@ -104,6 +104,28 @@ function EnrollmentForm() {
     const [chargeType, setChargeType] = useState<'UNIQUE' | 'SUBSCRIPTION'>('UNIQUE');
     const [companionName, setCompanionName] = useState('');
     const [billingResult, setBillingResult] = useState<any>(null);
+
+    // Dynamic Tickets and Custom Form States
+    const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
+    const [customAnswers, setCustomAnswers] = useState<Record<string, string>>({});
+
+    const selectedTicket = useMemo(() => {
+        if (!selectedEvent?.tickets || !selectedTicketId) return null;
+        return selectedEvent.tickets.find((t: any) => t.id === selectedTicketId);
+    }, [selectedEvent, selectedTicketId]);
+
+    // Auto-select first active ticket when selectedEvent changes
+    useEffect(() => {
+        if (selectedEvent?.tickets && selectedEvent.tickets.length > 0) {
+            const activeTickets = selectedEvent.tickets.filter((t: any) => t.isActive);
+            if (activeTickets.length > 0) {
+                setSelectedTicketId(activeTickets[0].id);
+            }
+        } else {
+            setSelectedTicketId(null);
+        }
+        setCustomAnswers({});
+    }, [selectedEvent]);
 
     // Navigation Data
     const courseClasses = useMemo(() => classes.filter(cls => {
@@ -221,13 +243,40 @@ function EnrollmentForm() {
             setCurrentStep(p => Math.max(p - 1, 1));
         }
         window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-
-    const handleFinalSubmit = async () => {
+    };    const handleFinalSubmit = async () => {
         if (selectedCategory === 'eventos') {
             if (!selectedEventId || !selectedEvent) return;
 
-            const needsCpfInput = selectedEvent.isPaid === 'pago' && (mode === 'new' || !foundUser?.hasCpf);
+            const tickets = selectedEvent.tickets || [];
+            const hasTickets = tickets.length > 0;
+            const activeTicket = hasTickets ? tickets.find((t: any) => t.id === selectedTicketId) : null;
+
+            if (hasTickets && !selectedTicketId) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Ingresso obrigatório',
+                    description: 'Por favor, selecione uma opção de ingresso para continuar.'
+                });
+                return;
+            }
+
+            const finalPrice = activeTicket ? activeTicket.price : (selectedEvent.ticketPrice || 0);
+            const isPaid = selectedEvent.isPaid === 'pago' && finalPrice > 0;
+
+            // Validação das perguntas personalizadas
+            const customQuestions = selectedEvent.customQuestions || [];
+            for (const q of customQuestions) {
+                if (q.isRequired && !customAnswers[q.id]?.trim()) {
+                    toast({
+                        variant: 'destructive',
+                        title: 'Campo obrigatório',
+                        description: `Por favor, responda: "${q.label}"`
+                    });
+                    return;
+                }
+            }
+
+            const needsCpfInput = isPaid && (mode === 'new' || !foundUser?.hasCpf);
             if (needsCpfInput && !cpfCnpj.trim()) {
                 toast({
                     variant: 'destructive',
@@ -262,7 +311,6 @@ function EnrollmentForm() {
                     finalName = 'Participante IBM';
                 }
 
-                const isPaid = selectedEvent.isPaid === 'pago';
                 let asaasCharge: any = null;
 
                 if (isPaid) {
@@ -301,9 +349,9 @@ function EnrollmentForm() {
                         body: JSON.stringify({
                             customerId,
                             billingType: paymentMethod,
-                            value: selectedEvent.ticketPrice || 0,
+                            value: finalPrice,
                             dueDate: tomorrowStr,
-                            description: `Inscrição Evento: ${selectedEvent.eventName}`,
+                            description: `Inscrição Evento: ${selectedEvent.eventName}${activeTicket ? ` (${activeTicket.name})` : ''}`,
                             externalReference: userId || undefined,
                             tenantId: new URLSearchParams(window.location.search).get('tenantId') || undefined
                         }),
@@ -331,7 +379,7 @@ function EnrollmentForm() {
                         payment: {
                             status: isPaid ? 'pending' : 'approved',
                             method: isPaid ? paymentMethod.toLowerCase() : 'free',
-                            valuePaid: isPaid ? (selectedEvent.ticketPrice || 0) : 0,
+                            valuePaid: isPaid ? finalPrice : 0,
                             paidAt: isPaid ? null : Timestamp.now(),
                             transactionId: isPaid ? (asaasCharge?.id || `asaas_${Math.random().toString(36).substring(2, 10)}`) : 'free',
                         },
@@ -342,13 +390,16 @@ function EnrollmentForm() {
                         },
                         companionName: companionName.trim(),
                         createdAt: Timestamp.now(),
+                        ticketId: activeTicket?.id || 'default',
+                        ticketName: activeTicket?.name || 'Geral',
+                        customAnswers: customAnswers,
                     };
 
                     if (isPaid && asaasCharge) {
                         regData.payment.asaasPaymentId = asaasCharge.id;
                         regData.payment.asaasStatus = asaasCharge.status || 'PENDING';
                         regData.payment.invoiceUrl = asaasCharge.invoiceUrl;
-                        regData.payment.bankSlipUrl = asaasCharge.bankSlipUrl;
+                    }               regData.payment.bankSlipUrl = asaasCharge.bankSlipUrl;
 
                         // Obter QR Code se for PIX
                         if (paymentMethod === 'PIX' && asaasCharge.id) {
@@ -961,97 +1012,181 @@ function EnrollmentForm() {
                                 )}
                             </div>
 
-                            {selectedCategory === 'eventos' && selectedEvent?.isPaid === 'pago' && (
-                                <div className="space-y-4 p-5 bg-white/5 rounded-2xl border border-white/10">
-                                    <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                                        💳 Informações de Faturamento (Asaas)
-                                    </h4>
-
-                                    {(mode === 'new' || !foundUser?.hasCpf) && (
-                                        <div className="space-y-1.5">
-                                            <Label className="text-[10px] font-black uppercase text-slate-400">
-                                                CPF / CNPJ do Pagador <span className="text-red-400">*</span>
+                            {selectedCategory === 'eventos' && (
+                                <div className="space-y-6">
+                                    {/* 1. SELEÇÃO DE INGRESSOS/LOTES */}
+                                    {selectedEvent.tickets && selectedEvent.tickets.length > 0 && (
+                                        <div className="space-y-2 p-5 bg-white/5 rounded-2xl border border-white/10">
+                                            <Label className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-2">
+                                                🎫 Selecione o tipo de Ingresso
                                             </Label>
-                                            <Input
-                                                type="text"
-                                                placeholder="000.000.000-00"
-                                                value={cpfCnpj}
-                                                onChange={(e) => setCpfCnpj(e.target.value)}
-                                                className="bg-white/10 border-white/20 text-white h-11 rounded-xl placeholder-slate-600 focus-visible:ring-primary focus-visible:border-primary"
-                                            />
+                                            <div className="grid grid-cols-1 gap-2.5">
+                                                {selectedEvent.tickets.filter((t: any) => t.isActive).map((ticket: any) => {
+                                                    const isSelected = selectedTicketId === ticket.id;
+                                                    return (
+                                                        <button
+                                                            key={ticket.id}
+                                                            type="button"
+                                                            onClick={() => setSelectedTicketId(ticket.id)}
+                                                            className={cn(
+                                                                "p-4 rounded-xl border text-left transition-all flex items-center justify-between",
+                                                                isSelected 
+                                                                    ? "border-primary bg-primary/10 text-white font-bold" 
+                                                                    : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
+                                                            )}
+                                                        >
+                                                            <div>
+                                                                <p className="text-sm font-bold">{ticket.name}</p>
+                                                                {ticket.description && (
+                                                                    <p className="text-[11px] text-slate-400 font-medium mt-0.5">{ticket.description}</p>
+                                                                )}
+                                                            </div>
+                                                            <div className="text-right shrink-0">
+                                                                <span className={cn(
+                                                                    "text-xs font-black px-2.5 py-1 rounded-full",
+                                                                    ticket.price > 0 ? "bg-amber-400/10 text-amber-300" : "bg-emerald-400/10 text-emerald-300"
+                                                                )}>
+                                                                    {ticket.price > 0 ? `R$ ${ticket.price.toFixed(2)}` : 'Gratuito'}
+                                                                </span>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
                                     )}
 
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[10px] font-black uppercase text-slate-400">Formato</Label>
-                                        <Select
-                                            value={chargeType}
-                                            onValueChange={(val: any) => setChargeType(val)}
-                                        >
-                                            <SelectTrigger className="bg-white/10 border-white/20 text-white h-11 rounded-xl">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent className="bg-slate-900 border-slate-800 text-white">
-                                                <SelectItem value="UNIQUE">Cobrança Única</SelectItem>
-                                                <SelectItem value="SUBSCRIPTION">Assinatura Mensal</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
+                                    {/* 2. FORMULÁRIO DE PERGUNTAS PERSONALIZADAS */}
+                                    {selectedEvent.customQuestions && selectedEvent.customQuestions.length > 0 && (
+                                        <div className="space-y-4 p-5 bg-white/5 rounded-2xl border border-white/10">
+                                            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                                                📝 Informações Adicionais
+                                            </h4>
+                                            {selectedEvent.customQuestions.map((q: any) => (
+                                                <div key={q.id} className="space-y-1.5">
+                                                    <Label htmlFor={`q-${q.id}`} className="text-[10px] font-black uppercase text-slate-400">
+                                                        {q.label} {q.isRequired && <span className="text-red-400">*</span>}
+                                                    </Label>
+                                                    {q.type === 'select' ? (
+                                                        <select
+                                                            id={`q-${q.id}`}
+                                                            value={customAnswers[q.id] || ''}
+                                                            onChange={(e) => setCustomAnswers(p => ({ ...p, [q.id]: e.target.value }))}
+                                                            className="w-full rounded-xl bg-white/10 border border-white/20 text-white text-xs h-11 px-3 focus:ring-primary focus:border-primary"
+                                                        >
+                                                            <option value="" disabled className="bg-slate-900 text-slate-400">Selecione...</option>
+                                                            {q.options?.map((opt: string) => (
+                                                                <option key={opt} value={opt} className="bg-slate-900 text-white">{opt}</option>
+                                                            ))}
+                                                        </select>
+                                                    ) : (
+                                                        <Input
+                                                            id={`q-${q.id}`}
+                                                            type="text"
+                                                            placeholder="Sua resposta..."
+                                                            value={customAnswers[q.id] || ''}
+                                                            onChange={(e) => setCustomAnswers(p => ({ ...p, [q.id]: e.target.value }))}
+                                                            className="bg-white/10 border-white/20 text-white h-11 rounded-xl placeholder-slate-650 focus-visible:ring-primary focus-visible:border-primary"
+                                                        />
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
 
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[10px] font-black uppercase text-slate-400">Meio de Pagamento</Label>
-                                        <Select
-                                            value={paymentMethod}
-                                            onValueChange={(val: any) => setPaymentMethod(val)}
-                                        >
-                                            <SelectTrigger className="bg-white/10 border-white/20 text-white h-11 rounded-xl">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent className="bg-slate-900 border-slate-800 text-white">
-                                                <SelectItem value="PIX">🏦 Pix</SelectItem>
-                                                <SelectItem value="BOLETO">📄 Boleto Bancário</SelectItem>
-                                                <SelectItem value="CREDIT_CARD">💳 Cartão de Crédito</SelectItem>
-                                                <SelectItem value="UNDEFINED">❓ Indefinido (Escolha do pagador)</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
+                                    {/* 3. FATURAMENTO (APENAS SE PAGO E PREÇO > 0) */}
+                                    {((selectedEvent.isPaid === 'pago' && !selectedEvent.tickets) || (selectedTicket && selectedTicket.price > 0)) ? (
+                                        <div className="space-y-4 p-5 bg-white/5 rounded-2xl border border-white/10">
+                                            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                                                💳 Informações de Faturamento (Asaas)
+                                            </h4>
 
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[10px] font-black uppercase text-slate-400">Nome do Acompanhante (Opcional)</Label>
-                                        <Input
-                                            type="text"
-                                            placeholder="Nome de quem vai com você..."
-                                            value={companionName}
-                                            onChange={(e) => setCompanionName(e.target.value)}
-                                            className="bg-white/10 border-white/20 text-white h-11 rounded-xl placeholder-slate-600 focus-visible:ring-primary focus-visible:border-primary"
-                                        />
-                                    </div>
+                                            {(mode === 'new' || !foundUser?.hasCpf) && (
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[10px] font-black uppercase text-slate-400">
+                                                        CPF / CNPJ do Pagador <span className="text-red-400">*</span>
+                                                    </Label>
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="000.000.000-00"
+                                                        value={cpfCnpj}
+                                                        onChange={(e) => setCpfCnpj(e.target.value)}
+                                                        className="bg-white/10 border-white/20 text-white h-11 rounded-xl placeholder-slate-600 focus-visible:ring-primary focus-visible:border-primary"
+                                                    />
+                                                </div>
+                                            )}
 
-                                    <div className="flex justify-between items-center text-xs border-t border-white/10 pt-3">
-                                        <span className="text-slate-400">Valor total:</span>
-                                        <span className="font-bold text-amber-400 text-base">
-                                            R$ {selectedEvent?.ticketPrice?.toFixed(2)}
-                                        </span>
-                                    </div>
-                                </div>
-                            )}
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[10px] font-black uppercase text-slate-400">Formato</Label>
+                                                <Select
+                                                    value={chargeType}
+                                                    onValueChange={(val: any) => setChargeType(val)}
+                                                >
+                                                    <SelectTrigger className="bg-white/10 border-white/20 text-white h-11 rounded-xl">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                                                        <SelectItem value="UNIQUE">Cobrança Única</SelectItem>
+                                                        <SelectItem value="SUBSCRIPTION">Assinatura Mensal</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
 
-                            {selectedCategory === 'eventos' && selectedEvent?.isPaid !== 'pago' && (
-                                <div className="space-y-4 p-5 bg-white/5 rounded-2xl border border-white/10">
-                                    <div className="space-y-1.5">
-                                        <Label className="text-[10px] font-black uppercase text-slate-400">Nome do Acompanhante (Opcional)</Label>
-                                        <Input
-                                            type="text"
-                                            placeholder="Nome de quem vai com você..."
-                                            value={companionName}
-                                            onChange={(e) => setCompanionName(e.target.value)}
-                                            className="bg-white/10 border-white/20 text-white h-11 rounded-xl placeholder-slate-600 focus-visible:ring-primary focus-visible:border-primary"
-                                        />
-                                    </div>
-                                    <div className="flex justify-between items-center text-xs border-t border-white/10 pt-3">
-                                        <span className="text-slate-400">Valor da Inscrição:</span>
-                                        <span className="font-bold text-emerald-400 text-sm">Gratuito</span>
-                                    </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[10px] font-black uppercase text-slate-400">Meio de Pagamento</Label>
+                                                <Select
+                                                    value={paymentMethod}
+                                                    onValueChange={(val: any) => setPaymentMethod(val)}
+                                                >
+                                                    <SelectTrigger className="bg-white/10 border-white/20 text-white h-11 rounded-xl">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                                                        <SelectItem value="PIX">🏦 Pix</SelectItem>
+                                                        <SelectItem value="BOLETO">📄 Boleto Bancário</SelectItem>
+                                                        <SelectItem value="CREDIT_CARD">💳 Cartão de Crédito</SelectItem>
+                                                        <SelectItem value="UNDEFINED">❓ Indefinido (Escolha do pagador)</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[10px] font-black uppercase text-slate-400">Nome do Acompanhante (Opcional)</Label>
+                                                <Input
+                                                    type="text"
+                                                    placeholder="Nome de quem vai com você..."
+                                                    value={companionName}
+                                                    onChange={(e) => setCompanionName(e.target.value)}
+                                                    className="bg-white/10 border-white/20 text-white h-11 rounded-xl placeholder-slate-600 focus-visible:ring-primary focus-visible:border-primary"
+                                                />
+                                            </div>
+
+                                            <div className="flex justify-between items-center text-xs border-t border-white/10 pt-3">
+                                                <span className="text-slate-400">Valor total:</span>
+                                                <span className="font-bold text-amber-400 text-base">
+                                                    R$ {(selectedTicket ? selectedTicket.price : (selectedEvent.ticketPrice || 0)).toFixed(2)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        /* 4. TIPO GRATUITO */
+                                        <div className="space-y-4 p-5 bg-white/5 rounded-2xl border border-white/10">
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[10px] font-black uppercase text-slate-400">Nome do Acompanhante (Opcional)</Label>
+                                                <Input
+                                                    type="text"
+                                                    placeholder="Nome de quem vai com você..."
+                                                    value={companionName}
+                                                    onChange={(e) => setCompanionName(e.target.value)}
+                                                    className="bg-white/10 border-white/20 text-white h-11 rounded-xl placeholder-slate-600 focus-visible:ring-primary focus-visible:border-primary"
+                                                />
+                                            </div>
+                                            <div className="flex justify-between items-center text-xs border-t border-white/10 pt-3">
+                                                <span className="text-slate-400">Valor da Inscrição:</span>
+                                                <span className="font-bold text-emerald-400 text-sm">Gratuito</span>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
