@@ -1150,16 +1150,18 @@ function EnrollmentForm() {
                                                 </Select>
                                             </div>
 
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[10px] font-black uppercase text-slate-400">Nome do Acompanhante (Opcional)</Label>
-                                                <Input
-                                                    type="text"
-                                                    placeholder="Nome de quem vai com você..."
-                                                    value={companionName}
-                                                    onChange={(e) => setCompanionName(e.target.value)}
-                                                    className="bg-white/10 border-white/20 text-white h-11 rounded-xl placeholder-slate-600 focus-visible:ring-primary focus-visible:border-primary"
-                                                />
-                                            </div>
+                                            {selectedEvent?.allowCompanions === true && (
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[10px] font-black uppercase text-slate-400">Nome do Acompanhante (Opcional)</Label>
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="Nome de quem vai com você..."
+                                                        value={companionName}
+                                                        onChange={(e) => setCompanionName(e.target.value)}
+                                                        className="bg-white/10 border-white/20 text-white h-11 rounded-xl placeholder-slate-600 focus-visible:ring-primary focus-visible:border-primary"
+                                                    />
+                                                </div>
+                                            )}
 
                                             <div className="flex justify-between items-center text-xs border-t border-white/10 pt-3">
                                                 <span className="text-slate-400">Valor total:</span>
@@ -1171,16 +1173,18 @@ function EnrollmentForm() {
                                     ) : (
                                         /* 4. TIPO GRATUITO */
                                         <div className="space-y-4 p-5 bg-white/5 rounded-2xl border border-white/10">
-                                            <div className="space-y-1.5">
-                                                <Label className="text-[10px] font-black uppercase text-slate-400">Nome do Acompanhante (Opcional)</Label>
-                                                <Input
-                                                    type="text"
-                                                    placeholder="Nome de quem vai com você..."
-                                                    value={companionName}
-                                                    onChange={(e) => setCompanionName(e.target.value)}
-                                                    className="bg-white/10 border-white/20 text-white h-11 rounded-xl placeholder-slate-600 focus-visible:ring-primary focus-visible:border-primary"
-                                                />
-                                            </div>
+                                            {selectedEvent?.allowCompanions === true && (
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[10px] font-black uppercase text-slate-400">Nome do Acompanhante (Opcional)</Label>
+                                                    <Input
+                                                        type="text"
+                                                        placeholder="Nome de quem vai com você..."
+                                                        value={companionName}
+                                                        onChange={(e) => setCompanionName(e.target.value)}
+                                                        className="bg-white/10 border-white/20 text-white h-11 rounded-xl placeholder-slate-600 focus-visible:ring-primary focus-visible:border-primary"
+                                                    />
+                                                </div>
+                                            )}
                                             <div className="flex justify-between items-center text-xs border-t border-white/10 pt-3">
                                                 <span className="text-slate-400">Valor da Inscrição:</span>
                                                 <span className="font-bold text-emerald-400 text-sm">Gratuito</span>
