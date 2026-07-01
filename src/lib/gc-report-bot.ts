@@ -307,11 +307,20 @@ export async function handleGcReportIncomingMessage(
 
           const selectedMemberIds: string[] = [];
           options.forEach((opt: string) => {
-             // Tratamento: verificar "includes" como fallback se match exato falhar
-             let id = pollOptionsMap.get(opt);
+             const cleanOpt = opt.trim().toLowerCase();
+             // 1. Procurar por match exato (com minúsculas)
+             let id: string | null = null;
+             for (const [key, val] of pollOptionsMap.entries()) {
+               if (key.trim().toLowerCase() === cleanOpt) {
+                 id = val;
+                 break;
+               }
+             }
+             // 2. Fallback de aproximação se match exato falhar
              if (!id) {
                for (const [key, val] of pollOptionsMap.entries()) {
-                 if (opt.includes(key) || key.includes(opt)) {
+                 const cleanKey = key.trim().toLowerCase();
+                 if (cleanOpt.includes(cleanKey) || cleanKey.includes(cleanOpt)) {
                    id = val;
                    break;
                  }
