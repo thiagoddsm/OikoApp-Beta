@@ -251,23 +251,27 @@ export async function POST(request: Request) {
     }
     
     // Para enquetes: cada evento de voto tem um data.key.id ÚNICO.
-    // Usamos ele como chave de dedup para garantir que CADA MUDANÇA de voto seja processada,
-    // inclusive múltiplas pessoas votando no mesmo segundo.
+    // Usamos ele como chave de dedup para garantir que CADA MUDANÇA de voto seja processada.
+    // Importante: Se este webhook contiver a descriptografia real (nomes reais selecionados), 
+    // nós permitimos que ele ignore a trava e sobrescreva o webhook "vazio" anterior.
     if (responseType === 'poll') {
         try {
             const voteMessageId = data.key?.id || msgObject.key?.id;
-            // Se temos um ID único do evento de voto, usamos ele. Fallback: stanzaId+phone+timestamp
             const dedupPollId = voteMessageId
                 ? `poll_vote_${voteMessageId}`
                 : `${stanzaId}_${fromPhone}_${Date.now()}`;
             
+            const hasDecryptedOptions = Array.isArray(payload?.selectedOptions) && 
+                                        payload.selectedOptions.length > 0 && 
+                                        payload.selectedOptions[0] !== 'Voto registrado';
+
             const dedupRef = db.collection('webhook_dedup').doc(dedupPollId);
             const dedupDoc = await dedupRef.get();
-            if (dedupDoc.exists) {
+            if (dedupDoc.exists && !hasDecryptedOptions) {
                 console.log(`[Webhook DEBUG] Evento de enquete duplicado ignorado (mesmo key.id): ${dedupPollId}`);
                 return NextResponse.json({ success: true, ignored: true, reason: 'duplicate_poll' });
             }
-            // TTL implícito: salvar com timestamp para eventual limpeza
+            // TTL implícito
             await dedupRef.set({ timestamp: Timestamp.now(), stanzaId: stanzaId || null });
         } catch (e) { console.error("DEDUP POLL ERROR:", e); }
     }
