@@ -20,6 +20,14 @@ import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 import { CertificateView } from './certificate-view';
 import { Award } from 'lucide-react';
 
+const safeParseISO = (dateStr: string): Date => {
+  if (!dateStr || typeof dateStr !== 'string') return new Date(NaN);
+  const cleanD = dateStr.replace(/-[\d]+$/, '').split('T')[0];
+  const parsed = parseISO(cleanD);
+  return isNaN(parsed.getTime()) ? new Date(NaN) : parsed;
+};
+
+
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 /** Calcula todas as datas de aula de uma turma (mesmo algoritmo do log do professor) */
@@ -27,8 +35,9 @@ function resolveClassSchedule(cls: Class): { dateStr: string; isExtra: boolean; 
   const items: { dateStr: string; isExtra: boolean; isRepositionOnly: boolean }[] = [];
   if (!cls.startDate) return items;
 
-  const start = parseISO(cls.startDate);
-  const end = cls.endDate ? parseISO(cls.endDate) : addMonths(start, 6);
+  const start = safeParseISO(cls.startDate);
+  if (isNaN(start.getTime())) return items;
+  const end = cls.endDate ? safeParseISO(cls.endDate) : addMonths(start, 6);
   const holidaySet = new Set(cls.holidayDates || []);
   const overrides: Record<string, any> = cls.scheduleOverrides || {};
 
@@ -69,11 +78,10 @@ function resolveClassSchedule(cls: Class): { dateStr: string; isExtra: boolean; 
   return items.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
 }
 
-/** Retorna o status do aluno em uma sessão */
-type SessionStatus = 'present' | 'online' | 'makeup' | 'absent' | 'future';
+type SessionStatus = 'present' | 'online' | 'makeup' | 'absent' | 'future' | 'pending';
 function getStudentStatus(dateStr: string, cls: Class, userId: string, today: Date): SessionStatus {
-  const baseDate = dateStr.split('T')[0];
-  const sessionDate = startOfDay(parseISO(baseDate));
+  const sessionDate = startOfDay(safeParseISO(dateStr));
+  if (isNaN(sessionDate.getTime())) return 'pending';
   if (isBefore(today, sessionDate)) return 'future';
 
   const att = (cls.attendance || []).find((a: any) => a.date === dateStr);
@@ -108,6 +116,7 @@ function StatusIcon({ status }: { status: SessionStatus }) {
     </div>
   );
   if (status === 'future') return <Clock className="size-4 text-slate-300 shrink-0" />;
+  if (status === 'pending') return <Clock className="size-4 text-slate-300 shrink-0" />;
   return <XCircle className="size-4 text-red-400 shrink-0" />;
 }
 
@@ -116,6 +125,7 @@ function StatusLabel({ status }: { status: SessionStatus }) {
   if (status === 'online') return <span className="text-indigo-600 font-bold">Online</span>;
   if (status === 'makeup') return <span className="text-amber-600 font-bold">Reposição</span>;
   if (status === 'future') return <span className="text-slate-400">Agendada</span>;
+  if (status === 'pending') return <span className="text-slate-400">Pendente</span>;
   return <span className="text-red-500 font-bold">Falta</span>;
 }
 
@@ -135,7 +145,9 @@ function ClassAttendanceCard({ cls, courseName, userId, today }: ClassAttendance
   const pastSessions = useMemo(() =>
     schedule.filter(s => {
       if (s.isRepositionOnly) return false;
-      const date = startOfDay(parseISO(s.dateStr.split('T')[0]));
+      const parsedDate = safeParseISO(s.dateStr);
+      if (isNaN(parsedDate.getTime())) return false;
+      const date = startOfDay(parsedDate);
       return !isBefore(today, date);
     }),
     [schedule, today]
@@ -158,7 +170,9 @@ function ClassAttendanceCard({ cls, courseName, userId, today }: ClassAttendance
   const missedNeedingMakeup = sessionStatuses.filter(s => s.status === 'absent');
   const futureSessions = schedule.filter(s => {
     if (s.isRepositionOnly) return false;
-    const date = startOfDay(parseISO(s.dateStr.split('T')[0]));
+    const parsedDate = safeParseISO(s.dateStr);
+    if (isNaN(parsedDate.getTime())) return false;
+    const date = startOfDay(parsedDate);
     return isBefore(today, date);
   });
 
@@ -215,11 +229,15 @@ function ClassAttendanceCard({ cls, courseName, userId, today }: ClassAttendance
               </p>
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {missedNeedingMakeup.map(s => (
-                <Badge key={s.dateStr} variant="outline" className="text-[9px] bg-white border-orange-300 text-orange-700 font-bold">
-                  {format(parseISO(s.dateStr.split('T')[0]), "dd/MM", { locale: ptBR })}
-                </Badge>
-              ))}
+              {missedNeedingMakeup.map(s => {
+                const parsedDate = safeParseISO(s.dateStr);
+                if (isNaN(parsedDate.getTime())) return null;
+                return (
+                  <Badge key={s.dateStr} variant="outline" className="text-[9px] bg-white border-orange-300 text-orange-700 font-bold">
+                    {format(parsedDate, "dd/MM", { locale: ptBR })}
+                  </Badge>
+                );
+              })}
             </div>
           </div>
         )}
@@ -255,7 +273,10 @@ function ClassAttendanceCard({ cls, courseName, userId, today }: ClassAttendance
                       {s.isExtra ? 'Aula Extra' : `Aula ${idx + 1}`}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
-                      {format(parseISO(s.dateStr.split('T')[0]), "EEEE, dd 'de' MMMM", { locale: ptBR })}
+                      {(() => {
+                        const parsedDate = safeParseISO(s.dateStr);
+                        return isNaN(parsedDate.getTime()) ? '-' : format(parsedDate, "EEEE, dd 'de' MMMM", { locale: ptBR });
+                      })()}
                     </p>
                   </div>
                   <StatusLabel status={s.status} />
@@ -276,7 +297,10 @@ function ClassAttendanceCard({ cls, courseName, userId, today }: ClassAttendance
                           {s.isExtra ? 'Aula Extra' : `Aula ${sessionStatuses.length + idx + 1}`}
                         </p>
                         <p className="text-[10px] text-muted-foreground">
-                          {format(parseISO(s.dateStr.split('T')[0]), "EEEE, dd 'de' MMMM", { locale: ptBR })}
+                          {(() => {
+                            const parsedDate = safeParseISO(s.dateStr);
+                            return isNaN(parsedDate.getTime()) ? '-' : format(parsedDate, "EEEE, dd 'de' MMMM", { locale: ptBR });
+                          })()}
                         </p>
                       </div>
                       <span className="text-[10px] text-slate-400 font-bold">Agendada</span>
