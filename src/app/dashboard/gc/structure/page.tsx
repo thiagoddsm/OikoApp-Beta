@@ -15,7 +15,8 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 type User = { id: string; name: string; hierarchy?: { role?: string } };
-type Cell = { id: string; nome: string; liderId: string; areaId: string; redeId: string; membros: string[] };
+// TODO (Opção C): substituir por coleção /memberships para suporte a multi-igreja e múltiplos papéis por usuário.
+type Cell = { id: string; nome: string; liderId: string; areaId: string; redeId: string };
 type Area = { id: string; nome: string; liderId: string; redeId: string };
 type Rede = { id: string; nome: string; liderId: string; pastorId: string; cor?: string };
 
@@ -56,10 +57,18 @@ const buildHierarchy = (users: User[], redes: Rede[], areas: Area[], cells: Cell
   const seniorPastor = users.find(u => u.hierarchy?.role === 'pastor_senior') || users.find(u => u.hierarchy?.role === 'admin');
   if (!seniorPastor) return null;
 
+  // Opção B: conta membros por celulaId no perfil do usuário (fonte única de verdade).
+  // TODO (Opção C): trocar por query na coleção /memberships quando migrar para multi-igreja.
+  const membrosPorCelula = new Map<string, number>();
+  users.forEach(u => {
+    const cid = (u as any).hierarchy?.celulaId as string | undefined;
+    if (cid) membrosPorCelula.set(cid, (membrosPorCelula.get(cid) || 0) + 1);
+  });
+
   const cellNodes = cells.map(cell => ({
     id: cell.id, nome: cell.nome, type: 'cell' as const, areaId: cell.areaId,
     liderName: userMap.get(cell.liderId)?.name || 'N/A',
-    stats: { directChildren: 0, participantes: cell.membros?.length || 0 },
+    stats: { directChildren: 0, participantes: membrosPorCelula.get(cell.id) || 0 },
     children: []
   }));
 

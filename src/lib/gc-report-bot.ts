@@ -176,20 +176,22 @@ export async function startGcReportSession(cellId: string, liderPhone: string, i
       throw new Error('Célula não encontrada.');
     }
     const cellData = cellDoc.data()!;
-    const membersIds = (cellData.membros || []) as string[];
     const liderId = cellData.liderId || '';
 
+    // Opção B: busca membros por hierarchy.celulaId — fonte única de verdade.
+    // TODO (Opção C): substituir por query na coleção /memberships quando migrar para multi-igreja.
+    const usersSnap = await db.collection('users')
+      .where('hierarchy.celulaId', '==', cellId)
+      .get();
+
     const membersList: { id: string; name: string }[] = [];
-    if (membersIds.length > 0) {
-      const userRefs = membersIds.map(id => db.collection('users').doc(id));
-      const userSnaps = await db.getAll(...userRefs);
-      userSnaps.forEach(snap => {
-        if (snap.exists) {
-          membersList.push({ id: snap.id, name: snap.data()!.name || 'Membro' });
-        }
-      });
-    }
+    usersSnap.forEach(snap => {
+      if (snap.exists) {
+        membersList.push({ id: snap.id, name: snap.data().name || 'Membro' });
+      }
+    });
     membersList.sort((a, b) => a.name.localeCompare(b.name));
+
 
     // 3. Enviar mensagens no WhatsApp: boas-vindas + Lista de Chamada
     console.log(`[GC Bot] Enviando fluxo de relatório para ${liderPhone}...`);

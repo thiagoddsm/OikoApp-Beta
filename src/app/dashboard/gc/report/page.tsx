@@ -387,12 +387,14 @@ export default function CellReportPage() {
     setReportDate(getLastMeetingDate(cell?.meetingDay));
   }, [cell?.id, cell?.meetingDay]);
 
-  // Membros da célula selecionada
+  // Membros da célula — lidos por hierarchy.celulaId, igual à tela de Membros do GC.
+  // Isso garante que todos os membros aparecem, mesmo que cell.membros[] esteja desatualizado.
   const membersQuery = useMemoFirebase(() => {
-    if (!firestore || !cell || !cell.membros?.length) return null;
-    return query(collection(firestore, 'users'), where('__name__', 'in', cell.membros.slice(0, 30)));
-  }, [firestore, cell]);
+    if (!firestore || !cell?.id) return null;
+    return query(collection(firestore, 'users'), where('hierarchy.celulaId', '==', cell.id));
+  }, [firestore, cell?.id]);
   const { data: members, isLoading: l4 } = useCollection<UserProfile>(membersQuery);
+
 
   const recentLogsQuery = useMemoFirebase(() => {
     if (!firestore || !cell) return null;

@@ -9,22 +9,24 @@ import { FileSpreadsheet, CheckCircle2, XCircle, Clock, Loader2, Info } from 'lu
 import { Badge } from '@/components/ui/badge';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
-import { format, parseISO, isBefore, addWeeks, addMonths } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 const safeParseISO = (dateStr: string): Date => {
     if (!dateStr || typeof dateStr !== 'string') return new Date(NaN);
-    const cleanD = dateStr.replace(/-[\d]+$/, '').split('T')[0];
+    // Strip time component (e.g. T08:00), then take only first 3 dash-parts (YYYY-MM-DD).
+    // This correctly handles: '2026-04-05' → '2026-04-05', '2026-06-28-1' → '2026-06-28',
+    // '2026-05-02T08:00' → '2026-05-02'. The old regex /-[\d]+$/ was wrongly stripping
+    // the day from dates like '2026-04-05' → '2026-04'.
+    const withoutTime = dateStr.split('T')[0];
+    const parts = withoutTime.split('-');
+    const cleanD = parts.slice(0, 3).join('-');
     const parsed = parseISO(cleanD);
     return isNaN(parsed.getTime()) ? new Date(NaN) : parsed;
 };
 
 
-const weekDayMap: Record<string, number> = {
-    "Domingo": 0, "Segunda-feira": 1, "Terça-feira": 2, "Quarta-feira": 3,
-    "Quinta-feira": 4, "Sexta-feira": 5, "Sábado": 6
-};
 
 export function ClassPerformanceReport({ classData }: { classData: Class }) {
     const { users } = useMembersData();
@@ -40,66 +42,24 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
             .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
     }, [users, classData]);
 
-    const resolvedSchedule = useMemo(() => {
-        if (!classData || !classData.startDate) return [];
-        
-        const items: any[] = [];
-        const start = safeParseISO(classData.startDate);
-        if (isNaN(start.getTime())) return [];
-        const end = classData.endDate ? safeParseISO(classData.endDate) : addMonths(start, 2);
-        const targetDay = classData.dayOfWeek ? weekDayMap[classData.dayOfWeek] : -1;
-        const holidays = new Set(classData.holidayDates || []);
-        const overrides = classData.scheduleOverrides || {};
+    // Derive class dates directly from attendance records.
+    // Accepts YYYY-MM-DD and YYYY-MM-DD-N (e.g. 2026-06-28-1 for a 2nd session).
+    // Only includes past dates that had at least one student recorded.
+    const classOccurrences = useMemo(() => {
+        if (!classData?.attendance) return [];
+        // Matches YYYY-MM-DD or YYYY-MM-DD-N (second/third sessions on the same day)
+        const validDateRegex = /^\d{4}-\d{2}-\d{2}(-\d+)?$/;
+        const today = format(new Date(), 'yyyy-MM-dd');
+        return (classData.attendance as Array<{ date: string; presentStudentIds?: string[]; onlineStudentIds?: string[] }>)
+            .filter(a =>
+                validDateRegex.test(a.date) &&
+                a.date.substring(0, 10) <= today &&
+                ((a.presentStudentIds?.length ?? 0) + (a.onlineStudentIds?.length ?? 0)) > 0
+            )
+            .map(a => a.date)
+            .sort();
+    }, [classData?.attendance]);
 
-        let current = start;
-        let safe = 0;
-
-        // 1. Recorrência base
-        if (classData.frequency && classData.frequency !== 'pontual') {
-            while (isBefore(current, end) || format(current, 'yyyy-MM-dd') === format(end, 'yyyy-MM-dd')) {
-                if (safe++ > 150) break;
-                const dStr = format(current, 'yyyy-MM-dd');
-                const override = overrides[dStr];
-
-                // Pular se for feriado sem override, ou se estiver explicitamente cancelado
-                if (override?.isCancelled) {
-                    current = addWeeks(current, classData.frequency === 'quinzenal' ? 2 : 1);
-                    continue;
-                }
-
-                if (holidays.has(dStr) && !override) {
-                    current = addWeeks(current, classData.frequency === 'quinzenal' ? 2 : 1);
-                    continue;
-                }
-
-                let matches = false;
-                if (classData.frequency === 'semanal') {
-                    matches = targetDay === -1 || current.getDay() === targetDay;
-                } else if (classData.frequency === 'quinzenal') {
-                    const diffWeeks = Math.floor((current.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
-                    matches = diffWeeks % 2 === 0 && (targetDay === -1 || current.getDay() === targetDay);
-                }
-
-                if (matches) items.push(dStr);
-                current = addWeeks(current, classData.frequency === 'quinzenal' ? 2 : 1);
-            }
-        } else if (classData.frequency === 'pontual') {
-            if (!overrides[classData.startDate]?.isCancelled) {
-                items.push(classData.startDate);
-            }
-        }
-
-        // 2. Adicionar overrides de fora da recorrência
-        Object.entries(overrides).forEach(([dateStr, override]: [string, any]) => {
-            if (override.isCancelled) return;
-            if (items.includes(dateStr)) return;
-            items.push(dateStr);
-        });
-
-        return items.sort();
-    }, [classData]);
-
-    const classOccurrences = resolvedSchedule;
 
     const assessments = useMemo(() => {
         if (!classData.grades) return [];
@@ -192,7 +152,9 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
                                 <TableHead className="min-w-[220px] sticky left-0 bg-muted/50 z-20 border-r">Aluno</TableHead>
                                 <TableHead className="text-center bg-blue-50/50 min-w-[100px]">Freq. %</TableHead>
                                 {classOccurrences.map(date => {
-                                    const cleanDate = date.split('-').slice(0, 3).join('-');
+                                    const parts = date.split('-');
+                                    const cleanDate = parts.slice(0, 3).join('-');
+                                    const sessionNum = parts.length > 3 ? Number(parts[3]) + 1 : null; // -1 → "(2)", -2 → "(3)"
                                     const parsedDate = safeParseISO(cleanDate);
                                     if (isNaN(parsedDate.getTime())) {
                                         return <TableHead key={date} className="text-center min-w-[70px]">Inválida</TableHead>;
@@ -200,6 +162,7 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
                                     return (
                                         <TableHead key={date} className="text-center min-w-[70px] text-[10px] uppercase font-black px-1">
                                             {format(parsedDate, 'dd/MM')}
+                                            {sessionNum && <span className="block text-[8px] font-normal text-muted-foreground">({sessionNum}ª)</span>}
                                         </TableHead>
                                     );
                                 })}
