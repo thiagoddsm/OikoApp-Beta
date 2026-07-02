@@ -23,6 +23,18 @@ import { RetroactiveApprovalDialog } from './retroactive-approval-dialog';
 import { CertificateView } from './certificate-view';
 import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
+const safeParseISO = (dateStr: string): Date => {
+    if (!dateStr || typeof dateStr !== 'string') return new Date(NaN);
+    // Limpar sufixos como YYYY-MM-DD-1
+    const cleanD = dateStr.replace(/-[\d]+$/, '').split('T')[0];
+    const parsed = parseISO(cleanD);
+    if (isNaN(parsed.getTime())) {
+        return new Date(NaN);
+    }
+    return parsed;
+};
+
+
 const Legend = () => (
     <div className="pt-4 mt-6 border-t">
         <h4 className="text-xs font-bold uppercase text-muted-foreground mb-3">Legenda</h4>
@@ -112,8 +124,9 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
 
             // Aulas regulares
             if (cls.startDate) {
-                const start = parseISO(cls.startDate);
-                const end = cls.endDate ? parseISO(cls.endDate) : addMonths(start, 2);
+                const start = safeParseISO(cls.startDate);
+                if (!isNaN(start.getTime())) {
+                    const end = cls.endDate ? safeParseISO(cls.endDate) : addMonths(start, 2);
                 const holidaySet = new Set(cls.holidayDates || []);
                 const overrides = cls.scheduleOverrides || {};
                 
@@ -144,6 +157,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                         validDatesForThisClass.add(dStr);
                     }
                 });
+                }
             }
             
             const repoOnlyDates = new Set(cls.extraSessions?.filter(s => s.isRepositionOnly).map(s => `${s.date}T${s.startTime}`) || []);
@@ -435,7 +449,11 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                         const modIndex = getModuleIndexForDate(date, relevantClass, course?.syllabus || []);
                                         const mod = modIndex !== -1 ? course?.syllabus?.[modIndex] : null;
                                         const isExtra = date.includes('T');
-                                        const displayDate = date.includes('T') ? parseISO(date) : parseISO(date);
+                                        const displayDate = safeParseISO(date);
+
+                                        if (isNaN(displayDate.getTime())) {
+                                            return <TableHead key={date} className="text-center min-w-[200px] px-2 py-4">Data Inválida</TableHead>;
+                                        }
 
                                         return (
                                             <TableHead key={date} className="text-center min-w-[200px] px-2 py-4 group">
@@ -546,7 +564,8 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                                                     getModuleIndexForDate(a.date, studentClass, course?.syllabus || []) === (parseInt(mod.id) - 1)
                                                                 );
                                                                 if (ownClassAtt?.date) {
-                                                                    originalDate = format(parseISO(ownClassAtt.date), 'dd/MM/yyyy');
+                                                                    const parsedOwn = safeParseISO(ownClassAtt.date);
+                                                                    originalDate = isNaN(parsedOwn.getTime()) ? "Pendente" : format(parsedOwn, 'dd/MM/yyyy');
                                                                 } else {
                                                                     originalDate = "Pendente na Turma";
                                                                 }
@@ -565,7 +584,7 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                                                         <div className="space-y-1 text-left">
                                                                             <p className="text-[10px] font-black uppercase text-amber-400">Reposição Realizada</p>
                                                                             <p className="text-xs font-bold">Turma: {repoClass?.name || 'Outra Turma'}</p>
-                                                                            <p className="text-xs">Data da Reposição: {status.data?.date ? format(parseISO(status.data.date), 'dd/MM/yyyy') : '-'}</p>
+                                                                            <p className="text-xs">Data da Reposição: {status.data?.date && !isNaN(safeParseISO(status.data.date).getTime()) ? format(safeParseISO(status.data.date), 'dd/MM/yyyy') : '-'}</p>
                                                                             <p className="text-[10px] opacity-70 italic mt-1">Aula original da sua turma: {originalDate}</p>
                                                                         </div>
                                                                     </TooltipContent>
@@ -635,9 +654,9 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                                                 <TooltipContent className="bg-slate-900 text-white border-none p-3 shadow-xl">
                                                                     <div className="space-y-1 text-left">
                                                                         <p className="text-[10px] font-black uppercase text-amber-400">Reposição Realizada</p>
-                                                                        <p className="text-xs">
-                                                                            Data da Reposição: {repoDateStr ? format(parseISO(repoDateStr), 'dd/MM/yyyy') : '-'}
-                                                                        </p>
+                                                                         <p className="text-xs">
+                                                                             Data da Reposição: {repoDateStr && !isNaN(safeParseISO(repoDateStr).getTime()) ? format(safeParseISO(repoDateStr), 'dd/MM/yyyy') : '-'}
+                                                                         </p>
                                                                     </div>
                                                                 </TooltipContent>
                                                             </Tooltip>
