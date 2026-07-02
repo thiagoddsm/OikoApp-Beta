@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, updateDoc, deleteDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, doc, updateDoc, deleteDoc, Timestamp, onSnapshot } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -57,7 +57,6 @@ export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false,
 
   React.useEffect(() => {
     if (!firestore || !eventId) return;
-    const { onSnapshot } = require('firebase/firestore');
     const unsub = onSnapshot(doc(firestore, 'strategic_events', eventId), (snapshot: any) => {
       if (snapshot.exists()) {
         setEventData({ id: snapshot.id, ...snapshot.data() });

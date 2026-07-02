@@ -13,6 +13,14 @@ import { format, parseISO, isBefore, addWeeks, addMonths } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
+const safeParseISO = (dateStr: string): Date => {
+    if (!dateStr || typeof dateStr !== 'string') return new Date(NaN);
+    const cleanD = dateStr.replace(/-[\d]+$/, '').split('T')[0];
+    const parsed = parseISO(cleanD);
+    return isNaN(parsed.getTime()) ? new Date(NaN) : parsed;
+};
+
+
 const weekDayMap: Record<string, number> = {
     "Domingo": 0, "Segunda-feira": 1, "Terça-feira": 2, "Quarta-feira": 3,
     "Quinta-feira": 4, "Sexta-feira": 5, "Sábado": 6
@@ -36,8 +44,9 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
         if (!classData || !classData.startDate) return [];
         
         const items: any[] = [];
-        const start = parseISO(classData.startDate);
-        const end = classData.endDate ? parseISO(classData.endDate) : addMonths(start, 2);
+        const start = safeParseISO(classData.startDate);
+        if (isNaN(start.getTime())) return [];
+        const end = classData.endDate ? safeParseISO(classData.endDate) : addMonths(start, 2);
         const targetDay = classData.dayOfWeek ? weekDayMap[classData.dayOfWeek] : -1;
         const holidays = new Set(classData.holidayDates || []);
         const overrides = classData.scheduleOverrides || {};
@@ -81,15 +90,10 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
         }
 
         // 2. Adicionar overrides de fora da recorrência
-        // Para evitar colunas duplicadas, normaliza a data base (yyyy-MM-dd) de cada override
         Object.entries(overrides).forEach(([dateStr, override]: [string, any]) => {
             if (override.isCancelled) return;
-            // Normalizar: pegar só os 10 primeiros chars (yyyy-MM-dd)
-            const baseDateStr = dateStr.substring(0, 10);
-            // Só adicionar se a data base ainda não estiver incluída
-            if (items.includes(baseDateStr)) return;
-            if (items.some(d => d.substring(0, 10) === baseDateStr)) return;
-            items.push(baseDateStr);
+            if (items.includes(dateStr)) return;
+            items.push(dateStr);
         });
 
         return items.sort();
@@ -121,19 +125,17 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
             const presence: Record<string, string> = {};
 
             classOccurrences.forEach(date => {
-                const cleanDate = date.substring(0, 10);
-                // Buscar TODOS os registros de attendance que tenham a mesma data base (yyyy-MM-dd)
-                // Isso agrega sessões extras do mesmo dia (ex: 2026-06-28-1, 2026-06-28-2)
-                const dayRecords = classData.attendance?.filter(a => a.date.substring(0, 10) === cleanDate) || [];
-                if (dayRecords.length > 0) {
+                const cleanDate = date.split('-').slice(0, 3).join('-');
+                const record = classData.attendance?.find(a => a.date === date);
+                if (record) {
                     totalClassesTaken++;
-                    const isPresent = dayRecords.some(r =>
-                        r.presentStudentIds?.includes(student.id) || r.onlineStudentIds?.includes(student.id)
-                    );
+                    const isPresent = record.presentStudentIds?.includes(student.id) || record.onlineStudentIds?.includes(student.id);
                     if (isPresent) presentCount++;
-                    presence[format(parseISO(cleanDate), 'dd/MM')] = isPresent ? 'P' : 'F';
+                    const parsedDate = safeParseISO(cleanDate);
+                    presence[format(parsedDate, 'dd/MM')] = isPresent ? 'P' : 'F';
                 } else {
-                    presence[format(parseISO(cleanDate), 'dd/MM')] = '-';
+                    const parsedDate = safeParseISO(cleanDate);
+                    presence[format(parsedDate, 'dd/MM')] = '-';
                 }
             });
 
@@ -191,9 +193,13 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
                                 <TableHead className="text-center bg-blue-50/50 min-w-[100px]">Freq. %</TableHead>
                                 {classOccurrences.map(date => {
                                     const cleanDate = date.split('-').slice(0, 3).join('-');
+                                    const parsedDate = safeParseISO(cleanDate);
+                                    if (isNaN(parsedDate.getTime())) {
+                                        return <TableHead key={date} className="text-center min-w-[70px]">Inválida</TableHead>;
+                                    }
                                     return (
                                         <TableHead key={date} className="text-center min-w-[70px] text-[10px] uppercase font-black px-1">
-                                            {format(parseISO(cleanDate), 'dd/MM')}
+                                            {format(parsedDate, 'dd/MM')}
                                         </TableHead>
                                     );
                                 })}
@@ -218,14 +224,12 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
                                     let totalClassesTaken = 0;
 
                                     classOccurrences.forEach(date => {
-                                        const cleanDate = date.substring(0, 10);
-                                        const dayRecords = classData.attendance?.filter(a => a.date.substring(0, 10) === cleanDate) || [];
-                                        if (dayRecords.length > 0) {
+                                        const record = classData.attendance?.find(a => a.date === date);
+                                        if (record) {
                                             totalClassesTaken++;
-                                            const isPresent = dayRecords.some(r =>
-                                                r.presentStudentIds?.includes(student.id) || r.onlineStudentIds?.includes(student.id)
-                                            );
-                                            if (isPresent) presentCount++;
+                                            if (record.presentStudentIds?.includes(student.id) || record.onlineStudentIds?.includes(student.id)) {
+                                                presentCount++;
+                                            }
                                         }
                                     });
 
@@ -240,12 +244,11 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
                                                 </Badge>
                                             </TableCell>
                                             {classOccurrences.map(date => {
-                                                const cleanDate = date.substring(0, 10);
-                                                const dayRecords = classData.attendance?.filter(a => a.date.substring(0, 10) === cleanDate) || [];
-                                                const isPresent = dayRecords.some(r => r.presentStudentIds?.includes(student.id));
-                                                const isOnline = !isPresent && dayRecords.some(r => r.onlineStudentIds?.includes(student.id));
+                                                const record = classData.attendance?.find(a => a.date === date);
+                                                const isPresent = record?.presentStudentIds?.includes(student.id);
+                                                const isOnline = record?.onlineStudentIds?.includes(student.id);
 
-                                                if (dayRecords.length === 0) return <TableCell key={date} className="text-center opacity-20"><XCircle className="size-4 mx-auto text-slate-300" /></TableCell>;
+                                                if (!record) return <TableCell key={date} className="text-center opacity-20"><XCircle className="size-4 mx-auto text-slate-300" /></TableCell>;
 
                                                 return (
                                                     <TableCell key={date} className="text-center">
