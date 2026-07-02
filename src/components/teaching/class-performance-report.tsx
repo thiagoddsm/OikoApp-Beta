@@ -81,10 +81,15 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
         }
 
         // 2. Adicionar overrides de fora da recorrência
+        // Para evitar colunas duplicadas, normaliza a data base (yyyy-MM-dd) de cada override
         Object.entries(overrides).forEach(([dateStr, override]: [string, any]) => {
             if (override.isCancelled) return;
-            if (items.includes(dateStr)) return;
-            items.push(dateStr);
+            // Normalizar: pegar só os 10 primeiros chars (yyyy-MM-dd)
+            const baseDateStr = dateStr.substring(0, 10);
+            // Só adicionar se a data base ainda não estiver incluída
+            if (items.includes(baseDateStr)) return;
+            if (items.some(d => d.substring(0, 10) === baseDateStr)) return;
+            items.push(baseDateStr);
         });
 
         return items.sort();
@@ -116,11 +121,15 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
             const presence: Record<string, string> = {};
 
             classOccurrences.forEach(date => {
-                const cleanDate = date.split('-').slice(0, 3).join('-');
-                const record = classData.attendance?.find(a => a.date === date);
-                if (record) {
+                const cleanDate = date.substring(0, 10);
+                // Buscar TODOS os registros de attendance que tenham a mesma data base (yyyy-MM-dd)
+                // Isso agrega sessões extras do mesmo dia (ex: 2026-06-28-1, 2026-06-28-2)
+                const dayRecords = classData.attendance?.filter(a => a.date.substring(0, 10) === cleanDate) || [];
+                if (dayRecords.length > 0) {
                     totalClassesTaken++;
-                    const isPresent = record.presentStudentIds?.includes(student.id) || record.onlineStudentIds?.includes(student.id);
+                    const isPresent = dayRecords.some(r =>
+                        r.presentStudentIds?.includes(student.id) || r.onlineStudentIds?.includes(student.id)
+                    );
                     if (isPresent) presentCount++;
                     presence[format(parseISO(cleanDate), 'dd/MM')] = isPresent ? 'P' : 'F';
                 } else {
@@ -209,12 +218,14 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
                                     let totalClassesTaken = 0;
 
                                     classOccurrences.forEach(date => {
-                                        const record = classData.attendance?.find(a => a.date === date);
-                                        if (record) {
+                                        const cleanDate = date.substring(0, 10);
+                                        const dayRecords = classData.attendance?.filter(a => a.date.substring(0, 10) === cleanDate) || [];
+                                        if (dayRecords.length > 0) {
                                             totalClassesTaken++;
-                                            if (record.presentStudentIds?.includes(student.id) || record.onlineStudentIds?.includes(student.id)) {
-                                                presentCount++;
-                                            }
+                                            const isPresent = dayRecords.some(r =>
+                                                r.presentStudentIds?.includes(student.id) || r.onlineStudentIds?.includes(student.id)
+                                            );
+                                            if (isPresent) presentCount++;
                                         }
                                     });
 
@@ -229,11 +240,12 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
                                                 </Badge>
                                             </TableCell>
                                             {classOccurrences.map(date => {
-                                                const record = classData.attendance?.find(a => a.date === date);
-                                                const isPresent = record?.presentStudentIds?.includes(student.id);
-                                                const isOnline = record?.onlineStudentIds?.includes(student.id);
+                                                const cleanDate = date.substring(0, 10);
+                                                const dayRecords = classData.attendance?.filter(a => a.date.substring(0, 10) === cleanDate) || [];
+                                                const isPresent = dayRecords.some(r => r.presentStudentIds?.includes(student.id));
+                                                const isOnline = !isPresent && dayRecords.some(r => r.onlineStudentIds?.includes(student.id));
 
-                                                if (!record) return <TableCell key={date} className="text-center opacity-20"><XCircle className="size-4 mx-auto text-slate-300" /></TableCell>;
+                                                if (dayRecords.length === 0) return <TableCell key={date} className="text-center opacity-20"><XCircle className="size-4 mx-auto text-slate-300" /></TableCell>;
 
                                                 return (
                                                     <TableCell key={date} className="text-center">
