@@ -69,11 +69,11 @@ export function useEventsData() {
 
 export function useCoursesData() {
   const { firestore, user } = useFirebase();
-  const coursesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses'), limit(50)) : null, [firestore]);
-  const classesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'classes'), limit(50)) : null, [firestore]);
-  const enrollmentRequestsQ = useMemoFirebase(() => firestore && user ? query(collection(firestore, 'enrollment_requests'), limit(50)) : null, [firestore, user]);
-  const pedagogicalLogsQ = useMemoFirebase(() => firestore && user ? query(collection(firestore, 'pedagogical_logs'), limit(50)) : null, [firestore, user]);
-  const theoflixCoursesQ = useMemoFirebase(() => firestore && user ? query(collection(firestore, 'theoflix_courses'), limit(50)) : null, [firestore, user]);
+  const coursesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'courses'), limit(200)) : null, [firestore]);
+  const classesQ = useMemoFirebase(() => firestore ? query(collection(firestore, 'classes'), limit(200)) : null, [firestore]);
+  const enrollmentRequestsQ = useMemoFirebase(() => firestore && user ? query(collection(firestore, 'enrollment_requests'), limit(200)) : null, [firestore, user]);
+  const pedagogicalLogsQ = useMemoFirebase(() => firestore && user ? query(collection(firestore, 'pedagogical_logs'), limit(200)) : null, [firestore, user]);
+  const theoflixCoursesQ = useMemoFirebase(() => firestore && user ? query(collection(firestore, 'theoflix_courses'), limit(200)) : null, [firestore, user]);
 
   const { data: courses, isLoading: lco } = useCollection<Course>(coursesQ);
   const { data: classes, isLoading: lcl } = useCollection<Class>(classesQ);
@@ -152,7 +152,7 @@ export function useVolunteeringServiceData() {
   const { firestore, user } = useFirebase();
   const serviceAreasQ = useMemoFirebase(() => firestore && user ? query(collection(firestore, 'areas_of_service')) : null, [firestore, user]);
   const teamsQ = useMemoFirebase(() => firestore && user ? query(collection(firestore, 'teams')) : null, [firestore, user]);
-  const savedSchedulesQ = useMemoFirebase(() => firestore && user ? query(collection(firestore, 'saved_schedules'), limit(50)) : null, [firestore, user]);
+  const savedSchedulesQ = useMemoFirebase(() => firestore && user ? query(collection(firestore, 'saved_schedules'), limit(200)) : null, [firestore, user]);
 
   const { data: serviceAreas, isLoading: lsa } = useCollection<AreaOfService>(serviceAreasQ);
   const { data: teams, isLoading: lt } = useCollection<Team>(teamsQ);

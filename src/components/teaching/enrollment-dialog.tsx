@@ -262,8 +262,15 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
 
                             return (
                                 <div className="space-y-1">
-                                    <p className="text-[10px] font-black uppercase text-muted-foreground px-3 py-2 tracking-widest">Sugestões do Sistema</p>
-                                    {filteredUsers.slice(0, 15).map(user => (
+                                    <div className="flex items-center justify-between px-3 py-2">
+                                        <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Sugestões do Sistema</p>
+                                        {filteredUsers.length > 20 && (
+                                            <span className="text-[10px] text-muted-foreground">
+                                                Mostrando 20 de {filteredUsers.length} — refine a busca
+                                            </span>
+                                        )}
+                                    </div>
+                                    {filteredUsers.slice(0, 20).map(user => (
                                         <button 
                                             key={user.id} 
                                             onClick={() => handleSelectUser(user)}
