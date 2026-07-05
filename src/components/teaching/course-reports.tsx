@@ -100,7 +100,9 @@ export function CourseReports({ courseId }: CourseReportsProps) {
           if (hasCompleted) {
             attendedClasses++;
           }
-          totalAttendancePossibilities++;
+          // NOTE: totalAttendancePossibilities is accumulated below via += totalClassDates
+          // (removed the ++ here that was causing double-counting)
+
         });
 
         totalClassDates += classDates.size;

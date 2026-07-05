@@ -247,9 +247,9 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                 if (value === 'all' || !value) continue;
 
                 if (key === 'status') {
-                    const mandatoryModules = modules.filter(m => m.type !== 'Obrigatório').length; // Simplificação
                     let completedMandatory = 0;
                     modules.forEach(m => {
+
                         const status = getModuleStatus(student, m.id);
                         if (status.isDone && m.type !== 'Eletivo') completedMandatory++;
                     });

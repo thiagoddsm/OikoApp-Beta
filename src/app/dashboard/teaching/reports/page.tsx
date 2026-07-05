@@ -219,7 +219,7 @@ function GeneralTeachingReportsContent() {
         const rate = totalStudents > 0 ? Math.round((presentCount / totalStudents) * 100) : 0;
 
         result[course.id].lessons.push({
-          title: session.title || `Aula ${index + 1}`,
+          title: session.syllabusItem?.title || session.syllabusItem?.name || `Aula ${index + 1}`,
           date: session.dateStr,
           present: presentCount,
           absent: absentCount,

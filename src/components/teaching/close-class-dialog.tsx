@@ -42,8 +42,8 @@ export function CloseClassDialog({ open, onOpenChange, classData, courseData }: 
   const classOccurrences = useMemo(() => {
     if (!classData || !classData.startDate) return [];
     const items: string[] = [];
-    const start = new Date(classData.startDate);
     const overrides = classData.scheduleOverrides || {};
+
     
     if (classData.frequency && classData.frequency !== 'pontual') {
       // Simplificado: buscar as ocorrências já registradas no diário de classe

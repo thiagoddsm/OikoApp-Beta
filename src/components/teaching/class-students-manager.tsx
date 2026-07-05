@@ -30,7 +30,7 @@ export function ClassStudentsManager({ classData }: ClassStudentsManagerProps) {
     
     const handleRemoveStudent = async (studentId: string) => {
         if (confirm('Tem certeza que deseja remover este aluno da turma?')) {
-            const updatedStudents = classData.students.filter((id: string) => id !== studentId);
+            const updatedStudents = (classData.students || []).filter((id: string) => id !== studentId);
             await updateClass(classData.id, { students: updatedStudents });
 
             if (classData.whatsappGroupId) {
