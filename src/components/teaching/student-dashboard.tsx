@@ -22,10 +22,15 @@ import { Award } from 'lucide-react';
 
 const safeParseISO = (dateStr: string): Date => {
   if (!dateStr || typeof dateStr !== 'string') return new Date(NaN);
-  const cleanD = dateStr.replace(/-[\d]+$/, '').split('T')[0];
+  // Strip time component (T...), then take only YYYY-MM-DD (first 3 dash-parts).
+  // The old regex /-[\d]+$/ incorrectly stripped the day: '2026-04-05' → '2026-04' → NaN.
+  // This version handles: '2026-04-05' ✓, '2026-06-28-1' → '2026-06-28' ✓, '2026-05-02T08:00' ✓
+  const withoutTime = dateStr.split('T')[0];
+  const cleanD = withoutTime.split('-').slice(0, 3).join('-');
   const parsed = parseISO(cleanD);
   return isNaN(parsed.getTime()) ? new Date(NaN) : parsed;
 };
+
 
 
 // ─── helpers ────────────────────────────────────────────────────────────────

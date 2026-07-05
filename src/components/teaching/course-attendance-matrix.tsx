@@ -25,14 +25,18 @@ import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 const safeParseISO = (dateStr: string): Date => {
     if (!dateStr || typeof dateStr !== 'string') return new Date(NaN);
-    // Limpar sufixos como YYYY-MM-DD-1
-    const cleanD = dateStr.replace(/-[\d]+$/, '').split('T')[0];
+    // Strip time component (T...), then take only YYYY-MM-DD (first 3 dash-parts).
+    // The old regex /-[\d]+$/ incorrectly stripped the day: '2026-04-05' → '2026-04' → NaN.
+    // Handles: '2026-04-05' ✓, '2026-06-28-1' → '2026-06-28' ✓, '2026-05-02T08:00' ✓
+    const withoutTime = dateStr.split('T')[0];
+    const cleanD = withoutTime.split('-').slice(0, 3).join('-');
     const parsed = parseISO(cleanD);
     if (isNaN(parsed.getTime())) {
         return new Date(NaN);
     }
     return parsed;
 };
+
 
 
 const Legend = () => (
