@@ -252,6 +252,11 @@ function TheoFlixContent() {
 
       if (score >= minScore) {
           toast({ title: "Aprovado!", description: `Você acertou ${score}% do teste.` });
+          // Automatically mark lesson as completed and save presence when user is approved
+          setTimeout(() => {
+              setIsQuizOpen(false);
+              handleMarkAsCompleted();
+          }, 1500);
       } else {
           toast({ variant: 'destructive', title: "Tente novamente", description: `Sua nota (${score}%) foi abaixo do mínimo (${minScore}%).` });
       }

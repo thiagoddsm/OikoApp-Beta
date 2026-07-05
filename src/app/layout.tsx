@@ -58,6 +58,16 @@ export default function RootLayout({
               document.documentElement.classList.remove('dark')
             }
           } catch (_) {}
+          
+          // Auto-reload on ChunkLoadError to fix new build cache issues
+          if (typeof window !== 'undefined') {
+            window.addEventListener('error', function(e) {
+              if (e && e.message && (e.message.indexOf('ChunkLoadError') > -1 || e.message.indexOf('Loading chunk') > -1)) {
+                console.log('Novo deploy detectado! Atualizando recursos...');
+                window.location.reload();
+              }
+            }, true);
+          }
         `}} />
         {googleMapsApiKey && (
           <Script

@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useVolunteering, type Course } from '@/contexts/volunteering-context';
 import { addTimelineEvent } from '@/lib/timeline';
 import { useFirebase } from '@/firebase';
-import { useMembersData } from "@/hooks/useDomainData";
+import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 interface RetroactiveApprovalDialogProps {
   open: boolean;
@@ -69,23 +69,39 @@ export function RetroactiveApprovalDialog({ open, onOpenChange, courseId, course
     }
   };
 
+  const { courses } = useCoursesData();
+
   const handleSaveApproval = async () => {
     if (selectedUserIds.length === 0) return;
     setIsSaving(true);
 
     try {
+      // Determinar se este curso é o de membresia
+      const targetCourse = courses.find((c: Course) => c.id === courseId);
+      const isMembresiaCourse = targetCourse?.name.toLowerCase().includes('membro') || 
+                               targetCourse?.name.toLowerCase().includes('pertencer');
+      
       const promises = selectedUserIds.map(async (userId) => {
-        // 1. Atualizar o perfil com a aprovação
-        await updateVolunteer(userId, {
+        const updateData: Record<string, any> = {
           [`journey.courseStatus.${courseId}`]: 'approved'
-        });
+        };
+
+        // Se for o curso de membresia, preencher todos os módulos no progresso manual do aluno
+        if (isMembresiaCourse && targetCourse?.syllabus) {
+          targetCourse.syllabus.forEach((_: any, idx: number) => {
+            updateData[`journey.memberCourseProgress.module${idx + 1}`] = true;
+          });
+        }
+
+        // 1. Atualizar o perfil com a aprovação e progresso modular
+        await updateVolunteer(userId, updateData);
 
         // 2. Registrar evento na timeline
         if (firestore) {
           await addTimelineEvent(userId, firestore, {
             category: 'teaching',
             entityTitle: courseName,
-            eventDescription: 'APROVADO RETROATIVAMENTE (Eklesia/Sistema Antigo)',
+            eventDescription: 'APROVADO RETROATIVAMENTE (Manual)',
             statusBadge: 'APROVADO',
             source: 'manual',
             authorId: currentUser?.uid ?? 'system',
