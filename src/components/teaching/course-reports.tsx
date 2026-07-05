@@ -30,6 +30,15 @@ export function CourseReports({ courseId }: CourseReportsProps) {
   const courseClasses = useMemo(() => classes.filter(c => c.courseId === courseId), [classes, courseId]);
   const threshold = course?.minAttendanceApproval || 75;
 
+  const safeParseISO = (dateStr: string): Date => {
+    if (!dateStr || typeof dateStr !== 'string') return new Date(NaN);
+    const withoutTime = dateStr.split('T')[0];
+    const cleanD = withoutTime.split('-').slice(0, 3).join('-');
+    const parsed = parseISO(cleanD);
+    return isNaN(parsed.getTime()) ? new Date(NaN) : parsed;
+  };
+
+
   const filteredClasses = useMemo(() => {
     if (selectedClassId === 'all') return courseClasses;
     return courseClasses.filter(c => c.id === selectedClassId);
@@ -64,10 +73,10 @@ export function CourseReports({ courseId }: CourseReportsProps) {
           if (!activeDates.has(att.date)) return; // Ignora se a aula foi cancelada/excluída
 
           if (dateStart || dateEnd) {
-            const date = parseISO(att.date.split('T')[0]);
-            const start = dateStart ? parseISO(dateStart) : parseISO('2000-01-01');
-            const end = dateEnd ? parseISO(dateEnd) : parseISO('2100-01-01');
-            if (!isWithinInterval(date, { start, end })) return;
+            const date = safeParseISO(att.date);
+            const start = dateStart ? safeParseISO(dateStart) : safeParseISO('2000-01-01');
+            const end = dateEnd ? safeParseISO(dateEnd) : safeParseISO('2100-01-01');
+            if (isNaN(date.getTime()) || !isWithinInterval(date, { start, end })) return;
           }
           classDates.add(att.date);
 
@@ -156,10 +165,10 @@ export function CourseReports({ courseId }: CourseReportsProps) {
         if (!activeDates.has(att.date)) return; // Ignora se a aula foi cancelada/excluída
 
         if (dateStart || dateEnd) {
-          const date = parseISO(att.date.split('T')[0]);
-          const start = dateStart ? parseISO(dateStart) : parseISO('2000-01-01');
-          const end = dateEnd ? parseISO(dateEnd) : parseISO('2100-01-01');
-          if (!isWithinInterval(date, { start, end })) return;
+          const date = safeParseISO(att.date);
+          const start = dateStart ? safeParseISO(dateStart) : safeParseISO('2000-01-01');
+          const end = dateEnd ? safeParseISO(dateEnd) : safeParseISO('2100-01-01');
+          if (isNaN(date.getTime()) || !isWithinInterval(date, { start, end })) return;
         }
 
         const presentCount = (att.presentStudentIds?.length || 0) + (att.onlineStudentIds?.length || 0);
@@ -265,12 +274,16 @@ export function CourseReports({ courseId }: CourseReportsProps) {
           </CardHeader>
           <CardContent className="h-[200px] p-0">
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={classByClassReport.map(session => ({
-                date: format(parseISO(session.date.split('T')[0]), 'dd/MM'),
-                'Freq. (%)': session.total > 0 ? Math.round((session.present / session.total) * 100) : 0,
-                'Alunos Presentes': session.present,
-                'Alunos Totais': session.total
-              }))}>
+              <ComposedChart data={classByClassReport.map(session => {
+                const parsedDate = safeParseISO(session.date);
+                const formattedDate = isNaN(parsedDate.getTime()) ? 'Data Inválida' : format(parsedDate, 'dd/MM');
+                return {
+                  date: formattedDate,
+                  'Freq. (%)': session.total > 0 ? Math.round((session.present / session.total) * 100) : 0,
+                  'Alunos Presentes': session.present,
+                  'Alunos Totais': session.total
+                };
+              })}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="date" fontSize={11} stroke="#64748b" />
                 <YAxis yAxisId="left" domain={[0, 100]} fontSize={11} stroke="#64748b" tickFormatter={(value) => `${value}%`} />
@@ -395,11 +408,13 @@ export function CourseReports({ courseId }: CourseReportsProps) {
                 ) : (
                   classByClassReport.map((session, index) => {
                     const rate = session.total > 0 ? Math.round((session.present / session.total) * 100) : 0;
+                    const parsedDate = safeParseISO(session.date);
+                    const formattedDate = isNaN(parsedDate.getTime()) ? 'Data Inválida' : format(parsedDate, 'dd/MM/yyyy');
                     return (
                       <TableRow key={session.date}>
                         <TableCell>
                           <div className="font-bold text-sm text-slate-800">
-                            {format(parseISO(session.date.split('T')[0]), 'dd/MM/yyyy')}
+                            {formattedDate}
                           </div>
                           <div className="text-[10px] text-muted-foreground uppercase truncate max-w-[200px]" title={session.title}>
                             {session.title}
