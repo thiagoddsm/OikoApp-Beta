@@ -24,6 +24,7 @@ import {
   formatDuration,
   parseDurationToSeconds,
   generateItemId,
+  useWorship,
 } from '@/contexts/worship-context';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -37,6 +38,7 @@ import {
   ChevronRight,
   Clock,
   Plus,
+  Search,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -44,6 +46,13 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 
 // ─── Color config (PCS row colors) ────────────────────────────────────────────
 
@@ -67,6 +76,7 @@ interface SortableItemProps {
 }
 
 function SortableRow({ item, onChange, onDelete }: SortableItemProps) {
+  const { librarySongs } = useWorship();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.id });
 
@@ -191,6 +201,42 @@ function SortableRow({ item, onChange, onDelete }: SortableItemProps) {
               onChange={e => onChange(item.id, { title: e.target.value })}
               placeholder={isSong ? "Nome da música..." : "Descrição do item..."}
             />
+            {isSong && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-6 w-6 text-violet-500 hover:text-violet-700 hover:bg-violet-50 shrink-0" title="Importar da Biblioteca">
+                    <Search className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64 max-h-72 overflow-y-auto">
+                  <div className="p-2 border-b border-slate-100">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Biblioteca de Músicas</span>
+                  </div>
+                  {librarySongs.length === 0 ? (
+                    <div className="p-3 text-xs text-slate-400 text-center italic">Biblioteca vazia.</div>
+                  ) : (
+                    librarySongs.map(song => (
+                      <DropdownMenuItem
+                        key={song.id}
+                        onClick={() => {
+                          onChange(item.id, {
+                            title: song.title,
+                            arrangement: song.artist || '',
+                            key: song.key || '',
+                            bpm: song.bpm || undefined,
+                            attachments: song.attachments || [],
+                          });
+                        }}
+                        className="flex flex-col items-start gap-0.5 py-1.5 cursor-pointer"
+                      >
+                        <span className="font-semibold text-xs text-slate-800">{song.title}</span>
+                        {song.artist && <span className="text-[10px] text-slate-400">{song.artist}</span>}
+                      </DropdownMenuItem>
+                    ))
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             {isSong && item.key && (
               <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
                 {item.key}
@@ -463,6 +509,7 @@ interface WorshipPlanEditorProps {
 }
 
 export function WorshipPlanEditor({ items, startTime, onItemsChange, readOnly = false }: WorshipPlanEditorProps) {
+  const { librarySongs } = useWorship();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const enriched = computeScheduledTimes(items, startTime || '09:00');
@@ -542,21 +589,55 @@ export function WorshipPlanEditor({ items, startTime, onItemsChange, readOnly = 
               <TooltipContent>Adicionar item (anúncio, oração, pregação...)</TooltipContent>
             </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 gap-1.5 text-xs border-violet-200 text-violet-700 hover:bg-violet-50"
-                  onClick={() => addItem('song')}
+                  className="h-8 gap-1.5 text-xs border-violet-200 text-violet-750 hover:bg-violet-55"
                 >
                   <Music className="h-3.5 w-3.5" />
                   Música
-                  <kbd className="ml-1 text-[10px] bg-violet-100 px-1 rounded">S</kbd>
+                  <ChevronDown className="h-3 w-3 text-violet-400" />
                 </Button>
-              </TooltipTrigger>
-              <TooltipContent>Adicionar música ao culto</TooltipContent>
-            </Tooltip>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-56 max-h-80 overflow-y-auto">
+                <DropdownMenuItem onClick={() => addItem('song')} className="cursor-pointer font-semibold text-xs text-violet-700">
+                  <Plus className="mr-1.5 h-3.5 w-3.5" /> Nova Música em Branco
+                </DropdownMenuItem>
+                <div className="p-2 border-t border-slate-100 mt-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Importar da Biblioteca</span>
+                </div>
+                {librarySongs.length === 0 ? (
+                  <div className="p-3 text-[11px] text-slate-450 text-center italic">Nenhuma música cadastrada</div>
+                ) : (
+                  librarySongs.map(song => (
+                    <DropdownMenuItem
+                      key={song.id}
+                      onClick={() => {
+                        const newItem: WorshipItem = {
+                          id: generateItemId(),
+                          type: 'song',
+                          order: items.length,
+                          title: song.title,
+                          durationSeconds: 270,
+                          arrangement: song.artist || '',
+                          key: song.key || '',
+                          bpm: song.bpm || undefined,
+                          attachments: song.attachments || [],
+                          color: 'none',
+                        };
+                        onItemsChange([...items, newItem]);
+                      }}
+                      className="flex flex-col items-start gap-0.5 py-1.5 cursor-pointer"
+                    >
+                      <span className="font-semibold text-xs text-slate-800">{song.title}</span>
+                      {song.artist && <span className="text-[10px] text-slate-400">{song.artist}</span>}
+                    </DropdownMenuItem>
+                  ))
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
 
             <div className="ml-auto flex items-center gap-2 text-xs text-slate-500">
               <Clock className="h-3.5 w-3.5" />

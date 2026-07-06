@@ -56,6 +56,7 @@ export type NeededPosition = {
   role: string;       // e.g., "Baterista", "Vocais", "Câmera 1"
   userId?: string;    // Assigned user ID if any
   userName?: string;  // Cache user name
+  status?: 'draft' | 'sent' | 'accepted' | 'declined'; // Status do convite (Planning Center)
 };
 
 export type WorshipPlan = {
@@ -70,9 +71,21 @@ export type WorshipPlan = {
   items: WorshipItem[];
   timeSlots?: WorshipTimeSlot[];
   neededPositions?: NeededPosition[];
+  attachments?: SongAttachment[]; // Anexos gerais do plano de culto (Ex: Roteiro do sermão, Mapa de palco)
   tenantId: string;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
+};
+
+export type LibrarySong = {
+  id: string;
+  title: string;
+  artist?: string;
+  key?: string;      // Tom padrão
+  bpm?: number;     // BPM padrão
+  attachments?: SongAttachment[];
+  tenantId: string;
+  createdAt?: Timestamp;
 };
 
 export type WorshipTemplate = {
@@ -90,6 +103,7 @@ export type WorshipTemplate = {
 interface WorshipContextValue {
   plans: WorshipPlan[];
   templates: WorshipTemplate[];
+  librarySongs: LibrarySong[];
   isLoading: boolean;
   createPlan: (data: Omit<WorshipPlan, 'id' | 'tenantId' | 'createdAt' | 'updatedAt'>) => Promise<string>;
   updatePlan: (id: string, data: Partial<WorshipPlan>) => Promise<void>;
@@ -100,6 +114,10 @@ interface WorshipContextValue {
   deleteTemplate: (id: string) => Promise<void>;
   savePlanAsTemplate: (planId: string, templateName: string) => Promise<void>;
   applyTemplate: (templateId: string, planId: string) => Promise<void>;
+  // Library Songs Mutators
+  createLibrarySong: (data: Omit<LibrarySong, 'id' | 'tenantId' | 'createdAt'>) => Promise<string>;
+  updateLibrarySong: (id: string, data: Partial<LibrarySong>) => Promise<void>;
+  deleteLibrarySong: (id: string) => Promise<void>;
 }
 
 const WorshipContext = createContext<WorshipContextValue | null>(null);
@@ -116,14 +134,8 @@ export function WorshipProvider({ children }: { children: ReactNode }) {
   const { firestore, user, isUserLoading } = useFirebase();
   const { tenantId } = useTenant();
 
-  // Only fire queries once auth has resolved AND user is confirmed non-null.
-  // isUserLoading=true means Firebase hasn't confirmed session yet — firing
-  // a query in that state causes an auth-race that triggers Firestore's
-  // INTERNAL ASSERTION FAILED crash (ID ca9 / b815).
   const ready = !isUserLoading && !!user && !!firestore && !!tenantId;
 
-  // Queries WITHOUT orderBy — avoids the need for composite indexes on the
-  // Firebase server.  Sorting is done in-memory below (useMemo).
   const plansQ = useMemoFirebase(
     () => ready
       ? query(collection(firestore!, 'worship_plans'), where('tenantId', '==', tenantId))
@@ -136,11 +148,17 @@ export function WorshipProvider({ children }: { children: ReactNode }) {
       : null,
     [ready, firestore, tenantId]
   );
+  const librarySongsQ = useMemoFirebase(
+    () => ready
+      ? query(collection(firestore!, 'worship_songs'), where('tenantId', '==', tenantId))
+      : null,
+    [ready, firestore, tenantId]
+  );
 
   const { data: plansRaw, isLoading: plansLoading } = useCollection<WorshipPlan>(plansQ);
   const { data: templatesRaw, isLoading: templatesLoading } = useCollection<WorshipTemplate>(templatesQ);
+  const { data: librarySongsRaw, isLoading: librarySongsLoading } = useCollection<LibrarySong>(librarySongsQ);
 
-  // Sort in JavaScript instead of Firestore — no composite index required.
   const plans: WorshipPlan[] = useMemo(
     () => [...(plansRaw ?? [])].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '')),
     [plansRaw]
@@ -153,7 +171,12 @@ export function WorshipProvider({ children }: { children: ReactNode }) {
     }),
     [templatesRaw]
   );
-  const isLoading = plansLoading || templatesLoading;
+  const librarySongs: LibrarySong[] = useMemo(
+    () => [...(librarySongsRaw ?? [])].sort((a, b) => (a.title ?? '').localeCompare(b.title ?? '', 'pt-BR')),
+    [librarySongsRaw]
+  );
+
+  const isLoading = plansLoading || templatesLoading || librarySongsLoading;
 
   // ── Plans ─────────────────────────────────────────────────────────────────
 
@@ -221,7 +244,8 @@ export function WorshipProvider({ children }: { children: ReactNode }) {
     const items = template.items.map((item, idx) => ({ ...item, order: idx }));
     const neededPositions = (template.neededPositions || []).map(p => ({
       ...p,
-      userId: p.userId || undefined, // keep fixed volunteers, clear dynamic assignments if necessary
+      status: 'draft' as const, // Reset dynamic assignments to draft when importing template
+      userId: p.userId || undefined, 
       userName: p.userName || undefined,
     }));
     await updatePlanItems(planId, items);
@@ -231,11 +255,34 @@ export function WorshipProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  // ── Library Songs ──────────────────────────────────────────────────────────
+
+  const createLibrarySong = async (data: Omit<LibrarySong, 'id' | 'tenantId' | 'createdAt'>) => {
+    if (!firestore) throw new Error('Firestore not available');
+    const ref = await addDoc(collection(firestore, 'worship_songs'), {
+      ...data,
+      tenantId,
+      createdAt: Timestamp.now()
+    });
+    return ref.id;
+  };
+
+  const updateLibrarySong = async (id: string, data: Partial<LibrarySong>) => {
+    if (!firestore) return;
+    await updateDoc(doc(firestore, 'worship_songs', id), data);
+  };
+
+  const deleteLibrarySong = async (id: string) => {
+    if (!firestore) return;
+    await deleteDoc(doc(firestore, 'worship_songs', id));
+  };
+
   return (
     <WorshipContext.Provider value={{
-      plans, templates, isLoading,
+      plans, templates, librarySongs, isLoading,
       createPlan, updatePlan, deletePlan, updatePlanItems,
       createTemplate, updateTemplate, deleteTemplate, savePlanAsTemplate, applyTemplate,
+      createLibrarySong, updateLibrarySong, deleteLibrarySong
     }}>
       {children}
     </WorshipContext.Provider>
