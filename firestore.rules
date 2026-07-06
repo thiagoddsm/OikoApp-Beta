@@ -116,6 +116,7 @@ service cloud.firestore {
     // ── Ordem de Culto ─────────────────────────────────────────────────────────
     match /worship_plans/{planId} { allow read, write: if isAuthenticated(); }
     match /worship_templates/{templateId} { allow read, write: if isAuthenticated(); }
+    match /worship_songs/{songId} { allow read, write: if isAuthenticated(); }
 
     // ── Notificações / WhatsApp ────────────────────────────────────────────────
     match /notification_campaigns/{document=**} { allow read, write: if isAuthenticated(); }
