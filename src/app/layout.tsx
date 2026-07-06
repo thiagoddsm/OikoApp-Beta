@@ -71,8 +71,9 @@ export default function RootLayout({
         `}} />
         {googleMapsApiKey && (
           <Script
-            src={`https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places,marker`}
-            strategy="lazyOnload"
+            src={`https://maps.googleapis.com/maps/api/js?key=${googleMapsApiKey}&libraries=places,marker&loading=async`}
+            strategy="afterInteractive"
+            async
           />
         )}
       </head>

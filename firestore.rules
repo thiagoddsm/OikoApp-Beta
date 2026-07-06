@@ -107,6 +107,7 @@ service cloud.firestore {
     match /teams/{document=**} { allow read, write: if isAuthenticated(); }
     match /areas_of_service/{document=**} { allow read, write: if isAuthenticated(); }
     match /room_reservations/{document=**} { allow read, write: if isAuthenticated(); }
+    match /reservations/{document=**} { allow read: if isAuthenticated(); }
     match /strategic_events/{document=**} { allow read, write: if isAuthenticated(); }
     match /reservation_categories/{document=**} { allow read, write: if isAuthenticated(); }
     match /rooms/{document=**} { allow read, write: if isAuthenticated(); }
