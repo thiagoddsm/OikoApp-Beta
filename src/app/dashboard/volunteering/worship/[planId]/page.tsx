@@ -315,9 +315,9 @@ function PlanEditorInner({ planId }: { planId: string }) {
   );
 
   return (
-    <div className="flex flex-col h-full min-h-[85vh] bg-slate-50/30">
+    <div className="flex flex-col h-full min-h-[85vh] bg-slate-50/30 pt-16">
       {/* Header bar */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b bg-white sticky top-0 z-20 shadow-sm">
+      <div className="flex items-center gap-3 px-4 py-3 border-b bg-white">
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.push('/dashboard/volunteering/worship')}>
           <ChevronLeft className="h-4 w-4" />
         </Button>

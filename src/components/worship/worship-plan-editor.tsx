@@ -508,7 +508,7 @@ export function WorshipPlanEditor({ items, startTime, onItemsChange, readOnly = 
       <div className="flex flex-col h-full">
         {/* Toolbar */}
         {!readOnly && (
-          <div className="flex items-center gap-2 p-3 border-b border-slate-200 bg-white sticky top-0 z-10">
+          <div className="flex items-center gap-2 p-3 border-b border-slate-200 bg-white">
             <span className="text-xs text-slate-500 font-medium mr-1">Adicionar:</span>
             <Tooltip>
               <TooltipTrigger asChild>
