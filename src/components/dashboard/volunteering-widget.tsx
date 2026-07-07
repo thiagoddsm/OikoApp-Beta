@@ -119,18 +119,18 @@ export function VolunteeringWidget() {
       </Card>
 
       {/* Próximas Escalas */}
-      <Card className="md:col-span-2 shadow-sm border border-slate-200 bg-white">
+      <Card className="md:col-span-2 shadow-sm border border-border bg-card text-card-foreground">
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-slate-800 font-black">
-            <Calendar className="size-5 text-indigo-600" />
+          <CardTitle className="flex items-center gap-2 text-foreground font-black">
+            <Calendar className="size-5 text-indigo-600 dark:text-indigo-400" />
             Minhas Escalas de Serviço
           </CardTitle>
-          <CardDescription className="text-slate-500">Próximos dias em que você está escalado para servir.</CardDescription>
+          <CardDescription className="text-muted-foreground">Próximos dias em que você está escalado para servir.</CardDescription>
         </CardHeader>
         <CardContent>
           {userSchedules.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-6 text-center text-slate-400 space-y-2">
-              <AlertCircle className="size-8 text-slate-300" />
+            <div className="flex flex-col items-center justify-center py-6 text-center text-muted-foreground space-y-2">
+              <AlertCircle className="size-8 text-muted-foreground/50" />
               <p className="text-sm font-medium">Nenhuma escala programada para os próximos dias.</p>
             </div>
           ) : (
@@ -140,18 +140,18 @@ export function VolunteeringWidget() {
                 const dateFormatted = format(schedule.parsedDate, "dd 'de' MMMM", { locale: ptBR });
 
                 return (
-                  <div key={idx} className="p-3.5 bg-slate-50 rounded-xl border border-slate-100 hover:bg-slate-100/70 transition-colors flex flex-col justify-between">
+                  <div key={idx} className="p-3.5 bg-slate-50 dark:bg-muted/40 rounded-xl border border-slate-100 dark:border-border hover:bg-slate-100/70 dark:hover:bg-muted/70 transition-colors flex flex-col justify-between">
                     <div>
                       <div className="flex items-center justify-between gap-2 mb-2">
-                        <Badge className="bg-indigo-50 text-indigo-700 hover:bg-indigo-50 border border-indigo-100 text-[10px] font-black uppercase">
+                        <Badge className="bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 border border-indigo-100 dark:border-indigo-900/30 text-[10px] font-black uppercase">
                           {schedule.eventName}
                         </Badge>
-                        <span className="text-[10px] text-slate-400 font-semibold capitalize">{dayStr}</span>
+                        <span className="text-[10px] text-muted-foreground font-semibold capitalize">{dayStr}</span>
                       </div>
-                      <p className="text-sm font-black text-slate-800 leading-tight">{dateFormatted}</p>
+                      <p className="text-sm font-black text-foreground leading-tight">{dateFormatted}</p>
                       {schedule.teamName && schedule.teamName !== schedule.eventName && (
-                        <p className="text-[10px] text-slate-500 mt-1 font-semibold flex items-center gap-1">
-                          <Shield className="size-2.5 text-indigo-500" />
+                        <p className="text-[10px] text-muted-foreground mt-1 font-semibold flex items-center gap-1">
+                          <Shield className="size-2.5 text-indigo-500 dark:text-indigo-400" />
                           {schedule.teamName}
                         </p>
                       )}

@@ -117,21 +117,21 @@ function StatusIcon({ status }: { status: SessionStatus }) {
   if (status === 'online') return <PlayCircle className="size-4 text-indigo-500 shrink-0" />;
   if (status === 'makeup') return (
     <div className="size-4 shrink-0 flex items-center justify-center">
-      <Badge className="bg-amber-100 text-amber-700 h-4 w-4 p-0 flex items-center justify-center font-black text-[9px]">R</Badge>
+      <Badge className="bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 h-4 w-4 p-0 flex items-center justify-center font-black text-[9px]">R</Badge>
     </div>
   );
-  if (status === 'future') return <Clock className="size-4 text-slate-300 shrink-0" />;
-  if (status === 'pending') return <Clock className="size-4 text-slate-300 shrink-0" />;
+  if (status === 'future') return <Clock className="size-4 text-slate-300 dark:text-slate-700 shrink-0" />;
+  if (status === 'pending') return <Clock className="size-4 text-slate-300 dark:text-slate-700 shrink-0" />;
   return <XCircle className="size-4 text-red-400 shrink-0" />;
 }
 
 function StatusLabel({ status }: { status: SessionStatus }) {
-  if (status === 'present') return <span className="text-emerald-600 font-bold">Presença</span>;
-  if (status === 'online') return <span className="text-indigo-600 font-bold">Online</span>;
-  if (status === 'makeup') return <span className="text-amber-600 font-bold">Reposição</span>;
-  if (status === 'future') return <span className="text-slate-400">Agendada</span>;
-  if (status === 'pending') return <span className="text-slate-400">Pendente</span>;
-  return <span className="text-red-500 font-bold">Falta</span>;
+  if (status === 'present') return <span className="text-emerald-600 dark:text-emerald-400 font-bold">Presença</span>;
+  if (status === 'online') return <span className="text-indigo-600 dark:text-indigo-400 font-bold">Online</span>;
+  if (status === 'makeup') return <span className="text-amber-600 dark:text-amber-400 font-bold">Reposição</span>;
+  if (status === 'future') return <span className="text-slate-400 dark:text-slate-500">Agendada</span>;
+  if (status === 'pending') return <span className="text-slate-400 dark:text-slate-500">Pendente</span>;
+  return <span className="text-red-500 dark:text-red-400 font-bold">Falta</span>;
 }
 
 interface ClassAttendanceCardProps {
@@ -185,8 +185,8 @@ function ClassAttendanceCard({ cls, courseName, userId, today }: ClassAttendance
 
   return (
     <Card className={cn(
-      "border-2 transition-all overflow-hidden",
-      absentCount > 0 ? "border-orange-200" : "border-emerald-200"
+      "border-2 bg-card text-card-foreground transition-all overflow-hidden",
+      absentCount > 0 ? "border-orange-200 dark:border-orange-950/60" : "border-emerald-200 dark:border-emerald-950/60"
     )}>
       {/* Header */}
       <CardHeader className="pb-3">
@@ -202,7 +202,7 @@ function ClassAttendanceCard({ cls, courseName, userId, today }: ClassAttendance
           <Badge
             className={cn(
               "text-[10px] font-black uppercase shrink-0 mt-1",
-              isApto ? "bg-emerald-100 text-emerald-700 border-emerald-300" : "bg-orange-100 text-orange-700 border-orange-300"
+              isApto ? "bg-emerald-100 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-900/30" : "bg-orange-100 dark:bg-orange-950/30 text-orange-700 dark:text-orange-400 border-orange-300 dark:border-orange-900/30"
             )}
             variant="outline"
           >
@@ -215,7 +215,7 @@ function ClassAttendanceCard({ cls, courseName, userId, today }: ClassAttendance
           <div className="mt-3 space-y-1.5">
             <div className="flex justify-between text-[10px] font-bold text-muted-foreground">
               <span>{presentCount} presença{presentCount !== 1 ? 's' : ''} de {total} aula{total !== 1 ? 's' : ''}</span>
-              <span className={cn(isApto ? "text-emerald-600" : "text-orange-600")}>{pct}% de frequência</span>
+              <span className={cn(isApto ? "text-emerald-600 dark:text-emerald-400" : "text-orange-600 dark:text-orange-400")}>{pct}% de frequência</span>
             </div>
             <Progress
               value={pct}
@@ -226,10 +226,10 @@ function ClassAttendanceCard({ cls, courseName, userId, today }: ClassAttendance
 
         {/* Alertas de reposição */}
         {missedNeedingMakeup.length > 0 && (
-          <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-xl">
+          <div className="mt-3 p-3 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/30 rounded-xl">
             <div className="flex items-center gap-2 mb-2">
               <AlertTriangle className="size-3.5 text-orange-500" />
-              <p className="text-[10px] font-black uppercase text-orange-700">
+              <p className="text-[10px] font-black uppercase text-orange-700 dark:text-orange-400">
                 {missedNeedingMakeup.length} aula{missedNeedingMakeup.length > 1 ? 's' : ''} para repor
               </p>
             </div>
@@ -238,7 +238,7 @@ function ClassAttendanceCard({ cls, courseName, userId, today }: ClassAttendance
                 const parsedDate = safeParseISO(s.dateStr);
                 if (isNaN(parsedDate.getTime())) return null;
                 return (
-                  <Badge key={s.dateStr} variant="outline" className="text-[9px] bg-white border-orange-300 text-orange-700 font-bold">
+                  <Badge key={s.dateStr} variant="outline" className="text-[9px] bg-card border-orange-300 dark:border-orange-900/30 text-orange-700 dark:text-orange-400 font-bold">
                     {format(parsedDate, "dd/MM", { locale: ptBR })}
                   </Badge>
                 );
@@ -267,9 +267,9 @@ function ClassAttendanceCard({ cls, courseName, userId, today }: ClassAttendance
                   key={s.dateStr}
                   className={cn(
                     "flex items-center gap-3 p-2.5 rounded-lg text-sm",
-                    s.status === 'present' || s.status === 'online' ? "bg-emerald-50" :
-                    s.status === 'makeup' ? "bg-amber-50" :
-                    s.status === 'absent' ? "bg-red-50" : "bg-slate-50"
+                    s.status === 'present' || s.status === 'online' ? "bg-emerald-50 dark:bg-emerald-950/20" :
+                    s.status === 'makeup' ? "bg-amber-50 dark:bg-amber-950/20" :
+                    s.status === 'absent' ? "bg-red-50 dark:bg-red-950/20" : "bg-slate-50 dark:bg-muted/40"
                   )}
                 >
                   <StatusIcon status={s.status} />
@@ -295,8 +295,8 @@ function ClassAttendanceCard({ cls, courseName, userId, today }: ClassAttendance
                     Próximas aulas
                   </p>
                   {futureSessions.slice(0, 3).map((s, idx) => (
-                    <div key={s.dateStr} className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50 text-sm">
-                      <Clock className="size-4 text-slate-300 shrink-0" />
+                    <div key={s.dateStr} className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-50 dark:bg-muted/40 text-sm">
+                      <Clock className="size-4 text-slate-300 dark:text-slate-600 shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-xs truncate">
                           {s.isExtra ? 'Aula Extra' : `Aula ${sessionStatuses.length + idx + 1}`}
@@ -308,7 +308,7 @@ function ClassAttendanceCard({ cls, courseName, userId, today }: ClassAttendance
                           })()}
                         </p>
                       </div>
-                      <span className="text-[10px] text-slate-400 font-bold">Agendada</span>
+                      <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold">Agendada</span>
                     </div>
                   ))}
                   {futureSessions.length > 3 && (
@@ -395,7 +395,7 @@ export function StudentDashboard() {
       {/* ── Identidade + Agenda ────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Carteirinha */}
-        <Card className="bg-gradient-to-br from-indigo-600 to-purple-700 text-primary-foreground border-none shadow-xl relative overflow-hidden">
+        <Card className="bg-gradient-to-br from-indigo-600 to-purple-700 text-primary-foreground dark:from-transparent dark:to-transparent dark:bg-card dark:text-card-foreground dark:border dark:border-border border-none shadow-xl relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4 opacity-10">
             <GraduationCap size={120} />
           </div>
@@ -404,24 +404,24 @@ export function StudentDashboard() {
               <CreditCard className="size-5" />
               Identidade Estudantil
             </CardTitle>
-            <CardDescription className="text-white/70">Ensino IBM</CardDescription>
+            <CardDescription className="text-white/70 dark:text-muted-foreground">Ensino IBM</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-[10px] uppercase tracking-widest opacity-70 mb-1">Aluno(a)</p>
+              <p className="text-[10px] uppercase tracking-widest opacity-70 dark:opacity-100 dark:text-muted-foreground mb-1">Aluno(a)</p>
               <p className="text-xl font-black leading-tight truncate">{user.displayName}</p>
             </div>
             <div className="flex justify-between items-end">
               <div>
-                <p className="text-[10px] uppercase tracking-widest opacity-70 mb-1">Matrículas ativas</p>
-                <Badge variant="outline" className="bg-white/20 text-white border-white/20 font-bold">
+                <p className="text-[10px] uppercase tracking-widest opacity-70 dark:opacity-100 dark:text-muted-foreground mb-1">Matrículas ativas</p>
+                <Badge variant="outline" className="bg-white/20 text-white border-white/20 dark:bg-muted dark:text-foreground dark:border-border font-bold">
                   {myClasses.length} turma{myClasses.length !== 1 ? 's' : ''}
                 </Badge>
               </div>
               {totalMissed > 0 && (
                 <div className="text-right">
-                  <p className="text-[10px] uppercase tracking-widest opacity-70 mb-1">A repor</p>
-                  <Badge className="bg-orange-500 text-white border-none font-black">
+                  <p className="text-[10px] uppercase tracking-widest opacity-70 dark:opacity-100 dark:text-muted-foreground mb-1">A repor</p>
+                  <Badge className="bg-orange-500 text-white border-none font-black dark:bg-orange-600">
                     {totalMissed} falta{totalMissed !== 1 ? 's' : ''}
                   </Badge>
                 </div>
@@ -505,7 +505,7 @@ export function StudentDashboard() {
             <div className="flex items-center gap-1.5"><CheckCircle2 className="size-3.5 text-emerald-500" /><span className="font-medium">Presencial</span></div>
             <div className="flex items-center gap-1.5"><PlayCircle className="size-3.5 text-indigo-500" /><span className="font-medium">Online</span></div>
             <div className="flex items-center gap-1.5">
-              <Badge className="bg-amber-100 text-amber-700 h-3.5 w-3.5 p-0 flex items-center justify-center font-black text-[8px]">R</Badge>
+              <Badge className="bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 h-3.5 w-3.5 p-0 flex items-center justify-center font-black text-[8px]">R</Badge>
               <span className="font-medium">Reposição</span>
             </div>
             <div className="flex items-center gap-1.5"><XCircle className="size-3.5 text-red-400" /><span className="font-medium">Falta</span></div>

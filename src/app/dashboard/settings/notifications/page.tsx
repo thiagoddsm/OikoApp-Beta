@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
 
 export default function NotificationSettingsPage() {
     const { toast } = useToast();
-    const { firestore } = useFirebase();
+    const { firestore, user } = useFirebase();
     
     const { users: allMembers = [] } = useMembersData();
 
@@ -343,6 +343,20 @@ export default function NotificationSettingsPage() {
                 }
             });
 
+            // Auto-include current logged user to ensure they are added to the group immediately
+            if (user) {
+                const me = allMembers.find(usr => usr.id === user.uid);
+                if (me) {
+                    const myPhone = me.phone || me.phoneNumber || '';
+                    const myJid = me.lid || myPhone;
+                    if (myJid && !participantNumbers.includes(myJid)) {
+                        participantNumbers.push(myJid);
+                    }
+                }
+            }
+
+            console.log("Sending group creation request with participants:", participantNumbers);
+
             const res = await fetch('/api/notifications/groups', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -356,14 +370,14 @@ export default function NotificationSettingsPage() {
             if (res.ok && data.success) {
                 toast({
                     title: "Grupo de Teste Criado!",
-                    description: `Grupo "${testGroupName}" criado com sucesso no WhatsApp.`
+                    description: `Grupo "${testGroupName}" criado com sucesso no WhatsApp (JID: ${data.jid || 'Gerado'}).`
                 });
                 setSelectedMembers([]);
             } else {
                 toast({
                     variant: "destructive",
                     title: "Falha ao criar grupo",
-                    description: data.error || "Erro desconhecido ao criar o grupo de teste."
+                    description: data.error || "A instância do WhatsApp rejeitou os participantes informados."
                 });
             }
         } catch (err: any) {
