@@ -318,8 +318,8 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                             </div>
                             <div className="p-4 bg-slate-50 border rounded-xl">
                                 <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Descrição</span>
-                                <p className="text-xs text-slate-600 mt-1 truncate" title={groupInfo?.description || 'Sem descrição'}>
-                                    {groupInfo?.description || 'Nenhuma descrição salva'}
+                                <p className="text-xs text-slate-600 mt-1 truncate" title={groupInfo?.description || groupInfo?.desc || 'Sem descrição'}>
+                                    {groupInfo?.description || groupInfo?.desc || 'Nenhuma descrição salva'}
                                 </p>
                             </div>
                             <div className="p-4 bg-slate-50 border rounded-xl">
@@ -354,11 +354,19 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                                     if (!u) return null;
                                     
                                     const uPhone = String(u.phone || u.phoneNumber || '').replace(/\D/g, '');
+                                    const uPhoneLast8 = uPhone.slice(-8);
                                     
                                     // Localiza a identidade do participante no WhatsApp
-                                    const waMember = groupInfo?.participants?.find((p: any) => 
-                                        p.id?.includes(uPhone) || (u.lid && p.id?.includes(u.lid))
-                                    );
+                                    const waMember = groupInfo?.participants?.find((p: any) => {
+                                        const pId = p.id || '';
+                                        const pPhone = pId.split('@')[0].split(':')[0].replace(/\D/g, '');
+                                        const waPhoneAttr = (p.phoneNumber || '').replace(/\D/g, '');
+                                        
+                                        // Compara por JID, LID, telefone cheio ou pelos últimos 8 dígitos (evita o problema do nono dígito do Brasil)
+                                        return pId.includes(uPhone) || 
+                                               (u.lid && pId.includes(u.lid)) || 
+                                               (uPhoneLast8.length === 8 && (pPhone.endsWith(uPhoneLast8) || waPhoneAttr.endsWith(uPhoneLast8)));
+                                    });
                                     const isInGroup = !!waMember;
                                     const isWaAdmin = waMember?.admin === 'admin' || waMember?.admin === 'superadmin';
                                     const trueJid = waMember?.id || u.lid || `${uPhone}@s.whatsapp.net`;
