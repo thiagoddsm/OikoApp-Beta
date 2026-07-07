@@ -427,30 +427,30 @@ export default function DashboardLayout({
     return (
       <TenantProvider>
         <SidebarProvider>
-          <div className="h-screen w-full flex bg-slate-50 overflow-hidden">
+          <div className="h-screen w-full flex bg-background text-foreground overflow-hidden">
             {/* --- Desktop Sidebar --- */}
-            <aside className="hidden lg:flex lg:flex-col lg:w-72 lg:border-r lg:border-slate-200 bg-white">
-              <SidebarHeader className="border-b border-slate-200">
+            <aside className="hidden lg:flex lg:flex-col lg:w-72 lg:border-r lg:border-border bg-card">
+              <SidebarHeader className="border-b border-border">
               <div className="flex items-center justify-start px-6 h-20 w-full">
                 <img 
                   src="https://firebasestorage.googleapis.com/v0/b/studio-1424813022-71754.firebasestorage.app/o/pwa%2FChatGPT%20Image%207%20de%20mai.%20de%202026%2C%2016_45_54.png?alt=media&token=c8100c94-fb27-4b1f-87b8-74bd1f8d3fe5" 
                   alt="OikoApp Logo" 
-                  className="h-[60px] w-auto object-contain" 
+                  className="h-[60px] w-auto object-contain dark:invert dark:brightness-150" 
                 />
               </div>
             </SidebarHeader>
             <div className="flex-1 flex flex-col overflow-y-auto">
                 <MenuItems pathname={pathname} permissions={accessProfile?.permissions} userRole={userRole} isGcStaff={isGcStaff} onLinkClick={() => {}} />
             </div>
-             <SidebarFooter className="border-t border-slate-200">
+             <SidebarFooter className="border-t border-border">
                 <div className="flex items-center gap-3 p-4">
-                    <Avatar className="h-10 w-10 border-2 border-white">
+                    <Avatar className="h-10 w-10 border-2 border-border">
                         {user.photoURL && <AvatarImage src={user.photoURL} alt={user.displayName || 'User Avatar'} />}
                         <AvatarFallback className="font-bold text-slate-600 bg-slate-200">{getInitials(user.displayName)}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col text-sm truncate">
-                        <span className="font-semibold truncate text-slate-800">{user.displayName || 'Usuário'}</span>
-                        <span className="text-slate-500 text-xs truncate capitalize">{userRoleLabel}</span>
+                        <span className="font-semibold truncate text-foreground">{user.displayName || 'Usuário'}</span>
+                        <span className="text-muted-foreground text-xs truncate capitalize">{userRoleLabel}</span>
                     </div>
                      <Button variant="ghost" size="icon" onClick={handleLogout} className="ml-auto shrink-0">
                          <LogOut className="size-5" />
@@ -461,7 +461,7 @@ export default function DashboardLayout({
 
           {/* --- Main Content --- */}
           <div className="flex-1 flex flex-col h-screen overflow-hidden">
-             <header className="flex h-16 items-center gap-4 border-b bg-white px-6 sticky top-0 z-30">
+             <header className="flex h-16 items-center gap-4 border-b bg-card border-border px-6 sticky top-0 z-30">
                 <MobileMenu 
                     pathname={pathname} 
                     permissions={accessProfile?.permissions} 
@@ -485,7 +485,7 @@ export default function DashboardLayout({
                             <Input
                                 type="search"
                                 placeholder="Buscar em todo o sistema..."
-                                className="w-full appearance-none bg-background pl-8 shadow-none md:w-2/3 lg:w-1/3"
+                                className="w-full appearance-none bg-background border-border pl-8 shadow-none md:w-2/3 lg:w-1/3 text-foreground"
                             />
                         </div>
                     </form>
@@ -494,9 +494,24 @@ export default function DashboardLayout({
                         <span className="sr-only">Buscar</span>
                     </Button>
                 </div>
-                <Button variant="ghost" size="icon" className="rounded-full" onClick={toggleTheme}>
-                    {theme === 'dark' ? <Sun className="h-5 w-5 text-amber-500" /> : <Moon className="h-5 w-5" />}
-                </Button>
+                {/* Premium 3D Theme Switch Toggler */}
+                 <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="rounded-full relative w-9 h-9 flex items-center justify-center overflow-hidden hover:bg-muted transition-colors"
+                    onClick={toggleTheme}
+                 >
+                    <div className={cn(
+                      "transition-all duration-500 transform flex items-center justify-center",
+                      theme === 'dark' ? 'rotate-180 scale-100' : 'rotate-0 scale-100'
+                    )}>
+                      {theme === 'dark' ? (
+                        <Sun className="h-5 w-5 text-amber-400 rotate-0 scale-100 transition-all duration-300" />
+                      ) : (
+                        <Moon className="h-5 w-5 text-slate-700 rotate-0 scale-100 transition-all duration-300" />
+                      )}
+                    </div>
+                 </Button>
                  <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="rounded-full">

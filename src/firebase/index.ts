@@ -2,7 +2,7 @@
 
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, initializeFirestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 // Hardcoded config to ensure the storageBucket is read.
@@ -28,14 +28,27 @@ function getSdks(firebaseApp: FirebaseApp) {
 export function initializeFirebase() {
   if (!getApps().length) {
     const firebaseApp = initializeApp(firebaseConfig);
-    initializeFirestore(firebaseApp, {
-      experimentalForceLongPolling: true,
+    const db = initializeFirestore(firebaseApp, {
+      localCache: typeof window !== 'undefined' ? persistentLocalCache({
+        tabManager: persistentMultipleTabManager()
+      }) : undefined,
       ignoreUndefinedProperties: true,
     });
-    return getSdks(firebaseApp);
+    return {
+      firebaseApp,
+      auth: getAuth(firebaseApp),
+      firestore: db,
+      storage: getStorage(firebaseApp)
+    };
   }
 
-  return getSdks(getApp());
+  const app = getApp();
+  return {
+    firebaseApp: app,
+    auth: getAuth(app),
+    firestore: getFirestore(app),
+    storage: getStorage(app)
+  };
 }
 
 export * from './provider';

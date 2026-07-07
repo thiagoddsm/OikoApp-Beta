@@ -141,6 +141,45 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: false, error: 'API Key não configurada.' }, { status: 400 });
         }
 
+        // Resolve JIDs directly from WhatsApp database to ensure 9th digit correctness
+        const resolvedParticipants: string[] = [];
+        for (const p of (participants || [])) {
+            const clean = p.replace(/\D/g, '');
+            if (clean.length > 15) {
+                resolvedParticipants.push(`${clean}@lid`);
+                continue;
+            }
+            const queryPhone = clean.startsWith('55') ? clean : `55${clean}`;
+            
+            try {
+                // Query Evolution API check numbers endpoint
+                const checkRes = await fetch(`${serverUrl}/chat/whatsappNumbers/${instanceName}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'apikey': waKey },
+                    body: JSON.stringify({ numbers: [queryPhone] })
+                });
+                
+                const checkData = await checkRes.json().catch(() => null);
+                const info = Array.isArray(checkData) ? checkData[0] : (checkData ? checkData["0"] || checkData : null);
+                
+                if (info && info.exists) {
+                    const trueJid = info.jid || info.lid;
+                    if (trueJid) {
+                        resolvedParticipants.push(trueJid);
+                        console.log(`[WhatsApp Group Create] Resolved participant ${queryPhone} to valid JID: ${trueJid}`);
+                        continue;
+                    }
+                }
+            } catch (e: any) {
+                console.warn(`[WhatsApp Group Create] Failed to resolve JID for ${queryPhone}:`, e.message);
+            }
+            
+            // Fallback to simple format if check failed or number does not exist
+            resolvedParticipants.push(`${queryPhone}@s.whatsapp.net`);
+        }
+
+        console.log(`[WhatsApp Group Create] Attempting to create "${groupName}" with verified participants:`, resolvedParticipants);
+
         const res = await fetch(`${serverUrl}/group/create/${instanceName}`, {
             method: 'POST',
             headers: { 
@@ -149,18 +188,12 @@ export async function POST(request: Request) {
             },
             body: JSON.stringify({
                 subject: groupName,
-                participants: (participants || []).map((p: string) => {
-                    const clean = p.replace(/\D/g, '');
-                    if (clean.length > 15) {
-                        return `${clean}@lid`;
-                    }
-                    const withCountry = clean.startsWith('55') ? clean : `55${clean}`;
-                    return `${withCountry}@s.whatsapp.net`;
-                })
+                participants: resolvedParticipants
             }),
         });
 
         const resData = await res.json().catch(() => ({}));
+        
         if (!res.ok) {
             console.error("Evolution API Group Create Error Payload:", resData);
             const detailError = resData.message || (Array.isArray(resData.error) ? resData.error.join(', ') : resData.error) || null;
@@ -170,7 +203,11 @@ export async function POST(request: Request) {
             }, { status: res.status });
         }
 
-        return NextResponse.json({ success: true, group: resData.data || resData });
+        // Evolution API returns JID on success. If JID is missing, we still accept the success status.
+        const groupInfo = resData.data || resData;
+        const groupJid = groupInfo.id || groupInfo.jid || groupInfo.key?.remoteJid || null;
+
+        return NextResponse.json({ success: true, group: groupInfo, jid: groupJid });
     } catch (error: any) {
         console.error("Internal Server Error in Group POST route:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
