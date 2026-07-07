@@ -12,8 +12,9 @@ import {
     Shield, ShieldAlert, Settings, Edit3
 } from 'lucide-react';
 import { usePeople } from "@/hooks/usePeople";
-import { useFirebase } from '@/firebase';
+import { useFirebase, initializeFirebase } from '@/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { doc, getDoc } from 'firebase/firestore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -86,17 +87,31 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
             const groupName = `${courseData.name} | ${classData.name}`.substring(0, 100);
             const expectedDesc = `Este grupo é destinado para informações e dúvidas sobre o curso ${courseData.name}.`;
             
+            // Busca o documento do curso diretamente no Firestore para evitar caches locais e pegar a imagem padrão configurada
+            let freshCoursePic = '';
+            try {
+                const { firestore } = initializeFirebase();
+                const courseDocRef = doc(firestore, 'courses', courseData.id);
+                const courseSnap = await getDoc(courseDocRef);
+                if (courseSnap.exists()) {
+                    freshCoursePic = courseSnap.data()?.whatsappGroupPicture || '';
+                }
+            } catch (errDb) {
+                console.warn('Erro ao ler preset de imagem do curso via Firestore:', errDb);
+            }
+
             // Resolve students numbers for initial creation
+            // IMPORTANTE: A rota de criação de grupo (/group/create) da Evolution exige números de telefone puros (com DDD/DDI) e não aceita LIDs!
             const initialParticipants: string[] = [];
             if (classData.students && classData.students.length > 0 && users) {
                 classData.students.forEach((studentId: string) => {
                     const u = users.find(usr => usr.id === studentId);
                     if (u) {
                         const phone = u.phone || u.phoneNumber || '';
-                        if (u.lid) {
-                            initialParticipants.push(u.lid);
-                        } else if (phone) {
-                            initialParticipants.push(phone);
+                        const phoneClean = phone.replace(/\D/g, '');
+                        if (phoneClean) {
+                            const formatted = phoneClean.startsWith('55') ? phoneClean : `55${phoneClean}`;
+                            initialParticipants.push(formatted);
                         }
                     }
                 });
@@ -133,16 +148,16 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                         console.error('Falha ao configurar descrição inicial:', descErr);
                     }
 
-                    // 2. Atualiza Imagem do Grupo se houver preset no curso
-                    const presetPic = (courseData as any).whatsappGroupPicture;
-                    if (presetPic) {
+                    // 2. Atualiza Imagem do Grupo se houver preset no curso (usa o dado obtido do Firestore diretamente)
+                    const finalPresetPic = freshCoursePic || (courseData as any).whatsappGroupPicture;
+                    if (finalPresetPic) {
                         try {
                             await fetch('/api/notifications/groups', {
                                 method: 'PUT',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
                                     groupId: groupJid,
-                                    picture: presetPic
+                                    picture: finalPresetPic
                                 })
                             });
                         } catch (picErr) {
