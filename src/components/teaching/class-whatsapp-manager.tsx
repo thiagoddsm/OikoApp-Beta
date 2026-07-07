@@ -593,36 +593,16 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                                         />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="group-pic-file" className="text-xs font-bold">Imagem de Perfil do Grupo</Label>
-                                        <div className="flex items-center gap-3">
-                                            <Input 
-                                                id="group-pic-file" 
-                                                type="file" 
-                                                accept="image/*"
-                                                onChange={(e) => {
-                                                    const file = e.target.files?.[0];
-                                                    if (file) {
-                                                        setIsUploadingPic(true);
-                                                        const reader = new FileReader();
-                                                        reader.onloadend = () => {
-                                                            const base64String = reader.result as string;
-                                                            // A Evolution API exige que a string base64 comece com data:image/...
-                                                            setEditGroupPicture(base64String);
-                                                            setIsUploadingPic(false);
-                                                            toast({ title: 'Foto selecionada!', description: 'Clique em Salvar para enviar para o WhatsApp.' });
-                                                        };
-                                                        reader.readAsDataURL(file);
-                                                    }
-                                                }}
-                                                className="cursor-pointer"
-                                            />
-                                            {isUploadingPic && <Loader2 className="h-4 w-4 animate-spin text-emerald-600 shrink-0" />}
-                                        </div>
-                                        {editGroupPicture && (
-                                            <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">
-                                                ✓ Imagem carregada e pronta para salvar
-                                            </p>
-                                        )}
+                                        <Label htmlFor="group-pic-url" className="text-xs font-bold">URL da Imagem de Perfil do Grupo</Label>
+                                        <Input 
+                                            id="group-pic-url" 
+                                            placeholder="Cole a URL pública da imagem (ex: https://...)" 
+                                            value={editGroupPicture} 
+                                            onChange={e => setEditGroupPicture(e.target.value)} 
+                                        />
+                                        <p className="text-[10px] text-muted-foreground">
+                                            Insira o link direto de uma imagem hospedada (Firebase, Imgur, etc.) para aplicar como foto do grupo.
+                                        </p>
                                     </div>
                                 </div>
                                 <DialogFooter>
