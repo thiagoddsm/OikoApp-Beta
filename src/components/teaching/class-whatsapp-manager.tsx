@@ -12,6 +12,8 @@ import {
     Shield, ShieldAlert, Settings, Edit3
 } from 'lucide-react';
 import { usePeople } from "@/hooks/usePeople";
+import { useFirebase } from '@/firebase';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -24,6 +26,7 @@ interface ClassWhatsappManagerProps {
 
 export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappManagerProps) {
     const { toast } = useToast();
+    const { storage } = useFirebase();
     const { updateClass } = useVolunteering();
     const { members } = usePeople();
     const users = members as any[] | undefined;
@@ -585,7 +588,7 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                                     </div>
                                     <div className="space-y-1">
                                         <Label htmlFor="group-desc-input" className="text-xs font-bold">Descrição do Grupo</Label>
-                                        <Textarea 
+                        <Textarea 
                                             id="group-desc-input" 
                                             value={editGroupDesc} 
                                             onChange={e => setEditGroupDesc(e.target.value)}
@@ -593,16 +596,44 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                                         />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="group-pic-url" className="text-xs font-bold">URL da Imagem de Perfil do Grupo</Label>
-                                        <Input 
-                                            id="group-pic-url" 
-                                            placeholder="Cole a URL pública da imagem (ex: https://...)" 
-                                            value={editGroupPicture} 
-                                            onChange={e => setEditGroupPicture(e.target.value)} 
-                                        />
-                                        <p className="text-[10px] text-muted-foreground">
-                                            Insira o link direto de uma imagem hospedada (Firebase, Imgur, etc.) para aplicar como foto do grupo.
-                                        </p>
+                                        <Label htmlFor="group-pic-file" className="text-xs font-bold">Enviar Nova Foto para o Grupo</Label>
+                                        <div className="flex items-center gap-3">
+                                            <Input 
+                                                id="group-pic-file" 
+                                                type="file" 
+                                                accept="image/*"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file && storage) {
+                                                        setIsUploadingPic(true);
+                                                        const storageRef = ref(storage, `group-profiles/${classData.id}-${Date.now()}`);
+                                                        const uploadTask = uploadBytesResumable(storageRef, file);
+                                                        
+                                                        uploadTask.on('state_changed', 
+                                                            null, 
+                                                            (err) => {
+                                                                console.error(err);
+                                                                setIsUploadingPic(false);
+                                                                toast({ variant: 'destructive', title: 'Erro no Upload', description: 'Não foi possível hospedar a imagem.' });
+                                                            }, 
+                                                            async () => {
+                                                                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                                                                setEditGroupPicture(downloadURL);
+                                                                setIsUploadingPic(false);
+                                                                toast({ title: 'Foto Hospedada!', description: 'Foto carregada com sucesso no servidor da igreja. Clique em Salvar para enviar para o WhatsApp.' });
+                                                            }
+                                                        );
+                                                    }
+                                                }}
+                                                className="cursor-pointer"
+                                            />
+                                            {isUploadingPic && <Loader2 className="h-4 w-4 animate-spin text-emerald-600 shrink-0" />}
+                                        </div>
+                                        {editGroupPicture && (
+                                            <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">
+                                                ✓ Imagem hospedada e pronta para salvar
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                                 <DialogFooter>
