@@ -115,8 +115,17 @@ export async function POST(request: Request) {
                 const isAdmin = p.admin === 'admin' || p.admin === 'superadmin';
                 const isBot = rawId === '60765784527084' || pId === botJid;
                 
-                // O contato é considerado estudante se seu rawId, pId ou JID estiver no conjunto de identidades da turma
-                const isStudent = studentIdentities.has(rawId) || studentIdentities.has(pId);
+                // Puxa o número de telefone associado ao LID ou JID enviado pela Evolution API (se houver)
+                const waPhone = p.id?.includes('@s.whatsapp.net') 
+                    ? rawId 
+                    : (p.phoneNumber || '').replace(/\D/g, '');
+
+                // O contato é considerado estudante se:
+                // 1. O ID do WhatsApp (LID/JID) estiver nas identidades do OikoApp
+                // 2. O número de telefone associado (waPhone) coincidir com o telefone de algum estudante da turma
+                const isStudent = studentIdentities.has(rawId) || 
+                                  studentIdentities.has(pId) || 
+                                  (waPhone && studentsPhoneJids.some(phone => phone.includes(waPhone) || waPhone.includes(phone)));
                 
                 return !isStudent && !isAdmin && !isBot;
             })
