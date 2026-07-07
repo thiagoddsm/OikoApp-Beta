@@ -28,51 +28,8 @@ export async function GET(request: Request) {
         }
 
         const baseUrl = (serverUrl || 'https://api.ibmanha.com.br').replace(/\/$/, '');
-        const response = await fetch(`${baseUrl}/chat/findContacts/${instanceName}`, {
-            method: 'GET',
-            headers: { 'accept': '*/*', 'apikey': apiKey },
-        });
-
-        const data = await response.json();
-        
-        if (!response.ok) {
-            return NextResponse.json({ error: data.message || 'Erro ao buscar contatos' }, { status: response.status || 500 });
-        }
-
-        const contacts = Array.isArray(data) ? data : (data.contacts || []);
         const db = getAdminDb();
-        const batch = db.batch();
         let count = 0;
-
-        for (const contact of contacts) {
-            if (!contact.id) continue;
-            
-            const jid = contact.id;
-            const lid = contact.lid || null;
-            const phone = jid.split('@')[0].split(':')[0].replace(/\D/g, '');
-            
-            // Se não tiver telefone e for LID, usamos o ID do LID como chave de documento se necessário, 
-            // mas idealmente usamos o telefone como chave principal e salvamos o LID dentro.
-            const docId = phone || jid.split('@')[0];
-            if (!docId) continue;
-
-            const contactRef = db.collection('notifications_contacts').doc(docId);
-            batch.set(contactRef, {
-                phoneNumber: phone || null,
-                jid: jid,
-                lid: lid,
-                name: contact.name || contact.notify || contact.verifiedName || null,
-                pushName: contact.notify || contact.name || null,
-                updatedAt: new Date(),
-            }, { merge: true });
-            
-            count++;
-            if (count >= 400) break; // Limite de segurança para o batch do Firestore (500 é o max)
-        }
-
-        if (count > 0) {
-            await batch.commit();
-        }
 
         // 2. BUSCA USUÁRIOS DO SISTEMA E RESOLVE JID/LID NA API
         // Esta é a parte mais importante: vinculamos o telefone do cadastro ao ID do WhatsApp
@@ -132,9 +89,7 @@ export async function GET(request: Request) {
 
         return NextResponse.json({ 
             success: true, 
-            count, 
             resolvedCount,
-            totalFetched: contacts.length,
             message: "Sincronização concluída com mapeamento de usuários do sistema."
         });
     } catch (error: any) {
