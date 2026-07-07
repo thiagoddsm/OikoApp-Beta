@@ -79,9 +79,9 @@ export async function POST(request: Request) {
                         studentsPhoneJids.push(u.lid);
                     } else if (uPhone && uPhone.length >= 8) {
                         const formatted = uPhone.startsWith('55') ? uPhone : `55${uPhone}`;
-                        const jid = `${formatted}@s.whatsapp.net`;
-                        studentIdToJidMap.set(docSnap.id, jid);
-                        studentsPhoneJids.push(jid);
+                        // Enviamos apenas o número de telefone limpo (ex: 5521988869796) conforme o teste de sucesso do usuário
+                        studentIdToJidMap.set(docSnap.id, formatted);
+                        studentsPhoneJids.push(formatted);
                     }
                 });
             }
