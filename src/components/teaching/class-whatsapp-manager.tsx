@@ -84,7 +84,7 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
         try {
             // Nome padrão solicitado: [Nome do curso] | [Nome da turma]
             const groupName = `${courseData.name} | ${classData.name}`.substring(0, 100);
-            const description = `Grupo destinado a trazer informações e tirar dúvidas sobre o curso ${courseData.name}.`;
+            const expectedDesc = `Este grupo é destinado para informações e dúvidas sobre o curso ${courseData.name}.`;
             
             // Resolve students numbers for initial creation
             const initialParticipants: string[] = [];
@@ -107,8 +107,7 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     groupName,
-                    participants: initialParticipants,
-                    description // Passamos a descrição personalizada na criação
+                    participants: initialParticipants
                 })
             });
 
@@ -119,6 +118,38 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                 
                 if (groupJid) {
                     await updateClass(classData.id, { whatsappGroupId: groupJid });
+
+                    // 1. Atualiza Descrição no WhatsApp (pois a criação de grupo do Baileys não suporta na mesma chamada)
+                    try {
+                        await fetch('/api/notifications/groups', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                groupId: groupJid,
+                                description: expectedDesc
+                            })
+                        });
+                    } catch (descErr) {
+                        console.error('Falha ao configurar descrição inicial:', descErr);
+                    }
+
+                    // 2. Atualiza Imagem do Grupo se houver preset no curso
+                    const presetPic = (courseData as any).whatsappGroupPicture;
+                    if (presetPic) {
+                        try {
+                            await fetch('/api/notifications/groups', {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    groupId: groupJid,
+                                    picture: presetPic
+                                })
+                            });
+                        } catch (picErr) {
+                            console.error('Falha ao configurar imagem inicial de preset:', picErr);
+                        }
+                    }
+
                     toast({ title: 'Grupo criado e vinculado!', description: `Grupo "${groupName}" criado com sucesso.` });
                 } else {
                     throw new Error('JID do grupo não retornado pela API.');
@@ -247,7 +278,7 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
         setIsSyncing(true);
         try {
             const expectedName = `${courseData.name} | ${classData.name}`.substring(0, 100);
-            const expectedDesc = `Grupo destinado a trazer informações e tirar dúvidas sobre o curso ${courseData.name}.`;
+            const expectedDesc = `Este grupo é destinado para informações e dúvidas sobre o curso ${courseData.name}.`;
 
             // 1. Atualiza Nome (Subject)
             const resName = await fetch('/api/notifications/groups', {

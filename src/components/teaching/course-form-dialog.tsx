@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { collection, doc } from 'firebase/firestore';
 import { Switch } from '@/components/ui/switch';
 
@@ -18,12 +19,14 @@ interface CourseFormDialogProps {
 }
 
 export function CourseFormDialog({ open, onOpenChange, existingCourse }: CourseFormDialogProps) {
-  const { firestore } = useFirebase();
+  const { firestore, storage } = useFirebase();
   const { toast } = useToast();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [ministryName, setMinistryName] = useState('');
   const [simultaneousClasses, setSimultaneousClasses] = useState(false);
+  const [whatsappGroupPicture, setWhatsappGroupPicture] = useState('');
+  const [isUploadingPic, setIsUploadingPic] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -32,6 +35,7 @@ export function CourseFormDialog({ open, onOpenChange, existingCourse }: CourseF
       setDescription(existingCourse?.description || '');
       setMinistryName(existingCourse?.ministryName || '');
       setSimultaneousClasses(existingCourse?.simultaneousClasses || false);
+      setWhatsappGroupPicture(existingCourse?.whatsappGroupPicture || '');
     }
   }, [open, existingCourse]);
 
@@ -41,7 +45,13 @@ export function CourseFormDialog({ open, onOpenChange, existingCourse }: CourseF
       return;
     }
     setIsSaving(true);
-    const courseData = { name, description, ministryName, simultaneousClasses };
+    const courseData = { 
+      name, 
+      description, 
+      ministryName, 
+      simultaneousClasses,
+      whatsappGroupPicture 
+    };
 
     if (existingCourse) {
       const docRef = doc(firestore, 'courses', existingCourse.id);
@@ -78,6 +88,42 @@ export function CourseFormDialog({ open, onOpenChange, existingCourse }: CourseF
           <div>
             <Label htmlFor="description">Descrição</Label>
             <Textarea id="description" value={description} onChange={e => setDescription(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="whatsappGroupPicture" className="text-sm font-bold">Imagem Padrão do Grupo do WhatsApp</Label>
+            <div className="flex items-center gap-3 mt-1">
+              <Input 
+                id="whatsappGroupPicture" 
+                type="file" 
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file && storage) {
+                    setIsUploadingPic(true);
+                    const storageRef = ref(storage, `course-group-presets/${Date.now()}-${file.name}`);
+                    const uploadTask = uploadBytesResumable(storageRef, file);
+                    uploadTask.on('state_changed', null, (err) => {
+                      console.error(err);
+                      setIsUploadingPic(false);
+                      toast({ variant: 'destructive', title: 'Erro de upload', description: 'Não foi possível carregar a imagem.' });
+                    }, async () => {
+                      const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                      setWhatsappGroupPicture(downloadURL);
+                      setIsUploadingPic(false);
+                      toast({ title: 'Imagem carregada!', description: 'Imagem padrão do grupo configurada.' });
+                    });
+                  }
+                }}
+                className="cursor-pointer"
+              />
+              {isUploadingPic && <Loader2 className="h-4 w-4 animate-spin text-emerald-600 shrink-0" />}
+            </div>
+            {whatsappGroupPicture && (
+              <div className="mt-2 flex items-center gap-2">
+                <img src={whatsappGroupPicture} alt="Preview" className="h-10 w-10 object-cover rounded-md border" />
+                <span className="text-[10px] text-emerald-600 font-bold uppercase">✓ Imagem Vinculada ao Curso</span>
+              </div>
+            )}
           </div>
           <div className="flex items-center justify-between gap-4 p-4 border rounded-lg bg-slate-50/50">
               <div className="space-y-0.5">
