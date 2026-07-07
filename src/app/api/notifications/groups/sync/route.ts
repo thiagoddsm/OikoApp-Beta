@@ -58,6 +58,7 @@ export async function POST(request: Request) {
         const classStudentsIds = isCompleted ? [] : (classData.students || []); // If completed, remove all students!
 
         const studentsPhoneJids: string[] = [];
+        const studentIdentities = new Set<string>(); // Set of all possible identifiers for students (LID, JID, phone)
         const studentIdToJidMap = new Map<string, string>();
 
         if (classStudentsIds.length > 0) {
@@ -72,11 +73,25 @@ export async function POST(request: Request) {
                 studentsSnap.docs.forEach(docSnap => {
                     const u = docSnap.data();
                     const uPhone = String(u.phone || u.phoneNumber || '').replace(/\D/g, '');
+                    
+                    // Adiciona o LID nas identidades do aluno se for válido
+                    if (u.lid) {
+                        const lidClean = String(u.lid).split('@')[0];
+                        studentIdentities.add(lidClean);
+                        studentIdentities.add(String(u.lid));
+                    }
+                    // Adiciona o JID clássico
+                    if (u.jid) {
+                        const jidClean = String(u.jid).split('@')[0];
+                        studentIdentities.add(jidClean);
+                        studentIdentities.add(String(u.jid));
+                    }
+                    
                     if (uPhone && uPhone.length >= 8) {
                         const formatted = uPhone.startsWith('55') ? uPhone : `55${uPhone}`;
-                        // Enviamos SEMPRE o número de telefone puro (ex: 5521988869796) conforme o teste de sucesso do usuário
                         studentIdToJidMap.set(docSnap.id, formatted);
                         studentsPhoneJids.push(formatted);
+                        studentIdentities.add(formatted);
                     }
                 });
             }
@@ -86,8 +101,11 @@ export async function POST(request: Request) {
         const botJid = groupDetails.owner;
         const currentParticipantJids = currentGroupParticipants.map((p: any) => p.id);
 
-        // Additions: who is in student list but not in group
-        const toAdd = studentsPhoneJids.filter(jid => !currentParticipantJids.some((pj: string) => pj.includes(jid.split('@')[0])));
+        // Additions: who is in student list but not in group (compares raw ID or JID)
+        const toAdd = studentsPhoneJids.filter(jid => {
+            const raw = jid.split('@')[0];
+            return !currentGroupParticipants.some((p: any) => p.id.includes(raw));
+        });
 
         // Removals: who is in group, not in student list, is not admin, and is not the bot
         const toRemove = currentGroupParticipants
@@ -96,7 +114,9 @@ export async function POST(request: Request) {
                 const rawId = pId.split('@')[0];
                 const isAdmin = p.admin === 'admin' || p.admin === 'superadmin';
                 const isBot = rawId === '60765784527084' || pId === botJid;
-                const isStudent = studentsPhoneJids.some(jid => jid.includes(rawId));
+                
+                // O contato é considerado estudante se seu rawId, pId ou JID estiver no conjunto de identidades da turma
+                const isStudent = studentIdentities.has(rawId) || studentIdentities.has(pId);
                 
                 return !isStudent && !isAdmin && !isBot;
             })
