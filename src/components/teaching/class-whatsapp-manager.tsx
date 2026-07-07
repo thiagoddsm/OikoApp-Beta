@@ -37,6 +37,8 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [editGroupName, setEditGroupName] = useState('');
     const [editGroupDesc, setEditGroupDesc] = useState('');
+    const [editGroupPicture, setEditGroupPicture] = useState('');
+    const [isUploadingPic, setIsUploadingPic] = useState(false);
 
     const whatsappGroupId = classData.whatsappGroupId;
 
@@ -163,40 +165,71 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
         if (!whatsappGroupId) return;
         setIsSyncing(true);
         try {
-            // 1. Atualiza Nome (Subject)
-            const resName = await fetch('/api/notifications/groups', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    groupId: whatsappGroupId,
-                    action: 'updateSubject',
-                    editName: editGroupName
-                })
-            });
+            // 1. Atualiza Nome (Subject) se alterado
+            let success = true;
+            let errorMsg = '';
 
-            // 2. Atualiza Descrição
-            const resDesc = await fetch('/api/notifications/groups', {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    groupId: whatsappGroupId,
-                    action: 'updateDescription',
-                    editDesc: editGroupDesc
-                })
-            });
+            if (editGroupName.trim() !== (groupInfo?.name || '')) {
+                const resName = await fetch('/api/notifications/groups', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        groupId: whatsappGroupId,
+                        name: editGroupName
+                    })
+                });
+                const dataName = await resName.json();
+                if (!resName.ok || !dataName.success) {
+                    success = false;
+                    errorMsg = dataName.error || 'Erro ao atualizar nome.';
+                }
+            }
 
-            const dataName = await resName.json();
-            const dataDesc = await resDesc.json();
+            // 2. Atualiza Descrição se alterada
+            const currentDesc = groupInfo?.description || groupInfo?.desc || '';
+            if (editGroupDesc.trim() !== currentDesc) {
+                const resDesc = await fetch('/api/notifications/groups', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        groupId: whatsappGroupId,
+                        description: editGroupDesc
+                    })
+                });
+                const dataDesc = await resDesc.json();
+                if (!resDesc.ok || !dataDesc.success) {
+                    success = false;
+                    errorMsg = dataDesc.error || 'Erro ao atualizar descrição.';
+                }
+            }
 
-            if (resName.ok && resDesc.ok) {
-                toast({ title: 'Dados salvos!', description: 'O nome e a descrição do grupo foram atualizados no WhatsApp.' });
+            // 3. Atualiza Foto do Grupo se selecionada
+            if (editGroupPicture) {
+                const resPic = await fetch('/api/notifications/groups', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        groupId: whatsappGroupId,
+                        picture: editGroupPicture
+                    })
+                });
+                const dataPic = await resPic.json();
+                if (!resPic.ok || !dataPic.success) {
+                    success = false;
+                    errorMsg = dataPic.error || 'Erro ao atualizar imagem de perfil do grupo.';
+                }
+            }
+
+            if (success) {
+                toast({ title: 'Dados salvos!', description: 'O nome, descrição e/ou imagem do grupo foram atualizados no WhatsApp.' });
+                setEditGroupPicture('');
                 setIsEditDialogOpen(false);
                 fetchGroupInfo();
             } else {
                 toast({ 
                     variant: 'destructive', 
                     title: 'Erro ao salvar dados', 
-                    description: dataName.error || dataDesc.error || 'A Evolution API rejeitou a alteração.' 
+                    description: errorMsg || 'A Evolution API rejeitou a alteração.' 
                 });
             }
         } catch (e: any) {
@@ -219,8 +252,7 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     groupId: whatsappGroupId,
-                    action: 'updateSubject',
-                    editName: expectedName
+                    name: expectedName
                 })
             });
 
@@ -230,22 +262,21 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     groupId: whatsappGroupId,
-                    action: 'updateDescription',
-                    editDesc: expectedDesc
+                    description: expectedDesc
                 })
             });
 
             const dataName = await resName.json();
             const dataDesc = await resDesc.json();
 
-            if (resName.ok && resDesc.ok) {
+            if (resName.ok && resDesc.ok && dataName.success && dataDesc.success) {
                 toast({ title: 'Metadados atualizados!', description: 'Nome e descrição do grupo foram formatados com sucesso no WhatsApp.' });
                 fetchGroupInfo();
             } else {
                 toast({ 
                     variant: 'destructive', 
                     title: 'Erro ao atualizar dados', 
-                    description: dataName.error || dataDesc.error || 'Erro desconhecido.' 
+                    description: dataName.error || dataDesc.error || 'A Evolution API rejeitou a atualização.' 
                 });
             }
         } catch (e: any) {
@@ -560,6 +591,38 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                                             onChange={e => setEditGroupDesc(e.target.value)}
                                             rows={4}
                                         />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label htmlFor="group-pic-file" className="text-xs font-bold">Imagem de Perfil do Grupo</Label>
+                                        <div className="flex items-center gap-3">
+                                            <Input 
+                                                id="group-pic-file" 
+                                                type="file" 
+                                                accept="image/*"
+                                                onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    if (file) {
+                                                        setIsUploadingPic(true);
+                                                        const reader = new FileReader();
+                                                        reader.onloadend = () => {
+                                                            const base64String = reader.result as string;
+                                                            // A Evolution API exige que a string base64 comece com data:image/...
+                                                            setEditGroupPicture(base64String);
+                                                            setIsUploadingPic(false);
+                                                            toast({ title: 'Foto selecionada!', description: 'Clique em Salvar para enviar para o WhatsApp.' });
+                                                        };
+                                                        reader.readAsDataURL(file);
+                                                    }
+                                                }}
+                                                className="cursor-pointer"
+                                            />
+                                            {isUploadingPic && <Loader2 className="h-4 w-4 animate-spin text-emerald-600 shrink-0" />}
+                                        </div>
+                                        {editGroupPicture && (
+                                            <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">
+                                                ✓ Imagem carregada e pronta para salvar
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                                 <DialogFooter>
