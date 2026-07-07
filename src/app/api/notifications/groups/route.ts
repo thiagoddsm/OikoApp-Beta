@@ -141,7 +141,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ success: false, error: 'API Key não configurada.' }, { status: 400 });
         }
 
-        // Resolve JIDs directly from WhatsApp database to ensure 9th digit correctness
+        // Resolve JIDs/LIDs directly from Firestore database (cache) or check WhatsApp database (Evolution API)
         const resolvedParticipants: string[] = [];
         for (const p of (participants || [])) {
             const clean = p.replace(/\D/g, '');
@@ -149,10 +149,23 @@ export async function POST(request: Request) {
                 resolvedParticipants.push(`${clean}@lid`);
                 continue;
             }
+            const phoneNoCountry = clean.startsWith('55') ? clean.substring(2) : clean;
             const queryPhone = clean.startsWith('55') ? clean : `55${clean}`;
             
             try {
-                // Query Evolution API check numbers endpoint
+                // 1. Tenta buscar o contato no Firestore local (cache) para evitar sobrecarregar a API
+                const contactDoc = await db.collection('notifications_contacts').doc(phoneNoCountry).get();
+                if (contactDoc.exists) {
+                    const cData = contactDoc.data();
+                    const cachedId = cData?.lid || cData?.jid;
+                    if (cachedId) {
+                        resolvedParticipants.push(cachedId);
+                        console.log(`[WhatsApp Group Create] Resolved participant ${clean} from FIRESTORE CACHE: ${cachedId}`);
+                        continue;
+                    }
+                }
+                
+                // 2. Se não estiver no cache, consulta no endpoint da Evolution API
                 const checkRes = await fetch(`${serverUrl}/chat/whatsappNumbers/${instanceName}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'apikey': waKey },
@@ -163,18 +176,28 @@ export async function POST(request: Request) {
                 const info = Array.isArray(checkData) ? checkData[0] : (checkData ? checkData["0"] || checkData : null);
                 
                 if (info && info.exists) {
-                    const trueJid = info.jid || info.lid;
+                    // Prioriza o LID se disponível, caindo para JID como segunda opção
+                    const trueJid = info.lid || info.jid;
                     if (trueJid) {
                         resolvedParticipants.push(trueJid);
-                        console.log(`[WhatsApp Group Create] Resolved participant ${queryPhone} to valid JID: ${trueJid}`);
+                        
+                        // Grava no Firestore cache de contatos para as próximas execuções
+                        await db.collection('notifications_contacts').doc(phoneNoCountry).set({
+                            phoneNumber: phoneNoCountry,
+                            jid: info.jid || null,
+                            lid: info.lid || null,
+                            updatedAt: new Date(),
+                        }, { merge: true });
+                        
+                        console.log(`[WhatsApp Group Create] Resolved participant ${queryPhone} from EVOLUTION: ${trueJid} (Cached locally)`);
                         continue;
                     }
                 }
             } catch (e: any) {
-                console.warn(`[WhatsApp Group Create] Failed to resolve JID for ${queryPhone}:`, e.message);
+                console.warn(`[WhatsApp Group Create] Failed to resolve identity for ${queryPhone}:`, e.message);
             }
             
-            // Fallback to simple format if check failed or number does not exist
+            // Fallback de segurança para número tradicional se nenhuma verificação retornar sucesso
             resolvedParticipants.push(`${queryPhone}@s.whatsapp.net`);
         }
 
