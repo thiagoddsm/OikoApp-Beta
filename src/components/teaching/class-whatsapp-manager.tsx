@@ -8,7 +8,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useVolunteering, type Class, type Course } from '@/contexts/volunteering-context';
 import { 
     MessageCircle, Loader2, RefreshCw, CheckCircle2, 
-    AlertCircle, PlusCircle, ExternalLink, HelpCircle 
+    AlertCircle, PlusCircle, ExternalLink, HelpCircle,
+    Shield, ShieldAlert, Settings
 } from 'lucide-react';
 import { usePeople } from "@/hooks/usePeople";
 
@@ -59,7 +60,9 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
     const handleCreateGroup = async () => {
         setIsCreating(true);
         try {
-            const groupName = `${courseData.name} - ${classData.name}`.substring(0, 100);
+            // Nome padrão solicitado: [Nome do curso] | [Nome da turma]
+            const groupName = `${courseData.name} | ${classData.name}`.substring(0, 100);
+            const description = `Grupo destinado a trazer informações e tirar dúvidas sobre o curso ${courseData.name}.`;
             
             // Resolve students numbers for initial creation
             const initialParticipants: string[] = [];
@@ -82,7 +85,8 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     groupName,
-                    participants: initialParticipants
+                    participants: initialParticipants,
+                    description // Passamos a descrição personalizada na criação
                 })
             });
 
@@ -138,6 +142,90 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
         }
     };
 
+    const handleUpdateGroupMetadata = async () => {
+        if (!whatsappGroupId) return;
+        setIsSyncing(true);
+        try {
+            const expectedName = `${courseData.name} | ${classData.name}`.substring(0, 100);
+            const expectedDesc = `Grupo destinado a trazer informações e tirar dúvidas sobre o curso ${courseData.name}.`;
+
+            // 1. Atualiza Nome (Subject)
+            const resName = await fetch('/api/notifications/groups', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    groupId: whatsappGroupId,
+                    action: 'updateSubject',
+                    editName: expectedName
+                })
+            });
+
+            // 2. Atualiza Descrição
+            const resDesc = await fetch('/api/notifications/groups', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    groupId: whatsappGroupId,
+                    action: 'updateDescription',
+                    editDesc: expectedDesc
+                })
+            });
+
+            const dataName = await resName.json();
+            const dataDesc = await resDesc.json();
+
+            if (resName.ok && resDesc.ok) {
+                toast({ title: 'Metadados atualizados!', description: 'Nome e descrição do grupo foram formatados com sucesso no WhatsApp.' });
+                fetchGroupInfo();
+            } else {
+                toast({ 
+                    variant: 'destructive', 
+                    title: 'Erro ao atualizar dados', 
+                    description: dataName.error || dataDesc.error || 'Erro desconhecido.' 
+                });
+            }
+        } catch (e: any) {
+            toast({ variant: 'destructive', title: 'Erro de conexão', description: e.message });
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
+    const handleUpdateAdminStatus = async (participantJid: string, action: 'promote' | 'demote') => {
+        if (!whatsappGroupId) return;
+        setIsLoading(true);
+        try {
+            const res = await fetch('/api/notifications/groups', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    groupId: whatsappGroupId,
+                    action: action, // 'promote' ou 'demote'
+                    participants: [participantJid]
+                })
+            });
+
+            const data = await res.json();
+            if (res.ok && data.success) {
+                toast({ 
+                    title: action === 'promote' ? 'Promovido a Admin!' : 'Rebaixado de Admin!', 
+                    description: 'O status do participante foi atualizado no WhatsApp.' 
+                });
+                fetchGroupInfo();
+            } else {
+                toast({ 
+                    variant: 'destructive', 
+                    title: 'Erro ao alterar permissão', 
+                    description: data.error || 'A ação foi rejeitada pela Evolution API.' 
+                });
+            }
+        } catch (e: any) {
+            toast({ variant: 'destructive', title: 'Erro de conexão', description: e.message });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     const isClassCompleted = classData.status === 'completed';
 
     return (
@@ -163,6 +251,17 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                         >
                             {isSyncing ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <RefreshCw className="h-3 w-3 mr-2" />}
                             Sincronizar Alunos
+                        </Button>
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={handleUpdateGroupMetadata} 
+                            disabled={isSyncing || isLoading}
+                            className="font-bold text-xs gap-1.5"
+                            title="Atualizar Nome e Descrição do Grupo no WhatsApp para o padrão correto"
+                        >
+                            <Settings className="h-3.5 w-3.5" />
+                            Ajustar Nome/Desc
                         </Button>
                         <Button 
                             variant="outline" 
@@ -212,13 +311,19 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                 ) : (
                     <div className="space-y-6">
                         {/* Group Specs Card */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div className="p-4 bg-slate-50 border rounded-xl">
                                 <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Nome do Grupo</span>
-                                <p className="text-sm font-bold text-slate-800 mt-1">{groupInfo?.name || 'Carregando...'}</p>
+                                <p className="text-sm font-bold text-slate-800 mt-1 truncate">{groupInfo?.name || 'Carregando...'}</p>
                             </div>
                             <div className="p-4 bg-slate-50 border rounded-xl">
-                                <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">JID / ID do Grupo</span>
+                                <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Descrição</span>
+                                <p className="text-xs text-slate-600 mt-1 truncate" title={groupInfo?.description || 'Sem descrição'}>
+                                    {groupInfo?.description || 'Nenhuma descrição salva'}
+                                </p>
+                            </div>
+                            <div className="p-4 bg-slate-50 border rounded-xl">
+                                <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">JID do Grupo</span>
                                 <p className="text-xs font-mono text-slate-600 mt-1 truncate">{whatsappGroupId}</p>
                             </div>
                             <div className="p-4 bg-slate-50 border rounded-xl">
@@ -249,25 +354,64 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                                     if (!u) return null;
                                     
                                     const uPhone = String(u.phone || u.phoneNumber || '').replace(/\D/g, '');
-                                    const isInGroup = groupInfo?.participants?.some((p: any) => 
+                                    
+                                    // Localiza a identidade do participante no WhatsApp
+                                    const waMember = groupInfo?.participants?.find((p: any) => 
                                         p.id?.includes(uPhone) || (u.lid && p.id?.includes(u.lid))
                                     );
+                                    const isInGroup = !!waMember;
+                                    const isWaAdmin = waMember?.admin === 'admin' || waMember?.admin === 'superadmin';
+                                    const trueJid = waMember?.id || u.lid || `${uPhone}@s.whatsapp.net`;
 
                                     return (
-                                        <div key={studentId} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg border text-xs">
+                                        <div key={studentId} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg border text-xs bg-white">
                                             <div>
-                                                <span className="font-semibold text-slate-800">{u.name}</span>
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="font-semibold text-slate-800">{u.name}</span>
+                                                    {isWaAdmin && (
+                                                        <Badge className="bg-amber-100 border-amber-300 text-amber-800 font-bold text-[8px] h-3.5 flex items-center gap-0.5">
+                                                            <Shield className="h-2 w-2" /> Admin
+                                                        </Badge>
+                                                    )}
+                                                </div>
                                                 <span className="text-[10px] text-muted-foreground font-mono block">
                                                     {u.phone || u.phoneNumber || 'Sem telefone'} {u.lid && `| LID: ${u.lid}`}
                                                 </span>
                                             </div>
-                                            <div>
+                                            <div className="flex items-center gap-2">
                                                 {isClassCompleted ? (
                                                     <Badge variant="secondary" className="text-[9px]">Removido (Encerrada)</Badge>
                                                 ) : isInGroup ? (
                                                     <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px]">No Grupo</Badge>
                                                 ) : (
                                                     <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 text-[9px]">Pendente</Badge>
+                                                )}
+                                                
+                                                {/* Botões de controle de administrador no grupo do WhatsApp */}
+                                                {isInGroup && !isClassCompleted && (
+                                                    <div className="flex items-center border-l pl-2 border-slate-100 gap-1">
+                                                        {isWaAdmin ? (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => handleUpdateAdminStatus(trueJid, 'demote')}
+                                                                className="h-6 w-6 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                                title="Remover Administrador no WhatsApp"
+                                                            >
+                                                                <ShieldAlert className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        ) : (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => handleUpdateAdminStatus(trueJid, 'promote')}
+                                                                className="h-6 w-6 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                                                                title="Tornar Administrador no WhatsApp"
+                                                            >
+                                                                <Shield className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
                                         </div>
