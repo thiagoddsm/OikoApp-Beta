@@ -362,10 +362,12 @@ function WhatsappSender({ config }: { config: any }) {
         e.stopPropagation();
         setGroupDetail({ ...g, _loading: true });
         setIsLoadingDetail(true);
-        const apiKey = config?.instanceKey || config?.whatsappApiKey;
-        const serverUrl = config?.serverUrl || '';
-        const params = new URLSearchParams({ key: apiKey });
+        const apiKey = config?.evolutionKey || config?.instanceKey || config?.whatsappApiKey;
+        const serverUrl = config?.evolutionUrl || config?.serverUrl || '';
+        const instanceName = config?.evolutionInstance || config?.instanceName || '';
+        const params = new URLSearchParams({ key: apiKey || '' });
         if (serverUrl) params.set('server', serverUrl);
+        if (instanceName) params.set('instance', instanceName);
         try {
             params.set('id', g.id);
             const res = await fetch(`/api/notifications/groups?${params.toString()}`);
@@ -433,14 +435,16 @@ function WhatsappSender({ config }: { config: any }) {
 
     // Fetch WA contacts and groups from the API — only once config is loaded
     useEffect(() => {
-        const apiKey = config?.instanceKey || config?.whatsappApiKey;
-        const serverUrl = config?.serverUrl || '';
+        const apiKey = config?.evolutionKey || config?.instanceKey || config?.whatsappApiKey;
+        const serverUrl = config?.evolutionUrl || config?.serverUrl || '';
+        const instanceName = config?.evolutionInstance || config?.instanceName || '';
         if (!apiKey) return; // aguarda o config carregar
 
         const fetchWaData = async () => {
             setIsLoadingWaData(true);
             const params = new URLSearchParams({ key: apiKey });
             if (serverUrl) params.set('server', serverUrl);
+            if (instanceName) params.set('instance', instanceName);
             const qs = params.toString();
             try {
                 const [contactsRes, groupsRes] = await Promise.all([

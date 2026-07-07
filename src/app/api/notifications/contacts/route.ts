@@ -16,9 +16,9 @@ export async function GET(request: Request) {
                 const configSnap = await db.collection('config').doc('notifications').get();
                 if (configSnap.exists) {
                     const data = configSnap.data();
-                    apiKey = apiKey || data?.instanceKey || data?.whatsappApiKey;
-                    serverUrl = serverUrl || data?.serverUrl || 'https://api.ibmanha.com.br';
-                    instanceName = instanceName || data?.instanceName || 'IBM';
+                    apiKey = apiKey || data?.evolutionKey || data?.instanceKey || data?.whatsappApiKey;
+                    serverUrl = serverUrl || data?.evolutionUrl || data?.serverUrl || 'https://api.ibmanha.com.br';
+                    instanceName = instanceName || data?.evolutionInstance || data?.instanceName || 'IBM';
                 }
             } catch (e) {}
         }

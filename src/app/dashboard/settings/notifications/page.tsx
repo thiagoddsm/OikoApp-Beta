@@ -573,25 +573,28 @@ export default function NotificationSettingsPage() {
                                     Salvar Alterações
                                 </Button>
                                 <Button 
-                                    variant="outline" 
-                                    onClick={async () => {
-                                        if (!instanceKey) return;
-                                        setIsSyncingContacts(true);
-                                        try {
-                                            const res = await fetch(`/api/notifications/contacts?key=${instanceKey}&server=${encodeURIComponent(serverUrl)}`);
-                                            const data = await res.json();
-                                            if (data.success) {
-                                                toast({ title: "Sincronização Concluída", description: `${data.count} contatos importados.` });
-                                            } else {
-                                                toast({ variant: 'destructive', title: "Erro na Sincronização", description: data.error });
-                                            }
-                                        } catch (e) {
-                                            toast({ variant: 'destructive', title: "Erro ao sincronizar" });
-                                        } finally { setIsSyncingContacts(false); }
-                                    }} 
-                                    disabled={isSyncingContacts || !instanceKey} 
-                                    className="gap-2 h-11 font-bold"
-                                >
+                                     variant="outline" 
+                                     onClick={async () => {
+                                         const activeKey = evolutionKey || instanceKey;
+                                         const activeServer = evolutionUrl || serverUrl;
+                                         const activeInstance = evolutionInstance || instanceName;
+                                         if (!activeKey) return;
+                                         setIsSyncingContacts(true);
+                                         try {
+                                             const res = await fetch(`/api/notifications/contacts?key=${activeKey}&server=${encodeURIComponent(activeServer)}&instance=${encodeURIComponent(activeInstance)}`);
+                                             const data = await res.json();
+                                             if (data.success || data.count !== undefined) {
+                                                 toast({ title: "Sincronização Concluída", description: `${data.count || 0} contatos importados.` });
+                                             } else {
+                                                 toast({ variant: 'destructive', title: "Erro na Sincronização", description: data.error });
+                                             }
+                                         } catch (e) {
+                                             toast({ variant: 'destructive', title: "Erro ao sincronizar" });
+                                         } finally { setIsSyncingContacts(false); }
+                                     }} 
+                                     disabled={isSyncingContacts || (!evolutionKey && !instanceKey)} 
+                                     className="gap-2 h-11 font-bold"
+                                 >
                                     <RefreshCw className={cn("size-4", isSyncingContacts && "animate-spin")} />
                                     {isSyncingContacts ? 'Sincronizando...' : 'Sincronizar Contatos'}
                                 </Button>

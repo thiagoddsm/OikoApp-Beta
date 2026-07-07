@@ -26,9 +26,9 @@ export async function GET(request: Request) {
           const configSnap = await db.collection('config').doc('notifications').get();
           if (configSnap.exists) {
               const data = configSnap.data();
-              waKey = waKey || data?.evolutionKey || data?.instanceKey || data?.whatsappApiKey || null;
-              serverUrl = serverUrl || data?.evolutionUrl || data?.serverUrl || 'https://api.ibmanha.com.br';
-              instanceName = instanceName || data?.evolutionInstance || data?.instanceName || 'IBM';
+               waKey = waKey || data?.evolutionKey || data?.instanceKey || data?.whatsappApiKey || null;
+               serverUrl = serverUrl || data?.evolutionUrl || data?.serverUrl || 'https://api.ibmanha.com.br';
+               instanceName = instanceName || data?.evolutionInstance || data?.instanceName || 'IBM';
           }
       } catch (e: any) {
           console.warn('Falha ao ler config de notificações (Admin):', e.message);
