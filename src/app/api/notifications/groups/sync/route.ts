@@ -72,10 +72,12 @@ export async function POST(request: Request) {
                 studentsSnap.docs.forEach(docSnap => {
                     const u = docSnap.data();
                     const uPhone = String(u.phone || u.phoneNumber || '').replace(/\D/g, '');
-                    if (u.lid) {
+                    const isLidValid = u.lid && String(u.lid).includes('@lid') && String(u.lid).replace(/\D/g, '').length > 5;
+                    
+                    if (isLidValid) {
                         studentIdToJidMap.set(docSnap.id, u.lid);
                         studentsPhoneJids.push(u.lid);
-                    } else if (uPhone) {
+                    } else if (uPhone && uPhone.length >= 8) {
                         const formatted = uPhone.startsWith('55') ? uPhone : `55${uPhone}`;
                         const jid = `${formatted}@s.whatsapp.net`;
                         studentIdToJidMap.set(docSnap.id, jid);
