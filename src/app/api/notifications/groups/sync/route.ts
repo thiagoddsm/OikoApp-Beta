@@ -72,14 +72,9 @@ export async function POST(request: Request) {
                 studentsSnap.docs.forEach(docSnap => {
                     const u = docSnap.data();
                     const uPhone = String(u.phone || u.phoneNumber || '').replace(/\D/g, '');
-                    const isLidValid = u.lid && String(u.lid).includes('@lid') && String(u.lid).replace(/\D/g, '').length > 5;
-                    
-                    if (isLidValid) {
-                        studentIdToJidMap.set(docSnap.id, u.lid);
-                        studentsPhoneJids.push(u.lid);
-                    } else if (uPhone && uPhone.length >= 8) {
+                    if (uPhone && uPhone.length >= 8) {
                         const formatted = uPhone.startsWith('55') ? uPhone : `55${uPhone}`;
-                        // Enviamos apenas o número de telefone limpo (ex: 5521988869796) conforme o teste de sucesso do usuário
+                        // Enviamos SEMPRE o número de telefone puro (ex: 5521988869796) conforme o teste de sucesso do usuário
                         studentIdToJidMap.set(docSnap.id, formatted);
                         studentsPhoneJids.push(formatted);
                     }
