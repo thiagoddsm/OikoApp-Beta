@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Loader2, ShieldCheck, Mail, Info, School, PlayCircle, Percent, Lock, UserCheck, CheckCircle2, GraduationCap, BookOpen, Layers, Upload } from 'lucide-react';
+import { Loader2, ShieldCheck, Mail, Info, School, PlayCircle, Percent, Lock, UserCheck, CheckCircle2, GraduationCap, BookOpen, Layers, Upload, MessageCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -36,11 +36,14 @@ export function CourseDetailsForm({ course }: { course: any }) {
     prerequisiteCourseId: '',
     sortOrder: '0',
     imageUrl: '',
+    whatsappGroupPicture: '',
     simultaneousClasses: false,
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [isUploadingGroupPic, setIsUploadingGroupPic] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const groupPicInputRef = React.useRef<HTMLInputElement>(null);
 
   const isLumine = course.ministryName?.toLowerCase().includes('lumine') || course.ministryName?.toLowerCase().includes('ebd');
 
@@ -58,6 +61,7 @@ export function CourseDetailsForm({ course }: { course: any }) {
         prerequisiteCourseId: course.prerequisiteCourseId || '',
         sortOrder: course.sortOrder?.toString() || '0',
         imageUrl: course.imageUrl || '',
+        whatsappGroupPicture: course.whatsappGroupPicture || '',
         simultaneousClasses: course.simultaneousClasses || false,
       });
     }
@@ -144,6 +148,40 @@ export function CourseDetailsForm({ course }: { course: any }) {
       }
   };
   
+  const handleGroupPicUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file || !storage) return;
+
+      setIsUploadingGroupPic(true);
+      try {
+          const compressedBlob = await compressImage(file, 800, 800);
+          const filePath = `course-group-presets/${course.id}-${Date.now()}.jpg`;
+          const fileRef = ref(storage, filePath);
+          
+          await uploadBytes(fileRef, compressedBlob);
+          const downloadUrl = await getDownloadURL(fileRef);
+          
+          handleFieldChange('whatsappGroupPicture', downloadUrl);
+          
+          toast({
+              title: "Sucesso!",
+              description: "Imagem de preset do WhatsApp enviada. Salve para confirmar.",
+          });
+      } catch (error: any) {
+          console.error("Erro ao fazer upload do preset de grupo:", error);
+          toast({
+              variant: "destructive",
+              title: "Erro no upload",
+              description: error.message || "Não foi possível carregar a imagem.",
+          });
+      } finally {
+          setIsUploadingGroupPic(false);
+          if (groupPicInputRef.current) {
+              groupPicInputRef.current.value = '';
+          }
+      }
+  };
+  
   const handleSave = async () => {
     if(!firestore) return;
     setIsSaving(true);
@@ -162,6 +200,7 @@ export function CourseDetailsForm({ course }: { course: any }) {
             prerequisiteCourseId: formData.prerequisiteCourseId === 'none' ? '' : formData.prerequisiteCourseId,
             sortOrder: Number(formData.sortOrder) || 0,
             imageUrl: formData.imageUrl,
+            whatsappGroupPicture: formData.whatsappGroupPicture,
             simultaneousClasses: formData.simultaneousClasses,
         });
         toast({ title: 'Sucesso!', description: 'As configurações do curso foram atualizadas.'});
@@ -272,7 +311,7 @@ export function CourseDetailsForm({ course }: { course: any }) {
                           Define a ordem em que este curso será exibido na listagem (valores menores aparecem primeiro).
                       </p>
                   </div>
-
+                  
                   <div className="space-y-2">
                       <Label htmlFor="imageUrl">Imagem de Capa do Curso</Label>
                       <div className="flex gap-2">
@@ -282,7 +321,7 @@ export function CourseDetailsForm({ course }: { course: any }) {
                             value={formData.imageUrl} 
                             onChange={e => handleFieldChange('imageUrl', e.target.value)}
                             placeholder="https://exemplo.com/imagem.jpg"
-                            className="flex-1"
+                            className="flex-1 bg-white"
                           />
                           <input 
                               type="file" 
@@ -303,6 +342,44 @@ export function CourseDetailsForm({ course }: { course: any }) {
                       </div>
                       <p className="text-[10px] text-muted-foreground italic">
                           Faça upload de uma imagem ou cole uma URL direta.
+                      </p>
+                  </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+                  <div className="space-y-2">
+                      <Label htmlFor="whatsappGroupPicture" className="flex items-center gap-2">
+                          <MessageCircle className="size-3 text-emerald-600" />
+                          Imagem Padrão do Grupo do WhatsApp (Preset)
+                      </Label>
+                      <div className="flex gap-2">
+                          <Input 
+                            id="whatsappGroupPicture" 
+                            type="text" 
+                            value={formData.whatsappGroupPicture} 
+                            onChange={e => handleFieldChange('whatsappGroupPicture', e.target.value)}
+                            placeholder="https://exemplo.com/grupo.jpg"
+                            className="flex-1 bg-white"
+                          />
+                          <input 
+                              type="file" 
+                              ref={groupPicInputRef} 
+                              className="hidden" 
+                              accept="image/*" 
+                              onChange={handleGroupPicUpload}
+                          />
+                          <Button 
+                              type="button" 
+                              variant="secondary" 
+                              onClick={() => groupPicInputRef.current?.click()}
+                              disabled={isUploadingGroupPic}
+                          >
+                              {isUploadingGroupPic ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4 mr-2" />}
+                              Upload
+                          </Button>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground italic">
+                          Preset de foto para novos grupos criados por turmas deste curso.
                       </p>
                   </div>
               </div>
@@ -461,6 +538,27 @@ export function CourseDetailsForm({ course }: { course: any }) {
                           <BookOpen className="size-8 mb-2 opacity-40 text-primary" />
                           <span className="text-xs font-bold text-slate-800">Nenhuma capa personalizada</span>
                           <span className="text-[10px] opacity-75 mt-1">Usando imagem padrão do Picsum</span>
+                      </div>
+                  )}
+              </div>
+          </Card>
+
+          <Card className="overflow-hidden border border-outline-variant/20 shadow-sm bg-card">
+              <div className="p-4 border-b font-bold text-xs uppercase tracking-wider text-primary flex items-center gap-2">
+                  <MessageCircle className="size-4 text-emerald-600" /> Pré-visualização do Grupo do WhatsApp
+              </div>
+              <div className="relative aspect-video bg-slate-100 flex items-center justify-center">
+                  {formData.whatsappGroupPicture ? (
+                      <img 
+                          src={formData.whatsappGroupPicture} 
+                          alt="Preset de foto do grupo" 
+                          className="object-cover w-full h-full"
+                      />
+                  ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground p-4 text-center">
+                          <MessageCircle className="size-8 mb-2 opacity-40 text-emerald-600" />
+                          <span className="text-xs font-bold text-slate-800">Nenhuma foto padrão de grupo</span>
+                          <span className="text-[10px] opacity-75 mt-1">Criará com imagem padrão vazia do WhatsApp</span>
                       </div>
                   )}
               </div>

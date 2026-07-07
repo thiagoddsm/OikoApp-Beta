@@ -260,7 +260,7 @@ function MenuItems({ pathname, permissions, userRole, isGcStaff, onLinkClick }: 
   const visibleSettingsItems = filterItems(settingsMenuItems);
 
   return (
-    <div className="flex flex-col grow overflow-y-auto">
+    <div className="flex flex-col grow overflow-y-auto overflow-x-hidden">
       <SidebarMenu className="py-4 space-y-1 px-3">
         <li className="px-3 pb-2 text-sm font-semibold tracking-wider text-slate-500 uppercase">Menu</li>
         {renderMenuItems(visibleItems)}
@@ -429,7 +429,7 @@ export default function DashboardLayout({
         <SidebarProvider>
           <div className="h-screen w-full flex bg-background text-foreground overflow-hidden">
             {/* --- Desktop Sidebar --- */}
-            <aside className="hidden lg:flex lg:flex-col lg:w-72 lg:border-r lg:border-border bg-card">
+            <aside className="hidden lg:flex lg:flex-col lg:w-72 lg:border-r lg:border-border bg-card overflow-x-hidden">
               <SidebarHeader className="border-b border-border">
               <div className="flex items-center justify-start px-6 h-20 w-full">
                 <img 
@@ -439,7 +439,7 @@ export default function DashboardLayout({
                 />
               </div>
             </SidebarHeader>
-            <div className="flex-1 flex flex-col overflow-y-auto">
+            <div className="flex-1 flex flex-col overflow-y-auto overflow-x-hidden">
                 <MenuItems pathname={pathname} permissions={accessProfile?.permissions} userRole={userRole} isGcStaff={isGcStaff} onLinkClick={() => {}} />
             </div>
              <SidebarFooter className="border-t border-border">
