@@ -9,9 +9,13 @@ import { useVolunteering, type Class, type Course } from '@/contexts/volunteerin
 import { 
     MessageCircle, Loader2, RefreshCw, CheckCircle2, 
     AlertCircle, PlusCircle, ExternalLink, HelpCircle,
-    Shield, ShieldAlert, Settings
+    Shield, ShieldAlert, Settings, Edit3
 } from 'lucide-react';
 import { usePeople } from "@/hooks/usePeople";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 interface ClassWhatsappManagerProps {
     classData: Class;
@@ -28,6 +32,11 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
     const [isLoading, setIsLoading] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
+    
+    // Modal states for manual metadata edit
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [editGroupName, setEditGroupName] = useState('');
+    const [editGroupDesc, setEditGroupDesc] = useState('');
 
     const whatsappGroupId = classData.whatsappGroupId;
 
@@ -56,6 +65,14 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
             setGroupInfo(null);
         }
     }, [whatsappGroupId, fetchGroupInfo]);
+
+    // Populate inputs when groupInfo changes
+    useEffect(() => {
+        if (groupInfo) {
+            setEditGroupName(groupInfo.name || '');
+            setEditGroupDesc(groupInfo.description || groupInfo.desc || '');
+        }
+    }, [groupInfo]);
 
     const handleCreateGroup = async () => {
         setIsCreating(true);
@@ -133,6 +150,53 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                     variant: 'destructive', 
                     title: 'Erro ao sincronizar', 
                     description: data.error || (data.errors ? data.errors.join(', ') : 'Erro desconhecido') 
+                });
+            }
+        } catch (e: any) {
+            toast({ variant: 'destructive', title: 'Erro de conexão', description: e.message });
+        } finally {
+            setIsSyncing(false);
+        }
+    };
+
+    const handleSaveManualMetadata = async () => {
+        if (!whatsappGroupId) return;
+        setIsSyncing(true);
+        try {
+            // 1. Atualiza Nome (Subject)
+            const resName = await fetch('/api/notifications/groups', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    groupId: whatsappGroupId,
+                    action: 'updateSubject',
+                    editName: editGroupName
+                })
+            });
+
+            // 2. Atualiza Descrição
+            const resDesc = await fetch('/api/notifications/groups', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    groupId: whatsappGroupId,
+                    action: 'updateDescription',
+                    editDesc: editGroupDesc
+                })
+            });
+
+            const dataName = await resName.json();
+            const dataDesc = await resDesc.json();
+
+            if (resName.ok && resDesc.ok) {
+                toast({ title: 'Dados salvos!', description: 'O nome e a descrição do grupo foram atualizados no WhatsApp.' });
+                setIsEditDialogOpen(false);
+                fetchGroupInfo();
+            } else {
+                toast({ 
+                    variant: 'destructive', 
+                    title: 'Erro ao salvar dados', 
+                    description: dataName.error || dataDesc.error || 'A Evolution API rejeitou a alteração.' 
                 });
             }
         } catch (e: any) {
@@ -312,12 +376,34 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                     <div className="space-y-6">
                         {/* Group Specs Card */}
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div className="p-4 bg-slate-50 border rounded-xl">
-                                <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Nome do Grupo</span>
+                            <div className="p-4 bg-slate-50 border rounded-xl relative group-hover:border-slate-300 transition-all">
+                                <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground flex items-center justify-between">
+                                    Nome do Grupo
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-5 w-5 hover:bg-slate-200 text-slate-500 rounded-full"
+                                        onClick={() => setIsEditDialogOpen(true)}
+                                        title="Editar Nome e Descrição"
+                                    >
+                                        <Edit3 className="h-3 w-3" />
+                                    </Button>
+                                </span>
                                 <p className="text-sm font-bold text-slate-800 mt-1 truncate">{groupInfo?.name || 'Carregando...'}</p>
                             </div>
-                            <div className="p-4 bg-slate-50 border rounded-xl">
-                                <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Descrição</span>
+                            <div className="p-4 bg-slate-50 border rounded-xl relative">
+                                <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground flex items-center justify-between">
+                                    Descrição
+                                    <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-5 w-5 hover:bg-slate-200 text-slate-500 rounded-full"
+                                        onClick={() => setIsEditDialogOpen(true)}
+                                        title="Editar Nome e Descrição"
+                                    >
+                                        <Edit3 className="h-3 w-3" />
+                                    </Button>
+                                </span>
                                 <p className="text-xs text-slate-600 mt-1 truncate" title={groupInfo?.description || groupInfo?.desc || 'Sem descrição'}>
                                     {groupInfo?.description || groupInfo?.desc || 'Nenhuma descrição salva'}
                                 </p>
@@ -444,6 +530,53 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                                 Desvincular Grupo
                             </Button>
                         </div>
+                        {/* Modal para Edição Manual de Nome e Descrição */}
+                        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                            <DialogContent className="sm:max-w-md">
+                                <DialogHeader>
+                                    <DialogTitle className="text-lg font-black text-slate-800 flex items-center gap-2">
+                                        <Settings className="h-5 w-5 text-emerald-600" />
+                                        Ajustar Dados do Grupo
+                                    </DialogTitle>
+                                    <DialogDescription className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
+                                        Modifique o Nome e a Descrição do grupo diretamente no WhatsApp.
+                                    </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4 py-4">
+                                    <div className="space-y-1">
+                                        <Label htmlFor="group-name-input" className="text-xs font-bold">Nome do Grupo</Label>
+                                        <Input 
+                                            id="group-name-input" 
+                                            value={editGroupName} 
+                                            onChange={e => setEditGroupName(e.target.value)} 
+                                            maxLength={100}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label htmlFor="group-desc-input" className="text-xs font-bold">Descrição do Grupo</Label>
+                                        <Textarea 
+                                            id="group-desc-input" 
+                                            value={editGroupDesc} 
+                                            onChange={e => setEditGroupDesc(e.target.value)}
+                                            rows={4}
+                                        />
+                                    </div>
+                                </div>
+                                <DialogFooter>
+                                    <DialogClose asChild>
+                                        <Button variant="outline" className="font-bold text-xs">Cancelar</Button>
+                                    </DialogClose>
+                                    <Button 
+                                        onClick={handleSaveManualMetadata} 
+                                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs"
+                                        disabled={isSyncing}
+                                    >
+                                        {isSyncing ? <Loader2 className="h-3 w-3 animate-spin mr-1.5" /> : null}
+                                        Salvar no WhatsApp
+                                    </Button>
+                                </DialogFooter>
+                            </DialogContent>
+                        </Dialog>
                     </div>
                 )}
             </CardContent>
