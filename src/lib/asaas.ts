@@ -157,7 +157,7 @@ export async function findOrCreateCustomer(data: {
   cpfCnpj?: string;
   email?: string;
   phone?: string;
-  externalReference: string;
+  externalReference?: string;
   tenantId?: string;
 }): Promise<AsaasCustomer> {
   const cleanCpfCnpj = data.cpfCnpj ? data.cpfCnpj.replace(/\D/g, '') : '';
@@ -171,12 +171,16 @@ export async function findOrCreateCustomer(data: {
     }
   }
 
-  const searchResultRef = await asaasRequest<AsaasListResponse<AsaasCustomer>>(
-    `/customers?externalReference=${encodeURIComponent(data.externalReference)}&limit=1`
-  );
+  const hasValidRef = data.externalReference && data.externalReference !== 'anonymous';
 
-  if (searchResultRef.data && searchResultRef.data.length > 0) {
-    return searchResultRef.data[0];
+  if (hasValidRef) {
+    const searchResultRef = await asaasRequest<AsaasListResponse<AsaasCustomer>>(
+      `/customers?externalReference=${encodeURIComponent(data.externalReference!)}&limit=1`
+    );
+
+    if (searchResultRef.data && searchResultRef.data.length > 0) {
+      return searchResultRef.data[0];
+    }
   }
 
   const customer = await asaasRequest<AsaasCustomer>('/customers', 'POST', {
@@ -184,7 +188,7 @@ export async function findOrCreateCustomer(data: {
     cpfCnpj: cleanCpfCnpj || undefined,
     email: data.email || undefined,
     phone: data.phone || undefined,
-    externalReference: data.externalReference,
+    externalReference: hasValidRef ? data.externalReference : undefined,
   }, data.tenantId);
 
   return customer;

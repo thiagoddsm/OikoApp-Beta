@@ -10,9 +10,9 @@ export async function POST(request: Request) {
     console.log('[API Debug] Recebido no POST /api/asaas/customers:', { name, cpfCnpj, userId });
     console.log('[API Debug] process.env.ASAAS_API_KEY (Mascarada):', process.env.ASAAS_API_KEY ? `${process.env.ASAAS_API_KEY.substring(0, 15)}...` : 'NÃO CONFIGURADA EM PROCESS.ENV');
 
-    if (!name || !userId) {
+    if (!name) {
       return NextResponse.json(
-        { error: 'Os campos name e userId são obrigatórios.' },
+        { error: 'O campo name é obrigatório.' },
         { status: 400 }
       );
     }
