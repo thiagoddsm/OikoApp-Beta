@@ -482,7 +482,7 @@ function EnrollmentForm() {
                 <div className="size-20 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
                     <CheckCircle size={40} />
                 </div>
-                <h2 className="text-4xl font-black uppercase italic tracking-tighter text-slate-900 leading-none">
+                <h2 className="text-4xl font-black uppercase italic tracking-tighter text-foreground leading-none">
                     {isPaidEvent ? "Inscrição\nRecebida!" : "Inscrição\nConfirmada!"}
                 </h2>
 
@@ -588,7 +588,7 @@ function EnrollmentForm() {
             {/* Header Global */}
             <div className="text-center space-y-4 mb-2">
                 <Logo className="size-12 text-primary mx-auto mb-4" />
-                <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter uppercase text-slate-900 leading-none">Sistema de<br />Inscrições</h1>
+                <h1 className="text-4xl md:text-5xl font-black italic tracking-tighter uppercase text-foreground leading-none">Sistema de<br />Inscrições</h1>
             </div>
 
             {/* Stepper Wizard Indicator */}
@@ -628,7 +628,7 @@ function EnrollmentForm() {
                                     </div>
                                     <div>
                                         <p className="text-[10px] font-black uppercase text-primary tracking-widest leading-none mb-1">Encontramos você</p>
-                                        <h3 className="text-lg font-black text-slate-900 leading-none">{foundUser.maskedName}</h3>
+                                        <h3 className="text-lg font-black text-foreground leading-none">{foundUser.maskedName}</h3>
                                         <p className="text-xs font-medium text-muted-foreground mt-1">{foundUser.maskedPhone}</p>
                                     </div>
                                 </div>
@@ -676,7 +676,7 @@ function EnrollmentForm() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <button
                             onClick={() => { setSelectedCategory('lumine'); setSelectedCourseId(null); setSelectedClassId(null); nextStep(); }}
-                            className="bg-white p-6 rounded-[2rem] border-2 shadow-sm hover:border-primary hover:shadow-xl hover:-translate-y-1 transition-all text-left flex flex-col group"
+                            className="bg-card text-card-foreground p-6 rounded-[2rem] border-2 border-border shadow-sm hover:border-primary hover:shadow-xl hover:-translate-y-1 transition-all text-left flex flex-col group"
                         >
                             <div className="size-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><BookOpen size={24} /></div>
                             <h4 className="text-lg font-black uppercase tracking-tighter italic leading-none mb-2">Cursos Lumine</h4>
@@ -685,27 +685,27 @@ function EnrollmentForm() {
 
                         <button
                             onClick={() => { setSelectedCategory('escolas'); setSelectedCourseId(null); setSelectedClassId(null); nextStep(); }}
-                            className="bg-white p-6 rounded-[2rem] border-2 shadow-sm hover:border-primary hover:shadow-xl hover:-translate-y-1 transition-all text-left flex flex-col group"
+                            className="bg-card text-card-foreground p-6 rounded-[2rem] border-2 border-border shadow-sm hover:border-primary hover:shadow-xl hover:-translate-y-1 transition-all text-left flex flex-col group"
                         >
-                            <div className="size-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><GraduationCap size={24} /></div>
+                            <div className="size-12 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><GraduationCap size={24} /></div>
                             <h4 className="text-lg font-black uppercase tracking-tighter italic leading-none mb-2">Escolas Especiais</h4>
                             <p className="text-xs text-muted-foreground font-medium">Wave School e programa DIS de aperfeiçoamento.</p>
                         </button>
 
                         <button
                             onClick={() => { setSelectedCategory('ministerios'); setSelectedCourseId(null); setSelectedClassId(null); nextStep(); }}
-                            className="bg-white p-6 rounded-[2rem] border-2 shadow-sm hover:border-primary hover:shadow-xl hover:-translate-y-1 transition-all text-left flex flex-col group"
+                            className="bg-card text-card-foreground p-6 rounded-[2rem] border-2 border-border shadow-sm hover:border-primary hover:shadow-xl hover:-translate-y-1 transition-all text-left flex flex-col group"
                         >
-                            <div className="size-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><Briefcase size={24} /></div>
+                            <div className="size-12 bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-450 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><Briefcase size={24} /></div>
                             <h4 className="text-lg font-black uppercase tracking-tighter italic leading-none mb-2">Ministérios</h4>
                             <p className="text-xs text-muted-foreground font-medium">Treinamentos focados em capacitação de voluntariado.</p>
                         </button>
 
                         <button
                             onClick={() => { setSelectedCategory('eventos'); setSelectedCourseId(null); setSelectedClassId(null); nextStep(); }}
-                            className="bg-white p-6 rounded-[2rem] border-2 shadow-sm hover:border-primary hover:shadow-xl hover:-translate-y-1 transition-all text-left flex flex-col group"
+                            className="bg-card text-card-foreground p-6 rounded-[2rem] border-2 border-border shadow-sm hover:border-primary hover:shadow-xl hover:-translate-y-1 transition-all text-left flex flex-col group"
                         >
-                            <div className="size-12 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><CalendarDays size={24} /></div>
+                            <div className="size-12 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform"><CalendarDays size={24} /></div>
                             <h4 className="text-lg font-black uppercase tracking-tighter italic leading-none mb-2">Eventos</h4>
                             <p className="text-xs text-muted-foreground font-medium">Inscrições pontuais para retiros, conferências e mais.</p>
                         </button>
@@ -790,52 +790,52 @@ function EnrollmentForm() {
                             {selectedCategory === 'lumine' && trailFilter === null ? (
                                 <div className="space-y-6 animate-in fade-in-50 duration-500">
                                     <h3 className="text-xl font-black italic tracking-tighter uppercase text-center mb-6">Selecione o Trilho Acadêmico</h3>
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <button
                                             type="button"
                                             onClick={() => setTrailFilter('all')}
-                                            className="bg-white p-6 rounded-[2rem] border-2 shadow-sm hover:border-primary hover:shadow-xl hover:-translate-y-1 transition-all text-left flex flex-col group"
+                                            className="bg-card text-card-foreground p-6 rounded-[2rem] border-2 border-border shadow-sm hover:border-primary hover:shadow-xl hover:-translate-y-1 transition-all text-left flex flex-col group"
                                         >
                                             <div className="size-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                                                 <Layers size={24} />
                                             </div>
-                                            <h4 className="text-lg font-black uppercase tracking-tighter italic leading-none mb-2">Todos</h4>
+                                            <h4 className="text-lg font-black uppercase tracking-tighter italic leading-none mb-2 text-foreground">Todos</h4>
                                             <p className="text-xs text-muted-foreground font-medium">Exibe todas as disciplinas e trilhos disponíveis.</p>
                                         </button>
 
                                         <button
                                             type="button"
                                             onClick={() => setTrailFilter('biblico')}
-                                            className="bg-white p-6 rounded-[2rem] border-2 shadow-sm hover:border-primary hover:shadow-xl hover:-translate-y-1 transition-all text-left flex flex-col group"
+                                            className="bg-card text-card-foreground p-6 rounded-[2rem] border-2 border-border shadow-sm hover:border-primary hover:shadow-xl hover:-translate-y-1 transition-all text-left flex flex-col group"
                                         >
                                             <div className="size-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                                                 <BookOpen size={24} />
                                             </div>
-                                            <h4 className="text-lg font-black uppercase tracking-tighter italic leading-none mb-2">Bíblico</h4>
+                                            <h4 className="text-lg font-black uppercase tracking-tighter italic leading-none mb-2 text-foreground">Bíblico</h4>
                                             <p className="text-xs text-muted-foreground font-medium">Estudo e aprofundamento das Escrituras.</p>
                                         </button>
 
                                         <button
                                             type="button"
                                             onClick={() => setTrailFilter('teologico')}
-                                            className="bg-white p-6 rounded-[2rem] border-2 shadow-sm hover:border-primary hover:shadow-xl hover:-translate-y-1 transition-all text-left flex flex-col group"
+                                            className="bg-card text-card-foreground p-6 rounded-[2rem] border-2 border-border shadow-sm hover:border-primary hover:shadow-xl hover:-translate-y-1 transition-all text-left flex flex-col group"
                                         >
                                             <div className="size-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                                                 <GraduationCap size={24} />
                                             </div>
-                                            <h4 className="text-lg font-black uppercase tracking-tighter italic leading-none mb-2">Teológico</h4>
+                                            <h4 className="text-lg font-black uppercase tracking-tighter italic leading-none mb-2 text-foreground">Teológico</h4>
                                             <p className="text-xs text-muted-foreground font-medium">Doutrina sistemática e teologia prática.</p>
                                         </button>
 
                                         <button
                                             type="button"
                                             onClick={() => setTrailFilter('discipulado')}
-                                            className="bg-white p-6 rounded-[2rem] border-2 shadow-sm hover:border-primary hover:shadow-xl hover:-translate-y-1 transition-all text-left flex flex-col group"
+                                            className="bg-card text-card-foreground p-6 rounded-[2rem] border-2 border-border shadow-sm hover:border-primary hover:shadow-xl hover:-translate-y-1 transition-all text-left flex flex-col group"
                                         >
                                             <div className="size-12 bg-primary/10 text-primary rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                                                 <ListChecks size={24} />
                                             </div>
-                                            <h4 className="text-lg font-black uppercase tracking-tighter italic leading-none mb-2">Discipulado</h4>
+                                            <h4 className="text-lg font-black uppercase tracking-tighter italic leading-none mb-2 text-foreground">Discipulado</h4>
                                             <p className="text-xs text-muted-foreground font-medium">Crescimento, maturidade e caminhada cristã.</p>
                                         </button>
                                     </div>
@@ -908,9 +908,9 @@ function EnrollmentForm() {
                         <ChevronLeft className="mr-1 size-3" /> Escolher Outro Curso
                     </Button>
 
-                    <div className="bg-white p-6 rounded-[2rem] border-2 shadow-sm text-center">
-                        <Badge className="bg-slate-100 text-slate-800 border bg-primary/10 text-primary hover:bg-primary/20 mb-3">{selectedCourse?.ministryName}</Badge>
-                        <h3 className="text-2xl md:text-3xl font-black italic tracking-tighter uppercase mb-2 text-slate-900">{selectedCourse?.name}</h3>
+                    <div className="bg-card text-card-foreground p-6 rounded-[2rem] border-2 border-border shadow-sm text-center">
+                        <Badge className="bg-muted text-foreground border border-border mb-3">{selectedCourse?.ministryName}</Badge>
+                        <h3 className="text-2xl md:text-3xl font-black italic tracking-tighter uppercase mb-2 text-foreground">{selectedCourse?.name}</h3>
                         <p className="text-sm text-muted-foreground max-w-lg mx-auto leading-relaxed">{selectedCourse?.description}</p>
                     </div>
 
@@ -920,20 +920,20 @@ function EnrollmentForm() {
                         </Label>
 
                         {courseClasses.length > 0 ? (
-                            <div className="grid gap-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {courseClasses.map(cls => (
                                     <button
                                         key={cls.id}
                                         onClick={() => { setSelectedClassId(cls.id); nextStep(); }}
-                                        className="w-full bg-white p-5 rounded-2xl text-left border-2 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-primary hover:shadow-lg group"
+                                        className="w-full bg-card text-card-foreground p-5 rounded-2xl text-left border-2 border-border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-primary hover:shadow-lg group"
                                     >
                                         <div>
-                                            <p className="text-base font-black uppercase tracking-tighter text-slate-900">{cls.name}</p>
-                                            <div className="flex items-center gap-2 text-xs font-bold mt-1 uppercase text-slate-500">
+                                            <p className="text-base font-black uppercase tracking-tighter text-foreground">{cls.name}</p>
+                                            <div className="flex items-center gap-2 text-xs font-bold mt-1 uppercase text-muted-foreground">
                                                 <CalendarDays className="size-4" /> {cls.dayOfWeek} às {cls.startTime}
                                             </div>
                                         </div>
-                                        <div className="size-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-primary group-hover:text-white transition-colors shrink-0">
+                                        <div className="size-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground group-hover:bg-primary group-hover:text-white transition-colors shrink-0">
                                             <ArrowRight className="size-5" />
                                         </div>
                                     </button>

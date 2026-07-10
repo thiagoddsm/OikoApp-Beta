@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Users, DollarSign, CheckCircle2, AlertCircle, Phone, Mail, UserPlus, Check, X, CreditCard } from 'lucide-react';
+import { Loader2, Users, DollarSign, CheckCircle2, AlertCircle, Phone, Mail, UserPlus, Check, X, CreditCard, FileSpreadsheet, Printer } from 'lucide-react';
 import { PaymentStatusBadge } from '@/components/events/payment-status-badge';
 import { EventPaymentDialog } from '@/components/events/payment-dialog';
 
@@ -92,8 +92,8 @@ export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false,
   const filteredRegistrations = useMemo(() => {
     if (!rawRegistrations) return [];
 
-    const normalize = (str: string) => 
-      (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const normalize = (str: any) => 
+      String(str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
     const search = normalize(searchTerm.trim());
 
@@ -194,6 +194,67 @@ export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false,
     }
   };
 
+  const handleExportCSV = () => {
+    if (!filteredRegistrations || filteredRegistrations.length === 0) {
+      toast({ variant: 'destructive', title: 'Exportar Planilha', description: 'Nenhum registro para exportar.' });
+      return;
+    }
+
+    // Cabecalhos do CSV
+    const headers = [
+      'Nome do Participante',
+      'E-mail',
+      'Telefone',
+      'Acompanhante',
+      'Data de Inscricao',
+      'Status de Pagamento',
+      'Metodo',
+      'Valor Pago (R$)',
+      'Presenca',
+      'Respostas Personalizadas'
+    ];
+
+    // Mapeia cada linha dos participantes filtrados
+    const rows = filteredRegistrations.map(r => {
+      const answersStr = r.answers 
+        ? Object.entries(r.answers).map(([q, a]) => `${q}: ${a}`).join(' | ') 
+        : '';
+      
+      const dateStr = r.createdAt?.toDate 
+        ? r.createdAt.toDate().toLocaleDateString('pt-BR') 
+        : (r.createdAt instanceof Date ? r.createdAt.toLocaleDateString('pt-BR') : '');
+
+      return [
+        `"${String(r.userMetadata?.name || '').replace(/"/g, '""')}"`,
+        `"${String(r.userMetadata?.email || '').replace(/"/g, '""')}"`,
+        `"${String(r.userMetadata?.phone || '').replace(/"/g, '""')}"`,
+        `"${String(r.companionName || '-').replace(/"/g, '""')}"`,
+        `"${dateStr}"`,
+        `"${r.payment?.status === 'approved' ? 'Pago/Aprovado' : 'Pendente'}"`,
+        `"${String(r.payment?.method || '-').replace(/"/g, '""')}"`,
+        r.payment?.valuePaid || 0,
+        `"${r.attendance?.checkedIn ? 'Confirmado' : 'Ausente'}"`,
+        `"${answersStr.replace(/"/g, '""')}"`
+      ];
+    });
+
+    // Constroi a string CSV em formato UTF-8 com BOM (Byte Order Mark) para compatibilidade perfeita com o Microsoft Excel
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `inscricoes_evento_${eventId}_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportPDF = () => {
+    // Abre a tela de impressao nativa do navegador focando na tabela
+    window.print();
+  };
+
   if (isLoading) {
     return (
       <div className="flex h-48 w-full items-center justify-center">
@@ -259,13 +320,33 @@ export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false,
               <CardTitle className="text-slate-800 font-bold">Lista de Participantes</CardTitle>
               <CardDescription>Gerenciamento de pagamentos, credenciamento e presença.</CardDescription>
             </div>
-            <div className="w-full sm:w-64">
-              <Input
-                placeholder="Buscar participante..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="bg-slate-50 border-slate-200 focus-visible:ring-primary text-xs"
-              />
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleExportCSV}
+                className="text-xs font-bold gap-1.5 text-slate-700 border-slate-200 hover:bg-slate-50"
+              >
+                <FileSpreadsheet className="size-4 text-emerald-600" />
+                Exportar Planilha
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleExportPDF}
+                className="text-xs font-bold gap-1.5 text-slate-700 border-slate-200 hover:bg-slate-50"
+              >
+                <Printer className="size-4 text-blue-600" />
+                Exportar PDF
+              </Button>
+              <div className="w-full sm:w-64">
+                <Input
+                  placeholder="Buscar participante..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="bg-slate-50 border-slate-200 focus-visible:ring-primary text-xs"
+                />
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -478,6 +559,54 @@ export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false,
           eventTitle={eventTitle}
         />
       )}
+      {/* Print Styles para o PDF sair perfeito */}
+      <style jsx global>{`
+        @media print {
+          /* Esconde todo o layout do OikoApp (Sidebar, Header, botoes de acao) */
+          aside, 
+          header, 
+          nav, 
+          button, 
+          .flex-wrap, 
+          .grid-cols-1, 
+          .pb-4,
+          th:last-child, 
+          td:last-child {
+            display: none !important;
+          }
+          
+          /* Forca a tabela e o card a ocuparem largura total do papel */
+          body, 
+          main, 
+          .space-y-6, 
+          .bg-white,
+          .overflow-x-auto,
+          table {
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            background: transparent !important;
+            box-shadow: none !important;
+          }
+
+          /* Melhora o tamanho da fonte da tabela na impressao */
+          table th, table td {
+            font-size: 10px !important;
+            padding: 6px 8px !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+          }
+
+          /* Adiciona titulo do evento no topo da pagina impressa */
+          .pb-4::before {
+            content: "Lista de Inscritos - Evento";
+            display: block;
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 15px;
+          }
+        }
+      `}</style>
     </div>
   );
 }
