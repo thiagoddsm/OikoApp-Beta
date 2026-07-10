@@ -562,6 +562,22 @@ export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false,
       {/* Print Styles para o PDF sair perfeito */}
       <style jsx global>{`
         @media print {
+          /* Remove restricoes de altura e rolagem da tela do OikoApp na impressao */
+          html, 
+          body, 
+          #__next,
+          main,
+          [data-radix-scroll-area-viewport],
+          .h-screen,
+          .overflow-hidden,
+          .overflow-y-auto {
+            height: auto !important;
+            min-height: initial !important;
+            overflow: visible !important;
+            overflow-y: visible !important;
+            position: static !important;
+          }
+
           /* Esconde todo o layout do OikoApp (Sidebar, Header, botoes de acao) */
           aside, 
           header, 
@@ -576,8 +592,6 @@ export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false,
           }
           
           /* Forca a tabela e o card a ocuparem largura total do papel */
-          body, 
-          main, 
           .space-y-6, 
           .bg-white,
           .overflow-x-auto,
