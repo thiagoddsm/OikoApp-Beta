@@ -57,6 +57,7 @@ service cloud.firestore {
       allow write: if isAuthenticated();
     }
     match /pedagogical_logs/{document=**} { allow read, write: if isAuthenticated(); }
+    match /theoflix_quiz_attempts/{document=**} { allow read, write: if isAuthenticated(); }
     match /discipleship_checklists/{document=**} { allow read, write: if isAuthenticated(); }
     match /journey_stages/{document=**} { allow read, write: if isAuthenticated(); }
     match /journey_phase_requirements/{document=**} { allow read, write: if isAuthenticated(); }

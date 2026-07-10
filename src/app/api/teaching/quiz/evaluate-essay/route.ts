@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-
+import { genkit } from 'genkit';
+import { googleAI } from '@genkit-ai/google-genai';
 import { getAdminDb } from '@/lib/firebase-admin';
 
 export const runtime = 'nodejs';
@@ -39,6 +39,12 @@ export async function POST(request: Request) {
       );
     }
 
+    // Inicializa o Genkit localmente e de forma dinamica usando a chave carregada
+    const localAi = genkit({
+      plugins: [googleAI()],
+      model: 'googleai/gemini-1.5-flash', // Usa o modelo padrão rápido
+    });
+
     const prompt = `Você é um avaliador acadêmico preciso e construtivo.
 Sua tarefa é avaliar a resposta de um aluno para uma pergunta discursiva (ensaio).
 
@@ -55,7 +61,7 @@ Critérios de Avaliação:
 2. Defina "approved" como true se o score for maior ou igual a 70, e false caso contrário.
 3. Forneça um feedback construtivo e sucinto em português brasileiro explicando os pontos fortes, fracos e o motivo da nota.`;
 
-    const response = await ai.generate({
+    const response = await localAi.generate({
       prompt,
       output: {
         schema: z.object({
