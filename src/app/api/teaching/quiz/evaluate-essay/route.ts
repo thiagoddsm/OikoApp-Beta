@@ -2,10 +2,33 @@ import { NextResponse } from 'next/server';
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
 
+import { getAdminDb } from '@/lib/firebase-admin';
+
 export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   try {
+    // Carrega a chave de API do Gemini dinamicamente do banco se nao estiver no process.env
+    if (!process.env.GEMINI_API_KEY) {
+      try {
+        const db = getAdminDb();
+        const configSnap = await db.collection('config').doc('theoflix').get();
+        let key = configSnap.exists ? configSnap.data()?.youtubeApiKey || configSnap.data()?.geminiApiKey : null;
+        
+        if (!key) {
+          // Fallback para config geral de notificacoes
+          const notifySnap = await db.collection('config').doc('notifications').get();
+          key = notifySnap.exists ? notifySnap.data()?.geminiApiKey || notifySnap.data()?.googleApiKey : null;
+        }
+
+        if (key) {
+          process.env.GEMINI_API_KEY = key;
+        }
+      } catch (errDb) {
+        console.warn('Erro ao ler GEMINI_API_KEY do Firestore Admin:', errDb);
+      }
+    }
+
     const body = await request.json();
     const { questionText, studentAnswer, essayGabarito } = body;
 
