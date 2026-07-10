@@ -1,7 +1,8 @@
 export type Question = {
     question: string;
-    options: string[];
-    correctIndex: number;
+    type?: 'multiple' | 'essay';
+    options?: string[];
+    correctIndex?: number;
 };
 
 export type Episode = {

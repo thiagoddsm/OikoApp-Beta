@@ -440,8 +440,30 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                                                             <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                                                                 {(ep.quiz.questions || []).map((q, qIdx) => (
                                                                     <div key={qIdx} className="bg-white p-3 rounded-xl border border-primary/10 relative space-y-3">
-                                                                        <div className="flex justify-between items-start">
-                                                                            <span className="text-[9px] font-black text-primary/50">PERGUNTA {qIdx + 1}</span>
+                                                                        <div className="flex justify-between items-center">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className="text-[9px] font-black text-primary/50">PERGUNTA {qIdx + 1}</span>
+                                                                                <select
+                                                                                    value={q.type || 'multiple'}
+                                                                                    onChange={e => {
+                                                                                        const n = [...formCourse.episodes!];
+                                                                                        const typeVal = e.target.value as 'multiple' | 'essay';
+                                                                                        n[idx].quiz!.questions[qIdx].type = typeVal;
+                                                                                        if (typeVal === 'essay') {
+                                                                                            n[idx].quiz!.questions[qIdx].options = [];
+                                                                                            n[idx].quiz!.questions[qIdx].correctIndex = undefined;
+                                                                                        } else {
+                                                                                            n[idx].quiz!.questions[qIdx].options = ['', '', '', ''];
+                                                                                            n[idx].quiz!.questions[qIdx].correctIndex = 0;
+                                                                                        }
+                                                                                        setFormCourse(p => ({...p, episodes: n}));
+                                                                                    }}
+                                                                                    className="text-[9px] font-black uppercase tracking-tight bg-slate-100 border border-slate-200 text-slate-800 rounded px-1.5 py-0.5"
+                                                                                >
+                                                                                    <option value="multiple">Múltipla Escolha</option>
+                                                                                    <option value="essay">Discursiva (Texto)</option>
+                                                                                </select>
+                                                                            </div>
                                                                             <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={() => {
                                                                                 const n = [...formCourse.episodes!];
                                                                                 n[idx].quiz!.questions = n[idx].quiz!.questions.filter((_, i) => i !== qIdx);
@@ -460,35 +482,42 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                                                                                 setFormCourse(p => ({...p, episodes: n}));
                                                                             }}
                                                                         />
-                                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                                                            {[0, 1, 2, 3].map(optIdx => (
-                                                                                <div key={optIdx} className="flex items-center gap-2">
-                                                                                    <input 
-                                                                                        type="radio" 
-                                                                                        name={`correct-${idx}-${qIdx}`}
-                                                                                        checked={q.correctIndex === optIdx}
-                                                                                        onChange={() => {
-                                                                                            const n = [...formCourse.episodes!];
-                                                                                            n[idx].quiz!.questions[qIdx].correctIndex = optIdx;
-                                                                                            setFormCourse(p => ({...p, episodes: n}));
-                                                                                        }}
-                                                                                        className="size-3 text-primary"
-                                                                                    />
-                                                                                    <Input 
-                                                                                        placeholder={`Opção ${optIdx + 1}`} 
-                                                                                        className={cn("h-8 text-[10px]", q.correctIndex === optIdx && "border-primary bg-primary/5")}
-                                                                                        value={q.options[optIdx] || ''}
-                                                                                        onChange={e => {
-                                                                                            const n = [...formCourse.episodes!];
-                                                                                            const opts = [...n[idx].quiz!.questions[qIdx].options];
-                                                                                            opts[optIdx] = e.target.value;
-                                                                                            n[idx].quiz!.questions[qIdx].options = opts;
-                                                                                            setFormCourse(p => ({...p, episodes: n}));
-                                                                                        }}
-                                                                                    />
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
+                                                                        
+                                                                        {(q.type || 'multiple') === 'multiple' ? (
+                                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                                                {[0, 1, 2, 3].map(optIdx => (
+                                                                                    <div key={optIdx} className="flex items-center gap-2">
+                                                                                        <input 
+                                                                                            type="radio" 
+                                                                                            name={`correct-${idx}-${qIdx}`}
+                                                                                            checked={q.correctIndex === optIdx}
+                                                                                            onChange={() => {
+                                                                                                const n = [...formCourse.episodes!];
+                                                                                                n[idx].quiz!.questions[qIdx].correctIndex = optIdx;
+                                                                                                setFormCourse(p => ({...p, episodes: n}));
+                                                                                            }}
+                                                                                            className="size-3 text-primary"
+                                                                                        />
+                                                                                        <Input 
+                                                                                            placeholder={`Opção ${optIdx + 1}`} 
+                                                                                            className={cn("h-8 text-[10px]", q.correctIndex === optIdx && "border-primary bg-primary/5")}
+                                                                                            value={(q.options || [])[optIdx] || ''}
+                                                                                            onChange={e => {
+                                                                                                const n = [...formCourse.episodes!];
+                                                                                                const opts = [...(n[idx].quiz!.questions[qIdx].options || ['', '', '', ''])];
+                                                                                                opts[optIdx] = e.target.value;
+                                                                                                n[idx].quiz!.questions[qIdx].options = opts;
+                                                                                                setFormCourse(p => ({...p, episodes: n}));
+                                                                                            }}
+                                                                                        />
+                                                                                    </div>
+                                                                                ))}
+                                                                            </div>
+                                                                        ) : (
+                                                                            <p className="text-[10px] text-muted-foreground italic bg-slate-50 p-2 rounded-lg border border-dashed">
+                                                                                Pergunta discursiva. O aluno responderá digitando um texto aberto livremente.
+                                                                            </p>
+                                                                        )}
                                                                     </div>
                                                                 ))}
                                                                 <Button 
@@ -497,7 +526,7 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                                                                     className="w-full h-8 text-[10px] font-black uppercase border-2 border-dashed border-primary/20 text-primary hover:bg-primary/5"
                                                                     onClick={() => {
                                                                         const n = [...formCourse.episodes!];
-                                                                        n[idx].quiz!.questions.push({ question: '', options: ['', '', '', ''], correctIndex: 0 });
+                                                                        n[idx].quiz!.questions.push({ question: '', type: 'multiple', options: ['', '', '', ''], correctIndex: 0 });
                                                                         setFormCourse(p => ({...p, episodes: n}));
                                                                     }}
                                                                 >

@@ -95,7 +95,7 @@ function TheoFlixContent() {
   
   // Quiz states
   const [isQuizOpen, setIsQuizOpen] = useState(false);
-  const [quizAnswers, setQuizAnswers] = useState<number[]>([]);
+  const [quizAnswers, setQuizAnswers] = useState<(number | string)[]>([]);
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState(0);
   const { data: theoflixConfig } = useDoc<any>('config/theoflix');
@@ -218,15 +218,30 @@ function TheoFlixContent() {
     // Check for quiz
     if (currentEpisode.quiz?.enabled && currentEpisode.quiz.questions?.length > 0 && !quizSubmitted) {
         setIsQuizOpen(true);
-        setQuizAnswers(new Array(currentEpisode.quiz.questions.length).fill(-1));
+        // Inicializa com string vazia para essay (discursiva) e -1 para multipla escolha
+        setQuizAnswers(currentEpisode.quiz.questions.map(q => q.type === 'essay' ? '' : -1));
         return;
     }
 
     const episodeIndex = selectedCourse.episodes.findIndex(e => e.youtubeId === currentEpisode.youtubeId);
     const episodeKey = currentEpisode.youtubeId || currentEpisode.title.replace(/\s+/g, '_');
     
+    // Salva as respostas discursivas se houver
+    const essayAnswers: Record<string, string> = {};
+    if (currentEpisode.quiz?.enabled && currentEpisode.quiz.questions) {
+        currentEpisode.quiz.questions.forEach((q, idx) => {
+            if (q.type === 'essay' && quizAnswers[idx]) {
+                essayAnswers[`q_${idx}`] = String(quizAnswers[idx]);
+            }
+        });
+    }
+
     updateDocumentNonBlocking(doc(firestore, 'users', user.uid), {
-      [`journey.theoflixProgress.${selectedCourse.id}.${episodeKey}`]: true
+      [`journey.theoflixProgress.${selectedCourse.id}.${episodeKey}`]: true,
+      // Grava no histórico se o aluno submeteu respostas discursivas neste quiz
+      ...(Object.keys(essayAnswers).length > 0 && {
+        [`journey.theoflixEssayAnswers.${selectedCourse.id}.${episodeKey}`]: essayAnswers
+      })
     });
 
     if (episodeIndex > -1) {
@@ -242,7 +257,12 @@ function TheoFlixContent() {
       const questions = currentEpisode.quiz.questions;
       let correct = 0;
       questions.forEach((q, i) => {
-          if (quizAnswers[i] === q.correctIndex) correct++;
+          if (q.type === 'essay') {
+              // Discursivas sao validadas automaticamente para aprovar o quiz do video
+              correct++;
+          } else if (quizAnswers[i] === q.correctIndex) {
+              correct++;
+          }
       });
       const score = Math.round((correct / questions.length) * 100);
       const minScore = theoflixConfig?.quizMinScore || 70;
@@ -680,27 +700,51 @@ function TheoFlixContent() {
                                   {q.question}
                               </h4>
                               <div className="grid grid-cols-1 gap-2 pl-9">
-                                  {q.options.map((opt, optIdx) => (
-                                      <button
-                                          key={optIdx}
-                                          disabled={quizSubmitted}
-                                          onClick={() => {
-                                              const n = [...quizAnswers];
-                                              n[idx] = optIdx;
-                                              setQuizAnswers(n);
-                                          }}
-                                          className={cn(
-                                              "p-3 rounded-xl border-2 text-left text-sm transition-all font-medium",
-                                              quizAnswers[idx] === optIdx 
-                                                ? "border-primary bg-primary/5 text-primary" 
-                                                : "border-slate-100 hover:border-slate-200 text-slate-600",
-                                              quizSubmitted && optIdx === q.correctIndex && "bg-emerald-50 border-emerald-500 text-emerald-700",
-                                              quizSubmitted && quizAnswers[idx] === optIdx && optIdx !== q.correctIndex && "bg-rose-50 border-rose-500 text-rose-700"
+                                  {(q.type || 'multiple') === 'multiple' ? (
+                                      (q.options || []).map((opt, optIdx) => (
+                                          <button
+                                              key={optIdx}
+                                              disabled={quizSubmitted}
+                                              onClick={() => {
+                                                  const n = [...quizAnswers];
+                                                  n[idx] = optIdx;
+                                                  setQuizAnswers(n);
+                                              }}
+                                              className={cn(
+                                                  "p-3 rounded-xl border-2 text-left text-sm transition-all font-medium",
+                                                  quizAnswers[idx] === optIdx 
+                                                    ? "border-primary bg-primary/5 text-primary" 
+                                                    : "border-slate-100 hover:border-slate-200 text-slate-600",
+                                                  quizSubmitted && optIdx === q.correctIndex && "bg-emerald-50 border-emerald-500 text-emerald-700",
+                                                  quizSubmitted && quizAnswers[idx] === optIdx && optIdx !== q.correctIndex && "bg-rose-50 border-rose-500 text-rose-700"
+                                              )}
+                                          >
+                                              {opt}
+                                          </button>
+                                      ))
+                                  ) : (
+                                      <div className="space-y-2">
+                                          <Textarea
+                                              disabled={quizSubmitted}
+                                              value={String(quizAnswers[idx] || '')}
+                                              onChange={(e) => {
+                                                  const n = [...quizAnswers];
+                                                  n[idx] = e.target.value;
+                                                  setQuizAnswers(n);
+                                              }}
+                                              placeholder="Digite sua resposta aqui..."
+                                              className={cn(
+                                                  "bg-white border-slate-200 text-slate-800 text-xs sm:text-sm h-24 rounded-xl focus-visible:ring-primary",
+                                                  quizSubmitted && "bg-slate-100 text-slate-600 cursor-not-allowed"
+                                              )}
+                                          />
+                                          {quizSubmitted && (
+                                              <p className="text-[10px] text-emerald-600 font-bold uppercase flex items-center gap-1">
+                                                  <CheckCircle2 className="size-3" /> Resposta registrada com sucesso!
+                                              </p>
                                           )}
-                                      >
-                                          {opt}
-                                      </button>
-                                  ))}
+                                      </div>
+                                  )}
                               </div>
                           </div>
                       ))}
@@ -711,7 +755,14 @@ function TheoFlixContent() {
                   {!quizSubmitted ? (
                       <Button 
                           onClick={handleQuizSubmit} 
-                          disabled={quizAnswers.includes(-1)}
+                          disabled={quizAnswers.some((ans, qIdx) => {
+                              const q = currentEpisode?.quiz?.questions?.[qIdx];
+                              if (!q) return true;
+                              if (q.type === 'essay') {
+                                  return !ans || String(ans).trim().length < 3;
+                              }
+                              return ans === -1;
+                          })}
                           className="w-full h-14 rounded-2xl font-black text-base uppercase tracking-widest"
                       >
                           Finalizar Teste
@@ -747,7 +798,7 @@ function TheoFlixContent() {
                               <Button 
                                   onClick={() => {
                                       setQuizSubmitted(false);
-                                      setQuizAnswers(new Array(currentEpisode?.quiz?.questions?.length || 0).fill(-1));
+                                      setQuizAnswers(currentEpisode?.quiz?.questions?.map(q => q.type === 'essay' ? '' : -1) || []);
                                   }}
                                   variant="outline"
                                   className="w-full h-14 rounded-2xl font-black text-base uppercase tracking-widest"
