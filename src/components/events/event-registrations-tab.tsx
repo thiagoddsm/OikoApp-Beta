@@ -200,7 +200,10 @@ export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false,
       return;
     }
 
-    // Cabecalhos do CSV
+    // Carrega perguntas customizadas do evento
+    const questions = eventData?.customQuestions || [];
+
+    // Cabecalhos base do CSV
     const headers = [
       'Nome do Participante',
       'E-mail',
@@ -211,20 +214,17 @@ export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false,
       'Metodo',
       'Valor Pago (R$)',
       'Presenca',
-      'Respostas Personalizadas'
+      // Adiciona dinamicamente cada pergunta customizada como coluna dedicada
+      ...questions.map((q: any) => `"${q.label.replace(/"/g, '""')}"`)
     ];
 
     // Mapeia cada linha dos participantes filtrados
     const rows = filteredRegistrations.map(r => {
-      const answersStr = r.answers 
-        ? Object.entries(r.answers).map(([q, a]) => `${q}: ${a}`).join(' | ') 
-        : '';
-      
       const dateStr = r.createdAt?.toDate 
         ? r.createdAt.toDate().toLocaleDateString('pt-BR') 
         : (r.createdAt instanceof Date ? r.createdAt.toLocaleDateString('pt-BR') : '');
 
-      return [
+      const baseColumns = [
         `"${String(r.userMetadata?.name || '').replace(/"/g, '""')}"`,
         `"${String(r.userMetadata?.email || '').replace(/"/g, '""')}"`,
         `"${String(r.userMetadata?.phone || '').replace(/"/g, '""')}"`,
@@ -233,9 +233,16 @@ export function EventRegistrationsTab({ eventId, eventPrice = 0, isPaid = false,
         `"${r.payment?.status === 'approved' ? 'Pago/Aprovado' : 'Pendente'}"`,
         `"${String(r.payment?.method || '-').replace(/"/g, '""')}"`,
         r.payment?.valuePaid || 0,
-        `"${r.attendance?.checkedIn ? 'Confirmado' : 'Ausente'}"`,
-        `"${answersStr.replace(/"/g, '""')}"`
+        `"${r.attendance?.checkedIn ? 'Confirmado' : 'Ausente'}"`
       ];
+
+      // Puxa as respostas customizadas pareadas com os cabecalhos de perguntas
+      const customAnswersColumns = questions.map((q: any) => {
+        const answer = (r as any).customAnswers?.[q.id] || '';
+        return `"${String(answer).replace(/"/g, '""')}"`;
+      });
+
+      return [...baseColumns, ...customAnswersColumns];
     });
 
     // Constroi a string CSV em formato UTF-8 com BOM (Byte Order Mark) para compatibilidade perfeita com o Microsoft Excel
