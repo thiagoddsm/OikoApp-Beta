@@ -81,9 +81,13 @@ Critérios de Avaliação:
 
     return NextResponse.json(response.output);
   } catch (error: any) {
-    console.error('Erro na avaliação de redação/resposta discursiva:', error);
+    console.error('Erro detalhado na avaliação de redação/resposta discursiva:', error);
     return NextResponse.json(
-      { error: error.message || 'Erro interno no servidor' },
+      { 
+        error: error.message || 'Erro interno no servidor',
+        stack: error.stack || null,
+        details: JSON.stringify(error, Object.getOwnPropertyNames(error))
+      },
       { status: 500 }
     );
   }
