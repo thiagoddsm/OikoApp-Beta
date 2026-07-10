@@ -514,9 +514,42 @@ export function TheoflixManager({ open, onOpenChange, existingCourses, existingL
                                                                                 ))}
                                                                             </div>
                                                                         ) : (
-                                                                            <p className="text-[10px] text-muted-foreground italic bg-slate-50 p-2 rounded-lg border border-dashed">
-                                                                                Pergunta discursiva. O aluno responderá digitando um texto aberto livremente.
-                                                                            </p>
+                                                                            <div className="space-y-2 bg-slate-50 p-3 rounded-lg border border-dashed text-xs">
+                                                                                <p className="text-[10px] text-muted-foreground italic">
+                                                                                    Pergunta discursiva. O aluno responderá digitando um texto aberto livremente.
+                                                                                </p>
+                                                                                <div className="flex items-center gap-2 mt-1">
+                                                                                    <input
+                                                                                        type="checkbox"
+                                                                                        id={`aiActive-${idx}-${qIdx}`}
+                                                                                        checked={q.aiActive || false}
+                                                                                        onChange={e => {
+                                                                                            const n = [...formCourse.episodes!];
+                                                                                            n[idx].quiz!.questions[qIdx].aiActive = e.target.checked;
+                                                                                            setFormCourse(p => ({...p, episodes: n}));
+                                                                                        }}
+                                                                                        className="size-3.5 rounded border-gray-300 text-primary focus:ring-primary"
+                                                                                    />
+                                                                                    <label htmlFor={`aiActive-${idx}-${qIdx}`} className="text-[10px] font-bold text-slate-700">
+                                                                                        Ativar Correção por IA (Gemini)
+                                                                                    </label>
+                                                                                </div>
+                                                                                {q.aiActive && (
+                                                                                    <div className="mt-2 space-y-1">
+                                                                                        <label className="text-[9px] font-black text-slate-500 uppercase">Gabarito / Critérios Sugeridos (Opcional)</label>
+                                                                                        <Input
+                                                                                            placeholder="Ex: A resposta deve mencionar arrependimento, batismo e o Espírito Santo..."
+                                                                                            className="h-8 text-[10px]"
+                                                                                            value={q.essayGabarito || ''}
+                                                                                            onChange={e => {
+                                                                                                const n = [...formCourse.episodes!];
+                                                                                                n[idx].quiz!.questions[qIdx].essayGabarito = e.target.value;
+                                                                                                setFormCourse(p => ({...p, episodes: n}));
+                                                                                            }}
+                                                                                        />
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
                                                                         )}
                                                                     </div>
                                                                 ))}

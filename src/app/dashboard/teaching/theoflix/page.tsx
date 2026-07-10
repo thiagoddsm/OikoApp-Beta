@@ -27,9 +27,9 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { theoflixDB, type Course, type Episode } from '@/lib/theoflix-data';
-import { Play, Info, Plus, Lock, Search, Clock, CheckCircle2, PlayCircle, Star, Heart, X, Settings, Loader2, ArrowLeft, CheckCircle, BookCheck, DatabaseZap } from 'lucide-react';
+import { Play, Info, Plus, Lock, Search, Clock, CheckCircle2, PlayCircle, Star, Heart, X, Settings, Loader2, ArrowLeft, CheckCircle, BookCheck, DatabaseZap, Link as LinkIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useFirebase, useCollection, useMemoFirebase, useDoc, updateDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, useDoc, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
 import { collection, query, doc, orderBy } from 'firebase/firestore';
 import { TheoflixManager } from '@/components/teaching/theoflix/theoflix-manager';
 import { useToast } from '@/hooks/use-toast';
@@ -98,6 +98,8 @@ function TheoFlixContent() {
   const [quizAnswers, setQuizAnswers] = useState<(number | string)[]>([]);
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState(0);
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [quizFeedback, setQuizFeedback] = useState<string>('');
   const { data: theoflixConfig } = useDoc<any>('config/theoflix');
 
   const playerRef = useRef<any>(null);
@@ -178,6 +180,30 @@ function TheoFlixContent() {
     return parts.join(' ');
   };
 
+  const currentLessonMaterial = useMemo(() => {
+    if (!selectedCourse || !currentEpisode || !courses) return null;
+    
+    const epIdx = selectedCourse.episodes.findIndex(ep => ep.title === currentEpisode.title);
+    if (epIdx === -1) return null;
+
+    const physicalCourse = courses.find((pc: any) => 
+        pc.linkedTheoflixId === selectedCourse.id || pc.id === selectedCourse.id
+    );
+    const syllabus = physicalCourse?.syllabus || [];
+    const matchedMod = syllabus.find((mod: any) => 
+        mod.theoflixCourseId === selectedCourse.id &&
+        mod.theoflixRequiredVideoIds?.includes(epIdx.toString())
+    );
+
+    if ((matchedMod as any)?.materialUrl && (matchedMod as any)?.materialName) {
+        return {
+            name: (matchedMod as any).materialName,
+            url: (matchedMod as any).materialUrl
+        };
+    }
+    return null;
+  }, [selectedCourse, currentEpisode, courses]);
+
   const [isApiReady, setIsApiReady] = useState(false);
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -252,33 +278,101 @@ function TheoFlixContent() {
     toast({ title: "Aula Concluída! 🎉", description: "Seu progresso e anotações foram salvos com sucesso." });
   };
 
-  const handleQuizSubmit = () => {
+  const handleQuizSubmit = async () => {
       if (!currentEpisode?.quiz?.questions) return;
       const questions = currentEpisode.quiz.questions;
-      let correct = 0;
-      questions.forEach((q, i) => {
-          if (q.type === 'essay') {
-              // Discursivas sao validadas automaticamente para aprovar o quiz do video
-              correct++;
-          } else if (quizAnswers[i] === q.correctIndex) {
-              correct++;
+      
+      setIsEvaluating(true);
+      setQuizFeedback('');
+
+      try {
+          const questionScores: number[] = [];
+          const feedbacks: string[] = [];
+
+          for (let i = 0; i < questions.length; i++) {
+              const q = questions[i];
+              const answer = quizAnswers[i];
+
+              if (q.type === 'essay') {
+                  if (q.aiActive) {
+                      const res = await fetch('/api/teaching/quiz/evaluate-essay', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                              questionText: q.question,
+                              studentAnswer: String(answer || ''),
+                              essayGabarito: q.essayGabarito
+                          })
+                      });
+                      if (!res.ok) {
+                          throw new Error('Falha na comunicação com o servidor de IA.');
+                      }
+                      const evaluation = await res.json();
+                      questionScores.push(evaluation.score);
+                      if (evaluation.feedback) {
+                          feedbacks.push(`Questão ${i + 1}: ${evaluation.feedback}`);
+                      }
+                  } else {
+                      const hasContent = String(answer || '').trim().length > 0;
+                      questionScores.push(hasContent ? 100 : 0);
+                  }
+              } else {
+                  const isCorrect = answer === q.correctIndex;
+                  questionScores.push(isCorrect ? 100 : 0);
+              }
           }
-      });
-      const score = Math.round((correct / questions.length) * 100);
-      const minScore = theoflixConfig?.quizMinScore || 70;
 
-      setQuizScore(score);
-      setQuizSubmitted(true);
+          const sum = questionScores.reduce((a, b) => a + b, 0);
+          const score = Math.round(sum / questions.length);
+          const minScore = theoflixConfig?.quizMinScore || 70;
+          const finalFeedback = feedbacks.join('\n\n');
 
-      if (score >= minScore) {
-          toast({ title: "Aprovado!", description: `Você acertou ${score}% do teste.` });
-          // Automatically mark lesson as completed and save presence when user is approved
-          setTimeout(() => {
-              setIsQuizOpen(false);
-              handleMarkAsCompleted();
-          }, 1500);
-      } else {
-          toast({ variant: 'destructive', title: "Tente novamente", description: `Sua nota (${score}%) foi abaixo do mínimo (${minScore}%).` });
+          setQuizScore(score);
+          setQuizFeedback(finalFeedback);
+          setQuizSubmitted(true);
+
+          // Save attempt to firestore
+          if (user && firestore && selectedCourse) {
+              addDocumentNonBlocking(collection(firestore, 'theoflix_quiz_attempts'), {
+                  userId: user.uid,
+                  userName: userData?.name || user.displayName || user.email || 'Aluno',
+                  userEmail: user.email || '',
+                  courseId: selectedCourse.id,
+                  courseTitle: selectedCourse.title,
+                  episodeId: currentEpisode.youtubeId || currentEpisode.title.replace(/\s+/g, '_'),
+                  episodeTitle: currentEpisode.title,
+                  score,
+                  minScore,
+                  approved: score >= minScore,
+                  answers: quizAnswers,
+                  questions: questions.map((q, idx) => ({
+                      ...q,
+                      obtainedScore: questionScores[idx]
+                  })),
+                  aiFeedback: finalFeedback || null,
+                  submittedAt: new Date().toISOString()
+              });
+          }
+
+          if (score >= minScore) {
+              toast({ title: "Aprovado!", description: `Você atingiu a nota ${score}%.` });
+              // Automatically mark lesson as completed and save presence when user is approved
+              setTimeout(() => {
+                  setIsQuizOpen(false);
+                  handleMarkAsCompleted();
+              }, 3000);
+          } else {
+              toast({ variant: 'destructive', title: "Tente novamente", description: `Sua nota (${score}%) foi abaixo do mínimo (${minScore}%).` });
+          }
+      } catch (error: any) {
+          console.error("Erro ao avaliar quiz:", error);
+          toast({
+              variant: 'destructive',
+              title: "Erro na avaliação",
+              description: error.message || "Ocorreu um erro ao processar o seu teste. Tente novamente."
+          });
+      } finally {
+          setIsEvaluating(false);
       }
   };
 
@@ -632,6 +726,25 @@ function TheoFlixContent() {
                     </section>
                 </div>
                 <div className="space-y-6 sm:space-y-10">
+                     {currentLessonMaterial && (
+                         <div className="p-4 bg-emerald-950/40 rounded-2xl border border-emerald-500/20 space-y-3 animate-in fade-in duration-300">
+                             <div className="flex items-center gap-2">
+                                 <LinkIcon className="size-4 text-emerald-400 shrink-0" />
+                                 <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Material de Apoio</span>
+                             </div>
+                             <p className="text-xs text-slate-300 font-medium">Esta aula possui material disponível para download ou leitura.</p>
+                             <Button 
+                                 asChild 
+                                 variant="outline" 
+                                 size="sm" 
+                                 className="w-full text-xs font-bold gap-2 text-emerald-400 border-emerald-500/30 bg-emerald-950/20 hover:bg-emerald-950/60"
+                             >
+                                 <a href={currentLessonMaterial.url} target="_blank" rel="noopener noreferrer">
+                                     Acessar: {currentLessonMaterial.name}
+                                 </a>
+                             </Button>
+                         </div>
+                     )}
                      <div className="space-y-4">
                         <Label className="text-xs font-black uppercase text-slate-400 tracking-widest">Observações da Aula</Label>
                         <Textarea 
@@ -704,7 +817,7 @@ function TheoFlixContent() {
                                       (q.options || []).map((opt, optIdx) => (
                                           <button
                                               key={optIdx}
-                                              disabled={quizSubmitted}
+                                              disabled={quizSubmitted || isEvaluating}
                                               onClick={() => {
                                                   const n = [...quizAnswers];
                                                   n[idx] = optIdx;
@@ -725,7 +838,7 @@ function TheoFlixContent() {
                                   ) : (
                                       <div className="space-y-2">
                                           <Textarea
-                                              disabled={quizSubmitted}
+                                              disabled={quizSubmitted || isEvaluating}
                                               value={String(quizAnswers[idx] || '')}
                                               onChange={(e) => {
                                                   const n = [...quizAnswers];
@@ -735,7 +848,7 @@ function TheoFlixContent() {
                                               placeholder="Digite sua resposta aqui..."
                                               className={cn(
                                                   "bg-white border-slate-200 text-slate-800 text-xs sm:text-sm h-24 rounded-xl focus-visible:ring-primary",
-                                                  quizSubmitted && "bg-slate-100 text-slate-600 cursor-not-allowed"
+                                                  (quizSubmitted || isEvaluating) && "bg-slate-100 text-slate-600 cursor-not-allowed"
                                               )}
                                           />
                                           {quizSubmitted && (
@@ -755,7 +868,7 @@ function TheoFlixContent() {
                   {!quizSubmitted ? (
                       <Button 
                           onClick={handleQuizSubmit} 
-                          disabled={quizAnswers.some((ans, qIdx) => {
+                          disabled={isEvaluating || quizAnswers.some((ans, qIdx) => {
                               const q = currentEpisode?.quiz?.questions?.[qIdx];
                               if (!q) return true;
                               if (q.type === 'essay') {
@@ -765,7 +878,14 @@ function TheoFlixContent() {
                           })}
                           className="w-full h-14 rounded-2xl font-black text-base uppercase tracking-widest"
                       >
-                          Finalizar Teste
+                          {isEvaluating ? (
+                              <>
+                                  <Loader2 className="mr-2 size-5 animate-spin" />
+                                  Avaliando com IA...
+                              </>
+                          ) : (
+                              "Finalizar Teste"
+                          )}
                       </Button>
                   ) : (
                       <div className="space-y-4">
@@ -783,6 +903,13 @@ function TheoFlixContent() {
                                     : `Nota mínima: ${theoflixConfig?.quizMinScore || 70}%`}
                               </p>
                           </div>
+
+                          {quizFeedback && (
+                              <div className="p-4 rounded-2xl bg-white border border-slate-200 text-slate-800 text-xs text-left max-h-40 overflow-y-auto">
+                                  <p className="font-black uppercase text-[9px] text-primary mb-1">Feedback Detalhado (IA):</p>
+                                  <p className="whitespace-pre-wrap font-medium">{quizFeedback}</p>
+                              </div>
+                          )}
                           
                           {quizScore >= (theoflixConfig?.quizMinScore || 70) ? (
                               <Button 
@@ -808,7 +935,7 @@ function TheoFlixContent() {
                           )}
                       </div>
                   )}
-                  <Button variant="ghost" onClick={() => setIsQuizOpen(false)} className="text-xs font-bold text-muted-foreground uppercase">Responder depois</Button>
+                  <Button variant="ghost" onClick={() => setIsQuizOpen(false)} disabled={isEvaluating} className="text-xs font-bold text-muted-foreground uppercase">Responder depois</Button>
               </div>
           </DialogContent>
       </Dialog>

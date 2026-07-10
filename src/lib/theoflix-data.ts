@@ -3,6 +3,8 @@ export type Question = {
     type?: 'multiple' | 'essay';
     options?: string[];
     correctIndex?: number;
+    aiActive?: boolean;
+    essayGabarito?: string;
 };
 
 export type Episode = {

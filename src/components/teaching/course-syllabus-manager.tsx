@@ -33,6 +33,8 @@ type SyllabusModule = {
   description: string;
   theoflixCourseId?: string; // The parent TheoFlix course
   theoflixRequiredVideoIds?: string[]; // Specific videos that must be watched to get attendance
+  materialName?: string; // Ex: PDF Apostila Aula 1
+  materialUrl?: string; // Link direto do arquivo
 };
 
 interface CourseSyllabusManagerProps {
@@ -53,6 +55,8 @@ export function CourseSyllabusManager({ course }: CourseSyllabusManagerProps) {
   const [formDescription, setFormDescription] = useState('');
   const [formTheoflixId, setFormTheoflixId] = useState('none');
   const [formSelectedVideos, setFormSelectedVideos] = useState<string[]>([]);
+  const [formMaterialName, setFormMaterialName] = useState('');
+  const [formMaterialUrl, setFormMaterialUrl] = useState('');
 
   useEffect(() => {
     if (course.syllabus) {
@@ -91,7 +95,9 @@ export function CourseSyllabusManager({ course }: CourseSyllabusManagerProps) {
               title: formTitle, 
               description: formDescription,
               theoflixCourseId: formTheoflixId === 'none' ? undefined : formTheoflixId,
-              theoflixRequiredVideoIds: formTheoflixId === 'none' ? [] : formSelectedVideos
+              theoflixRequiredVideoIds: formTheoflixId === 'none' ? [] : formSelectedVideos,
+              materialName: formMaterialName.trim() || undefined,
+              materialUrl: formMaterialUrl.trim() || undefined
             } 
           : m
       ));
@@ -102,7 +108,9 @@ export function CourseSyllabusManager({ course }: CourseSyllabusManagerProps) {
         title: formTitle,
         description: formDescription,
         theoflixCourseId: formTheoflixId === 'none' ? undefined : formTheoflixId,
-        theoflixRequiredVideoIds: formTheoflixId === 'none' ? [] : formSelectedVideos
+        theoflixRequiredVideoIds: formTheoflixId === 'none' ? [] : formSelectedVideos,
+        materialName: formMaterialName.trim() || undefined,
+        materialUrl: formMaterialUrl.trim() || undefined
       };
       setModules(prev => [...prev, newModule]);
     }
@@ -111,6 +119,8 @@ export function CourseSyllabusManager({ course }: CourseSyllabusManagerProps) {
     setFormDescription('');
     setFormTheoflixId('none');
     setFormSelectedVideos([]);
+    setFormMaterialName('');
+    setFormMaterialUrl('');
   };
 
   const handleEdit = (mod: SyllabusModule) => {
@@ -119,6 +129,8 @@ export function CourseSyllabusManager({ course }: CourseSyllabusManagerProps) {
     setFormDescription(mod.description || '');
     setFormTheoflixId(mod.theoflixCourseId || 'none');
     setFormSelectedVideos(mod.theoflixRequiredVideoIds || []);
+    setFormMaterialName(mod.materialName || '');
+    setFormMaterialUrl(mod.materialUrl || '');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -223,6 +235,29 @@ export function CourseSyllabusManager({ course }: CourseSyllabusManagerProps) {
 
                 <p className="text-[9px] text-indigo-600/70 leading-tight">
                     O aluno receberá presença automática se assistir a <strong>todos</strong> os vídeos selecionados acima no TheoFlix.
+                </p>
+            </div>
+
+            <div className="space-y-3 p-3 bg-emerald-50 border border-emerald-100 rounded-lg">
+                <Label className="text-[10px] font-black uppercase text-emerald-700 tracking-widest flex items-center gap-1.5">
+                    <LinkIcon className="size-3" /> Material de Apoio (Opcional)
+                </Label>
+                <div className="space-y-2">
+                    <Input 
+                        placeholder="Nome do Material (Ex: Apostila Aula 1)" 
+                        className="h-8 text-[10px] bg-white border-emerald-200"
+                        value={formMaterialName}
+                        onChange={e => setFormMaterialName(e.target.value)}
+                    />
+                    <Input 
+                        placeholder="Link do Material (URL do PDF/Google Drive)" 
+                        className="h-8 text-[10px] bg-white border-emerald-200"
+                        value={formMaterialUrl}
+                        onChange={e => setFormMaterialUrl(e.target.value)}
+                    />
+                </div>
+                <p className="text-[9px] text-emerald-600/70 leading-tight">
+                    Cole o link direto do PDF ou uma pasta no Google Drive com os slides e apostilas da aula.
                 </p>
             </div>
 
