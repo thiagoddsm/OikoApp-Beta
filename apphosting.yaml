@@ -7,7 +7,7 @@ env:
     value: AIzaSyCRnfTI9q7BHndavVzl5wDAaehjLBlxMVc
 
   - variable: GEMINI_API_KEY
-    value: AIzaSyDeMWIHIDKVeQV97Qc4HlraUtfFSwBonmA
+    secret: GEMINI_API_KEY
 
 build:
   run: NODE_ENV=production next build
