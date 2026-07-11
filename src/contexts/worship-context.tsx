@@ -75,6 +75,7 @@ export type WorshipPlan = {
   tenantId: string;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
+  isVirtual?: boolean;
 };
 
 export type LibrarySong = {

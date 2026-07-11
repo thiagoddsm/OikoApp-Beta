@@ -54,7 +54,7 @@ import {
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useEventsData, useMembersData } from '@/hooks/useDomainData';
+import { useEventsData, useMembersData, useVolunteeringServiceData } from '@/hooks/useDomainData';
 import { useFirebase } from '@/firebase';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -64,9 +64,11 @@ function PlansList() {
   const router = useRouter();
   const { plans, isLoading, createPlan, deletePlan } = useWorship();
   const { events } = useEventsData();
+  const { savedSchedules } = useVolunteeringServiceData();
   const { toast } = useToast();
   const [createOpen, setCreateOpen] = useState(false);
   const [form, setForm] = useState({ title: '', date: '', startTime: '09:00', serviceEventId: '' });
+  const [creatingVirtualId, setCreatingVirtualId] = useState<string | null>(null);
 
   const handleCreate = async () => {
     if (!form.title || !form.date) return;
@@ -84,13 +86,97 @@ function PlansList() {
     router.push(`/dashboard/volunteering/worship/${id}`);
   };
 
+  const handleCreateVirtual = async (virtualPlan: WorshipPlan) => {
+    if (creatingVirtualId) return;
+    setCreatingVirtualId(virtualPlan.id);
+    try {
+      const matchedEvent = events.find(e => e.name === virtualPlan.title);
+      const newId = await createPlan({
+        title: virtualPlan.title,
+        date: virtualPlan.date,
+        startTime: virtualPlan.startTime,
+        serviceEventId: matchedEvent?.id || undefined,
+        serviceEventName: virtualPlan.title,
+        items: [],
+      });
+      toast({ title: 'Plano criado!' });
+      router.push(`/dashboard/volunteering/worship/${newId}`);
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Erro ao criar plano.', variant: 'destructive' });
+    } finally {
+      setCreatingVirtualId(null);
+    }
+  };
+
   const handleDelete = async (plan: WorshipPlan) => {
     await deletePlan(plan.id);
     toast({ title: 'Plano excluído.' });
   };
 
-  const grouped = plans.reduce<Record<string, WorshipPlan[]>>((acc, plan) => {
-    const key = plan.date ? plan.date.slice(0, 7) : 'sem-data';
+  const parseDateRobust = (dateStr: string): Date | null => {
+    if (!dateStr) return null;
+    if (dateStr.includes('/')) {
+      const parts = dateStr.split('/');
+      if (parts.length === 3) {
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const year = parseInt(parts[2], 10);
+        const d = new Date(year, month, day);
+        return isNaN(d.getTime()) ? null : d;
+      }
+    }
+    const d = parseISO(dateStr);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  const virtualPlans = useMemo(() => {
+    const occurrences = new Map<string, { date: string; eventName: string }>();
+    savedSchedules.forEach(saved => {
+      if (saved.schedule && Array.isArray(saved.schedule)) {
+        saved.schedule.forEach(item => {
+          if (item.date && item.eventName) {
+            const key = `${item.date}_${item.eventName}`;
+            occurrences.set(key, { date: item.date, eventName: item.eventName });
+          }
+        });
+      }
+    });
+
+    const list: WorshipPlan[] = [];
+    occurrences.forEach(({ date, eventName }) => {
+      const hasPhysical = plans.some(
+        plan =>
+          plan.date === date &&
+          (plan.title === eventName || plan.serviceEventName === eventName)
+      );
+      if (!hasPhysical) {
+        list.push({
+          id: `virtual-${date}-${eventName}`,
+          title: eventName,
+          date,
+          startTime: '18:00',
+          isVirtual: true,
+          items: [],
+          tenantId: plans[0]?.tenantId || '',
+        });
+      }
+    });
+    return list;
+  }, [savedSchedules, plans]);
+
+  const mixedPlans = useMemo(() => {
+    return [...plans, ...virtualPlans];
+  }, [plans, virtualPlans]);
+
+  const grouped = mixedPlans.reduce<Record<string, WorshipPlan[]>>((acc, plan) => {
+    let key = 'sem-data';
+    if (plan.date) {
+      const d = parseDateRobust(plan.date);
+      if (d) {
+        key = format(d, 'yyyy-MM');
+      }
+    }
     if (!acc[key]) acc[key] = [];
     acc[key].push(plan);
     return acc;
@@ -116,7 +202,7 @@ function PlansList() {
         </Button>
       </div>
 
-      {plans.length === 0 ? (
+      {mixedPlans.length === 0 ? (
         <div className="border-2 border-dashed rounded-xl py-20 flex flex-col items-center text-center text-slate-500">
           <ListMusic className="h-12 w-12 text-slate-300 mb-4" />
           <p className="font-semibold text-slate-600 text-lg">Nenhum plano criado</p>
@@ -130,8 +216,9 @@ function PlansList() {
       ) : (
         <div className="space-y-8">
           {sortedMonths.map(month => {
-            const monthLabel = month !== 'sem-data'
-              ? format(parseISO(`${month}-01`), 'MMMM yyyy', { locale: ptBR })
+            const dMonth = parseDateRobust(`${month}-01`);
+            const monthLabel = dMonth
+              ? format(dMonth, 'MMMM yyyy', { locale: ptBR })
               : 'Sem data';
             return (
               <div key={month}>
@@ -146,20 +233,41 @@ function PlansList() {
                     return (
                       <div
                         key={plan.id}
-                        className="flex items-center gap-4 px-4 py-3 bg-white border border-slate-200 rounded-xl hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer group"
-                        onClick={() => router.push(`/dashboard/volunteering/worship/${plan.id}`)}
+                        className={`flex items-center gap-4 px-4 py-3 bg-white border border-slate-200 rounded-xl hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer group ${
+                          plan.isVirtual ? 'border-dashed border-emerald-300 bg-emerald-50/10' : ''
+                        }`}
+                        onClick={() => {
+                          if (plan.isVirtual) {
+                            handleCreateVirtual(plan);
+                          } else {
+                            router.push(`/dashboard/volunteering/worship/${plan.id}`);
+                          }
+                        }}
                       >
                         <div className="w-12 h-12 rounded-lg bg-primary/10 flex flex-col items-center justify-center shrink-0">
                           <span className="text-xs font-bold text-primary uppercase">
-                            {plan.date ? format(parseISO(plan.date), 'MMM', { locale: ptBR }) : '--'}
+                            {(() => {
+                              const d = parseDateRobust(plan.date);
+                              return d ? format(d, 'MMM', { locale: ptBR }) : '--';
+                            })()}
                           </span>
                           <span className="text-lg font-black text-primary leading-none">
-                            {plan.date ? format(parseISO(plan.date), 'd') : '--'}
+                            {(() => {
+                              const d = parseDateRobust(plan.date);
+                              return d ? format(d, 'd') : '--';
+                            })()}
                           </span>
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm text-slate-800 truncate">{plan.title}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-sm text-slate-800 truncate">{plan.title}</p>
+                            {plan.isVirtual && (
+                              <Badge className="bg-emerald-500 hover:bg-emerald-600 font-bold text-xs text-white border-none shrink-0">
+                                Escala Pronta
+                              </Badge>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                             {plan.serviceEventName && <Badge variant="outline" className="text-xs">{plan.serviceEventName}</Badge>}
                             <span className="text-xs text-slate-400 flex items-center gap-1">
@@ -172,23 +280,29 @@ function PlansList() {
                           </div>
                         </div>
 
-                        <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-primary transition-colors shrink-0" />
+                        {creatingVirtualId === plan.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-emerald-600 shrink-0" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-primary transition-colors shrink-0" />
+                        )}
 
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={e => { e.stopPropagation(); router.push(`/dashboard/volunteering/worship/${plan.id}`); }}>
-                              <Pencil className="mr-2 h-4 w-4" /> Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive" onClick={e => { e.stopPropagation(); handleDelete(plan); }}>
-                              <Trash2 className="mr-2 h-4 w-4" /> Excluir
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        {!plan.isVirtual && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={e => { e.stopPropagation(); router.push(`/dashboard/volunteering/worship/${plan.id}`); }}>
+                                <Pencil className="mr-2 h-4 w-4" /> Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive" onClick={e => { e.stopPropagation(); handleDelete(plan); }}>
+                                <Trash2 className="mr-2 h-4 w-4" /> Excluir
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
                       </div>
                     );
                   })}
