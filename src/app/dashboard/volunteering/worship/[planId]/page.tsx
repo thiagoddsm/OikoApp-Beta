@@ -55,7 +55,8 @@ import {
   Files,
   Volume2
 } from 'lucide-react';
-import { useEventsData, useMembersData } from '@/hooks/useDomainData';
+import { useEventsData, useMembersData, useVolunteeringServiceData } from '@/hooks/useDomainData';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { syncLiveWorshipOrder } from '../actions';
 
@@ -79,6 +80,7 @@ function PlanEditorInner({ planId }: { planId: string }) {
   const { plans, templates, isLoading, updatePlan, updatePlanItems, savePlanAsTemplate, applyTemplate } = useWorship();
   const { events } = useEventsData();
   const { users } = useMembersData();
+  const { savedSchedules, serviceAreas, teams } = useVolunteeringServiceData();
   const { toast } = useToast();
 
   const plan = plans.find(p => p.id === planId);
@@ -377,6 +379,71 @@ function PlanEditorInner({ planId }: { planId: string }) {
     setIsDirty(true);
   };
 
+  const getInitials = (name?: string) => {
+    if (!name) return 'U';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    }
+    return parts[0] ? parts[0][0].toUpperCase() : 'U';
+  };
+
+  const matchedVolunteersGroupedByArea = useMemo(() => {
+    if (!plan || !savedSchedules) return {};
+
+    const parts = plan.date?.split('-');
+    const planDateFormatted = parts && parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : plan.date;
+
+    const planEventId = plan.serviceEventId;
+    const planEventName = plan.serviceEventName;
+
+    const grouped: Record<string, {
+      userId: string;
+      userName: string;
+      userAvatar?: string;
+      role: string;
+      status: 'confirmed' | 'declined' | 'pending';
+    }[]> = {};
+
+    savedSchedules.forEach((ss) => {
+      const area = serviceAreas.find(a => a.id === ss.areaId);
+      const areaName = area ? area.name : 'Outras Áreas';
+
+      ss.schedule?.forEach((item) => {
+        const isDateMatch = item.date === planDateFormatted;
+        const isEventMatch = (planEventName && item.eventName && planEventName.toLowerCase().trim() === item.eventName.toLowerCase().trim()) ||
+                             (planEventId && (events.find(e => e.id === planEventId)?.name?.toLowerCase().trim() === item.eventName?.toLowerCase().trim()));
+
+        if (isDateMatch && isEventMatch) {
+          const confirmations = ss.confirmations || {};
+
+          item.memberIds?.forEach((mId) => {
+            const memberObj = users.find(u => u.id === mId);
+            const memberName = memberObj?.name || 'Voluntário';
+            const memberAvatar = memberObj?.avatar;
+            const status = confirmations[mId]?.status || 'pending';
+
+            if (!grouped[areaName]) {
+              grouped[areaName] = [];
+            }
+
+            const role = item.teamName || 'Voluntário';
+
+            grouped[areaName].push({
+              userId: mId,
+              userName: memberName,
+              userAvatar: memberAvatar,
+              role,
+              status,
+            });
+          });
+        }
+      });
+    });
+
+    return grouped;
+  }, [plan, savedSchedules, serviceAreas, events, users]);
+
   const totalSecs = localItems.reduce((acc, i) => acc + (i.durationSeconds || 0), 0);
   const totalMins = Math.round(totalSecs / 60);
 
@@ -520,48 +587,55 @@ function PlanEditorInner({ planId }: { planId: string }) {
           <TabsContent value="teams" className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-start">
             {/* Left 3 columns: Volunteer matrix/divisions */}
             <div className="lg:col-span-3 bg-white border rounded-xl p-6 shadow-sm min-h-[60vh] space-y-6">
-              <div className="flex items-center justify-between border-b pb-4">
-                <div>
-                  <h3 className="font-black italic uppercase text-sm text-slate-800 tracking-tight">Tabela de Alocação e Convites</h3>
-                  <p className="text-xs text-slate-500">Mapeie os voluntários nas respectivas funções do culto.</p>
-                </div>
-                <Button size="sm" onClick={handleNotifyTeam} className="gap-2 text-xs bg-violet-750 hover:bg-violet-800 text-white font-bold">
-                  <Send className="size-3.5" /> Enviar Notificações ({localNeededPositions.filter(p => p.status === 'draft' && p.userId).length} rascunhos)
-                </Button>
+              <div className="border-b pb-4">
+                <h3 className="font-black italic uppercase text-sm text-slate-800 tracking-tight">Voluntários Escalados</h3>
+                <p className="text-xs text-slate-500">Membros oficiais escalados para esta celebração nas Áreas de Serviço.</p>
               </div>
 
-              {localNeededPositions.length === 0 ? (
+              {Object.keys(matchedVolunteersGroupedByArea).length === 0 ? (
                 <div className="text-center py-12 text-slate-500 italic text-sm">
-                  Nenhuma vaga necessária ou equipe cadastrada. Use o painel lateral para adicionar.
+                  Nenhum voluntário escalado para este culto nas escalas oficiais.
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {localNeededPositions.map(pos => (
-                    <div key={pos.id} className="p-4 rounded-xl border bg-slate-50/30 space-y-3 relative group">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-black uppercase text-slate-700 tracking-wider">{pos.role}</span>
-                          {pos.userId && (
-                            <>
-                              {pos.status === 'draft' && <Badge variant="secondary" className="text-[10px] font-bold text-slate-500"><Mail className="size-3 mr-1" /> Rascunho</Badge>}
-                              {pos.status === 'sent' && <Badge className="bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100 text-[10px] font-bold"><Clock className="size-3 mr-1" /> Enviado (Pendente)</Badge>}
-                              {pos.status === 'accepted' && <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100 text-[10px] font-bold"><CheckCircle2 className="size-3 mr-1" /> Confirmado</Badge>}
-                              {pos.status === 'declined' && <Badge className="bg-red-100 text-red-700 border-red-200 hover:bg-red-100 text-[10px] font-bold"><XCircle className="size-3 mr-1" /> Recusou</Badge>}
-                            </>
-                          )}
-                        </div>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 opacity-0 group-hover:opacity-100 hover:text-red-700 transition-opacity" onClick={() => handleRemovePosition(pos.id)}>
-                          <Trash2 className="size-3.5" />
-                        </Button>
+                <div className="space-y-8">
+                  {Object.entries(matchedVolunteersGroupedByArea).map(([areaName, volunteers]) => (
+                    <div key={areaName} className="space-y-3">
+                      <h4 className="text-xs font-black uppercase text-slate-500 tracking-wider border-b pb-1.5">{areaName}</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {volunteers.map((vol, idx) => (
+                          <div key={`${vol.userId}-${idx}`} className="flex items-center justify-between p-3.5 rounded-xl border bg-slate-50/50 hover:bg-slate-50 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-9 w-9">
+                                {vol.userAvatar && <AvatarImage src={vol.userAvatar} alt={vol.userName} />}
+                                <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">
+                                  {getInitials(vol.userName)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="text-sm font-bold text-slate-850 leading-snug">{vol.userName}</p>
+                                <p className="text-[11px] text-slate-500 font-semibold">{vol.role}</p>
+                              </div>
+                            </div>
+                            <div>
+                              {vol.status === 'confirmed' && (
+                                <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100 text-[10px] font-bold">
+                                  <CheckCircle2 className="size-3 mr-1" /> Confirmado
+                                </Badge>
+                              )}
+                              {vol.status === 'declined' && (
+                                <Badge className="bg-red-100 text-red-700 border-red-200 hover:bg-red-100 text-[10px] font-bold">
+                                  <XCircle className="size-3 mr-1" /> Recusou
+                                </Badge>
+                              )}
+                              {vol.status === 'pending' && (
+                                <Badge className="bg-amber-100 text-amber-700 border-amber-200 hover:bg-amber-100 text-[10px] font-bold">
+                                  <Clock className="size-3 mr-1" /> Pendente
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-
-                      <Select value={pos.userId || 'none'} onValueChange={v => handleAssignUser(pos.id, v)}>
-                        <SelectTrigger className="bg-white text-xs font-semibold"><SelectValue placeholder="Escolher voluntário..." /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">A definir / Aberto</SelectItem>
-                          {users.map(u => <SelectItem key={u.id} value={u.id} className="text-xs">{u.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
                     </div>
                   ))}
                 </div>
@@ -570,25 +644,6 @@ function PlanEditorInner({ planId }: { planId: string }) {
 
             {/* Right 1 column: Settings & Scheduling config */}
             <div className="lg:col-span-1 space-y-4">
-              <Card className="border shadow-sm bg-white">
-                <CardHeader className="p-4 pb-2 border-b">
-                  <CardTitle className="text-xs font-black uppercase text-slate-800 flex items-center gap-2">
-                    <Plus className="size-4 text-primary" /> Adicionar Função
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 space-y-3">
-                  <Input
-                    placeholder="Função (Ex: Guitarra)"
-                    value={newRole}
-                    onChange={e => setNewRole(e.target.value)}
-                    className="h-8 text-xs bg-white font-medium"
-                    onKeyDown={e => e.key === 'Enter' && handleAddPosition()}
-                  />
-                  <Button size="sm" onClick={handleAddPosition} className="w-full h-8 text-xs font-bold gap-1" disabled={!newRole.trim()}>
-                    <UserPlus className="size-3.5" /> Adicionar na Escala
-                  </Button>
-                </CardContent>
-              </Card>
 
               {/* Time Slots inside Teams page */}
               <Card className="border shadow-sm bg-white">
