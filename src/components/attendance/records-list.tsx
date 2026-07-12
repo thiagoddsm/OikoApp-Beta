@@ -105,6 +105,7 @@ export function RecordsList({ registros, loading, onEdit }: RecordsListProps) {
               <TableHead>Horário</TableHead>
               <TableHead>Adultos</TableHead>
               <TableHead>Crianças</TableHead>
+              <TableHead>Sala VIP</TableHead>
               <TableHead className="text-emerald-600">Conversões</TableHead>
               <TableHead className="text-sky-600">Reconciliações</TableHead>
               <TableHead>Total</TableHead>
@@ -120,14 +121,17 @@ export function RecordsList({ registros, loading, onEdit }: RecordsListProps) {
                 <TableCell>{reg.horario.split(' - ')[1]}</TableCell>
                 <TableCell>{reg.adultos}</TableCell>
                 <TableCell>{reg.criancas || 0}</TableCell>
+                <TableCell>{reg.salaVip || 0}</TableCell>
                 <TableCell className="font-semibold text-emerald-600">{reg.conversoes || 0}</TableCell>
                 <TableCell className="font-semibold text-sky-600">{reg.reconciliacoes || 0}</TableCell>
                 <TableCell className="font-semibold text-primary">{reg.adultos + (reg.criancas || 0)}</TableCell>
                 <TableCell className="truncate max-w-xs">{reg.serieMensagem || "-"}</TableCell>
-                <TableCell className="space-x-1">
+                <TableCell className="space-x-1 space-y-1">
                   {reg.feriadoProximo && <Badge variant="outline">Feriado</Badge>}
                   {reg.jogoFutebol && <Badge variant="outline">Jogo</Badge>}
                   {reg.apresentacaoBebe && <Badge variant="outline">Bebê</Badge>}
+                  {reg.teveApelo && <Badge variant="outline" className="bg-purple-50 border-purple-200 text-purple-700">Apelo</Badge>}
+                  {reg.teveCeia && <Badge variant="outline" className="bg-emerald-50 border-emerald-200 text-emerald-700">Ceia</Badge>}
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">

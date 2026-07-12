@@ -77,7 +77,7 @@ function useKeyboardShortcuts(addItem: (type: 'header' | 'item' | 'song') => voi
 
 function PlanEditorInner({ planId }: { planId: string }) {
   const router = useRouter();
-  const { plans, templates, isLoading, updatePlan, updatePlanItems, savePlanAsTemplate, applyTemplate } = useWorship();
+  const { plans, templates, librarySongs, isLoading, updatePlan, updatePlanItems, savePlanAsTemplate, applyTemplate } = useWorship();
   const { events } = useEventsData();
   const { users } = useMembersData();
   const { savedSchedules, serviceAreas, teams } = useVolunteeringServiceData();
@@ -727,48 +727,74 @@ function PlanEditorInner({ planId }: { planId: string }) {
 
               {/* Cifra Display / MediaPlayer Area */}
               <div className="flex-1 space-y-4">
-                {selectedRehearsalSong ? (
-                  <div className="space-y-4">
-                    <div className="border-b pb-2">
-                      <h3 className="font-black text-base text-slate-800">{selectedRehearsalSong.title}</h3>
-                      <span className="text-xs font-semibold text-slate-500">{selectedRehearsalSong.arrangement || 'Sem artista'} · Tom: {selectedRehearsalSong.key || '-'} · BPM: {selectedRehearsalSong.bpm || '-'}</span>
-                    </div>
+                {selectedRehearsalSong ? (() => {
+                  const generalSong = librarySongs.find(s => s.title.toLowerCase() === selectedRehearsalSong.title.toLowerCase());
+                  const localAtts = selectedRehearsalSong.attachments || [];
+                  const libAtts = generalSong?.attachments || [];
+                  
+                  const mergedAttachmentsMap = new Map<string, SongAttachment>();
+                  localAtts.forEach(att => {
+                    mergedAttachmentsMap.set(att.name.toLowerCase(), att);
+                  });
+                  libAtts.forEach(att => {
+                    if (!mergedAttachmentsMap.has(att.name.toLowerCase())) {
+                      mergedAttachmentsMap.set(att.name.toLowerCase(), att);
+                    }
+                  });
+                  
+                  const mergedAttachments = Array.from(mergedAttachmentsMap.values());
+                  const youtubeUrl = generalSong?.youtubeUrl || selectedRehearsalSong.youtubeUrl;
+                  if (youtubeUrl) {
+                    mergedAttachments.push({
+                      name: 'YouTube (Vídeo de Referência)',
+                      url: youtubeUrl,
+                      type: 'link'
+                    });
+                  }
 
-                    {/* Media attachments */}
-                    {selectedRehearsalSong.attachments && selectedRehearsalSong.attachments.length > 0 ? (
-                      <div className="space-y-3">
-                        <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider block">Arquivos e Cifras Disponíveis</span>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {selectedRehearsalSong.attachments.map((att, idx) => (
-                            <a
-                              key={idx}
-                              href={att.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="flex items-center gap-2 p-2 rounded-lg border hover:border-primary/40 hover:bg-primary/5 transition-all text-xs font-bold text-slate-700"
-                            >
-                              {att.type === 'pdf' ? <FileText className="size-4 text-red-500" /> : att.type === 'mp3' ? <AudioLines className="size-4 text-emerald-500" /> : <Video className="size-4 text-blue-500" />}
-                              <span className="truncate">{att.name}</span>
-                            </a>
-                          ))}
-                        </div>
+                  return (
+                    <div className="space-y-4">
+                      <div className="border-b pb-2">
+                        <h3 className="font-black text-base text-slate-800">{selectedRehearsalSong.title}</h3>
+                        <span className="text-xs font-semibold text-slate-500">{selectedRehearsalSong.arrangement || 'Sem artista'} · Tom: {selectedRehearsalSong.key || '-'} · BPM: {selectedRehearsalSong.bpm || '-'}</span>
+                      </div>
 
-                        {/* Embed Player Mock */}
-                        <div className="p-6 border rounded-xl bg-slate-50 flex flex-col items-center justify-center text-center space-y-3">
-                          <Volume2 className="size-8 text-primary animate-pulse" />
-                          <div className="space-y-1">
-                            <p className="text-xs font-black uppercase text-slate-700">Media Player & Ensaiador</p>
-                            <p className="text-[10px] text-slate-400">Clique nos links de anexo acima para carregar cifras em PDF e escutar faixas.</p>
+                      {/* Media attachments */}
+                      {mergedAttachments.length > 0 ? (
+                        <div className="space-y-3">
+                          <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider block">Arquivos e Cifras Disponíveis</span>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {mergedAttachments.map((att, idx) => (
+                              <a
+                                key={idx}
+                                href={att.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center gap-2 p-2 rounded-lg border hover:border-primary/40 hover:bg-primary/5 transition-all text-xs font-bold text-slate-700"
+                              >
+                                {att.type === 'pdf' ? <FileText className="size-4 text-red-500" /> : att.type === 'mp3' ? <AudioLines className="size-4 text-emerald-500" /> : <Video className="size-4 text-blue-500" />}
+                                <span className="truncate">{att.name}</span>
+                              </a>
+                            ))}
+                          </div>
+
+                          {/* Embed Player Mock */}
+                          <div className="p-6 border rounded-xl bg-slate-50 flex flex-col items-center justify-center text-center space-y-3">
+                            <Volume2 className="size-8 text-primary animate-pulse" />
+                            <div className="space-y-1">
+                              <p className="text-xs font-black uppercase text-slate-700">Media Player & Ensaiador</p>
+                              <p className="text-[10px] text-slate-400">Clique nos links de anexo acima para carregar cifras em PDF e escutar faixas.</p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ) : (
-                      <div className="text-center py-12 border border-dashed rounded-xl text-slate-400 text-xs italic">
-                        Nenhum anexo de cifra ou áudio vinculado a esta música.
-                      </div>
-                    )}
-                  </div>
-                ) : (
+                      ) : (
+                        <div className="text-center py-12 border border-dashed rounded-xl text-slate-400 text-xs italic">
+                          Nenhum anexo de cifra ou áudio vinculado a esta música.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })() : (
                   <div className="text-center py-16 text-slate-500 italic text-sm">
                     Selecione uma música da lista ao lado para acessar cifras e áudios de ensaio.
                   </div>

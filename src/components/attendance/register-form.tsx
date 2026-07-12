@@ -35,11 +35,14 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
   const [horario, setHorario] = useState(horariosCultos[0]);
   const [adultos, setAdultos] = useState('');
   const [criancas, setCriancas] = useState('');
+  const [salaVip, setSalaVip] = useState('');
   const [conversoes, setConversoes] = useState('');
   const [reconciliacoes, setReconciliacoes] = useState('');
   const [clima, setClima] = useState(opcoesClima[0]);
   const [feriadoProximo, setFeriadoProximo] = useState(false);
   const [jogoFutebol, setJogoFutebol] = useState(false);
+  const [teveApelo, setTeveApelo] = useState(false);
+  const [teveCeia, setTeveCeia] = useState(false);
   const [serieMensagem, setSerieMensagem] = useState('');
   const [apresentacaoBebe, setApresentacaoBebe] = useState(false);
   const [observacoes, setObservacoes] = useState('');
@@ -54,11 +57,14 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
       setHorario(editingRecord.horario || horariosCultos[0]);
       setAdultos(editingRecord.adultos?.toString() || '');
       setCriancas(editingRecord.criancas?.toString() || '0');
+      setSalaVip(editingRecord.salaVip?.toString() || "");
       setConversoes(editingRecord.conversoes?.toString() || '0');
       setReconciliacoes(editingRecord.reconciliacoes?.toString() || '0');
       setClima(editingRecord.clima || opcoesClima[0]);
       setFeriadoProximo(editingRecord.feriadoProximo || false);
       setJogoFutebol(editingRecord.jogoFutebol || false);
+      setTeveApelo(editingRecord.teveApelo || false);
+      setTeveCeia(editingRecord.teveCeia || false);
       setSerieMensagem(editingRecord.serieMensagem || '');
       setApresentacaoBebe(editingRecord.apresentacaoBebe || false);
       setObservacoes(editingRecord.observacoes || '');
@@ -72,11 +78,14 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
     setHorario(horariosCultos[0]);
     setAdultos('');
     setCriancas('');
+    setSalaVip('');
     setConversoes('');
     setReconciliacoes('');
     setClima(opcoesClima[0]);
     setFeriadoProximo(false);
     setJogoFutebol(false);
+    setTeveApelo(false);
+    setTeveCeia(false);
     setSerieMensagem('');
     setApresentacaoBebe(false);
     setObservacoes('');
@@ -105,11 +114,14 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
       horario,
       adultos: Number(adultos),
       criancas: Number(criancas || 0),
+      salaVip: Number(salaVip || 0),
       conversoes: Number(conversoes || 0),
       reconciliacoes: Number(reconciliacoes || 0),
       clima,
       feriadoProximo,
       jogoFutebol,
+      teveApelo,
+      teveCeia,
       serieMensagem,
       apresentacaoBebe,
       observacoes,
@@ -173,6 +185,10 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
           <Input id="criancas" type="number" value={criancas} onChange={(e) => setCriancas(e.target.value)} placeholder="Ex: 30" min="0"/>
         </div>
         <div className="space-y-2">
+          <Label htmlFor="salaVip">Nº na Sala VIP</Label>
+          <Input id="salaVip" type="number" value={salaVip} onChange={(e) => setSalaVip(e.target.value)} placeholder="Ex: 10" min="0"/>
+        </div>
+        <div className="space-y-2">
           <Label htmlFor="conversoes">Conversões</Label>
           <Input id="conversoes" type="number" value={conversoes} onChange={(e) => setConversoes(e.target.value)} placeholder="Ex: 5" min="0"/>
         </div>
@@ -210,6 +226,14 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
           <div className="flex items-center space-x-2">
             <Checkbox id="apresentacaoBebe" checked={apresentacaoBebe} onCheckedChange={(checked) => setApresentacaoBebe(!!checked)} />
             <Label htmlFor="apresentacaoBebe" className="font-medium">Apresentação de Bebê?</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox id="teveApelo" checked={teveApelo} onCheckedChange={(checked) => setTeveApelo(!!checked)} />
+            <Label htmlFor="teveApelo" className="font-medium">Teve Apelo no Culto?</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Checkbox id="teveCeia" checked={teveCeia} onCheckedChange={(checked) => setTeveCeia(!!checked)} />
+            <Label htmlFor="teveCeia" className="font-medium">Teve Santa Ceia?</Label>
           </div>
       </div>
        <div>

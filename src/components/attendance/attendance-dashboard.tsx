@@ -50,6 +50,9 @@ interface AttendanceRecord {
     horario: string;
     adultos: number;
     criancas: number;
+    salaVip?: number;
+    teveApelo?: boolean;
+    teveCeia?: boolean;
     serieMensagem?: string;
     feriadoProximo?: boolean;
     jogoFutebol?: boolean;
