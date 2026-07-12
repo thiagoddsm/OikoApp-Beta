@@ -181,12 +181,12 @@ function PlanEditorInner({ planId }: { planId: string }) {
         startTime: localMeta.startTime || '19:00'
       };
 
-      const mappedItems = localItems.map(item => {
+      const mappedItems = localItems
+        .filter(item => item.type !== 'header')
+        .map(item => {
         let responsible = 'A definir';
         if (item.type === 'song') {
           responsible = item.arrangement || 'Louvor';
-        } else if (item.type === 'header') {
-          responsible = 'Transição';
         }
 
         return {
