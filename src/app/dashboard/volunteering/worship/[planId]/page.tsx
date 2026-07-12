@@ -156,7 +156,8 @@ function PlanEditorInner({ planId }: { planId: string }) {
   const handleTransmitLive = async () => {
     if (!plan) return;
     setIsTransmitting(true);
-    try {      const findVolunteerByAreaKeywords = (keywords: string[]) => {
+    try {
+      const findVolunteerByAreaKeywords = (keywords: string[]) => {
         for (const [areaName, volunteers] of Object.entries(matchedVolunteersGroupedByArea)) {
           const areaLower = areaName.toLowerCase();
           if (keywords.some(kw => areaLower.includes(kw.toLowerCase()))) {
@@ -168,6 +169,25 @@ function PlanEditorInner({ planId }: { planId: string }) {
         return 'A definir';
       };
 
+      // Calcular o tempo total de pré-culto para subtrair do horário oficial de início
+      const preServiceSeconds = localItems
+        .filter(item => item.type !== 'header' && item.isPreService)
+        .reduce((sum, item) => sum + (item.durationSeconds || 0), 0);
+      const preServiceMinutes = Math.ceil(preServiceSeconds / 60);
+
+      let computedStartTime = localMeta.startTime || '19:00';
+      if (preServiceMinutes > 0) {
+        try {
+          const [hours, minutes] = computedStartTime.split(':').map(Number);
+          const dateObj = new Date();
+          dateObj.setHours(hours, minutes, 0, 0);
+          dateObj.setMinutes(dateObj.getMinutes() - preServiceMinutes);
+          computedStartTime = dateObj.toTimeString().slice(0, 5);
+        } catch (err) {
+          console.error("Erro ao calcular hora de início com pré-culto:", err);
+        }
+      }
+
       const cultInfo = {
         date: new Date(localMeta.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }),
         coordenadorTecnico: findVolunteerByAreaKeywords(['técnica', 'coordenador', 'coordenação', 'direção']),
@@ -178,7 +198,7 @@ function PlanEditorInner({ planId }: { planId: string }) {
         lead: findVolunteerByAreaKeywords(['dirigente', 'líder', 'ministro']),
         pregador: findVolunteerByAreaKeywords(['pregador', 'palavra', 'pastor', 'pregadora']),
         staff: 'A definir',
-        startTime: localMeta.startTime || '19:00'
+        startTime: computedStartTime
       };
 
       const mappedItems = localItems
