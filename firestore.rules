@@ -119,6 +119,12 @@ service cloud.firestore {
     match /worship_templates/{templateId} { allow read, write: if isAuthenticated(); }
     match /worship_songs/{songId} { allow read, write: if isAuthenticated(); }
 
+    // ── Técnica / Painel Ao Vivo ───────────────────────────────────────────────
+    match /artifacts/{document=**} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
     // ── Notificações / WhatsApp ────────────────────────────────────────────────
     match /notification_campaigns/{document=**} { allow read, write: if isAuthenticated(); }
     match /notifications_blacklist/{document=**} { allow read, write: if isAuthenticated(); }
