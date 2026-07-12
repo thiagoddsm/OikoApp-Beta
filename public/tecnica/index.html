@@ -412,14 +412,16 @@
             }, [isRunning, itemStartTime, accumulatedTime]);
 
             const formatTime = (seconds) => {
-                if (!seconds || seconds < 0) seconds = 0;
-                const mins = Math.floor(seconds / 60);
-                const secs = Math.floor(seconds % 60);
-                return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                const isNegative = seconds < 0;
+                const absSeconds = Math.abs(seconds);
+                const mins = Math.floor(absSeconds / 60);
+                const secs = Math.floor(absSeconds % 60);
+                return `${isNegative ? '-' : ''}${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
             };
 
             const plannedDurationInSeconds = (currentItem?.duration || 0) * 60;
-            const isOvertime = displayTime > plannedDurationInSeconds;
+            const remainingTime = plannedDurationInSeconds - displayTime;
+            const isOvertime = remainingTime < 0;
 
             if (!currentItem) {
                 return <div className="flex justify-center items-center h-screen text-white text-4xl">Culto Finalizado</div>;
@@ -430,7 +432,7 @@
                     <h2 className="text-3xl lg:text-5xl font-bold mb-4">{currentItem.title}</h2>
                     <p className="text-xl text-blue-300 mb-8">{currentItem.responsible}</p>
                     <div className={`text-8xl lg:text-[12rem] font-mono ${isOvertime ? 'text-red-400' : 'text-green-400'}`}>
-                        {formatTime(displayTime)}
+                        {formatTime(remainingTime)}
                     </div>
                     <div className="text-gray-400 text-xl mt-4">Planejado: {formatTime(plannedDurationInSeconds)}</div>
                 </div>
@@ -566,9 +568,16 @@
             const { modalState, showModal, hideModal } = useModal();
 
             useEffect(() => { let interval; if (isRunning) { interval = setInterval(() => { const elapsed = itemStartTime ? (Date.now() - itemStartTime) / 1000 : 0; setDisplayTime(accumulatedTime + elapsed); }, 250); } else { setDisplayTime(accumulatedTime); } return () => clearInterval(interval); }, [isRunning, itemStartTime, accumulatedTime, currentItemIndex]);
-            const formatTime = (seconds) => { if (!seconds || seconds < 0) seconds = 0; const mins = Math.floor(seconds / 60); const secs = Math.floor(seconds % 60); return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`; };
+            const formatTime = (seconds) => {
+                const isNegative = seconds < 0;
+                const absSeconds = Math.abs(seconds);
+                const mins = Math.floor(absSeconds / 60);
+                const secs = Math.floor(absSeconds % 60);
+                return `${isNegative ? '-' : ''}${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+            };
             const plannedDurationInSeconds = (currentItem?.duration || 0) * 60;
-            const isOvertime = displayTime > plannedDurationInSeconds;
+            const remainingTime = plannedDurationInSeconds - displayTime;
+            const isOvertime = remainingTime < 0;
             const progressPercentage = plannedDurationInSeconds > 0 ? Math.min((displayTime / plannedDurationInSeconds) * 100, 100) : 0;
             const balance = useMemo(() => { if (!items) return 0; let initialDelayInMinutes = 0; if (actualStartTime && cultInfo.startTime) { const plannedStart = new Date(`1970-01-01T${cultInfo.startTime}:00`); const actualStart = new Date(actualStartTime); const actualStartOnSameDay = new Date(`1970-01-01T${actualStart.toTimeString().slice(0, 8)}`); if (!isNaN(plannedStart.getTime()) && !isNaN(actualStartOnSameDay.getTime())) { const delayMs = actualStartOnSameDay - plannedStart; initialDelayInMinutes = Math.abs(delayMs) < 12 * 60 * 60 * 1000 ? delayMs / (1000 * 60) : 0; } } const itemsBalance = items.slice(0, currentItemIndex).reduce((acc, item) => { if (!item.completed) return acc; const planned = item.duration || 0; const actual = item.actualDuration != null ? item.actualDuration / 60 : planned; return acc + (planned - actual); }, 0); return itemsBalance - initialDelayInMinutes; }, [items, currentItemIndex, actualStartTime, cultInfo.startTime]);
             const estimatedEndTime = useMemo(() => { if (!items || !cultInfo.startTime) return '--:--'; const remainingItems = items.slice(currentItemIndex); const remainingDurationMinutes = remainingItems.reduce((acc, item) => acc + (item.duration || 0), 0); const now = new Date(); const estimatedEnd = new Date(now.getTime() + (remainingDurationMinutes * 60 * 1000) + (balance * 60 * 1000)); return estimatedEnd.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }, [items, currentItemIndex, balance, cultInfo.startTime]);
@@ -682,7 +691,7 @@
                                     </div>
                                 </div>
                                 <div className="my-6 text-center">
-                                    <div className={`text-7xl lg:text-9xl font-mono ${isOvertime ? 'text-red-400' : 'text-green-400'}`}>{formatTime(displayTime)}</div>
+                                    <div className={`text-7xl lg:text-9xl font-mono ${isOvertime ? 'text-red-400' : 'text-green-400'}`}>{formatTime(remainingTime)}</div>
                                     <div className="text-gray-400 lg:text-lg">Planejado: {formatTime(plannedDurationInSeconds)}</div>
                                 </div>
                                 <div className="w-full bg-gray-700 rounded-full h-4 mb-6"><div className={`h-4 rounded-full transition-all duration-500 ${isOvertime ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: `${progressPercentage}%` }} /></div>
