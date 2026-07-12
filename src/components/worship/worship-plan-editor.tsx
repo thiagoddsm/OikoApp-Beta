@@ -27,6 +27,7 @@ import {
   useWorship,
 } from '@/contexts/worship-context';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import {
   GripVertical,
@@ -76,7 +77,8 @@ interface SortableItemProps {
 }
 
 function SortableRow({ item, onChange, onDelete }: SortableItemProps) {
-  const { librarySongs } = useWorship();
+  const { librarySongs, createLibrarySong } = useWorship();
+  const { toast } = useToast();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.id });
 
@@ -295,6 +297,41 @@ function SortableRow({ item, onChange, onDelete }: SortableItemProps) {
                       placeholder="Ex: Elevation Worship"
                     />
                   </div>
+                  {item.title && item.title.trim() !== "" && item.title.trim().toLowerCase() !== "nova música" && item.title.trim().toLowerCase() !== "nova musica" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const cleanTitle = (str: string) => (str || "").replace(/\s+/g, "").toLowerCase();
+                        const targetTitle = item.title;
+                        const exists = (librarySongs || []).some(
+                          song => cleanTitle(song.title || "") === cleanTitle(targetTitle)
+                        );
+
+                        if (exists) {
+                          toast({
+                            title: "A música já está cadastrada",
+                            description: `A música '${targetTitle}' já está cadastrada na biblioteca!`,
+                            variant: "destructive",
+                          });
+                        } else {
+                          createLibrarySong({
+                            title: targetTitle,
+                            artist: item.arrangement || "",
+                            key: item.key || "",
+                            bpm: item.bpm || undefined,
+                            attachments: item.attachments || [],
+                          });
+                          toast({
+                            title: "Música salva",
+                            description: `Música '${targetTitle}' salva na biblioteca com sucesso!`,
+                          });
+                        }
+                      }}
+                      className="text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-medium transition-colors"
+                    >
+                      Salvar na Bib.
+                    </button>
+                  )}
                 </>
               )}
             </div>
