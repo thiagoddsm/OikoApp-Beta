@@ -227,6 +227,8 @@ function SortableRow({ item, onChange, onDelete }: SortableItemProps) {
                             key: song.key || '',
                             bpm: song.bpm || undefined,
                             attachments: song.attachments || [],
+                            youtubeUrl: song.youtubeUrl || '',
+                            notes: song.notes || '',
                           });
                         }}
                         className="flex flex-col items-start gap-0.5 py-1.5 cursor-pointer"
@@ -662,6 +664,8 @@ export function WorshipPlanEditor({ items, startTime, onItemsChange, readOnly = 
                           key: song.key || '',
                           bpm: song.bpm || undefined,
                           attachments: song.attachments || [],
+                          youtubeUrl: song.youtubeUrl || '',
+                          notes: song.notes || '',
                           color: 'none',
                         };
                         onItemsChange([...items, newItem]);

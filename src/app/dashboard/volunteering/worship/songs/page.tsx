@@ -5,6 +5,7 @@ import { useWorship, LibrarySong, SongAttachment } from '@/contexts/worship-cont
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import {
   Card,
@@ -39,6 +40,7 @@ import {
   Volume2,
   ExternalLink,
   Search,
+  Youtube,
 } from 'lucide-react';
 
 export default function SongsLibraryPage() {
@@ -54,6 +56,8 @@ export default function SongsLibraryPage() {
   const [artist, setArtist] = useState('');
   const [key, setKey] = useState('');
   const [bpm, setBpm] = useState<number | ''>('');
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [notes, setNotes] = useState('');
   const [attachments, setAttachments] = useState<SongAttachment[]>([]);
 
   // Add Attachment form states
@@ -67,6 +71,8 @@ export default function SongsLibraryPage() {
     setArtist('');
     setKey('');
     setBpm('');
+    setYoutubeUrl('');
+    setNotes('');
     setAttachments([]);
     setNewAttName('');
     setNewAttUrl('');
@@ -80,6 +86,8 @@ export default function SongsLibraryPage() {
     setArtist(song.artist || '');
     setKey(song.key || '');
     setBpm(song.bpm || '');
+    setYoutubeUrl(song.youtubeUrl || '');
+    setNotes(song.notes || '');
     setAttachments(song.attachments || []);
     setNewAttName('');
     setNewAttUrl('');
@@ -98,6 +106,8 @@ export default function SongsLibraryPage() {
       artist: artist.trim() || undefined,
       key: key.trim() || undefined,
       bpm: bpm ? Number(bpm) : undefined,
+      youtubeUrl: youtubeUrl.trim() || undefined,
+      notes: notes.trim() || undefined,
       attachments: attachments.length > 0 ? attachments : undefined,
     };
 
@@ -221,9 +231,20 @@ export default function SongsLibraryPage() {
                     </div>
 
                     {/* Attachments quick view */}
-                    {song.attachments && song.attachments.length > 0 && (
+                    {((song.attachments && song.attachments.length > 0) || song.youtubeUrl) && (
                       <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                        {song.attachments.map((att, idx) => (
+                        {song.youtubeUrl && (
+                          <a
+                            href={song.youtubeUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-50 border border-red-200 text-[10px] font-medium text-red-650 hover:bg-red-100 transition-colors"
+                          >
+                            <Youtube className="h-3 w-3 text-red-600" />
+                            <span>YouTube</span>
+                          </a>
+                        )}
+                        {song.attachments && song.attachments.map((att, idx) => (
                           <a
                             key={idx}
                             href={att.url}
@@ -238,6 +259,12 @@ export default function SongsLibraryPage() {
                           </a>
                         ))}
                       </div>
+                    )}
+
+                    {song.notes && (
+                      <blockquote className="border-l-2 border-slate-300 pl-2.5 py-0.5 text-xs text-slate-500 italic mt-2.5">
+                        {song.notes}
+                      </blockquote>
                     )}
                   </div>
 
@@ -314,6 +341,27 @@ export default function SongsLibraryPage() {
                   onChange={e => setBpm(e.target.value ? Number(e.target.value) : '')}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="song-youtube">Link do YouTube</Label>
+              <Input
+                id="song-youtube"
+                placeholder="Ex: https://youtube.com/watch?v=..."
+                value={youtubeUrl}
+                onChange={e => setYoutubeUrl(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="song-notes">Comentários / Observações da Música</Label>
+              <Textarea
+                id="song-notes"
+                placeholder="Ex: Observações de dinâmica, link para referência adicional, etc."
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                rows={3}
+              />
             </div>
 
             {/* Attachments manager */}

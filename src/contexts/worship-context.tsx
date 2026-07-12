@@ -39,6 +39,7 @@ export type WorshipItem = {
   bpm?: number;
   arrangement?: string;
   attachments?: SongAttachment[];
+  youtubeUrl?: string;
   // PCS-inspired row color tag
   color?: 'none' | 'purple' | 'blue' | 'green' | 'yellow' | 'red' | 'gray';
 };
@@ -85,6 +86,8 @@ export type LibrarySong = {
   key?: string;      // Tom padrão
   bpm?: number;     // BPM padrão
   attachments?: SongAttachment[];
+  youtubeUrl?: string;
+  notes?: string;
   tenantId: string;
   createdAt?: Timestamp;
 };
