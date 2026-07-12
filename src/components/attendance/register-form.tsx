@@ -229,11 +229,11 @@ export function RegisterForm({ editingRecord, onCancelEdit }: RegisterFormProps)
           </div>
           <div className="flex items-center space-x-2">
             <Checkbox id="teveApelo" checked={teveApelo} onCheckedChange={(checked) => setTeveApelo(!!checked)} />
-            <Label htmlFor="teveApelo" className="font-medium">Teve Apelo no Culto?</Label>
+            <Label htmlFor="teveApelo" className="font-medium">Teve apelo?</Label>
           </div>
           <div className="flex items-center space-x-2">
             <Checkbox id="teveCeia" checked={teveCeia} onCheckedChange={(checked) => setTeveCeia(!!checked)} />
-            <Label htmlFor="teveCeia" className="font-medium">Teve Santa Ceia?</Label>
+            <Label htmlFor="teveCeia" className="font-medium">Teve ceia?</Label>
           </div>
       </div>
        <div>
