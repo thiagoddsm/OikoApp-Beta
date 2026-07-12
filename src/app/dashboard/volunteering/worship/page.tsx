@@ -50,13 +50,17 @@ import {
   XCircle,
   FileText,
   Video,
-  AudioLines
+  AudioLines,
+  Youtube,
+  ExternalLink,
+  Plus
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useEventsData, useMembersData, useVolunteeringServiceData } from '@/hooks/useDomainData';
 import { useFirebase } from '@/firebase';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 
 // ─── Plans list ───────────────────────────────────────────────────────────────
 
@@ -515,24 +519,87 @@ function MySchedule() {
 // ─── Songs Library (Library Management) ──────────────────────────────────────────
 
 function SongsLibrary() {
-  const { librarySongs, createLibrarySong, deleteLibrarySong } = useWorship();
+  const { librarySongs, createLibrarySong, updateLibrarySong, deleteLibrarySong } = useWorship();
   const { toast } = useToast();
   const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [form, setForm] = useState({ title: '', artist: '', key: '', bpm: '' });
 
-  const handleCreate = async () => {
-    if (!form.title) return;
-    await createLibrarySong({
-      title: form.title,
-      artist: form.artist || undefined,
-      key: form.key || undefined,
-      bpm: form.bpm ? parseInt(form.bpm) : undefined,
-      attachments: []
-    });
-    toast({ title: 'Música adicionada à Biblioteca! 🎶' });
-    setCreateOpen(false);
+  // New editing states
+  const [editingSong, setEditingSong] = useState<LibrarySong | null>(null);
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [notes, setNotes] = useState('');
+  const [attachments, setAttachments] = useState<SongAttachment[]>([]);
+
+  // Auxiliary states for adding attachments
+  const [newAttName, setNewAttName] = useState('');
+  const [newAttUrl, setNewAttUrl] = useState('');
+  const [newAttType, setNewAttType] = useState<'pdf' | 'mp3' | 'link'>('pdf');
+
+  const resetForm = () => {
     setForm({ title: '', artist: '', key: '', bpm: '' });
+    setEditingSong(null);
+    setYoutubeUrl('');
+    setNotes('');
+    setAttachments([]);
+    setNewAttName('');
+    setNewAttUrl('');
+    setNewAttType('pdf');
+  };
+
+  const handleSave = async () => {
+    if (!form.title) return;
+    try {
+      if (editingSong) {
+        await updateLibrarySong(editingSong.id, {
+          title: form.title,
+          artist: form.artist || "",
+          key: form.key || "",
+          bpm: form.bpm ? parseInt(form.bpm) : undefined,
+          youtubeUrl: youtubeUrl || "",
+          notes: notes || "",
+          attachments,
+        });
+        toast({ title: 'Música atualizada! 🎶' });
+      } else {
+        await createLibrarySong({
+          title: form.title,
+          artist: form.artist || undefined,
+          key: form.key || undefined,
+          bpm: form.bpm ? parseInt(form.bpm) : undefined,
+          youtubeUrl: youtubeUrl || undefined,
+          notes: notes || undefined,
+          attachments: attachments.length > 0 ? attachments : [],
+        });
+        toast({ title: 'Música adicionada à Biblioteca! 🎶' });
+      }
+      setCreateOpen(false);
+      resetForm();
+    } catch (err) {
+      console.error(err);
+      toast({ title: 'Erro ao salvar música.', variant: 'destructive' });
+    }
+  };
+
+  const addAttachment = () => {
+    const name = newAttName.trim() || 'Novo Anexo';
+    let url = newAttUrl.trim();
+    if (!url) {
+      url = newAttType === 'pdf'
+        ? 'https://example.com/sheet.pdf'
+        : newAttType === 'mp3'
+          ? 'https://example.com/audio.mp3'
+          : 'https://example.com';
+    }
+
+    const newAtt: SongAttachment = { name, url, type: newAttType };
+    setAttachments([...attachments, newAtt]);
+    setNewAttName('');
+    setNewAttUrl('');
+  };
+
+  const removeAttachment = (idx: number) => {
+    setAttachments(attachments.filter((_, i) => i !== idx));
   };
 
   const filtered = useMemo(() => {
@@ -549,7 +616,7 @@ function SongsLibrary() {
           <h3 className="text-lg font-semibold">Biblioteca de Músicas</h3>
           <p className="text-sm text-muted-foreground">Acervo compartilhado de tons, cifras e BPMs padrões.</p>
         </div>
-        <Button size="sm" onClick={() => setCreateOpen(true)} className="w-fit self-end">
+        <Button size="sm" onClick={() => { resetForm(); setCreateOpen(true); }} className="w-fit self-end">
           <PlusCircle className="mr-2 h-4 w-4" /> Cadastrar Música
         </Button>
       </div>
@@ -578,16 +645,38 @@ function SongsLibrary() {
                   <CardTitle className="text-sm font-bold text-slate-800 leading-tight">{song.title}</CardTitle>
                   <CardDescription className="text-xs font-semibold text-slate-400 mt-0.5">{song.artist || 'Sem artista'}</CardDescription>
                 </div>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-6 w-6 text-red-500 hover:text-red-700 opacity-0 group-hover:opacity-100 transition-opacity ml-auto" 
-                  onClick={() => deleteLibrarySong(song.id)}
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ml-auto shrink-0">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6 text-slate-500 hover:text-slate-700" 
+                    onClick={() => {
+                      setEditingSong(song);
+                      setForm({
+                        title: song.title || '',
+                        artist: song.artist || '',
+                        key: song.key || '',
+                        bpm: song.bpm ? song.bpm.toString() : '',
+                      });
+                      setYoutubeUrl(song.youtubeUrl || '');
+                      setNotes(song.notes || '');
+                      setAttachments(song.attachments || []);
+                      setCreateOpen(true);
+                    }}
+                  >
+                    <Pencil className="size-3.5" />
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6 text-red-500 hover:text-red-700" 
+                    onClick={() => deleteLibrarySong(song.id)}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                </div>
               </CardHeader>
-              <CardContent className="p-4 pt-2">
+              <CardContent className="p-4 pt-2 space-y-3">
                 <div className="flex items-center gap-3">
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
                     Tom: {song.key || 'N/A'}
@@ -596,20 +685,70 @@ function SongsLibrary() {
                     BPM: {song.bpm || 'N/A'}
                   </span>
                 </div>
+
+                {/* Youtube link */}
+                {song.youtubeUrl && (
+                  <div>
+                    <a
+                      href={song.youtubeUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded bg-red-50 border border-red-200 text-[10px] font-semibold text-red-650 hover:bg-red-100 transition-colors"
+                    >
+                      <Youtube className="h-3.5 w-3.5 text-red-600" />
+                      <span>YouTube</span>
+                    </a>
+                  </div>
+                )}
+
+                {/* Attachments */}
+                {song.attachments && song.attachments.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {song.attachments.map((att, idx) => (
+                      <a
+                        key={idx}
+                        href={att.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded bg-slate-50 border border-slate-200 text-[10px] text-slate-650 hover:text-primary hover:border-primary/20 transition-colors"
+                        title={att.name}
+                      >
+                        {att.type === 'pdf' && <FileText className="h-3 w-3 text-red-500" />}
+                        {att.type === 'mp3' && <AudioLines className="h-3 w-3 text-blue-500" />}
+                        {att.type === 'link' && <ExternalLink className="h-3 w-3 text-emerald-500" />}
+                        <span className="truncate max-w-[85px]">{att.name}</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+
+                {/* Notes */}
+                {song.notes && (
+                  <blockquote className="border-l-2 border-slate-300 pl-2 py-0.5 text-xs text-slate-500 italic">
+                    {song.notes}
+                  </blockquote>
+                )}
               </CardContent>
             </Card>
           ))}
         </div>
       )}
 
-      {/* Register dialog */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent>
+      {/* Register/Edit dialog */}
+      <Dialog open={createOpen} onOpenChange={(open) => {
+        setCreateOpen(open);
+        if (!open) resetForm();
+      }}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Cadastrar Música no Acervo</DialogTitle>
-            <DialogDescription>A música ficará salva globalmente para reutilização em qualquer plano.</DialogDescription>
+            <DialogTitle>{editingSong ? 'Editar Música' : 'Cadastrar Música no Acervo'}</DialogTitle>
+            <DialogDescription>
+              {editingSong 
+                ? 'Atualize as informações da música no acervo global.' 
+                : 'A música ficará salva globalmente para reutilização em qualquer plano.'}
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          <div className="space-y-4 py-2 max-h-[70vh] overflow-y-auto pr-1">
             <div className="space-y-2">
               <Label>Título *</Label>
               <Input
@@ -637,10 +776,93 @@ function SongsLibrary() {
                 <Input type="number" placeholder="78" value={form.bpm} onChange={e => setForm(f => ({ ...f, bpm: e.target.value }))} />
               </div>
             </div>
+
+            <div className="space-y-2">
+              <Label>Link do YouTube</Label>
+              <Input
+                placeholder="Ex: https://youtube.com/watch?v=..."
+                value={youtubeUrl}
+                onChange={e => setYoutubeUrl(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Comentários / Observações</Label>
+              <Textarea
+                placeholder="Insira notas de arranjo, dinâmicas ou outras observações..."
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            {/* Attachments management */}
+            <div className="space-y-2 pt-2 border-t border-slate-200">
+              <Label>Anexos</Label>
+              {attachments.length > 0 ? (
+                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                  {attachments.map((att, idx) => (
+                    <div key={idx} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded px-2 py-1 text-xs">
+                      <div className="flex items-center gap-1.5 truncate">
+                        {att.type === 'pdf' && <span className="text-red-500 font-bold text-[9px] bg-red-50 px-1 py-0.5 rounded border border-red-200">PDF</span>}
+                        {att.type === 'mp3' && <span className="text-blue-500 font-bold text-[9px] bg-blue-50 px-1 py-0.5 rounded border border-blue-200">MP3</span>}
+                        {att.type === 'link' && <span className="text-emerald-500 font-bold text-[9px] bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">LINK</span>}
+                        <span className="truncate font-medium text-slate-700">{att.name}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeAttachment(idx)}
+                        className="text-slate-450 hover:text-red-500 shrink-0 ml-2"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 italic">Nenhum anexo adicionado.</p>
+              )}
+
+              {/* Add new attachment form */}
+              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200 flex flex-col gap-2 mt-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    placeholder="Nome do anexo"
+                    value={newAttName}
+                    onChange={e => setNewAttName(e.target.value)}
+                    className="text-xs h-8 bg-white"
+                  />
+                  <select
+                    value={newAttType}
+                    onChange={e => setNewAttType(e.target.value as any)}
+                    className="text-xs border border-slate-200 rounded px-2 h-8 bg-white focus:outline-none focus:ring-1 focus:ring-primary/20"
+                  >
+                    <option value="pdf">PDF (Cifra/Partitura)</option>
+                    <option value="mp3">MP3 (Áudio/Ensaio)</option>
+                    <option value="link">Link Externo</option>
+                  </select>
+                </div>
+                <Input
+                  placeholder="URL do arquivo (opcional)"
+                  value={newAttUrl}
+                  onChange={e => setNewAttUrl(e.target.value)}
+                  className="text-xs h-8 bg-white"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs self-end gap-1.5"
+                  onClick={addAttachment}
+                >
+                  <Plus className="h-3.5 w-3.5" /> Adicionar Anexo
+                </Button>
+              </div>
+            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreate} disabled={!form.title}>Adicionar Música</Button>
+            <Button variant="outline" onClick={() => { setCreateOpen(false); resetForm(); }}>Cancelar</Button>
+            <Button onClick={handleSave} disabled={!form.title}>{editingSong ? 'Salvar Alterações' : 'Adicionar Música'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
