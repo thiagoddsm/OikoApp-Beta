@@ -416,6 +416,110 @@ function PlanEditorInner({ planId }: { planId: string }) {
     setIsDirty(true);
   };
 
+  const handleExportPDF = async () => {
+    try {
+      const { default: jsPDF } = await import("jspdf");
+      const { default: autoTable } = await import("jspdf-autotable");
+
+      const preServiceSeconds = localItems
+        .filter(item => item.type !== 'header' && item.isPreService)
+        .reduce((sum, item) => sum + (item.durationSeconds || 0), 0);
+      const preServiceMinutes = Math.ceil(preServiceSeconds / 60);
+
+      let computedStartTime = localMeta.startTime || '19:00';
+      if (preServiceMinutes > 0) {
+        try {
+          const [hours, minutes] = computedStartTime.split(':').map(Number);
+          const dateObj = new Date();
+          dateObj.setHours(hours, minutes, 0, 0);
+          dateObj.setMinutes(dateObj.getMinutes() - preServiceMinutes);
+          computedStartTime = dateObj.toTimeString().slice(0, 5);
+        } catch (err) {
+          console.error("Erro ao calcular hora de início com pré-culto:", err);
+        }
+      }
+
+      const doc = new jsPDF();
+      
+      doc.setFontSize(16);
+      doc.text(localMeta.title || 'Ordem de Culto', 14, 20);
+      
+      doc.setFontSize(10);
+      doc.text(`Data: ${localMeta.date ? new Date(localMeta.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }) : '-'}`, 14, 27);
+      doc.text(`Início: ${localMeta.startTime || '--:--'} (Pré-culto: ${computedStartTime})`, 14, 33);
+      if (localMeta.notes) {
+        doc.text(`Anotações: ${localMeta.notes}`, 14, 39);
+      }
+
+      const tableHeaders = ["Hora Prevista", "Item", "Duração", "Responsável / Tom", "Anotações"];
+      const tableRows: any[] = [];
+      let cumulativeTime = new Date(`1970-01-01T${computedStartTime}:00`);
+
+      localItems.forEach(item => {
+        if (item.type === 'header') {
+          tableRows.push([
+            {
+              content: item.title,
+              colSpan: 5,
+              styles: {
+                fillColor: [220, 220, 220],
+                textColor: [30, 41, 59],
+                fontStyle: 'bold',
+                halign: 'left'
+              }
+            }
+          ]);
+        } else {
+          const itemStartTime = !isNaN(cumulativeTime.getTime()) 
+            ? cumulativeTime.toTimeString().slice(0, 5) 
+            : '--:--';
+          const durationMin = Math.max(1, Math.round((item.durationSeconds || 300) / 60));
+          if (!isNaN(cumulativeTime.getTime())) {
+            cumulativeTime.setMinutes(cumulativeTime.getMinutes() + durationMin);
+          }
+
+          let respTom = '-';
+          if (item.type === 'song') {
+            respTom = `${item.arrangement || 'Louvor'}${item.key ? ` (${item.key})` : ''}`;
+          } else {
+            respTom = (item as any).responsible || '-';
+          }
+
+          tableRows.push([
+            itemStartTime,
+            item.title,
+            `${durationMin} min`,
+            respTom,
+            item.notes || ''
+          ]);
+        }
+      });
+
+      autoTable(doc, {
+        startY: localMeta.notes ? 45 : 38,
+        head: [tableHeaders],
+        body: tableRows,
+        theme: 'grid',
+        headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 9 }
+      });
+
+      doc.save(`ordem_de_culto_${(localMeta.title || 'plano').replace(/\s+/g, '_')}.pdf`);
+      
+      toast({
+        title: 'Sucesso',
+        description: 'Ordem de culto exportada com sucesso em PDF!'
+      });
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: 'Erro',
+        description: 'Erro ao exportar o PDF.',
+        variant: 'destructive'
+      });
+    }
+  };
+
   const getInitials = (name?: string) => {
     if (!name) return 'U';
     const parts = name.trim().split(/\s+/);
@@ -547,6 +651,10 @@ function PlanEditorInner({ planId }: { planId: string }) {
               <DropdownMenuItem onClick={() => { setTemplateName(localMeta.title); setShowTemplateDialog(true); }}>
                 <BookMarked className="mr-2 h-4 w-4" />
                 Salvar como template
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleExportPDF}>
+                <FileText className="mr-2 h-4 w-4" />
+                Exportar PDF
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
