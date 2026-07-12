@@ -391,13 +391,19 @@
         // Componente TimerDisplay para a view ?view=timer (timer fullscreen)
         const TimerDisplay = ({ state }) => {
             const [displayTime, setDisplayTime] = useState(0);
-            const { items, liveState } = state;
-            const { currentItemIndex, isRunning, itemStartTime, accumulatedTime } = liveState;
+            const [currentTime, setCurrentTime] = useState(new Date());
+            const { items, cultInfo, liveState } = state;
+            const { currentItemIndex, isRunning, itemStartTime, accumulatedTime, actualStartTime } = liveState;
             const currentItem = items && items[currentItemIndex];
 
             useEffect(() => {
                 document.body.classList.add('presentation-mode');
                 return () => document.body.classList.remove('presentation-mode');
+            }, []);
+
+            useEffect(() => {
+                const timerId = setInterval(() => setCurrentTime(new Date()), 1000);
+                return () => clearInterval(timerId);
             }, []);
 
             useEffect(() => {
@@ -423,18 +429,63 @@
             const remainingTime = plannedDurationInSeconds - displayTime;
             const isOvertime = remainingTime < 0;
 
+            const balance = useMemo(() => {
+                if (!items) return 0;
+                let initialDelayInMinutes = 0;
+                if (actualStartTime && cultInfo.startTime) {
+                    const plannedStart = new Date(`1970-01-01T${cultInfo.startTime}:00`);
+                    const actualStart = new Date(actualStartTime);
+                    const actualStartOnSameDay = new Date(`1970-01-01T${actualStart.toTimeString().slice(0, 8)}`);
+                    if (!isNaN(plannedStart.getTime()) && !isNaN(actualStartOnSameDay.getTime())) {
+                        const delayMs = actualStartOnSameDay - plannedStart;
+                        initialDelayInMinutes = Math.abs(delayMs) < 12 * 60 * 60 * 1000 ? delayMs / (1000 * 60) : 0;
+                    }
+                }
+                const itemsBalance = items.slice(0, currentItemIndex).reduce((acc, item) => {
+                    if (!item.completed) return acc;
+                    const planned = item.duration || 0;
+                    const actual = item.actualDuration != null ? item.actualDuration / 60 : planned;
+                    return acc + (planned - actual);
+                }, 0);
+                return itemsBalance - initialDelayInMinutes;
+            }, [items, currentItemIndex, actualStartTime, cultInfo.startTime]);
+
+            const balanceLabel = balance !== 0 
+                ? `${Math.abs(Math.round(balance))}m ${balance > 0 ? 'ADiantado' : 'ATrasado'}` 
+                : 'No Horário';
+            const balanceBg = balance > 0 ? 'bg-emerald-600' : balance < 0 ? 'bg-rose-600' : 'bg-blue-600';
+
             if (!currentItem) {
-                return <div className="flex justify-center items-center h-screen text-white text-4xl">Culto Finalizado</div>;
+                return <div className="flex justify-center items-center h-screen text-white text-4xl font-bold bg-gray-950">Culto Finalizado</div>;
             }
 
             return (
-                <div className="flex flex-col justify-center items-center h-screen text-white">
-                    <h2 className="text-3xl lg:text-5xl font-bold mb-4">{currentItem.title}</h2>
-                    <p className="text-xl text-blue-300 mb-8">{currentItem.responsible}</p>
-                    <div className={`text-8xl lg:text-[12rem] font-mono ${isOvertime ? 'text-red-400' : 'text-green-400'}`}>
+                <div className="relative flex flex-col justify-center items-center h-screen text-white bg-gray-950">
+                    {/* Top Status Header */}
+                    <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center bg-black/40 border-b border-white/5 px-8">
+                        {/* Clock */}
+                        <div className="font-mono text-2xl lg:text-3xl font-bold text-gray-300">
+                            {currentTime.toLocaleTimeString('pt-BR')}
+                        </div>
+                        {/* Worship Balance */}
+                        <div className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${balanceBg} text-white shadow-sm`}>
+                            {balanceLabel}
+                        </div>
+                    </div>
+
+                    {/* Central Display */}
+                    <div className="text-center space-y-2 mt-16">
+                        <h2 className="text-3xl lg:text-6xl font-bold uppercase tracking-tight text-white/95">{currentItem.title}</h2>
+                        <p className="text-xl lg:text-3xl font-semibold text-blue-400">{currentItem.responsible}</p>
+                    </div>
+
+                    <div className={`text-[10rem] lg:text-[16rem] font-mono leading-none my-6 select-none ${isOvertime ? 'text-red-500 animate-pulse font-black' : 'text-green-400 font-bold'}`}>
                         {formatTime(remainingTime)}
                     </div>
-                    <div className="text-gray-400 text-xl mt-4">Planejado: {formatTime(plannedDurationInSeconds)}</div>
+
+                    <div className="text-gray-400 text-xl font-bold tracking-wide">
+                        Planejado: {formatTime(plannedDurationInSeconds)}
+                    </div>
                 </div>
             );
         };
