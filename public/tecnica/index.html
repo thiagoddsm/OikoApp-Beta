@@ -31,7 +31,7 @@
     <!-- Firebase -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, setPersistence, inMemoryPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { initializeAuth, signInAnonymously, inMemoryPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, getDocs, addDoc, deleteDoc, serverTimestamp, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
@@ -48,8 +48,9 @@
         try {
             const app = initializeApp(firebaseConfig);
             const db = getFirestore(app);
-            const auth = getAuth(app);
-            setPersistence(auth, inMemoryPersistence).catch(err => console.error("Erro ao definir persistencia de auth:", err));
+            const auth = initializeAuth(app, {
+                persistence: inMemoryPersistence
+            });
             window.db = db;
             window.auth = auth;
             window.appId = appId;
