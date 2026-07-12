@@ -156,23 +156,27 @@ function PlanEditorInner({ planId }: { planId: string }) {
   const handleTransmitLive = async () => {
     if (!plan) return;
     setIsTransmitting(true);
-    try {
-      const findPosition = (roles: string[]) => {
-        const match = localNeededPositions.find(p => 
-          roles.some(r => p.role.toLowerCase().includes(r.toLowerCase()))
-        );
-        return match?.userName || 'A definir';
+    try {      const findVolunteerByAreaKeywords = (keywords: string[]) => {
+        for (const [areaName, volunteers] of Object.entries(matchedVolunteersGroupedByArea)) {
+          const areaLower = areaName.toLowerCase();
+          if (keywords.some(kw => areaLower.includes(kw.toLowerCase()))) {
+            if (volunteers && volunteers.length > 0) {
+              return volunteers[0].userName;
+            }
+          }
+        }
+        return 'A definir';
       };
 
       const cultInfo = {
         date: new Date(localMeta.date + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }),
-        coordenadorTecnico: findPosition(['coordenador', 'liderança', 'técnica', 'direção']),
-        som: findPosition(['som', 'áudio', 'sonoplasta', 'mesa']),
-        projecao: findPosition(['projeção', 'slides', 'projeção', 'lyrics']),
-        iluminacao: findPosition(['iluminação', 'luz', 'luzes']),
-        transmissao: findPosition(['transmissão', 'câmera', 'vídeo', 'stream']),
-        lead: findPosition(['dirigente', 'líder', 'ministro']),
-        pregador: findPosition(['pregador', 'palavra', 'pastor', 'ministrador']),
+        coordenadorTecnico: findVolunteerByAreaKeywords(['técnica', 'coordenador', 'coordenação', 'direção']),
+        som: findVolunteerByAreaKeywords(['som', 'áudio', 'sonoplastia', 'mesa']),
+        projecao: findVolunteerByAreaKeywords(['projeção', 'slides', 'letras']),
+        iluminacao: findVolunteerByAreaKeywords(['iluminação', 'luz']),
+        transmissao: findVolunteerByAreaKeywords(['transmissão', 'câmera', 'vídeo', 'stream']),
+        lead: findVolunteerByAreaKeywords(['dirigente', 'líder', 'ministro']),
+        pregador: findVolunteerByAreaKeywords(['pregador', 'palavra', 'pastor', 'pregadora']),
         staff: 'A definir',
         startTime: localMeta.startTime || '19:00'
       };
@@ -193,11 +197,11 @@ function PlanEditorInner({ planId }: { planId: string }) {
           responsible,
           description: item.notes || '',
           technical: {
-            projection: { text: item.type === 'song' ? `Cifras/Letras (${item.key || 'Tom'})` : '-' },
-            sound: { text: '-' },
-            microphone: { text: '-' },
-            lighting: { text: '-' },
-            camera: { text: '-' }
+            projection: { text: item.departmentNotes?.video || item.departmentNotes?.projection || (item.type === 'song' ? `Tom: ${item.key || 'Tom'}` : '-') },
+            sound: { text: item.departmentNotes?.audio || item.departmentNotes?.sound || '-' },
+            microphone: { text: item.departmentNotes?.banda || item.departmentNotes?.microphone || '-' },
+            lighting: { text: item.departmentNotes?.lighting || item.departmentNotes?.iluminacao || '-' },
+            camera: { text: item.departmentNotes?.camera || item.departmentNotes?.transmissao || '-' }
           },
           completed: false,
           actualDuration: null,
