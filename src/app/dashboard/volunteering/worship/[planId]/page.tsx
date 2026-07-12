@@ -201,6 +201,8 @@ function PlanEditorInner({ planId }: { planId: string }) {
         startTime: computedStartTime
       };
 
+      let cumulativeTime = new Date(`1970-01-01T${computedStartTime}:00`);
+
       const mappedItems = localItems
         .filter(item => item.type !== 'header')
         .map(item => {
@@ -209,11 +211,22 @@ function PlanEditorInner({ planId }: { planId: string }) {
           responsible = item.arrangement || 'Louvor';
         }
 
+        const itemStartTime = !isNaN(cumulativeTime.getTime()) 
+          ? cumulativeTime.toTimeString().slice(0, 5) 
+          : '--:--';
+
+        const durationMin = Math.max(1, Math.round((item.durationSeconds || 300) / 60));
+
+        if (!isNaN(cumulativeTime.getTime())) {
+          cumulativeTime.setMinutes(cumulativeTime.getMinutes() + durationMin);
+        }
+
         return {
           id: item.id,
           title: item.title,
-          duration: Math.max(1, Math.round((item.durationSeconds || 300) / 60)),
-          type: item.type === 'song' ? 'louvor' : item.type === 'header' ? 'transição' : 'palavra',
+          duration: durationMin,
+          startTime: itemStartTime,
+          type: item.type === 'song' ? 'louvor' : 'palavra',
           responsible,
           description: item.notes || '',
           technical: {
