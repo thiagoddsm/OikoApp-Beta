@@ -304,7 +304,9 @@
                     fetchPresets={fetchPresets}
                 />
             );
-             const CoordinatorController = ({ state, handleStateUpdate, presets, fetchPresets }) => {
+        };
+
+        const CoordinatorController = ({ state, handleStateUpdate, presets, fetchPresets }) => {
             const [isSaving, setIsSaving] = useState(false);
             const [showTechnical, setShowTechnical] = useState(true);
             const { firestore, db, appId } = window;
