@@ -31,12 +31,17 @@ let firestoreDbInstance: any;
 export function initializeFirebase() {
   if (!getApps().length) {
     firebaseAppInstance = initializeApp(firebaseConfig);
-    firestoreDbInstance = initializeFirestore(firebaseAppInstance, {
-      localCache: typeof window !== 'undefined' ? persistentLocalCache({
-        tabManager: persistentMultipleTabManager()
-      }) : undefined,
-      ignoreUndefinedProperties: true,
-    });
+    try {
+      firestoreDbInstance = initializeFirestore(firebaseAppInstance, {
+        localCache: typeof window !== 'undefined' ? persistentLocalCache({
+          tabManager: persistentMultipleTabManager()
+        }) : undefined,
+        ignoreUndefinedProperties: true,
+      });
+    } catch (err) {
+      console.warn("Firestore tab persistence connection error (using fallback):", err);
+      firestoreDbInstance = getFirestore(firebaseAppInstance);
+    }
   } else {
     firebaseAppInstance = getApp();
     if (!firestoreDbInstance) {
