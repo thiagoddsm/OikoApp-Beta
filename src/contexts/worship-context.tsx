@@ -90,6 +90,9 @@ export type LibrarySong = {
   notes?: string;
   tenantId: string;
   createdAt?: Timestamp;
+  lastPlayedDate?: string;
+  lastPlayedPlanTitle?: string;
+  playCount?: number;
 };
 
 export type WorshipTemplate = {
@@ -176,8 +179,44 @@ export function WorshipProvider({ children }: { children: ReactNode }) {
     [templatesRaw]
   );
   const librarySongs: LibrarySong[] = useMemo(
-    () => [...(librarySongsRaw ?? [])].sort((a, b) => (a.title ?? '').localeCompare(b.title ?? '', 'pt-BR')),
-    [librarySongsRaw]
+    () => {
+      const baseSongs = [...(librarySongsRaw ?? [])];
+      const decorated = baseSongs.map(song => {
+        // Find all physical plans (not virtual) that include this song in their liturgy (items)
+        const matchedPlans = (plans ?? []).filter(p => {
+          if (p.isVirtual) return false;
+          return (p.items ?? []).some(item => {
+            if (item.type !== 'song') return false;
+            const itemTitle = (item.title ?? '').trim().toLowerCase();
+            const songTitle = (song.title ?? '').trim().toLowerCase();
+            return itemTitle === songTitle;
+          });
+        });
+
+        // Sort by date descending (YYYY-MM-DD)
+        const sortedMatchedPlans = [...matchedPlans].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
+
+        if (sortedMatchedPlans.length > 0) {
+          const latestPlan = sortedMatchedPlans[0];
+          return {
+            ...song,
+            lastPlayedDate: latestPlan.date,
+            lastPlayedPlanTitle: latestPlan.title,
+            playCount: sortedMatchedPlans.length,
+          };
+        }
+
+        return {
+          ...song,
+          lastPlayedDate: undefined,
+          lastPlayedPlanTitle: undefined,
+          playCount: 0,
+        };
+      });
+
+      return decorated.sort((a, b) => (a.title ?? '').localeCompare(b.title ?? '', 'pt-BR'));
+    },
+    [librarySongsRaw, plans]
   );
 
   const isLoading = plansLoading || templatesLoading || librarySongsLoading;

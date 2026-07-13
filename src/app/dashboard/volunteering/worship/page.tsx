@@ -686,6 +686,22 @@ function SongsLibrary() {
                   </span>
                 </div>
 
+                {/* Histórico de execuções */}
+                <div className="text-[11px] text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100 space-y-1">
+                  <div className="font-bold text-slate-700">
+                    {song.playCount && song.playCount > 0 ? (
+                      <span>Tocada {song.playCount} {song.playCount === 1 ? 'vez' : 'vezes'}</span>
+                    ) : (
+                      <span className="text-amber-600 font-medium">Inédita / Nunca executada</span>
+                    )}
+                  </div>
+                  {song.playCount && song.playCount > 0 && song.lastPlayedDate && (
+                    <div className="text-slate-400">
+                      Última vez: {song.lastPlayedDate.split('-').reverse().join('/')} {song.lastPlayedPlanTitle ? `(${song.lastPlayedPlanTitle})` : ''}
+                    </div>
+                  )}
+                </div>
+
                 {/* Youtube link */}
                 {song.youtubeUrl && (
                   <div>
