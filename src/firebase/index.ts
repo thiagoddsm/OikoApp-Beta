@@ -25,29 +25,30 @@ function getSdks(firebaseApp: FirebaseApp) {
   };
 }
 
+let firebaseAppInstance: FirebaseApp | undefined;
+let firestoreDbInstance: any;
+
 export function initializeFirebase() {
   if (!getApps().length) {
-    const firebaseApp = initializeApp(firebaseConfig);
-    const db = initializeFirestore(firebaseApp, {
+    firebaseAppInstance = initializeApp(firebaseConfig);
+    firestoreDbInstance = initializeFirestore(firebaseAppInstance, {
       localCache: typeof window !== 'undefined' ? persistentLocalCache({
         tabManager: persistentMultipleTabManager()
       }) : undefined,
       ignoreUndefinedProperties: true,
     });
-    return {
-      firebaseApp,
-      auth: getAuth(firebaseApp),
-      firestore: db,
-      storage: getStorage(firebaseApp)
-    };
+  } else {
+    firebaseAppInstance = getApp();
+    if (!firestoreDbInstance) {
+      firestoreDbInstance = getFirestore(firebaseAppInstance);
+    }
   }
 
-  const app = getApp();
   return {
-    firebaseApp: app,
-    auth: getAuth(app),
-    firestore: getFirestore(app),
-    storage: getStorage(app)
+    firebaseApp: firebaseAppInstance,
+    auth: getAuth(firebaseAppInstance),
+    firestore: firestoreDbInstance,
+    storage: getStorage(firebaseAppInstance)
   };
 }
 
