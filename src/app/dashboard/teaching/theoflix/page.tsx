@@ -343,7 +343,7 @@ function TheoFlixContent() {
                   episodeTitle: currentEpisode.title,
                   score,
                   minScore,
-                  approved: score >= minScore,
+                  approved: true,
                   answers: quizAnswers,
                   questions: questions.map((q, idx) => ({
                       ...q,
@@ -354,16 +354,11 @@ function TheoFlixContent() {
               });
           }
 
-          if (score >= minScore) {
-              toast({ title: "Aprovado!", description: `Você atingiu a nota ${score}%.` });
-              // Automatically mark lesson as completed and save presence when user is approved
-              setTimeout(() => {
-                  setIsQuizOpen(false);
-                  handleMarkAsCompleted();
-              }, 3000);
-          } else {
-              toast({ variant: 'destructive', title: "Tente novamente", description: `Sua nota (${score}%) foi abaixo do mínimo (${minScore}%).` });
-          }
+          toast({ title: "Respostas enviadas!", description: "Sua aula foi marcada como assistida." });
+          setTimeout(() => {
+              setIsQuizOpen(false);
+              handleMarkAsCompleted();
+          }, 3000);
       } catch (error: any) {
           console.error("Erro ao avaliar quiz:", error);
           toast({
@@ -889,50 +884,29 @@ function TheoFlixContent() {
                       </Button>
                   ) : (
                       <div className="space-y-4">
-                          <div className={cn(
-                              "p-4 rounded-2xl text-center border-2",
-                              quizScore >= (theoflixConfig?.quizMinScore || 70) 
-                                ? "bg-emerald-50 border-emerald-200 text-emerald-700" 
-                                : "bg-rose-50 border-rose-200 text-rose-700"
-                          )}>
-                              <p className="text-[10px] font-black uppercase tracking-widest mb-1">Resultado Final</p>
-                              <p className="text-3xl font-black">{quizScore}% de acerto</p>
-                              <p className="text-xs font-bold mt-1">
-                                  {quizScore >= (theoflixConfig?.quizMinScore || 70) 
-                                    ? "Parabéns! Você foi aprovado." 
-                                    : `Nota mínima: ${theoflixConfig?.quizMinScore || 70}%`}
-                              </p>
-                          </div>
+                           <div className="p-4 rounded-2xl text-center border border-primary/20 bg-primary/5 text-primary">
+                               <p className="text-[10px] font-black uppercase tracking-widest mb-1">AULA CONCLUÍDA!</p>
+                               <p className="text-xs font-bold mt-1 text-primary">
+                                   Obrigado por enviar suas respostas. Seu feedback foi registrado e a aula foi computada.
+                               </p>
+                           </div>
 
-                          {quizFeedback && (
-                              <div className="p-4 rounded-2xl bg-white border border-slate-200 text-slate-800 text-xs text-left max-h-40 overflow-y-auto">
-                                  <p className="font-black uppercase text-[9px] text-primary mb-1">Feedback Detalhado (IA):</p>
-                                  <p className="whitespace-pre-wrap font-medium">{quizFeedback}</p>
-                              </div>
-                          )}
-                          
-                          {quizScore >= (theoflixConfig?.quizMinScore || 70) ? (
-                              <Button 
-                                  onClick={() => {
-                                      setIsQuizOpen(false);
-                                      handleMarkAsCompleted();
-                                  }}
-                                  className="w-full h-14 rounded-2xl font-black text-base uppercase tracking-widest bg-emerald-600 hover:bg-emerald-700"
-                              >
-                                  Concluir e Salvar
-                              </Button>
-                          ) : (
-                              <Button 
-                                  onClick={() => {
-                                      setQuizSubmitted(false);
-                                      setQuizAnswers(currentEpisode?.quiz?.questions?.map(q => q.type === 'essay' ? '' : -1) || []);
-                                  }}
-                                  variant="outline"
-                                  className="w-full h-14 rounded-2xl font-black text-base uppercase tracking-widest"
-                              >
-                                  Tentar Novamente
-                              </Button>
-                          )}
+                           {quizFeedback && (
+                               <div className="p-4 rounded-2xl bg-white border border-slate-200 text-slate-800 text-xs text-left max-h-40 overflow-y-auto">
+                                   <p className="font-black uppercase text-[9px] text-primary mb-1">Feedback Detalhado (IA):</p>
+                                   <p className="whitespace-pre-wrap font-medium">{quizFeedback}</p>
+                                </div>
+                           )}
+
+                           <Button 
+                               onClick={() => {
+                                   setIsQuizOpen(false);
+                                   handleMarkAsCompleted();
+                               }}
+                               className="w-full h-14 rounded-2xl font-black text-base uppercase tracking-widest bg-primary hover:bg-primary/95 text-primary-foreground"
+                           >
+                               Fechar e Continuar
+                           </Button>
                       </div>
                   )}
                   <Button variant="ghost" onClick={() => setIsQuizOpen(false)} disabled={isEvaluating} className="text-xs font-bold text-muted-foreground uppercase">Responder depois</Button>
