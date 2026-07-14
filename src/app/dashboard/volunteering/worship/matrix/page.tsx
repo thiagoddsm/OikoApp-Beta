@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { WorshipProvider, useWorship, WorshipPlan, NeededPosition } from '@/contexts/worship-context';
-import { useVolunteering } from '@/contexts/volunteering-context';
+import { useVolunteering, VolunteeringProvider } from '@/contexts/volunteering-context';
 import { useVolunteeringServiceData } from '@/hooks/useDomainData';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -673,8 +673,10 @@ function MatrixViewInner() {
 
 export default function ScaleMatrixPage() {
   return (
-    <WorshipProvider>
-      <MatrixViewInner />
-    </WorshipProvider>
+    <VolunteeringProvider>
+      <WorshipProvider>
+        <MatrixViewInner />
+      </WorshipProvider>
+    </VolunteeringProvider>
   );
 }
