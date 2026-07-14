@@ -91,6 +91,9 @@ function MatrixViewInner() {
   // Search filter for volunteers in dialog
   const [userSearch, setUserSearch] = useState('');
 
+  // DM Checkbox state
+  const [isDmCheckbox, setIsDmCheckbox] = useState(false);
+
   // 1. Resolve selected Area (Locked to Louvor / Worship)
   const selectedArea = useMemo(() => {
     if (!serviceAreas || serviceAreas.length === 0) return null;
@@ -112,7 +115,7 @@ function MatrixViewInner() {
   const getAreaFallbackRoles = (name: string) => {
     const lower = name.toLowerCase();
     if (lower.includes('louvor') || lower.includes('worship')) {
-      return ['Dirigente', 'Líder de Louvor', 'Teclado', 'Guitarra', 'Violão', 'Baixo', 'Bateria', 'Backing Vocal'];
+      return ['Lead', 'Back 1', 'Back 2', 'Guitarra', 'Baixo', 'Bateria', 'Violão', 'Teclado'];
     }
     if (lower.includes('técnica') || lower.includes('som') || lower.includes('mídia') || lower.includes('tecnica') || lower.includes('midia')) {
       return ['Sonoplasta', 'Projeção', 'Câmera 1', 'Câmera 2', 'Diretor de TV', 'Iluminação'];
@@ -174,6 +177,27 @@ function MatrixViewInner() {
       currentPosition: currentPos
     });
     setUserSearch('');
+    setIsDmCheckbox(currentPos?.isDM || false);
+  };
+
+  const handleToggleDm = (checked: boolean) => {
+    setIsDmCheckbox(checked);
+    if (!assignmentCell) return;
+    const { dateStr, planId, role, currentPosition } = assignmentCell;
+    const planKey = planId || `virtual-${dateStr}`;
+    const editKey = `${planKey}::${role}`;
+
+    // Se houver alguém escalado (ou já selecionado na célula), atualiza seu status de DM nas editedPositions
+    const existingPos = editedPositions[editKey] || currentPosition;
+    if (existingPos && (existingPos.userId || existingPos.userName)) {
+      setEditedPositions(prev => ({
+        ...prev,
+        [editKey]: {
+          ...existingPos,
+          isDM: checked
+        }
+      }));
+    }
   };
 
   const handleAssignMember = (userId: string | null) => {
@@ -189,7 +213,8 @@ function MatrixViewInner() {
         role,
         status: 'draft',
         userId: undefined,
-        userName: undefined
+        userName: undefined,
+        isDM: false
       };
       setEditedPositions(prev => ({
         ...prev,
@@ -203,7 +228,8 @@ function MatrixViewInner() {
           role,
           status: 'draft',
           userId: member.id,
-          userName: member.name
+          userName: member.name,
+          isDM: isDmCheckbox
         };
         setEditedPositions(prev => ({
           ...prev,
@@ -508,9 +534,16 @@ function MatrixViewInner() {
                                 {cellPos.userName?.substring(0, 2).toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
-                            <span className="text-[11px] font-bold text-slate-700 truncate max-w-[140px]">
-                              {cellPos.userName}
-                            </span>
+                            <div className="flex items-center justify-center gap-1 max-w-[140px] w-full">
+                              <span className="text-[11px] font-bold text-slate-700 truncate">
+                                {cellPos.userName}
+                              </span>
+                              {cellPos?.isDM && (
+                                <span className="text-[9px] font-black text-purple-600 bg-purple-50 px-1 py-0.5 rounded border border-purple-200/40 shrink-0">
+                                  (DM)
+                                </span>
+                              )}
+                            </div>
                             {isEdited && (
                               <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-500" title="Alteração pendente" />
                             )}
@@ -596,6 +629,21 @@ function MatrixViewInner() {
                 ))
               )}
             </div>
+
+            {assignmentCell?.currentPosition?.userId || Object.values(editedPositions).find(p => p.role === assignmentCell?.role && p.userId) ? (
+              <div className="flex items-center gap-2 py-3 px-1 border-t border-slate-100">
+                <input
+                  type="checkbox"
+                  id="is-dm-checkbox"
+                  checked={isDmCheckbox}
+                  onChange={(e) => handleToggleDm(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+                />
+                <Label htmlFor="is-dm-checkbox" className="text-xs font-bold text-slate-700 cursor-pointer">
+                  Diretor Musical (DM) deste culto
+                </Label>
+              </div>
+            ) : null}
           </div>
 
           <DialogFooter className="flex justify-between sm:justify-between items-center border-t border-slate-100 pt-4 mt-2">

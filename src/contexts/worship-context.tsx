@@ -58,6 +58,7 @@ export type NeededPosition = {
   userId?: string;    // Assigned user ID if any
   userName?: string;  // Cache user name
   status?: 'draft' | 'sent' | 'accepted' | 'declined'; // Status do convite (Planning Center)
+  isDM?: boolean;
 };
 
 export type WorshipPlan = {
