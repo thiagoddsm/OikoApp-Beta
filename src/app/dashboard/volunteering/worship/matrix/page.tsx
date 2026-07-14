@@ -1,10 +1,13 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { WorshipProvider, useWorship, WorshipPlan, NeededPosition } from '@/contexts/worship-context';
+import { useVolunteering } from '@/contexts/volunteering-context';
+import { useVolunteeringServiceData } from '@/hooks/useDomainData';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useMembersData, useEventsData } from '@/hooks/useDomainData';
 import {
@@ -33,6 +36,7 @@ import {
   CalendarDays,
   UserPlus2,
   Trash2,
+  Plus,
   Sparkles
 } from 'lucide-react';
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSunday, isSameDay } from 'date-fns';
@@ -56,32 +60,20 @@ const months = [
 const currentYear = new Date().getFullYear();
 const years = [currentYear - 1, currentYear, currentYear + 1];
 
-// Predefined list of typical worship volunteer roles (roles)
-const DEFAULT_ROLES = [
-  'Dirigente',
-  'Líder de Louvor',
-  'Teclado',
-  'Guitarra',
-  'Violão',
-  'Baixo',
-  'Bateria',
-  'Backing Vocal',
-  'Sonoplasta',
-  'Projeção',
-  'Câmera 1',
-  'Câmera 2',
-  'Diretor de TV'
-];
-
 function MatrixViewInner() {
   const router = useRouter();
   const { plans, isLoading: isWorshipLoading, updatePlan, createPlan } = useWorship();
   const { users, isLoading: isMembersLoading } = useMembersData();
   const { events, isLoading: isEventsLoading } = useEventsData();
+  const { updateArea } = useVolunteering();
+  const { serviceAreas, isLoading: isAreasLoading } = useVolunteeringServiceData();
   const { toast } = useToast();
 
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+  const [selectedAreaId, setSelectedAreaId] = useState<string>('');
+  const [showAddRoleDialog, setShowAddRoleDialog] = useState(false);
+  const [newRoleName, setNewRoleName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   // Keep track of pending edits in-memory before saving to Firestore
@@ -99,7 +91,45 @@ function MatrixViewInner() {
   // Search filter for volunteers in dialog
   const [userSearch, setUserSearch] = useState('');
 
-  // 1. Calculate Sunday dates for the selected month/year
+  // 1. Resolve selected Area
+  const selectedArea = useMemo(() => {
+    if (!serviceAreas || serviceAreas.length === 0) return null;
+    if (selectedAreaId) {
+      return serviceAreas.find(a => a.id === selectedAreaId) || null;
+    }
+    // Autoselect Area containing "louvor" or "worship" or fallback to first
+    const worshipArea = serviceAreas.find(a => {
+      const lower = a.name.toLowerCase();
+      return lower.includes('louvor') || lower.includes('worship');
+    });
+    return worshipArea || serviceAreas[0];
+  }, [serviceAreas, selectedAreaId]);
+
+  // Sync selectedAreaId when component loads or serviceAreas resolves
+  useEffect(() => {
+    if (selectedArea && !selectedAreaId) {
+      setSelectedAreaId(selectedArea.id);
+    }
+  }, [selectedArea, selectedAreaId]);
+
+  // Fallback Roles logic
+  const getAreaFallbackRoles = (name: string) => {
+    const lower = name.toLowerCase();
+    if (lower.includes('louvor') || lower.includes('worship')) {
+      return ['Dirigente', 'Líder de Louvor', 'Teclado', 'Guitarra', 'Violão', 'Baixo', 'Bateria', 'Backing Vocal'];
+    }
+    if (lower.includes('técnica') || lower.includes('som') || lower.includes('mídia') || lower.includes('tecnica') || lower.includes('midia')) {
+      return ['Sonoplasta', 'Projeção', 'Câmera 1', 'Câmera 2', 'Diretor de TV', 'Iluminação'];
+    }
+    return ['Coordenador', 'Voluntário 1', 'Voluntário 2', 'Apoio'];
+  };
+
+  const areaRoles = useMemo(() => {
+    if (!selectedArea) return [];
+    return selectedArea.roles || getAreaFallbackRoles(selectedArea.name);
+  }, [selectedArea]);
+
+  // 2. Calculate Sunday dates for the selected month/year
   const sundays = useMemo(() => {
     const start = startOfMonth(new Date(selectedYear, selectedMonth, 1));
     const end = endOfMonth(new Date(selectedYear, selectedMonth, 1));
@@ -107,7 +137,7 @@ function MatrixViewInner() {
     return days.filter(d => isSunday(d));
   }, [selectedMonth, selectedYear]);
 
-  // 2. Fetch plans matching these sundays
+  // 3. Fetch plans matching these sundays
   const matrixPlans = useMemo(() => {
     return sundays.map(sunday => {
       const dateStr = format(sunday, 'yyyy-MM-dd');
@@ -129,19 +159,6 @@ function MatrixViewInner() {
       return virtualPlan;
     });
   }, [sundays, plans]);
-
-  // Combined roles list (Standard roles + any role configured in plans)
-  const allRoles = useMemo(() => {
-    const rolesInPlans = new Set<string>();
-    matrixPlans.forEach(p => {
-      p.neededPositions?.forEach(pos => {
-        if (pos.role) rolesInPlans.add(pos.role);
-      });
-    });
-    // Combine defaults and custom ones
-    const combined = Array.from(new Set([...DEFAULT_ROLES, ...Array.from(rolesInPlans)]));
-    return combined;
-  }, [matrixPlans]);
 
   // Get current position at cell, considering in-memory edits
   const getCellPosition = (plan: WorshipPlan, role: string) => {
@@ -252,8 +269,7 @@ function MatrixViewInner() {
             const index = updatedPositions.findIndex(pos => pos.role === role);
             if (index > -1) {
               if (!newPos.userId) {
-                // If removed user, we can either clear fields or filter it out.
-                // Keeping role placeholder but with undefined user is typical:
+                // If removed user, keeping role placeholder but with undefined user
                 updatedPositions[index] = { ...updatedPositions[index], userId: undefined, userName: undefined, status: 'draft' };
               } else {
                 updatedPositions[index] = { ...updatedPositions[index], ...newPos };
@@ -289,12 +305,63 @@ function MatrixViewInner() {
     }
   };
 
+  const handleAddRole = async () => {
+    if (!selectedArea || !newRoleName.trim()) return;
+    const cleanName = newRoleName.trim();
+    if (areaRoles.includes(cleanName)) {
+      toast({
+        title: 'Função já existe',
+        description: 'Esta função já está cadastrada nesta área.',
+        variant: 'destructive'
+      });
+      return;
+    }
+    try {
+      await updateArea(selectedArea.id, {
+        roles: [...areaRoles, cleanName]
+      });
+      setNewRoleName('');
+      setShowAddRoleDialog(false);
+      toast({
+        title: 'Função adicionada',
+        description: `A função "${cleanName}" foi adicionada a "${selectedArea.name}".`
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: 'Erro ao adicionar função',
+        description: 'Não foi possível salvar a alteração.',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleDeleteRole = async (roleToDelete: string) => {
+    if (!selectedArea) return;
+    try {
+      await updateArea(selectedArea.id, {
+        roles: areaRoles.filter(r => r !== roleToDelete)
+      });
+      toast({
+        title: 'Função removida',
+        description: `A função "${roleToDelete}" foi removida com sucesso.`
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: 'Erro ao remover função',
+        description: 'Não foi possível remover a função do Firestore.',
+        variant: 'destructive'
+      });
+    }
+  };
+
   const filteredUsers = useMemo(() => {
     if (!userSearch) return users;
     return users.filter(u => u.name?.toLowerCase().includes(userSearch.toLowerCase()));
   }, [users, userSearch]);
 
-  const isLoading = isWorshipLoading || isMembersLoading || isEventsLoading;
+  const isLoading = isWorshipLoading || isMembersLoading || isEventsLoading || isAreasLoading;
 
   if (isLoading) {
     return (
@@ -321,14 +388,26 @@ function MatrixViewInner() {
           </Button>
           <div>
             <h2 className="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
-              <Grid3X3 className="size-5 text-primary" /> Matrix de Escalas Worship
+              <Grid3X3 className="size-5 text-primary" /> Matrix de Escalas worship
             </h2>
             <p className="text-xs text-slate-400 font-medium">Agendamento rápido de voluntários multi-semanas para domingo</p>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Area of Service Selector */}
+            <Select value={selectedAreaId} onValueChange={v => { setSelectedAreaId(v); setEditedPositions({}); }}>
+              <SelectTrigger className="w-[180px] bg-slate-50/50 hover:bg-slate-50 border-slate-200 h-9 rounded-xl text-sm font-medium">
+                <SelectValue placeholder="Selecione a Área" />
+              </SelectTrigger>
+              <SelectContent>
+                {serviceAreas.map(area => (
+                  <SelectItem key={area.id} value={area.id}>{area.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             <Select value={selectedMonth.toString()} onValueChange={v => { setSelectedMonth(parseInt(v)); setEditedPositions({}); }}>
               <SelectTrigger className="w-[140px] bg-slate-50/50 hover:bg-slate-50 border-slate-200 h-9 rounded-xl text-sm font-medium">
                 <SelectValue />
@@ -410,10 +489,20 @@ function MatrixViewInner() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-150">
-              {allRoles.map(role => (
-                <tr key={role} className="hover:bg-slate-50/40 transition-colors">
-                  <td className="py-4 px-6 font-bold text-slate-700 text-xs sticky left-0 bg-white hover:bg-slate-50 z-10 border-r border-slate-200 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
-                    {role}
+              {areaRoles.map(role => (
+                <tr key={role} className="hover:bg-slate-50/40 transition-colors group/row">
+                  <td className="py-4 px-6 font-bold text-slate-700 text-xs sticky left-0 bg-white hover:bg-slate-55 z-10 border-r border-slate-200 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
+                    <div className="flex items-center justify-between gap-2 w-full">
+                      <span>{role}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteRole(role)}
+                        className="size-6 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-md opacity-0 group-hover/row:opacity-100 transition-opacity"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </Button>
+                    </div>
                   </td>
                   {matrixPlans.map(plan => {
                     const cellPos = getCellPosition(plan, role);
@@ -453,6 +542,21 @@ function MatrixViewInner() {
                   })}
                 </tr>
               ))}
+
+              {/* Elegant Button to Add Role in the left column */}
+              <tr className="hover:bg-slate-50/40 transition-colors">
+                <td className="py-3 px-6 sticky left-0 bg-white hover:bg-slate-50 z-10 border-r border-slate-200 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setShowAddRoleDialog(true)}
+                    className="text-xs font-semibold text-primary hover:text-primary hover:bg-primary/5 flex items-center gap-1.5 w-full justify-start h-8 rounded-lg"
+                  >
+                    <Plus className="size-3.5" /> Adicionar Função
+                  </Button>
+                </td>
+                <td colSpan={matrixPlans.length} className="bg-slate-50/10"></td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -525,6 +629,40 @@ function MatrixViewInner() {
             )}
             <Button variant="ghost" size="sm" className="text-xs font-bold text-slate-500" onClick={() => setAssignmentCell(null)}>
               Cancelar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Role Dialog */}
+      <Dialog open={showAddRoleDialog} onOpenChange={setShowAddRoleDialog}>
+        <DialogContent className="max-w-sm rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-800">
+              Adicionar Função
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-400">
+              Digite o nome da nova função a ser adicionada na Área de Serviço "{selectedArea?.name}".
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-3">
+            <Label htmlFor="roleName" className="text-xs font-bold text-slate-600">Nome da Função</Label>
+            <Input
+              id="roleName"
+              placeholder="Ex: Baixo, Backing Vocal, Projeção"
+              value={newRoleName}
+              onChange={e => setNewRoleName(e.target.value)}
+              className="text-xs rounded-xl"
+            />
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <Button variant="ghost" size="sm" className="text-xs font-bold text-slate-500" onClick={() => { setShowAddRoleDialog(false); setNewRoleName(''); }}>
+              Cancelar
+            </Button>
+            <Button size="sm" className="text-xs font-bold bg-primary text-white hover:bg-primary/90" onClick={handleAddRole}>
+              Confirmar
             </Button>
           </DialogFooter>
         </DialogContent>

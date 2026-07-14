@@ -53,7 +53,8 @@ import {
   AudioLines,
   Youtube,
   ExternalLink,
-  Plus
+  Plus,
+  Grid3X3
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -889,6 +890,7 @@ function SongsLibrary() {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 function WorshipPageContent() {
+  const router = useRouter();
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 pt-16">
@@ -914,6 +916,9 @@ function WorshipPageContent() {
           </TabsTrigger>
           <TabsTrigger value="templates" className="gap-2">
             <LayoutTemplate className="h-4 w-4" /> Templates
+          </TabsTrigger>
+          <TabsTrigger value="matrix" className="gap-2" onClick={() => router.push('/dashboard/volunteering/worship/matrix')}>
+            <Grid3X3 className="h-4 w-4" /> Matrix de Escalas
           </TabsTrigger>
         </TabsList>
         <TabsContent value="plans" className="mt-6">

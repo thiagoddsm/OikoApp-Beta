@@ -31,9 +31,12 @@ let firestoreDbInstance: any;
 export function initializeFirebase() {
   if (!getApps().length) {
     firebaseAppInstance = initializeApp(firebaseConfig);
+    
+    const isProd = process.env.NODE_ENV === 'production';
+    
     try {
       firestoreDbInstance = initializeFirestore(firebaseAppInstance, {
-        localCache: typeof window !== 'undefined' ? persistentLocalCache({
+        localCache: (typeof window !== 'undefined' && isProd) ? persistentLocalCache({
           tabManager: persistentMultipleTabManager()
         }) : undefined,
         ignoreUndefinedProperties: true,
