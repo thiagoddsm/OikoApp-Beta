@@ -91,26 +91,22 @@ function MatrixViewInner() {
   // Search filter for volunteers in dialog
   const [userSearch, setUserSearch] = useState('');
 
-  // 1. Resolve selected Area
+  // 1. Resolve selected Area (Locked to Louvor / Worship)
   const selectedArea = useMemo(() => {
     if (!serviceAreas || serviceAreas.length === 0) return null;
-    if (selectedAreaId) {
-      return serviceAreas.find(a => a.id === selectedAreaId) || null;
-    }
-    // Autoselect Area containing "louvor" or "worship" or fallback to first
     const worshipArea = serviceAreas.find(a => {
       const lower = a.name.toLowerCase();
       return lower.includes('louvor') || lower.includes('worship');
     });
     return worshipArea || serviceAreas[0];
-  }, [serviceAreas, selectedAreaId]);
+  }, [serviceAreas]);
 
   // Sync selectedAreaId when component loads or serviceAreas resolves
   useEffect(() => {
-    if (selectedArea && !selectedAreaId) {
+    if (selectedArea) {
       setSelectedAreaId(selectedArea.id);
     }
-  }, [selectedArea, selectedAreaId]);
+  }, [selectedArea]);
 
   // Fallback Roles logic
   const getAreaFallbackRoles = (name: string) => {
@@ -396,18 +392,6 @@ function MatrixViewInner() {
 
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <div className="flex flex-wrap items-center gap-2">
-            {/* Area of Service Selector */}
-            <Select value={selectedAreaId} onValueChange={v => { setSelectedAreaId(v); setEditedPositions({}); }}>
-              <SelectTrigger className="w-[180px] bg-slate-50/50 hover:bg-slate-50 border-slate-200 h-9 rounded-xl text-sm font-medium">
-                <SelectValue placeholder="Selecione a Área" />
-              </SelectTrigger>
-              <SelectContent>
-                {serviceAreas.map(area => (
-                  <SelectItem key={area.id} value={area.id}>{area.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
             <Select value={selectedMonth.toString()} onValueChange={v => { setSelectedMonth(parseInt(v)); setEditedPositions({}); }}>
               <SelectTrigger className="w-[140px] bg-slate-50/50 hover:bg-slate-50 border-slate-200 h-9 rounded-xl text-sm font-medium">
                 <SelectValue />

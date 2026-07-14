@@ -11,6 +11,7 @@ import { useFirebase, addDocumentNonBlocking, updateDocumentNonBlocking } from '
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { collection, doc } from 'firebase/firestore';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface CourseFormDialogProps {
   open: boolean;
@@ -26,6 +27,7 @@ export function CourseFormDialog({ open, onOpenChange, existingCourse }: CourseF
   const [ministryName, setMinistryName] = useState('');
   const [simultaneousClasses, setSimultaneousClasses] = useState(false);
   const [whatsappGroupPicture, setWhatsappGroupPicture] = useState('');
+  const [billingMethod, setBillingMethod] = useState<'manual' | 'asaas'>('manual');
   const [isUploadingPic, setIsUploadingPic] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -36,6 +38,7 @@ export function CourseFormDialog({ open, onOpenChange, existingCourse }: CourseF
       setMinistryName(existingCourse?.ministryName || '');
       setSimultaneousClasses(existingCourse?.simultaneousClasses || false);
       setWhatsappGroupPicture(existingCourse?.whatsappGroupPicture || '');
+      setBillingMethod(existingCourse?.billingMethod || 'manual');
     }
   }, [open, existingCourse]);
 
@@ -50,7 +53,8 @@ export function CourseFormDialog({ open, onOpenChange, existingCourse }: CourseF
       description, 
       ministryName, 
       simultaneousClasses,
-      whatsappGroupPicture 
+      whatsappGroupPicture,
+      billingMethod
     };
 
     if (existingCourse) {
@@ -138,6 +142,19 @@ export function CourseFormDialog({ open, onOpenChange, existingCourse }: CourseF
                 checked={simultaneousClasses} 
                 onCheckedChange={setSimultaneousClasses} 
               />
+          </div>
+          <div className="space-y-2">
+              <Label htmlFor="billingMethod">Método de Faturamento</Label>
+              <Select value={billingMethod} onValueChange={(v: any) => setBillingMethod(v)}>
+                  <SelectTrigger id="billingMethod" className="h-10"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                      <SelectItem value="manual">Manual (Pix / Caixa Interno)</SelectItem>
+                      <SelectItem value="asaas">Automático (Asaas Integrado)</SelectItem>
+                  </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground italic">
+                Define se as faturas serão gerenciadas de forma manual pela secretaria ou integradas com o Asaas.
+              </p>
           </div>
         </div>
         <DialogFooter>
