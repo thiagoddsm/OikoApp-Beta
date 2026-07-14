@@ -602,7 +602,14 @@ export type DisPayment = {
 };
 
 export type WavePlan = { id: string; name: string; price: number };
-export type DisPlan = { id: string; name: string; price: number };
+export type DisPlan = { 
+  id: string; 
+  name: string; 
+  price: number;
+  dueDay?: number;
+  installments?: number;
+  periodicityMonths?: number;
+};
 export type WaveExpense = { id: string; description: string; amount: number; date: Timestamp; receiptUrl?: string };
 
 export type FinancialTransaction = {

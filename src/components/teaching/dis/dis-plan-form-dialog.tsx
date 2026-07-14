@@ -19,24 +19,40 @@ export function DisPlanFormDialog({ open, onOpenChange, existingPlan }: DisPlanF
   
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
+  const [dueDay, setDueDay] = useState('10');
+  const [installments, setInstallments] = useState('6');
+  const [periodicityMonths, setPeriodicityMonths] = useState('1');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
       setName(existingPlan?.name || '');
       setPrice(existingPlan?.price?.toString() || '');
+      setDueDay(existingPlan?.dueDay?.toString() || '10');
+      setInstallments(existingPlan?.installments?.toString() || '6');
+      setPeriodicityMonths(existingPlan?.periodicityMonths?.toString() || '1');
     }
   }, [open, existingPlan]);
 
   const handleSave = async () => {
     const numericPrice = Number(price);
-    if (!name.trim() || !price || isNaN(numericPrice)) {
+    const numericDue = Number(dueDay);
+    const numericInstallments = Number(installments);
+    const numericPeriodicity = Number(periodicityMonths);
+
+    if (!name.trim() || !price || isNaN(numericPrice) || isNaN(numericDue) || isNaN(numericInstallments) || isNaN(numericPeriodicity)) {
       alert('Por favor, preencha todos os campos com valores válidos.');
       return;
     }
     setIsSaving(true);
     
-    const planData = { name, price: numericPrice };
+    const planData = { 
+      name, 
+      price: numericPrice, 
+      dueDay: numericDue, 
+      installments: numericInstallments, 
+      periodicityMonths: numericPeriodicity 
+    };
 
     if (existingPlan) {
       await updateDisPlan(existingPlan.id, planData);
@@ -78,6 +94,42 @@ export function DisPlanFormDialog({ open, onOpenChange, existingPlan }: DisPlanF
               placeholder="Ex: 150.00"
               required
             />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <Label htmlFor="plan-due">Dia Vencimento</Label>
+              <Input
+                id="plan-due"
+                type="number"
+                min="1"
+                max="31"
+                value={dueDay}
+                onChange={(e) => setDueDay(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="plan-installments">Nº Parcelas</Label>
+              <Input
+                id="plan-installments"
+                type="number"
+                min="1"
+                value={installments}
+                onChange={(e) => setInstallments(e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="plan-periodicity">Intervalo (Meses)</Label>
+              <Input
+                id="plan-periodicity"
+                type="number"
+                min="1"
+                value={periodicityMonths}
+                onChange={(e) => setPeriodicityMonths(e.target.value)}
+                required
+              />
+            </div>
           </div>
         </div>
         <DialogFooter>
