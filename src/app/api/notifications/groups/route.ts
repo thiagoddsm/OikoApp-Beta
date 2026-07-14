@@ -219,10 +219,18 @@ export async function POST(request: Request) {
         
         if (!res.ok) {
             console.error("Evolution API Group Create Error Payload:", resData);
-            const detailError = resData.message || (Array.isArray(resData.error) ? resData.error.join(', ') : resData.error) || null;
+            let detailError = resData.message || (Array.isArray(resData.error) ? resData.error.join(', ') : resData.error) || null;
+            
+            // Check if it's a common Evolution instance status or configuration issue
+            if (res.status === 400 && !detailError) {
+                detailError = "Instância do WhatsApp desconectada (IBM) ou sem participantes válidos selecionados.";
+            } else if (res.status === 403 || res.status === 401) {
+                detailError = "Token de API do WhatsApp inválido ou expirado nas configurações.";
+            }
+            
             return NextResponse.json({ 
                 success: false, 
-                error: detailError || `Erro ${res.status} ao criar grupo no WhatsApp` 
+                error: detailError || `Erro ${res.status} ao criar grupo no WhatsApp (Evolution API)` 
             }, { status: res.status });
         }
 
