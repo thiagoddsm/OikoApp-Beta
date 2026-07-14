@@ -38,6 +38,7 @@ export function CourseDetailsForm({ course }: { course: any }) {
     imageUrl: '',
     whatsappGroupPicture: '',
     simultaneousClasses: false,
+    billingMethod: course?.billingMethod || 'manual',
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
@@ -63,6 +64,7 @@ export function CourseDetailsForm({ course }: { course: any }) {
         imageUrl: course.imageUrl || '',
         whatsappGroupPicture: course.whatsappGroupPicture || '',
         simultaneousClasses: course.simultaneousClasses || false,
+        billingMethod: course.billingMethod || 'manual',
       });
     }
   }, [course]);
@@ -202,6 +204,7 @@ export function CourseDetailsForm({ course }: { course: any }) {
             imageUrl: formData.imageUrl,
             whatsappGroupPicture: formData.whatsappGroupPicture,
             simultaneousClasses: formData.simultaneousClasses,
+            billingMethod: formData.billingMethod,
         });
         toast({ title: 'Sucesso!', description: 'As configurações do curso foram atualizadas.'});
     } catch (e) {
@@ -256,6 +259,22 @@ export function CourseDetailsForm({ course }: { course: any }) {
                         </Select>
                     </div>
                   )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+                  <div className="space-y-2">
+                      <Label htmlFor="billingMethod">Método de Faturamento</Label>
+                      <Select value={formData.billingMethod} onValueChange={v => handleFieldChange('billingMethod', v)}>
+                          <SelectTrigger id="billingMethod"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="manual">Manual (Pix / Caixa Interno)</SelectItem>
+                              <SelectItem value="asaas">Automático (Asaas Integrado)</SelectItem>
+                          </SelectContent>
+                      </Select>
+                      <p className="text-[10px] text-muted-foreground italic">
+                          Selecione se as mensalidades serão geradas e pagas via Pix manualmente ou integradas de forma automática pelo Asaas.
+                      </p>
+                  </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">

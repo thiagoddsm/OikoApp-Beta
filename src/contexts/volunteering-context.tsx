@@ -130,6 +130,7 @@ export type Course = {
   requiresBaptism?: boolean;
   prerequisiteCourseId?: string;
   simultaneousClasses?: boolean;
+  billingMethod?: 'manual' | 'asaas';
 };
 
 export type SavedSchedule = {

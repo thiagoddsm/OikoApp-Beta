@@ -15,7 +15,7 @@ import { DisPlansManagement } from './dis-plans-management';
 import { DisPaymentFormDialog } from './dis-payment-form-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useMembersData, useTeachingFinance } from "@/hooks/useDomainData";
+import { useMembersData, useTeachingFinance, useCoursesData } from "@/hooks/useDomainData";
 
 const statusConfig: Record<string, { label: string; icon: React.ElementType; color: string; }> = {
   paid: { label: 'Pago', icon: CheckCircle, color: 'bg-green-100 text-green-800' },
@@ -23,11 +23,23 @@ const statusConfig: Record<string, { label: string; icon: React.ElementType; col
   overdue: { label: 'Atrasado', icon: XCircle, color: 'bg-red-100 text-red-800' },
 };
 
+interface VirtualDisPayment {
+  id: string;
+  userId: string;
+  planId: string;
+  amount: number;
+  month: string;
+  status: 'pending' | 'paid' | 'overdue';
+  isVirtual: boolean;
+  contaAzulInvoiceId?: string;
+}
+
 export function DisFinanceDashboard() {
     const { users } = useMembersData();
     const { wavePayments, disPayments, wavePlans, disPlans, waveExpenses } = useTeachingFinance();
+    const { courses, classes } = useCoursesData();
 
-  const { isLoading, deleteDisPayment } = useVolunteering();
+  const { isLoading, deleteDisPayment, addDisPayment } = useVolunteering();
   const { toast } = useToast();
   const [filter, setFilter] = useState('all');
   const [isFormOpen, setFormOpen] = useState(false);
@@ -37,10 +49,80 @@ export function DisFinanceDashboard() {
   const userMap = useMemo(() => new Map(users.map(u => [u.id, u.name])), [users]);
   const planMap = useMemo(() => new Map(disPlans.map(p => [p.id, p.name])), [disPlans]);
 
+  // Generates physical + virtual payments for manual billing methods
+  const allPaymentsAndVirtuals = useMemo(() => {
+    if (!disPayments || !classes || !courses || !disPlans) return [];
+
+    const list: (DisPayment | VirtualDisPayment)[] = [...disPayments];
+    const physicalMonthsByUserPlan = new Map<string, Set<string>>();
+    disPayments.forEach(p => {
+      const key = `${p.userId}-${p.planId}`;
+      if (!physicalMonthsByUserPlan.has(key)) {
+        physicalMonthsByUserPlan.set(key, new Set());
+      }
+      physicalMonthsByUserPlan.get(key)!.add(p.month);
+    });
+
+    const disCourses = courses.filter(c => c.ministryName?.toLowerCase() === 'dis' || c.name?.toLowerCase().includes('libras'));
+    const disCourseIds = disCourses.map(c => c.id);
+
+    classes.forEach(cls => {
+      if (!disCourseIds.includes(cls.courseId)) return;
+      const courseObj = disCourses.find(c => c.id === cls.courseId);
+      const billingMethod = courseObj?.billingMethod || 'manual';
+      if (billingMethod !== 'manual') return;
+
+      // Find the associated dis plan. Since planId might not be directly on Class in TS type, cast to any or use fallback
+      const classAny = cls as any;
+      const planObj = disPlans.find(p => p.id === classAny.planId || p.name === cls.cycle);
+      if (!planObj) return;
+
+      const durationMonths = 10;
+      
+      let startDate = new Date();
+      if (cls.startDate) {
+        startDate = new Date(cls.startDate);
+      } else if (classAny.createdAt) {
+        const createdAtVal = classAny.createdAt;
+        if (typeof createdAtVal.toDate === 'function') {
+          startDate = createdAtVal.toDate();
+        } else {
+          startDate = new Date(createdAtVal);
+        }
+      }
+
+      cls.students?.forEach((studentId: string) => {
+        for (let i = 0; i < durationMonths; i++) {
+          const checkDate = new Date(startDate.getFullYear(), startDate.getMonth() + i, 1);
+          const monthStr = checkDate.toISOString().slice(0, 7);
+
+          const key = `${studentId}-${planObj.id}`;
+          const hasPaid = physicalMonthsByUserPlan.get(key)?.has(monthStr);
+
+          if (!hasPaid) {
+            const virtualId = `virtual-${studentId}-${monthStr}`;
+            if (!list.some(item => item.id === virtualId)) {
+              list.push({
+                id: virtualId,
+                userId: studentId,
+                planId: planObj.id,
+                amount: planObj.price || (planObj as any).amount || 0,
+                month: monthStr,
+                status: 'pending',
+                isVirtual: true,
+              });
+            }
+          }
+        }
+      });
+    });
+
+    return list;
+  }, [disPayments, classes, courses, disPlans]);
+
   const filteredTransactions = useMemo(() => {
-    if (!disPayments) return [];
-    return disPayments.filter(t => filter === 'all' || t.status === filter);
-  }, [disPayments, filter]);
+    return allPaymentsAndVirtuals.filter(t => filter === 'all' || t.status === filter);
+  }, [allPaymentsAndVirtuals, filter]);
 
   const kpiData = useMemo(() => {
     if (!disPayments) return { monthlyRevenue: "R$ 0,00", overdueCount: 0 };
@@ -79,6 +161,31 @@ export function DisFinanceDashboard() {
         deleteDisPayment(selectedPayment.id);
         setDeleteOpen(false);
         setSelectedPayment(null);
+    }
+  };
+
+  const handleReceiveVirtual = async (t: VirtualDisPayment) => {
+    try {
+      await addDisPayment({
+        status: 'paid',
+        amount: t.amount,
+        month: t.month,
+        userId: t.userId,
+        planId: t.planId,
+        contaAzulInvoiceId: '',
+        createdAt: new Date(),
+      });
+      toast({
+        title: "Sucesso!",
+        description: "Pagamento Pix registrado e fatura consolidada com sucesso."
+      });
+    } catch (e: any) {
+      console.error(e);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao receber pagamento',
+        description: e.message || 'Não foi possível registrar o pagamento.'
+      });
     }
   };
   
@@ -149,7 +256,7 @@ export function DisFinanceDashboard() {
                                     <TableHead>Valor</TableHead>
                                     <TableHead>Mês</TableHead>
                                     <TableHead>Status</TableHead>
-                                    <TableHead className="text-right w-[100px]">Ações</TableHead>
+                                    <TableHead className="text-right w-[120px]">Ações</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -159,6 +266,7 @@ export function DisFinanceDashboard() {
                                     </TableRow>
                                 ) : (
                                     filteredTransactions.map((t) => {
+                                        const isVirtual = 'isVirtual' in t && t.isVirtual;
                                         const StatusIcon = statusConfig[t.status].icon;
                                         return (
                                             <TableRow key={t.id}>
@@ -167,19 +275,37 @@ export function DisFinanceDashboard() {
                                                 <TableCell>R$ {t.amount.toFixed(2).replace('.', ',')}</TableCell>
                                                 <TableCell>{t.month}</TableCell>
                                                 <TableCell>
-                                                    <Badge variant="outline" className={cn("font-medium", statusConfig[t.status].color)}>
-                                                        <StatusIcon className="mr-1.5 h-3.5 w-3.5" />
-                                                        {statusConfig[t.status].label}
-                                                    </Badge>
+                                                    {isVirtual ? (
+                                                        <Badge variant="outline" className="font-medium bg-amber-100 text-amber-800">
+                                                            <Clock className="mr-1.5 h-3.5 w-3.5" />
+                                                            Pendente (Pix/Manual)
+                                                        </Badge>
+                                                    ) : (
+                                                        <Badge variant="outline" className={cn("font-medium", statusConfig[t.status].color)}>
+                                                            <StatusIcon className="mr-1.5 h-3.5 w-3.5" />
+                                                            {statusConfig[t.status].label}
+                                                        </Badge>
+                                                    )}
                                                 </TableCell>
                                                 <TableCell className="text-right">
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="size-4"/></Button></DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end">
-                                                            <DropdownMenuItem onClick={() => handleEdit(t)}><Edit className="mr-2 h-4 w-4" />Editar</DropdownMenuItem>
-                                                            <DropdownMenuItem onClick={() => handleDelete(t)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Excluir</DropdownMenuItem>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
+                                                    {isVirtual ? (
+                                                        <Button 
+                                                            variant="outline" 
+                                                            size="sm" 
+                                                            className="text-xs" 
+                                                            onClick={() => handleReceiveVirtual(t as VirtualDisPayment)}
+                                                        >
+                                                            Receber Pix
+                                                        </Button>
+                                                    ) : (
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild><Button variant="ghost" size="icon"><MoreHorizontal className="size-4"/></Button></DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                <DropdownMenuItem onClick={() => handleEdit(t as DisPayment)}><Edit className="mr-2 h-4 w-4" />Editar</DropdownMenuItem>
+                                                                <DropdownMenuItem onClick={() => handleDelete(t as DisPayment)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Excluir</DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    )}
                                                 </TableCell>
                                             </TableRow>
                                         )
