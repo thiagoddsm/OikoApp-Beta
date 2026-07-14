@@ -125,6 +125,10 @@ function MatrixViewInner() {
 
   const areaRoles = useMemo(() => {
     if (!selectedArea) return [];
+    const lower = selectedArea.name.toLowerCase();
+    if (lower.includes('louvor') || lower.includes('worship')) {
+      return ['Lead', 'Back 1', 'Back 2', 'Guitarra', 'Baixo', 'Bateria', 'Violão', 'Teclado'];
+    }
     return selectedArea.roles || getAreaFallbackRoles(selectedArea.name);
   }, [selectedArea]);
 
