@@ -230,7 +230,8 @@ export async function POST(request: Request) {
             
             return NextResponse.json({ 
                 success: false, 
-                error: detailError || `Erro ${res.status} ao criar grupo no WhatsApp (Evolution API)` 
+                error: detailError || `Erro ${res.status} ao criar grupo no WhatsApp (Evolution API)`,
+                rawError: resData // Expondo o payload inteiro do erro da Evolution para análise
             }, { status: res.status });
         }
 
