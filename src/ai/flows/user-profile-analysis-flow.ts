@@ -7,8 +7,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { initializeFirebase } from '@/firebase';
-import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { getAdminDb } from '@/lib/firebase-admin';
 
 const UserProfileAnalysisInputSchema = z.object({
   userId: z.string().describe('The ID of the user to analyze.'),
@@ -60,30 +59,29 @@ const userProfileAnalysisFlow = ai.defineFlow(
     outputSchema: UserProfileAnalysisOutputSchema,
   },
   async ({ userId, question }) => {
-    // We can't use hooks here, so we initialize a server-side instance of Firebase.
-    const { firestore } = initializeFirebase();
+    // Use the Firebase Admin SDK to bypass client security rule limitations
+    const db = getAdminDb();
 
     // Fetch all related data for a comprehensive analysis
-    const userRef = doc(firestore, 'users', userId);
-    const userSnap = await getDoc(userRef);
+    const userSnap = await db.collection('users').doc(userId).get();
 
-    if (!userSnap.exists()) {
+    if (!userSnap.exists) {
       throw new Error('User not found');
     }
     
-    const userData = userSnap.data();
+    const userData = userSnap.data() || {};
 
     // Fetch related data to enrich the context for the AI
     let cellData = null;
     if (userData.hierarchy?.celulaId) {
-        const cellSnap = await getDoc(doc(firestore, 'cells', userData.hierarchy.celulaId));
-        if (cellSnap.exists()) cellData = cellSnap.data();
+        const cellSnap = await db.collection('cells').doc(userData.hierarchy.celulaId).get();
+        if (cellSnap.exists) cellData = cellSnap.data();
     }
 
     let supervisorData = null;
     if (userData.hierarchy?.supervisorId) {
-        const supervisorSnap = await getDoc(doc(firestore, 'users', userData.hierarchy.supervisorId));
-        if (supervisorSnap.exists()) supervisorData = { name: supervisorSnap.data().name };
+        const supervisorSnap = await db.collection('users').doc(userData.hierarchy.supervisorId).get();
+        if (supervisorSnap.exists) supervisorData = { name: supervisorSnap.data()?.name };
     }
 
     // Combine all data into one object for the prompt
@@ -91,7 +89,6 @@ const userProfileAnalysisFlow = ai.defineFlow(
         profile: userData,
         cellGroup: cellData,
         supervisor: supervisorData,
-        // In the future, we could add attendance, notes, etc. here
     };
 
     const result = await analysisPrompt({
