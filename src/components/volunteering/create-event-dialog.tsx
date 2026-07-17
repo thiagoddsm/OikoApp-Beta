@@ -29,6 +29,7 @@ const weekdays = [
 
 export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplicating }: CreateEventDialogProps) {
   const { serviceAreas: areas } = useVolunteeringServiceData();
+  const { rooms } = useEventsData();
   const { addEvent, updateEvent } = useVolunteering();
   
   const [name, setName] = useState('');
@@ -161,7 +162,7 @@ export function CreateEventDialog({ open, onOpenChange, existingEvent, isDuplica
                 <Select value={room} onValueChange={setRoom}>
                   <SelectTrigger id="room"><SelectValue placeholder="Selecione um ambiente"/></SelectTrigger>
                   <SelectContent>
-                      {areas.map(r => <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>)}
+                      {rooms.map(r => <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
