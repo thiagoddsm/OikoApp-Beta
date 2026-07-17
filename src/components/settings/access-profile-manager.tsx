@@ -35,6 +35,7 @@ const permissionsConfig = [
       { id: 'gcs_structure', label: 'Estrutura', actions: ['view', 'edit', 'delete'] },
       { id: 'gcs_cells', label: 'Células', actions: ['view', 'edit', 'delete'] },
       { id: 'gcs_report', label: 'Relatório de Célula', actions: ['view', 'submit'] },
+      { id: 'gcs_supervisor', label: 'Supervisor', actions: ['view'] },
       { id: 'gcs_map', label: 'Mapa', actions: ['view'] },
     ]
   },
@@ -47,6 +48,7 @@ const permissionsConfig = [
       { id: 'servico_events', label: 'Gerenciar Eventos (Voluntariado)', actions: ['view', 'edit', 'delete'] },
       { id: 'servico_schedule', label: 'Gerar Escala', actions: ['view', 'edit', 'delete'] },
       { id: 'servico_saved', label: 'Escalas Salvas', actions: ['view', 'edit', 'delete'] },
+      { id: 'servico_worship', label: 'Ordem de Culto', actions: ['view', 'edit', 'delete'] },
     ]
   },
   {
@@ -60,6 +62,10 @@ const permissionsConfig = [
         subItems: [
             { id: 'teaching_courses', label: 'Cursos e Turmas Gerais', actions: ['view', 'edit', 'delete', 'view_students', 'manage_attendance', 'manage_grades'] },
             { id: 'teaching_theoflix', label: 'TheoFlix', actions: ['view', 'edit', 'delete'] },
+            { id: 'teaching_calendar', label: 'Calendário Escolar', actions: ['view', 'edit'] },
+            { id: 'teaching_teachers', label: 'Professores', actions: ['view', 'edit'] },
+            { id: 'teaching_students', label: 'Alunos', actions: ['view', 'edit'] },
+            { id: 'teaching_reports', label: 'Relatórios Gerais', actions: ['view'] },
             { id: 'teaching_wave', label: 'Wave - Escola de Música', actions: ['view_admin', 'view_finance', 'view_teacher_area', 'view_student_area', 'manage_attendance', 'manage_grades'] },
             { id: 'teaching_dis', label: 'DIS - Escola de Inclusão', actions: ['view_admin', 'view_finance', 'view_teacher_area', 'view_student_area', 'manage_attendance', 'manage_grades'] },
         ]
