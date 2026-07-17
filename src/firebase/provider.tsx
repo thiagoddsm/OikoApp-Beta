@@ -117,7 +117,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
             lastLoginAt: serverTimestamp(),
           };
           if (firebaseUser.email) updatePayload.email = firebaseUser.email;
-          if (firebaseUser.displayName) updatePayload.name = firebaseUser.displayName;
 
           updateDoc(
             doc(firestore, 'users', firebaseUser.uid),
