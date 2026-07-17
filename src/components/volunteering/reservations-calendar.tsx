@@ -254,11 +254,13 @@ export function ReservationsCalendar({
         if (ministryFilter !== 'all' && ministryFilter !== 'geral') return; // Ocultar se filtrar por outro ministério
         if (searchTerm && !evt.eventName.toLowerCase().includes(searchTerm.toLowerCase())) return;
 
-        try {
+          try {
           const start = new Date(evt.startDate + 'T' + (evt.timeStart || '00:00'));
           const end = new Date((evt.endDate || evt.startDate) + 'T' + (evt.timeEnd || '23:59'));
 
           if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
+
+          const hasProtocol = evt.requiredServiceAreas && Array.isArray(evt.requiredServiceAreas) && evt.requiredServiceAreas.length > 0;
 
           allOccurrences.push({
             id: 'strategic_' + evt.id,
@@ -269,7 +271,8 @@ export function ReservationsCalendar({
               ...evt,
               isStrategicEvent: true,
               status: 'approved',
-              rooms: evt.space ? [evt.space] : []
+              rooms: evt.space ? [evt.space] : [],
+              frequency: hasProtocol ? 'Eventual' : (evt.recurrence || 'pontual')
             }
           });
         } catch (e) {

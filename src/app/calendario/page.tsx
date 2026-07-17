@@ -300,7 +300,9 @@ function PublicCalendarContent() {
                                     <div className="space-y-0.5">
                                         <span className="text-[10px] font-black uppercase text-muted-foreground block">Tipo</span>
                                         <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-block">
-                                            Evento Estratégico da Igreja
+                                            {selectedReservation.frequency === 'Eventual' 
+                                                ? 'Evento Estratégico (Eventual)' 
+                                                : 'Evento Estratégico da Igreja'}
                                         </span>
                                     </div>
                                 </div>
