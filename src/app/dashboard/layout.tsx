@@ -36,6 +36,7 @@ import {
   HandHelping,
   Shield,
   CalendarClock,
+  Music2,
   Save,
   LayoutTemplate,
   Menu,
@@ -152,6 +153,7 @@ const menuItems = [
               { href: "/dashboard/events", label: "Protocolos de Evento", icon: CalendarCheck, permissionId: 'ministerial_events' },
               { href: "/dashboard/briefing-pro", label: "Briefing Pro", icon: FileText, permissionId: 'ministerial_briefing' },
               { href: "/dashboard/events/reservations", label: "Calendário Geral", icon: CalendarClock, permissionId: 'ministerial_reservations' },
+              { href: "/dashboard/vs", label: "Oiko Live (VS)", icon: Music2, permissionId: 'ministerial_events' },
             ]
         },
         { href: "/dashboard/finance", label: "Financeiro", icon: Briefcase, permissionId: 'ministerial_finance' },
