@@ -1,92 +1,69 @@
 'use client';
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle, HandHelping, Calendar, UserCheck, AlertTriangle } from 'lucide-react';
-import { useDoc, useFirebase } from '@/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { submitCheckIn } from './actions';
+import { getPublicCheckInData, submitCheckIn } from './actions';
 
 export default function PublicCheckInPage() {
-    const { firestore } = useFirebase();
-
-    // Read query parameters manually to support client-side hydration
     const [areaId, setAreaId] = useState<string | null>(null);
     const [dateParam, setDateParam] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const params = new URLSearchParams(window.location.search);
-            setAreaId(params.get('areaId'));
-            setDateParam(params.get('date'));
-        }
-    }, []);
+    const [loading, setLoading] = useState(true);
+    const [checkInData, setCheckInData] = useState<any>(null);
+    const [loadError, setLoadError] = useState('');
 
-    // Format Date (YYYY-MM-DD) into pt-BR (DD/MM/YYYY)
-    const formattedDate = useMemo(() => {
-        if (!dateParam) return '';
-        const [year, month, day] = dateParam.split('-');
-        return `${day}/${month}/${year}`;
-    }, [dateParam]);
-
-    // Retrieve saved schedule for this area and month
-    const selectedMonthString = useMemo(() => {
-        if (!dateParam) return '';
-        return dateParam.substring(0, 7); // YYYY-MM
-    }, [dateParam]);
-
-    const scheduleId = `${areaId}_${selectedMonthString}`;
-    
-    // Fetch data using hooks
-    const { data: schedule, isLoading: isScheduleLoading } = useDoc<any>(areaId && selectedMonthString ? `saved_schedules/${scheduleId}` : null);
-    const { data: areaObj, isLoading: isAreaLoading } = useDoc<any>(areaId ? `areas_of_service/${areaId}` : null);
-    
-    // Fetch all users to map IDs to names
-    const [usersList, setUsersList] = useState<any[]>([]);
-    const [isUsersLoading, setIsUsersLoading] = useState(true);
-
-    useEffect(() => {
-        if (!firestore) return;
-        getDocs(collection(firestore, 'users'))
-            .then(snap => {
-                const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                setUsersList(list);
-            })
-            .catch(err => console.error("Error loading users:", err))
-            .finally(() => setIsUsersLoading(false));
-    }, [firestore]);
-
-    const userMap = useMemo(() => new Map(usersList.map(u => [u.id, u.name])), [usersList]);
-
-    // Filter items matching the selected date
-    const dayScheduleItems = useMemo(() => {
-        if (!schedule?.schedule) return [];
-        return schedule.schedule.filter((item: any) => item.date === formattedDate);
-    }, [schedule, formattedDate]);
-
-    // Check-in flow state
+    // Flow states
     const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            const aId = params.get('areaId');
+            const dt = params.get('date');
+            setAreaId(aId);
+            setDateParam(dt);
+
+            if (aId && dt) {
+                getPublicCheckInData(aId, dt)
+                    .then(res => {
+                        if (res.success && res.data) {
+                            setCheckInData(res.data);
+                        } else {
+                            setLoadError(res.error || 'Escala não encontrada ou inválida.');
+                        }
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        setLoadError('Erro ao carregar dados do servidor.');
+                    })
+                    .finally(() => setLoading(false));
+            } else {
+                setLoading(false);
+            }
+        }
+    }, []);
+
     const handleConfirmCheckin = async () => {
-        if (selectedItemIndex === null || !areaId || !selectedMonthString || !dateParam) return;
+        if (selectedItemIndex === null || !areaId || !checkInData || !dateParam) return;
         
-        const item = dayScheduleItems[selectedItemIndex];
-        if (!item || !item.memberIds || item.memberIds.length === 0) return;
+        const item = checkInData.slots[selectedItemIndex];
+        if (!item || !item.volunteerId) return;
 
         setIsSubmitting(true);
         setErrorMessage('');
 
         const res = await submitCheckIn({
             areaId,
-            month: selectedMonthString,
+            month: checkInData.monthString,
             eventName: item.eventName,
-            date: item.date,
+            date: checkInData.date,
             slotIndex: item.slotIndex || 0,
-            memberId: item.memberIds[0]
+            memberId: item.volunteerId
         });
 
         setIsSubmitting(false);
@@ -98,9 +75,7 @@ export default function PublicCheckInPage() {
         }
     };
 
-    const isLoading = isScheduleLoading || isAreaLoading || isUsersLoading;
-
-    if (isLoading) {
+    if (loading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50/50 p-4">
                 <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
@@ -109,15 +84,15 @@ export default function PublicCheckInPage() {
         );
     }
 
-    if (!areaId || !dateParam || !schedule) {
+    if (!areaId || !dateParam || loadError || !checkInData || checkInData.slots.length === 0) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-slate-50/50 p-4">
-                <Card className="max-w-md w-full rounded-2xl shadow-md border-slate-150">
+                <Card className="max-w-md w-full rounded-2xl shadow-md border-slate-150 bg-white">
                     <CardHeader className="text-center">
                         <AlertTriangle className="size-12 text-red-500 mx-auto mb-2" />
                         <CardTitle className="text-lg">Link Inválido</CardTitle>
                         <CardDescription>
-                            Este link de check-in não é válido ou a escala ainda não foi gerada para esta data.
+                            {loadError || 'Este link de check-in não é válido ou a escala ainda não foi gerada para esta data.'}
                         </CardDescription>
                     </CardHeader>
                 </Card>
@@ -150,22 +125,17 @@ export default function PublicCheckInPage() {
                             <CardTitle className="text-lg font-black text-slate-800">Check-in de Voluntários</CardTitle>
                             <CardDescription className="flex items-center justify-center gap-1.5 text-xs text-slate-500 font-bold mt-1">
                                 <Calendar className="size-3.5" />
-                                <span>{areaObj?.name} — {formattedDate}</span>
+                                <span>{checkInData.areaName} — {checkInData.date}</span>
                             </CardDescription>
                         </CardHeader>
                         
                         <CardContent className="py-6 space-y-6">
-                            {dayScheduleItems.length === 0 ? (
-                                <p className="text-center text-slate-400 italic text-sm py-4">Não há voluntários escalados para hoje nesta área.</p>
-                            ) : selectedItemIndex === null ? (
+                            {selectedItemIndex === null ? (
                                 <div className="space-y-3">
                                     <span className="text-xs font-black text-slate-400 uppercase tracking-wider block mb-2">Quem está servindo hoje?</span>
-                                    {dayScheduleItems.map((item: any, idx: number) => {
-                                        const hasVolunteers = item.memberIds?.length > 0;
-                                        const volunteerName = hasVolunteers ? userMap.get(item.memberIds[0]) : null;
-                                        const checkInKey = `${item.date}_${item.eventName}_${item.slotIndex || 0}`;
-                                        const checkIn = schedule?.checkIns?.[checkInKey];
-                                        const isAlreadyCheckedIn = checkIn?.status === 'present';
+                                    {checkInData.slots.map((item: any, idx: number) => {
+                                        const hasVolunteers = !!item.volunteerId;
+                                        const isAlreadyCheckedIn = item.checkInStatus === 'present';
 
                                         return (
                                             <button
@@ -184,7 +154,7 @@ export default function PublicCheckInPage() {
                                                 <div className="space-y-1 pr-4">
                                                     <p className="text-xs font-bold text-slate-700">{item.eventName}</p>
                                                     <p className="text-xs text-slate-500 font-bold">
-                                                        {volunteerName || 'Vaga Aberta'}
+                                                        {item.volunteerName || 'Vaga Aberta'}
                                                     </p>
                                                 </div>
                                                 {isAlreadyCheckedIn ? (
@@ -212,11 +182,11 @@ export default function PublicCheckInPage() {
                                             </button>
                                         </div>
                                         <p className="text-sm font-bold text-slate-800">
-                                            {userMap.get(dayScheduleItems[selectedItemIndex].memberIds[0])}
+                                            {checkInData.slots[selectedItemIndex].volunteerName}
                                         </p>
                                         <div className="pt-2 border-t border-slate-200 flex justify-between text-xs text-slate-500">
                                             <span>Culto/Evento:</span>
-                                            <strong className="text-slate-700">{dayScheduleItems[selectedItemIndex].eventName}</strong>
+                                            <strong className="text-slate-700">{checkInData.slots[selectedItemIndex].eventName}</strong>
                                         </div>
                                     </div>
 
