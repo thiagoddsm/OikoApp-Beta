@@ -22,7 +22,7 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
     const { users } = useMembersData();
     const { serviceAreas: areas, teams, savedSchedules } = useVolunteeringServiceData();
 
-    const { isLoading: isContextLoading, deleteSchedule } = useVolunteering();
+    const { isLoading: isContextLoading, deleteSchedule, saveSchedule } = useVolunteering();
     const { toast } = useToast();
     const [isDeleteDialogOpen, setDeleteDialogOpen] = useState(false);
     
@@ -41,6 +41,74 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
     
     const userMap = useMemo(() => new Map(users.map(u => [u.id, u.name])), [users]);
     const areaMap = useMemo(() => new Map(areas.map(a => [a.id, a.name])), [areas]);
+
+    // Calculate all volunteers belonging to this area (either regular or worship)
+    const areaVolunteers = useMemo(() => {
+        if (!users) return [];
+        return users.filter(u => 
+            u.serviceAreaId === areaId || 
+            (u.worshipAreaId === areaId && u.worshipRoles && u.worshipRoles.length > 0)
+        ).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    }, [users, areaId]);
+
+    const handleVolunteerChange = async (itemIndex: number, volunteerId: string) => {
+        if (!schedule || !schedule.schedule) return;
+        
+        // Find the actual item in the filtered list
+        const originalItem = filteredScheduleItems[itemIndex];
+        if (!originalItem) return;
+
+        // Find the index of this item in the original schedule.schedule array
+        const originalIndex = schedule.schedule.findIndex(
+            (i: any) => i.date === originalItem.date && 
+                       i.eventName === originalItem.eventName && 
+                       i.areaId === originalItem.areaId &&
+                       (i.teamId || null) === (originalItem.teamId || null) &&
+                       JSON.stringify(i.memberIds) === JSON.stringify(originalItem.memberIds)
+        );
+
+        if (originalIndex === -1) return;
+
+        const updatedScheduleList = [...schedule.schedule];
+        const val = volunteerId === 'null' ? [] : [volunteerId];
+        
+        updatedScheduleList[originalIndex] = {
+            ...updatedScheduleList[originalIndex],
+            memberIds: val
+        };
+
+        // Reset/update confirmations
+        const confirmations = { ...(schedule.confirmations || {}) };
+        if (volunteerId === 'null') {
+            if (originalItem.memberIds[0]) {
+                delete confirmations[originalItem.memberIds[0]];
+            }
+        } else {
+            confirmations[volunteerId] = {
+                status: 'pending',
+                phone: users.find(u => u.id === volunteerId)?.phone || '',
+                updatedAt: new Date() as any
+            };
+        }
+
+        try {
+            await saveSchedule({
+                ...schedule,
+                schedule: updatedScheduleList,
+                confirmations
+            });
+            toast({
+                title: "Escala Atualizada!",
+                description: "O voluntário foi alterado com sucesso."
+            });
+        } catch (error: any) {
+            toast({
+                variant: "destructive",
+                title: "Erro ao salvar",
+                description: error.message || "Não foi possível salvar a alteração."
+            });
+        }
+    };
 
     const filteredScheduleItems = useMemo(() => {
         if (!schedule?.schedule) return [];
@@ -428,10 +496,23 @@ export function SavedScheduleDetails({ areaId, monthFilter }: { areaId: string, 
                                     <TableCell><Badge variant="outline">{item.eventName}</Badge></TableCell>
                                     <TableCell>{item.teamName ? <Badge>{item.teamName}</Badge> : '-'}</TableCell>
                                     <TableCell>
-                                        {item.memberIds.map((id: string) => userMap.get(id)).join(', ') || 'Vaga Aberta'}
+                                        <Select
+                                            value={item.memberIds[0] || 'null'}
+                                            onValueChange={(val) => handleVolunteerChange(index, val)}
+                                        >
+                                            <SelectTrigger className="h-8 min-w-[160px] bg-background">
+                                                <SelectValue placeholder="Selecione um voluntário..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="null">Vaga Aberta (Nenhum)</SelectItem>
+                                                {areaVolunteers.map(v => (
+                                                    <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                     </TableCell>
                                     <TableCell>
-                                        <Badge variant={hasVolunteers ? 'default' : 'destructive'} className={hasVolunteers ? 'bg-green-100 text-green-800' : ''}>
+                                        <Badge variant={hasVolunteers ? 'default' : 'destructive'} className={hasVolunteers ? 'bg-green-50 hover:bg-green-105 text-green-700 border-green-200' : 'bg-red-50 text-red-750 border-red-200'}>
                                             {hasVolunteers ? <CheckCircle className="h-3 w-3 mr-1"/> : <XCircle className="h-3 w-3 mr-1"/>}
                                             {hasVolunteers ? 'Preenchida' : 'Falha'}
                                         </Badge>
