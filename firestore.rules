@@ -114,6 +114,15 @@ service cloud.firestore {
     match /rooms/{document=**} { allow read, write: if isAuthenticated(); }
     match /saved_schedules/{document=**} { allow read, write: if isAuthenticated(); }
 
+    // ── Oiko Live — Catálogo de Virtual Sounds ────────────────────────────────
+    // Leitura: qualquer usuário autenticado (inclui login anônimo do app Android)
+    // Escrita: apenas usuários autenticados com conta completa (dashboard web)
+    match /vs_catalog/{vsId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+
     // ── Ordem de Culto ─────────────────────────────────────────────────────────
     match /worship_plans/{planId} { allow read, write: if isAuthenticated(); }
     match /worship_templates/{templateId} { allow read, write: if isAuthenticated(); }

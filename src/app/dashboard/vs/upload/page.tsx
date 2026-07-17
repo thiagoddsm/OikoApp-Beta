@@ -4,7 +4,9 @@ import React, { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { firestore, storage } from "@/firebase";
+import { initializeFirebase } from "@/firebase";
+
+const { firestore, storage } = initializeFirebase();
 
 // Tipos de tracks padrão para VS
 const TRACK_SLOTS = [

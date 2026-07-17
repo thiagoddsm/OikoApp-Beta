@@ -3,7 +3,9 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { collection, getDocs, deleteDoc, doc, query, orderBy } from "firebase/firestore";
-import { firestore } from "@/firebase";
+import { initializeFirebase } from "@/firebase";
+
+const { firestore } = initializeFirebase();
 
 type VsEntry = {
   id: string;
