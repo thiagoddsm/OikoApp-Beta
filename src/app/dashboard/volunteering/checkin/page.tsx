@@ -19,6 +19,7 @@ function CheckinPanelContent() {
 
     const [selectedAreaId, setSelectedAreaId] = useState<string>('');
     const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+    const [devIpOverride, setDevIpOverride] = useState<string>('');
 
     const userMap = useMemo(() => new Map(users.map(u => [u.id, u.name])), [users]);
     const areaName = useMemo(() => areas.find(a => a.id === selectedAreaId)?.name || '', [areas, selectedAreaId]);
@@ -48,9 +49,12 @@ function CheckinPanelContent() {
     // Generate public Check-in URL
     const checkinUrl = useMemo(() => {
         if (typeof window === 'undefined' || !selectedAreaId || !selectedDate) return '';
-        const origin = window.location.origin;
+        let origin = window.location.origin;
+        if (origin.includes('localhost') && devIpOverride.trim()) {
+            origin = devIpOverride.trim();
+        }
         return `${origin}/public/checkin?areaId=${selectedAreaId}&date=${selectedDate}`;
-    }, [selectedAreaId, selectedDate]);
+    }, [selectedAreaId, selectedDate, devIpOverride]);
 
     // QR Code API url
     const qrCodeApiUrl = useMemo(() => {
@@ -173,6 +177,22 @@ function CheckinPanelContent() {
                                 />
                             </div>
                         </div>
+
+                        {typeof window !== 'undefined' && window.location.hostname === 'localhost' && (
+                            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 text-amber-800 dark:text-amber-300 p-4 rounded-2xl text-xs space-y-2 leading-normal">
+                                <p className="font-bold">⚠️ Teste no Celular (Desenvolvimento Local)</p>
+                                <p>Como você está rodando no seu computador (localhost), seu celular não conseguirá acessar o link padrão. Para testar no celular, coloque o IP do seu computador na mesma rede Wi-Fi:</p>
+                                <div>
+                                    <Label className="text-[10px] font-black text-amber-700 uppercase tracking-wider block">URL Base com IP (Ex: http://192.168.1.50:9002)</Label>
+                                    <Input
+                                        placeholder="http://192.168.1.50:9002"
+                                        value={devIpOverride}
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDevIpOverride(e.target.value)}
+                                        className="h-8 text-xs bg-white mt-1 border-amber-300 focus-visible:ring-amber-400 text-slate-800"
+                                    />
+                                </div>
+                            </div>
+                        )}
 
                         {selectedAreaId && qrCodeApiUrl ? (
                             <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm flex flex-col items-center text-center space-y-4">
