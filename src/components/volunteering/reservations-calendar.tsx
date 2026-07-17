@@ -260,8 +260,6 @@ export function ReservationsCalendar({
 
           if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
 
-          const hasProtocol = evt.requiredServiceAreas && Array.isArray(evt.requiredServiceAreas) && evt.requiredServiceAreas.length > 0;
-
           allOccurrences.push({
             id: 'strategic_' + evt.id,
             title: '⭐ ' + evt.eventName + ' (' + (evt.space || 'IBM') + ')',
@@ -272,7 +270,7 @@ export function ReservationsCalendar({
               isStrategicEvent: true,
               status: 'approved',
               rooms: evt.space ? [evt.space] : [],
-              frequency: hasProtocol ? 'Eventual' : (evt.recurrence || 'pontual')
+              frequency: 'Eventual'
             }
           });
         } catch (e) {
