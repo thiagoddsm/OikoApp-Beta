@@ -41,6 +41,7 @@ import {
 } from 'lucide-react';
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSunday, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useDoc } from '@/firebase';
 
 const months = [
   { value: '0', label: 'Janeiro' },
@@ -57,6 +58,18 @@ const months = [
   { value: '11', label: 'Dezembro' }
 ];
 
+type MatrixColumn = {
+  id: string; // Unique ID for keying, e.g. "group-2026-07-05-Manhã" or "event-2026-07-05-eventId"
+  date: string; // YYYY-MM-DD
+  title: string; // Display title, e.g. "Manhã" or "Culto clássico"
+  subtitle?: string; // Display subtitle, e.g. "Clássico / Família"
+  isUnified: boolean;
+  eventIds: string[]; // List of event IDs associated with this column
+  eventNames: string[]; // List of event names associated with this column
+  plans: WorshipPlan[]; // List of physical plans on this Sunday date that belong to this column
+  isVirtual: boolean; // True if no physical plan exists for ANY event in this column
+};
+
 const currentYear = new Date().getFullYear();
 const years = [currentYear - 1, currentYear, currentYear + 1];
 
@@ -68,6 +81,8 @@ function MatrixViewInner() {
   const { updateArea } = useVolunteering();
   const { serviceAreas, isLoading: isAreasLoading } = useVolunteeringServiceData();
   const { toast } = useToast();
+  const { data: tenantConfig } = useDoc<any>('config/tenant_details');
+  const dualServiceRuleActive = tenantConfig?.volunteeringRules?.worshipDualService || false;
 
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
@@ -77,13 +92,12 @@ function MatrixViewInner() {
   const [isSaving, setIsSaving] = useState(false);
 
   // Keep track of pending edits in-memory before saving to Firestore
-  // Key format: `${planId_or_date}::${role}` -> NeededPosition
+  // Key format: `${columnId}::${role}` -> NeededPosition
   const [editedPositions, setEditedPositions] = useState<Record<string, NeededPosition>>({});
 
   // Dialog State for assigning volunteer
   const [assignmentCell, setAssignmentCell] = useState<{
-    dateStr: string;
-    planId?: string; // empty if virtual/to-be-created
+    column: MatrixColumn;
     role: string;
     currentPosition?: NeededPosition;
   } | null>(null);
@@ -125,11 +139,14 @@ function MatrixViewInner() {
 
   const areaRoles = useMemo(() => {
     if (!selectedArea) return [];
+    if (selectedArea.roles && selectedArea.roles.length > 0) {
+      return selectedArea.roles;
+    }
     const lower = selectedArea.name.toLowerCase();
     if (lower.includes('louvor') || lower.includes('worship')) {
-      return ['Lead', 'Back 1', 'Back 2', 'Guitarra', 'Baixo', 'Bateria', 'Violão', 'Teclado'];
+      return ['Lead', 'Backing Vocal', 'Backing Vocal 2', 'Guitarra', 'Baixo', 'Bateria', 'Violão', 'Teclado'];
     }
-    return selectedArea.roles || getAreaFallbackRoles(selectedArea.name);
+    return getAreaFallbackRoles(selectedArea.name);
   }, [selectedArea]);
 
   // 2. Calculate Sunday dates for the selected month/year
@@ -140,43 +157,137 @@ function MatrixViewInner() {
     return days.filter(d => isSunday(d));
   }, [selectedMonth, selectedYear]);
 
-  // 3. Fetch plans matching these sundays
-  const matrixPlans = useMemo(() => {
-    return sundays.map(sunday => {
-      const dateStr = format(sunday, 'yyyy-MM-dd');
-      // Find existing plan for this day
-      const existing = plans.find(p => p.date === dateStr);
-      if (existing) return existing;
-
-      // Return a virtual shell
-      const virtualPlan: WorshipPlan = {
-        id: `virtual-${dateStr}`,
-        title: `Culto de Domingo - ${format(sunday, 'dd/MM')}`,
-        date: dateStr,
-        startTime: '18:00',
-        items: [],
-        tenantId: plans[0]?.tenantId || '',
-        isVirtual: true,
-        neededPositions: []
-      };
-      return virtualPlan;
+  // 3. Filter Sunday template events
+  const sundayEvents = useMemo(() => {
+    if (!events) return [];
+    return events.filter(e => {
+      const day = e.dayOfWeek?.toLowerCase();
+      return day === 'domingo' || day === 'sunday';
     });
-  }, [sundays, plans]);
+  }, [events]);
+
+  // 4. Generate dynamic Matrix Columns (handles unified vs individual scheduling)
+  const matrixColumns = useMemo(() => {
+    const cols: MatrixColumn[] = [];
+    sundays.forEach(sunday => {
+      const dateStr = format(sunday, 'yyyy-MM-dd');
+      const dayPlans = plans.filter(p => p.date === dateStr);
+
+      const matchedEventIds = new Set<string>();
+      
+      const mode = selectedArea?.scheduleMode || (selectedArea?.unifiedCelebrations ? 'grouped' : 'individual');
+
+      // Grouped scheduling logic
+      if (mode === 'grouped') {
+        const groups = selectedArea?.serviceGroups || selectedArea?.unifiedGroups?.map((ug: any) => {
+          const matchedIds = sundayEvents
+            .filter(e => ug.eventNames.some((name: string) => e.name.toLowerCase().includes(name.toLowerCase()) || name.toLowerCase().includes(e.name.toLowerCase())))
+            .map(e => e.id);
+          return {
+            name: ug.name,
+            eventIds: matchedIds
+          };
+        }) || [];
+
+        groups.forEach((group: any) => {
+          const groupEvents = sundayEvents.filter(e => group.eventIds?.includes(e.id));
+
+          if (groupEvents.length > 0) {
+            const groupEventIds = groupEvents.map(e => e.id);
+            const groupEventNames = groupEvents.map(e => e.name);
+
+            groupEvents.forEach(e => matchedEventIds.add(e.id));
+
+            const matchedPlans = dayPlans.filter(p =>
+              groupEvents.some(ge => ge.id === p.serviceEventId || ge.name === p.serviceEventName || p.title === ge.name)
+            );
+
+            cols.push({
+              id: `group-${dateStr}-${group.name}`,
+              date: dateStr,
+              title: group.name,
+              subtitle: groupEvents.map(e => e.name.replace(/culto/gi, '').trim()).join(' / '),
+              isUnified: true,
+              eventIds: groupEventIds,
+              eventNames: groupEventNames,
+              plans: matchedPlans,
+              isVirtual: matchedPlans.length === 0
+            });
+          }
+        });
+      } else if (mode === 'unified') {
+        // Unified mode: single column for the entire Sunday, combining all events
+        if (sundayEvents.length > 0) {
+          cols.push({
+            id: `unified-${dateStr}`,
+            date: dateStr,
+            title: `Todos os Cultos`,
+            subtitle: sundayEvents.map(e => e.name.replace(/culto/gi, '').trim()).join(' / '),
+            isUnified: true,
+            eventIds: sundayEvents.map(e => e.id),
+            eventNames: sundayEvents.map(e => e.name),
+            plans: dayPlans,
+            isVirtual: dayPlans.length === 0
+          });
+          sundayEvents.forEach(e => matchedEventIds.add(e.id));
+        }
+      }
+
+      // Add unmatched template events as individual columns
+      const unmatchedEvents = sundayEvents.filter(e => !matchedEventIds.has(e.id));
+      unmatchedEvents.forEach(e => {
+        const matchedPlan = dayPlans.find(p => p.serviceEventId === e.id || p.serviceEventName === e.name || p.title === e.name);
+        cols.push({
+          id: `event-${dateStr}-${e.id}`,
+          date: dateStr,
+          title: e.name,
+          subtitle: e.time,
+          isUnified: false,
+          eventIds: [e.id],
+          eventNames: [e.name],
+          plans: matchedPlan ? [matchedPlan] : [],
+          isVirtual: !matchedPlan
+        });
+      });
+
+      // If no events matched and no columns generated, fallback to a raw Sunday column
+      if (cols.filter(c => c.date === dateStr).length === 0) {
+        cols.push({
+          id: `sunday-${dateStr}`,
+          date: dateStr,
+          title: `Culto de Domingo`,
+          subtitle: `Fim de semana`,
+          isUnified: false,
+          eventIds: [],
+          eventNames: [],
+          plans: dayPlans[0] ? [dayPlans[0]] : [],
+          isVirtual: !dayPlans[0]
+        });
+      }
+    });
+
+    // Sort columns chronologically by date
+    return cols.sort((a, b) => a.date.localeCompare(b.date));
+  }, [sundays, plans, sundayEvents, selectedArea]);
 
   // Get current position at cell, considering in-memory edits
-  const getCellPosition = (plan: WorshipPlan, role: string) => {
-    const editKey = `${plan.id}::${role}`;
+  const getCellPosition = (column: MatrixColumn, role: string) => {
+    const editKey = `${column.id}::${role}`;
     if (editedPositions[editKey] !== undefined) {
       return editedPositions[editKey];
     }
-    return plan.neededPositions?.find(pos => pos.role === role);
+    // Return first available position from existing physical plans in this column
+    for (const plan of column.plans) {
+      const pos = plan.neededPositions?.find(p => p.role === role);
+      if (pos) return pos;
+    }
+    return undefined;
   };
 
-  const handleCellClick = (plan: WorshipPlan, role: string) => {
-    const currentPos = getCellPosition(plan, role);
+  const handleCellClick = (column: MatrixColumn, role: string) => {
+    const currentPos = getCellPosition(column, role);
     setAssignmentCell({
-      dateStr: plan.date,
-      planId: plan.isVirtual ? undefined : plan.id,
+      column,
       role,
       currentPosition: currentPos
     });
@@ -187,9 +298,8 @@ function MatrixViewInner() {
   const handleToggleDm = (checked: boolean) => {
     setIsDmCheckbox(checked);
     if (!assignmentCell) return;
-    const { dateStr, planId, role, currentPosition } = assignmentCell;
-    const planKey = planId || `virtual-${dateStr}`;
-    const editKey = `${planKey}::${role}`;
+    const { column, role, currentPosition } = assignmentCell;
+    const editKey = `${column.id}::${role}`;
 
     // Se houver alguém escalado (ou já selecionado na célula), atualiza seu status de DM nas editedPositions
     const existingPos = editedPositions[editKey] || currentPosition;
@@ -206,9 +316,8 @@ function MatrixViewInner() {
 
   const handleAssignMember = (userId: string | null) => {
     if (!assignmentCell) return;
-    const { dateStr, planId, role, currentPosition } = assignmentCell;
-    const planKey = planId || `virtual-${dateStr}`;
-    const editKey = `${planKey}::${role}`;
+    const { column, role, currentPosition } = assignmentCell;
+    const editKey = `${column.id}::${role}`;
 
     if (userId === null) {
       // Remove volunteer
@@ -248,69 +357,109 @@ function MatrixViewInner() {
   const handleSaveAll = async () => {
     setIsSaving(true);
     try {
-      // Group edits by plan (id or date)
-      const editsByPlanKey: Record<string, Record<string, NeededPosition>> = {};
+      // Group edits by column ID
+      const editsByColumnId: Record<string, Record<string, NeededPosition>> = {};
       Object.entries(editedPositions).forEach(([key, position]) => {
-        const [planKey, role] = key.split('::');
-        if (!editsByPlanKey[planKey]) {
-          editsByPlanKey[planKey] = {};
+        const [columnId, role] = key.split('::');
+        if (!editsByColumnId[columnId]) {
+          editsByColumnId[columnId] = {};
         }
-        editsByPlanKey[planKey][role] = position;
+        editsByColumnId[columnId][role] = position;
       });
 
-      // Save each plan update
-      for (const [planKey, roleEdits] of Object.entries(editsByPlanKey)) {
-        let planId = planKey;
-        let planObj = plans.find(p => p.id === planKey);
+      // Process edits for each column
+      for (const [columnId, roleEdits] of Object.entries(editsByColumnId)) {
+        // Find corresponding column from matrixColumns
+        const col = matrixColumns.find(c => c.id === columnId);
+        if (!col) continue;
 
-        if (planKey.startsWith('virtual-')) {
-          const dateStr = planKey.replace('virtual-', '');
-          const sundayDate = parseISO(dateStr);
-          // Create new physical plan first
-          const newId = await createPlan({
-            title: `Culto de Domingo - ${format(sundayDate, 'dd/MM')}`,
-            date: dateStr,
-            startTime: '18:00',
-            items: []
-          });
-          planId = newId;
-          // Find the newly created plan in memory (or approximate shell)
-          planObj = {
-            id: newId,
-            title: `Culto de Domingo - ${format(sundayDate, 'dd/MM')}`,
-            date: dateStr,
-            startTime: '18:00',
-            items: [],
-            tenantId: plans[0]?.tenantId || '',
-            neededPositions: []
-          };
-        }
+        // Ensure we create/update a physical plan for all events in this column
+        const eventsToProcess = col.eventIds.length > 0 
+          ? col.eventIds.map((id, idx) => ({ id, name: col.eventNames[idx] }))
+          : [{ id: undefined, name: col.title }];
 
-        if (planObj) {
-          // Merge current neededPositions with edited ones
-          const currentPositions = planObj.neededPositions || [];
-          const updatedPositions = [...currentPositions];
+        for (const evt of eventsToProcess) {
+          // Find existing plan for this event on this date
+          let planObj = plans.find(p => p.date === col.date && (
+            (evt.id && p.serviceEventId === evt.id) ||
+            p.serviceEventName === evt.name ||
+            p.title === evt.name
+          ));
 
-          Object.entries(roleEdits).forEach(([role, newPos]) => {
-            const index = updatedPositions.findIndex(pos => pos.role === role);
-            if (index > -1) {
-              if (!newPos.userId) {
-                // If removed user, keeping role placeholder but with undefined user
-                updatedPositions[index] = { ...updatedPositions[index], userId: undefined, userName: undefined, status: 'draft' };
+          let planId = planObj?.id;
+
+          if (!planObj) {
+            // Create a physical plan for this event
+            const sundayDate = parseISO(col.date);
+            const matchedEvt = events.find(e => e.id === evt.id);
+            const startTime = matchedEvt?.time || '18:00';
+            
+            const newId = await createPlan({
+              title: evt.name || `Culto de Domingo - ${format(sundayDate, 'dd/MM')}`,
+              date: col.date,
+              startTime,
+              serviceEventId: evt.id || undefined,
+              serviceEventName: evt.name || undefined,
+              items: [],
+              neededPositions: []
+            });
+            planId = newId;
+            planObj = {
+              id: newId,
+              title: evt.name || `Culto de Domingo - ${format(sundayDate, 'dd/MM')}`,
+              date: col.date,
+              startTime,
+              items: [],
+              tenantId: plans[0]?.tenantId || '',
+              neededPositions: []
+            };
+          }
+
+          if (planObj && planId) {
+            // Merge current neededPositions with edited ones
+            const currentPositions = planObj.neededPositions || [];
+            const updatedPositions = [...currentPositions];
+
+            Object.entries(roleEdits).forEach(([role, newPos]) => {
+              const index = updatedPositions.findIndex(pos => pos.role === role);
+              if (index > -1) {
+                if (!newPos.userId) {
+                  // Remove volunteer
+                  updatedPositions[index] = {
+                    ...updatedPositions[index],
+                    userId: undefined,
+                    userName: undefined,
+                    status: 'draft'
+                  };
+                } else {
+                  // Update volunteer
+                  updatedPositions[index] = {
+                    ...updatedPositions[index],
+                    userId: newPos.userId,
+                    userName: newPos.userName,
+                    status: 'draft',
+                    isDM: newPos.isDM
+                  };
+                }
               } else {
-                updatedPositions[index] = { ...updatedPositions[index], ...newPos };
+                // Add new position
+                if (newPos.userId) {
+                  updatedPositions.push({
+                    id: Math.random().toString(36).substring(2, 9),
+                    role,
+                    userId: newPos.userId,
+                    userName: newPos.userName,
+                    status: 'draft',
+                    isDM: newPos.isDM
+                  });
+                }
               }
-            } else {
-              // Add new role assignment if user is set
-              if (newPos.userId) {
-                updatedPositions.push(newPos);
-              }
-            }
-          });
+            });
 
-          await updatePlan(planId, {
-            neededPositions: updatedPositions
-          });
+            await updatePlan(planId, {
+              neededPositions: updatedPositions
+            });
+          }
         }
       }
 
@@ -383,9 +532,20 @@ function MatrixViewInner() {
   };
 
   const filteredUsers = useMemo(() => {
-    if (!userSearch) return users;
-    return users.filter(u => u.name?.toLowerCase().includes(userSearch.toLowerCase()));
-  }, [users, userSearch]);
+    let list = users;
+    if (userSearch) {
+      list = users.filter(u => u.name?.toLowerCase().includes(userSearch.toLowerCase()));
+    }
+    return [...list].sort((a, b) => {
+      const role = assignmentCell?.role;
+      if (role) {
+        const aEligible = a.worshipRoles?.includes(role) ? 1 : 0;
+        const bEligible = b.worshipRoles?.includes(role) ? 1 : 0;
+        if (aEligible !== bEligible) return bEligible - aEligible;
+      }
+      return (a.name || '').localeCompare(b.name || '');
+    });
+  }, [users, userSearch, assignmentCell]);
 
   const isLoading = isWorshipLoading || isMembersLoading || isEventsLoading || isAreasLoading;
 
@@ -413,8 +573,8 @@ function MatrixViewInner() {
             <ChevronLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h2 className="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
-              <Grid3X3 className="size-5 text-primary" /> Matrix de Escalas worship
+            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 tracking-tight flex items-center gap-2">
+              <Grid3X3 className="size-5 text-primary" /> Matrix de Escalas {selectedArea?.name || 'worship'}
             </h2>
             <p className="text-xs text-slate-400 font-medium">Agendamento rápido de voluntários multi-semanas para domingo</p>
           </div>
@@ -476,23 +636,28 @@ function MatrixViewInner() {
                 <th className="py-4 px-6 font-bold text-slate-600 text-xs uppercase tracking-wider sticky left-0 bg-slate-50 z-10 border-r border-slate-200 w-[200px]">
                   Função (Role)
                 </th>
-                {matrixPlans.map(plan => {
-                  const sundayDate = parseISO(plan.date);
+                {matrixColumns.map(column => {
+                  const sundayDate = parseISO(column.date);
                   return (
-                    <th key={plan.id} className="py-4 px-4 font-bold text-slate-800 text-center min-w-[160px] border-r border-slate-200">
+                    <th key={column.id} className="py-4 px-4 font-bold text-slate-850 dark:text-slate-200 text-center min-w-[160px] border-r border-slate-200 dark:border-slate-800">
                       <div className="flex flex-col items-center">
-                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                          {format(sundayDate, 'EEEE', { locale: ptBR })}
+                        <span className="text-[10px] text-slate-450 dark:text-slate-400 font-bold uppercase tracking-wider">
+                          {format(sundayDate, 'EEEE', { locale: ptBR })} - {format(sundayDate, 'dd/MM')}
                         </span>
-                        <span className="text-sm font-black text-slate-800 mt-0.5">
-                          {format(sundayDate, "dd 'de' MMM", { locale: ptBR })}
+                        <span className="text-sm font-black text-slate-800 dark:text-slate-100 mt-0.5">
+                          {column.title}
                         </span>
-                        {plan.isVirtual ? (
-                          <span className="inline-block mt-1.5 px-2 py-0.5 text-[9px] font-black text-slate-400 bg-slate-100 rounded-full">
+                        {column.subtitle && (
+                          <span className="text-[10px] text-slate-400 dark:text-slate-550 font-medium mt-0.5 max-w-[155px] truncate">
+                            {column.subtitle}
+                          </span>
+                        )}
+                        {column.isVirtual ? (
+                          <span className="inline-block mt-1.5 px-2 py-0.5 text-[9px] font-black text-slate-400 bg-slate-100 dark:bg-slate-800 dark:text-slate-500 rounded-full">
                             Sem Ordem
                           </span>
                         ) : (
-                          <span className="inline-block mt-1.5 px-2 py-0.5 text-[9px] font-black text-emerald-600 bg-emerald-50 rounded-full border border-emerald-200/40">
+                          <span className="inline-block mt-1.5 px-2 py-0.5 text-[9px] font-black text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/30 rounded-full border border-emerald-200/40 dark:border-emerald-800/40">
                             Ativo
                           </span>
                         )}
@@ -518,15 +683,15 @@ function MatrixViewInner() {
                       </Button>
                     </div>
                   </td>
-                  {matrixPlans.map(plan => {
-                    const cellPos = getCellPosition(plan, role);
-                    const isEdited = editedPositions[`${plan.id}::${role}`] !== undefined;
+                  {matrixColumns.map(column => {
+                    const cellPos = getCellPosition(column, role);
+                    const isEdited = editedPositions[`${column.id}::${role}`] !== undefined;
 
                     return (
                       <td
-                        key={plan.id}
-                        onClick={() => handleCellClick(plan, role)}
-                        className={`py-3 px-4 border-r border-slate-150 cursor-pointer text-center relative group min-h-[64px] transition-all hover:bg-slate-50/80 ${
+                        key={column.id}
+                        onClick={() => handleCellClick(column, role)}
+                        className={`py-3 px-4 border-r border-slate-150 dark:border-slate-800 cursor-pointer text-center relative group min-h-[64px] transition-all hover:bg-slate-50/80 dark:hover:bg-slate-800/20 ${
                           isEdited ? 'bg-amber-50/10' : ''
                         }`}
                       >
@@ -576,7 +741,7 @@ function MatrixViewInner() {
                     <Plus className="size-3.5" /> Adicionar Função
                   </Button>
                 </td>
-                <td colSpan={matrixPlans.length} className="bg-slate-50/10"></td>
+                <td colSpan={matrixColumns.length} className="bg-slate-50/10"></td>
               </tr>
             </tbody>
           </table>
@@ -591,8 +756,8 @@ function MatrixViewInner() {
               Escalar Voluntário - {assignmentCell?.role}
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-400">
-              Escolha um voluntário da equipe para o dia{' '}
-              {assignmentCell && format(parseISO(assignmentCell.dateStr), "dd 'de' MMMM", { locale: ptBR })}.
+              Escolha um voluntário da equipe para{' '}
+              {assignmentCell && `${format(parseISO(assignmentCell.column.date), "dd 'de' MMMM", { locale: ptBR })} (${assignmentCell.column.title})`}.
             </DialogDescription>
           </DialogHeader>
 
@@ -622,32 +787,44 @@ function MatrixViewInner() {
                           {member.name?.substring(0, 2).toUpperCase()}
                         </AvatarFallback>
                       </Avatar>
-                      <span>{member.name}</span>
+                      <div className="flex flex-col">
+                        <span>{member.name}</span>
+                        {member.worshipRoles && member.worshipRoles.length > 0 && (
+                          <span className="text-[9px] text-slate-400 font-bold leading-none mt-0.5">
+                            🎸 {member.worshipRoles.join(', ')}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    {assignmentCell?.currentPosition?.userId === member.id && (
-                      <span className="text-[10px] font-black uppercase text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/40">
-                        Atual
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {dualServiceRuleActive && member.worshipRoles && member.worshipRoles.length > 0 && (!member.serviceAreaId || member.serviceAreaId === selectedArea?.id) && (
+                        <span className="text-[8px] font-black text-amber-600 bg-amber-50 px-1 py-0.5 rounded border border-amber-200/40 uppercase">
+                          ⚠️ Só Louvor
+                        </span>
+                      )}
+                      {assignmentCell?.currentPosition?.userId === member.id && (
+                        <span className="text-[10px] font-black uppercase text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/40">
+                          Atual
+                        </span>
+                      )}
+                    </div>
                   </button>
                 ))
               )}
             </div>
 
-            {assignmentCell?.currentPosition?.userId || Object.values(editedPositions).find(p => p.role === assignmentCell?.role && p.userId) ? (
-              <div className="flex items-center gap-2 py-3 px-1 border-t border-slate-100">
-                <input
-                  type="checkbox"
-                  id="is-dm-checkbox"
-                  checked={isDmCheckbox}
-                  onChange={(e) => handleToggleDm(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
-                />
-                <Label htmlFor="is-dm-checkbox" className="text-xs font-bold text-slate-700 cursor-pointer">
-                  Diretor Musical (DM) deste culto
-                </Label>
-              </div>
-            ) : null}
+            <div className="flex items-center gap-2 py-3 px-1 border-t border-slate-100">
+              <input
+                type="checkbox"
+                id="is-dm-checkbox"
+                checked={isDmCheckbox}
+                onChange={(e) => handleToggleDm(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary cursor-pointer"
+              />
+              <Label htmlFor="is-dm-checkbox" className="text-xs font-bold text-slate-700 cursor-pointer">
+                Diretor Musical (DM) deste culto
+              </Label>
+            </div>
           </div>
 
           <DialogFooter className="flex justify-between sm:justify-between items-center border-t border-slate-100 pt-4 mt-2">

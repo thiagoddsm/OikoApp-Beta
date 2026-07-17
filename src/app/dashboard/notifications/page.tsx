@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useCollection, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, Timestamp, doc, where, limit } from 'firebase/firestore';
+import { collection, query, orderBy, Timestamp, doc, where, limit, updateDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -50,7 +50,7 @@ function useContactEnrichment(chats: any[]) {
             // Tenta encontrar o usuário no sistema
             const matchedUser = users?.find((u: any) => {
                 const uPhone = String(u.phone || '').replace(/\D/g, '');
-                const uLid = String(u.lid || '').split('@')[0];
+                const uLid = (u.lid && u.lid !== 'lid') ? String(u.lid).split('@')[0] : '';
                 const uJid = String(u.jid || '').split('@')[0];
                 
                 if (uPhone && uPhone.length >= 8) {
@@ -402,7 +402,7 @@ function WhatsappSender({ config }: { config: any }) {
         
         const matchedUser = users?.find((u: any) => {
             const uPhone = String(u.phone || '').replace(/\D/g, '');
-            const uLid = String(u.lid || '').split('@')[0];
+            const uLid = (u.lid && u.lid !== 'lid') ? String(u.lid).split('@')[0] : '';
             const uJid = String(u.jid || '').split('@')[0];
 
             if (uPhone && uPhone.length >= 8) {
@@ -1353,7 +1353,7 @@ function WhatsappResponses() {
         
         // É um LID — tentar resolver
         const matchedUser = users?.find((u: any) => {
-            const uLid = String(u.lid || '').split('@')[0];
+            const uLid = (u.lid && u.lid !== 'lid') ? String(u.lid).split('@')[0] : '';
             const uJid = String(u.jid || '').split('@')[0];
             return (uLid && rawFrom === uLid) || (uJid && rawFrom === uJid);
         });
@@ -1421,7 +1421,7 @@ function WhatsappResponses() {
         // 1. Tenta match no sistema (por telefone ou IDs vinculados)
         const matchedUser = users?.find((u: any) => {
             const uPhone = String(u.phone || '').replace(/\D/g, '');
-            const uLid = String(u.lid || '').split('@')[0];
+            const uLid = (u.lid && u.lid !== 'lid') ? String(u.lid).split('@')[0] : '';
             const uJid = String(u.jid || '').split('@')[0];
 
             if (uPhone && uPhone.length >= 8) {
@@ -2322,8 +2322,9 @@ function WhatsappGroupsManager({ config }: { config: any }) {
         );
     };
 
-    const enrichParticipant = (pId: string, pName?: string) => {
+    const enrichParticipant = (pId: string, pName?: string, pPhoneJid?: string) => {
         const rawId = (pId || '').split('@')[0];
+        const rawPhoneId = (pPhoneJid || '').split('@')[0];
         
         if (rawId === '60765784527084') {
             return {
@@ -2337,9 +2338,16 @@ function WhatsappGroupsManager({ config }: { config: any }) {
         // Find matched user
         const matchedUser = users?.find((u: any) => {
             const uPhone = String(u.phone || u.phoneNumber || '').replace(/\D/g, '');
-            const uLid = String(u.lid || '').split('@')[0];
+            const uLid = (u.lid && u.lid !== 'lid') ? String(u.lid).split('@')[0] : '';
             const uJid = String(u.jid || '').split('@')[0];
             
+            // Match using phone JID from Evolution API if available
+            if (rawPhoneId && uPhone) {
+                const rawPhoneIdNoCountry = rawPhoneId.startsWith('55') ? rawPhoneId.substring(2) : rawPhoneId;
+                const uPhoneNoCountry = uPhone.startsWith('55') ? uPhone.substring(2) : uPhone;
+                if (uPhoneNoCountry === rawPhoneIdNoCountry || uJid === rawPhoneId) return true;
+            }
+
             if (uPhone && uPhone.length >= 8) {
                 const uPhoneNoCountry = uPhone.startsWith('55') ? uPhone.substring(2) : uPhone;
                 const uPhoneNo9 = uPhoneNoCountry.length === 11 ? uPhoneNoCountry.slice(0, 2) + uPhoneNoCountry.slice(3) : null;
@@ -2351,12 +2359,25 @@ function WhatsappGroupsManager({ config }: { config: any }) {
             return (uLid && rawId === uLid) || (uJid && rawId === uJid);
         });
 
+        // Auto-heal missing LID in Firestore if matched via phone JID
+        if (matchedUser && pId && pId.endsWith('@lid') && matchedUser.lid !== pId) {
+            updateDoc(doc(firestore, 'users', matchedUser.id), { lid: pId })
+                .then(() => console.log(`[Auto-Heal] Successfully synced real LID for ${matchedUser.name} to Firestore.`))
+                .catch(err => console.error('[Auto-Heal] Failed to sync LID:', err));
+        }
+
         // Find matched contact
         const matchedWA = waContacts?.find((c: any) => {
             const cPhone = String(c.phoneNumber || '').replace(/\D/g, '');
             const cLid = String(c.lid || '').split('@')[0];
             const cJid = String(c.jid || '').split('@')[0];
             
+            if (rawPhoneId && cPhone) {
+                const rawPhoneIdNoCountry = rawPhoneId.startsWith('55') ? rawPhoneId.substring(2) : rawPhoneId;
+                const cPhoneNoCountry = cPhone.startsWith('55') ? cPhone.substring(2) : cPhone;
+                if (cPhoneNoCountry === rawPhoneIdNoCountry || cJid === rawPhoneId) return true;
+            }
+
             return (cPhone && (rawId.includes(cPhone) || cPhone.includes(rawId))) || 
                    (cLid && rawId === cLid) || 
                    (cJid && rawId === cJid);
@@ -2694,8 +2715,9 @@ function WhatsappGroupsManager({ config }: { config: any }) {
                                             {filteredUsersForAdding.length > 0 ? (
                                                 filteredUsersForAdding.map((u: any) => {
                                                     const uPhone = u.phone || u.phoneNumber || '';
-                                                    const targetId = uPhone || u.lid;
-                                                    const isAlreadyIn = selectedGroup.participants?.some((p: any) => p.id?.includes(uPhone) || (u.lid && p.id?.includes(u.lid)));
+                                                    const uLid = (u.lid && u.lid !== 'lid') ? u.lid : null;
+                                                    const targetId = uPhone || uLid;
+                                                    const isAlreadyIn = selectedGroup.participants?.some((p: any) => p.id?.includes(uPhone) || (uLid && p.id?.includes(uLid)));
                                                     return (
                                                         <div key={u.uid || u.id} className="flex items-center justify-between p-1.5 hover:bg-muted/50 rounded transition-colors">
                                                             <div className="min-w-0 flex-1 pr-2">
@@ -2756,7 +2778,7 @@ function WhatsappGroupsManager({ config }: { config: any }) {
                                         {selectedGroup.participants
                                             .map((p: any) => ({
                                                 ...p,
-                                                enriched: enrichParticipant(p.id, p.name)
+                                                enriched: enrichParticipant(p.id, p.name, p.phoneNumber)
                                             }))
                                             .filter((p: any) => {
                                                 const term = participantSearch.toLowerCase();

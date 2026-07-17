@@ -12,6 +12,7 @@ import { UserRoleAssignment } from '@/components/settings/user-role-assignment';
 import { IntegrationsManager } from '@/components/settings/integrations-manager';
 import { FinancialSettings } from '@/components/settings/financial-settings';
 import { CertificateSettings } from '@/components/settings/certificate-settings';
+import { VolunteeringRulesSettings } from '@/components/settings/volunteering-rules-settings';
 import { useFirebase, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 
@@ -140,6 +141,21 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent>
                 <CertificateSettings />
+            </CardContent>
+        </Card>
+
+        <Separator />
+
+        <Card>
+            <CardHeader>
+                <div className="flex items-center gap-4">
+                    <Users className="size-6 text-primary" />
+                    <CardTitle>Regras de Voluntariado</CardTitle>
+                </div>
+                <CardDescription>Configure regras e validações para as escalas de serviço.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <VolunteeringRulesSettings />
             </CardContent>
         </Card>
 

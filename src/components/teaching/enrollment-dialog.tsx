@@ -194,10 +194,18 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
 
         // Sync WhatsApp Group
         if (targetClass?.whatsappGroupId) {
+            const currentStudents = targetClass.students || [];
+            const updatedStudents = currentStudents.includes(finalStudentId) 
+                ? currentStudents 
+                : [...currentStudents, finalStudentId];
+
             fetch('/api/notifications/groups/sync', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ classId })
+                body: JSON.stringify({ 
+                    classId,
+                    students: updatedStudents
+                })
             }).catch(err => console.error('Failed to sync WhatsApp group after enrollment:', err));
         }
 

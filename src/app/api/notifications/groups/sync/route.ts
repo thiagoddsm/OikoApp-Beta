@@ -9,7 +9,7 @@ export const runtime = 'nodejs';
  */
 export async function POST(request: Request) {
     try {
-        const { classId } = await request.json();
+        const { classId, students } = await request.json();
         if (!classId) {
             return NextResponse.json({ success: false, error: 'classId é obrigatório' }, { status: 400 });
         }
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
 
         // 3. Resolve target phone list from Firestore (Class Students)
         const isCompleted = classData.status === 'completed';
-        const classStudentsIds = isCompleted ? [] : (classData.students || []); // If completed, remove all students!
+        const classStudentsIds = isCompleted ? [] : (students || classData.students || []); // If completed, remove all students!
 
         const studentsPhoneJids: string[] = [];
         const studentIdentities = new Set<string>(); // Set of all possible identifiers for students (LID, JID, phone)
@@ -135,37 +135,67 @@ export async function POST(request: Request) {
         let removedCount = 0;
         const errors: string[] = [];
 
-        // 5. Execute API Calls
+        // Helper function for chunking array
+        const chunkArray = <T>(arr: T[], size: number): T[][] => {
+            const chunks: T[][] = [];
+            for (let i = 0; i < arr.length; i += size) {
+                chunks.push(arr.slice(i, i + size));
+            }
+            return chunks;
+        };
+
+        // 5. Execute API Calls with anti-ban chunking and delays
         if (toAdd.length > 0) {
             try {
-                const addRes = await fetch(`${serverUrl}/group/updateParticipant/${instanceName}?groupJid=${whatsappGroupId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'apikey': waKey },
-                    body: JSON.stringify({ action: 'add', participants: toAdd }),
-                });
-                if (!addRes.ok) {
-                    const errorMsg = await addRes.text();
-                    errors.push(`Falha ao adicionar integrantes: ${errorMsg}`);
-                } else {
-                    addedCount += toAdd.length;
+                // Chunk to max 3 additions at a time to look more human and avoid Meta ban
+                const addChunks = chunkArray(toAdd, 3);
+                for (let i = 0; i < addChunks.length; i++) {
+                    if (i > 0) {
+                        // Pausa de 3 a 5 segundos entre chunks
+                        await new Promise(resolve => setTimeout(resolve, 3000 + Math.random() * 2000));
+                    }
+                    const addRes = await fetch(`${serverUrl}/group/updateParticipant/${instanceName}?groupJid=${whatsappGroupId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'apikey': waKey },
+                        body: JSON.stringify({ action: 'add', participants: addChunks[i] }),
+                    });
+                    if (!addRes.ok) {
+                        const errorMsg = await addRes.text();
+                        errors.push(`Falha ao adicionar integrante(s) ${addChunks[i].join(', ')}: ${errorMsg}`);
+                    } else {
+                        addedCount += addChunks[i].length;
+                    }
                 }
             } catch (e: any) {
                 errors.push(`Erro ao adicionar: ${e.message}`);
             }
         }
 
+        // Delay de 4 a 6 segundos entre adições e remoções para evitar spam trigger
+        if (toAdd.length > 0 && toRemove.length > 0) {
+            await new Promise(resolve => setTimeout(resolve, 4000 + Math.random() * 2000));
+        }
+
         if (toRemove.length > 0) {
             try {
-                const removeRes = await fetch(`${serverUrl}/group/updateParticipant/${instanceName}?groupJid=${whatsappGroupId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'apikey': waKey },
-                    body: JSON.stringify({ action: 'remove', participants: toRemove }),
-                });
-                if (!removeRes.ok) {
-                    const errorMsg = await removeRes.text();
-                    errors.push(`Falha ao remover integrantes: ${errorMsg}`);
-                } else {
-                    removedCount += toRemove.length;
+                // Chunk to max 3 removals at a time to look more human and avoid Meta ban
+                const removeChunks = chunkArray(toRemove, 3);
+                for (let i = 0; i < removeChunks.length; i++) {
+                    if (i > 0) {
+                        // Pausa de 3 a 5 segundos entre chunks
+                        await new Promise(resolve => setTimeout(resolve, 3000 + Math.random() * 2000));
+                    }
+                    const removeRes = await fetch(`${serverUrl}/group/updateParticipant/${instanceName}?groupJid=${whatsappGroupId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'apikey': waKey },
+                        body: JSON.stringify({ action: 'remove', participants: removeChunks[i] }),
+                    });
+                    if (!removeRes.ok) {
+                        const errorMsg = await removeRes.text();
+                        errors.push(`Falha ao remover integrante(s) ${removeChunks[i].join(', ')}: ${errorMsg}`);
+                    } else {
+                        removedCount += removeChunks[i].length;
+                    }
                 }
             } catch (e: any) {
                 errors.push(`Erro ao remover: ${e.message}`);

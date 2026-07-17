@@ -103,6 +103,21 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
             // Resolve students numbers for initial creation
             // IMPORTANTE: A rota de criação de grupo (/group/create) da Evolution exige números de telefone puros (com DDD/DDI) e não aceita LIDs!
             const initialParticipants: string[] = [];
+            
+            // 1. Sempre adiciona o professor da turma se ele tiver telefone válido
+            if (classData.teacherId && users) {
+                const teacher = users.find(usr => usr.id === classData.teacherId);
+                if (teacher) {
+                    const phone = teacher.phone || teacher.phoneNumber || '';
+                    const phoneClean = phone.replace(/\D/g, '');
+                    if (phoneClean) {
+                        const formatted = phoneClean.startsWith('55') ? phoneClean : `55${phoneClean}`;
+                        initialParticipants.push(formatted);
+                    }
+                }
+            }
+
+            // 2. Adiciona os alunos
             if (classData.students && classData.students.length > 0 && users) {
                 classData.students.forEach((studentId: string) => {
                     const u = users.find(usr => usr.id === studentId);
@@ -111,10 +126,22 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                         const phoneClean = phone.replace(/\D/g, '');
                         if (phoneClean) {
                             const formatted = phoneClean.startsWith('55') ? phoneClean : `55${phoneClean}`;
-                            initialParticipants.push(formatted);
+                            if (!initialParticipants.includes(formatted)) {
+                                initialParticipants.push(formatted);
+                            }
                         }
                     }
                 });
+            }
+
+            if (initialParticipants.length === 0) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Impossível criar grupo',
+                    description: 'O grupo precisa de pelo menos 1 participante com número de telefone celular cadastrado (professor ou aluno).'
+                });
+                setIsCreating(false);
+                return;
             }
 
             const res = await fetch('/api/notifications/groups', {
@@ -136,6 +163,9 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
 
                     // 1. Atualiza Descrição no WhatsApp (pois a criação de grupo do Baileys não suporta na mesma chamada)
                     try {
+                        // Pausa de 3 a 5 segundos (comportamento anti-ban imitativo de humano)
+                        await new Promise(resolve => setTimeout(resolve, 3000 + Math.random() * 2000));
+                        
                         await fetch('/api/notifications/groups', {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
@@ -152,6 +182,9 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                     const finalPresetPic = freshCoursePic || (courseData as any).whatsappGroupPicture;
                     if (finalPresetPic) {
                         try {
+                            // Pausa de 3 a 5 segundos (comportamento anti-ban imitativo de humano)
+                            await new Promise(resolve => setTimeout(resolve, 3000 + Math.random() * 2000));
+                            
                             await fetch('/api/notifications/groups', {
                                 method: 'PUT',
                                 headers: { 'Content-Type': 'application/json' },
@@ -521,6 +554,7 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                                     
                                     const uPhone = String(u.phone || u.phoneNumber || '').replace(/\D/g, '');
                                     const uPhoneLast8 = uPhone.slice(-8);
+                                    const uLid = u.lid && u.lid !== 'lid' ? u.lid : null;
                                     
                                     // Localiza a identidade do participante no WhatsApp
                                     const waMember = groupInfo?.participants?.find((p: any) => {
@@ -530,12 +564,12 @@ export function ClassWhatsappManager({ classData, courseData }: ClassWhatsappMan
                                         
                                         // Compara por JID, LID, telefone cheio ou pelos últimos 8 dígitos (evita o problema do nono dígito do Brasil)
                                         return pId.includes(uPhone) || 
-                                               (u.lid && pId.includes(u.lid)) || 
+                                               (uLid && pId.includes(uLid)) || 
                                                (uPhoneLast8.length === 8 && (pPhone.endsWith(uPhoneLast8) || waPhoneAttr.endsWith(uPhoneLast8)));
                                     });
                                     const isInGroup = !!waMember;
                                     const isWaAdmin = waMember?.admin === 'admin' || waMember?.admin === 'superadmin';
-                                    const trueJid = waMember?.id || u.lid || `${uPhone}@s.whatsapp.net`;
+                                    const trueJid = waMember?.id || uLid || `${uPhone}@s.whatsapp.net`;
 
                                     return (
                                         <div key={studentId} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg border text-xs bg-white">

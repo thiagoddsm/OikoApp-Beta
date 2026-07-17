@@ -550,6 +550,11 @@ function PlanEditorInner({ planId }: { planId: string }) {
       const area = serviceAreas.find(a => a.id === ss.areaId);
       const areaName = area ? area.name : 'Outras Áreas';
 
+      // Skip savedSchedules for worship area because we load it directly from plan.neededPositions
+      if (area?.areaType === 'worship' || areaName.toLowerCase().includes('louvor') || areaName.toLowerCase().includes('worship')) {
+        return;
+      }
+
       ss.schedule?.forEach((item) => {
         const isDateMatch = item.date === planDateFormatted;
         const isEventMatch = (planEventName && item.eventName && planEventName.toLowerCase().trim() === item.eventName.toLowerCase().trim()) ||
@@ -581,6 +586,52 @@ function PlanEditorInner({ planId }: { planId: string }) {
         }
       });
     });
+
+    // Load Worship Area volunteers directly from plan.neededPositions
+    const worshipArea = serviceAreas.find(a => a.areaType === 'worship' || a.name?.toLowerCase().includes('louvor') || a.name?.toLowerCase().includes('worship'));
+    const worshipAreaName = worshipArea ? worshipArea.name : 'Louvor';
+
+    if (plan.neededPositions && plan.neededPositions.length > 0) {
+      plan.neededPositions.forEach((pos) => {
+        if (pos.userId) {
+          const memberObj = users.find(u => u.id === pos.userId);
+          const memberName = pos.userName || memberObj?.name || 'Voluntário';
+          const memberAvatar = memberObj?.avatar;
+          
+          let status: 'confirmed' | 'declined' | 'pending' = 'pending';
+          if (pos.status === 'confirmed') status = 'confirmed';
+          if (pos.status === 'declined') status = 'declined';
+
+          if (!grouped[worshipAreaName]) {
+            grouped[worshipAreaName] = [];
+          }
+
+          const roleLabel = pos.isDM ? `${pos.role} (DM)` : pos.role;
+
+          grouped[worshipAreaName].push({
+            userId: pos.userId,
+            userName: memberName,
+            userAvatar: memberAvatar,
+            role: roleLabel,
+            status,
+          });
+        }
+      });
+
+      // Sort worship area volunteers by the configured roles order (order of service)
+      if (grouped[worshipAreaName]) {
+        const rolesOrder = worshipArea?.roles || ['Lead', 'Backing Vocal', 'Backing Vocal 2', 'Guitarra', 'Baixo', 'Bateria', 'Violão', 'Teclado'];
+        grouped[worshipAreaName].sort((a, b) => {
+          const cleanA = a.role.replace(/\s*\(DM\)\s*/i, '').trim();
+          const cleanB = b.role.replace(/\s*\(DM\)\s*/i, '').trim();
+          let idxA = rolesOrder.indexOf(cleanA);
+          let idxB = rolesOrder.indexOf(cleanB);
+          if (idxA === -1) idxA = 999;
+          if (idxB === -1) idxB = 999;
+          return idxA - idxB;
+        });
+      }
+    }
 
     return grouped;
   }, [plan, savedSchedules, serviceAreas, events, users]);

@@ -213,8 +213,8 @@ function MenuItems({ pathname, permissions, userRole, isGcStaff, onLinkClick }: 
         (sub.subItems && sub.subItems.some((subsub: any) => subsub.href && pathname.startsWith(subsub.href)))
       );
 
-      const baseItemClasses = "w-full justify-start items-center gap-3 rounded-lg px-3 py-2.5 text-slate-600 font-medium transition-all duration-200 hover:bg-slate-100 hover:text-slate-900";
-      const activeItemClasses = "bg-primary/10 text-primary font-semibold";
+      const baseItemClasses = "w-full justify-start items-center gap-3 rounded-lg px-3 py-2.5 text-slate-600 dark:text-slate-350 font-medium transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white";
+      const activeItemClasses = "bg-primary/10 text-primary font-semibold dark:bg-slate-800 dark:text-white";
 
       if (item.subItems) {
         return (
@@ -222,7 +222,7 @@ function MenuItems({ pathname, permissions, userRole, isGcStaff, onLinkClick }: 
             <SidebarMenuItem>
               <CollapsibleTrigger asChild className="w-full">
                 <SidebarMenuButton 
-                  className={cn(baseItemClasses, "justify-between", isCollapsibleOpen && "text-slate-900")} 
+                  className={cn(baseItemClasses, "justify-between", isCollapsibleOpen && "text-slate-900 dark:text-white")} 
                   isActive={isCollapsibleOpen}>
                     <div className="flex items-center gap-3">
                       {item.icon && <item.icon className="size-5 shrink-0" />}
@@ -233,7 +233,7 @@ function MenuItems({ pathname, permissions, userRole, isGcStaff, onLinkClick }: 
               </CollapsibleTrigger>
             </SidebarMenuItem>
             <CollapsibleContent asChild>
-               <SidebarMenu className="ml-4 pl-4 my-1 space-y-1 border-l border-slate-200">
+               <SidebarMenu className="ml-4 pl-4 my-1 space-y-1 border-l border-slate-200 dark:border-slate-800">
                   {renderMenuItems(item.subItems)}
               </SidebarMenu>
             </CollapsibleContent>
@@ -264,7 +264,7 @@ function MenuItems({ pathname, permissions, userRole, isGcStaff, onLinkClick }: 
   return (
     <div className="flex flex-col grow overflow-y-auto overflow-x-hidden">
       <SidebarMenu className="py-4 space-y-1 px-3">
-        <li className="px-3 pb-2 text-sm font-semibold tracking-wider text-slate-500 uppercase">Menu</li>
+        <li className="px-3 pb-2 text-sm font-semibold tracking-wider text-slate-500 dark:text-slate-400 uppercase">Menu</li>
         {renderMenuItems(visibleItems)}
       </SidebarMenu>
       <SidebarMenu className="space-y-1 p-3 mt-auto">
@@ -273,7 +273,7 @@ function MenuItems({ pathname, permissions, userRole, isGcStaff, onLinkClick }: 
             <SidebarMenuItem>
               <CollapsibleTrigger asChild className="w-full">
                 <SidebarMenuButton 
-                  className={cn("w-full justify-start items-center gap-3 rounded-lg px-3 py-2.5 text-slate-600 font-medium transition-all duration-200 hover:bg-slate-100 hover:text-slate-900 justify-between", pathname.startsWith('/dashboard/settings') && "text-slate-900")} 
+                  className={cn("w-full justify-start items-center gap-3 rounded-lg px-3 py-2.5 text-slate-600 dark:text-slate-350 font-medium transition-all duration-200 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white justify-between", pathname.startsWith('/dashboard/settings') && "text-slate-900 dark:text-white")} 
                   isActive={pathname.startsWith('/dashboard/settings')}>
                     <div className="flex items-center gap-3">
                       <Settings className="size-5 shrink-0" />
@@ -284,7 +284,7 @@ function MenuItems({ pathname, permissions, userRole, isGcStaff, onLinkClick }: 
               </CollapsibleTrigger>
             </SidebarMenuItem>
             <CollapsibleContent asChild>
-              <SidebarMenu className="ml-4 pl-4 my-1 space-y-1 border-l border-slate-200">
+              <SidebarMenu className="ml-4 pl-4 my-1 space-y-1 border-l border-slate-200 dark:border-slate-800">
                 {renderMenuItems(visibleSettingsItems)}
               </SidebarMenu>
             </CollapsibleContent>
@@ -435,9 +435,9 @@ export default function DashboardLayout({
               <SidebarHeader className="border-b border-border">
               <div className="flex items-center justify-start px-6 h-20 w-full">
                 <img 
-                  src="https://firebasestorage.googleapis.com/v0/b/studio-1424813022-71754.firebasestorage.app/o/pwa%2FChatGPT%20Image%207%20de%20mai.%20de%202026%2C%2016_45_54.png?alt=media&token=c8100c94-fb27-4b1f-87b8-74bd1f8d3fe5" 
+                  src="/oiko_logo.jpg" 
                   alt="OikoApp Logo" 
-                  className="h-[60px] w-auto object-contain dark:invert dark:brightness-150" 
+                  className="h-[52px] w-auto object-contain mix-blend-screen" 
                 />
               </div>
             </SidebarHeader>
@@ -546,7 +546,7 @@ export default function DashboardLayout({
                     </DropdownMenuContent>
                 </DropdownMenu>
             </header>
-             <main className="flex-1 p-4 md:p-6 bg-slate-50 overflow-y-auto">
+             <main className="flex-1 p-4 md:p-6 bg-slate-50 dark:bg-background overflow-y-auto">
                 {children}
              </main>
             </div>

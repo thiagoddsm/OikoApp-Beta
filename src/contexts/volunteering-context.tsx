@@ -56,16 +56,30 @@ export type User = {
     theoflixProgress?: Record<string, Record<string, boolean>>;
     courseStatus?: Record<string, 'pending' | 'approved' | 'rejected'>;
   };
+  worshipRoles?: string[];
+  worshipAreaId?: string;
+};
+
+export type ServiceScheduleMode = 'unified' | 'individual' | 'grouped';
+export type AreaType = 'regular' | 'worship';
+
+export type ServiceGroup = {
+  name: string;
+  eventIds: string[];
 };
 
 export type AreaOfService = {
   id: string;
   name: string;
+  areaType?: AreaType;
   leaderId?: string;
   leaderContact?: string;
+  scheduleMode?: ServiceScheduleMode;
+  serviceGroups?: ServiceGroup[];
+  roles?: string[];
+  tenantId?: string;
   unifiedCelebrations?: boolean;
   unifiedGroups?: { name: string; eventNames: string[] }[];
-  roles?: string[];
 };
 
 export type Team = {

@@ -37,7 +37,10 @@ export function ClassStudentsManager({ classData }: ClassStudentsManagerProps) {
                 fetch('/api/notifications/groups/sync', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ classId: classData.id })
+                    body: JSON.stringify({ 
+                        classId: classData.id,
+                        students: updatedStudents
+                    })
                 }).catch(err => console.error('Failed to sync WhatsApp group:', err));
             }
         }

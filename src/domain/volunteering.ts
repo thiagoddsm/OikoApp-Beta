@@ -1,13 +1,25 @@
 import { Timestamp } from 'firebase/firestore';
 
+export type ServiceScheduleMode = 'unified' | 'individual' | 'grouped';
+export type AreaType = 'regular' | 'worship';
+
+export type ServiceGroup = {
+  name: string;
+  eventIds: string[];
+};
+
 export type AreaOfService = {
   id: string;
   name: string;
+  areaType?: AreaType;
   leaderId?: string;
   leaderContact?: string;
+  scheduleMode?: ServiceScheduleMode;
+  serviceGroups?: ServiceGroup[];
+  roles?: string[];
+  tenantId?: string;
   unifiedCelebrations?: boolean;
   unifiedGroups?: { name: string; eventNames: string[] }[];
-  tenantId?: string;
 };
 
 export type Team = {

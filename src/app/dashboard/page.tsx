@@ -37,17 +37,17 @@ export default function DashboardPage() {
         <VolunteeringProvider>
             <div className="space-y-8 animate-in fade-in duration-500 mt-6">
                 <header>
-                    <h1 className="text-3xl font-bold text-slate-800 italic uppercase tracking-tighter">Meu Painel</h1>
-                    <p className="text-slate-500 text-sm">Bem-vindo à sua jornada ministerial, {userName}.</p>
+                    <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 italic uppercase tracking-tighter">Meu Painel</h1>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm">Bem-vindo à sua jornada ministerial, {userName}.</p>
                 </header>
                 {hasStudentArea ? (
                     <StudentDashboard />
                 ) : (
-                    <div className="flex h-64 items-center justify-center bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                    <div className="flex h-64 items-center justify-center bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
                         <div className="text-center space-y-2">
-                            <GraduationCap className="mx-auto size-12 text-slate-300" />
-                            <h2 className="text-lg font-semibold text-slate-600">Área não disponível</h2>
-                            <p className="text-sm text-slate-400">Seu perfil de acesso não inclui a área do aluno.</p>
+                            <GraduationCap className="mx-auto size-12 text-slate-300 dark:text-slate-700" />
+                            <h2 className="text-lg font-semibold text-slate-600 dark:text-slate-300">Área não disponível</h2>
+                            <p className="text-sm text-slate-400 dark:text-slate-500">Seu perfil de acesso não inclui a área do aluno.</p>
                         </div>
                     </div>
                 )}
@@ -64,10 +64,10 @@ export default function DashboardPage() {
         <Tabs defaultValue="ministerial" className="w-full">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                 <div>
-                    <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Bom dia, {userName}!</h1>
-                    <p className="text-slate-500 text-sm">Visão geral do sistema e indicadores principais.</p>
+                    <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">Bom dia, {userName}!</h1>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm">Visão geral do sistema e indicadores principais.</p>
                 </div>
-                <TabsList className="bg-slate-100/80 p-1">
+                <TabsList className="bg-slate-100/80 dark:bg-slate-800/80 p-1 border dark:border-slate-800">
                     <TabsTrigger value="pessoal" className="font-semibold">Meu Painel</TabsTrigger>
                     <TabsTrigger value="ministerial" className="font-semibold">Painel Ministerial</TabsTrigger>
                 </TabsList>

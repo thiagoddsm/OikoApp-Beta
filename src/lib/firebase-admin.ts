@@ -1,6 +1,8 @@
 
 import { initializeApp, getApps, cert, App } from 'firebase-admin/app';
 import { getFirestore, Firestore } from 'firebase-admin/firestore';
+import fs from 'fs';
+import path from 'path';
 
 // Hardcoded fallback Project ID found in firebase/config.ts
 const FALLBACK_PROJECT_ID = "studio-1424813022-71754";
@@ -14,10 +16,34 @@ export function getAdminApp(): App {
     return existingApp;
   }
 
+  // Look for a local service account key file first
+  const rootDir = process.cwd();
+  const possibleKeyFiles = ['serviceAccountKey.json', 'service-account.json'];
+  let localKeyData: any = null;
+
+  for (const filename of possibleKeyFiles) {
+    const fullPath = path.join(rootDir, filename);
+    if (fs.existsSync(fullPath)) {
+      try {
+        const fileContent = fs.readFileSync(fullPath, 'utf8');
+        localKeyData = JSON.parse(fileContent);
+        console.log(`[firebase-admin] Loaded local credentials from ${filename}`);
+        break;
+      } catch (e) {
+        console.error(`[firebase-admin] Failed to parse local credentials from ${filename}:`, e);
+      }
+    }
+  }
+
   const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
   let app: App;
 
-  if (serviceAccountKey) {
+  if (localKeyData) {
+    app = initializeApp({
+      credential: cert(localKeyData),
+      projectId: localKeyData.project_id || FALLBACK_PROJECT_ID
+    }, appName);
+  } else if (serviceAccountKey) {
     try {
       let cleanKey = serviceAccountKey.trim();
       if (cleanKey.startsWith("'") && cleanKey.endsWith("'")) {

@@ -41,7 +41,7 @@ export default function CoursesPage() {
           <TabsContent value="students" className="mt-6 animate-in fade-in-50 duration-500">
              <div className="bg-card rounded-xl border shadow-sm p-6">
                 <div className="mb-6">
-                    <h2 className="text-xl font-black uppercase tracking-tighter text-slate-900 flex items-center gap-2">
+                    <h2 className="text-xl font-black uppercase tracking-tighter text-slate-900 dark:text-slate-100 flex items-center gap-2">
                         <Users2 className="size-6 text-primary" />
                         Central de Matrículas
                     </h2>

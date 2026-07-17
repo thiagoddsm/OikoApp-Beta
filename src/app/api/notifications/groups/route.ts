@@ -144,7 +144,15 @@ export async function POST(request: Request) {
         // Resolve JIDs/LIDs directly from Firestore database (cache) or check WhatsApp database (Evolution API)
         const resolvedParticipants: string[] = [];
         for (const p of (participants || [])) {
+            if (p.includes('@')) {
+                resolvedParticipants.push(p);
+                continue;
+            }
             const clean = p.replace(/\D/g, '');
+            if (!clean || clean.length < 8) {
+                console.warn(`[WhatsApp Group Create] Skipping invalid/empty participant number: "${p}"`);
+                continue;
+            }
             if (clean.length > 15) {
                 resolvedParticipants.push(`${clean}@lid`);
                 continue;
@@ -268,6 +276,8 @@ export async function PUT(request: Request) {
         let success = true;
         let lastError = '';
 
+        let needDelay = false;
+
         if (description !== undefined) {
             try {
                 const res = await fetch(`${serverUrl}/group/updateGroupDescription/${instanceName}?groupJid=${groupId}`, {
@@ -279,6 +289,8 @@ export async function PUT(request: Request) {
                     success = false;
                     const errorData = await res.json().catch(() => ({}));
                     lastError = errorData.message || `Erro ${res.status} ao atualizar descrição`;
+                } else {
+                    needDelay = true;
                 }
             } catch (e: any) {
                 success = false;
@@ -287,6 +299,9 @@ export async function PUT(request: Request) {
         }
 
         if (success && name !== undefined) {
+            if (needDelay) {
+                await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 2000));
+            }
             try {
                 const res = await fetch(`${serverUrl}/group/updateGroupSubject/${instanceName}?groupJid=${groupId}`, {
                     method: 'POST',
@@ -297,6 +312,8 @@ export async function PUT(request: Request) {
                     success = false;
                     const errorData = await res.json().catch(() => ({}));
                     lastError = errorData.message || `Erro ${res.status} ao atualizar nome`;
+                } else {
+                    needDelay = true;
                 }
             } catch (e: any) {
                 success = false;
@@ -305,6 +322,9 @@ export async function PUT(request: Request) {
         }
 
         if (success && picture !== undefined) {
+            if (needDelay) {
+                await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 2000));
+            }
             try {
                 const res = await fetch(`${serverUrl}/group/updateGroupPicture/${instanceName}?groupJid=${groupId}`, {
                     method: 'POST',
@@ -315,6 +335,8 @@ export async function PUT(request: Request) {
                     success = false;
                     const errorData = await res.json().catch(() => ({}));
                     lastError = errorData.message || `Erro ${res.status} ao atualizar foto do grupo`;
+                } else {
+                    needDelay = true;
                 }
             } catch (e: any) {
                 success = false;

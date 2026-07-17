@@ -173,7 +173,7 @@ export function CoursesManagement() {
                             <Icon className="size-5" />
                         </div>
                         <div className="pr-20 sm:pr-32 overflow-hidden">
-                            <p className="font-bold text-slate-900 leading-tight truncate uppercase text-sm">{course.name}</p>
+                            <p className="font-bold text-slate-900 dark:text-slate-100 leading-tight truncate uppercase text-sm">{course.name}</p>
                             <div className="flex flex-col gap-1 mt-1">
                                 {getTrackInfo(course)}
                                 {!getTrackInfo(course) && <p className="text-xs text-muted-foreground line-clamp-1">{course.description || 'Sem descrição definida.'}</p>}
@@ -271,7 +271,7 @@ export function CoursesManagement() {
                                         <Lightbulb className="size-6" />
                                     </div>
                                     <div>
-                                        <h3 className="text-lg font-black uppercase tracking-tight text-slate-900">
+                                        <h3 className="text-lg font-black uppercase tracking-tight text-slate-900 dark:text-slate-100">
                                             {ministry}
                                         </h3>
                                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Escola Bíblica Discipuladora</p>
@@ -309,7 +309,7 @@ export function CoursesManagement() {
                                 <div className="p-2 bg-slate-900 text-white rounded-xl">
                                     <Icon className="size-6" />
                                 </div>
-                                <h3 className="text-lg font-black uppercase tracking-tight text-slate-900">
+                                <h3 className="text-lg font-black uppercase tracking-tight text-slate-900 dark:text-slate-100">
                                     {ministry}
                                 </h3>
                                 <Badge variant="secondary" className="ml-auto text-[10px] h-5">{ministryCourses.length} cursos</Badge>

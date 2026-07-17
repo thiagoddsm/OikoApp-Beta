@@ -14,9 +14,9 @@ type CultoRegistro = { id: string; adultos: number; criancas?: number; data: any
 type Cell = { id: string; nome: string; };
 
 const KpiCard = ({ title, value, percentage, icon: Icon, children, up }: any) => (
-    <Card className="bg-white border-none shadow-sm rounded-2xl hover:shadow-lg transition-shadow duration-300">
+    <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-2xl hover:shadow-lg transition-shadow duration-300">
         <CardHeader className="pb-2 flex-row items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-500">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400">
                 <Icon className="size-5" />
                 <span>{title}</span>
             </div>
@@ -27,39 +27,39 @@ const KpiCard = ({ title, value, percentage, icon: Icon, children, up }: any) =>
             )}
         </CardHeader>
         <CardContent>
-             <p className="text-4xl font-bold text-slate-800 mb-2">{value}</p>
+             <p className="text-4xl font-bold text-slate-800 dark:text-slate-100 mb-2">{value}</p>
             {children}
         </CardContent>
     </Card>
 );
 
 const SimpleKpiCard = ({ title, value, icon: Icon, footer, link }: any) => (
-     <Card className="bg-white border-none shadow-sm rounded-2xl hover:shadow-lg transition-shadow duration-300 p-6 flex flex-col justify-between">
+     <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-2xl hover:shadow-lg transition-shadow duration-300 p-6 flex flex-col justify-between">
         <div>
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-500">
+            <div className="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400">
                  <Icon className="size-5" />
                 <span>{title}</span>
             </div>
-            <p className="text-5xl font-bold text-slate-800 mt-4">{value}</p>
+            <p className="text-5xl font-bold text-slate-800 dark:text-slate-100 mt-4">{value}</p>
         </div>
-        {footer && <p className="text-xs text-slate-400 mt-2">{footer}</p>}
-        {link &&  <a href="#" className="text-xs font-bold text-indigo-600 mt-4 flex items-center gap-1 group">
+        {footer && <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">{footer}</p>}
+        {link &&  <a href="#" className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mt-4 flex items-center gap-1 group">
                      {link} <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform"/>
                   </a>}
     </Card>
 )
 
 const PresenceChart = ({ data }: { data: any[] }) => (
-    <Card className="bg-white border-none shadow-sm rounded-2xl col-span-1 lg:col-span-2">
+    <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-2xl col-span-1 lg:col-span-2">
         <CardHeader>
             <div className="flex justify-between items-center">
                 <div>
-                    <CardTitle className="text-lg font-bold text-slate-800">Visão Geral de Presença</CardTitle>
+                    <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100">Visão Geral de Presença</CardTitle>
                     <CardDescription>Estatísticas comparativas por período</CardDescription>
                 </div>
-                <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-full">
-                     <Button size="sm" variant="ghost" className="bg-white shadow rounded-full font-bold text-indigo-600 hover:bg-white">Mês</Button>
-                     <Button size="sm" variant="ghost" className="rounded-full font-medium text-slate-500 hover:bg-slate-200" disabled>Semana</Button>
+                <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-full">
+                     <Button size="sm" variant="ghost" className="bg-white dark:bg-slate-700 shadow rounded-full font-bold text-indigo-600 dark:text-indigo-400 hover:bg-white dark:hover:bg-slate-700">Mês</Button>
+                     <Button size="sm" variant="ghost" className="rounded-full font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800" disabled>Semana</Button>
                 </div>
             </div>
         </CardHeader>
@@ -72,10 +72,10 @@ const PresenceChart = ({ data }: { data: any[] }) => (
                             <stop offset="95%" stopColor="#4F46E5" stopOpacity={0}/>
                         </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 0" vertical={false} stroke="#e5e7eb" />
+                    <CartesianGrid strokeDasharray="3 0" vertical={false} stroke="currentColor" className="text-slate-100 dark:text-slate-800/80" />
                     <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}}/>
                     <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} width={30}/>
-                    <Tooltip contentStyle={{ borderRadius: '12px', borderColor: '#e5e7eb', color: '#334155' }} cursor={{ stroke: '#4F46E5', strokeWidth: 1, strokeDasharray: '3 3' }}/>
+                    <Tooltip contentStyle={{ borderRadius: '12px', backgroundColor: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }} cursor={{ stroke: '#4F46E5', strokeWidth: 1, strokeDasharray: '3 3' }}/>
                     <Area type="monotone" dataKey="value" stroke="#4F46E5" strokeWidth={2.5} fill="url(#mainChartFill)" />
                 </AreaChart>
             </ResponsiveContainer>
@@ -84,35 +84,35 @@ const PresenceChart = ({ data }: { data: any[] }) => (
 );
 
 const AlertsPanel = ({ alerts }: { alerts: User[] }) => (
-    <Card className="bg-white border-none shadow-sm rounded-2xl relative flex flex-col h-full">
+    <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-2xl relative flex flex-col h-full">
         <Button variant="ghost" className="absolute top-4 right-4 bg-red-500/10 text-red-500 rounded-full h-6 w-6 p-0"><AlertTriangle size={14} /></Button>
         <CardHeader>
-            <CardTitle className="text-lg font-bold text-slate-800">Alertas de Cuidado</CardTitle>
+            <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100">Alertas de Cuidado</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 flex-1 px-4">
             {alerts.length > 0 ? alerts.map((alert) => (
-                <div key={alert.id} className="flex items-center justify-between hover:bg-slate-50 p-2 rounded-lg cursor-pointer">
+                <div key={alert.id} className="flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 p-2 rounded-lg cursor-pointer">
                     <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10 relative">
-                           <span className="absolute bottom-0 -right-1 block h-3.5 w-3.5 rounded-full bg-red-500 border-2 border-white" />
+                           <span className="absolute bottom-0 -right-1 block h-3.5 w-3.5 rounded-full bg-red-500 border-2 border-white dark:border-slate-950" />
                             <AvatarImage src={`https://i.pravatar.cc/150?u=${alert.id}`} alt={alert.name} />
                             <AvatarFallback>{alert.name.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div>
-                            <p className="font-semibold text-sm text-slate-700">{alert.name}</p>
+                            <p className="font-semibold text-sm text-slate-700 dark:text-slate-200">{alert.name}</p>
                             <p className="text-xs text-red-500 font-bold">{alert.absenceCount} semanas ausente</p>
                         </div>
                     </div>
-                    <ChevronRight className="text-slate-400" size={18}/>
+                    <ChevronRight className="text-slate-400 dark:text-slate-550" size={18}/>
                 </div>
             )) : (
-                 <div className="text-center flex-1 flex flex-col justify-center items-center py-10 text-sm text-slate-500">
+                 <div className="text-center flex-1 flex flex-col justify-center items-center py-10 text-sm text-slate-500 dark:text-slate-400">
                     <p>Nenhum alerta de cuidado no momento. <br/> Bom trabalho!</p>
                 </div>
             )}
         </CardContent>
         <div className="p-4 mt-auto">
-             <Button variant="link" className="w-full text-indigo-600 font-bold hover:bg-indigo-50">
+             <Button variant="link" className="w-full text-indigo-600 dark:text-indigo-400 font-bold hover:bg-indigo-50 dark:hover:bg-indigo-950/20">
                 Ver Todos os Alertas
             </Button>
         </div>
@@ -123,10 +123,10 @@ const AlertsPanel = ({ alerts }: { alerts: User[] }) => (
 );
 
 const TrainingCard = () => (
-    <div className="bg-[#0D1743] p-6 rounded-2xl shadow-lg">
+    <div className="bg-[#0D1743] dark:bg-slate-900 border border-transparent dark:border-slate-800 p-6 rounded-2xl shadow-lg">
         <h3 className="font-bold text-white text-md">Treinamento OikoApp</h3>
-        <p className="text-sm text-slate-300 mt-2 mb-4">Aprenda a usar os novos filtros de exportação financeira.</p>
-        <a href="#" className="font-bold text-indigo-400 text-sm flex items-center gap-2 group">
+        <p className="text-sm text-slate-300 dark:text-slate-400 mt-2 mb-4">Aprenda a usar os novos filtros de exportação financeira.</p>
+        <a href="#" className="font-bold text-indigo-400 dark:text-indigo-300 text-sm flex items-center gap-2 group">
             Assistir agora <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform"/>
         </a>
     </div>

@@ -946,7 +946,7 @@ export default function NotificationSettingsPage() {
                             </div>
                             <Button 
                                 onClick={handleTestMessage} 
-                                disabled={isTesting || !instanceKey}
+                                disabled={isTesting || (!instanceKey && !evolutionKey)}
                                 className="w-full font-black uppercase h-10"
                                 variant="outline"
                             >
@@ -1029,7 +1029,7 @@ export default function NotificationSettingsPage() {
 
                             <Button 
                                 onClick={handleCreateTestGroup} 
-                                disabled={isCreatingTestGroup || !instanceKey || selectedMembers.length === 0}
+                                disabled={isCreatingTestGroup || (!instanceKey && !evolutionKey) || selectedMembers.length === 0}
                                 className="w-full font-black uppercase h-10 bg-emerald-600 hover:bg-emerald-700 text-white"
                             >
                                 {isCreatingTestGroup ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Criar Grupo"}

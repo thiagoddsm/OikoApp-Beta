@@ -9,6 +9,7 @@ import { Loader2, PlusCircle, MoreHorizontal, Pencil, Trash2 } from 'lucide-reac
 import { CreateAreaDialog } from './create-area-dialog';
 import { DeleteConfirmationDialog } from '@/components/structure/delete-confirmation-dialog';
 import { useMembersData, useVolunteeringServiceData } from "@/hooks/useDomainData";
+import { Badge } from '@/components/ui/badge';
 
 export function AreasManagement() {
     const { users } = useMembersData();
@@ -67,6 +68,8 @@ export function AreasManagement() {
           <TableHeader>
             <TableRow>
               <TableHead>Nome</TableHead>
+              <TableHead>Tipo</TableHead>
+              <TableHead>Modo de Escala</TableHead>
               <TableHead>Líder</TableHead>
               <TableHead>Contato do Líder</TableHead>
               <TableHead className="text-right w-[100px]">Ações</TableHead>
@@ -75,7 +78,7 @@ export function AreasManagement() {
           <TableBody>
             {areas.length === 0 ? (
                 <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-24 text-center">
                         Nenhuma área de serviço cadastrada.
                     </TableCell>
                 </TableRow>
@@ -85,6 +88,26 @@ export function AreasManagement() {
                 return (
                   <TableRow key={area.id}>
                     <TableCell className="font-medium">{area.name}</TableCell>
+                    <TableCell>
+                      {area.areaType === 'worship' ? (
+                        <Badge className="bg-purple-100 text-purple-750 border-purple-200/30 font-bold hover:bg-purple-100 shrink-0">
+                          🎸 Louvor
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="font-bold text-slate-650 shrink-0">
+                          👋 Regular
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const mode = area.scheduleMode || (area.unifiedCelebrations ? 'grouped' : 'unified');
+                        if (mode === 'unified') return <span className="text-xs font-bold text-blue-600 dark:text-blue-400 flex items-center gap-1">🔵 Unificada</span>;
+                        if (mode === 'individual') return <span className="text-xs font-bold text-purple-650 dark:text-purple-400 flex items-center gap-1">🟣 Individual</span>;
+                        const groupCount = area.serviceGroups?.length || area.unifiedGroups?.length || 0;
+                        return <span className="text-xs font-bold text-orange-600 dark:text-orange-400 flex items-center gap-1">🟠 Agrupada ({groupCount} {groupCount === 1 ? 'grupo' : 'grupos'})</span>;
+                      })()}
+                    </TableCell>
                     <TableCell>{leader?.name || '-'}</TableCell>
                     <TableCell>{area.leaderContact || leader?.phone || leader?.email || '-'}</TableCell>
                     <TableCell className="text-right">
