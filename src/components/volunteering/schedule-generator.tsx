@@ -128,6 +128,7 @@ export function ScheduleGenerator() {
                                 teamId: assignedTeam?.id || null,
                                 teamName: assignedTeam?.name || null,
                                 volunteerId: null, // Initially empty
+                                slotIndex: i,
                             });
                         }
                     }
@@ -203,7 +204,7 @@ export function ScheduleGenerator() {
                     tempSkeleton.forEach((otherItem) => {
                         if (otherItem.date === item.date && otherItem.areaId === item.areaId && !otherItem.volunteerId) {
                             const isSameGroup = group.eventNames.some(name => otherItem.eventName.toLowerCase().includes(name.toLowerCase()));
-                            if (isSameGroup) {
+                            if (isSameGroup && otherItem.slotIndex === item.slotIndex) {
                                 otherItem.volunteerId = assignedVolunteerId;
                             }
                         }
@@ -232,7 +233,7 @@ export function ScheduleGenerator() {
         newSkeleton.forEach((item, idx) => {
           if (idx !== index && item.date === currentItem.date && item.areaId === currentItem.areaId) {
             const isSameGroup = group.eventNames.some(name => item.eventName.toLowerCase().includes(name.toLowerCase()));
-            if (isSameGroup) {
+            if (isSameGroup && item.slotIndex === currentItem.slotIndex) {
               item.volunteerId = val;
             }
           }
@@ -261,7 +262,7 @@ export function ScheduleGenerator() {
         newSkeleton.forEach((item, idx) => {
           if (idx !== index && item.date === currentItem.date && item.areaId === currentItem.areaId) {
             const isSameGroup = group.eventNames.some(name => item.eventName.toLowerCase().includes(name.toLowerCase()));
-            if (isSameGroup) {
+            if (isSameGroup && item.slotIndex === currentItem.slotIndex) {
               item.teamId = valTeamId;
               item.teamName = valTeamName;
               item.volunteerId = null;
