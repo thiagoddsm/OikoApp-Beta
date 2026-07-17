@@ -154,9 +154,9 @@ export function ScheduleGenerator() {
 
         const eligibleVolunteers = users
             .filter(u => {
-                const isCorrectArea = u.serviceAreaId === item.areaId;
+                const isCorrectArea = u.serviceAreaId === item.areaId || (u.worshipAreaId === item.areaId && u.worshipRoles && u.worshipRoles.length > 0);
                 const isEligibleForEvent = u.eligibleEventIds?.includes(item.eventId);
-                const isCorrectTeam = u.serviceTeamId === item.teamId || !u.serviceTeamId; // Wildcard
+                const isCorrectTeam = !item.teamId || u.serviceTeamId === item.teamId || !u.serviceTeamId; // Wildcard if no team is assigned to slot
                 const isNotBlocked = !u.blockedDates?.includes(dateString);
                 
                 // Se for celebração unificada, permite servir no mesmo dia para o mesmo grupo de cultos
@@ -376,9 +376,9 @@ export function ScheduleGenerator() {
     const dateString = item.date.split('/').reverse().join('-');
 
     return users.filter(u => {
-        const isCorrectArea = u.serviceAreaId === item.areaId;
+        const isCorrectArea = u.serviceAreaId === item.areaId || (u.worshipAreaId === item.areaId && u.worshipRoles && u.worshipRoles.length > 0);
         const isEligibleForEvent = u.eligibleEventIds?.includes(item.eventId);
-        const isCorrectTeam = u.serviceTeamId === item.teamId || !u.serviceTeamId; // Wildcard
+        const isCorrectTeam = !item.teamId || u.serviceTeamId === item.teamId || !u.serviceTeamId;
         const isNotBlocked = !u.blockedDates?.includes(dateString);
 
         return u.serviceStatus === 'serving' && isCorrectArea && isEligibleForEvent && isCorrectTeam && isNotBlocked;
