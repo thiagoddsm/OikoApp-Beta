@@ -2,24 +2,60 @@
 
 import { getAdminDb } from '@/lib/firebase-admin';
 
-export async function getPublicCheckInData(areaId: string, dateParam: string) {
+export async function getPublicCheckInData(areaId: string | null, dateParam: string) {
   try {
     const db = getAdminDb();
     
-    // 1. Fetch Area Name
-    const areaSnap = await db.collection('areas_of_service').doc(areaId).get();
-    if (!areaSnap.exists) {
-      throw new Error('Área de serviço não encontrada.');
-    }
-    const areaData = areaSnap.data() || {};
-    const areaName = areaData.name || '';
-
-    // 2. Parse Date
+    // 1. Parse Date
     const [year, month, day] = dateParam.split('-');
     const monthString = `${year}-${month}`;
     const formattedDate = `${day}/${month}/${year}`;
     
-    // 3. Fetch all volunteers for this area
+    // 2. Fetch all areas of service to map IDs to Names
+    const areasSnap = await db.collection('areas_of_service').get();
+    const areasMap = new Map();
+    const allAreas: { id: string, name: string }[] = [];
+    areasSnap.docs.forEach(doc => {
+      areasMap.set(doc.id, doc.data().name || 'Área');
+      allAreas.push({ id: doc.id, name: doc.data().name || 'Área' });
+    });
+    allAreas.sort((a, b) => a.name.localeCompare(b.name));
+
+    // 3. If no areaId is selected, return the list of active areas for this date
+    if (!areaId) {
+      const schedulesSnap = await db.collection('saved_schedules')
+        .where('month', '==', monthString)
+        .get();
+        
+      const activeAreas: { id: string, name: string }[] = [];
+      schedulesSnap.docs.forEach(doc => {
+        const data = doc.data();
+        const hasDate = data.schedule?.some((item: any) => item.date === formattedDate);
+        if (hasDate) {
+          activeAreas.push({
+            id: data.areaId,
+            name: areasMap.get(data.areaId) || 'Área Desconhecida'
+          });
+        }
+      });
+      
+      activeAreas.sort((a, b) => a.name.localeCompare(b.name));
+
+      return {
+        success: true,
+        data: {
+          date: formattedDate,
+          activeAreas,
+          allAreas,
+          monthString
+        }
+      };
+    }
+
+    // 4. If areaId is provided, fetch volunteers and slots for that area
+    const areaName = areasMap.get(areaId) || 'Área Desconhecida';
+
+    // Fetch all volunteers for this area
     const volunteersSnap = await db.collection('users')
       .where('serviceAreaId', '==', areaId)
       .get();
@@ -40,7 +76,7 @@ export async function getPublicCheckInData(areaId: string, dateParam: string) {
       .map(([id, name]) => ({ id, name }))
       .sort((a, b) => a.name.localeCompare(b.name));
 
-    // 4. Fetch Saved Schedule
+    // Fetch Saved Schedule
     const docId = `${areaId}_${monthString}`;
     const scheduleSnap = await db.collection('saved_schedules').doc(docId).get();
     if (!scheduleSnap.exists) {
@@ -142,7 +178,6 @@ export async function submitCheckIn(params: {
     await db.runTransaction(async (transaction) => {
       const snap = await transaction.get(docRef);
       
-      // If document doesn't exist (e.g. no scale generated yet but doing checkin), initialize it
       const scheduleData = snap.exists ? (snap.data() || {}) : {
         areaId,
         month,

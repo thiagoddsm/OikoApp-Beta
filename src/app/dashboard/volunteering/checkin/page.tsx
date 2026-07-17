@@ -48,12 +48,13 @@ function CheckinPanelContent() {
 
     // Generate public Check-in URL
     const checkinUrl = useMemo(() => {
-        if (typeof window === 'undefined' || !selectedAreaId || !selectedDate) return '';
+        if (typeof window === 'undefined' || !selectedDate) return '';
         let origin = window.location.origin;
         if (origin.includes('localhost') && devIpOverride.trim()) {
             origin = devIpOverride.trim();
         }
-        return `${origin}/public/checkin?areaId=${selectedAreaId}&date=${selectedDate}`;
+        const areaQuery = selectedAreaId ? `&areaId=${selectedAreaId}` : '';
+        return `${origin}/public/checkin?date=${selectedDate}${areaQuery}`;
     }, [selectedAreaId, selectedDate, devIpOverride]);
 
     // QR Code API url
@@ -93,10 +94,12 @@ function CheckinPanelContent() {
         const printWindow = window.open('', '_blank');
         if (!printWindow) return;
 
+        const displayName = selectedAreaId ? areaName : 'Geral (Todas as Áreas)';
+
         printWindow.document.write(`
             <html>
             <head>
-                <title>Imprimir QR Code - ${areaName}</title>
+                <title>Imprimir QR Code - ${displayName}</title>
                 <style>
                     body {
                         font-family: system-ui, sans-serif;
@@ -124,7 +127,7 @@ function CheckinPanelContent() {
             <body>
                 <div class="card">
                     <h1>CHECK-IN DE VOLUNTÁRIOS</h1>
-                    <p>Área: <strong>${areaName}</strong></p>
+                    <p>Área: <strong>${displayName}</strong></p>
                     <img src="${qrCodeApiUrl}" alt="QR Code" width="220" height="220" />
                     <p style="font-size: 12px; margin-top: 10px;">Escaneie o código acima com a câmera do seu celular para confirmar sua presença na escala de hoje!</p>
                     <div class="footer">OikoApp Church Management</div>
@@ -194,14 +197,14 @@ function CheckinPanelContent() {
                             </div>
                         )}
 
-                        {selectedAreaId && qrCodeApiUrl ? (
+                        {qrCodeApiUrl ? (
                             <div className="border border-slate-200 rounded-2xl p-5 bg-white shadow-sm flex flex-col items-center text-center space-y-4">
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">QR Code para Impressão</span>
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider font-semibold">QR Code para Impressão</span>
                                 <div className="border-4 border-slate-50 rounded-2xl p-3 bg-white">
                                     <img src={qrCodeApiUrl} alt="Check-in QR Code" className="size-48" />
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-sm font-bold text-slate-700">{areaName}</p>
+                                    <p className="text-sm font-bold text-slate-700">{selectedAreaId ? areaName : 'Geral (Todas as Áreas)'}</p>
                                     <p className="text-xs text-slate-500">{formattedSelectedDate}</p>
                                 </div>
                                 <Button type="button" onClick={handlePrintQrCode} className="w-full h-9 text-xs">
@@ -210,7 +213,7 @@ function CheckinPanelContent() {
                             </div>
                         ) : (
                             <div className="border border-dashed border-slate-200 rounded-2xl p-8 bg-slate-25/10 text-center text-slate-400 text-xs">
-                                Selecione a Área e a Data para gerar o QR Code.
+                                Selecione a Data para gerar o QR Code.
                             </div>
                         )}
                     </div>

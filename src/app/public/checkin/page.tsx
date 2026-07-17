@@ -17,6 +17,9 @@ export default function PublicCheckInPage() {
     const [loadError, setLoadError] = useState('');
 
     // Flow states
+    const [selectedAreaId, setSelectedAreaId] = useState<string | null>(null);
+    const [showAllAreasFallback, setShowAllAreasFallback] = useState(false);
+
     const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
     const [isAvulsoMode, setIsAvulsoMode] = useState(false);
     const [selectedAvulsoMemberId, setSelectedAvulsoMemberId] = useState<string>('');
@@ -25,8 +28,9 @@ export default function PublicCheckInPage() {
     const [isSuccess, setIsSuccess] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
 
-    const loadData = (aId: string, dt: string) => {
+    const loadData = (aId: string | null, dt: string) => {
         setLoading(true);
+        setLoadError('');
         getPublicCheckInData(aId, dt)
             .then(res => {
                 if (res.success && res.data) {
@@ -48,9 +52,10 @@ export default function PublicCheckInPage() {
             const aId = params.get('areaId');
             const dt = params.get('date');
             setAreaId(aId);
+            setSelectedAreaId(aId);
             setDateParam(dt);
 
-            if (aId && dt) {
+            if (dt) {
                 loadData(aId, dt);
             } else {
                 setLoading(false);
@@ -58,8 +63,15 @@ export default function PublicCheckInPage() {
         }
     }, []);
 
+    const handleSelectArea = (id: string) => {
+        if (!dateParam) return;
+        setSelectedAreaId(id);
+        loadData(id, dateParam);
+    };
+
     const handleConfirmCheckin = async () => {
-        if (!areaId || !checkInData || !dateParam) return;
+        const activeAreaId = selectedAreaId || areaId;
+        if (!activeAreaId || !checkInData || !dateParam) return;
         
         let memberId = '';
         let eventName = 'Serviço Voluntário Extra';
@@ -84,7 +96,7 @@ export default function PublicCheckInPage() {
         setErrorMessage('');
 
         const res = await submitCheckIn({
-            areaId,
+            areaId: activeAreaId,
             month: checkInData.monthString,
             eventName,
             date: checkInData.date,
@@ -111,7 +123,7 @@ export default function PublicCheckInPage() {
         );
     }
 
-    if (!areaId || !dateParam || loadError || !checkInData) {
+    if (!dateParam || loadError || !checkInData) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-slate-50/50 p-4">
                 <Card className="max-w-md w-full rounded-2xl shadow-md border-slate-150 bg-white">
@@ -127,7 +139,7 @@ export default function PublicCheckInPage() {
         );
     }
 
-    const hasSlots = checkInData.slots && checkInData.slots.length > 0;
+    const hasSelectedArea = !!selectedAreaId;
 
     return (
         <div className="flex items-center justify-center min-h-screen bg-slate-50/50 p-4">
@@ -154,7 +166,7 @@ export default function PublicCheckInPage() {
                                     setSelectedItemIndex(null);
                                     setIsAvulsoMode(false);
                                     setSelectedAvulsoMemberId('');
-                                    loadData(areaId, dateParam);
+                                    loadData(selectedAreaId, dateParam);
                                 }}
                             >
                                 Fazer outro Check-in
@@ -170,177 +182,253 @@ export default function PublicCheckInPage() {
                             <CardTitle className="text-lg font-black text-slate-800">Check-in de Voluntários</CardTitle>
                             <CardDescription className="flex items-center justify-center gap-1.5 text-xs text-slate-500 font-bold mt-1">
                                 <Calendar className="size-3.5" />
-                                <span>{checkInData.areaName} — {checkInData.date}</span>
+                                <span>{hasSelectedArea ? `${checkInData.areaName} — ` : ''}{checkInData.date}</span>
                             </CardDescription>
                         </CardHeader>
                         
                         <CardContent className="py-6 space-y-6">
-                            {selectedItemIndex === null && !isAvulsoMode ? (
+                            {/* Step 1: Select Area (if no specific area is selected in URL) */}
+                            {!hasSelectedArea ? (
                                 <div className="space-y-4">
-                                    {hasSlots ? (
-                                        <div className="space-y-3">
-                                            <span className="text-xs font-black text-slate-400 uppercase tracking-wider block mb-2">Quem está servindo hoje?</span>
-                                            {checkInData.slots.map((item: any, idx: number) => {
-                                                const hasVolunteers = !!item.volunteerId;
-                                                const isAlreadyCheckedIn = item.checkInStatus === 'present';
-
-                                                return (
-                                                    <button
-                                                        key={idx}
-                                                        type="button"
-                                                        disabled={!hasVolunteers || isAlreadyCheckedIn}
-                                                        onClick={() => setSelectedItemIndex(idx)}
-                                                        className={`w-full p-4 border rounded-2xl flex items-center justify-between text-left transition-all ${
-                                                            isAlreadyCheckedIn 
-                                                                ? 'bg-emerald-50/30 border-emerald-150 cursor-not-allowed opacity-80' 
-                                                                : hasVolunteers
-                                                                    ? 'border-slate-200 hover:border-primary hover:bg-primary/5 active:scale-[0.99] cursor-pointer'
-                                                                    : 'bg-slate-25/20 border-slate-150 cursor-not-allowed opacity-50'
-                                                        }`}
-                                                    >
-                                                        <div className="space-y-1 pr-4">
-                                                            <p className="text-xs font-bold text-slate-700">{item.eventName}</p>
-                                                            <p className="text-xs text-slate-500 font-bold">
-                                                                {item.volunteerName || 'Vaga Aberta'}
-                                                            </p>
-                                                        </div>
-                                                        {isAlreadyCheckedIn ? (
-                                                            <Badge className="bg-emerald-100 text-emerald-800 text-[10px] font-bold border-emerald-200">Presente</Badge>
-                                                        ) : hasVolunteers ? (
-                                                            <span className="text-[10px] font-bold text-primary flex items-center gap-1">Check-in →</span>
-                                                        ) : (
-                                                            <Badge variant="outline" className="text-slate-400 border-slate-250 text-[10px]">Vago</Badge>
-                                                        )}
-                                                    </button>
-                                                );
-                                            })}
+                                    <span className="text-xs font-black text-slate-400 uppercase tracking-wider block mb-2">Selecione sua Área de Serviço</span>
+                                    
+                                    {checkInData.activeAreas?.length > 0 ? (
+                                        <div className="grid grid-cols-1 gap-2">
+                                            {checkInData.activeAreas.map((area: any) => (
+                                                <Button
+                                                    key={area.id}
+                                                    variant="outline"
+                                                    onClick={() => handleSelectArea(area.id)}
+                                                    className="w-full justify-start text-left h-12 rounded-2xl hover:bg-primary/5 hover:border-primary text-xs font-bold"
+                                                >
+                                                    🎯 {area.name}
+                                                </Button>
+                                            ))}
                                         </div>
                                     ) : (
-                                        <div className="text-center py-4 space-y-2">
-                                            <p className="text-slate-500 text-xs font-medium">Nenhuma escala oficial foi programada ou salva para hoje.</p>
-                                            <p className="text-[10px] text-slate-400">Você ainda pode realizar o check-in extra abaixo.</p>
+                                        <div className="text-center py-6 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-25/10">
+                                            <p className="text-slate-500 text-xs font-medium">Nenhuma escala ativa para hoje.</p>
                                         </div>
                                     )}
 
-                                    <div className="pt-2 border-t border-slate-100">
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            className="w-full h-10 text-xs font-bold rounded-2xl"
-                                            onClick={() => setIsAvulsoMode(true)}
-                                        >
-                                            <UserPlus className="size-4 mr-2" />
-                                            {hasSlots ? 'Não estou na lista (Check-in Extra)' : 'Fazer Check-in Extra'}
-                                        </Button>
-                                    </div>
-                                </div>
-                            ) : isAvulsoMode ? (
-                                <div className="space-y-5">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-xs font-black text-slate-400 uppercase tracking-wider">Check-in Extra</span>
-                                        <button 
-                                            type="button" 
-                                            onClick={() => {
-                                                setIsAvulsoMode(false);
-                                                setSelectedAvulsoMemberId('');
-                                                setErrorMessage('');
-                                            }}
-                                            className="text-xs font-bold text-slate-500 flex items-center gap-1 hover:text-slate-800"
-                                        >
-                                            <ArrowLeft className="size-3" /> Voltar
-                                        </button>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="vol-select">Procure seu nome na lista</Label>
-                                        <Select 
-                                            value={selectedAvulsoMemberId} 
-                                            onValueChange={(val) => {
-                                                setSelectedAvulsoMemberId(val);
-                                                setErrorMessage('');
-                                            }}
-                                        >
-                                            <SelectTrigger id="vol-select" className="bg-white h-11 rounded-2xl">
-                                                <SelectValue placeholder="Selecione seu nome..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {checkInData.areaVolunteers?.map((v: any) => (
-                                                    <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    {errorMessage && (
-                                        <p className="text-xs text-red-500 font-semibold bg-red-50 p-3 rounded-xl border border-red-150">
-                                            ⚠️ {errorMessage}
-                                        </p>
-                                    )}
-
-                                    <Button
-                                        type="button"
-                                        disabled={isSubmitting || !selectedAvulsoMemberId}
-                                        onClick={handleConfirmCheckin}
-                                        className="w-full h-11 text-xs font-bold rounded-2xl"
-                                    >
-                                        {isSubmitting ? (
-                                            <>
-                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                Registrando...
-                                            </>
+                                    {/* Fallback to show all areas */}
+                                    <div className="pt-2 border-t border-slate-150">
+                                        {!showAllAreasFallback ? (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setShowAllAreasFallback(true)}
+                                                className="w-full text-[10px] text-slate-400 hover:text-slate-650"
+                                            >
+                                                Exibir todas as áreas
+                                            </Button>
                                         ) : (
-                                            <>
-                                                <UserCheck className="size-4.5 mr-2" /> Confirmar Minha Presença
-                                            </>
+                                            <div className="space-y-2">
+                                                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Todas as Áreas</Label>
+                                                <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                                                    {checkInData.allAreas?.map((area: any) => (
+                                                        <Button
+                                                            key={area.id}
+                                                            variant="outline"
+                                                            size="sm"
+                                                            onClick={() => handleSelectArea(area.id)}
+                                                            className="justify-start text-left text-[10px] h-8 rounded-xl"
+                                                        >
+                                                            {area.name}
+                                                        </Button>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         )}
-                                    </Button>
+                                    </div>
                                 </div>
                             ) : (
-                                <div className="space-y-5">
-                                    <div className="bg-slate-50 border rounded-2xl p-4 space-y-2">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Voluntário</span>
-                                            <button 
-                                                type="button" 
-                                                onClick={() => setSelectedItemIndex(null)}
-                                                className="text-xs font-bold text-slate-500 hover:text-slate-800"
+                                /* Step 2: Select member or do check-in inside the area */
+                                <>
+                                    {selectedItemIndex === null && !isAvulsoMode ? (
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-xs font-black text-slate-400 uppercase tracking-wider">Quem está servindo hoje?</span>
+                                                {/* Back button to area selector if no areaId was hardcoded in URL */}
+                                                {!areaId && (
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => {
+                                                            setSelectedAreaId(null);
+                                                            loadData(null, dateParam);
+                                                        }}
+                                                        className="text-xs font-bold text-slate-500 flex items-center gap-1 hover:text-slate-800"
+                                                    >
+                                                        <ArrowLeft className="size-3" /> Outra Área
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            {checkInData.slots && checkInData.slots.length > 0 ? (
+                                                <div className="space-y-3">
+                                                    {checkInData.slots.map((item: any, idx: number) => {
+                                                        const hasVolunteers = !!item.volunteerId;
+                                                        const isAlreadyCheckedIn = item.checkInStatus === 'present';
+
+                                                        return (
+                                                            <button
+                                                                key={idx}
+                                                                type="button"
+                                                                disabled={!hasVolunteers || isAlreadyCheckedIn}
+                                                                onClick={() => setSelectedItemIndex(idx)}
+                                                                className={`w-full p-4 border rounded-2xl flex items-center justify-between text-left transition-all ${
+                                                                    isAlreadyCheckedIn 
+                                                                        ? 'bg-emerald-50/30 border-emerald-150 cursor-not-allowed opacity-80' 
+                                                                        : hasVolunteers
+                                                                            ? 'border-slate-200 hover:border-primary hover:bg-primary/5 active:scale-[0.99] cursor-pointer'
+                                                                            : 'bg-slate-25/20 border-slate-150 cursor-not-allowed opacity-50'
+                                                                }`}
+                                                            >
+                                                                <div className="space-y-1 pr-4">
+                                                                    <p className="text-xs font-bold text-slate-700">{item.eventName}</p>
+                                                                    <p className="text-xs text-slate-500 font-bold">
+                                                                        {item.volunteerName || 'Vaga Aberta'}
+                                                                    </p>
+                                                                </div>
+                                                                {isAlreadyCheckedIn ? (
+                                                                    <Badge className="bg-emerald-100 text-emerald-800 text-[10px] font-bold border-emerald-200">Presente</Badge>
+                                                                ) : hasVolunteers ? (
+                                                                    <span className="text-[10px] font-bold text-primary flex items-center gap-1">Check-in →</span>
+                                                                ) : (
+                                                                    <Badge variant="outline" className="text-slate-400 border-slate-250 text-[10px]">Vago</Badge>
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-4 space-y-2">
+                                                    <p className="text-slate-500 text-xs font-medium">Nenhuma escala oficial foi programada ou salva para hoje.</p>
+                                                    <p className="text-[10px] text-slate-400">Você ainda pode realizar o check-in extra abaixo.</p>
+                                                </div>
+                                            )}
+
+                                            <div className="pt-2 border-t border-slate-100">
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    className="w-full h-10 text-xs font-bold rounded-2xl"
+                                                    onClick={() => setIsAvulsoMode(true)}
+                                                >
+                                                    <UserPlus className="size-4 mr-2" />
+                                                    {checkInData.slots && checkInData.slots.length > 0 ? 'Não estou na lista (Check-in Extra)' : 'Fazer Check-in Extra'}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : isAvulsoMode ? (
+                                        <div className="space-y-5">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-xs font-black text-slate-400 uppercase tracking-wider">Check-in Extra</span>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => {
+                                                        setIsAvulsoMode(false);
+                                                        setSelectedAvulsoMemberId('');
+                                                        setErrorMessage('');
+                                                    }}
+                                                    className="text-xs font-bold text-slate-500 flex items-center gap-1 hover:text-slate-800"
+                                                >
+                                                    <ArrowLeft className="size-3" /> Voltar
+                                                </button>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label htmlFor="vol-select">Procure seu nome na lista</Label>
+                                                <Select 
+                                                    value={selectedAvulsoMemberId} 
+                                                    onValueChange={(val) => {
+                                                        setSelectedAvulsoMemberId(val);
+                                                        setErrorMessage('');
+                                                    }}
+                                                >
+                                                    <SelectTrigger id="vol-select" className="bg-white h-11 rounded-2xl">
+                                                        <SelectValue placeholder="Selecione seu nome..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        {checkInData.areaVolunteers?.map((v: any) => (
+                                                            <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+
+                                            {errorMessage && (
+                                                <p className="text-xs text-red-500 font-semibold bg-red-50 p-3 rounded-xl border border-red-150">
+                                                    ⚠️ {errorMessage}
+                                                </p>
+                                            )}
+
+                                            <Button
+                                                type="button"
+                                                disabled={isSubmitting || !selectedAvulsoMemberId}
+                                                onClick={handleConfirmCheckin}
+                                                className="w-full h-11 text-xs font-bold rounded-2xl"
                                             >
-                                                Alterar
-                                            </button>
+                                                {isSubmitting ? (
+                                                    <>
+                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                        Registrando...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <UserCheck className="size-4.5 mr-2" /> Confirmar Minha Presença
+                                                    </>
+                                                )}
+                                            </Button>
                                         </div>
-                                        <p className="text-sm font-bold text-slate-800">
-                                            {checkInData.slots[selectedItemIndex!].volunteerName}
-                                        </p>
-                                        <div className="pt-2 border-t border-slate-200 flex justify-between text-xs text-slate-500">
-                                            <span>Culto/Evento:</span>
-                                            <strong className="text-slate-700">{checkInData.slots[selectedItemIndex!].eventName}</strong>
-                                        </div>
-                                    </div>
+                                    ) : (
+                                        <div className="space-y-5">
+                                            <div className="bg-slate-50 border rounded-2xl p-4 space-y-2">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Voluntário</span>
+                                                    <button 
+                                                        type="button" 
+                                                        onClick={() => setSelectedItemIndex(null)}
+                                                        className="text-xs font-bold text-slate-500 hover:text-slate-800"
+                                                    >
+                                                        Alterar
+                                                    </button>
+                                                </div>
+                                                <p className="text-sm font-bold text-slate-800">
+                                                    {checkInData.slots[selectedItemIndex!].volunteerName}
+                                                </p>
+                                                <div className="pt-2 border-t border-slate-200 flex justify-between text-xs text-slate-500">
+                                                    <span>Culto/Evento:</span>
+                                                    <strong className="text-slate-700">{checkInData.slots[selectedItemIndex!].eventName}</strong>
+                                                </div>
+                                            </div>
 
-                                    {errorMessage && (
-                                        <p className="text-xs text-red-500 font-semibold bg-red-50 p-3 rounded-xl border border-red-150">
-                                            ⚠️ {errorMessage}
-                                        </p>
+                                            {errorMessage && (
+                                                <p className="text-xs text-red-500 font-semibold bg-red-50 p-3 rounded-xl border border-red-150">
+                                                    ⚠️ {errorMessage}
+                                                </p>
+                                            )}
+
+                                            <Button
+                                                type="button"
+                                                disabled={isSubmitting}
+                                                onClick={handleConfirmCheckin}
+                                                className="w-full h-11 text-xs font-bold rounded-2xl"
+                                            >
+                                                {isSubmitting ? (
+                                                    <>
+                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                        Confirmando...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <UserCheck className="size-4.5 mr-2" /> Confirmar Minha Presença
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </div>
                                     )}
-
-                                    <Button
-                                        type="button"
-                                        disabled={isSubmitting}
-                                        onClick={handleConfirmCheckin}
-                                        className="w-full h-11 text-xs font-bold rounded-2xl"
-                                    >
-                                        {isSubmitting ? (
-                                            <>
-                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                Confirmando...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <UserCheck className="size-4.5 mr-2" /> Confirmar Minha Presença
-                                            </>
-                                        )}
-                                    </Button>
-                                </div>
+                                </>
                             )}
                         </CardContent>
                     </>
