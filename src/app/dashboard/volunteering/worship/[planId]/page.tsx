@@ -599,7 +599,7 @@ function PlanEditorInner({ planId }: { planId: string }) {
           const memberAvatar = memberObj?.avatar;
           
           let status: 'confirmed' | 'declined' | 'pending' = 'pending';
-          if (pos.status === 'confirmed') status = 'confirmed';
+          if (pos.status === 'accepted') status = 'confirmed';
           if (pos.status === 'declined') status = 'declined';
 
           if (!grouped[worshipAreaName]) {
