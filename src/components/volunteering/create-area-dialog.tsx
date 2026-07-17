@@ -99,17 +99,31 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
   // Volunteers filter and compliance calculations
   const filteredWorshipUsers = useMemo(() => {
     if (!users) return [];
-    return users.filter(u => 
-      u.name?.toLowerCase().includes(memberSearch.toLowerCase()) ||
-      (u.worshipRoles && u.worshipRoles.length > 0)
-    ).sort((a, b) => {
-      // Sort users with active roles first
-      const aHas = a.worshipRoles && a.worshipRoles.length > 0 ? 1 : 0;
-      const bHas = b.worshipRoles && b.worshipRoles.length > 0 ? 1 : 0;
-      if (aHas !== bHas) return bHas - aHas;
-      return (a.name || '').localeCompare(b.name || '');
-    });
-  }, [users, memberSearch]);
+    
+    let list = users;
+    if (memberSearch) {
+      list = users.filter(u => 
+        u.name?.toLowerCase().includes(memberSearch.toLowerCase()) ||
+        (areaType === 'worship' && u.worshipRoles && u.worshipRoles.length > 0)
+      );
+    }
+
+    if (areaType === 'worship') {
+      return [...list].sort((a, b) => {
+        const aHas = a.worshipRoles && a.worshipRoles.length > 0 ? 1 : 0;
+        const bHas = b.worshipRoles && b.worshipRoles.length > 0 ? 1 : 0;
+        if (aHas !== bHas) return bHas - aHas;
+        return (a.name || '').localeCompare(b.name || '');
+      });
+    } else {
+      return [...list].sort((a, b) => {
+        const aHas = a.serviceAreaId === existingArea?.id ? 1 : 0;
+        const bHas = b.serviceAreaId === existingArea?.id ? 1 : 0;
+        if (aHas !== bHas) return bHas - aHas;
+        return (a.name || '').localeCompare(b.name || '');
+      });
+    }
+  }, [users, memberSearch, areaType, existingArea]);
 
   const nonCompliantCount = useMemo(() => {
     if (!dualServiceRuleActive || !users || !existingArea) return 0;
@@ -173,6 +187,19 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
     });
   };
 
+  const handleToggleRegularMember = async (user: any) => {
+    if (!existingArea) return;
+    const isCurrentlyInArea = user.serviceAreaId === existingArea.id;
+    const newAreaId = isCurrentlyInArea ? '' : existingArea.id;
+    
+    // Update user document in Firestore
+    const userDocRef = doc(firestore, 'users', user.id);
+    await updateDocumentNonBlocking(userDocRef, {
+      serviceAreaId: newAreaId,
+      ...(isCurrentlyInArea ? { serviceTeamId: '' } : {})
+    });
+  };
+
   const handleSave = async () => {
     if (!name.trim()) return;
     setIsSaving(true);
@@ -220,8 +247,8 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
           </DialogDescription>
         </DialogHeader>
 
-        {/* Tab Row if editing worship area */}
-        {existingArea && areaType === 'worship' && (
+        {/* Tab Row if editing ANY area */}
+        {existingArea && (
           <div className="flex border-b border-slate-200 mb-2">
             <button
               type="button"
@@ -235,7 +262,7 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
               className={`flex-1 pb-2 text-xs font-bold text-center border-b-2 transition-all ${activeTab === 'members' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
               onClick={() => setActiveTab('members')}
             >
-              🎸 Equipe e Elegibilidade
+              {areaType === 'worship' ? '🎸 Equipe e Elegibilidade' : '👥 Membros da Equipe'}
             </button>
           </div>
         )}
@@ -425,7 +452,7 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
             </div>
           </div>
         ) : (
-          /* Members and Elegibility Panel */
+          /* Members Panel */
           <div className="space-y-4 py-2">
             <Input
               placeholder="Buscar voluntários..."
@@ -435,7 +462,7 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
             />
 
             {/* Non-compliance Alert Box */}
-            {dualServiceRuleActive && nonCompliantCount > 0 && (
+            {areaType === 'worship' && dualServiceRuleActive && nonCompliantCount > 0 && (
               <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 text-amber-800 dark:text-amber-300 p-2.5 rounded-xl text-xs font-semibold flex items-start gap-2 leading-normal">
                 <ShieldAlert className="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                 <span>Existem {nonCompliantCount} voluntário(s) escalados apenas no Louvor que não servem em nenhuma outra área de serviço.</span>
@@ -450,13 +477,66 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
                   const hasRegularArea = user.serviceAreaId && user.serviceAreaId !== existingArea?.id;
                   const regularAreaObj = hasRegularArea ? areas.find(a => a.id === user.serviceAreaId) : null;
                   const userHasWorshipRoles = user.worshipRoles && user.worshipRoles.length > 0;
-                  
-                  // Show alert warning if rule is active, user has roles, but no regular area
                   const showAlert = dualServiceRuleActive && userHasWorshipRoles && !hasRegularArea;
 
-                  return (
-                    <div key={user.id} className="border border-slate-150 rounded-xl p-3 bg-white space-y-2 shadow-sm">
-                      <div className="flex items-center justify-between gap-2">
+                  if (areaType === 'worship') {
+                    return (
+                      <div key={user.id} className="border border-slate-150 rounded-xl p-3 bg-white space-y-2 shadow-sm">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-7 w-7 border border-slate-200">
+                              <AvatarImage src={user.avatar} />
+                              <AvatarFallback className="bg-primary/5 text-primary text-[10px] font-bold">
+                                {user.name?.substring(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col">
+                              <span className="text-xs font-bold text-slate-800">{user.name}</span>
+                              {hasRegularArea ? (
+                                <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold">Serviço: {regularAreaObj?.name}</span>
+                              ) : (
+                                showAlert && (
+                                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold flex items-center gap-0.5">
+                                    ⚠️ Apenas Louvor
+                                  </span>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Configurable Roles list */}
+                        <div className="space-y-1 pt-1.5 border-t border-slate-100">
+                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Elegibilidade:</span>
+                          <div className="flex flex-wrap gap-1">
+                            {roles.map(role => {
+                              const isEligible = user.worshipRoles?.includes(role);
+                              return (
+                                <button
+                                  key={role}
+                                  type="button"
+                                  onClick={() => handleToggleWorshipRole(user, role)}
+                                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
+                                    isEligible 
+                                      ? 'bg-primary text-white border-primary shadow-sm' 
+                                      : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                                  }`}
+                                >
+                                  {role}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  } else {
+                    const isMemberOfThisArea = user.serviceAreaId === existingArea?.id;
+                    const hasOtherArea = user.serviceAreaId && user.serviceAreaId !== existingArea?.id;
+                    const otherAreaObj = hasOtherArea ? areas.find(a => a.id === user.serviceAreaId) : null;
+
+                    return (
+                      <div key={user.id} className="border border-slate-150 rounded-xl p-3 bg-white flex items-center justify-between gap-3 shadow-sm">
                         <div className="flex items-center gap-2">
                           <Avatar className="h-7 w-7 border border-slate-200">
                             <AvatarImage src={user.avatar} />
@@ -466,44 +546,29 @@ export function CreateAreaDialog({ open, onOpenChange, existingArea }: CreateAre
                           </Avatar>
                           <div className="flex flex-col">
                             <span className="text-xs font-bold text-slate-800">{user.name}</span>
-                            {hasRegularArea ? (
-                              <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold">Serviço: {regularAreaObj?.name}</span>
-                            ) : (
-                              showAlert && (
-                                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold flex items-center gap-0.5">
-                                  ⚠️ Apenas Louvor
-                                </span>
-                              )
+                            {hasOtherArea && (
+                              <span className="text-[9px] text-amber-600 dark:text-amber-400 font-semibold">Outra área: {otherAreaObj?.name}</span>
+                            )}
+                            {isMemberOfThisArea && (
+                              <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold">👥 Nesta equipe</span>
                             )}
                           </div>
                         </div>
+                        <Button
+                          type="button"
+                          variant={isMemberOfThisArea ? 'outline' : 'default'}
+                          className={`h-7 px-3 text-[10px] font-bold rounded-lg transition-all ${
+                            isMemberOfThisArea 
+                              ? 'bg-red-50 hover:bg-red-100 text-red-600 border-red-200 hover:text-red-700' 
+                              : 'hover:bg-primary/90'
+                          }`}
+                          onClick={() => handleToggleRegularMember(user)}
+                        >
+                          {isMemberOfThisArea ? 'Remover' : 'Adicionar'}
+                        </Button>
                       </div>
-
-                      {/* Configurable Roles list */}
-                      <div className="space-y-1 pt-1.5 border-t border-slate-100">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block">Elegibilidade:</span>
-                        <div className="flex flex-wrap gap-1">
-                          {roles.map(role => {
-                            const isEligible = user.worshipRoles?.includes(role);
-                            return (
-                              <button
-                                key={role}
-                                type="button"
-                                onClick={() => handleToggleWorshipRole(user, role)}
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
-                                  isEligible 
-                                    ? 'bg-primary text-white border-primary shadow-sm' 
-                                    : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
-                                }`}
-                              >
-                                {role}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  );
+                    );
+                  }
                 })
               )}
             </div>
