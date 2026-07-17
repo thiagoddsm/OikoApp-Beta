@@ -246,6 +246,7 @@ export function ReservationsCalendar({
     const allOccurrences: any[] = [];
 
     // Mapear e injetar os Eventos Estratégicos Aprovados
+    if (strategicEvents && Array.isArray(strategicEvents)) {
       // Busca dinamicamente o ID da categoria que se chama "Eventual"
       const eventualCategory = reservationCategories?.find(c => c.name.toLowerCase() === 'eventual');
       const eventualCategoryId = eventualCategory?.id;
