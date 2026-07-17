@@ -45,7 +45,9 @@ import {
   Moon,
   Sun,
   Zap,
-  Activity
+  Activity,
+  History,
+  QrCode
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -119,6 +121,8 @@ const menuItems = [
         { href: "/dashboard/volunteering/events", label: "Gerenciar Eventos", icon: CalendarPlus, permissionId: 'servico_events' },
         { href: "/dashboard/volunteering/schedule", label: "Gerar Escala", icon: CalendarCog, permissionId: 'servico_schedule' },
         { href: "/dashboard/volunteering/saved-schedules", label: "Escalas Salvas", icon: Save, permissionId: 'servico_saved' },
+        { href: "/dashboard/volunteering/history", label: "Histórico", icon: History, permissionId: 'servico_saved' },
+        { href: "/dashboard/volunteering/checkin", label: "Check-in (QR Code)", icon: QrCode, permissionId: 'servico_saved' },
         { href: "/dashboard/volunteering/worship", label: "Ordem de Culto", icon: ListMusic, permissionId: 'servico_worship' },
       ]
     },
