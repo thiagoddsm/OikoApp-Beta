@@ -3,7 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle, HandHelping, Calendar, UserCheck, AlertTriangle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Loader2, CheckCircle, HandHelping, Calendar, UserCheck, AlertTriangle, UserPlus, ArrowLeft } from 'lucide-react';
 import { getPublicCheckInData, submitCheckIn } from './actions';
 
 export default function PublicCheckInPage() {
@@ -16,9 +18,29 @@ export default function PublicCheckInPage() {
 
     // Flow states
     const [selectedItemIndex, setSelectedItemIndex] = useState<number | null>(null);
+    const [isAvulsoMode, setIsAvulsoMode] = useState(false);
+    const [selectedAvulsoMemberId, setSelectedAvulsoMemberId] = useState<string>('');
+    
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
     const [errorMessage, setErrorMessage] = useState('');
+
+    const loadData = (aId: string, dt: string) => {
+        setLoading(true);
+        getPublicCheckInData(aId, dt)
+            .then(res => {
+                if (res.success && res.data) {
+                    setCheckInData(res.data);
+                } else {
+                    setLoadError(res.error || 'Erro ao carregar escala.');
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                setLoadError('Erro ao carregar dados do servidor.');
+            })
+            .finally(() => setLoading(false));
+    };
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -29,19 +51,7 @@ export default function PublicCheckInPage() {
             setDateParam(dt);
 
             if (aId && dt) {
-                getPublicCheckInData(aId, dt)
-                    .then(res => {
-                        if (res.success && res.data) {
-                            setCheckInData(res.data);
-                        } else {
-                            setLoadError(res.error || 'Escala não encontrada ou inválida.');
-                        }
-                    })
-                    .catch(err => {
-                        console.error(err);
-                        setLoadError('Erro ao carregar dados do servidor.');
-                    })
-                    .finally(() => setLoading(false));
+                loadData(aId, dt);
             } else {
                 setLoading(false);
             }
@@ -49,10 +59,26 @@ export default function PublicCheckInPage() {
     }, []);
 
     const handleConfirmCheckin = async () => {
-        if (selectedItemIndex === null || !areaId || !checkInData || !dateParam) return;
+        if (!areaId || !checkInData || !dateParam) return;
         
-        const item = checkInData.slots[selectedItemIndex];
-        if (!item || !item.volunteerId) return;
+        let memberId = '';
+        let eventName = 'Serviço Voluntário Extra';
+        let slotIndex = -1;
+
+        if (isAvulsoMode) {
+            memberId = selectedAvulsoMemberId;
+            if (!memberId) {
+                setErrorMessage('Por favor, selecione seu nome.');
+                return;
+            }
+        } else {
+            if (selectedItemIndex === null) return;
+            const item = checkInData.slots[selectedItemIndex];
+            if (!item || !item.volunteerId) return;
+            memberId = item.volunteerId;
+            eventName = item.eventName;
+            slotIndex = item.slotIndex;
+        }
 
         setIsSubmitting(true);
         setErrorMessage('');
@@ -60,10 +86,11 @@ export default function PublicCheckInPage() {
         const res = await submitCheckIn({
             areaId,
             month: checkInData.monthString,
-            eventName: item.eventName,
+            eventName,
             date: checkInData.date,
-            slotIndex: item.slotIndex || 0,
-            memberId: item.volunteerId
+            slotIndex,
+            memberId,
+            isAvulso: isAvulsoMode
         });
 
         setIsSubmitting(false);
@@ -84,7 +111,7 @@ export default function PublicCheckInPage() {
         );
     }
 
-    if (!areaId || !dateParam || loadError || !checkInData || checkInData.slots.length === 0) {
+    if (!areaId || !dateParam || loadError || !checkInData) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-slate-50/50 p-4">
                 <Card className="max-w-md w-full rounded-2xl shadow-md border-slate-150 bg-white">
@@ -92,13 +119,15 @@ export default function PublicCheckInPage() {
                         <AlertTriangle className="size-12 text-red-500 mx-auto mb-2" />
                         <CardTitle className="text-lg">Link Inválido</CardTitle>
                         <CardDescription>
-                            {loadError || 'Este link de check-in não é válido ou a escala ainda não foi gerada para esta data.'}
+                            {loadError || 'Este link de check-in não é válido ou os parâmetros estão incorretos.'}
                         </CardDescription>
                     </CardHeader>
                 </Card>
             </div>
         );
     }
+
+    const hasSlots = checkInData.slots && checkInData.slots.length > 0;
 
     return (
         <div className="flex items-center justify-center min-h-screen bg-slate-50/50 p-4">
@@ -115,6 +144,22 @@ export default function PublicCheckInPage() {
                         <Badge className="bg-emerald-100 text-emerald-800 border-emerald-250 hover:bg-emerald-100 text-[10px] py-1 px-3">
                             Check-in Realizado ✅
                         </Badge>
+                        <div className="pt-4">
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="text-xs h-8"
+                                onClick={() => {
+                                    setIsSuccess(false);
+                                    setSelectedItemIndex(null);
+                                    setIsAvulsoMode(false);
+                                    setSelectedAvulsoMemberId('');
+                                    loadData(areaId, dateParam);
+                                }}
+                            >
+                                Fazer outro Check-in
+                            </Button>
+                        </div>
                     </CardContent>
                 ) : (
                     <>
@@ -130,43 +175,125 @@ export default function PublicCheckInPage() {
                         </CardHeader>
                         
                         <CardContent className="py-6 space-y-6">
-                            {selectedItemIndex === null ? (
-                                <div className="space-y-3">
-                                    <span className="text-xs font-black text-slate-400 uppercase tracking-wider block mb-2">Quem está servindo hoje?</span>
-                                    {checkInData.slots.map((item: any, idx: number) => {
-                                        const hasVolunteers = !!item.volunteerId;
-                                        const isAlreadyCheckedIn = item.checkInStatus === 'present';
+                            {selectedItemIndex === null && !isAvulsoMode ? (
+                                <div className="space-y-4">
+                                    {hasSlots ? (
+                                        <div className="space-y-3">
+                                            <span className="text-xs font-black text-slate-400 uppercase tracking-wider block mb-2">Quem está servindo hoje?</span>
+                                            {checkInData.slots.map((item: any, idx: number) => {
+                                                const hasVolunteers = !!item.volunteerId;
+                                                const isAlreadyCheckedIn = item.checkInStatus === 'present';
 
-                                        return (
-                                            <button
-                                                key={idx}
-                                                type="button"
-                                                disabled={!hasVolunteers || isAlreadyCheckedIn}
-                                                onClick={() => setSelectedItemIndex(idx)}
-                                                className={`w-full p-4 border rounded-2xl flex items-center justify-between text-left transition-all ${
-                                                    isAlreadyCheckedIn 
-                                                        ? 'bg-emerald-50/30 border-emerald-150 cursor-not-allowed opacity-80' 
-                                                        : hasVolunteers
-                                                            ? 'border-slate-200 hover:border-primary hover:bg-primary/5 active:scale-[0.99] cursor-pointer'
-                                                            : 'bg-slate-25/20 border-slate-150 cursor-not-allowed opacity-50'
-                                                }`}
-                                            >
-                                                <div className="space-y-1 pr-4">
-                                                    <p className="text-xs font-bold text-slate-700">{item.eventName}</p>
-                                                    <p className="text-xs text-slate-500 font-bold">
-                                                        {item.volunteerName || 'Vaga Aberta'}
-                                                    </p>
-                                                </div>
-                                                {isAlreadyCheckedIn ? (
-                                                    <Badge className="bg-emerald-100 text-emerald-800 text-[10px] font-bold border-emerald-200">Presente</Badge>
-                                                ) : hasVolunteers ? (
-                                                    <span className="text-[10px] font-bold text-primary flex items-center gap-1">Check-in →</span>
-                                                ) : (
-                                                    <Badge variant="outline" className="text-slate-400 border-slate-250 text-[10px]">Vago</Badge>
-                                                )}
-                                            </button>
-                                        );
-                                    })}
+                                                return (
+                                                    <button
+                                                        key={idx}
+                                                        type="button"
+                                                        disabled={!hasVolunteers || isAlreadyCheckedIn}
+                                                        onClick={() => setSelectedItemIndex(idx)}
+                                                        className={`w-full p-4 border rounded-2xl flex items-center justify-between text-left transition-all ${
+                                                            isAlreadyCheckedIn 
+                                                                ? 'bg-emerald-50/30 border-emerald-150 cursor-not-allowed opacity-80' 
+                                                                : hasVolunteers
+                                                                    ? 'border-slate-200 hover:border-primary hover:bg-primary/5 active:scale-[0.99] cursor-pointer'
+                                                                    : 'bg-slate-25/20 border-slate-150 cursor-not-allowed opacity-50'
+                                                        }`}
+                                                    >
+                                                        <div className="space-y-1 pr-4">
+                                                            <p className="text-xs font-bold text-slate-700">{item.eventName}</p>
+                                                            <p className="text-xs text-slate-500 font-bold">
+                                                                {item.volunteerName || 'Vaga Aberta'}
+                                                            </p>
+                                                        </div>
+                                                        {isAlreadyCheckedIn ? (
+                                                            <Badge className="bg-emerald-100 text-emerald-800 text-[10px] font-bold border-emerald-200">Presente</Badge>
+                                                        ) : hasVolunteers ? (
+                                                            <span className="text-[10px] font-bold text-primary flex items-center gap-1">Check-in →</span>
+                                                        ) : (
+                                                            <Badge variant="outline" className="text-slate-400 border-slate-250 text-[10px]">Vago</Badge>
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-4 space-y-2">
+                                            <p className="text-slate-500 text-xs font-medium">Nenhuma escala oficial foi programada ou salva para hoje.</p>
+                                            <p className="text-[10px] text-slate-400">Você ainda pode realizar o check-in extra abaixo.</p>
+                                        </div>
+                                    )}
+
+                                    <div className="pt-2 border-t border-slate-100">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="w-full h-10 text-xs font-bold rounded-2xl"
+                                            onClick={() => setIsAvulsoMode(true)}
+                                        >
+                                            <UserPlus className="size-4 mr-2" />
+                                            {hasSlots ? 'Não estou na lista (Check-in Extra)' : 'Fazer Check-in Extra'}
+                                        </Button>
+                                    </div>
+                                </div>
+                            ) : isAvulsoMode ? (
+                                <div className="space-y-5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-xs font-black text-slate-400 uppercase tracking-wider">Check-in Extra</span>
+                                        <button 
+                                            type="button" 
+                                            onClick={() => {
+                                                setIsAvulsoMode(false);
+                                                setSelectedAvulsoMemberId('');
+                                                setErrorMessage('');
+                                            }}
+                                            className="text-xs font-bold text-slate-500 flex items-center gap-1 hover:text-slate-800"
+                                        >
+                                            <ArrowLeft className="size-3" /> Voltar
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <Label htmlFor="vol-select">Procure seu nome na lista</Label>
+                                        <Select 
+                                            value={selectedAvulsoMemberId} 
+                                            onValueChange={(val) => {
+                                                setSelectedAvulsoMemberId(val);
+                                                setErrorMessage('');
+                                            }}
+                                        >
+                                            <SelectTrigger id="vol-select" className="bg-white h-11 rounded-2xl">
+                                                <SelectValue placeholder="Selecione seu nome..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {checkInData.areaVolunteers?.map((v: any) => (
+                                                    <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    {errorMessage && (
+                                        <p className="text-xs text-red-500 font-semibold bg-red-50 p-3 rounded-xl border border-red-150">
+                                            ⚠️ {errorMessage}
+                                        </p>
+                                    )}
+
+                                    <Button
+                                        type="button"
+                                        disabled={isSubmitting || !selectedAvulsoMemberId}
+                                        onClick={handleConfirmCheckin}
+                                        className="w-full h-11 text-xs font-bold rounded-2xl"
+                                    >
+                                        {isSubmitting ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                Registrando...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <UserCheck className="size-4.5 mr-2" /> Confirmar Minha Presença
+                                            </>
+                                        )}
+                                    </Button>
                                 </div>
                             ) : (
                                 <div className="space-y-5">
@@ -182,11 +309,11 @@ export default function PublicCheckInPage() {
                                             </button>
                                         </div>
                                         <p className="text-sm font-bold text-slate-800">
-                                            {checkInData.slots[selectedItemIndex].volunteerName}
+                                            {checkInData.slots[selectedItemIndex!].volunteerName}
                                         </p>
                                         <div className="pt-2 border-t border-slate-200 flex justify-between text-xs text-slate-500">
                                             <span>Culto/Evento:</span>
-                                            <strong className="text-slate-700">{checkInData.slots[selectedItemIndex].eventName}</strong>
+                                            <strong className="text-slate-700">{checkInData.slots[selectedItemIndex!].eventName}</strong>
                                         </div>
                                     </div>
 

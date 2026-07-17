@@ -19,7 +19,28 @@ export async function getPublicCheckInData(areaId: string, dateParam: string) {
     const monthString = `${year}-${month}`;
     const formattedDate = `${day}/${month}/${year}`;
     
-    // 3. Fetch Saved Schedule
+    // 3. Fetch all volunteers for this area
+    const volunteersSnap = await db.collection('users')
+      .where('serviceAreaId', '==', areaId)
+      .get();
+      
+    const worshipSnap = await db.collection('users')
+      .where('worshipAreaId', '==', areaId)
+      .get();
+
+    const allVolunteersMap = new Map();
+    volunteersSnap.docs.forEach(doc => {
+      allVolunteersMap.set(doc.id, doc.data().name || 'Voluntário');
+    });
+    worshipSnap.docs.forEach(doc => {
+      allVolunteersMap.set(doc.id, doc.data().name || 'Voluntário');
+    });
+
+    const areaVolunteers = Array.from(allVolunteersMap.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+
+    // 4. Fetch Saved Schedule
     const docId = `${areaId}_${monthString}`;
     const scheduleSnap = await db.collection('saved_schedules').doc(docId).get();
     if (!scheduleSnap.exists) {
@@ -29,7 +50,8 @@ export async function getPublicCheckInData(areaId: string, dateParam: string) {
           areaName,
           date: formattedDate,
           slots: [],
-          monthString
+          monthString,
+          areaVolunteers
         }
       };
     }
@@ -68,13 +90,32 @@ export async function getPublicCheckInData(areaId: string, dateParam: string) {
       };
     });
 
+    // Add avulso checkins that might exist
+    const avulsoCheckins: any[] = [];
+    Object.keys(checkIns).forEach(key => {
+      if (key.startsWith(`${formattedDate}_avulso_`)) {
+        const checkIn = checkIns[key];
+        const vId = checkIn.memberId;
+        avulsoCheckins.push({
+          eventName: 'Serviço Voluntário Extra',
+          slotIndex: -1,
+          teamName: 'Extra',
+          volunteerId: vId,
+          volunteerName: allVolunteersMap.get(vId) || 'Voluntário Extra',
+          checkInStatus: 'present',
+          isAvulso: true
+        });
+      }
+    });
+
     return {
       success: true,
       data: {
         areaName,
         date: formattedDate,
-        slots,
-        monthString
+        slots: [...slots, ...avulsoCheckins],
+        monthString,
+        areaVolunteers
       }
     };
   } catch (error: any) {
@@ -90,8 +131,9 @@ export async function submitCheckIn(params: {
   date: string;
   slotIndex: number;
   memberId: string;
+  isAvulso?: boolean;
 }) {
-  const { areaId, month, eventName, date, slotIndex, memberId } = params;
+  const { areaId, month, eventName, date, slotIndex, memberId, isAvulso } = params;
   try {
     const db = getAdminDb();
     const docId = `${areaId}_${month}`;
@@ -99,13 +141,19 @@ export async function submitCheckIn(params: {
     
     await db.runTransaction(async (transaction) => {
       const snap = await transaction.get(docRef);
-      if (!snap.exists) {
-        throw new Error('Escala não encontrada.');
-      }
       
-      const data = snap.data() || {};
-      const checkIns = data.checkIns || {};
-      const checkInKey = `${date}_${eventName}_${slotIndex}`;
+      // If document doesn't exist (e.g. no scale generated yet but doing checkin), initialize it
+      const scheduleData = snap.exists ? (snap.data() || {}) : {
+        areaId,
+        month,
+        schedule: [],
+        confirmations: {}
+      };
+      
+      const checkIns = scheduleData.checkIns || {};
+      const checkInKey = isAvulso 
+        ? `${date}_avulso_${memberId}` 
+        : `${date}_${eventName}_${slotIndex}`;
       
       checkIns[checkInKey] = {
         status: 'present',
@@ -114,7 +162,11 @@ export async function submitCheckIn(params: {
         method: 'qr_code'
       };
       
-      transaction.update(docRef, { checkIns });
+      if (!snap.exists) {
+        transaction.set(docRef, { ...scheduleData, checkIns });
+      } else {
+        transaction.update(docRef, { checkIns });
+      }
     });
     
     return { success: true };
