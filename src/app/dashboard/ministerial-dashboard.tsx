@@ -1,7 +1,7 @@
 "use client";
 import React, { useMemo, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
-import { Users, Calendar, UserPlus, ArrowRight, AlertTriangle, Plus, ChevronRight, GraduationCap, BookOpen, Layers, CheckCircle2, TrendingUp } from 'lucide-react';
+import { Users, Calendar, UserPlus, ArrowRight, AlertTriangle, Plus, ChevronRight, GraduationCap, BookOpen, Layers, CheckCircle2, TrendingUp, MessageSquare, Phone } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,8 @@ import { Loader2 } from 'lucide-react';
 import { useCoursesData } from "@/hooks/useDomainData";
 import { Progress } from "@/components/ui/progress";
 
-type User = { id: string; name: string; avatar?: string; integrationStatus?: string; absenceCount?: number; createdAt?: any; cellId?: string; };
-type CultoRegistro = { id: string; adultos: number; criancas?: number; data: any; eventId?: string; eventName?: string; };
+type User = { id: string; name: string; avatar?: string; integrationStatus?: string; absenceCount?: number; createdAt?: any; cellId?: string; phone?: string; };
+type CultoRegistro = { id: string; adultos: number; criancas?: number; data: any; horario: string; };
 type Cell = { id: string; nome: string; };
 
 const KpiCard = ({ title, value, percentage, icon: Icon, children, up, subtitle }: any) => (
@@ -37,13 +37,31 @@ const KpiCard = ({ title, value, percentage, icon: Icon, children, up, subtitle 
     </Card>
 );
 
-const PresenceChart = ({ data }: { data: any[] }) => (
+const PresenceChart = ({ data, timeRange, setTimeRange }: { data: any[], timeRange: 'mensal' | 'semanal', setTimeRange: (val: 'mensal' | 'semanal') => void }) => (
     <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-2xl col-span-1 lg:col-span-2">
         <CardHeader>
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center flex-wrap gap-2">
                 <div>
                     <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100">Visão Geral de Presença</CardTitle>
-                    <CardDescription>Comparação mensal segmentada (Adultos vs. Crianças)</CardDescription>
+                    <CardDescription>Comparação segmentada (Adultos vs. Crianças)</CardDescription>
+                </div>
+                <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-full">
+                     <Button 
+                         size="sm" 
+                         variant="ghost" 
+                         className={`rounded-full text-xs font-bold px-4 h-7 ${timeRange === 'semanal' ? 'bg-white dark:bg-slate-700 shadow text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400'}`}
+                         onClick={() => setTimeRange('semanal')}
+                     >
+                         Semanal
+                     </Button>
+                     <Button 
+                         size="sm" 
+                         variant="ghost" 
+                         className={`rounded-full text-xs font-bold px-4 h-7 ${timeRange === 'mensal' ? 'bg-white dark:bg-slate-700 shadow text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-slate-400'}`}
+                         onClick={() => setTimeRange('mensal')}
+                     >
+                         Mensal
+                     </Button>
                 </div>
             </div>
         </CardHeader>
@@ -73,41 +91,64 @@ const PresenceChart = ({ data }: { data: any[] }) => (
     </Card>
 );
 
-const AlertsPanel = ({ alerts }: { alerts: User[] }) => (
-    <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-2xl relative flex flex-col h-full">
-        <Button variant="ghost" className="absolute top-4 right-4 bg-red-500/10 text-red-500 rounded-full h-6 w-6 p-0"><AlertTriangle size={14} /></Button>
-        <CardHeader>
-            <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100">Alertas de Cuidado</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 flex-1 px-4">
-            {alerts.length > 0 ? alerts.map((alert) => (
-                <div key={alert.id} className="flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 p-2 rounded-lg cursor-pointer">
-                    <div className="flex items-center gap-3">
-                        <Avatar className="h-10 w-10 relative">
-                           <span className="absolute bottom-0 -right-1 block h-3.5 w-3.5 rounded-full bg-red-500 border-2 border-white dark:border-slate-950" />
-                            <AvatarImage src={`https://i.pravatar.cc/150?u=${alert.id}`} alt={alert.name} />
-                            <AvatarFallback>{alert.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                            <p className="font-semibold text-sm text-slate-700 dark:text-slate-200">{alert.name}</p>
-                            <p className="text-xs text-red-500 font-bold">{alert.absenceCount} semanas ausente</p>
+const AlertsPanel = ({ alerts }: { alerts: User[] }) => {
+    const handleWhatsappClick = (alert: User) => {
+        if (!alert.phone) return;
+        const cleanPhone = alert.phone.replace(/\D/g, '');
+        const message = `Olá ${alert.name}, sentimos sua falta nos cultos e nas programações recentemente! Está tudo bem por aí? Como podemos te apoiar ou orar por você?`;
+        window.open(`https://wa.me/55${cleanPhone}?text=${encodeURIComponent(message)}`, '_blank');
+    };
+
+    return (
+        <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-2xl relative flex flex-col h-full">
+            <Button variant="ghost" className="absolute top-4 right-4 bg-red-500/10 text-red-500 rounded-full h-6 w-6 p-0 hover:bg-red-500/20"><AlertTriangle size={14} /></Button>
+            <CardHeader className="pb-1">
+                <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100">Alertas de Cuidado</CardTitle>
+                <CardDescription className="text-xs text-slate-400 leading-normal">
+                    Membros ou visitantes frequentes que não compareceram às programações há mais de uma semana. Entre em contato para acolhimento pastoral.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 flex-1 px-4 pt-4">
+                {alerts.length > 0 ? alerts.map((alert) => (
+                    <div key={alert.id} className="flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800 p-2 rounded-xl border border-transparent hover:border-slate-100 transition-colors">
+                        <div className="flex items-center gap-3">
+                            <Avatar className="h-10 w-10 relative">
+                               <span className="absolute bottom-0 -right-1 block h-3 w-3 rounded-full bg-red-500 border-2 border-white dark:border-slate-950 animate-pulse" />
+                                <AvatarImage src={alert.avatar || `https://i.pravatar.cc/150?u=${alert.id}`} alt={alert.name} />
+                                <AvatarFallback className="font-bold text-slate-700 bg-slate-100">{alert.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                                <p className="font-bold text-sm text-slate-700 dark:text-slate-200">{alert.name}</p>
+                                <p className="text-xs text-red-500 font-bold">{alert.absenceCount} semanas ausente</p>
+                            </div>
                         </div>
+                        {alert.phone ? (
+                            <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="h-8 text-[10px] font-bold gap-1 border-emerald-200 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/20"
+                                onClick={() => handleWhatsappClick(alert)}
+                            >
+                                <Phone size={12} className="text-emerald-500" /> Acolher
+                            </Button>
+                        ) : (
+                            <ChevronRight className="text-slate-350" size={16}/>
+                        )}
                     </div>
-                    <ChevronRight className="text-slate-400 dark:text-slate-550" size={18}/>
-                </div>
-            )) : (
-                 <div className="text-center flex-1 flex flex-col justify-center items-center py-10 text-sm text-slate-500 dark:text-slate-400">
-                    <p>Nenhum alerta de cuidado no momento. <br/> Bom trabalho!</p>
-                </div>
-            )}
-        </CardContent>
-        <div className="p-4 mt-auto">
-             <Button variant="link" className="w-full text-indigo-600 dark:text-indigo-400 font-bold hover:bg-indigo-50 dark:hover:bg-indigo-950/20">
-                Ver Todos os Alertas
-             </Button>
-        </div>
-    </Card>
-);
+                )) : (
+                     <div className="text-center flex-1 flex flex-col justify-center items-center py-10 text-sm text-slate-500 dark:text-slate-400">
+                        <p className="font-medium">Nenhum alerta de cuidado no momento. <br/> Bom trabalho de consolidação!</p>
+                    </div>
+                )}
+            </CardContent>
+            <div className="p-4 mt-auto border-t border-slate-50 dark:border-slate-800">
+                 <Button variant="link" className="w-full text-indigo-600 dark:text-indigo-400 font-bold hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-xs">
+                    Ver Todos os Alertas
+                 </Button>
+            </div>
+        </Card>
+    );
+};
 
 export function MinisterialDashboard() {
     const { firestore } = useFirebase();
@@ -124,15 +165,16 @@ export function MinisterialDashboard() {
 
     const [selectedCourseId, setSelectedCourseId] = useState<string>('all');
     const [selectedWorshipFilter, setSelectedWorshipFilter] = useState<string>('all');
+    const [timeRange, setTimeRange] = useState<'mensal' | 'semanal'>('mensal');
 
     const isLoading = loadingUsers || loadingRegistros || loadingCells || loadingCourses;
     const currentYear = new Date().getFullYear();
     const monthsShort = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
-    // List of unique worship names
+    // List of unique worship names from the "horario" field
     const worshipEventsList = useMemo(() => {
         if (!allRegistrosPresenca) return [];
-        const set = new Set(allRegistrosPresenca.map(r => r.eventName || r.eventId).filter(Boolean));
+        const set = new Set(allRegistrosPresenca.map(r => r.horario).filter(Boolean));
         return Array.from(set).filter((w): w is string => typeof w === 'string');
     }, [allRegistrosPresenca]);
 
@@ -156,50 +198,100 @@ export function MinisterialDashboard() {
         return { totalMembers, connectedToGc, gcConnectivityRate, funnel, activeGroups };
     }, [users, cells]);
 
-    // Segmented Attendance Data (Adults vs Kids)
+    // Segmented Attendance Data (Adultos vs Criancas)
     const attendanceStats = useMemo(() => {
-        const monthlyAdults = Array(12).fill(0);
-        const monthlyKids = Array(12).fill(0);
-        const monthlyCount = Array(12).fill(0);
+        if (timeRange === 'semanal') {
+            const weeklyGroups: Record<string, { adults: number, kids: number, count: number }> = {};
+            
+            allRegistrosPresenca?.forEach(culto => {
+                if (selectedWorshipFilter !== 'all' && culto.horario !== selectedWorshipFilter) {
+                    return;
+                }
+                const date = culto.data instanceof Timestamp 
+                    ? culto.data.toDate() 
+                    : culto.data?.seconds 
+                        ? new Date(culto.data.seconds * 1000) 
+                        : null;
+                if (date) {
+                    const label = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                    if (!weeklyGroups[label]) {
+                        weeklyGroups[label] = { adults: 0, kids: 0, count: 0 };
+                    }
+                    weeklyGroups[label].adults += Number(culto.adultos || 0);
+                    weeklyGroups[label].kids += Number(culto.criancas || 0);
+                    weeklyGroups[label].count += 1;
+                }
+            });
 
-        allRegistrosPresenca?.forEach(culto => {
-            // Filter by event/worship name if selected
-            if (selectedWorshipFilter !== 'all' && culto.eventName !== selectedWorshipFilter && culto.eventId !== selectedWorshipFilter) {
-                return;
-            }
+            const weeklyDataList = Object.entries(weeklyGroups).map(([dateLabel, vals]) => {
+                const count = vals.count || 1;
+                return {
+                    label: dateLabel,
+                    adults: Math.round(vals.adults / count),
+                    kids: Math.round(vals.kids / count),
+                    sortKey: new Date(`${currentYear}-${dateLabel.split('/').reverse().join('-')}`).getTime()
+                };
+            })
+            .sort((a, b) => a.sortKey - b.sortKey)
+            .slice(-8)
+            .map(item => ({
+                month: item.label,
+                adults: item.adults,
+                kids: item.kids,
+                total: item.adults + item.kids
+            }));
 
-            const date = culto.data instanceof Timestamp 
-                ? culto.data.toDate() 
-                : culto.data?.seconds 
-                    ? new Date(culto.data.seconds * 1000) 
-                    : null;
-            if (date && date.getFullYear() === currentYear) {
-                const m = date.getMonth();
-                monthlyAdults[m] += (culto.adultos || 0);
-                monthlyKids[m] += (culto.criancas || 0);
-                monthlyCount[m] += 1;
-            }
-        });
+            const totalSum = weeklyDataList.reduce((sum, item) => sum + item.total, 0);
+            const avgTotalAttendance = weeklyDataList.length > 0 ? Math.round(totalSum / weeklyDataList.length) : 0;
 
-        const mainChartData = monthsShort.map((month, index) => {
-            const count = monthlyCount[index] || 1;
-            const avgAdults = monthlyCount[index] > 0 ? Math.round(monthlyAdults[index] / count) : 0;
-            const avgKids = monthlyCount[index] > 0 ? Math.round(monthlyKids[index] / count) : 0;
-            return {
-                month,
-                adults: avgAdults,
-                kids: avgKids,
-                total: avgAdults + avgKids
-            };
-        });
+            const finalChart = weeklyDataList.length > 0 ? weeklyDataList : [
+                { month: 'Sem 1', adults: 0, kids: 0, total: 0 }, { month: 'Sem 2', adults: 0, kids: 0, total: 0 }
+            ];
 
-        const totalSum = mainChartData.reduce((sum, item) => sum + item.total, 0);
-        const avgTotalAttendance = mainChartData.filter(d => d.total > 0).length > 0
-            ? Math.round(totalSum / mainChartData.filter(d => d.total > 0).length)
-            : 0;
+            return { chartData: finalChart, avgTotalAttendance };
+        } else {
+            const monthlyAdults = Array(12).fill(0);
+            const monthlyKids = Array(12).fill(0);
+            const monthlyCount = Array(12).fill(0);
 
-        return { chartData: mainChartData, avgTotalAttendance };
-    }, [allRegistrosPresenca, currentYear, selectedWorshipFilter]);
+            allRegistrosPresenca?.forEach(culto => {
+                if (selectedWorshipFilter !== 'all' && culto.horario !== selectedWorshipFilter) {
+                    return;
+                }
+
+                const date = culto.data instanceof Timestamp 
+                    ? culto.data.toDate() 
+                    : culto.data?.seconds 
+                        ? new Date(culto.data.seconds * 1000) 
+                        : null;
+                if (date && date.getFullYear() === currentYear) {
+                    const m = date.getMonth();
+                    monthlyAdults[m] += Number(culto.adultos || 0);
+                    monthlyKids[m] += Number(culto.criancas || 0);
+                    monthlyCount[m] += 1;
+                }
+            });
+
+            const mainChartData = monthsShort.map((month, index) => {
+                const count = monthlyCount[index] || 1;
+                const avgAdults = monthlyCount[index] > 0 ? Math.round(monthlyAdults[index] / count) : 0;
+                const avgKids = monthlyCount[index] > 0 ? Math.round(monthlyKids[index] / count) : 0;
+                return {
+                    month,
+                    adults: avgAdults,
+                    kids: avgKids,
+                    total: avgAdults + avgKids
+                };
+            });
+
+            const totalSum = mainChartData.reduce((sum, item) => sum + item.total, 0);
+            const avgTotalAttendance = mainChartData.filter(d => d.total > 0).length > 0
+                ? Math.round(totalSum / mainChartData.filter(d => d.total > 0).length)
+                : 0;
+
+            return { chartData: mainChartData, avgTotalAttendance };
+        }
+    }, [allRegistrosPresenca, currentYear, selectedWorshipFilter, timeRange]);
 
     // Teaching Metrics
     const teachingMetrics = useMemo(() => {
@@ -214,12 +306,12 @@ export function MinisterialDashboard() {
         const studentsSet = new Set(filteredClasses.flatMap(c => c.students || []));
         const activeStudents = studentsSet.size;
 
-        return { activeStudents, completionRate: 85, classesCount }; // Static completion rate placeholder for UX
+        return { activeStudents, completionRate: 85, classesCount };
     }, [courses, classes, selectedCourseId]);
 
     const careAlerts = useMemo(() => {
         if (!users) return [];
-        return users.filter(u => u.absenceCount && u.absenceCount > 1).slice(0, 3);
+        return users.filter(u => u.absenceCount && u.absenceCount >= 1).slice(0, 4);
     }, [users]);
 
     if (isLoading) {
@@ -235,17 +327,17 @@ export function MinisterialDashboard() {
             {/* Top Filter Bar */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/50 dark:bg-slate-800/30 p-4 border border-slate-100 dark:border-slate-800 rounded-2xl">
                 <div>
-                    <h2 className="text-md font-bold text-slate-800 dark:text-slate-100">Filtros Gerais do Painel</h2>
-                    <p className="text-xs text-slate-400">Ajuste os dados ministeriais conforme sua necessidade</p>
+                    <h2 className="text-md font-bold text-slate-800 dark:text-slate-100">Filtro de Cultos (Presença Média)</h2>
+                    <p className="text-xs text-slate-400">Selecione o horário ou tipo de culto para filtrar os gráficos do painel</p>
                 </div>
                 <div className="flex flex-wrap gap-3 w-full sm:w-auto">
-                    <div className="min-w-[150px]">
+                    <div className="min-w-[200px]">
                         <Select value={selectedWorshipFilter} onValueChange={setSelectedWorshipFilter}>
                             <SelectTrigger className="h-9 text-xs bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
                                 <SelectValue placeholder="Filtrar por Culto..." />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">Todos os Cultos</SelectItem>
+                                <SelectItem value="all">Todos os Cultos (Geral)</SelectItem>
                                 {worshipEventsList.map((w, idx) => (
                                     <SelectItem key={idx} value={w}>{w}</SelectItem>
                                 ))}
@@ -269,7 +361,7 @@ export function MinisterialDashboard() {
                      title="Presença Média" 
                      value={attendanceStats.avgTotalAttendance} 
                      icon={Calendar} 
-                     subtitle="Média mensal consolidada"
+                     subtitle="Filtrado por culto selecionado"
                  />
                  <KpiCard 
                      title="Engajamento GC" 
@@ -289,7 +381,11 @@ export function MinisterialDashboard() {
 
             {/* GRÁFICOS E ALERTAS */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
-                <PresenceChart data={attendanceStats.chartData} />
+                <PresenceChart 
+                    data={attendanceStats.chartData} 
+                    timeRange={timeRange} 
+                    setTimeRange={setTimeRange} 
+                />
                 <div className="xl:col-span-1 flex flex-col gap-8 h-full">
                     <AlertsPanel alerts={careAlerts} />
                 </div>

@@ -285,12 +285,14 @@ export function ReservationsCalendar({
               frequency: 'Eventual',
               categoryId: eventualCategoryId
             }
-          });
+          }
+          );
         } catch (e) {
           console.error("Erro ao converter datas do evento estratégico no calendário:", e, evt);
         }
       });
     }
+  }
 
     if (!reservations || !Array.isArray(reservations)) return allOccurrences;
 
