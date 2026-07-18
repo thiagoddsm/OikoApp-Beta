@@ -251,8 +251,9 @@ export function ReservationsCalendar({
       const eventualCategory = reservationCategories?.find(c => c.name.toLowerCase() === 'eventual');
       const eventualCategoryId = eventualCategory?.id;
 
-      strategicEvents.forEach(evt => {
-        if (evt.status !== 'aprovado') return;
+      if (strategicEvents) {
+        strategicEvents.forEach(evt => {
+          if (evt.status !== 'aprovado') return;
         
         // Se houver filtro de categoria ativo, só exibe os estratégicos se a categoria "Eventual" estiver selecionada
         if (categoryFilter.length > 0) {
@@ -282,7 +283,7 @@ export function ReservationsCalendar({
               status: 'approved',
               rooms: evt.space ? [evt.space] : [],
               frequency: 'Eventual',
-              categoryId: eventualCategoryId // Associa para o modal de detalhes renderizar a badge correspondente
+              categoryId: eventualCategoryId
             }
           });
         } catch (e) {

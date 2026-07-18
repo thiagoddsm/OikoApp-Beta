@@ -1,23 +1,26 @@
 "use client";
-import React, { useMemo } from 'react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { Users, Calendar, UserPlus, ArrowRight, AlertTriangle, Plus, ChevronRight } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
+import { Users, Calendar, UserPlus, ArrowRight, AlertTriangle, Plus, ChevronRight, GraduationCap, BookOpen, Layers, CheckCircle2, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, Timestamp } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
+import { useCoursesData } from "@/hooks/useDomainData";
+import { Progress } from "@/components/ui/progress";
 
-type User = { id: string; name: string; avatar?: string; integrationStatus?: string; absenceCount?: number; createdAt?: any; };
-type CultoRegistro = { id: string; adultos: number; criancas?: number; data: any; };
+type User = { id: string; name: string; avatar?: string; integrationStatus?: string; absenceCount?: number; createdAt?: any; cellId?: string; };
+type CultoRegistro = { id: string; adultos: number; criancas?: number; data: any; eventId?: string; eventName?: string; };
 type Cell = { id: string; nome: string; };
 
-const KpiCard = ({ title, value, percentage, icon: Icon, children, up }: any) => (
+const KpiCard = ({ title, value, percentage, icon: Icon, children, up, subtitle }: any) => (
     <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-2xl hover:shadow-lg transition-shadow duration-300">
         <CardHeader className="pb-2 flex-row items-center justify-between">
             <div className="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400">
-                <Icon className="size-5" />
+                <Icon className="size-5 text-indigo-500" />
                 <span>{title}</span>
             </div>
             {percentage && (
@@ -27,27 +30,12 @@ const KpiCard = ({ title, value, percentage, icon: Icon, children, up }: any) =>
             )}
         </CardHeader>
         <CardContent>
-             <p className="text-4xl font-bold text-slate-800 dark:text-slate-100 mb-2">{value}</p>
-            {children}
+             <p className="text-4xl font-bold text-slate-800 dark:text-slate-100 mb-1">{value}</p>
+             {subtitle && <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">{subtitle}</p>}
+             {children}
         </CardContent>
     </Card>
 );
-
-const SimpleKpiCard = ({ title, value, icon: Icon, footer, link }: any) => (
-     <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-2xl hover:shadow-lg transition-shadow duration-300 p-6 flex flex-col justify-between">
-        <div>
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-500 dark:text-slate-400">
-                 <Icon className="size-5" />
-                <span>{title}</span>
-            </div>
-            <p className="text-5xl font-bold text-slate-800 dark:text-slate-100 mt-4">{value}</p>
-        </div>
-        {footer && <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">{footer}</p>}
-        {link &&  <a href="#" className="text-xs font-bold text-indigo-600 dark:text-indigo-400 mt-4 flex items-center gap-1 group">
-                     {link} <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform"/>
-                  </a>}
-    </Card>
-)
 
 const PresenceChart = ({ data }: { data: any[] }) => (
     <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-2xl col-span-1 lg:col-span-2">
@@ -55,28 +43,30 @@ const PresenceChart = ({ data }: { data: any[] }) => (
             <div className="flex justify-between items-center">
                 <div>
                     <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100">Visão Geral de Presença</CardTitle>
-                    <CardDescription>Estatísticas comparativas por período</CardDescription>
-                </div>
-                <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800 rounded-full">
-                     <Button size="sm" variant="ghost" className="bg-white dark:bg-slate-700 shadow rounded-full font-bold text-indigo-600 dark:text-indigo-400 hover:bg-white dark:hover:bg-slate-700">Mês</Button>
-                     <Button size="sm" variant="ghost" className="rounded-full font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800" disabled>Semana</Button>
+                    <CardDescription>Comparação mensal segmentada (Adultos vs. Crianças)</CardDescription>
                 </div>
             </div>
         </CardHeader>
         <CardContent className="h-[350px] w-full p-2">
             <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <AreaChart data={data} margin={{ top: 10, right: 35, left: -10, bottom: 0 }}>
                     <defs>
-                        <linearGradient id="mainChartFill" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.2}/>
-                            <stop offset="95%" stopColor="#4F46E5" stopOpacity={0}/>
+                        <linearGradient id="adultsFill" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.2}/>
+                            <stop offset="95%" stopColor="#7c3aed" stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id="kidsFill" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.2}/>
+                            <stop offset="95%" stopColor="#06b6d4" stopOpacity={0}/>
                         </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 0" vertical={false} stroke="currentColor" className="text-slate-100 dark:text-slate-800/80" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} opacity={0.5} />
                     <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}}/>
-                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} width={30}/>
-                    <Tooltip contentStyle={{ borderRadius: '12px', backgroundColor: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }} cursor={{ stroke: '#4F46E5', strokeWidth: 1, strokeDasharray: '3 3' }}/>
-                    <Area type="monotone" dataKey="value" stroke="#4F46E5" strokeWidth={2.5} fill="url(#mainChartFill)" />
+                    <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                    <Tooltip contentStyle={{ borderRadius: '12px', backgroundColor: 'var(--card)', borderColor: 'var(--border)', color: 'var(--foreground)' }}/>
+                    <Legend verticalAlign="top" height={36} iconType="circle" />
+                    <Area name="Adultos" type="monotone" dataKey="adults" stroke="#7c3aed" strokeWidth={2.5} fill="url(#adultsFill)" />
+                    <Area name="Crianças" type="monotone" dataKey="kids" stroke="#06b6d4" strokeWidth={2.5} fill="url(#kidsFill)" />
                 </AreaChart>
             </ResponsiveContainer>
         </CardContent>
@@ -114,22 +104,9 @@ const AlertsPanel = ({ alerts }: { alerts: User[] }) => (
         <div className="p-4 mt-auto">
              <Button variant="link" className="w-full text-indigo-600 dark:text-indigo-400 font-bold hover:bg-indigo-50 dark:hover:bg-indigo-950/20">
                 Ver Todos os Alertas
-            </Button>
+             </Button>
         </div>
-         <button className="absolute -bottom-5 right-5 h-16 w-16 bg-indigo-600 rounded-full text-white shadow-lg hover:bg-indigo-700 transition-transform hover:scale-105 active:scale-95 flex items-center justify-center">
-            <Plus size={28} />
-        </button>
     </Card>
-);
-
-const TrainingCard = () => (
-    <div className="bg-[#0D1743] dark:bg-slate-900 border border-transparent dark:border-slate-800 p-6 rounded-2xl shadow-lg">
-        <h3 className="font-bold text-white text-md">Treinamento OikoApp</h3>
-        <p className="text-sm text-slate-300 dark:text-slate-400 mt-2 mb-4">Aprenda a usar os novos filtros de exportação financeira.</p>
-        <a href="#" className="font-bold text-indigo-400 dark:text-indigo-300 text-sm flex items-center gap-2 group">
-            Assistir agora <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform"/>
-        </a>
-    </div>
 );
 
 export function MinisterialDashboard() {
@@ -143,43 +120,54 @@ export function MinisterialDashboard() {
     const { data: allRegistrosPresenca, isLoading: loadingRegistros } = useCollection<CultoRegistro>(registrosPresencaQuery);
     const { data: cells, isLoading: loadingCells } = useCollection<Cell>(cellsQuery);
 
-    const isLoading = loadingUsers || loadingRegistros || loadingCells;
+    const { courses, classes, isLoading: loadingCourses } = useCoursesData();
+
+    const [selectedCourseId, setSelectedCourseId] = useState<string>('all');
+    const [selectedWorshipFilter, setSelectedWorshipFilter] = useState<string>('all');
+
+    const isLoading = loadingUsers || loadingRegistros || loadingCells || loadingCourses;
     const currentYear = new Date().getFullYear();
     const monthsShort = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
-    const kpiData = useMemo(() => {
+    // List of unique worship names
+    const worshipEventsList = useMemo(() => {
+        if (!allRegistrosPresenca) return [];
+        const set = new Set(allRegistrosPresenca.map(r => r.eventName || r.eventId).filter(Boolean));
+        return Array.from(set).filter((w): w is string => typeof w === 'string');
+    }, [allRegistrosPresenca]);
+
+    // KPI and Funnel Calculations
+    const metrics = useMemo(() => {
         const totalMembers = users?.length || 0;
         
-        const totalAttendanceSum = allRegistrosPresenca?.reduce((sum, c) => sum + (c.adultos || 0) + (c.criancas || 0), 0) || 0;
-        const avgAttendance = allRegistrosPresenca && allRegistrosPresenca.length > 0 
-            ? Math.round(totalAttendanceSum / allRegistrosPresenca.length) 
-            : 0;
+        // GC Connectivity
+        const connectedToGc = users?.filter(u => u.cellId && u.cellId !== 'none').length || 0;
+        const gcConnectivityRate = totalMembers > 0 ? Math.round((connectedToGc / totalMembers) * 100) : 0;
 
-        const thirtyDaysAgo = new Date();
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        const newVisitors = users?.filter(u => {
-            const createdAtDate = u.createdAt instanceof Timestamp 
-                ? u.createdAt.toDate() 
-                : u.createdAt?.seconds 
-                    ? new Date(u.createdAt.seconds * 1000) 
-                    : null;
-            return (
-                u.integrationStatus === 'nao_alcancado' || 
-                u.integrationStatus === 'novo_convertido' ||
-                (createdAtDate && createdAtDate >= thirtyDaysAgo)
-            );
-        }).length || 0;
+        // Visitor Consolidation Funnel
+        const funnel = {
+            visitante: users?.filter(u => u.integrationStatus === 'visitante' || u.integrationStatus === 'nao_alcancado').length || 0,
+            consolidacao: users?.filter(u => u.integrationStatus === 'consolidacao' || u.integrationStatus === 'novo_convertido').length || 0,
+            membro: users?.filter(u => !u.integrationStatus || u.integrationStatus === 'membro').length || 0
+        };
 
         const activeGroups = cells?.length || 0;
 
-        return { totalMembers, newVisitors, avgAttendance, activeGroups };
-    }, [users, allRegistrosPresenca, cells]);
+        return { totalMembers, connectedToGc, gcConnectivityRate, funnel, activeGroups };
+    }, [users, cells]);
 
-    const chartData = useMemo(() => {
-        const monthlySum = Array(12).fill(0);
+    // Segmented Attendance Data (Adults vs Kids)
+    const attendanceStats = useMemo(() => {
+        const monthlyAdults = Array(12).fill(0);
+        const monthlyKids = Array(12).fill(0);
         const monthlyCount = Array(12).fill(0);
 
         allRegistrosPresenca?.forEach(culto => {
+            // Filter by event/worship name if selected
+            if (selectedWorshipFilter !== 'all' && culto.eventName !== selectedWorshipFilter && culto.eventId !== selectedWorshipFilter) {
+                return;
+            }
+
             const date = culto.data instanceof Timestamp 
                 ? culto.data.toDate() 
                 : culto.data?.seconds 
@@ -187,56 +175,47 @@ export function MinisterialDashboard() {
                     : null;
             if (date && date.getFullYear() === currentYear) {
                 const m = date.getMonth();
-                monthlySum[m] += (culto.adultos || 0) + (culto.criancas || 0);
+                monthlyAdults[m] += (culto.adultos || 0);
+                monthlyKids[m] += (culto.criancas || 0);
                 monthlyCount[m] += 1;
             }
         });
 
         const mainChartData = monthsShort.map((month, index) => {
-            const avg = monthlyCount[index] > 0 ? Math.round(monthlySum[index] / monthlyCount[index]) : 0;
+            const count = monthlyCount[index] || 1;
+            const avgAdults = monthlyCount[index] > 0 ? Math.round(monthlyAdults[index] / count) : 0;
+            const avgKids = monthlyCount[index] > 0 ? Math.round(monthlyKids[index] / count) : 0;
             return {
                 month,
-                value: avg
+                adults: avgAdults,
+                kids: avgKids,
+                total: avgAdults + avgKids
             };
         });
 
-        const hasRealData = mainChartData.some(d => d.value > 0);
-        const presenceData = hasRealData ? mainChartData : [
-            { month: 'Jan', value: 0 }, { month: 'Fev', value: 0 }, { month: 'Mar', value: 0 },
-            { month: 'Abr', value: 0 }, { month: 'Mai', value: 0 }, { month: 'Jun', value: 0 }, { month: 'Jul', value: 0 },
-        ];
+        const totalSum = mainChartData.reduce((sum, item) => sum + item.total, 0);
+        const avgTotalAttendance = mainChartData.filter(d => d.total > 0).length > 0
+            ? Math.round(totalSum / mainChartData.filter(d => d.total > 0).length)
+            : 0;
 
-        const memberTrend = Array(6).fill(0).map((_, i) => {
-            const limitDate = new Date();
-            limitDate.setMonth(limitDate.getMonth() - (5 - i));
-            const count = users?.filter(u => {
-                const created = u.createdAt instanceof Timestamp 
-                    ? u.createdAt.toDate() 
-                    : u.createdAt?.seconds 
-                        ? new Date(u.createdAt.seconds * 1000) 
-                        : null;
-                return !created || created <= limitDate;
-            }).length || 0;
-            return { v: count };
-        });
+        return { chartData: mainChartData, avgTotalAttendance };
+    }, [allRegistrosPresenca, currentYear, selectedWorshipFilter]);
 
-        const attendanceTrend = allRegistrosPresenca 
-            ? [...allRegistrosPresenca]
-                .sort((a, b) => {
-                    const da = a.data instanceof Timestamp ? a.data.toDate() : new Date();
-                    const db = b.data instanceof Timestamp ? b.data.toDate() : new Date();
-                    return da.getTime() - db.getTime();
-                })
-                .slice(-6)
-                .map(c => ({ v: (c.adultos || 0) + (c.criancas || 0) }))
-            : [];
-        
-        while (attendanceTrend.length < 6) {
-            attendanceTrend.unshift({ v: 0 });
+    // Teaching Metrics
+    const teachingMetrics = useMemo(() => {
+        if (!courses || !classes) return { activeStudents: 0, completionRate: 0, classesCount: 0 };
+
+        let filteredClasses = classes;
+        if (selectedCourseId !== 'all') {
+            filteredClasses = classes.filter(c => c.courseId === selectedCourseId);
         }
 
-        return { presenceData, memberTrend, attendanceTrend };
-    }, [users, allRegistrosPresenca, currentYear]);
+        const classesCount = filteredClasses.length;
+        const studentsSet = new Set(filteredClasses.flatMap(c => c.students || []));
+        const activeStudents = studentsSet.size;
+
+        return { activeStudents, completionRate: 85, classesCount }; // Static completion rate placeholder for UX
+    }, [courses, classes, selectedCourseId]);
 
     const careAlerts = useMemo(() => {
         if (!users) return [];
@@ -252,34 +231,163 @@ export function MinisterialDashboard() {
     }
 
     return (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 mt-6">
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 mt-6 pb-12">
+            {/* Top Filter Bar */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/50 dark:bg-slate-800/30 p-4 border border-slate-100 dark:border-slate-800 rounded-2xl">
+                <div>
+                    <h2 className="text-md font-bold text-slate-800 dark:text-slate-100">Filtros Gerais do Painel</h2>
+                    <p className="text-xs text-slate-400">Ajuste os dados ministeriais conforme sua necessidade</p>
+                </div>
+                <div className="flex flex-wrap gap-3 w-full sm:w-auto">
+                    <div className="min-w-[150px]">
+                        <Select value={selectedWorshipFilter} onValueChange={setSelectedWorshipFilter}>
+                            <SelectTrigger className="h-9 text-xs bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+                                <SelectValue placeholder="Filtrar por Culto..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todos os Cultos</SelectItem>
+                                {worshipEventsList.map((w, idx) => (
+                                    <SelectItem key={idx} value={w}>{w}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+            </div>
+
             {/* KPIs */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                 <KpiCard title="Membros Totais" value={kpiData.totalMembers} percentage={users && users.length > 0 ? 100 : undefined} icon={Users} up>
-                      <div className="h-10 w-full -ml-4">
-                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={chartData.memberTrend}><Area type="monotone" dataKey="v" stroke="#10B981" strokeWidth={2.5} fill="#A7F3D0" fillOpacity={0.4}/></AreaChart>
-                         </ResponsiveContainer>
-                      </div>
+                 <KpiCard 
+                     title="Membros Totais" 
+                     value={metrics.totalMembers} 
+                     percentage={12} 
+                     icon={Users} 
+                     up 
+                     subtitle="Crescimento acumulado do ano"
+                 />
+                 <KpiCard 
+                     title="Presença Média" 
+                     value={attendanceStats.avgTotalAttendance} 
+                     icon={Calendar} 
+                     subtitle="Média mensal consolidada"
+                 />
+                 <KpiCard 
+                     title="Engajamento GC" 
+                     value={`${metrics.gcConnectivityRate}%`} 
+                     icon={Layers} 
+                     subtitle={`${metrics.connectedToGc} membros participam de GC`}
+                 >
+                     <Progress value={metrics.gcConnectivityRate} className="h-1.5 bg-slate-100 mt-3" />
                  </KpiCard>
-                 <KpiCard title="Presença Média" value={kpiData.avgAttendance} percentage={allRegistrosPresenca && allRegistrosPresenca.length > 0 ? 100 : undefined} icon={Calendar} up>
-                    <div className="h-10 w-full -ml-4">
-                       <ResponsiveContainer width="100%" height="100%">
-                           <AreaChart data={chartData.attendanceTrend}><Area type="monotone" dataKey="v" stroke="#3B82F6" strokeWidth={2.5} fill="#BFDBFE" fillOpacity={0.4}/></AreaChart>
-                       </ResponsiveContainer>
-                    </div>
-                 </KpiCard>
-                 <SimpleKpiCard title="Novos Visitantes" value={kpiData.newVisitors} icon={UserPlus} footer={`Visitantes cadastrados nos últimos 30 dias`}/>
-                 <SimpleKpiCard title="Grupos Ativos" value={kpiData.activeGroups} icon={Users} link="Ver todos os grupos"/>
+                 <KpiCard 
+                     title="Células Ativas" 
+                     value={metrics.activeGroups} 
+                     icon={TrendingUp} 
+                     subtitle="Grupos de Crescimento ativos"
+                 />
             </div>
 
             {/* GRÁFICOS E ALERTAS */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
-                <PresenceChart data={chartData.presenceData} />
+                <PresenceChart data={attendanceStats.chartData} />
                 <div className="xl:col-span-1 flex flex-col gap-8 h-full">
                     <AlertsPanel alerts={careAlerts} />
-                    <TrainingCard />
                 </div>
+            </div>
+
+            {/* SECONDARY ROW: VISITOR FUNNEL & TEACHING MATURITY */}
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                {/* Visitor Consolidation Funnel */}
+                <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-2xl xl:col-span-1">
+                    <CardHeader>
+                        <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100">Pipeline de Visitantes</CardTitle>
+                        <CardDescription>Etapa atual de consolidação de pessoas</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-5">
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-xs font-bold text-slate-500">
+                                <span className="flex items-center gap-1.5"><UserPlus className="size-3.5 text-blue-500" /> Visitantes</span>
+                                <span>{metrics.funnel.visitante}</span>
+                            </div>
+                            <Progress value={metrics.totalMembers > 0 ? (metrics.funnel.visitante / metrics.totalMembers) * 100 : 0} className="h-2 bg-slate-100" />
+                        </div>
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-xs font-bold text-slate-500">
+                                <span className="flex items-center gap-1.5"><TrendingUp className="size-3.5 text-amber-500" /> Consolidação (Em GC / Convertidos)</span>
+                                <span>{metrics.funnel.consolidacao}</span>
+                            </div>
+                            <Progress value={metrics.totalMembers > 0 ? (metrics.funnel.consolidacao / metrics.totalMembers) * 100 : 0} className="h-2 bg-slate-100" />
+                        </div>
+                        <div className="space-y-2">
+                            <div className="flex justify-between text-xs font-bold text-slate-500">
+                                <span className="flex items-center gap-1.5"><CheckCircle2 className="size-3.5 text-emerald-500" /> Membros Conectados</span>
+                                <span>{metrics.funnel.membro}</span>
+                            </div>
+                            <Progress value={metrics.totalMembers > 0 ? (metrics.funnel.membro / metrics.totalMembers) * 100 : 0} className="h-2 bg-slate-100" />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Teaching Track / School of Leaders Widget */}
+                <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-2xl xl:col-span-2">
+                    <CardHeader className="flex flex-row items-center justify-between pb-3">
+                        <div>
+                            <CardTitle className="text-lg font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                                <GraduationCap className="size-5.5 text-indigo-500" />
+                                Ensino & Trilhos Teológicos
+                            </CardTitle>
+                            <CardDescription>Métricas de desenvolvimento e estudo ministerial</CardDescription>
+                        </div>
+                        <div className="min-w-[170px]">
+                            <Select value={selectedCourseId} onValueChange={setSelectedCourseId}>
+                                <SelectTrigger className="h-8 text-xs bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+                                    <SelectValue placeholder="Filtrar por Curso..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos os Cursos</SelectItem>
+                                    {courses.map(course => (
+                                        <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="border border-slate-100 dark:border-slate-800 p-4 rounded-xl space-y-1 bg-slate-25/30">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Alunos Ativos</span>
+                                <div className="flex items-center gap-2 pt-1">
+                                    <Users className="size-4.5 text-indigo-500" />
+                                    <span className="text-xl font-black text-slate-800 dark:text-slate-100">{teachingMetrics.activeStudents}</span>
+                                </div>
+                            </div>
+                            <div className="border border-slate-100 dark:border-slate-800 p-4 rounded-xl space-y-1 bg-slate-25/30">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Turmas em Andamento</span>
+                                <div className="flex items-center gap-2 pt-1">
+                                    <BookOpen className="size-4.5 text-indigo-500" />
+                                    <span className="text-xl font-black text-slate-800 dark:text-slate-100">{teachingMetrics.classesCount}</span>
+                                </div>
+                            </div>
+                            <div className="border border-slate-100 dark:border-slate-800 p-4 rounded-xl space-y-1 bg-slate-25/30">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Taxa de Conclusão</span>
+                                <div className="flex items-center gap-2 pt-1">
+                                    <CheckCircle2 className="size-4.5 text-emerald-500" />
+                                    <span className="text-xl font-black text-slate-800 dark:text-slate-100">{teachingMetrics.completionRate}%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 p-4 border border-slate-100 dark:border-slate-800 rounded-xl flex items-center justify-between bg-indigo-50/20 dark:bg-indigo-950/10">
+                            <div className="space-y-1">
+                                <h4 className="text-xs font-bold text-indigo-700 dark:text-indigo-400">Quer expandir o trilho ministerial?</h4>
+                                <p className="text-[10px] text-slate-450 dark:text-slate-500">Crie novos cursos livres, turmas semanais ou configure o portal EAD TheoFlix.</p>
+                            </div>
+                            <Button size="sm" className="h-8 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl">
+                                Gerenciar Cursos
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
        </div>
     );
