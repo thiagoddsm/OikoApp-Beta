@@ -168,7 +168,17 @@ export function MinisterialDashboard() {
     const [timeRange, setTimeRange] = useState<'mensal' | 'semanal'>('mensal');
 
     const isLoading = loadingUsers || loadingRegistros || loadingCells || loadingCourses;
-    const currentYear = new Date().getFullYear();
+
+    // Detect the year based on available database records dynamically
+    const targetYear = useMemo(() => {
+        if (!allRegistrosPresenca || allRegistrosPresenca.length === 0) return new Date().getFullYear();
+        const years = allRegistrosPresenca.map(r => {
+            const d = r.data instanceof Timestamp ? r.data.toDate() : (r.data?.seconds ? new Date(r.data.seconds * 1000) : null);
+            return d ? d.getFullYear() : null;
+        }).filter(Boolean) as number[];
+        return years.length > 0 ? Math.max(...years) : new Date().getFullYear();
+    }, [allRegistrosPresenca]);
+
     const monthsShort = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
     // List of unique worship names from the "horario" field
@@ -198,7 +208,7 @@ export function MinisterialDashboard() {
         return { totalMembers, connectedToGc, gcConnectivityRate, funnel, activeGroups };
     }, [users, cells]);
 
-    // Pre-calculate daily attendance stats grouped by exact calendar date
+    // Pre-calculate daily attendance stats grouped by exact calendar date (local time)
     const dailyAttendance = useMemo(() => {
         const datesMap: Record<string, {
             dateStr: string;
@@ -213,7 +223,7 @@ export function MinisterialDashboard() {
                     ? new Date(culto.data.seconds * 1000) 
                     : null;
             if (!date) return;
-            const dateKey = date.toISOString().split('T')[0];
+            const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
             if (!datesMap[dateKey]) {
                 datesMap[dateKey] = {
@@ -237,6 +247,7 @@ export function MinisterialDashboard() {
         return dailyAttendance.map(day => {
             let adults = 0;
             let kids = 0;
+            let hasMatchedServices = false;
 
             if (selectedWorshipFilter === 'all') {
                 // SUM of all services of this day
@@ -244,6 +255,7 @@ export function MinisterialDashboard() {
                     adults += s.adultos;
                     kids += s.criancas;
                 });
+                hasMatchedServices = day.services.length > 0;
             } else if (selectedWorshipFilter === 'formula_ibm') {
                 // Formula IBM: Morning Sum (07:30 + 10:15) + Average of Evening (17:30 and 19:30)
                 const morning = day.services.filter(s => s.horario.includes('07:30') || s.horario.includes('10:15'));
@@ -256,11 +268,13 @@ export function MinisterialDashboard() {
 
                 adults = morningAdults + eveningAdults;
                 kids = morningKids + eveningKids;
+                hasMatchedServices = morning.length > 0 || evening.length > 0;
             } else {
                 // Specific service filter
                 const matched = day.services.filter(s => s.horario === selectedWorshipFilter);
                 adults = matched.reduce((sum, s) => sum + s.adultos, 0);
                 kids = matched.reduce((sum, s) => sum + s.criancas, 0);
+                hasMatchedServices = matched.length > 0;
             }
 
             return {
@@ -268,7 +282,8 @@ export function MinisterialDashboard() {
                 dateObj: day.dateObj,
                 adults: Math.round(adults),
                 kids: Math.round(kids),
-                total: Math.round(adults + kids)
+                total: Math.round(adults + kids),
+                hasMatchedServices
             };
         });
     }, [dailyAttendance, selectedWorshipFilter]);
@@ -277,6 +292,7 @@ export function MinisterialDashboard() {
     const attendanceStats = useMemo(() => {
         if (timeRange === 'semanal') {
             const weeklyDataList = calculatedDailyStats
+                .filter(d => d.hasMatchedServices)
                 .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime())
                 .slice(-8)
                 .map(item => ({
@@ -300,7 +316,7 @@ export function MinisterialDashboard() {
             const monthlyCount = Array(12).fill(0);
 
             calculatedDailyStats.forEach(d => {
-                if (d.dateObj.getFullYear() === currentYear) {
+                if (d.dateObj.getFullYear() === targetYear && d.hasMatchedServices) {
                     const m = d.dateObj.getMonth();
                     monthlyAdults[m] += d.adults;
                     monthlyKids[m] += d.kids;
@@ -320,14 +336,15 @@ export function MinisterialDashboard() {
                 };
             });
 
-            const totalSum = mainChartData.reduce((sum, item) => sum + item.total, 0);
-            const avgTotalAttendance = mainChartData.filter(d => d.total > 0).length > 0
-                ? Math.round(totalSum / mainChartData.filter(d => d.total > 0).length)
+            // Calculate overall Sunday average of the year directly from active days
+            const activeDays = calculatedDailyStats.filter(d => d.dateObj.getFullYear() === targetYear && d.hasMatchedServices);
+            const avgTotalAttendance = activeDays.length > 0
+                ? Math.round(activeDays.reduce((sum, d) => sum + d.total, 0) / activeDays.length)
                 : 0;
 
             return { chartData: mainChartData, avgTotalAttendance };
         }
-    }, [calculatedDailyStats, currentYear, timeRange]);
+    }, [calculatedDailyStats, targetYear, timeRange]);
 
     // Teaching Metrics
     const teachingMetrics = useMemo(() => {
@@ -364,7 +381,7 @@ export function MinisterialDashboard() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50/50 dark:bg-slate-800/30 p-4 border border-slate-100 dark:border-slate-800 rounded-2xl">
                 <div>
                     <h2 className="text-md font-bold text-slate-800 dark:text-slate-100">Filtro de Cultos (Presença Média)</h2>
-                    <p className="text-xs text-slate-400">Selecione o horário ou tipo de culto para filtrar os gráficos do painel</p>
+                    <p className="text-xs text-slate-400">Selecione o horário ou tipo de culto para filtrar os gráficos do painel ({targetYear})</p>
                 </div>
                 <div className="flex flex-wrap gap-3 w-full sm:w-auto">
                     <div className="min-w-[240px]">
