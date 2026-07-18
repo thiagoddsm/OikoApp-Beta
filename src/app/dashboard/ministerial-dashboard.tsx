@@ -198,48 +198,93 @@ export function MinisterialDashboard() {
         return { totalMembers, connectedToGc, gcConnectivityRate, funnel, activeGroups };
     }, [users, cells]);
 
-    // Segmented Attendance Data (Adultos vs Criancas)
+    // Pre-calculate daily attendance stats grouped by exact calendar date
+    const dailyAttendance = useMemo(() => {
+        const datesMap: Record<string, {
+            dateStr: string;
+            dateObj: Date;
+            services: { horario: string; adultos: number; criancas: number }[];
+        }> = {};
+
+        allRegistrosPresenca?.forEach(culto => {
+            const date = culto.data instanceof Timestamp 
+                ? culto.data.toDate() 
+                : culto.data?.seconds 
+                    ? new Date(culto.data.seconds * 1000) 
+                    : null;
+            if (!date) return;
+            const dateKey = date.toISOString().split('T')[0];
+
+            if (!datesMap[dateKey]) {
+                datesMap[dateKey] = {
+                    dateStr: dateKey,
+                    dateObj: date,
+                    services: []
+                };
+            }
+            datesMap[dateKey].services.push({
+                horario: culto.horario || '',
+                adultos: Number(culto.adultos || 0),
+                criancas: Number(culto.criancas || 0)
+            });
+        });
+
+        return Object.values(datesMap);
+    }, [allRegistrosPresenca]);
+
+    // Calculate aggregated daily values based on selected worship filter
+    const calculatedDailyStats = useMemo(() => {
+        return dailyAttendance.map(day => {
+            let adults = 0;
+            let kids = 0;
+
+            if (selectedWorshipFilter === 'all') {
+                // SUM of all services of this day
+                day.services.forEach(s => {
+                    adults += s.adultos;
+                    kids += s.criancas;
+                });
+            } else if (selectedWorshipFilter === 'formula_ibm') {
+                // Formula IBM: Morning Sum (07:30 + 10:15) + Average of Evening (17:30 and 19:30)
+                const morning = day.services.filter(s => s.horario.includes('07:30') || s.horario.includes('10:15'));
+                const morningAdults = morning.reduce((sum, s) => sum + s.adultos, 0);
+                const morningKids = morning.reduce((sum, s) => sum + s.criancas, 0);
+
+                const evening = day.services.filter(s => s.horario.includes('17:30') || s.horario.includes('19:30'));
+                const eveningAdults = evening.length > 0 ? evening.reduce((sum, s) => sum + s.adultos, 0) / evening.length : 0;
+                const eveningKids = evening.length > 0 ? evening.reduce((sum, s) => sum + s.criancas, 0) / evening.length : 0;
+
+                adults = morningAdults + eveningAdults;
+                kids = morningKids + eveningKids;
+            } else {
+                // Specific service filter
+                const matched = day.services.filter(s => s.horario === selectedWorshipFilter);
+                adults = matched.reduce((sum, s) => sum + s.adultos, 0);
+                kids = matched.reduce((sum, s) => sum + s.criancas, 0);
+            }
+
+            return {
+                dateStr: day.dateStr,
+                dateObj: day.dateObj,
+                adults: Math.round(adults),
+                kids: Math.round(kids),
+                total: Math.round(adults + kids)
+            };
+        });
+    }, [dailyAttendance, selectedWorshipFilter]);
+
+    // Segmented Attendance Data (Adults vs Criancas)
     const attendanceStats = useMemo(() => {
         if (timeRange === 'semanal') {
-            const weeklyGroups: Record<string, { adults: number, kids: number, count: number }> = {};
-            
-            allRegistrosPresenca?.forEach(culto => {
-                if (selectedWorshipFilter !== 'all' && culto.horario !== selectedWorshipFilter) {
-                    return;
-                }
-                const date = culto.data instanceof Timestamp 
-                    ? culto.data.toDate() 
-                    : culto.data?.seconds 
-                        ? new Date(culto.data.seconds * 1000) 
-                        : null;
-                if (date) {
-                    const label = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-                    if (!weeklyGroups[label]) {
-                        weeklyGroups[label] = { adults: 0, kids: 0, count: 0 };
-                    }
-                    weeklyGroups[label].adults += Number(culto.adultos || 0);
-                    weeklyGroups[label].kids += Number(culto.criancas || 0);
-                    weeklyGroups[label].count += 1;
-                }
-            });
-
-            const weeklyDataList = Object.entries(weeklyGroups).map(([dateLabel, vals]) => {
-                const count = vals.count || 1;
-                return {
-                    label: dateLabel,
-                    adults: Math.round(vals.adults / count),
-                    kids: Math.round(vals.kids / count),
-                    sortKey: new Date(`${currentYear}-${dateLabel.split('/').reverse().join('-')}`).getTime()
-                };
-            })
-            .sort((a, b) => a.sortKey - b.sortKey)
-            .slice(-8)
-            .map(item => ({
-                month: item.label,
-                adults: item.adults,
-                kids: item.kids,
-                total: item.adults + item.kids
-            }));
+            const weeklyDataList = calculatedDailyStats
+                .sort((a, b) => a.dateObj.getTime() - b.dateObj.getTime())
+                .slice(-8)
+                .map(item => ({
+                    month: item.dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+                    adults: item.adults,
+                    kids: item.kids,
+                    total: item.total
+                }));
 
             const totalSum = weeklyDataList.reduce((sum, item) => sum + item.total, 0);
             const avgTotalAttendance = weeklyDataList.length > 0 ? Math.round(totalSum / weeklyDataList.length) : 0;
@@ -254,20 +299,11 @@ export function MinisterialDashboard() {
             const monthlyKids = Array(12).fill(0);
             const monthlyCount = Array(12).fill(0);
 
-            allRegistrosPresenca?.forEach(culto => {
-                if (selectedWorshipFilter !== 'all' && culto.horario !== selectedWorshipFilter) {
-                    return;
-                }
-
-                const date = culto.data instanceof Timestamp 
-                    ? culto.data.toDate() 
-                    : culto.data?.seconds 
-                        ? new Date(culto.data.seconds * 1000) 
-                        : null;
-                if (date && date.getFullYear() === currentYear) {
-                    const m = date.getMonth();
-                    monthlyAdults[m] += Number(culto.adultos || 0);
-                    monthlyKids[m] += Number(culto.criancas || 0);
+            calculatedDailyStats.forEach(d => {
+                if (d.dateObj.getFullYear() === currentYear) {
+                    const m = d.dateObj.getMonth();
+                    monthlyAdults[m] += d.adults;
+                    monthlyKids[m] += d.kids;
                     monthlyCount[m] += 1;
                 }
             });
@@ -291,7 +327,7 @@ export function MinisterialDashboard() {
 
             return { chartData: mainChartData, avgTotalAttendance };
         }
-    }, [allRegistrosPresenca, currentYear, selectedWorshipFilter, timeRange]);
+    }, [calculatedDailyStats, currentYear, timeRange]);
 
     // Teaching Metrics
     const teachingMetrics = useMemo(() => {
@@ -331,13 +367,14 @@ export function MinisterialDashboard() {
                     <p className="text-xs text-slate-400">Selecione o horário ou tipo de culto para filtrar os gráficos do painel</p>
                 </div>
                 <div className="flex flex-wrap gap-3 w-full sm:w-auto">
-                    <div className="min-w-[200px]">
+                    <div className="min-w-[240px]">
                         <Select value={selectedWorshipFilter} onValueChange={setSelectedWorshipFilter}>
                             <SelectTrigger className="h-9 text-xs bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
                                 <SelectValue placeholder="Filtrar por Culto..." />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">Todos os Cultos (Geral)</SelectItem>
+                                <SelectItem value="all">Soma de Todos os Cultos</SelectItem>
+                                <SelectItem value="formula_ibm">Fórmula IBM (Manhã + Média Tarde/Noite)</SelectItem>
                                 {worshipEventsList.map((w, idx) => (
                                     <SelectItem key={idx} value={w}>{w}</SelectItem>
                                 ))}
