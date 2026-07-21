@@ -255,7 +255,7 @@ export function ReservationsCalendar({
 
       if (strategicEvents) {
         strategicEvents.forEach(evt => {
-          if (evt.status !== 'aprovado') return;
+          if (evt.status !== 'aprovado' && evt.status !== 'analise_estrategica') return;
         
         // Se houver filtro de categoria ativo, só exibe os estratégicos se a categoria "Eventual" estiver selecionada
         if (categoryFilter.length > 0) {
@@ -283,7 +283,7 @@ export function ReservationsCalendar({
             resource: {
               ...evt,
               isStrategicEvent: true,
-              status: 'approved',
+              status: evt.status === 'aprovado' ? 'approved' : 'pending',
               rooms: evt.space ? [evt.space] : [],
               frequency: 'Eventual',
               categoryId: eventualCategoryId || 'eventual'
