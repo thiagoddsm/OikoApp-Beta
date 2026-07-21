@@ -15,7 +15,7 @@ import { useDoc } from '@/firebase';
 import { sendEnrollmentMessage } from '@/app/actions/whatsapp-actions';
 import { useCoursesData } from "@/hooks/useDomainData";
 
-export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
+export function EnrollmentRequestsList({ courseId }: { courseId?: string | string[] }) {
     const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
 
     const { approveEnrollmentRequest, updateEnrollmentRequest, deleteEnrollmentRequest, isLoading } = useVolunteering();
@@ -27,7 +27,13 @@ export function EnrollmentRequestsList({ courseId }: { courseId?: string }) {
     const requests = useMemo(() => {
         if (!enrollmentRequests) return [];
         return enrollmentRequests
-            .filter(r => !courseId || r.courseId === courseId)
+            .filter(r => {
+                if (!courseId) return true;
+                if (Array.isArray(courseId)) {
+                    return courseId.includes(r.courseId);
+                }
+                return r.courseId === courseId;
+            })
             .sort((a, b) => {
                 const timeA = a.createdAt?.toMillis?.() || 0;
                 const timeB = b.createdAt?.toMillis?.() || 0;
