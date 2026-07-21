@@ -9,13 +9,14 @@ import { ChartContainer } from '@/components/ui/chart';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, Timestamp } from 'firebase/firestore';
+import { collection, query, where, Timestamp, addDoc } from 'firebase/firestore';
 import { useMembersData, useCoursesData, useTeachingFinance } from "@/hooks/useDomainData";
 import { format, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 // Import management dialogs
 import { EnrollmentDialog } from '../enrollment-dialog';
@@ -31,11 +32,13 @@ export function WaveAdminDashboard() {
   const { users, isLoading: loadingUsers } = useMembersData();
   const { courses, classes, enrollmentRequests, isLoading: loadingCourses } = useCoursesData();
   const { wavePayments, waveExpenses, wavePlans, isLoading: loadingFinance } = useTeachingFinance();
+  const { toast } = useToast();
 
   // Tab and Dialog States
   const [activeTab, setActiveTab] = useState('overview');
   const [isEnrollmentOpen, setEnrollmentOpen] = useState(false);
   const [isClassFormOpen, setClassFormOpen] = useState(false);
+  const [isCreatingCourse, setIsCreatingCourse] = useState(false);
 
   // Query today's lessons to show dynamic room occupancy and active lessons count
   const todayStr = new Date().toISOString().split('T')[0];
@@ -64,6 +67,64 @@ export function WaveAdminDashboard() {
   const waveCourseIds = useMemo(() => waveCourses.map(c => c.id), [waveCourses]);
   const primaryWaveCourseId = waveCourseIds[0] || '';
   const waveCourseNamesMap = useMemo(() => new Map(waveCourses.map(c => [c.id, c.name])), [waveCourses]);
+
+  const [selectedCourseId, setSelectedCourseId] = useState('');
+
+  React.useEffect(() => {
+    if (primaryWaveCourseId) {
+      setSelectedCourseId(primaryWaveCourseId);
+    }
+  }, [primaryWaveCourseId]);
+
+  const handleNewClassClick = async () => {
+    let targetCourseId = selectedCourseId || primaryWaveCourseId;
+    if (!targetCourseId) {
+      setIsCreatingCourse(true);
+      try {
+        const docRef = await addDoc(collection(firestore!, 'courses'), {
+          name: "Mentoria Wave",
+          ministryName: "Wave",
+          ministry: "wave",
+          createdAt: Timestamp.now()
+        });
+        targetCourseId = docRef.id;
+        setSelectedCourseId(targetCourseId);
+        toast({ title: 'Curso Criado', description: 'Curso "Mentoria Wave" criado automaticamente.' });
+      } catch (err) {
+        console.error("Erro ao criar curso padrão:", err);
+        toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível criar o curso padrão do Wave.' });
+        setIsCreatingCourse(false);
+        return;
+      }
+      setIsCreatingCourse(false);
+    }
+    setClassFormOpen(true);
+  };
+
+  const handleNewEnrollmentClick = async () => {
+    let targetCourseId = selectedCourseId || primaryWaveCourseId;
+    if (!targetCourseId) {
+      setIsCreatingCourse(true);
+      try {
+        const docRef = await addDoc(collection(firestore!, 'courses'), {
+          name: "Mentoria Wave",
+          ministryName: "Wave",
+          ministry: "wave",
+          createdAt: Timestamp.now()
+        });
+        targetCourseId = docRef.id;
+        setSelectedCourseId(targetCourseId);
+        toast({ title: 'Curso Criado', description: 'Curso "Mentoria Wave" criado automaticamente.' });
+      } catch (err) {
+        console.error("Erro ao criar curso padrão:", err);
+        toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível criar o curso padrão.' });
+        setIsCreatingCourse(false);
+        return;
+      }
+      setIsCreatingCourse(false);
+    }
+    setEnrollmentOpen(true);
+  };
 
   const waveClasses = useMemo(() => 
     classes.filter(c => waveCourseIds.includes(c.courseId)),
@@ -412,7 +473,7 @@ export function WaveAdminDashboard() {
                 <CardTitle>Solicitações de Matrícula - Wave</CardTitle>
                 <CardDescription>Aprovação e encaminhamento de interessados nos cursos de instrumentos.</CardDescription>
               </div>
-              <Button size="sm" onClick={() => setEnrollmentOpen(true)} className="bg-indigo-650 hover:bg-indigo-700 text-white">
+              <Button size="sm" onClick={handleNewEnrollmentClick} disabled={isCreatingCourse} className="bg-indigo-650 hover:bg-indigo-700 text-white">
                 <UserPlus className="mr-2 size-4" /> Matrícula Manual
               </Button>
             </CardHeader>
@@ -435,7 +496,7 @@ export function WaveAdminDashboard() {
                 <CardTitle>Turmas e Agendas Wave</CardTitle>
                 <CardDescription>Gestão de horários de aula, salas e professores alocados.</CardDescription>
               </div>
-              <Button size="sm" onClick={() => setClassFormOpen(true)} disabled={!primaryWaveCourseId} className="bg-indigo-650 hover:bg-indigo-700 text-white">
+              <Button size="sm" onClick={handleNewClassClick} disabled={isCreatingCourse} className="bg-indigo-650 hover:bg-indigo-700 text-white">
                 <PlusCircle className="mr-2 size-4" /> Nova Turma / Mentoria
               </Button>
             </CardHeader>
@@ -499,7 +560,7 @@ export function WaveAdminDashboard() {
       <ClassFormDialog 
         open={isClassFormOpen} 
         onOpenChange={setClassFormOpen} 
-        courseId={primaryWaveCourseId} 
+        courseId={selectedCourseId || primaryWaveCourseId} 
       />
     </div>
   );
