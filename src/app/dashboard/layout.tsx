@@ -143,6 +143,8 @@ const menuItems = [
               { href: "/dashboard/teaching/calendar", label: "Calendário Escolar", icon: CalendarDays, permissionId: 'teaching_courses' },
               { href: "/dashboard/teaching/teachers", label: "Professores", icon: UserCheckIcon, permissionId: 'teaching_courses' },
               { href: "/dashboard/teaching/students", label: "Alunos", icon: Users2, permissionId: 'teaching_courses' },
+              { href: "/dashboard/teaching/diario", label: "Diário & Ponto", icon: CheckSquare, permissionId: 'teaching_courses' },
+              { href: "/dashboard/teaching/reposicoes", label: "Fila de Reposições", icon: History, permissionId: 'teaching_courses' },
               { href: "/dashboard/teaching/reports", label: "Relatórios", icon: BarChart2, permissionId: 'teaching_courses' },
             ]
         },
