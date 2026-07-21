@@ -48,6 +48,12 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAuthenticated();
     }
+    match /aulas/{aulaId} {
+      allow read, write: if isAuthenticated();
+    }
+    match /reposicoes_pendentes/{reposicaoId} {
+      allow read, write: if isAuthenticated();
+    }
     match /theoflix_courses/{document=**} {
       allow read: if true;
       allow write: if isAuthenticated();
