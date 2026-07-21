@@ -247,9 +247,11 @@ export function ReservationsCalendar({
 
     // Mapear e injetar os Eventos Estratégicos Aprovados
     if (strategicEvents && Array.isArray(strategicEvents)) {
-      // Busca dinamicamente o ID da categoria que se chama "Eventual"
+      // Busca dinamicamente o ID da categoria que se chama "Eventual" e "Regular"
       const eventualCategory = reservationCategories?.find(c => c.name.toLowerCase() === 'eventual');
       const eventualCategoryId = eventualCategory?.id;
+      const regularCategory = reservationCategories?.find(c => c.name.toLowerCase() === 'regular');
+      const regularCategoryId = regularCategory?.id;
 
       if (strategicEvents) {
         strategicEvents.forEach(evt => {
@@ -257,7 +259,8 @@ export function ReservationsCalendar({
         
         // Se houver filtro de categoria ativo, só exibe os estratégicos se a categoria "Eventual" estiver selecionada
         if (categoryFilter.length > 0) {
-          if (!eventualCategoryId || !categoryFilter.includes(eventualCategoryId)) {
+          const isEventualSelected = categoryFilter.includes('eventual') || (eventualCategoryId && categoryFilter.includes(eventualCategoryId));
+          if (!isEventualSelected) {
             return;
           }
         }
@@ -283,7 +286,7 @@ export function ReservationsCalendar({
               status: 'approved',
               rooms: evt.space ? [evt.space] : [],
               frequency: 'Eventual',
-              categoryId: eventualCategoryId
+              categoryId: eventualCategoryId || 'eventual'
             }
           }
           );
@@ -297,7 +300,23 @@ export function ReservationsCalendar({
     if (!reservations || !Array.isArray(reservations)) return allOccurrences;
 
     const filteredBase = reservations.filter(res => {
-        if (categoryFilter.length > 0 && (!res.categoryId || !categoryFilter.includes(res.categoryId))) return false;
+        if (categoryFilter.length > 0) {
+            const eventualCategory = reservationCategories?.find(c => c.name.toLowerCase() === 'eventual');
+            const eventualCategoryId = eventualCategory?.id;
+            const regularCategory = reservationCategories?.find(c => c.name.toLowerCase() === 'regular');
+            const regularCategoryId = regularCategory?.id;
+
+            const isMatch = categoryFilter.some(filterId => {
+                if (filterId === 'eventual' || filterId === eventualCategoryId) {
+                    return res.categoryId === 'eventual' || res.categoryId === eventualCategoryId;
+                }
+                if (filterId === 'regular' || filterId === regularCategoryId) {
+                    return res.categoryId === 'regular' || res.categoryId === regularCategoryId;
+                }
+                return res.categoryId === filterId;
+            });
+            if (!isMatch) return false;
+        }
         if (roomFilter !== 'all' && !res.rooms?.includes(roomFilter)) return false;
         if (ministryFilter !== 'all' && ((res as any).ministry || 'geral') !== ministryFilter) return false;
         if (searchTerm && !res.eventName.toLowerCase().includes(searchTerm.toLowerCase())) return false;
