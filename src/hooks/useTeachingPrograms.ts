@@ -14,15 +14,36 @@ export function useTeachingPrograms() {
 
   const { data: dbPrograms, isLoading, error } = useCollection<TeachingProgram>(programsQuery);
 
-  // Fallback to initial seed programs if DB is empty, has permission delay or loading
+  // Merge initial seed programs with DB programs so editing one doesn't hide others
   const programs = useMemo(() => {
-    if (error || !dbPrograms || dbPrograms.length === 0) {
-      return INITIAL_IBM_PROGRAMS;
+    const dbMap = new Map<string, TeachingProgram>();
+    if (dbPrograms) {
+      dbPrograms.forEach(p => {
+        if (p.id) dbMap.set(p.id, p);
+        if (p.slug) dbMap.set(p.slug, p);
+      });
     }
-    return dbPrograms
+
+    // Start with initial seed programs, overriding with DB version if present
+    const mergedList: TeachingProgram[] = INITIAL_IBM_PROGRAMS.map(seed => {
+      return dbMap.get(seed.id) || dbMap.get(seed.slug) || seed;
+    });
+
+    // Append any newly created DB programs that were not part of initial seeds
+    if (dbPrograms) {
+      dbPrograms.forEach(p => {
+        const idKey = p.id || p.slug;
+        const isSeed = INITIAL_IBM_PROGRAMS.some(s => s.id === idKey || s.slug === idKey);
+        if (!isSeed && !mergedList.some(m => m.id === p.id || m.slug === p.slug)) {
+          mergedList.push(p);
+        }
+      });
+    }
+
+    return mergedList
       .filter(p => !p.archived && (p.module === 'teaching' || !p.module))
       .sort((a, b) => (a.order || 0) - (b.order || 0));
-  }, [dbPrograms, error]);
+  }, [dbPrograms]);
 
   const createProgram = async (programData: Omit<TeachingProgram, 'id' | 'module'>) => {
     if (!firestore) throw new Error('Firestore não inicializado');
