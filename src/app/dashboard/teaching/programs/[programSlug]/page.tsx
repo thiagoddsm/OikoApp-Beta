@@ -1,20 +1,25 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { useTeachingPrograms } from '@/hooks/useTeachingPrograms';
 import { CAPABILITIES_METADATA } from '@/lib/programs/capability-registry';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Music2, BookOpen, Hand, HeartHandshake, PlayCircle, GraduationCap, ArrowLeft, Calendar, Users, DollarSign, CheckSquare, History, FileQuestion, Book } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Loader2, Music2, BookOpen, Hand, HeartHandshake, PlayCircle, GraduationCap, ArrowLeft, Users, DollarSign, CheckSquare, History, FileQuestion, PlusCircle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { VolunteeringProvider } from '@/contexts/volunteering-context';
 import { WaveAdminDashboard } from '@/components/teaching/wave/admin-dashboard';
 import { WaveFinanceDashboard } from '@/components/teaching/wave/wave-finance-dashboard';
 import { StudentsManagement } from '@/components/teaching/students-management';
-import { TeachersManagement } from '@/components/teaching/teachers-management';
+import { ClassFormDialog } from '@/components/teaching/class-form-dialog';
+import { useCoursesData, useMembersData } from '@/hooks/useDomainData';
+import { useFirebase } from '@/firebase';
+import { collection, addDoc, Timestamp } from 'firebase/firestore';
+import { useToast } from '@/hooks/use-toast';
 
 const ICON_MAP: Record<string, any> = {
   Music2,
@@ -28,11 +33,78 @@ const ICON_MAP: Record<string, any> = {
 export default function ProgramDetailPage() {
   const params = useParams();
   const programSlug = params.programSlug as string;
-  const { programs, isLoading } = useTeachingPrograms();
+  const { programs, isLoading: loadingPrograms } = useTeachingPrograms();
+  const { courses, classes, isLoading: loadingCourses } = useCoursesData();
+  const { users } = useMembersData();
+  const { firestore } = useFirebase();
+  const { toast } = useToast();
+
+  const [isClassFormOpen, setClassFormOpen] = useState(false);
+  const [isCreatingCourse, setIsCreatingCourse] = useState(false);
+  const [selectedCourseId, setSelectedCourseId] = useState('');
 
   const program = useMemo(() => {
     return programs.find(p => p.slug === programSlug || p.id === programSlug);
   }, [programs, programSlug]);
+
+  const userMap = useMemo(() => new Map(users.map(u => [u.id, u.name])), [users]);
+
+  // Filter courses & classes that belong to this program
+  const programCourses = useMemo(() => {
+    if (!courses || !program) return [];
+    const slugLower = program.slug.toLowerCase();
+    const nameLower = program.name.toLowerCase();
+
+    return courses.filter((c: any) => {
+      if (c.schoolId) return c.schoolId.toLowerCase() === slugLower;
+      if (c.programId) return c.programId.toLowerCase() === slugLower;
+      if (c.ministryName) return c.ministryName.toLowerCase() === slugLower || nameLower.includes(c.ministryName.toLowerCase());
+      if (c.ministry) return c.ministry.toLowerCase() === slugLower;
+      return false;
+    });
+  }, [courses, program]);
+
+  const programCourseIds = useMemo(() => new Set(programCourses.map(c => c.id)), [programCourses]);
+
+  const programClasses = useMemo(() => {
+    if (!classes) return [];
+    // If specific courses exist, filter by them; otherwise show all active classes for the program
+    if (programCourseIds.size > 0) {
+      return classes.filter(cls => programCourseIds.has(cls.courseId));
+    }
+    return classes;
+  }, [classes, programCourseIds]);
+
+  const primaryCourseId = programCourses[0]?.id || '';
+
+  const handleNewClassClick = async () => {
+    let targetCourseId = selectedCourseId || primaryCourseId;
+    if (!targetCourseId && program && firestore) {
+      setIsCreatingCourse(true);
+      try {
+        const docRef = await addDoc(collection(firestore, 'courses'), {
+          name: `Mentoria ${program.name}`,
+          ministryName: program.name,
+          ministry: program.slug,
+          schoolId: program.slug,
+          programId: program.id,
+          createdAt: Timestamp.now()
+        });
+        targetCourseId = docRef.id;
+        setSelectedCourseId(targetCourseId);
+        toast({ title: 'Curso Criado', description: `Curso padrão para "${program.name}" criado com sucesso.` });
+      } catch (err) {
+        console.error("Erro ao criar curso padrão:", err);
+        toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível criar o curso padrão.' });
+        setIsCreatingCourse(false);
+        return;
+      }
+      setIsCreatingCourse(false);
+    }
+    setClassFormOpen(true);
+  };
+
+  const isLoading = loadingPrograms || loadingCourses;
 
   if (isLoading) {
     return (
@@ -154,14 +226,64 @@ export default function ProgramDetailPage() {
           {/* Tab 2: Courses & Classes */}
           <TabsContent value="courses">
             <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-xl">
-              <CardHeader>
-                <CardTitle>Cursos e Turmas de {program.name}</CardTitle>
-                <CardDescription>Gestão de disciplinas e agendamento de aulas deste programa.</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
+                <div>
+                  <CardTitle>Turmas e Agendas de {program.name}</CardTitle>
+                  <CardDescription>Gestão de disciplinas, horários de aula, salas e mentores alocados.</CardDescription>
+                </div>
+                <Button size="sm" onClick={handleNewClassClick} disabled={isCreatingCourse} className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">
+                  <PlusCircle className="mr-2 size-4" /> Nova Turma / Mentoria
+                </Button>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-slate-500">Listagem de disciplinas cadastradas vinculadas a {program.name}.</p>
+                <div className="rounded-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-slate-50 dark:bg-slate-850">
+                      <TableRow>
+                        <TableHead>Turma</TableHead>
+                        <TableHead>Mentor / Professor</TableHead>
+                        <TableHead>Horário</TableHead>
+                        <TableHead className="text-center">Alunos</TableHead>
+                        <TableHead className="text-right">Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {programClasses.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-8 text-slate-400">
+                            Nenhuma turma cadastrada neste programa ainda. Clique no botão acima para adicionar!
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        programClasses.map(cls => (
+                          <TableRow key={cls.id}>
+                            <TableCell className="font-bold">{cls.name}</TableCell>
+                            <TableCell>{userMap.get(cls.teacherId) || 'A definir'}</TableCell>
+                            <TableCell className="text-xs text-slate-500">
+                              {cls.dayOfWeek} das {cls.startTime} às {cls.endTime}
+                            </TableCell>
+                            <TableCell className="text-center font-semibold">
+                              {cls.students?.length || 0}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                                {cls.status || 'Ativa'}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
+
+            <ClassFormDialog
+              open={isClassFormOpen}
+              onOpenChange={setClassFormOpen}
+              courseId={selectedCourseId || primaryCourseId}
+            />
           </TabsContent>
 
           {/* Tab 3: Financial (if capability present) */}

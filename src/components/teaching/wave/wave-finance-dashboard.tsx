@@ -44,23 +44,30 @@ export function WaveFinanceDashboard() {
   }, [wavePayments, filter]);
 
   const kpiData = useMemo(() => {
-    if (!wavePayments) return { monthlyRevenue: "R$ 0,00", overduePercentage: "0%", overdueCount: "0" };
-    
     const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+
+    const payments = wavePayments || [];
+    const expenses = waveExpenses || [];
     
-    const monthlyRevenue = wavePayments
+    const monthlyRevenue = payments
         .filter(p => p.month.startsWith(currentMonth) && p.status === 'paid')
         .reduce((sum, p) => sum + p.amount, 0);
 
-    const overduePayments = wavePayments.filter(p => p.status === 'overdue');
-    const overduePercentage = wavePayments.length > 0 ? (overduePayments.length / wavePayments.length) * 100 : 0;
+    const monthlyExpenses = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+    const netProfit = monthlyRevenue - monthlyExpenses;
+
+    const overduePayments = payments.filter(p => p.status === 'overdue');
+    const overduePercentage = payments.length > 0 ? (overduePayments.length / payments.length) * 100 : 0;
 
     return {
-        monthlyRevenue: `R$ ${monthlyRevenue.toFixed(2).replace('.', ',')}`,
+        monthlyRevenue: `R$ ${monthlyRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        monthlyExpenses: `R$ ${monthlyExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        netProfit: `R$ ${netProfit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        netProfitIsPositive: netProfit >= 0,
         overduePercentage: `${overduePercentage.toFixed(1)}%`,
         overdueCount: `${overduePayments.length} alunos pendentes`,
     };
-  }, [wavePayments]);
+  }, [wavePayments, waveExpenses]);
 
   const handleAdd = () => {
     setSelectedPayment(null);
@@ -105,12 +112,12 @@ export function WaveFinanceDashboard() {
                     <CardContent><div className="text-xs text-muted-foreground">+5.2% vs. mês anterior</div></CardContent>
                 </Card>
                  <Card>
-                    <CardHeader className="pb-2"><CardDescription>Despesas (Mês)</CardDescription><CardTitle className="text-2xl">R$ 14.000,00</CardTitle></CardHeader>
-                    <CardContent><div className="text-xs text-muted-foreground">-1.5% vs. mês anterior</div></CardContent>
+                    <CardHeader className="pb-2"><CardDescription>Despesas (Mês)</CardDescription><CardTitle className="text-2xl">{kpiData.monthlyExpenses}</CardTitle></CardHeader>
+                    <CardContent><div className="text-xs text-muted-foreground">Total de custos operacionais do mês</div></CardContent>
                 </Card>
                  <Card>
-                    <CardHeader className="pb-2"><CardDescription>Lucro Líquido (Mês)</CardDescription><CardTitle className="text-2xl">R$ 4.450,00</CardTitle></CardHeader>
-                    <CardContent><div className="text-xs text-green-600">+21% vs. mês anterior</div></CardContent>
+                    <CardHeader className="pb-2"><CardDescription>Lucro Líquido (Mês)</CardDescription><CardTitle className="text-2xl">{kpiData.netProfit}</CardTitle></CardHeader>
+                    <CardContent><div className={cn("text-xs font-semibold", kpiData.netProfitIsPositive ? "text-green-600" : "text-red-600")}>{kpiData.netProfitIsPositive ? 'Resultado positivo' : 'Atenção: déficit no mês'}</div></CardContent>
                 </Card>
                  <Card>
                     <CardHeader className="pb-2"><CardDescription>Inadimplência</CardDescription><CardTitle className="text-2xl">{kpiData.overduePercentage}</CardTitle></CardHeader>
