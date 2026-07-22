@@ -9,22 +9,20 @@ export function useTeachingPrograms() {
 
   const programsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(
-      collection(firestore, 'teaching_programs'),
-      where('module', '==', 'teaching'),
-      orderBy('order', 'asc')
-    );
+    return collection(firestore, 'teaching_programs');
   }, [firestore]);
 
   const { data: dbPrograms, isLoading, error } = useCollection<TeachingProgram>(programsQuery);
 
-  // Fallback to initial seed programs if DB is empty or loading
+  // Fallback to initial seed programs if DB is empty, has permission delay or loading
   const programs = useMemo(() => {
-    if (dbPrograms && dbPrograms.length > 0) {
-      return dbPrograms.filter(p => !p.archived);
+    if (error || !dbPrograms || dbPrograms.length === 0) {
+      return INITIAL_IBM_PROGRAMS;
     }
-    return INITIAL_IBM_PROGRAMS;
-  }, [dbPrograms]);
+    return dbPrograms
+      .filter(p => !p.archived && (p.module === 'teaching' || !p.module))
+      .sort((a, b) => (a.order || 0) - (b.order || 0));
+  }, [dbPrograms, error]);
 
   const createProgram = async (programData: Omit<TeachingProgram, 'id' | 'module'>) => {
     if (!firestore) throw new Error('Firestore não inicializado');
