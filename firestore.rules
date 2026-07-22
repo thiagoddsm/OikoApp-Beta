@@ -44,6 +44,10 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAuthenticated();
     }
+    match /teaching_programs/{programId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
     match /classes/{classId} {
       allow read: if true;
       allow write: if isAuthenticated();
