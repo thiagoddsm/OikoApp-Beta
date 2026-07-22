@@ -27,6 +27,7 @@ import { TeachersManagement } from '../teachers-management';
 
 const COLORS = ['#6750A4', '#8A75B5', '#AE9CCE', '#D1C4E7', '#F2F0F7'];
 
+// Force redeploy to invalidate CDN cache
 export function WaveAdminDashboard() {
   const { firestore } = useFirebase();
   const { users, isLoading: loadingUsers } = useMembersData();
@@ -473,7 +474,7 @@ export function WaveAdminDashboard() {
                 <CardTitle>Solicitações de Matrícula - Wave</CardTitle>
                 <CardDescription>Aprovação e encaminhamento de interessados nos cursos de instrumentos.</CardDescription>
               </div>
-              <Button size="sm" onClick={handleNewEnrollmentClick} disabled={isCreatingCourse} className="bg-indigo-650 hover:bg-indigo-700 text-white">
+              <Button size="sm" onClick={handleNewEnrollmentClick} disabled={isCreatingCourse} className="bg-indigo-600 hover:bg-indigo-700 text-white">
                 <UserPlus className="mr-2 size-4" /> Matrícula Manual
               </Button>
             </CardHeader>
@@ -496,7 +497,7 @@ export function WaveAdminDashboard() {
                 <CardTitle>Turmas e Agendas Wave</CardTitle>
                 <CardDescription>Gestão de horários de aula, salas e professores alocados.</CardDescription>
               </div>
-              <Button size="sm" onClick={handleNewClassClick} disabled={isCreatingCourse} className="bg-indigo-650 hover:bg-indigo-700 text-white">
+              <Button size="sm" onClick={handleNewClassClick} disabled={isCreatingCourse} className="bg-indigo-600 hover:bg-indigo-700 text-white">
                 <PlusCircle className="mr-2 size-4" /> Nova Turma / Mentoria
               </Button>
             </CardHeader>
