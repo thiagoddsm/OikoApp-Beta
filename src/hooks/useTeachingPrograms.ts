@@ -44,19 +44,23 @@ export function useTeachingPrograms() {
   const updateProgram = async (id: string, updates: Partial<TeachingProgram>) => {
     if (!firestore) throw new Error('Firestore não inicializado');
     const docRef = doc(firestore, 'teaching_programs', id);
-    await updateDoc(docRef, {
+    const existingSeed = INITIAL_IBM_PROGRAMS.find(p => p.id === id || p.slug === id);
+    
+    await setDoc(docRef, {
+      ...(existingSeed || {}),
       ...updates,
+      id,
       updatedAt: Timestamp.now()
-    });
+    }, { merge: true });
   };
 
   const archiveProgram = async (id: string) => {
     if (!firestore) throw new Error('Firestore não inicializado');
     const docRef = doc(firestore, 'teaching_programs', id);
-    await updateDoc(docRef, {
+    await setDoc(docRef, {
       archived: true,
       updatedAt: Timestamp.now()
-    });
+    }, { merge: true });
   };
 
   const duplicateProgram = async (program: TeachingProgram) => {
