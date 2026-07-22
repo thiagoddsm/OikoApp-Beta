@@ -20,9 +20,10 @@ import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 
 interface StudentsManagementProps {
     filterCourseIds?: string[];
+    defaultCourseId?: string;
 }
 
-export function StudentsManagement({ filterCourseIds }: StudentsManagementProps) {
+export function StudentsManagement({ filterCourseIds, defaultCourseId }: StudentsManagementProps) {
     const { users } = useMembersData();
     const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
 
@@ -325,7 +326,11 @@ export function StudentsManagement({ filterCourseIds }: StudentsManagementProps)
         </AlertDialogContent>
       </AlertDialog>
       
-      <EnrollmentDialog open={isEnrollmentOpen} onOpenChange={setEnrollmentOpen} />
+      <EnrollmentDialog 
+        open={isEnrollmentOpen} 
+        onOpenChange={setEnrollmentOpen} 
+        initialCourseId={defaultCourseId || (filterCourseIds && filterCourseIds.length > 0 ? filterCourseIds[0] : null)}
+      />
       <ImportEnrollmentsDialog open={isImportOpen} onOpenChange={setImportOpen} />
       </>
   );

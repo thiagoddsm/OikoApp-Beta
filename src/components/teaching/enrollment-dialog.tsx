@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
 import { Loader2, UserPlus, Search, BookOpen, Layers, AlertTriangle, Mail, ArrowLeft, CheckCircle, Lock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useVolunteering } from '@/contexts/volunteering-context';
@@ -347,22 +348,37 @@ export function EnrollmentDialog({ open, onOpenChange, initialStudentId, initial
                 {/* Curso */}
                 <div className="space-y-4">
                     <div>
-                        <Label htmlFor="course-id" className="text-[10px] uppercase font-black text-muted-foreground">Selecionar Curso</Label>
-                        <Select value={selectedCourseId} onValueChange={(v) => { setSelectedCourseId(v); setClassId(''); }} disabled={isLoading || !!initialCourseId}>
-                            <SelectTrigger id="course-id" className="mt-1 h-11 font-bold">
-                                <SelectValue placeholder="Escolha o curso..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {courses.map(course => (
-                                    <SelectItem key={course.id} value={course.id}>
-                                        <div className="flex items-center gap-2">
-                                            <BookOpen className="size-3 text-muted-foreground" />
-                                            {course.name}
-                                        </div>
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <Label htmlFor="course-id" className="text-[10px] uppercase font-black text-muted-foreground">Curso Selecionado</Label>
+                        {initialCourseId && selectedCourse ? (
+                          <div className="mt-1 p-3 bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900 rounded-xl flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <div className="p-2 bg-indigo-600 text-white rounded-lg">
+                                <BookOpen className="size-4" />
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-black uppercase text-indigo-500 tracking-wider">Matrícula Direta</p>
+                                <p className="font-bold text-sm text-slate-800 dark:text-slate-200">{selectedCourse.name}</p>
+                              </div>
+                            </div>
+                            <Badge variant="outline" className="bg-indigo-100 text-indigo-700 border-indigo-200">Pre-selecionado</Badge>
+                          </div>
+                        ) : (
+                          <Select value={selectedCourseId} onValueChange={(v) => { setSelectedCourseId(v); setClassId(''); }} disabled={isLoading}>
+                              <SelectTrigger id="course-id" className="mt-1 h-11 font-bold">
+                                  <SelectValue placeholder="Escolha o curso..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                  {courses.map(course => (
+                                      <SelectItem key={course.id} value={course.id}>
+                                          <div className="flex items-center gap-2">
+                                              <BookOpen className="size-3 text-muted-foreground" />
+                                              {course.name}
+                                          </div>
+                                      </SelectItem>
+                                  ))}
+                              </SelectContent>
+                          </Select>
+                        )}
                     </div>
 
                     {/* Turmas ou Erro de Pré-requisito */}

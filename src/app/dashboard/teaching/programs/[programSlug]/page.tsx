@@ -329,7 +329,10 @@ export default function ProgramDetailPage() {
 
           {/* Tab 6: Students */}
           <TabsContent value="students">
-            <StudentsManagement />
+            <StudentsManagement 
+              filterCourseIds={Array.from(programCourseIds)} 
+              defaultCourseId={primaryCourseId} 
+            />
           </TabsContent>
         </Tabs>
       </div>
