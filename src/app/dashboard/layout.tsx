@@ -40,6 +40,7 @@ import {
   Save,
   LayoutTemplate,
   School,
+  Wrench,
   Menu,
   BarChart2,
   Search,
@@ -137,13 +138,26 @@ const menuItems = [
             label: "Ensino", 
             icon: GraduationCap,
             subItems: [
-              { href: "/dashboard/teaching/programs", label: "Programas de Ensino", icon: School, permissionId: 'teaching_courses' },
-              { href: "/dashboard/teaching/courses", label: "Cursos & Turmas", icon: LayoutTemplate, permissionId: 'teaching_courses' },
-              { href: "/dashboard/teaching/calendar", label: "Calendário Escolar", icon: CalendarDays, permissionId: 'teaching_courses' },
-              { href: "/dashboard/teaching/students", label: "Alunos", icon: Users2, permissionId: 'teaching_courses' },
-              { href: "/dashboard/teaching/teachers", label: "Professores", icon: UserCheckIcon, permissionId: 'teaching_courses' },
-              { href: "/dashboard/teaching/diario", label: "Diário & Ponto", icon: CheckSquare, permissionId: 'teaching_courses' },
-              { href: "/dashboard/teaching/reposicoes", label: "Fila de Reposições", icon: History, permissionId: 'teaching_courses' },
+              { href: "/dashboard/teaching", label: "Dashboard", icon: LayoutTemplate, permissionId: 'teaching_courses' },
+              { href: "/dashboard/teaching/programs", label: "Programas", icon: School, permissionId: 'teaching_courses' },
+              { href: "/dashboard/teaching/courses", label: "Cursos & Turmas", icon: BookOpen, permissionId: 'teaching_courses' },
+              { href: "/dashboard/teaching/calendar", label: "Calendário", icon: CalendarDays, permissionId: 'teaching_courses' },
+              { 
+                label: "Pessoas", 
+                icon: Users2,
+                subItems: [
+                  { href: "/dashboard/teaching/students", label: "Alunos", icon: Users, permissionId: 'teaching_courses' },
+                  { href: "/dashboard/teaching/teachers", label: "Professores", icon: UserCheckIcon, permissionId: 'teaching_courses' },
+                ]
+              },
+              { 
+                label: "Ferramentas", 
+                icon: Wrench,
+                subItems: [
+                  { href: "/dashboard/teaching/diario", label: "Diário & Ponto", icon: CheckSquare, permissionId: 'teaching_courses' },
+                  { href: "/dashboard/teaching/reposicoes", label: "Fila de Reposições", icon: History, permissionId: 'teaching_courses' },
+                ]
+              },
               { href: "/dashboard/teaching/reports", label: "Relatórios", icon: BarChart2, permissionId: 'teaching_courses' },
             ]
         },
