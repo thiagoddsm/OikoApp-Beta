@@ -52,6 +52,10 @@ const Legend = () => (
                 <span className="font-medium">Theoflix</span>
             </div>
             <div className="flex items-center gap-2">
+                <CheckCircle2 className="size-4 text-purple-500" />
+                <span className="font-medium">Manual / Aprovação</span>
+            </div>
+            <div className="flex items-center gap-2">
                 <div className="bg-amber-100 text-amber-700 size-5 flex items-center justify-center rounded text-[10px] font-black border border-amber-200 shadow-sm">R</div>
                 <span className="font-medium">Reposição</span>
             </div>
@@ -216,13 +220,14 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
             });
         });
 
-        const isManualDone = student.journey?.memberCourseProgress?.[`module${modId}`];
+        const isTheoflixDone = !!(regularAttendance?.isOnline || student.journey?.theoflixAttendance?.[courseId]?.[modIndex] || (student.journey?.theoflixProgress?.[courseId] && Object.values(student.journey.theoflixProgress[courseId]).some(v => v === true)));
+        const isManualDone = !!(student.journey?.memberCourseProgress?.[`module${modId}`]);
         
         return {
-            isDone: !!(regularAttendance || repositionAttendance || isManualDone),
+            isDone: !!(regularAttendance || repositionAttendance || isTheoflixDone || isManualDone),
             isRepo: !!(!regularAttendance && repositionAttendance),
-            isOnline: !!(regularAttendance?.isOnline),
-            isManual: !!(isManualDone && !regularAttendance && !repositionAttendance),
+            isOnline: isTheoflixDone,
+            isManual: !!(isManualDone && !regularAttendance && !repositionAttendance && !isTheoflixDone),
             data: regularAttendance || repositionAttendance
         };
     };
@@ -594,8 +599,28 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
                                                                     </TooltipContent>
                                                                 </Tooltip>
                                                             );
-                                                        } else if (status.isOnline || status.isManual) {
-                                                            icon = <PlayCircle className="size-5 mx-auto text-indigo-500" />;
+                                                        } else if (status.isOnline) {
+                                                            icon = (
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <div className="cursor-help mx-auto w-fit">
+                                                                            <PlayCircle className="size-5 text-indigo-500" />
+                                                                        </div>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent><p className="text-xs font-bold">Assistido no TheoFlix</p></TooltipContent>
+                                                                </Tooltip>
+                                                            );
+                                                        } else if (status.isManual) {
+                                                            icon = (
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <div className="cursor-help mx-auto w-fit">
+                                                                            <CheckCircle2 className="size-5 text-purple-500" />
+                                                                        </div>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent><p className="text-xs font-bold">Aprovação / Progresso Manual</p></TooltipContent>
+                                                                </Tooltip>
+                                                            );
                                                         } else {
                                                             icon = <CheckCircle2 className="size-5 mx-auto text-emerald-500" />;
                                                         }

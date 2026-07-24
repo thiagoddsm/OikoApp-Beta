@@ -47,15 +47,13 @@ export function ClassPerformanceReport({ classData }: { classData: Class }) {
     // Only includes past dates that had at least one student recorded.
     const classOccurrences = useMemo(() => {
         if (!classData?.attendance) return [];
-        // Matches YYYY-MM-DD or YYYY-MM-DD-N (second/third sessions on the same day)
-        const validDateRegex = /^\d{4}-\d{2}-\d{2}(-\d+)?$/;
         const today = format(new Date(), 'yyyy-MM-dd');
         return (classData.attendance as Array<{ date: string; presentStudentIds?: string[]; onlineStudentIds?: string[] }>)
-            .filter(a =>
-                validDateRegex.test(a.date) &&
-                a.date.substring(0, 10) <= today &&
-                ((a.presentStudentIds?.length ?? 0) + (a.onlineStudentIds?.length ?? 0)) > 0
-            )
+            .filter(a => {
+                if (!a.date) return false;
+                const dateOnly = a.date.split('T')[0];
+                return dateOnly <= today && ((a.presentStudentIds?.length ?? 0) + (a.onlineStudentIds?.length ?? 0)) > 0;
+            })
             .map(a => a.date)
             .sort();
     }, [classData?.attendance]);
