@@ -37,6 +37,7 @@ import {
   Shield,
   CalendarClock,
   Music2,
+  PlayCircle,
   Save,
   LayoutTemplate,
   School,
@@ -154,6 +155,7 @@ const menuItems = [
                 label: "Ferramentas", 
                 icon: Wrench,
                 subItems: [
+                  { href: "/dashboard/teaching/theoflix", label: "TheoFlix (EAD & Quizzes)", icon: PlayCircle, permissionId: 'teaching_courses' },
                   { href: "/dashboard/teaching/diario", label: "Diário & Ponto", icon: CheckSquare, permissionId: 'teaching_courses' },
                   { href: "/dashboard/teaching/reposicoes", label: "Fila de Reposições", icon: History, permissionId: 'teaching_courses' },
                 ]

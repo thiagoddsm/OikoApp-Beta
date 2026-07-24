@@ -327,6 +327,23 @@ export default function ProgramDetailPage() {
             </TabsContent>
           )}
 
+          {/* Tab 6: Quizzes & EAD */}
+          {capabilities.includes('quizzes') && (
+            <TabsContent value="quizzes">
+              <Card className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-xl">
+                <CardHeader>
+                  <CardTitle>Quizzes, Conteúdos EAD & Vídeos TheoFlix</CardTitle>
+                  <CardDescription>Plataforma de videoaulas, episódios, questionários e acompanhamento de respostas.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Link href="/dashboard/teaching/theoflix">
+                    <Button className="bg-indigo-600 text-white">Abrir Portal TheoFlix & Quizzes</Button>
+                  </Link>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+
           {/* Tab 6: Students */}
           <TabsContent value="students">
             <StudentsManagement 

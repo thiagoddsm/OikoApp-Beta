@@ -221,7 +221,9 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
         });
 
         const isTheoflixDone = !!(regularAttendance?.isOnline || student.journey?.theoflixAttendance?.[courseId]?.[modIndex] || (student.journey?.theoflixProgress?.[courseId] && Object.values(student.journey.theoflixProgress[courseId]).some(v => v === true)));
-        const isManualDone = !!(student.journey?.memberCourseProgress?.[`module${modId}`]);
+        const isManualDone = isMembership 
+            ? !!(student.journey?.memberCourseProgress?.[`module${modId}`]) 
+            : !!(student.journey?.courseProgress?.[courseId]?.[`module${modId}`]);
         
         return {
             isDone: !!(regularAttendance || repositionAttendance || isTheoflixDone || isManualDone),
