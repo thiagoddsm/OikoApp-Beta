@@ -3,14 +3,15 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { encrypt } from '@/lib/encryption';
 import { AuthorizationService } from '@/services/AuthorizationService';
 import { AuditService } from '@/services/AuditService';
+import { requireAuth } from '@/lib/server-auth';
 
 export async function POST(req: NextRequest) {
   try {
-    const { tenantId, userId, apiKey, webhookToken, asaasEnv } = await req.json();
+    const { context, errorResponse } = await requireAuth(req, ['admin', 'finance']);
+    if (errorResponse) return errorResponse;
 
-    if (!tenantId || !userId) {
-      return NextResponse.json({ error: 'Faltam parâmetros obrigatórios' }, { status: 400 });
-    }
+    const { apiKey, webhookToken, asaasEnv } = await req.json();
+    const { tenantId, userId } = context;
 
     // 1. Autorização: Verifica se o usuário pode gerenciar finanças deste tenant
     const canManage = await AuthorizationService.canManageFinance(userId, tenantId);
@@ -49,6 +50,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('[AsaasConfig API]', error);
-    return NextResponse.json({ error: error.message || 'Erro interno ao salvar configurações' }, { status: 500 });
+    return NextResponse.json({ error: 'Erro interno ao salvar configurações' }, { status: 500 });
   }
 }

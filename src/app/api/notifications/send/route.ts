@@ -1,11 +1,15 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
+import { requireAuth } from '@/lib/server-auth';
 
 export const runtime = 'nodejs';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const { context, errorResponse } = await requireAuth(request, ['admin', 'communication']);
+    if (errorResponse) return errorResponse;
+
     const db = getAdminDb();
     const body = await request.json();
     const { 
@@ -14,8 +18,6 @@ export async function POST(request: Request) {
         message, 
         userIds, 
         targetNumber, 
-        serverUrl: bodyServerUrl,
-        instanceKey: bodyInstanceKey,
         ...rest
     } = body;
 
@@ -23,9 +25,9 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Canal de notificação inválido." }, { status: 400 });
     }
     
-    // 1. Buscar as configurações de notificação (chaves e parâmetros anti-ban)
-    let apiKey = bodyInstanceKey;
-    let serverUrl = bodyServerUrl;
+    // 1. Buscar as configurações protegidas no servidor
+    let apiKey = process.env.EVOLUTION_API_KEY;
+    let serverUrl = process.env.EVOLUTION_API_URL;
     let configData: any = null;
 
     try {
@@ -37,12 +39,12 @@ export async function POST(request: Request) {
         }
     } catch (e: any) {
         if (!apiKey) {
-            return NextResponse.json({ error: `Erro de permissão ao ler configurações e chaves não fornecidas: ${e.message}` }, { status: 403 });
+            return NextResponse.json({ error: 'Erro ao carregar credenciais do gateway de notificação.' }, { status: 403 });
         }
     }
 
     if (!apiKey) {
-        return NextResponse.json({ error: "Gateway de WhatsApp não configurado. Token da API ausente." }, { status: 400 });
+        return NextResponse.json({ error: "Gateway de WhatsApp não configurado no servidor." }, { status: 400 });
     }
 
     const delayMin = configData?.delayMin !== undefined ? Number(configData.delayMin) : 20;
@@ -54,7 +56,8 @@ export async function POST(request: Request) {
     const deepSleepMin = configData?.deepSleepMin !== undefined ? Number(configData.deepSleepMin) : 180;
     const deepSleepMax = configData?.deepSleepMax !== undefined ? Number(configData.deepSleepMax) : 300;
 
-    const baseUrl = serverUrl.replace(/\/$/, '');
+    const safeServerUrl = serverUrl || 'https://us.api-wa.me';
+    const baseUrl = safeServerUrl.replace(/\/$/, '');
 
     // Buscar todos os números cadastrados na blacklist
     const blacklistedNumbers = new Set<string>();
@@ -160,7 +163,7 @@ export async function POST(request: Request) {
     // Retorna imediatamente para o navegador. Processamento continua no servidor.
     const processInBackground = async () => {
         const { getWhatsAppClient, formatWhatsAppNumber } = await import('@/lib/whatsapp');
-        const whatsapp = await getWhatsAppClient({ server: serverUrl, key: apiKey });
+        const whatsapp = await getWhatsAppClient({ server: safeServerUrl, key: apiKey });
 
         let sentCount = 0;
         let errorCount = 0;

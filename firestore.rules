@@ -176,6 +176,60 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ── Audit Logs (Imutável, Somente Leitura por Admin, Escrita exclusiva pelo Servidor) ──
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false; // Nenhuma escrita de cliente permitida
+    }
+
+    // ── Módulo de Ensino Avançado (Academic Enrollments & Cycles) ───────────────
+    match /academic_enrollments/{enrollmentId} {
+      allow create: if isAuthenticated() && (
+        !('tenantId' in request.resource.data) || 
+        request.resource.data.tenantId == request.auth.token.tenantId || 
+        request.auth.token.tenantId == null
+      );
+      allow read, delete: if isAuthenticated() && (
+        !('tenantId' in resource.data) || 
+        resource.data.tenantId == request.auth.token.tenantId || 
+        request.auth.token.tenantId == null
+      );
+      allow update: if isAuthenticated() && (
+        !('tenantId' in resource.data) || 
+        resource.data.tenantId == request.auth.token.tenantId || 
+        request.auth.token.tenantId == null
+      ) && (
+        !('tenantId' in request.resource.data) || 
+        request.resource.data.tenantId == resource.data.tenantId
+      );
+    }
+
+    match /academic_cycles/{cycleId} {
+      allow read: if true;
+      allow write: if isAuthenticated();
+    }
+
+    match /tuition_fees/{feeId} {
+      allow create: if isAuthenticated() && (
+        !('tenantId' in request.resource.data) || 
+        request.resource.data.tenantId == request.auth.token.tenantId || 
+        request.auth.token.tenantId == null
+      );
+      allow read, delete: if isAuthenticated() && (
+        !('tenantId' in resource.data) || 
+        resource.data.tenantId == request.auth.token.tenantId || 
+        request.auth.token.tenantId == null
+      );
+      allow update: if isAuthenticated() && (
+        !('tenantId' in resource.data) || 
+        resource.data.tenantId == request.auth.token.tenantId || 
+        request.auth.token.tenantId == null
+      ) && (
+        !('tenantId' in request.resource.data) || 
+        request.resource.data.tenantId == resource.data.tenantId
+      );
+    }
+
     // ── Asaas (Financeiro externo) ────────────────────────────────────────────
     match /system_settings/{document=**} { allow read, write: if isAdmin(); }
     match /asaasPayments/{document=**} { allow read, write: if isAdmin(); }
