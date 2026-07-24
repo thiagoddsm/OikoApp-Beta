@@ -48,3 +48,8 @@ export interface EffectiveCapabilities {
   capabilities: CapabilityId[];
   attendanceMode: AttendanceMode;
 }
+
+export * from './academic-cycle-types';
+export * from './track-types';
+export * from './enrollment-types';
+export * from '../finance/financial-plan-types';

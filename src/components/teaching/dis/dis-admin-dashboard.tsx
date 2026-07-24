@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo, useState } from 'react';
@@ -7,11 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Users, Inbox, BookOpen, GraduationCap, ChevronRight, TrendingUp, UserPlus, PlusCircle, LayoutDashboard, Search } from 'lucide-react';
+import { Loader2, Users, Inbox, BookOpen, GraduationCap, ChevronRight, TrendingUp, UserPlus, PlusCircle, LayoutDashboard, Search, Rocket } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from 'recharts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EnrollmentDialog } from '../enrollment-dialog';
 import { ClassFormDialog } from '../class-form-dialog';
+import { ClassPromotionDialog } from '../class-promotion-dialog';
 import { EnrollmentRequestsList } from '../enrollment-requests-list';
 import { StudentsManagement } from '../students-management';
 import { TeachersManagement } from '../teachers-management';
@@ -28,12 +28,13 @@ const growthData = [
 
 export function DisAdminDashboard() {
     const { users } = useMembersData();
-    const { courses, classes, enrollmentRequests, pedagogicalLogs, theoflixCourses } = useCoursesData();
+    const { courses, classes, enrollmentRequests } = useCoursesData();
 
   const { isLoading } = useVolunteering();
   const [activeTab, setActiveTab] = useState('overview');
   const [isEnrollmentOpen, setEnrollmentOpen] = useState(false);
   const [isClassFormOpen, setClassFormOpen] = useState(false);
+  const [selectedClassForPromotion, setSelectedClassForPromotion] = useState<any>(null);
 
   const disCourses = useMemo(() => 
     courses.filter((c: any) => {
@@ -235,6 +236,14 @@ export function DisAdminDashboard() {
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex items-center justify-end gap-2">
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    onClick={() => setSelectedClassForPromotion(cls)}
+                                                    className="border-purple-200 text-purple-700 hover:bg-purple-50 font-bold text-xs gap-1"
+                                                >
+                                                    <Rocket className="size-3.5 text-purple-600" /> Promover
+                                                </Button>
                                                 <Button variant="outline" size="sm" asChild className="border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-medium text-xs">
                                                     <Link href={`/dashboard/teaching/log/${cls.id}`}>
                                                         Lançar Presença
@@ -273,6 +282,14 @@ export function DisAdminDashboard() {
             courseId={primaryDisCourseId} 
         />
       )}
+
+      <ClassPromotionDialog 
+          open={!!selectedClassForPromotion} 
+          onOpenChange={(open) => !open && setSelectedClassForPromotion(null)} 
+          currentClass={selectedClassForPromotion} 
+          allClasses={disClasses} 
+          allCourses={disCourses} 
+      />
     </div>
   );
 }
