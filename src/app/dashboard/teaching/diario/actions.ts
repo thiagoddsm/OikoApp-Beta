@@ -49,7 +49,7 @@ export async function getLessonsAction(teacherId?: string) {
     const db = getAdminDb();
     let queryRef: any = db.collection('aulas');
     
-    if (teacherId) {
+    if (teacherId && teacherId !== 'all') {
       queryRef = queryRef.where('professor_id', '==', teacherId);
     }
     
@@ -81,6 +81,39 @@ export async function getLessonsAction(teacherId?: string) {
     return { success: true, data: lessons };
   } catch (error: any) {
     console.error('Error in getLessonsAction:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function createLessonAction(params: {
+  professor_id: string;
+  aluno_id?: string;
+  class_id?: string;
+  course_id?: string;
+  data_agendada: string;
+  horario_inicio_agendado: string;
+  conteudo_ministrado?: string;
+}) {
+  try {
+    const db = getAdminDb();
+    const docRef = db.collection('aulas').doc();
+    const dateObj = new Date(`${params.data_agendada}T12:00:00`);
+    
+    await docRef.set({
+      professor_id: params.professor_id,
+      aluno_id: params.aluno_id || '',
+      class_id: params.class_id || '',
+      course_id: params.course_id || '',
+      data_agendada: Timestamp.fromDate(dateObj),
+      horario_inicio_agendado: params.horario_inicio_agendado || '19:30',
+      conteudo_ministrado: params.conteudo_ministrado || '',
+      status: 'agendada',
+      criadoEm: FieldValue.serverTimestamp()
+    });
+    
+    return { success: true, id: docRef.id };
+  } catch (error: any) {
+    console.error('Error in createLessonAction:', error);
     return { success: false, error: error.message };
   }
 }

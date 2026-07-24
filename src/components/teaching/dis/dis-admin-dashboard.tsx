@@ -36,7 +36,14 @@ export function DisAdminDashboard() {
   const [isClassFormOpen, setClassFormOpen] = useState(false);
 
   const disCourses = useMemo(() => 
-    courses.filter(c => c.ministryName.toLowerCase() === 'dis' || c.name.toLowerCase().includes('libras')),
+    courses.filter((c: any) => {
+      const m = (c.ministryName || '').toLowerCase();
+      const min = (c.ministry || '').toLowerCase();
+      const name = (c.name || '').toLowerCase();
+      const school = (c.schoolId || '').toLowerCase();
+      const program = (c.programId || '').toLowerCase();
+      return school === 'dis' || program === 'dis' || min === 'dis' || m.includes('dis') || name.includes('libras') || name.includes('dis');
+    }),
     [courses]
   );
 
@@ -214,7 +221,11 @@ export function DisAdminDashboard() {
                             <TableBody>
                                 {disClasses.map(cls => (
                                     <TableRow key={cls.id}>
-                                        <TableCell className="font-bold">{cls.name}</TableCell>
+                                        <TableCell className="font-bold">
+                                            <Link href={`/dashboard/teaching/classes/${cls.id}`} className="hover:underline text-indigo-600 dark:text-indigo-400 font-bold">
+                                                {cls.name}
+                                            </Link>
+                                        </TableCell>
                                         <TableCell>{users.find(u => u.id === cls.teacherId)?.name || 'A definir'}</TableCell>
                                         <TableCell className="text-xs">
                                             {cls.dayOfWeek} às {cls.startTime}
@@ -223,11 +234,18 @@ export function DisAdminDashboard() {
                                             <Badge variant="secondary">{cls.students?.length || 0}</Badge>
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <Button variant="ghost" size="sm" asChild>
-                                                <Link href={`/dashboard/teaching/classes/${cls.id}`}>
-                                                    Gerenciar <ChevronRight className="h-4 w-4 ml-1" />
-                                                </Link>
-                                            </Button>
+                                            <div className="flex items-center justify-end gap-2">
+                                                <Button variant="outline" size="sm" asChild className="border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-medium text-xs">
+                                                    <Link href={`/dashboard/teaching/log/${cls.id}`}>
+                                                        Lançar Presença
+                                                    </Link>
+                                                </Button>
+                                                <Button variant="ghost" size="sm" asChild>
+                                                    <Link href={`/dashboard/teaching/classes/${cls.id}`}>
+                                                        Gerenciar <ChevronRight className="h-4 w-4 ml-1" />
+                                                    </Link>
+                                                </Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))}

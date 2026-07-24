@@ -7,15 +7,25 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useFirebase } from '@/firebase';
-import { getLessonsAction, startLessonAction, finishLessonAction, reportAbsenceAction, Lesson } from './actions';
-import { Play, CheckCircle, AlertCircle, Clock, BookOpen, UserCheck, Loader2, Calendar } from 'lucide-react';
+import Link from 'next/link';
+import { useFirebase, useDoc } from '@/firebase';
+import { getLessonsAction, startLessonAction, finishLessonAction, reportAbsenceAction, createLessonAction, Lesson } from './actions';
+import { Play, CheckCircle, AlertCircle, Clock, BookOpen, UserCheck, Loader2, Calendar, PlusCircle, CheckSquare, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useCoursesData, useMembersData } from "@/hooks/useDomainData";
 
 export default function DiarioDeClassePage() {
   const { user } = useFirebase();
   const { toast } = useToast();
+  const { courses, classes } = useCoursesData();
+  const { users } = useMembersData();
   
+  const { data: userData } = useDoc<any>(user ? `users/${user.uid}` : null);
+  const userRole = userData?.hierarchy?.role;
+  const isAdminOrCoordinator = userRole === 'admin' || userRole === 'pastor_senior' || userRole === 'coordenador';
+
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -24,18 +34,27 @@ export default function DiarioDeClassePage() {
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
   const [isAbsenceModalOpen, setIsAbsenceModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isLogClassOpen, setIsLogClassOpen] = useState(false);
 
   // Form Fields
   const [conteudo, setConteudo] = useState('');
   const [motivoFalta, setMotivoFalta] = useState<'falta_aluno' | 'falta_professor'>('falta_aluno');
   const [submitting, setSubmitting] = useState(false);
 
+  // New Lesson Form
+  const [selectedClassId, setSelectedClassId] = useState<string>('');
+  const [selectedTeacherId, setSelectedTeacherId] = useState<string>('');
+  const [selectedStudentId, setSelectedStudentId] = useState<string>('');
+  const [lessonDate, setLessonDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [lessonTime, setLessonTime] = useState<string>('19:30');
+
   // Fetch Lessons
   useEffect(() => {
     if (!user) return;
     setLoading(true);
-    // If user is admin (role admin) they could fetch all, but here we query for the current teacher first.
-    getLessonsAction(user.uid)
+    const targetTeacherId = isAdminOrCoordinator ? 'all' : user.uid;
+    getLessonsAction(targetTeacherId)
       .then(res => {
         if (res.success && res.data) {
           setLessons(res.data);
@@ -44,7 +63,7 @@ export default function DiarioDeClassePage() {
         }
       })
       .finally(() => setLoading(false));
-  }, [user, refreshTrigger]);
+  }, [user, refreshTrigger, isAdminOrCoordinator]);
 
   // Today's lessons filtering
   const todayLessons = useMemo(() => {
@@ -145,6 +164,34 @@ export default function DiarioDeClassePage() {
     }
   };
 
+  const handleCreateLesson = async () => {
+    if (!selectedClassId && !selectedTeacherId) {
+      toast({ title: "Preencha os campos", description: "Selecione pelo menos uma turma ou professor.", variant: "destructive" });
+      return;
+    }
+    try {
+      setSubmitting(true);
+      const res = await createLessonAction({
+        professor_id: selectedTeacherId || user?.uid || '',
+        aluno_id: selectedStudentId || '',
+        class_id: selectedClassId || '',
+        data_agendada: lessonDate,
+        horario_inicio_agendado: lessonTime
+      });
+      if (res.success) {
+        toast({ title: "Aula Agendada!", description: "A nova aula foi adicionada ao diário." });
+        setIsCreateModalOpen(false);
+        setRefreshTrigger(prev => prev + 1);
+      } else {
+        toast({ title: "Erro", description: res.error || "Não foi possível agendar a aula", variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -153,16 +200,31 @@ export default function DiarioDeClassePage() {
             <BookOpen className="size-6 text-indigo-500" />
             Diário de Classe & Ponto Eletrônico
           </h1>
-          <p className="text-sm text-slate-400">Ponto eletrônico seguro e controle de reposições das turmas do Wave.</p>
+          <p className="text-sm text-slate-400">Ponto eletrônico seguro, diário de classe e lançamento de presença para todas as turmas (DIS, Wave, Lumine, Crescer, Pertencer, Teologia).</p>
         </div>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => setRefreshTrigger(prev => prev + 1)}
-          className="gap-2"
-        >
-          <Calendar className="size-4" /> Atualizar Aulas
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button 
+            onClick={() => setIsLogClassOpen(true)}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs gap-1.5"
+          >
+            <CheckSquare className="size-4" /> Lançar Chamada por Turma
+          </Button>
+          <Button 
+            onClick={() => setIsCreateModalOpen(true)}
+            variant="outline"
+            className="border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-bold text-xs gap-1.5"
+          >
+            <PlusCircle className="size-4" /> + Agendar Nova Aula
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setRefreshTrigger(prev => prev + 1)}
+            className="gap-2"
+          >
+            <Calendar className="size-4" /> Atualizar
+          </Button>
+        </div>
       </div>
 
       {loading && lessons.length === 0 ? (
@@ -328,6 +390,107 @@ export default function DiarioDeClassePage() {
             >
               {submitting ? 'Salvando...' : 'Confirmar Falta'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Agendar Nova Aula Modal */}
+      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Agendar Nova Aula / Mentoria</DialogTitle>
+            <DialogDescription>
+              Cadastre o agendamento da aula para que fique disponível no diário do professor.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Turma / Curso (Opcional)</Label>
+              <Select value={selectedClassId} onValueChange={setSelectedClassId}>
+                <SelectTrigger><SelectValue placeholder="Selecione a turma..." /></SelectTrigger>
+                <SelectContent>
+                  {classes.map(c => {
+                    const crs = courses.find(co => co.id === c.courseId);
+                    return (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name} ({crs?.name || 'Curso'})
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Professor / Mentor</Label>
+              <Select value={selectedTeacherId} onValueChange={setSelectedTeacherId}>
+                <SelectTrigger><SelectValue placeholder="Selecione o professor..." /></SelectTrigger>
+                <SelectContent>
+                  {users.filter(u => u.isTeacher || u.hierarchy?.role === 'admin' || u.hierarchy?.role === 'professor').map(u => (
+                    <SelectItem key={u.id} value={u.id}>{u.name} ({u.email})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Data Agendada</Label>
+                <Input type="date" value={lessonDate} onChange={e => setLessonDate(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Horário de Início</Label>
+                <Input type="time" value={lessonTime} onChange={e => setLessonTime(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handleCreateLesson} disabled={submitting} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+              {submitting ? 'Agendando...' : 'Salvar Agendamento'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Lançar Chamada por Turma Modal */}
+      <Dialog open={isLogClassOpen} onOpenChange={setIsLogClassOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Lançar Presença por Turma</DialogTitle>
+            <DialogDescription>
+              Selecione a turma para abrir a chamada rápida de presença e diário de conteúdo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Selecione a Turma</Label>
+              <Select value={selectedClassId} onValueChange={setSelectedClassId}>
+                <SelectTrigger><SelectValue placeholder="Escolha uma turma para lançar presença..." /></SelectTrigger>
+                <SelectContent>
+                  {classes.map(c => {
+                    const crs = courses.find(co => co.id === c.courseId);
+                    return (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name} — {crs?.name || 'Curso'} ({c.students?.length || 0} alunos)
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsLogClassOpen(false)}>Cancelar</Button>
+            {selectedClassId ? (
+              <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold">
+                <Link href={`/dashboard/teaching/log/${selectedClassId}`}>
+                  Abrir Chamada da Turma
+                </Link>
+              </Button>
+            ) : (
+              <Button disabled className="bg-slate-300">Abrir Chamada da Turma</Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
