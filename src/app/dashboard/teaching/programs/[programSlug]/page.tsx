@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Music2, BookOpen, Hand, HeartHandshake, PlayCircle, GraduationCap, ArrowLeft, Users, DollarSign, CheckSquare, History, FileQuestion, PlusCircle } from 'lucide-react';
+import { Loader2, Music2, BookOpen, Hand, HeartHandshake, PlayCircle, GraduationCap, ArrowLeft, Users, DollarSign, CheckSquare, History, FileQuestion, PlusCircle, Folder } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { VolunteeringProvider } from '@/contexts/volunteering-context';
@@ -16,6 +16,7 @@ import { WaveAdminDashboard } from '@/components/teaching/wave/admin-dashboard';
 import { WaveFinanceDashboard } from '@/components/teaching/wave/wave-finance-dashboard';
 import { StudentsManagement } from '@/components/teaching/students-management';
 import { ClassFormDialog } from '@/components/teaching/class-form-dialog';
+import { HierarchicalMaterialsManager } from '@/components/teaching/materials/hierarchical-materials-manager';
 import { useCoursesData, useMembersData } from '@/hooks/useDomainData';
 import { useFirebase } from '@/firebase';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
@@ -188,6 +189,10 @@ export default function ProgramDetailPage() {
               </TabsTrigger>
             )}
 
+            <TabsTrigger value="materials" className="rounded-lg text-xs font-semibold py-2 flex items-center gap-1.5">
+              <Folder className="size-3.5" /> Materiais
+            </TabsTrigger>
+
             <TabsTrigger value="students" className="rounded-lg text-xs font-semibold py-2 flex items-center gap-1.5">
               <Users className="size-3.5" /> Alunos
             </TabsTrigger>
@@ -344,7 +349,16 @@ export default function ProgramDetailPage() {
             </TabsContent>
           )}
 
-          {/* Tab 6: Students */}
+          {/* Tab 7: Materials */}
+          <TabsContent value="materials">
+            <HierarchicalMaterialsManager 
+              programName={program.name} 
+              courseName={programCourses[0]?.name || 'Curso do Programa'} 
+              canManage={true} 
+            />
+          </TabsContent>
+
+          {/* Tab 8: Students */}
           <TabsContent value="students">
             <StudentsManagement 
               filterCourseIds={Array.from(programCourseIds)} 

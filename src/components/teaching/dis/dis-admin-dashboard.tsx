@@ -6,12 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Users, Inbox, BookOpen, GraduationCap, ChevronRight, TrendingUp, UserPlus, PlusCircle, LayoutDashboard, Search, Rocket } from 'lucide-react';
+import { Loader2, Users, Inbox, BookOpen, GraduationCap, ChevronRight, TrendingUp, UserPlus, PlusCircle, LayoutDashboard, Search, Rocket, DollarSign, Folder } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from 'recharts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EnrollmentDialog } from '../enrollment-dialog';
+import { AcademicEnrollmentWizard } from '../enrollment-wizard-dialog';
 import { ClassFormDialog } from '../class-form-dialog';
 import { ClassPromotionDialog } from '../class-promotion-dialog';
+import { MensalidadesManager } from '../finance/mensalidades-manager';
+import { HierarchicalMaterialsManager } from '../materials/hierarchical-materials-manager';
 import { EnrollmentRequestsList } from '../enrollment-requests-list';
 import { StudentsManagement } from '../students-management';
 import { TeachersManagement } from '../teachers-management';
@@ -118,12 +121,14 @@ export function DisAdminDashboard() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 max-w-2xl mb-6">
+        <TabsList className="grid w-full grid-cols-7 max-w-4xl mb-6">
             <TabsTrigger value="overview"><LayoutDashboard className="size-4 mr-2"/>Geral</TabsTrigger>
             <TabsTrigger value="requests">Solicitações {pendingRequestsCount > 0 && <Badge className="ml-2 h-4 px-1">{pendingRequestsCount}</Badge>}</TabsTrigger>
             <TabsTrigger value="students">Alunos</TabsTrigger>
             <TabsTrigger value="classes">Turmas</TabsTrigger>
             <TabsTrigger value="teachers">Professores</TabsTrigger>
+            <TabsTrigger value="finance"><DollarSign className="size-4 mr-1"/>Mensalidades</TabsTrigger>
+            <TabsTrigger value="materials"><Folder className="size-4 mr-1"/>Materiais</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6 animate-in fade-in-50">
@@ -271,9 +276,17 @@ export function DisAdminDashboard() {
         <TabsContent value="teachers" className="animate-in slide-in-from-left-4">
             <TeachersManagement filterCourseIds={disCourseIds} />
         </TabsContent>
+
+        <TabsContent value="finance" className="animate-in slide-in-from-left-4">
+            <MensalidadesManager canUpdateStatus={true} />
+        </TabsContent>
+
+        <TabsContent value="materials" className="animate-in slide-in-from-left-4">
+            <HierarchicalMaterialsManager programName="DIS - Libras" courseName="Curso de Libras" canManage={true} />
+        </TabsContent>
       </Tabs>
 
-      <EnrollmentDialog open={isEnrollmentOpen} onOpenChange={setEnrollmentOpen} />
+      <AcademicEnrollmentWizard open={isEnrollmentOpen} onOpenChange={setEnrollmentOpen} defaultProgramId="dis" defaultCourseId={primaryDisCourseId} />
       
       {primaryDisCourseId && (
         <ClassFormDialog 
