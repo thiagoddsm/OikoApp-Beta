@@ -17,7 +17,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { addTimelineEvent } from '@/lib/timeline';
-import { useFirebase } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { RetroactiveApprovalDialog } from './retroactive-approval-dialog';
 import { CertificateView } from './certificate-view';
@@ -80,6 +81,13 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(15);
+    
+    // Fetch quiz attempts to accurately track TheoFlix quiz completions
+    const quizAttemptsQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return query(collection(firestore, 'theoflix_quiz_attempts'));
+    }, [firestore]);
+    const { data: quizAttempts } = useCollection<any>(quizAttemptsQuery);
     
     // Filtros de coluna
     const [columnFilters, setColumnFilters] = useState<Record<string, string>>({});
@@ -220,7 +228,58 @@ export function CourseAttendanceMatrix({ courseId }: { courseId: string }) {
             });
         });
 
-        const isTheoflixDone = !!(regularAttendance?.isOnline || student.journey?.theoflixAttendance?.[courseId]?.[modIndex] || (student.journey?.theoflixProgress?.[courseId] && Object.values(student.journey.theoflixProgress[courseId]).some(v => v === true)));
+        const targetTheoflixIds = [
+            courseId,
+            course?.linkedTheoflixId,
+            (course as any)?.slug,
+            course?.name?.toLowerCase()
+        ].filter(Boolean) as string[];
+
+        const currentModTitle = (modules[modIndex]?.title || '').toLowerCase();
+
+        // 1. Checar tentativas de quizzes aprovadas em theoflix_quiz_attempts
+        const hasApprovedQuiz = quizAttempts?.some((att: any) => {
+            const matchesUser = att.userId === student.id || (att.userEmail && student.email && att.userEmail.toLowerCase() === student.email.toLowerCase());
+            if (!matchesUser || att.approved === false) return false;
+
+            const attCourseId = (att.courseId || '').toLowerCase();
+            const attCourseTitle = (att.courseTitle || '').toLowerCase();
+
+            const matchesCourse = targetTheoflixIds.some(id => 
+                id && (attCourseId.includes(id.toLowerCase()) || attCourseTitle.includes(id.toLowerCase()))
+            );
+            if (!matchesCourse) return false;
+
+            const attEpId = String(att.episodeId ?? '');
+            const attEpTitle = (att.episodeTitle || '').toLowerCase();
+            
+            return attEpId === String(modIndex) || 
+                   attEpId === String(modId) || 
+                   (currentModTitle && attEpTitle.includes(currentModTitle)) ||
+                   (currentModTitle && currentModTitle.includes(attEpTitle));
+        });
+
+        // 2. Checar progresso no documento do usuário
+        const hasTheoflixUserProgress = targetTheoflixIds.some(tId => {
+            if (!tId) return false;
+            const attMap = student.journey?.theoflixAttendance?.[tId];
+            if (attMap?.[modIndex] || attMap?.[modId]) return true;
+
+            const progMap = student.journey?.theoflixProgress?.[tId];
+            if (progMap) {
+                if (typeof progMap === 'object') {
+                    const values = Object.values(progMap);
+                    if (values[modIndex] === true) return true;
+                    if (currentModTitle) {
+                        const keys = Object.keys(progMap);
+                        if (keys.some(k => k.toLowerCase().includes(currentModTitle) && progMap[k] === true)) return true;
+                    }
+                }
+            }
+            return false;
+        });
+
+        const isTheoflixDone = !!(regularAttendance?.isOnline || hasApprovedQuiz || hasTheoflixUserProgress);
         const isManualDone = isMembership 
             ? !!(student.journey?.memberCourseProgress?.[`module${modId}`]) 
             : !!(student.journey?.courseProgress?.[courseId]?.[`module${modId}`]);
