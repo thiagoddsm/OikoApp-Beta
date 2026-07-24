@@ -139,7 +139,22 @@ function PedagogicalLogPageContent() {
         }
     }, [selectedDate, classData, pedagogicalLogs, classId, currentModuleIndex, moduleNames]);
 
-    const isMemberCourse = courseData?.name?.toLowerCase().includes('membro') || courseData?.name?.toLowerCase().includes('pertencer');
+    const isMemberCourse = useMemo(() => {
+        if (!courseData) return false;
+        const nameLower = (courseData.name || '').toLowerCase();
+        const ministryNameLower = (courseData.ministryName || '').toLowerCase();
+        const ministryLower = ((courseData as any).ministry || '').toLowerCase();
+        const schoolId = (courseData as any).schoolId;
+        const programId = (courseData as any).programId;
+
+        return nameLower.includes('membro') || 
+               nameLower.includes('pertencer') || 
+               schoolId === 'lumine' || 
+               programId === 'lumine' || 
+               ministryNameLower.includes('lumine') || 
+               ministryNameLower.includes('ebd') || 
+               ministryLower.includes('lumine');
+    }, [courseData]);
 
     const enrolledStudents = useMemo(() => {
         if (!users || !classData?.students) return [];

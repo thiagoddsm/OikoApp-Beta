@@ -254,7 +254,7 @@ export function CoursesManagement() {
           ) : (
              <div className="space-y-10">
                 {Object.entries(groupedCourses).sort(([a], [b]) => a.localeCompare(b)).map(([ministry, ministryCourses]) => {
-                    const isLumine = ministry.toLowerCase().includes('lumine') || ministry.toLowerCase().includes('ebd');
+                    const isLumine = ministry.toLowerCase().includes('lumine') || ministry.toLowerCase().includes('ebd') || ministryCourses.some(c => (c as any).schoolId === 'lumine' || (c as any).programId === 'lumine');
                     
                     if (isLumine) {
                         const tracks = {

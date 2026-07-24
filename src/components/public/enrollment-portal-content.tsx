@@ -20,7 +20,11 @@ export function EnrollmentPortalContent() {
     const defaultTab = searchParams.get('tab') || 'lumine';
 
     const lumineCourses = useMemo(() => 
-        courses.filter(c => c.ministryName.toLowerCase().includes('lumine') || c.ministryName.toLowerCase().includes('ebd'))
+        courses.filter((c: any) => {
+            const m = (c.ministryName || '').toLowerCase();
+            const min = (c.ministry || '').toLowerCase();
+            return c.schoolId === 'lumine' || c.programId === 'lumine' || m.includes('lumine') || m.includes('ebd') || min.includes('lumine');
+        })
         .sort((a, b) => {
             const getWeight = (name: string) => {
                 const n = name.toLowerCase();
@@ -37,16 +41,23 @@ export function EnrollmentPortalContent() {
     , [courses]);
 
     const schoolCourses = useMemo(() => 
-        courses.filter(c => c.ministryName.toLowerCase().includes('wave') || c.ministryName.toLowerCase().includes('dis'))
+        courses.filter((c: any) => {
+            const m = (c.ministryName || '').toLowerCase();
+            const min = (c.ministry || '').toLowerCase();
+            return c.schoolId === 'wave' || c.programId === 'wave' || c.schoolId === 'dis' || c.programId === 'dis' || 
+                   m.includes('wave') || m.includes('dis') || min.includes('wave') || min.includes('dis');
+        })
     , [courses]);
 
     const otherCourses = useMemo(() => 
-        courses.filter(c => 
-            !c.ministryName.toLowerCase().includes('lumine') && 
-            !c.ministryName.toLowerCase().includes('ebd') &&
-            !c.ministryName.toLowerCase().includes('wave') &&
-            !c.ministryName.toLowerCase().includes('dis')
-        )
+        courses.filter((c: any) => {
+            const m = (c.ministryName || '').toLowerCase();
+            const min = (c.ministry || '').toLowerCase();
+            const isLumine = c.schoolId === 'lumine' || c.programId === 'lumine' || m.includes('lumine') || m.includes('ebd') || min.includes('lumine');
+            const isSchool = c.schoolId === 'wave' || c.programId === 'wave' || c.schoolId === 'dis' || c.programId === 'dis' || 
+                             m.includes('wave') || m.includes('dis') || min.includes('wave') || min.includes('dis');
+            return !isLumine && !isSchool;
+        })
     , [courses]);
 
     const renderCourseCard = (course: any) => {

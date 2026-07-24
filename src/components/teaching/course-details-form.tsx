@@ -46,7 +46,7 @@ export function CourseDetailsForm({ course }: { course: any }) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const groupPicInputRef = React.useRef<HTMLInputElement>(null);
 
-  const isLumine = course.ministryName?.toLowerCase().includes('lumine') || course.ministryName?.toLowerCase().includes('ebd');
+  const isLumine = (course as any).schoolId === 'lumine' || (course as any).programId === 'lumine' || (course as any).ministry === 'lumine' || course.ministryName?.toLowerCase().includes('lumine') || course.ministryName?.toLowerCase().includes('ebd');
 
   useEffect(() => {
     if (course) {

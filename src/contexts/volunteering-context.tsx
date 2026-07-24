@@ -994,7 +994,18 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
     updateEnrollmentRequest: async (id: string, data: any) => { await updateDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id), data); },
     deleteEnrollmentRequest: async (id: string) => { await deleteDocumentNonBlocking(doc(firestore!, 'enrollment_requests', id)); },
     markAttendanceByTheoflix: async (userId: string, theoflixCourseId: string, episodeIndex: number, lessonNotes?: string) => {
-      // Busca cursos e turmas diretamente do Firestore (estado local pode estar vazio)
+      // 1. Atualizar o progresso individual de presenças EAD no documento do usuário
+      if (firestore && userId) {
+        const userRef = doc(firestore, 'users', userId);
+        const moduleKey = `module${episodeIndex + 1}`;
+        await updateDocumentNonBlocking(userRef, {
+          [`journey.theoflixAttendance.${theoflixCourseId}.${episodeIndex}`]: true,
+          [`journey.memberCourseProgress.${moduleKey}`]: true,
+          [`journey.lumineProgress.${theoflixCourseId}.${episodeIndex}`]: true
+        });
+      }
+
+      // 2. Busca cursos e turmas diretamente do Firestore para turmas físicas/híbridas
       const allCoursesSnap = await getDocs(collection(firestore!, 'courses'));
       const allCourses = allCoursesSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
 
@@ -1086,34 +1097,7 @@ export function VolunteeringProvider({ children }: { children: ReactNode }) {
         }
         
         const matchedItem = items.find((i: any) => i.syllabusOriginalIndex === targetSyllabusIndex);
-        if (!matchedItem) continue;
-
-        // Validar se todos os vídeos exigidos para este módulo foram assistidos
-        const mod = syllabus[targetSyllabusIndex] as any;
-        const requiredVideoIds = mod?.theoflixRequiredVideoIds || [];
-        if (requiredVideoIds.length > 0) {
-          const userRef = doc(firestore!, 'users', userId);
-          const userSnap = await getDoc(userRef);
-          const userData = userSnap.data() as any;
-          const userProgress = userData?.journey?.theoflixProgress?.[theoflixCourseId] || {};
-          
-          const currentTheoflixCourse = theoflixCourses?.find((tc: any) => tc.id === theoflixCourseId);
-          const episodes = currentTheoflixCourse?.episodes || [];
-          
-          const allWatched = requiredVideoIds.every((reqIndexStr: string) => {
-            const reqIndex = parseInt(reqIndexStr, 10);
-            const reqEpisode = episodes[reqIndex];
-            if (!reqEpisode) return false;
-            const reqEpKey = reqEpisode.youtubeId || reqEpisode.title.replace(/\s+/g, '_');
-            return userProgress[reqEpKey] === true || reqIndex === episodeIndex;
-          });
-          
-          if (!allWatched) {
-            continue;
-          }
-        }
-        
-        const targetDate = matchedItem.dateStr;
+        const targetDate = matchedItem ? matchedItem.dateStr : (items[targetSyllabusIndex]?.dateStr || format(new Date(), 'yyyy-MM-dd'));
         const existingAttendance = cls.attendance || [];
         const recordIdx = existingAttendance.findIndex((a: any) => a.date === targetDate);
         const notes = lessonNotes?.trim();
