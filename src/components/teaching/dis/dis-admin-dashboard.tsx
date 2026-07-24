@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Loader2, Users, Inbox, BookOpen, GraduationCap, ChevronRight, TrendingUp, UserPlus, PlusCircle, LayoutDashboard, Search, Rocket, DollarSign, Folder } from 'lucide-react';
+import { Loader2, Users, Inbox, BookOpen, GraduationCap, ChevronRight, TrendingUp, UserPlus, PlusCircle, LayoutDashboard, Search, Rocket, DollarSign, Folder, Pencil } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend } from 'recharts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EnrollmentDialog } from '../enrollment-dialog';
@@ -38,6 +38,7 @@ export function DisAdminDashboard() {
   const [isEnrollmentOpen, setEnrollmentOpen] = useState(false);
   const [isClassFormOpen, setClassFormOpen] = useState(false);
   const [selectedClassForPromotion, setSelectedClassForPromotion] = useState<any>(null);
+  const [selectedClassForEdit, setSelectedClassForEdit] = useState<any>(null);
 
   const disCourses = useMemo(() => 
     courses.filter((c: any) => {
@@ -244,6 +245,14 @@ export function DisAdminDashboard() {
                                                 <Button 
                                                     variant="outline" 
                                                     size="sm" 
+                                                    onClick={() => setSelectedClassForEdit(cls)}
+                                                    className="border-slate-200 text-slate-700 hover:bg-slate-50 font-bold text-xs gap-1"
+                                                >
+                                                    <Pencil className="size-3.5 text-slate-600" /> Editar
+                                                </Button>
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
                                                     onClick={() => setSelectedClassForPromotion(cls)}
                                                     className="border-purple-200 text-purple-700 hover:bg-purple-50 font-bold text-xs gap-1"
                                                 >
@@ -293,6 +302,15 @@ export function DisAdminDashboard() {
             open={isClassFormOpen} 
             onOpenChange={setClassFormOpen} 
             courseId={primaryDisCourseId} 
+        />
+      )}
+
+      {selectedClassForEdit && (
+        <ClassFormDialog 
+            open={!!selectedClassForEdit} 
+            onOpenChange={(open) => !open && setSelectedClassForEdit(null)} 
+            existingClass={selectedClassForEdit}
+            courseId={selectedClassForEdit.courseId || primaryDisCourseId} 
         />
       )}
 

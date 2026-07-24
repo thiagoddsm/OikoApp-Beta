@@ -20,7 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMembersData, useCoursesData } from '@/hooks/useDomainData';
 import { useTeachingPrograms } from '@/hooks/useTeachingPrograms';
 import { useFirebase, setDocumentNonBlocking } from '@/firebase';
-import { doc, collection } from 'firebase/firestore';
+import { doc, collection, writeBatch } from 'firebase/firestore';
 import { AcademicEnrollment, AcademicEvent } from '@/lib/programs/enrollment-types';
 import { TuitionFee } from '@/lib/finance/financial-plan-types';
 import { checkCoursePrerequisitesSatisfied } from '@/lib/services/progression-engine';
@@ -134,6 +134,7 @@ export function AcademicEnrollmentWizard({
 
     try {
       setIsSubmitting(true);
+      const batch = writeBatch(firestore);
       const nowIso = new Date().toISOString();
 
       let studentId = selectedStudentId;
@@ -144,7 +145,7 @@ export function AcademicEnrollmentWizard({
       if (isNewStudent) {
         const newRef = doc(collection(firestore, 'users'));
         studentId = newRef.id;
-        await setDocumentNonBlocking(newRef, {
+        batch.set(newRef, {
           id: studentId,
           name: newStudentName,
           email: newStudentEmail,
@@ -188,14 +189,14 @@ export function AcademicEnrollmentWizard({
         events: [initialEvent]
       };
 
-      await setDocumentNonBlocking(doc(firestore, 'academic_enrollments', enrollmentId), enrollment, { merge: true });
+      const enrRef = doc(firestore, 'academic_enrollments', enrollmentId);
+      batch.set(enrRef, enrollment, { merge: true });
 
       // 3. Update class students array in Firestore
       if (selectedClass) {
         const updatedStudents = Array.from(new Set([...(selectedClass.students || []), studentId]));
-        await setDocumentNonBlocking(doc(firestore, 'classes', classId), {
-          students: updatedStudents
-        }, { merge: true });
+        const classRef = doc(firestore, 'classes', classId);
+        batch.set(classRef, { students: updatedStudents }, { merge: true });
       }
 
       // 4. Generate Tuition Fees if paid course
@@ -218,9 +219,13 @@ export function AcademicEnrollmentWizard({
             dueDate: dueDateStr,
             status: 'em_aberto'
           };
-          await setDocumentNonBlocking(doc(firestore, 'tuition_fees', feeId), fee, { merge: true });
+          const feeRef = doc(firestore, 'tuition_fees', feeId);
+          batch.set(feeRef, fee, { merge: true });
         }
       }
+
+      // Atomic commit
+      await batch.commit();
 
       toast({
         title: 'Matrícula Efetivada com Sucesso! 🎉',

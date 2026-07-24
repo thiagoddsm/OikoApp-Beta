@@ -95,3 +95,21 @@ export function resolveEffectiveCapabilities(
 
   return Array.from(new Set(effective));
 }
+
+/**
+ * Dynamically filters courses belonging to a specific program identifier (slug, schoolId, programId, or ministry).
+ */
+export function filterCoursesByProgramIdentifier(courses: any[], programIdOrSlug: string): any[] {
+  if (!programIdOrSlug) return courses;
+  const target = programIdOrSlug.toLowerCase();
+
+  return courses.filter((c: any) => {
+    const school = (c.schoolId || '').toLowerCase();
+    const program = (c.programId || '').toLowerCase();
+    const min = (c.ministry || '').toLowerCase();
+    const minName = (c.ministryName || '').toLowerCase();
+    const name = (c.name || '').toLowerCase();
+
+    return school === target || program === target || min === target || minName.includes(target) || name.includes(target);
+  });
+}
