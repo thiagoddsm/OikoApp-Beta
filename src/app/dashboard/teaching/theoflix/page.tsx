@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import {
   Card,
   CardContent,
@@ -466,14 +467,24 @@ function TheoFlixContent() {
                 />
             </div>
             {isAdmin && (
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  className="rounded-full shrink-0 h-10 w-10 hover:bg-primary/10 transition-colors" 
-                  onClick={() => setManagerOpen(true)}
-                >
-                    <Settings className="size-5" />
-                </Button>
+                <>
+                  <Link href="/dashboard/teaching/theoflix/reports">
+                    <Button 
+                      variant="outline" 
+                      className="rounded-full h-10 gap-2 font-bold text-xs border-primary/20 hover:bg-primary/10 transition-colors"
+                    >
+                      <BookCheck className="size-4 text-primary" /> Relatórios de Quizzes & Respostas
+                    </Button>
+                  </Link>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    className="rounded-full shrink-0 h-10 w-10 hover:bg-primary/10 transition-colors" 
+                    onClick={() => setManagerOpen(true)}
+                  >
+                      <Settings className="size-5" />
+                  </Button>
+                </>
             )}
         </div>
       </div>
