@@ -1,12 +1,25 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createPayment, getPixQrCode } from '@/lib/asaas';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
+import { requireAuth } from '@/lib/server-auth';
+import { IdempotencyService } from '@/lib/services/idempotency';
+import { ServerAuditService } from '@/lib/services/audit-service';
 
 export const runtime = 'nodejs';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const { context, errorResponse } = await requireAuth(request, ['admin', 'finance']);
+    if (errorResponse) return errorResponse;
+
+    const idempotencyKey = request.headers.get('idempotency-key') || '';
+    if (idempotencyKey) {
+      const lockResult = await IdempotencyService.checkAndLock(context.tenantId, idempotencyKey, 'CREATE_ASAAS_PAYMENT');
+      if (lockResult.isDuplicate) {
+        return NextResponse.json(lockResult.previousResult || { message: 'Pagamento já processado previamente.' });
+      }
+    }
     const {
       customerId,
       billingType,
@@ -64,10 +77,26 @@ export async function POST(request: Request) {
       // Não bloquear o retorno — o pagamento foi criado na Asaas com sucesso
     }
 
-    return NextResponse.json({ ...payment, pixQrCode });
+    const responseData = { ...payment, pixQrCode };
+
+    if (idempotencyKey) {
+      await IdempotencyService.saveResult(context.tenantId, idempotencyKey, responseData);
+    }
+
+    await ServerAuditService.record({
+      tenantId: context.tenantId,
+      userId: context.userId,
+      action: 'CREATE_ASAAS_PAYMENT',
+      resourceType: 'asaasPayment',
+      resourceId: payment.id,
+      requestId: context.requestId,
+      metadata: { billingType, value, customerId }
+    });
+
+    return NextResponse.json(responseData);
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Erro desconhecido';
+    const message = error instanceof Error ? error.message : 'Erro ao criar pagamento';
     console.error('[Asaas] Erro ao criar pagamento:', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: 'Erro ao processar pagamento.' }, { status: 500 });
   }
 }

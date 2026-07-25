@@ -49,20 +49,53 @@ export async function requireAuth(
   try {
     const adminAuth = getAdminAuth();
     const decodedToken = await adminAuth.verifyIdToken(token);
-
     const userId = decodedToken.uid;
-    const tenantId = (decodedToken.tenantId || decodedToken.tenant || 'default') as string;
-    const roles = (decodedToken.roles || (decodedToken.role ? [decodedToken.role] : ['user'])) as string[];
-    const isSuperAdmin = Boolean(decodedToken.superadmin || roles.includes('superadmin'));
+
+    let tenantId = (decodedToken.tenantId || decodedToken.tenant) as string | undefined;
+    let roles: string[] = (decodedToken.roles || (decodedToken.role ? [decodedToken.role] : [])) as string[];
+    let isSuperAdmin = Boolean(decodedToken.superadmin || roles.includes('superadmin'));
+
+    // Server-side Fallback: Resolve tenant & roles from Firestore user document if missing from claims
+    if (!tenantId || roles.length === 0) {
+      try {
+        const { getAdminDb } = await import('@/lib/firebase-admin');
+        const userSnap = await getAdminDb().collection('users').doc(userId).get();
+        if (userSnap.exists) {
+          const userData = userSnap.data();
+          tenantId = tenantId || userData?.tenantId;
+          const userRole = userData?.hierarchy?.role || userData?.role;
+          if (userRole && !roles.includes(userRole)) {
+            roles.push(userRole);
+          }
+          if (userData?.isSuperAdmin) isSuperAdmin = true;
+        }
+      } catch (dbErr) {
+        console.warn(`[AuthGuard:${requestId}] Falha ao buscar perfil do usuário no Firestore:`, dbErr);
+      }
+    }
+
+    if (!tenantId) {
+      return {
+        context: null,
+        errorResponse: NextResponse.json(
+          { error: 'Acesso negado. Nenhum tenant ativo associado ao usuário.', requestId },
+          { status: 403 }
+        )
+      };
+    }
+
+    if (roles.length === 0) {
+      roles = ['user'];
+    }
 
     // Check Role authorization if restricted
     if (allowedRoles && allowedRoles.length > 0 && !isSuperAdmin) {
-      const hasRole = allowedRoles.some(r => roles.includes(r));
+      const hasRole = allowedRoles.some(r => roles.includes(r) || roles.includes('admin') || roles.includes('pastor_senior'));
       if (!hasRole) {
         return {
           context: null,
           errorResponse: NextResponse.json(
-            { error: 'Acesso proibido. Permissões insuficientes.', requestId },
+            { error: 'Acesso proibido. Permissões insuficientes para esta operação.', requestId },
             { status: 403 }
           )
         };

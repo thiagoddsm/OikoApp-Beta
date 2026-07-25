@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useMemo, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useVolunteering } from '@/contexts/volunteering-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { format, addWeeks, isBefore, isAfter, startOfDay, parseISO, addMonths, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Timestamp, doc } from 'firebase/firestore';
+import { Timestamp, doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { VolunteeringProvider, getResolvedSchedule } from '@/contexts/volunteering-context';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -30,6 +30,7 @@ const weekDayMap: Record<string, number> = {
 function PedagogicalLogPageContent() {
     const params = useParams();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const classId = params.classId as string;
@@ -45,6 +46,7 @@ function PedagogicalLogPageContent() {
     const [performance, setPerformance] = useState(5);
     const [presentStudents, setPresentStudents] = useState<string[]>([]);
     const [onlineStudents, setOnlineStudents] = useState<string[]>([]);
+    const [makeupStudentIds, setMakeupStudentIds] = useState<string[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -65,6 +67,7 @@ function PedagogicalLogPageContent() {
 
     const classOccurrences = useMemo(() => resolvedSchedule.map(i => i.dateStr), [resolvedSchedule]);
     const moduleNames = useMemo(() => resolvedSchedule.map(i => i.syllabusItem?.title || ''), [resolvedSchedule]);
+    const requestedSession = searchParams.get('session');
 
     const currentResolvedItem = useMemo(() => resolvedSchedule.find(i => i.dateStr === selectedDate), [resolvedSchedule, selectedDate]);
     const autoModuleKey = useMemo(() => {
@@ -83,6 +86,10 @@ function PedagogicalLogPageContent() {
 
     useEffect(() => {
         if (classOccurrences.length > 0 && !selectedDate) {
+            if (requestedSession && classOccurrences.includes(requestedSession)) {
+                setSelectedDate(requestedSession);
+                return;
+            }
             const todayStr = format(new Date(), 'yyyy-MM-dd');
             const closest = classOccurrences.find(d => d.split('T')[0] === todayStr) || classOccurrences.find(d => {
                 let cleanD = d.split('T')[0];
@@ -99,7 +106,7 @@ function PedagogicalLogPageContent() {
             }) || classOccurrences[0];
             setSelectedDate(closest);
         }
-    }, [classOccurrences, selectedDate]);
+    }, [classOccurrences, selectedDate, requestedSession]);
 
     const currentModuleIndex = useMemo(() => classOccurrences.indexOf(selectedDate), [classOccurrences, selectedDate]);
 
@@ -108,6 +115,7 @@ function PedagogicalLogPageContent() {
             const record = classData.attendance.find((a: any) => a.date === selectedDate);
             setPresentStudents(record?.presentStudentIds || []);
             setOnlineStudents(record?.onlineStudentIds || []);
+            setMakeupStudentIds(record?.repositions?.map((reposition: any) => reposition.studentId) || []);
 
             const baseDateStr = selectedDate.split('T')[0];
 
@@ -154,6 +162,16 @@ function PedagogicalLogPageContent() {
                ministryNameLower.includes('lumine') || 
                ministryNameLower.includes('ebd') || 
                ministryLower.includes('lumine');
+    }, [courseData]);
+
+    const isDisCourse = useMemo(() => {
+        if (!courseData) return false;
+        const name = (courseData.name || '').toLowerCase();
+        const ministry = ((courseData as any).ministry || '').toLowerCase();
+        return (courseData as any).schoolId === 'dis' ||
+            (courseData as any).programId === 'dis' ||
+            ministry === 'dis' ||
+            name.includes('libras');
     }, [courseData]);
 
     const enrolledStudents = useMemo(() => {
@@ -246,6 +264,7 @@ function PedagogicalLogPageContent() {
     const handleAddRepositionStudent = (studentId: string) => {
         if (presentStudents.includes(studentId)) return;
         setPresentStudents(prev => [...prev, studentId]);
+        setMakeupStudentIds(prev => [...prev, studentId]);
         setIsSearchOpen(false);
         setSearchQuery('');
         toast({ title: "Reposição adicionada", description: "O aluno foi incluído na lista desta aula." });
@@ -292,11 +311,80 @@ function PedagogicalLogPageContent() {
             }
 
             const existingAttendance = classData?.attendance || [];
+            const repositions = makeupStudentIds.map(studentId => ({
+                studentId,
+                date: selectedDate,
+                dateStr: selectedDate,
+            }));
             const updatedAttendance = [
                 ...existingAttendance.filter((a: any) => a.date !== selectedDate),
-                { date: selectedDate, presentStudentIds: presentStudents, onlineStudentIds: onlineStudents }
+                { date: selectedDate, presentStudentIds: presentStudents, onlineStudentIds: onlineStudents, repositions }
             ];
             const attendancePromise = updateClass(classId, { attendance: updatedAttendance });
+
+            // Modelo normalizado para sessões e presenças. O formato legado acima é
+            // preservado enquanto relatórios existentes ainda o consomem.
+            const normalizedWrites: Promise<void>[] = [];
+            if (firestore && currentResolvedItem && classData) {
+                const safeSessionKey = `${classId}_${selectedDate}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+                const sessionRef = doc(firestore, 'class_sessions', safeSessionKey);
+                const batch = writeBatch(firestore);
+                batch.set(sessionRef, {
+                    classId,
+                    courseId: classData.courseId,
+                    dateStr: selectedDate,
+                    date: Timestamp.fromDate(new Date(dateStrWithTime)),
+                    cycle: classData.cycle || null,
+                    moduleId: currentResolvedItem.syllabusItem?.id || null,
+                    moduleTitle: currentResolvedItem.syllabusItem?.title || null,
+                    teacherId: currentResolvedItem.isOverride
+                        ? (classData.scheduleOverrides?.[selectedDate]?.teacherId || classData.teacherId)
+                        : classData.teacherId,
+                    startTime: currentResolvedItem.startTime || classData.startTime,
+                    endTime: currentResolvedItem.endTime || classData.endTime,
+                    status: 'completed',
+                    updatedAt: serverTimestamp(),
+                    createdAt: serverTimestamp(),
+                }, { merge: true });
+
+                const enrolledIds = new Set(classData.students || []);
+                [...enrolledIds, ...makeupStudentIds].forEach(studentId => {
+                    const attendanceRef = doc(firestore, 'class_session_attendance', `${safeSessionKey}_${studentId}`);
+                    const isPresent = presentStudents.includes(studentId);
+                    batch.set(attendanceRef, {
+                        sessionId: safeSessionKey,
+                        classId,
+                        courseId: classData.courseId,
+                        studentId,
+                        status: isPresent ? (makeupStudentIds.includes(studentId) ? 'makeup' : (onlineStudents.includes(studentId) ? 'online' : 'present')) : 'absent',
+                        recordedAt: serverTimestamp(),
+                    }, { merge: true });
+                });
+                normalizedWrites.push(batch.commit());
+
+                if (isDisCourse && currentResolvedItem.syllabusItem?.id) {
+                    presentStudents.forEach(studentId => {
+                        const progressRef = doc(
+                            firestore,
+                            'student_course_module_progress',
+                            `${studentId}_${classData.courseId}_${currentResolvedItem.syllabusItem.id}`.replace(/[^a-zA-Z0-9_-]/g, '_')
+                        );
+                        normalizedWrites.push(
+                            Promise.resolve(writeBatch(firestore).set(progressRef, {
+                                studentId,
+                                courseId: classData.courseId,
+                                classId,
+                                moduleId: currentResolvedItem.syllabusItem.id,
+                                moduleTitle: currentResolvedItem.syllabusItem.title || null,
+                                completed: true,
+                                completionType: makeupStudentIds.includes(studentId) ? 'makeup' : 'attendance',
+                                lastSessionId: safeSessionKey,
+                                updatedAt: serverTimestamp(),
+                            }, { merge: true }).commit())
+                        );
+                    });
+                }
+            }
 
             const progressPromises: Promise<any>[] = [];
             if (isMemberCourse && firestore && currentModuleKey) {
@@ -319,6 +407,7 @@ function PedagogicalLogPageContent() {
             await Promise.all([
                 logPromise, 
                 attendancePromise, 
+                ...normalizedWrites,
                 ...progressPromises.filter(p => p !== undefined)
             ]);
 

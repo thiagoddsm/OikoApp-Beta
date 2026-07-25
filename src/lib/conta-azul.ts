@@ -67,18 +67,27 @@ export async function getContaAzulCredentials() {
     console.warn('[Conta Azul Config] Não foi possível ler credenciais do Firestore. Tentando fallback para .env.', error);
   }
 
+  const clientId = process.env.CONTA_AZUL_CLIENT_ID;
+  const clientSecret = process.env.CONTA_AZUL_CLIENT_SECRET;
+  const redirectUri = process.env.CONTA_AZUL_REDIRECT_URI || 'http://localhost:3000/api/finance/conta-azul/callback';
+  const baseUrl = process.env.CONTA_AZUL_BASE_URL || 'https://api-v2.contaazul.com';
+
+  if (!clientId || !clientSecret) {
+    throw new Error('Credenciais da Conta Azul ausentes nas variáveis de ambiente do servidor.');
+  }
+
   return {
-    clientId: process.env.CONTA_AZUL_CLIENT_ID || '60recemcs55rtt1jij35lp13ki',
-    clientSecret: process.env.CONTA_AZUL_CLIENT_SECRET || '13m3rht192ibciso195b7hnnnpmgrvt13ribng8u0uep588pe5ha',
-    redirectUri: process.env.CONTA_AZUL_REDIRECT_URI || 'https://ibmanha.com.br/api/finance/conta-azul/callback',
-    baseUrl: process.env.CONTA_AZUL_BASE_URL || 'https://api-v2.contaazul.com'
+    clientId,
+    clientSecret,
+    redirectUri,
+    baseUrl
   };
 }
 
-export async function getAuthorizationUrl(): Promise<string> {
+export async function getAuthorizationUrl(customState?: string): Promise<string> {
   const { clientId, redirectUri } = await getContaAzulCredentials();
   const encodedRedirectUri = encodeURIComponent(redirectUri);
-  const state = 'oiko-auth-state'; // Pode ser gerado randomicamente
+  const state = customState || `ca_state_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
   return `https://auth.contaazul.com/login?response_type=code&client_id=${clientId}&redirect_uri=${encodedRedirectUri}&state=${state}&scope=openid+profile+aws.cognito.signin.user.admin`;
 }
 

@@ -28,6 +28,14 @@ export async function GET(request: NextRequest) {
   const error = searchParams.get('error');
   const baseUrl = getBaseUrl(request);
 
+  const state = searchParams.get('state');
+  const storedState = request.cookies.get('ca_oauth_state')?.value;
+
+  if (!storedState || !state || state !== storedState) {
+    console.error('[Conta Azul] CSRF State Mismatch no Callback OAuth.');
+    return NextResponse.redirect(new URL('/dashboard?contaAzulError=state_mismatch', baseUrl));
+  }
+
   if (error || !code) {
     console.error('[Conta Azul] OAuth callback recebeu erro:', error);
     return NextResponse.redirect(new URL('/dashboard?contaAzulError=true', baseUrl));

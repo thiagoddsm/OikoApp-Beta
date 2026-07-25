@@ -37,7 +37,7 @@ export async function POST(request: Request) {
 
   const webhookToken = request.headers.get('asaas-access-token');
   
-  let expectedToken = 'ibm_webhook_secret_2025'; // Fallback
+  let expectedToken = process.env.ASAAS_WEBHOOK_SECRET || '';
   try {
     const db = getAdminDb();
     
@@ -46,17 +46,12 @@ export async function POST(request: Request) {
       if (tenantSnap.exists && tenantSnap.data()?.asaasWebhookToken) {
         expectedToken = tenantSnap.data()!.asaasWebhookToken;
       }
-    } else {
-      const configSnap = await db.collection('system_settings').doc('finance').get();
-      if (configSnap.exists && configSnap.data()?.asaasWebhookToken) {
-        expectedToken = configSnap.data()!.asaasWebhookToken;
-      }
     }
   } catch (error) {
     console.error('[Asaas Webhook] Erro ao buscar token de validação do Firestore:', error);
   }
 
-  if (webhookToken !== expectedToken) {
+  if (!expectedToken || webhookToken !== expectedToken) {
     console.warn('[Asaas Webhook] Token inválido ou ausente.');
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

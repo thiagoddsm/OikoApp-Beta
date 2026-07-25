@@ -9,7 +9,10 @@ export const serverEnvSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string().url().optional().default('http://localhost:3000'),
 
   // Firebase Admin SDK (Server side)
-  FIREBASE_ADMIN_PROJECT_ID: z.string().min(1, 'FIREBASE_ADMIN_PROJECT_ID is required'),
+  FIREBASE_PROJECT_ID: z.string().optional(),
+  FIREBASE_ADMIN_PROJECT_ID: z.string().optional(),
+  NEXT_PUBLIC_FIREBASE_PROJECT_ID: z.string().optional(),
+  FIREBASE_SERVICE_ACCOUNT_KEY: z.string().optional(),
   FIREBASE_ADMIN_CLIENT_EMAIL: z.string().email().optional(),
   FIREBASE_ADMIN_PRIVATE_KEY: z.string().optional(),
 

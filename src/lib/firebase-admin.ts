@@ -4,10 +4,14 @@ import { getFirestore, Firestore } from 'firebase-admin/firestore';
 import fs from 'fs';
 import path from 'path';
 
+import { validateEnvironment } from '@/lib/config/env-schema';
+
 // Hardcoded fallback Project ID found in firebase/config.ts
 const FALLBACK_PROJECT_ID = "studio-1424813022-71754";
 
 export function getAdminApp(): App {
+  validateEnvironment();
+
   const appName = 'oiko-notification-admin';
   const apps = getApps();
   const existingApp = apps.find(a => a.name === appName);

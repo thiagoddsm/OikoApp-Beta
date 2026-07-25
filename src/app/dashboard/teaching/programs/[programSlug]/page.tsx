@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Loader2, Music2, BookOpen, Hand, HeartHandshake, PlayCircle, GraduationCap, ArrowLeft, Users, DollarSign, CheckSquare, History, FileQuestion, PlusCircle, Folder } from 'lucide-react';
+import { Loader2, Music2, BookOpen, Hand, HeartHandshake, PlayCircle, GraduationCap, ArrowLeft, Users, DollarSign, CheckSquare, History, FileQuestion, PlusCircle, Folder, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { VolunteeringProvider } from '@/contexts/volunteering-context';
@@ -43,6 +43,7 @@ export default function ProgramDetailPage() {
   const [isClassFormOpen, setClassFormOpen] = useState(false);
   const [isCreatingCourse, setIsCreatingCourse] = useState(false);
   const [selectedCourseId, setSelectedCourseId] = useState('');
+  const [selectedClassForEdit, setSelectedClassForEdit] = useState<any>(null);
 
   const program = useMemo(() => {
     return programs.find(p => p.slug === programSlug || p.id === programSlug);
@@ -250,12 +251,13 @@ export default function ProgramDetailPage() {
                         <TableHead>Horário</TableHead>
                         <TableHead className="text-center">Alunos</TableHead>
                         <TableHead className="text-right">Status</TableHead>
+                        <TableHead className="text-right">Ações</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {programClasses.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={5} className="text-center py-8 text-slate-400">
+                          <TableCell colSpan={6} className="text-center py-8 text-slate-400">
                             Nenhuma turma cadastrada neste programa ainda. Clique no botão acima para adicionar!
                           </TableCell>
                         </TableRow>
@@ -275,6 +277,17 @@ export default function ProgramDetailPage() {
                                 {cls.status || 'Ativa'}
                               </Badge>
                             </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedClassForEdit(cls)}
+                                aria-label={`Editar turma ${cls.name}`}
+                              >
+                                <Pencil className="mr-1.5 size-3.5" /> Editar
+                              </Button>
+                            </TableCell>
                           </TableRow>
                         ))
                       )}
@@ -289,6 +302,17 @@ export default function ProgramDetailPage() {
               onOpenChange={setClassFormOpen}
               courseId={selectedCourseId || primaryCourseId}
             />
+
+            {selectedClassForEdit && (
+              <ClassFormDialog
+                open={Boolean(selectedClassForEdit)}
+                onOpenChange={(open) => {
+                  if (!open) setSelectedClassForEdit(null);
+                }}
+                existingClass={selectedClassForEdit}
+                courseId={selectedClassForEdit.courseId}
+              />
+            )}
           </TabsContent>
 
           {/* Tab 3: Financial (if capability present) */}

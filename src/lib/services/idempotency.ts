@@ -28,34 +28,35 @@ export class IdempotencyService {
     const docRef = db.collection('idempotency_keys').doc(`${tenantId}_${idempotencyKey}`);
 
     try {
-      const docSnap = await docRef.get();
+      return await db.runTransaction(async (transaction) => {
+        const docSnap = await transaction.get(docRef);
 
-      if (docSnap.exists) {
-        const data = docSnap.data();
-        return {
-          isDuplicate: true,
-          previousResult: data?.responsePayload
-        };
-      }
+        if (docSnap.exists) {
+          const data = docSnap.data();
+          return {
+            isDuplicate: true,
+            previousResult: data?.responsePayload
+          };
+        }
 
-      // Lock key for 24 hours
-      const now = Timestamp.now();
-      const expiresAt = Timestamp.fromMillis(now.toMillis() + 24 * 60 * 60 * 1000);
+        const now = Timestamp.now();
+        const expiresAt = Timestamp.fromMillis(now.toMillis() + 24 * 60 * 60 * 1000);
 
-      await docRef.set({
-        tenantId,
-        idempotencyKey,
-        action,
-        status: 'PROCESSING',
-        createdAt: now,
-        expiresAt
+        transaction.set(docRef, {
+          tenantId,
+          idempotencyKey,
+          action,
+          status: 'PROCESSING',
+          createdAt: now,
+          expiresAt
+        });
+
+        return { isDuplicate: false };
       });
-
-      return { isDuplicate: false };
     } catch (error) {
-      console.error('[IdempotencyService] Error checking key:', error);
-      // In case of storage failure, allow execution to proceed safely
-      return { isDuplicate: false };
+      console.error('[IdempotencyService] Erro atômico na transação da chave:', error);
+      // Fail closed on error to prevent duplicate billing
+      return { isDuplicate: true, previousResult: { error: 'Falha no controle de idempotência. Tente novamente.' } };
     }
   }
 

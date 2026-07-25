@@ -1,14 +1,15 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { findOrCreateCustomer } from '@/lib/asaas';
+import { requireAuth } from '@/lib/server-auth';
 
 export const runtime = 'nodejs';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { name, cpfCnpj, email, phone, userId, tenantId } = await request.json();
+    const { context, errorResponse } = await requireAuth(request, ['admin', 'finance']);
+    if (errorResponse) return errorResponse;
 
-    console.log('[API Debug] Recebido no POST /api/asaas/customers:', { name, cpfCnpj, userId });
-    console.log('[API Debug] process.env.ASAAS_API_KEY (Mascarada):', process.env.ASAAS_API_KEY ? `${process.env.ASAAS_API_KEY.substring(0, 15)}...` : 'NÃO CONFIGURADA EM PROCESS.ENV');
+    const { name, cpfCnpj, email, phone, userId } = await request.json();
 
     if (!name) {
       return NextResponse.json(
@@ -22,14 +23,13 @@ export async function POST(request: Request) {
       cpfCnpj,
       email,
       phone,
-      externalReference: userId,
-      tenantId,
+      externalReference: userId || context.userId,
+      tenantId: context.tenantId,
     });
 
     return NextResponse.json({ customerId: customer.id });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Erro desconhecido';
-    console.error('[Asaas] Erro ao criar/buscar cliente:', message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('[Asaas] Erro ao criar/buscar cliente:', error);
+    return NextResponse.json({ error: 'Erro ao processar cliente Asaas.' }, { status: 500 });
   }
 }

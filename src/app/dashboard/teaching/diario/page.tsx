@@ -15,6 +15,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCoursesData, useMembersData } from "@/hooks/useDomainData";
+import { getResolvedSchedule } from '@/contexts/volunteering-context';
+import { format } from 'date-fns';
 
 export default function DiarioDeClassePage() {
   const { user } = useFirebase();
@@ -74,6 +76,30 @@ export default function DiarioDeClassePage() {
       return lessonDateStr === todayStr;
     });
   }, [lessons]);
+
+  // As turmas DIS já possuem agenda e ementa. Ao contrário das mentorias
+  // avulsas, elas não precisam criar documentos em `aulas` para aparecer aqui.
+  const disSessionsToday = useMemo(() => {
+    const todayKey = format(new Date(), 'yyyy-MM-dd');
+    const courseById = new Map(courses.map(course => [course.id, course]));
+
+    return classes.flatMap(classData => {
+      const course: any = courseById.get(classData.courseId);
+      if (!course) return [];
+
+      const courseName = (course.name || '').toLowerCase();
+      const ministry = (course.ministry || '').toLowerCase();
+      const isDis = course.schoolId === 'dis' || course.programId === 'dis' || ministry === 'dis' || courseName.includes('libras');
+      if (!isDis) return [];
+
+      // Professores veem apenas suas turmas; coordenação/admin vê todas.
+      if (!isAdminOrCoordinator && classData.teacherId !== user?.uid) return [];
+
+      return getResolvedSchedule(classData, course)
+        .filter(session => session.dateStr.split('T')[0] === todayKey)
+        .map(session => ({ classData, course, session }));
+    });
+  }, [classes, courses, isAdminOrCoordinator, user?.uid]);
 
   // Check-in action
   const handleStartLesson = async (lessonId: string) => {
@@ -233,6 +259,39 @@ export default function DiarioDeClassePage() {
         </div>
       ) : (
         <div className="grid gap-6">
+          <Card>
+            <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
+              <CardTitle className="text-md font-bold flex items-center gap-2">
+                <BookOpen className="size-4.5 text-indigo-500" />
+                Aulas DIS agendadas para hoje
+              </CardTitle>
+              <CardDescription>As sessões são calculadas a partir do calendário e da ementa de cada turma DIS.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              {disSessionsToday.length === 0 ? (
+                <div className="text-center py-8 text-sm text-slate-500 dark:text-slate-400">Nenhuma aula DIS programada para hoje.</div>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {disSessionsToday.map(({ classData, course, session }) => (
+                    <div key={`${classData.id}_${session.dateStr}`} className="p-4 flex flex-col md:flex-row justify-between gap-3 md:items-center">
+                      <div>
+                        <p className="font-bold text-slate-850 dark:text-slate-200">{classData.name}</p>
+                        <p className="text-xs text-slate-500">
+                          {course.name} · {session.syllabusItem?.title || 'Conteúdo a definir'} · {session.startTime || classData.startTime}
+                        </p>
+                      </div>
+                      <Button asChild size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                        <Link href={`/dashboard/teaching/log/${classData.id}?session=${encodeURIComponent(session.dateStr)}`}>
+                          <CheckSquare className="mr-1.5 size-3.5" /> Abrir chamada
+                        </Link>
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800">
               <CardTitle className="text-md font-bold flex items-center gap-2">
