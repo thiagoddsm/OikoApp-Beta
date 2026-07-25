@@ -157,7 +157,6 @@ const menuItems = [
                 subItems: [
                   { href: "/dashboard/teaching/theoflix", label: "TheoFlix (EAD & Quizzes)", icon: PlayCircle, permissionId: 'teaching_courses' },
                   { href: "/dashboard/teaching/theoflix/reports", label: "Respostas dos Quizzes", icon: FileText, permissionId: 'teaching_courses' },
-                  { href: "/dashboard/teaching/diario", label: "Diário & Ponto", icon: CheckSquare, permissionId: 'teaching_courses' },
                   { href: "/dashboard/teaching/reposicoes", label: "Fila de Reposições", icon: History, permissionId: 'teaching_courses' },
                 ]
               },
