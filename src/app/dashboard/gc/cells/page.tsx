@@ -24,6 +24,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { PersonSearchInput } from '@/components/common/person-search-input';
+import { GcStatusBadges, evaluateGcSymbology } from '@/components/gc/gc-symbology';
 
 
 type UserType = {
@@ -738,6 +739,9 @@ export default function CellsPage() {
                         {cell.address?.street && (
                           <p className="text-[10px] text-muted-foreground mt-0.5 truncate max-w-[200px]">{cell.address.street}</p>
                         )}
+                        <div className="mt-1.5">
+                          <GcStatusBadges data={evaluateGcSymbology(cell, memberUsers.length, 60)} />
+                        </div>
                       </TableCell>
 
                       {/* Status */}

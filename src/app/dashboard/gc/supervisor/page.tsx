@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
+import { GcSupervisorLegendCard, GcStatusBadges, evaluateGcSymbology } from '@/components/gc/gc-symbology';
 import Link from 'next/link';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy, limit, deleteDoc, doc, getDocs } from 'firebase/firestore';
@@ -517,6 +518,9 @@ export default function SupervisorPage() {
               </div>
             )}
           </div>
+
+          {/* Card de Simbologia e Diagnóstico dos GCs */}
+          <GcSupervisorLegendCard />
 
           {/* Filtros Estratégicos */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-muted/30 p-3 rounded-lg border border-border/60">
