@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, Building, User, Pencil, Trash2, Network, MapPin, AreaChart, Calendar, Clock, PlusCircle, Droplets, ChevronRight, Users } from "lucide-react";
+import { Loader2, Building, User, Pencil, Trash2, Network, MapPin, AreaChart, Calendar, Clock, PlusCircle, Droplets, ChevronRight, Users, UserCheck } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { useToast } from '@/hooks/use-toast';
@@ -680,6 +680,7 @@ export default function CellsPage() {
                   <TableHead className="text-center">Membros</TableHead>
                   <TableHead className="text-center">Não Batizados</TableHead>
                   <TableHead className="text-center">Líderes em Treinamento</TableHead>
+                  <TableHead className="text-center">Secretário(a)</TableHead>
                   <TableHead className="text-center">Multiplicação</TableHead>
                   <TableHead className="text-center">Anfitrião Elegível?</TableHead>
                   <TableHead className="text-right pr-6">Ações</TableHead>
@@ -687,7 +688,7 @@ export default function CellsPage() {
               </TableHeader>
               <TableBody>
                 {filteredCells.length === 0 && (
-                  <TableRow><TableCell colSpan={10} className="h-32 text-center text-muted-foreground italic text-sm">
+                  <TableRow><TableCell colSpan={11} className="h-32 text-center text-muted-foreground italic text-sm">
                     {hasActiveFilters ? 'Nenhum GC encontrado com esses filtros.' : 'Nenhuma célula cadastrada.'}
                   </TableCell></TableRow>
                 )}
@@ -803,6 +804,24 @@ export default function CellsPage() {
                         {coLideresCasaisCount > 0 && (
                           <span className="text-[10px] text-primary block font-semibold">({coLideresCasaisCount} casal/casais)</span>
                         )}
+                      </TableCell>
+
+                      {/* Secretário(a) */}
+                      <TableCell className="text-center">
+                        {(() => {
+                          const secretaryId = cell.secretariaId || (cell as any).secretarioId;
+                          const secretary = secretaryId ? userMap.get(secretaryId) : null;
+                          return secretary ? (
+                            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 text-xs font-bold">
+                              <UserCheck className="h-3 w-3 text-purple-600 shrink-0" />
+                              <span className="truncate max-w-[120px]">{secretary.name}</span>
+                            </div>
+                          ) : (
+                            <Badge variant="outline" className="text-slate-400 border-slate-200 font-normal text-xs">
+                              Não possui
+                            </Badge>
+                          );
+                        })()}
                       </TableCell>
 
                       {/* Data de Multiplicação */}
