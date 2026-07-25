@@ -434,15 +434,14 @@ function PedagogicalLogPageContent() {
                 }
             }
 
+
             const progressPromises: Promise<any>[] = [];
             if (isMemberCourse && firestore && currentModuleKey) {
-                // Alunos que estavam presentes e continuam presentes (ou novos)
                 presentStudents.forEach(studentId => {
                     const userRef = doc(firestore, 'users', studentId);
                     progressPromises.push(updateDocumentNonBlocking(userRef, { [`journey.memberCourseProgress.${currentModuleKey}`]: true }));
                 });
 
-                // Alunos que estavam presentes antes mas agora foram removidos (Faltaram/Desmarcado)
                 const previousAttendance = classData?.attendance?.find(a => a.date === selectedDate);
                 const removedStudents = (previousAttendance?.presentStudentIds || []).filter(id => !presentStudents.includes(id));
                 
@@ -459,7 +458,21 @@ function PedagogicalLogPageContent() {
                 ...progressPromises.filter(p => p !== undefined)
             ]);
 
-            // Formatação segura para a mensagem de sucesso
+            try {
+                fetch('/api/logs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'SUBMIT_ATTENDANCE_LOG',
+                        classId,
+                        dateStr: selectedDate,
+                        presentCount: presentStudents.length,
+                        onlineCount: onlineStudents.length,
+                        makeupCount: makeupStudentIds.length
+                    })
+                }).catch(() => {});
+            } catch (e) {}
+
             let formattedSuccessDate = 'Chamada';
             try {
                 const parsed = parseISO(selectedDate.split('T')[0]);
