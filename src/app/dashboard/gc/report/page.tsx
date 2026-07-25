@@ -669,7 +669,7 @@ export default function CellReportPage() {
           <AlertTriangle className="mx-auto h-12 w-12 text-amber-500 mb-2" />
           <CardTitle>Nenhuma Célula Vinculada</CardTitle>
           <CardDescription>
-            Você não está registrado como líder ou co-líder de nenhuma célula. Entre em contato com seu supervisor.
+            Você não está registrado como líder ou líder em treinamento de nenhuma célula. Entre em contato com seu supervisor.
           </CardDescription>
         </CardHeader>
       </Card>

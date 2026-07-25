@@ -252,7 +252,7 @@ export default function CellDetailPage() {
           </div>
           {coLeaders.length > 0 && (
             <div className="px-4 py-2 bg-purple-50 rounded-xl border border-purple-100">
-              <p className="text-[10px] font-black uppercase text-purple-500">Colíderes</p>
+              <p className="text-[10px] font-black uppercase text-purple-500">Líderes em Treinamento</p>
               <p className="text-xl font-black text-purple-700">{coLeaders.length}</p>
             </div>
           )}
@@ -328,7 +328,7 @@ export default function CellDetailPage() {
 
                       <div className="flex items-center gap-2">
                         {(cell.coLiderIds || []).includes(user.id) && (
-                          <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200 font-bold">Colíder</Badge>
+                          <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200 font-bold">Líder em Treinamento</Badge>
                         )}
                         {cell.anfitriaoId === user.id && (
                           <Badge variant="outline" className="text-[10px] bg-orange-50 text-orange-700 border-orange-200 font-bold">Anfitrião</Badge>

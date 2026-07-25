@@ -298,10 +298,10 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
             </div>
           </div>
 
-          {/* CO-LÍDERES com suporte a casal */}
+          {/* LÍDERES EM TREINAMENTO com suporte a casal */}
           <div className="grid grid-cols-4 items-start gap-4">
             <div className="text-right pt-2">
-              <Label>Colíderes</Label>
+              <Label>Líderes em Treinamento</Label>
               {coLideres.length > 0 && <p className="text-[10px] text-muted-foreground mt-0.5">{coLideres.length} unidade(s)</p>}
             </div>
             <div className="col-span-3 space-y-2">
@@ -337,7 +337,7 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
                         <PersonSearchInput
                           value="" onChange={id => { setCoLideres(prev => prev.map((c, i) => i === idx ? { ...c, casalId: id } : c)); setAddingSpouseFor(null); }}
                           users={users} excludeIds={coLideres.flatMap(c => [c.id, c.casalId].filter(Boolean) as string[])}
-                          placeholder="Buscar cônjuge do co-líder..." optional
+                          placeholder="Buscar cônjuge do líder em treinamento..." optional
                         />
                       </div>
                     )}
@@ -348,7 +348,7 @@ function CreateOrEditCellDialog({ open, onOpenChange, users, supervisors, areas,
                 value="" onChange={id => { if (!coLideres.find(c => c.id === id)) setCoLideres(prev => [...prev, { id }]); }}
                 users={users}
                 excludeIds={[liderId, liderCasalId, ...coLideres.flatMap(c => [c.id, c.casalId].filter(Boolean) as string[])].filter(Boolean)}
-                placeholder="Adicionar co-líder..." optional
+                placeholder="Adicionar líder em treinamento..." optional
               />
             </div>
           </div>
@@ -679,7 +679,7 @@ export default function CellsPage() {
                   <TableHead>Área / Rede</TableHead>
                   <TableHead className="text-center">Membros</TableHead>
                   <TableHead className="text-center">Não Batizados</TableHead>
-                  <TableHead className="text-center">Co-Líderes</TableHead>
+                  <TableHead className="text-center">Líderes em Treinamento</TableHead>
                   <TableHead className="text-center">Multiplicação</TableHead>
                   <TableHead className="text-center">Anfitrião Elegível?</TableHead>
                   <TableHead className="text-right pr-6">Ações</TableHead>
