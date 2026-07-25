@@ -363,23 +363,71 @@ function PedagogicalLogPageContent() {
                 normalizedWrites.push(batch.commit());
 
                 if (isDisCourse && currentResolvedItem.syllabusItem?.id) {
+                    const moduleId = currentResolvedItem.syllabusItem.id;
+                    const moduleTitle = currentResolvedItem.syllabusItem.title || null;
+
+                    // Present students: update module progress and resolve any pending reposicao for this module
                     presentStudents.forEach(studentId => {
                         const progressRef = doc(
                             firestore,
                             'student_course_module_progress',
-                            `${studentId}_${classData.courseId}_${currentResolvedItem.syllabusItem.id}`.replace(/[^a-zA-Z0-9_-]/g, '_')
+                            `${studentId}_${classData.courseId}_${moduleId}`.replace(/[^a-zA-Z0-9_-]/g, '_')
                         );
+                        const isMakeup = makeupStudentIds.includes(studentId);
+                        
                         normalizedWrites.push(
                             Promise.resolve(writeBatch(firestore).set(progressRef, {
                                 studentId,
                                 courseId: classData.courseId,
                                 classId,
-                                moduleId: currentResolvedItem.syllabusItem.id,
-                                moduleTitle: currentResolvedItem.syllabusItem.title || null,
+                                moduleId,
+                                moduleTitle,
                                 completed: true,
-                                completionType: makeupStudentIds.includes(studentId) ? 'makeup' : 'attendance',
+                                completionType: isMakeup ? 'makeup' : 'attendance',
                                 lastSessionId: safeSessionKey,
                                 updatedAt: serverTimestamp(),
+                            }, { merge: true }).commit())
+                        );
+
+                        if (isMakeup) {
+                            const reposicaoRef = doc(
+                                firestore,
+                                'reposicoes_pendentes',
+                                `${studentId}_${classData.courseId}_${moduleId}`.replace(/[^a-zA-Z0-9_-]/g, '_')
+                            );
+                            normalizedWrites.push(
+                                Promise.resolve(writeBatch(firestore).set(reposicaoRef, {
+                                    status: 'concluida',
+                                    completedAt: serverTimestamp(),
+                                    resolvedInSessionId: safeSessionKey
+                                }, { merge: true }).commit())
+                            );
+                        }
+                    });
+
+                    // Absent enrolled students: create a pending reposicao record
+                    const absentEnrolledStudents = (classData.students || []).filter(
+                        (id: string) => !presentStudents.includes(id) && !onlineStudents.includes(id)
+                    );
+
+                    absentEnrolledStudents.forEach((studentId: string) => {
+                        const reposicaoRef = doc(
+                            firestore,
+                            'reposicoes_pendentes',
+                            `${studentId}_${classData.courseId}_${moduleId}`.replace(/[^a-zA-Z0-9_-]/g, '_')
+                        );
+                        normalizedWrites.push(
+                            Promise.resolve(writeBatch(firestore).set(reposicaoRef, {
+                                studentId,
+                                classId,
+                                courseId: classData.courseId,
+                                moduleId,
+                                moduleTitle,
+                                originalSessionId: safeSessionKey,
+                                dateStr: selectedDate,
+                                status: 'pendente',
+                                createdAt: serverTimestamp(),
+                                updatedAt: serverTimestamp()
                             }, { merge: true }).commit())
                         );
                     });

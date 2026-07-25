@@ -120,3 +120,102 @@ export function promoteClassCohort(params: {
     updatedEnrollments
   };
 }
+
+export interface DisClassSession {
+  id: string;
+  classId: string;
+  className: string;
+  courseId: string;
+  courseName: string;
+  cycle?: string;
+  dateStr: string;
+  startTime: string;
+  endTime: string;
+  moduleId?: string;
+  moduleTitle?: string;
+  teacherId?: string;
+  status: 'scheduled' | 'cancelled' | 'completed';
+  isExtraSession?: boolean;
+  isMakeupOnly?: boolean;
+}
+
+/**
+ * Calculates resolved sessions for a DIS class based on schedule, overrides, holidays and syllabus modules.
+ */
+export function getResolvedDisSessions(classData: any, courseData?: any): DisClassSession[] {
+  if (!classData) return [];
+
+  const sessions: DisClassSession[] = [];
+  const syllabus = courseData?.syllabus || [];
+  const startDate = classData.startDate;
+  const endDate = classData.endDate || startDate;
+
+  if (!startDate) return [];
+
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const holidays = new Set(classData.holidayDates || []);
+  let moduleIndex = 0;
+
+  let current = new Date(start);
+  while (current <= end && current <= new Date(Date.now() + 180 * 24 * 60 * 60 * 1000)) {
+    const dateStr = current.toISOString().split('T')[0];
+
+    // Check holiday
+    if (!holidays.has(dateStr)) {
+      const moduleItem = syllabus[moduleIndex] || { id: `mod_${moduleIndex + 1}`, title: `Aula ${moduleIndex + 1}` };
+
+      const override = classData.scheduleOverrides?.[dateStr];
+      const isCancelled = override?.status === 'cancelled';
+
+      sessions.push({
+        id: `${classData.id}_${dateStr}`,
+        classId: classData.id,
+        className: classData.name || 'Turma DIS',
+        courseId: classData.courseId,
+        courseName: courseData?.name || 'Curso DIS',
+        cycle: classData.cycle,
+        dateStr,
+        startTime: override?.startTime || classData.startTime || '19:00',
+        endTime: override?.endTime || classData.endTime || '21:00',
+        moduleId: moduleItem.id,
+        moduleTitle: moduleItem.title,
+        teacherId: override?.teacherId || classData.teacherId,
+        status: isCancelled ? 'cancelled' : 'scheduled'
+      });
+
+      if (!isCancelled) {
+        moduleIndex++;
+      }
+    }
+
+    // Advance 7 days if weekly, 14 if biweekly, 1 day if single
+    const daysToAdd = classData.frequency === 'quinzenal' ? 14 : classData.frequency === 'semanal' ? 7 : 1;
+    current.setDate(current.getDate() + daysToAdd);
+  }
+
+  // Include Extra Sessions if specified
+  if (Array.isArray(classData.extraSessions)) {
+    classData.extraSessions.forEach((extra: any) => {
+      sessions.push({
+        id: `${classData.id}_${extra.date}_extra`,
+        classId: classData.id,
+        className: classData.name || 'Turma DIS',
+        courseId: classData.courseId,
+        courseName: courseData?.name || 'Curso DIS',
+        cycle: classData.cycle,
+        dateStr: extra.date,
+        startTime: extra.startTime || '19:00',
+        endTime: extra.endTime || '21:00',
+        moduleId: extra.syllabusId || 'extra',
+        moduleTitle: 'Aula Extra / Reposição',
+        teacherId: classData.teacherId,
+        status: 'scheduled',
+        isExtraSession: true,
+        isMakeupOnly: Boolean(extra.isRepositionOnly)
+      });
+    });
+  }
+
+  return sessions.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+}
