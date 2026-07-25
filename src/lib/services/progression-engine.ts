@@ -147,10 +147,8 @@ export function getResolvedDisSessions(classData: any, courseData?: any): DisCla
 
   const sessions: DisClassSession[] = [];
   const syllabus = courseData?.syllabus || [];
-  const startDate = classData.startDate;
+  const startDate = classData.startDate || classData.createdAt || new Date().toISOString().split('T')[0];
   const endDate = classData.endDate || startDate;
-
-  if (!startDate) return [];
 
   const start = new Date(startDate);
   const end = new Date(endDate);

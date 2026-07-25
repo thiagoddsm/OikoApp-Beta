@@ -405,10 +405,11 @@ export function getModuleIndexForDate(dateStr: string, classData: any, syllabus:
 }
 
 export function getResolvedSchedule(classData: any, courseData: any) {
-    if (!classData || !classData.startDate) return [];
+    if (!classData) return [];
     
     const items: any[] = [];
-    const start = parseISO(classData.startDate);
+    const startDateStr = classData.startDate || classData.createdAt || new Date().toISOString().split('T')[0];
+    const start = parseISO(startDateStr);
     const holidaySet = new Set(classData.holidayDates || []);
     const overrides = classData.scheduleOverrides || {};
     const syllabus = courseData?.syllabus || [];

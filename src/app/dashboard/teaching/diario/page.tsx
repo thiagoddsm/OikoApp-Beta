@@ -92,13 +92,29 @@ export default function DiarioDeClassePage() {
       const isDis = course.schoolId === 'dis' || course.programId === 'dis' || ministry === 'dis' || courseName.includes('libras');
       if (!isDis) return [];
 
-      // Professores veem apenas suas turmas; coordenação/admin vê todas.
       if (!isAdminOrCoordinator && classData.teacherId !== user?.uid) return [];
 
       return getResolvedSchedule(classData, course)
         .filter(session => session.dateStr.split('T')[0] === todayKey)
         .map(session => ({ classData, course, session }));
     });
+  }, [classes, courses, isAdminOrCoordinator, user?.uid]);
+
+  const allDisClasses = useMemo(() => {
+    const courseById = new Map(courses.map(course => [course.id, course]));
+    return classes.filter(classData => {
+      const course: any = courseById.get(classData.courseId);
+      if (!course) return false;
+      const courseName = (course.name || '').toLowerCase();
+      const ministry = (course.ministry || '').toLowerCase();
+      const isDis = course.schoolId === 'dis' || course.programId === 'dis' || ministry === 'dis' || courseName.includes('libras');
+      if (!isDis) return false;
+      if (!isAdminOrCoordinator && classData.teacherId !== user?.uid) return false;
+      return true;
+    }).map(classData => ({
+      classData,
+      course: courseById.get(classData.courseId)
+    }));
   }, [classes, courses, isAdminOrCoordinator, user?.uid]);
 
   // Check-in action
@@ -268,9 +284,7 @@ export default function DiarioDeClassePage() {
               <CardDescription>As sessões são calculadas a partir do calendário e da ementa de cada turma DIS.</CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              {disSessionsToday.length === 0 ? (
-                <div className="text-center py-8 text-sm text-slate-500 dark:text-slate-400">Nenhuma aula DIS programada para hoje.</div>
-              ) : (
+              {disSessionsToday.length > 0 ? (
                 <div className="divide-y divide-slate-100 dark:divide-slate-800">
                   {disSessionsToday.map(({ classData, course, session }) => (
                     <div key={`${classData.id}_${session.dateStr}`} className="p-4 flex flex-col md:flex-row justify-between gap-3 md:items-center">
@@ -280,14 +294,36 @@ export default function DiarioDeClassePage() {
                           {course.name} · {session.syllabusItem?.title || 'Conteúdo a definir'} · {session.startTime || classData.startTime}
                         </p>
                       </div>
-                      <Button asChild size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                      <Button asChild size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold">
                         <Link href={`/dashboard/teaching/log/${classData.id}?session=${encodeURIComponent(session.dateStr)}`}>
-                          <CheckSquare className="mr-1.5 size-3.5" /> Abrir chamada
+                          <CheckSquare className="mr-1.5 size-3.5" /> Abrir chamada de hoje
                         </Link>
                       </Button>
                     </div>
                   ))}
                 </div>
+              ) : allDisClasses.length > 0 ? (
+                <div className="p-4 space-y-3">
+                  <p className="text-xs text-slate-500 font-medium">Nenhuma aula do DIS cai exatamente no dia de hoje. Escolha uma das suas turmas do DIS abaixo para abrir o cronograma completo e lançar a chamada:</p>
+                  <div className="grid gap-3 grid-cols-1 md:grid-cols-2">
+                    {allDisClasses.map(({ classData, course }) => (
+                      <div key={classData.id} className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex flex-col justify-between gap-3">
+                        <div>
+                          <Badge className="bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 font-bold mb-1">Turma DIS</Badge>
+                          <h4 className="font-bold text-sm text-slate-800 dark:text-slate-100">{classData.name}</h4>
+                          <p className="text-xs text-slate-500">{course?.name || 'Curso DIS'} — {classData.students?.length || 0} Alunos</p>
+                        </div>
+                        <Button asChild size="sm" className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold w-full">
+                          <Link href={`/dashboard/teaching/log/${classData.id}`}>
+                            <CheckSquare className="mr-1.5 size-3.5" /> Lançar Chamada / Ver Cronograma
+                          </Link>
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-sm text-slate-500 dark:text-slate-400">Nenhuma turma DIS ativa encontrada para o seu perfil.</div>
               )}
             </CardContent>
           </Card>
