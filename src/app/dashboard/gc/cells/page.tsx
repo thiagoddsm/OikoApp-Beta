@@ -739,9 +739,6 @@ export default function CellsPage() {
                         {cell.address?.street && (
                           <p className="text-[10px] text-muted-foreground mt-0.5 truncate max-w-[200px]">{cell.address.street}</p>
                         )}
-                        <div className="mt-1.5">
-                          <GcStatusBadges data={evaluateGcSymbology(cell, memberUsers.length, 60)} />
-                        </div>
                       </TableCell>
 
                       {/* Status */}

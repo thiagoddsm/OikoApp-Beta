@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Users, TrendingUp, AlertTriangle, MessageSquare, HeartHandshake, BarChart2, ClipboardList, CheckCircle2, Clock, Eye, Pencil, CalendarDays, UserPlus, DollarSign, Star, FileText, Trash2, ChevronLeft, ChevronRight, Filter } from 'lucide-react';
+import { Loader2, Users, TrendingUp, AlertTriangle, MessageSquare, HeartHandshake, BarChart2, ClipboardList, CheckCircle2, Clock, Eye, Pencil, CalendarDays, UserPlus, DollarSign, Star, FileText, Trash2, ChevronLeft, ChevronRight, Filter, Activity, Rocket, AlertCircle, ShieldAlert } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -76,7 +76,29 @@ function RmBar({ value }: { value: number }) {
   );
 }
 
-type Cell = { id: string; nome: string; meetingDay?: string; liderId: string; areaId?: string; redeId?: string; };
+type CoLider = { id: string; casalId?: string };
+
+type Cell = {
+  id: string;
+  nome: string;
+  liderId: string;
+  liderCasalId?: string;
+  coLiderIds?: string[];
+  coLideres?: CoLider[];
+  anfitriaoId?: string;
+  secretariaId?: string;
+  secretarioId?: string;
+  supervisorId?: string;
+  areaId?: string;
+  redeId?: string;
+  members?: string[];
+  membros?: string[];
+  meetingDay?: string;
+  meetingTime?: string;
+  status?: 'active' | 'inactive' | 'growing';
+  anfitriaoElegiveiIds?: string[];
+  multiplicationDate?: string;
+};
 type Area = { id: string; nome: string; liderId: string; redeId: string; };
 type Rede = { id: string; nome: string; liderId: string; pastorId: string; };
 
@@ -212,6 +234,22 @@ export default function SupervisorPage() {
   const [filterRedeId, setFilterRedeId] = useState('');
   const [filterAreaId, setFilterAreaId] = useState('');
   const [filterCellId, setFilterCellId] = useState('');
+
+  // Filtro na aba de Diagnóstico & Simbologias
+  const [diagFilter, setDiagFilter] = useState<'all' | 'ready' | 'attention' | 'alerts'>('all');
+
+  // Usuários para contagem de membros por célula no diagnóstico
+  const usersQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'users')) : null, [firestore]);
+  const { data: usersData } = useCollection<any>(usersQuery);
+
+  const membersCountByCell = useMemo(() => {
+    const map: Record<string, number> = {};
+    (usersData || []).forEach((u: any) => {
+      const cid = u.cellId || u.hierarchy?.celulaId;
+      if (cid) map[cid] = (map[cid] || 0) + 1;
+    });
+    return map;
+  }, [usersData]);
 
   // Período da Visão Geral
   const overviewRange = useMemo(() => {
@@ -487,6 +525,7 @@ export default function SupervisorPage() {
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList>
             <TabsTrigger value="overview" className="gap-2"><BarChart2 className="h-4 w-4" />Visão Geral</TabsTrigger>
+            <TabsTrigger value="diagnostics" className="gap-2"><ShieldAlert className="h-4 w-4" />Diagnóstico &amp; Simbologias</TabsTrigger>
             <TabsTrigger value="reports" className="gap-2"><ClipboardList className="h-4 w-4" />Relatórios</TabsTrigger>
           </TabsList>
 
@@ -518,9 +557,6 @@ export default function SupervisorPage() {
               </div>
             )}
           </div>
-
-          {/* Card de Simbologia e Diagnóstico dos GCs */}
-          <GcSupervisorLegendCard />
 
           {/* Filtros Estratégicos */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-muted/30 p-3 rounded-lg border border-border/60">
@@ -816,6 +852,103 @@ export default function SupervisorPage() {
             </Card>
           )}
         </>
+          </TabsContent>
+
+          {/* ===== ABA DIAGNÓSTICO & SIMBOLOGIAS ===== */}
+          <TabsContent value="diagnostics" className="space-y-6">
+            <GcSupervisorLegendCard />
+
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <CardTitle className="text-base font-black flex items-center gap-2">
+                      <Activity className="h-4 w-4 text-primary" />
+                      Diagnóstico Operacional das Células
+                    </CardTitle>
+                    <CardDescription>
+                      Classificação em tempo real por simbologia, prontidão de multiplicação e alertas
+                    </CardDescription>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <Button
+                      size="sm"
+                      variant={diagFilter === 'all' ? 'default' : 'outline'}
+                      className="text-xs font-bold h-8"
+                      onClick={() => setDiagFilter('all')}
+                    >
+                      Todas ({allCells?.length || 0})
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={diagFilter === 'ready' ? 'default' : 'outline'}
+                      className={cn("text-xs font-bold h-8 gap-1", diagFilter === 'ready' && "bg-emerald-600 hover:bg-emerald-700 text-white")}
+                      onClick={() => setDiagFilter('ready')}
+                    >
+                      <Rocket className="h-3.5 w-3.5" /> Prontas
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={diagFilter === 'attention' ? 'default' : 'outline'}
+                      className={cn("text-xs font-bold h-8 gap-1", diagFilter === 'attention' && "bg-amber-600 hover:bg-amber-700 text-white")}
+                      onClick={() => setDiagFilter('attention')}
+                    >
+                      <AlertTriangle className="h-3.5 w-3.5" /> Atenção
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={diagFilter === 'alerts' ? 'default' : 'outline'}
+                      className={cn("text-xs font-bold h-8 gap-1", diagFilter === 'alerts' && "bg-rose-600 hover:bg-rose-700 text-white")}
+                      onClick={() => setDiagFilter('alerts')}
+                    >
+                      <AlertCircle className="h-3.5 w-3.5" /> Alertas
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {!allCells || allCells.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">Nenhuma célula encontrada.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {allCells
+                      .map(cell => {
+                        const mCount = membersCountByCell[cell.id] || cell.members?.length || 0;
+                        const evalData = evaluateGcSymbology(cell, mCount, 60);
+                        return { cell, mCount, evalData };
+                      })
+                      .filter(({ evalData }) => {
+                        if (diagFilter === 'ready') return evalData.isReadyForMultiplication;
+                        if (diagFilter === 'attention') return evalData.attentionReasons.length > 0;
+                        if (diagFilter === 'alerts') return evalData.operationalAlerts.length > 0;
+                        return true;
+                      })
+                      .map(({ cell, mCount, evalData }) => (
+                        <div key={cell.id} className="p-4 rounded-xl border bg-card hover:bg-muted/20 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <div className="space-y-1.5 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Link href={`/dashboard/gc/cells/${cell.id}`} className="font-black text-base hover:underline hover:text-primary">
+                                {cell.nome}
+                              </Link>
+                              <GcStatusBadges data={evalData} />
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Membros: <strong className="text-foreground">{mCount}</strong> &middot; Líder em Treinamento: {cell.coLideres?.length || 0} &middot; Secretário(a): {cell.secretariaId || (cell as any).secretarioId ? 'Sim' : 'Não'} &middot; Multiplicação: {cell.multiplicationDate || 'Não planejada'}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Button size="sm" variant="outline" className="h-8 text-xs font-bold gap-1" asChild>
+                              <Link href={`/dashboard/gc/cells/${cell.id}`}>
+                                <Eye className="h-3.5 w-3.5" /> Abrir GC
+                              </Link>
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* ===== ABA RELATÓRIOS ===== */}
