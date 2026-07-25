@@ -413,13 +413,13 @@ export default function SupervisorPage() {
     return status;
   }, [allCells, recentLogs, reportWeekOffset]);
 
-  // Alertas Luz Vermelha — busca histórico de 30 dias para calcular faltas consecutivas
+  // Alertas Luz Vermelha — busca histórico de 90 dias para calcular faltas consecutivas
   const alertasQuery = useMemoFirebase(() => {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const dateStr = thirtyDaysAgo.toISOString().split('T')[0];
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    const dateStr = ninetyDaysAgo.toISOString().split('T')[0];
     return firestore
-      ? query(collection(firestore, 'presencas_historico'), where('date', '>=', dateStr), orderBy('date', 'desc'), limit(3000))
+      ? query(collection(firestore, 'presencas_historico'), where('date', '>=', dateStr), orderBy('date', 'desc'), limit(5000))
       : null;
   }, [firestore]);
   const { data: presencasAlerta } = useCollection<PresencaDoc>(alertasQuery);
@@ -481,8 +481,12 @@ export default function SupervisorPage() {
         const sorted = [...regs].sort((a, b) => b.date.localeCompare(a.date));
         let consecutive = 0;
         for (const r of sorted) {
-          if (r.status === 'ausente_sem_justificativa') consecutive++;
-          else break;
+          const s = (r.status || '').toLowerCase().trim();
+          if (s === 'ausente_sem_justificativa' || s === 'ausente' || s === 'faltou' || s === 'falta') {
+            consecutive++;
+          } else {
+            break;
+          }
         }
         if (consecutive >= radarConfig.minAtencao) {
           const ultimaPresenca = sorted.find(r => r.status === 'presente')?.date || '—';
