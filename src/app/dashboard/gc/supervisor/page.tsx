@@ -10,6 +10,9 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Separator } from '@/components/ui/separator';
 import { Loader2, Users, TrendingUp, AlertTriangle, MessageSquare, HeartHandshake, BarChart2, ClipboardList, CheckCircle2, Clock, Eye, Pencil, CalendarDays, UserPlus, DollarSign, Star, FileText, Trash2, ChevronLeft, ChevronRight, Filter, Activity, Rocket, AlertCircle, ShieldAlert } from 'lucide-react';
@@ -235,6 +238,36 @@ export default function SupervisorPage() {
   const [filterAreaId, setFilterAreaId] = useState('');
   const [filterCellId, setFilterCellId] = useState('');
 
+  // Regras configuráveis do Radar de Faltas
+  const [radarConfig, setRadarConfig] = useState({ minAtencao: 3, minAlerta: 4, maxAlerta: 8 });
+  const [isRulesDialogOpen, setIsRulesDialogOpen] = useState(false);
+  const [tempRules, setTempRules] = useState({ minAtencao: 3, minAlerta: 4, maxAlerta: 8 });
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('radar_faltas_rules');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.minAtencao && parsed.minAlerta && parsed.maxAlerta) {
+          setRadarConfig(parsed);
+          setTempRules(parsed);
+        }
+      }
+    } catch {}
+  }, []);
+
+  const handleSaveRules = () => {
+    setRadarConfig(tempRules);
+    try {
+      localStorage.setItem('radar_faltas_rules', JSON.stringify(tempRules));
+    } catch {}
+    setIsRulesDialogOpen(false);
+    toast({
+      title: 'Regras do Radar Atualizadas',
+      description: `Atenção: ${tempRules.minAtencao} faltas | Alerta: ${tempRules.minAlerta}-${tempRules.maxAlerta} faltas | Desistência: > ${tempRules.maxAlerta} faltas.`,
+    });
+  };
+
   // Filtro na aba de Diagnóstico & Simbologias
   const [diagFilter, setDiagFilter] = useState<'all' | 'ready' | 'attention' | 'alerts'>('all');
 
@@ -451,12 +484,15 @@ export default function SupervisorPage() {
           if (r.status === 'ausente_sem_justificativa') consecutive++;
           else break;
         }
-        if (consecutive >= 3) {
+        if (consecutive >= radarConfig.minAtencao) {
           const ultimaPresenca = sorted.find(r => r.status === 'presente')?.date || '—';
           
           let nivel: 'Atenção' | 'Alerta' | 'Desistência' = 'Atenção';
-          if (consecutive >= 4 && consecutive <= 8) nivel = 'Alerta';
-          else if (consecutive > 8) nivel = 'Desistência';
+          if (consecutive >= radarConfig.minAlerta && consecutive <= radarConfig.maxAlerta) {
+            nivel = 'Alerta';
+          } else if (consecutive > radarConfig.maxAlerta) {
+            nivel = 'Desistência';
+          }
 
           alertas.push({ membroId, membroNome: regs[0].membroNome, cellId, faltasConsecutivas: consecutive, ultimaPresenca, nivel });
         }
@@ -464,7 +500,7 @@ export default function SupervisorPage() {
     });
 
     return alertas.sort((a, b) => b.faltasConsecutivas - a.faltasConsecutivas);
-  }, [presencasAlerta, filterRedeId, filterAreaId, filterCellId, filteredCellIds]);
+  }, [presencasAlerta, filterRedeId, filterAreaId, filterCellId, filteredCellIds, radarConfig]);
 
   // Feed de feedbacks dos líderes
   const feedbacks = useMemo(() =>
@@ -786,11 +822,23 @@ export default function SupervisorPage() {
 
             {/* Alertas Luz Vermelha */}
             <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-black flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-red-500" /> Radar de Faltas
-                </CardTitle>
-                <CardDescription>Acompanhe os membros que estão faltando às reuniões (3+ faltas seguidas)</CardDescription>
+              <CardHeader className="pb-3 flex flex-row items-start justify-between space-y-0">
+                <div>
+                  <CardTitle className="text-base font-black flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-red-500" /> Radar de Faltas
+                  </CardTitle>
+                  <CardDescription>
+                    Acompanhe os membros com faltas consecutivas ({radarConfig.minAtencao}+ faltas)
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs font-bold gap-1.5 shrink-0"
+                  onClick={() => setIsRulesDialogOpen(true)}
+                >
+                  <Pencil className="h-3.5 w-3.5" /> Configurar regras
+                </Button>
               </CardHeader>
               <CardContent>
                 {luzVermelhaAlertas.length === 0 ? (
@@ -1272,6 +1320,87 @@ export default function SupervisorPage() {
         )}
       </SheetContent>
     </Sheet>
+
+    {/* ── DIALOG DE CONFIGURAÇÃO DE REGRAS DO RADAR ──────────────────── */}
+    <Dialog open={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-black flex items-center gap-2">
+            <Pencil className="h-5 w-5 text-primary" />
+            Configurar Regras do Radar de Faltas
+          </DialogTitle>
+          <DialogDescription>
+            Defina a quantidade de faltas seguidas sem justificativa para acionar cada nível de alerta.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          {/* 🟡 Atenção */}
+          <div className="space-y-1.5 p-3 rounded-lg bg-amber-50 border border-amber-200">
+            <Label className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-amber-500" /> 🟡 Nível "Atenção" (Faltas consecutivas)
+            </Label>
+            <Input
+              type="number"
+              min={1}
+              max={20}
+              value={tempRules.minAtencao}
+              onChange={e => setTempRules({ ...tempRules, minAtencao: parseInt(e.target.value) || 1 })}
+              className="bg-white font-bold"
+            />
+            <p className="text-[11px] text-amber-700">Aciona quando o membro completa esta quantidade de faltas.</p>
+          </div>
+
+          {/* 🔴 Alerta (Luz Vermelha) */}
+          <div className="space-y-1.5 p-3 rounded-lg bg-red-50 border border-red-200">
+            <Label className="text-xs font-bold text-red-900 flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-red-500" /> 🔴 Nível "Alerta / Luz Vermelha" (De X até Y faltas)
+            </Label>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <span className="text-[10px] text-muted-foreground font-semibold">Mínimo de faltas:</span>
+                <Input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={tempRules.minAlerta}
+                  onChange={e => setTempRules({ ...tempRules, minAlerta: parseInt(e.target.value) || 1 })}
+                  className="bg-white font-bold"
+                />
+              </div>
+              <div>
+                <span className="text-[10px] text-muted-foreground font-semibold">Máximo de faltas:</span>
+                <Input
+                  type="number"
+                  min={1}
+                  max={30}
+                  value={tempRules.maxAlerta}
+                  onChange={e => setTempRules({ ...tempRules, maxAlerta: parseInt(e.target.value) || 1 })}
+                  className="bg-white font-bold"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ⚪ Risco de Desistência */}
+          <div className="space-y-1.5 p-3 rounded-lg bg-neutral-100 border border-neutral-300">
+            <Label className="text-xs font-bold text-neutral-800 flex items-center gap-1.5">
+              <span className="size-2 rounded-full bg-neutral-600" /> ⚪ Nível "Desistência" (&gt; Y faltas)
+            </Label>
+            <p className="text-xs text-neutral-600 font-semibold">
+              Acionado automaticamente quando o membro ultrapassar <strong>{tempRules.maxAlerta} faltas consecutivas</strong>.
+            </p>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline" size="sm">Cancelar</Button>
+          </DialogClose>
+          <Button size="sm" onClick={handleSaveRules} className="font-bold">Salvar Regras</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </>
   );
 }
