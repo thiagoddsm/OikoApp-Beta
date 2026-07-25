@@ -306,6 +306,22 @@ export default function SupervisorPage() {
   const { data: logsAll, isLoading: l1 } = useCollection<ReuniaoLog>(logsQuery);
   const { data: presencas, isLoading: l2 } = useCollection<PresencaDoc>(presencasQuery);
 
+  const cellAttendanceRateMap = useMemo(() => {
+    if (!logsAll) return {};
+    const map: Record<string, { totalPresentes: number; totalCapacidade: number }> = {};
+    logsAll.forEach(l => {
+      if (!map[l.cellId]) map[l.cellId] = { totalPresentes: 0, totalCapacidade: 0 };
+      map[l.cellId].totalPresentes += l.metricas?.presentes || 0;
+      map[l.cellId].totalCapacidade += l.metricas?.totalMembrosAtivos || 1;
+    });
+
+    const rates: Record<string, number> = {};
+    Object.entries(map).forEach(([cid, data]) => {
+      rates[cid] = data.totalCapacidade > 0 ? Math.round((data.totalPresentes / data.totalCapacidade) * 100) : 0;
+    });
+    return rates;
+  }, [logsAll]);
+
   // Todas as células (para aba de relatórios e filtros)
   const allCellsQuery = useMemoFirebase(() =>
     firestore ? query(collection(firestore, 'cells'), orderBy('nome')) : null,
@@ -914,8 +930,11 @@ export default function SupervisorPage() {
                     {allCells
                       .map(cell => {
                         const mCount = membersCountByCell[cell.id] || cell.members?.length || 0;
-                        const evalData = evaluateGcSymbology(cell, mCount, 60);
-                        return { cell, mCount, evalData };
+                        const attRate = cellAttendanceRateMap[cell.id] || 0;
+                        const hasEligibleHost = (cell.anfitriaoElegiveiIds?.length || 0) > 0 || !!cell.anfitriaoId;
+                        const eligibleHostsCount = cell.anfitriaoElegiveiIds?.length || (cell.anfitriaoId ? 1 : 0);
+                        const evalData = evaluateGcSymbology(cell, mCount, attRate);
+                        return { cell, mCount, attRate, hasEligibleHost, eligibleHostsCount, evalData };
                       })
                       .filter(({ evalData }) => {
                         if (diagFilter === 'ready') return evalData.isReadyForMultiplication;
@@ -923,7 +942,7 @@ export default function SupervisorPage() {
                         if (diagFilter === 'alerts') return evalData.operationalAlerts.length > 0;
                         return true;
                       })
-                      .map(({ cell, mCount, evalData }) => (
+                      .map(({ cell, mCount, attRate, hasEligibleHost, eligibleHostsCount, evalData }) => (
                         <div key={cell.id} className="p-4 rounded-xl border bg-card hover:bg-muted/20 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4">
                           <div className="space-y-1.5 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
@@ -932,8 +951,18 @@ export default function SupervisorPage() {
                               </Link>
                               <GcStatusBadges data={evalData} />
                             </div>
-                            <p className="text-xs text-muted-foreground">
-                              Membros: <strong className="text-foreground">{mCount}</strong> &middot; Líder em Treinamento: {cell.coLideres?.length || 0} &middot; Secretário(a): {cell.secretariaId || (cell as any).secretarioId ? 'Sim' : 'Não'} &middot; Multiplicação: {cell.multiplicationDate || 'Não planejada'}
+                            <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
+                              <span>Membros: <strong className="text-foreground">{mCount}</strong></span>
+                              <span>&middot;</span>
+                              <span>Frequência: <strong className={attRate >= 50 ? "text-emerald-600 font-bold" : attRate > 0 ? "text-amber-600 font-bold" : "text-slate-400 font-normal"}>{attRate > 0 ? `${attRate}%` : 'Sem dados'}</strong></span>
+                              <span>&middot;</span>
+                              <span>Anfitrião Elegível: <strong className={hasEligibleHost ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>{hasEligibleHost ? `Sim (${eligibleHostsCount})` : 'Não'}</strong></span>
+                              <span>&middot;</span>
+                              <span>Líder em Treinamento: <strong className="text-foreground font-bold">{cell.coLideres?.length || cell.coLiderIds?.length || 0}</strong></span>
+                              <span>&middot;</span>
+                              <span>Secretário(a): <strong className="text-foreground font-bold">{cell.secretariaId || (cell as any).secretarioId ? 'Sim' : 'Não'}</strong></span>
+                              <span>&middot;</span>
+                              <span>Multiplicação: <strong className="text-foreground font-bold">{cell.multiplicationDate || 'Não planejada'}</strong></span>
                             </p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
