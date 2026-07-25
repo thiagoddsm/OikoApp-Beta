@@ -107,14 +107,14 @@ function StepChamada({ members, attendance, onChange }: {
 }) {
   return (
     <div className="space-y-3">
-      {members.map(member => {
+      {members.map((member, idx) => {
         const att = attendance.find(a => a.membroId === member.id);
         if (!att) return null; // ainda inicializando
 
         const isAbsent = att.status === 'ausente_justificado' || att.status === 'ausente_sem_justificativa';
 
         return (
-          <div key={member.id} className="rounded-xl border bg-card p-3 space-y-2">
+          <div key={`${member.id}_${idx}`} className="rounded-xl border bg-card p-3 space-y-2">
             {/* Nome + botões */}
             <div className="flex items-center gap-3">
               <Avatar className="h-9 w-9 border flex-shrink-0">

@@ -124,12 +124,14 @@ export default function CellDetailPage() {
   // Identifica membros da célula baseado exclusivamente na tabela de usuários.
   // (A lógica de ponte / dual read foi removida)
   const computedMembroIds = useMemo(() => {
-    return (allUsers || []).filter((u: any) => u.hierarchy?.celulaId === cellId).map(u => u.id);
+    const rawIds = (allUsers || []).filter((u: any) => u.hierarchy?.celulaId === cellId).map(u => u.id);
+    return Array.from(new Set(rawIds));
   }, [allUsers, cellId]);
 
-  const members = useMemo(() =>
-    computedMembroIds.map(id => userMap.get(id)).filter(Boolean) as UserType[],
-    [computedMembroIds, userMap]);
+  const members = useMemo(() => {
+    const uniqueIds = Array.from(new Set(computedMembroIds));
+    return uniqueIds.map(id => userMap.get(id)).filter(Boolean) as UserType[];
+  }, [computedMembroIds, userMap]);
 
   const nonMembers = useMemo(() =>
     (allUsers || []).filter(u => !computedMembroIds.includes(u.id)),
@@ -299,14 +301,14 @@ export default function CellDetailPage() {
                 {members.length === 0 && (
                   <p className="text-center text-sm text-muted-foreground py-10 italic">Nenhum membro cadastrado.</p>
                 )}
-                {members.map(user => {
+                {members.map((user, idx) => {
                   const isBaptized = user.batizado === 'sim' || !!user.dataBatismo || !!user.churchData?.baptismDate;
                   const isLeader = user.id === cell.liderId;
                   const role = isLeader ? 'leader' : (cell.cellRoles?.[user.id] || 'member');
                   const roleCfg = ROLES[role] || ROLES.member;
 
                   return (
-                    <div key={user.id} className="flex items-center gap-4 px-6 py-4 hover:bg-muted/30 transition-colors">
+                    <div key={`${user.id}_${idx}`} className="flex items-center gap-4 px-6 py-4 hover:bg-muted/30 transition-colors">
                       <div className="relative">
                         <Avatar className="h-10 w-10 border-2 border-background shadow">
                           {user.photoURL && <img src={user.photoURL} className="h-full w-full object-cover rounded-full" />}
@@ -390,8 +392,8 @@ export default function CellDetailPage() {
                 {(cell.visitors || []).length === 0 && (
                   <p className="text-center text-sm text-muted-foreground py-10 italic">Nenhum visitante registrado.</p>
                 )}
-                {(cell.visitors || []).map(visitor => (
-                  <div key={visitor.id} className="flex items-center gap-4 px-6 py-4 hover:bg-muted/30 transition-colors">
+                {(cell.visitors || []).map((visitor, idx) => (
+                  <div key={`${visitor.id}_${idx}`} className="flex items-center gap-4 px-6 py-4 hover:bg-muted/30 transition-colors">
                     <Avatar className="h-10 w-10 border-2 border-amber-100 bg-amber-50">
                       <AvatarFallback className="font-bold text-amber-700">{visitor.name?.charAt(0)}</AvatarFallback>
                     </Avatar>
