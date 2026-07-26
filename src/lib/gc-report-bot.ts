@@ -393,9 +393,9 @@ export async function handleGcReportIncomingMessage(
       case 'POSTPONED_DATE': {
         if (type === 'text') {
           const newDateText = messageText.trim();
-          
+
           // Salva log de reunião adiada no Firestore
-          const logRef = db.collection('reuniao_logs').doc();
+          const logRef = db.collection('gc_reuniao_logs').doc();
           await logRef.set({
             cellId: session.cellId,
             date: new Date().toISOString().split('T')[0],
@@ -406,9 +406,23 @@ export async function handleGcReportIncomingMessage(
             createdAt: now
           });
 
+          // Agendar nova tentativa de coleta de relatório no dia seguinte à nova data
+          // Tentamos interpretar a data informada pelo líder
+          const scheduleRef = db.collection('gc_report_schedules').doc();
+          await scheduleRef.set({
+            cellId: session.cellId,
+            liderId: session.liderId,
+            liderPhone: fromPhone,
+            novaData: newDateText,          // data informada pelo líder (texto livre)
+            status: 'pending',
+            createdAt: now,
+            // O trigger-reports vai checar esse campo para saber se já passou do dia seguinte
+            triggerAfter: newDateText       // referencia textual — o trigger vai comparar com data atual
+          });
+
           await sendText(
             fromPhone,
-            `👍 Entendido! A reunião foi reagendada para *${newDateText}*.\n\nFaremos o acompanhamento automático do relatório no dia seguinte à nova data. Bom trabalho na liderança! 🙏`
+            `👍 Entendido! A reunião foi reagendada para *${newDateText}*.\n\nVou te enviar o formulário de relatório automaticamente no dia seguinte. Bom trabalho na liderança! 🙏`
           );
 
           await sessionRef.delete();
@@ -421,7 +435,7 @@ export async function handleGcReportIncomingMessage(
           const reasonText = messageText.trim();
           
           // Salva log de reunião cancelada no Firestore
-          const logRef = db.collection('reuniao_logs').doc();
+          const logRef = db.collection('gc_reuniao_logs').doc();
           await logRef.set({
             cellId: session.cellId,
             date: new Date().toISOString().split('T')[0],

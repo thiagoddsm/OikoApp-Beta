@@ -65,6 +65,46 @@ export async function POST(request: Request) {
       console.log(`[GC Bot] Cleaned up ${cleanedSessionsCount} expired sessions.`);
     }
 
+    // 2b. Processar agendamentos pendentes de células com reunião adiada
+    const todayStr = new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
+    const pendingSchedules = await db.collection('gc_report_schedules')
+      .where('status', '==', 'pending')
+      .get();
+
+    let scheduledTriggered = 0;
+    for (const schedDoc of pendingSchedules.docs) {
+      const sched = schedDoc.data();
+      // Tentar parsear a data informada pelo líder (ex: '30/07', '30/07/2026')
+      const rawDate = sched.novaData || '';
+      const dateMatch = rawDate.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/);
+      if (!dateMatch) continue;
+
+      const day = parseInt(dateMatch[1], 10);
+      const month = parseInt(dateMatch[2], 10) - 1;
+      const yearRaw = dateMatch[3];
+      const year = yearRaw ? parseInt(yearRaw.length === 2 ? '20' + yearRaw : yearRaw) : new Date().getFullYear();
+      const meetingDate = new Date(year, month, day);
+
+      // Disparar no dia seguinte à reunião adiada
+      const followUpDate = new Date(meetingDate);
+      followUpDate.setDate(followUpDate.getDate() + 1);
+      const followUpStr = followUpDate.toISOString().split('T')[0];
+
+      if (todayStr >= followUpStr) {
+        // Chegou o dia — disparar bot
+        try {
+          const success = await startGcReportSession(sched.cellId, sched.liderPhone);
+          if (success) {
+            scheduledTriggered++;
+            await schedDoc.ref.update({ status: 'triggered', triggeredAt: now });
+            console.log(`[GC Bot] Agendamento disparado para célula ${sched.cellId} (reunião adiada para ${rawDate}).`);
+          }
+        } catch (e: any) {
+          console.error(`[GC Bot] Erro ao disparar agendamento ${schedDoc.id}:`, e.message);
+        }
+      }
+    }
+
     // 3. Buscar células ativas
     let cellsQuery: any = db.collection('cells').where('status', '==', 'active');
     
@@ -133,7 +173,7 @@ export async function POST(request: Request) {
           }
 
           // 2. Verificar se já existe relatório enviado nos últimos 6 dias para esta célula
-          const reportsSnap = await db.collection('reuniao_logs')
+          const reportsSnap = await db.collection('gc_reuniao_logs')
             .where('cellId', '==', cellId)
             .where('date', '>=', dateLimitStr)
             .limit(1)
