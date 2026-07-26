@@ -6,8 +6,14 @@ export interface GcReportSession {
   id: string; // Telefone do líder formatado (ex: 5521999998888)
   cellId: string;
   liderId: string;
-  step: 'START' | 'ATTENDANCE' | 'CARE_CHOICE' | 'CARE_SELECT' | 'CARE_MEMBER_THERMOMETER' | 'CARE_MEMBER_PRAYER' | 'METRICS_LESSON' | 'METRICS_VISITORS' | 'METRICS_CONVERSIONS' | 'FEEDBACK';
+  step: 'START' | 'CHECK_MEETING' | 'MEETING_STATUS_CHOICE' | 'POSTPONED_DATE' | 'CANCELLED_REASON' | 'ATTENDANCE' | 'CARE_CHOICE' | 'CARE_SELECT' | 'CARE_MEMBER_THERMOMETER' | 'CARE_MEMBER_PRAYER' | 'METRICS_LESSON' | 'METRICS_VISITORS' | 'METRICS_CONVERSIONS' | 'FEEDBACK';
   members: { id: string; name: string }[];
+  
+  // Controle de reunião (Adiada ou Cancelada)
+  meetingOccurred?: boolean;
+  meetingStatus?: 'postponed' | 'cancelled';
+  postponedDate?: string;
+  cancelledReason?: string;
   
   // Controle da Chamada
   attendancePage?: number;
@@ -193,7 +199,7 @@ export async function startGcReportSession(cellId: string, liderPhone: string, i
     membersList.sort((a, b) => a.name.localeCompare(b.name));
 
 
-    // 3. Enviar mensagens no WhatsApp: boas-vindas + Lista de Chamada
+    // 3. Enviar mensagem de boas-vindas primeiro
     console.log(`[GC Bot] Enviando fluxo de relatório para ${liderPhone}...`);
     
     // Buscar nome do líder para saudação personalizada
@@ -205,20 +211,32 @@ export async function startGcReportSession(cellId: string, liderPhone: string, i
       }
     }
 
-    // Mensagem de boas-vindas
+    // Mensagem de boas-vindas (1º envio obrigatoriamente síncrono)
     await sendText(
       liderPhone,
-      `Olá, líder${liderName}! 👋\nVamos preencher o relatório semanal do GC *${cellData.nome || 'Célula'}*? É rapidinho!\n\n📋 *Etapa 1: Chamada*\nResponda na lista abaixo quem esteve *PRESENTE* na reunião.`
+      `Olá, líder${liderName}! 👋\nQue a paz do Senhor esteja com você! Chegou a hora de registrar as bençãos da reunião do GC *${cellData.nome || 'Célula'}* desta semana.`
     );
     
-    await sendMembersListAsPoll(liderPhone, membersList, false);
+    // Aguardar 2.5 segundos para o servidor da Evolution/WAME carregar o carimbo de data/hora do texto antes de postar os botões
+    await new Promise(resolve => setTimeout(resolve, 2500));
+
+    // Pergunta inicial com botões (2º envio)
+    await sendButton(
+      liderPhone,
+      '❓ *Aconteceu a reunião do GC esta semana?*',
+      [
+        { id: 'meeting_yes', text: 'Sim' },
+        { id: 'meeting_no', text: 'Não' }
+      ],
+      'Relatório Semanal de Célula'
+    );
 
     // 4. Salvar estado da sessão na coleção `gc_report_sessions`
     const newSession: GcReportSession = {
       id: liderPhone,
       cellId,
       liderId,
-      step: 'ATTENDANCE',
+      step: 'CHECK_MEETING',
       members: membersList,
       attendancePage: 0,
       attendanceAccumulated: [],
@@ -238,7 +256,7 @@ export async function startGcReportSession(cellId: string, liderPhone: string, i
     };
 
     await sessionRef.set(newSession);
-    console.log('[GC Bot] Sessão criada com sucesso (step: ATTENDANCE) para', liderPhone);
+    console.log('[GC Bot] Sessão criada com sucesso (step: CHECK_MEETING) para', liderPhone);
 
     return true;
   } catch (error) {
@@ -292,6 +310,138 @@ export async function handleGcReportIncomingMessage(
           await startGcReportSession(session.cellId, fromPhone, session.isTestData);
         }
         break;
+
+      case 'CHECK_MEETING': {
+        const isYes = payload?.buttonId === 'meeting_yes' || ['sim', 's', '1', 'teve', 'aconteceu', 'meeting_yes'].includes(msg);
+        const isNo = payload?.buttonId === 'meeting_no' || ['não', 'nao', 'n', '2', 'não teve', 'nao teve', 'meeting_no'].includes(msg);
+
+        if (isYes) {
+          await sessionRef.update({
+            meetingOccurred: true,
+            step: 'ATTENDANCE',
+            updatedAt: now
+          });
+          await sendText(
+            fromPhone,
+            '📋 *Etapa 1: Chamada*\n\nResponda na enquete/lista abaixo quem esteve *PRESENTE* na reunião.'
+          );
+          await sendMembersListAsPoll(fromPhone, session.members, false);
+        } else if (isNo) {
+          await sessionRef.update({
+            meetingOccurred: false,
+            step: 'MEETING_STATUS_CHOICE',
+            updatedAt: now
+          });
+          await sendButton(
+            fromPhone,
+            'Compreendido. A reunião foi *Adiada* para outro dia ou foi *Cancelada* nesta semana?',
+            [
+              { id: 'status_postponed', text: 'Adiada' },
+              { id: 'status_cancelled', text: 'Cancelada' }
+            ],
+            'Status da Reunião'
+          );
+        } else {
+          await sendButton(
+            fromPhone,
+            'Por favor, escolha uma das opções abaixo:\n\nAconteceu a reunião do GC esta semana?',
+            [
+              { id: 'meeting_yes', text: 'Sim' },
+              { id: 'meeting_no', text: 'Não' }
+            ]
+          );
+        }
+        break;
+      }
+
+      case 'MEETING_STATUS_CHOICE': {
+        const isPostponed = payload?.buttonId === 'status_postponed' || ['adiada', 'adiado', '1', 'status_postponed'].includes(msg);
+        const isCancelled = payload?.buttonId === 'status_cancelled' || ['cancelada', 'cancelado', '2', 'status_cancelled'].includes(msg);
+
+        if (isPostponed) {
+          await sessionRef.update({
+            meetingStatus: 'postponed',
+            step: 'POSTPONED_DATE',
+            updatedAt: now
+          });
+          await sendText(
+            fromPhone,
+            '📅 *Para qual dia a reunião foi adiada?*\n\nDigite a nova data ou dia da semana (ex: *Sexta-feira 25/07* ou *28/07*).'
+          );
+        } else if (isCancelled) {
+          await sessionRef.update({
+            meetingStatus: 'cancelled',
+            step: 'CANCELLED_REASON',
+            updatedAt: now
+          });
+          await sendText(
+            fromPhone,
+            '❌ *Qual foi o motivo do cancelamento da reunião?*\n\n(ex: *Feriado*, *Encontro de Casais*, *Imprevisto no local*...)'
+          );
+        } else {
+          await sendButton(
+            fromPhone,
+            'Por favor, informe se a reunião foi Adiada ou Cancelada:',
+            [
+              { id: 'status_postponed', text: 'Adiada' },
+              { id: 'status_cancelled', text: 'Cancelada' }
+            ]
+          );
+        }
+        break;
+      }
+
+      case 'POSTPONED_DATE': {
+        if (type === 'text') {
+          const newDateText = messageText.trim();
+          
+          // Salva log de reunião adiada no Firestore
+          const logRef = db.collection('reuniao_logs').doc();
+          await logRef.set({
+            cellId: session.cellId,
+            date: new Date().toISOString().split('T')[0],
+            liderId: session.liderId,
+            statusReuniao: 'postponed',
+            novaData: newDateText,
+            isTestData: !!session.isTestData,
+            createdAt: now
+          });
+
+          await sendText(
+            fromPhone,
+            `👍 Entendido! A reunião foi reagendada para *${newDateText}*.\n\nFaremos o acompanhamento automático do relatório no dia seguinte à nova data. Bom trabalho na liderança! 🙏`
+          );
+
+          await sessionRef.delete();
+        }
+        break;
+      }
+
+      case 'CANCELLED_REASON': {
+        if (type === 'text') {
+          const reasonText = messageText.trim();
+          
+          // Salva log de reunião cancelada no Firestore
+          const logRef = db.collection('reuniao_logs').doc();
+          await logRef.set({
+            cellId: session.cellId,
+            date: new Date().toISOString().split('T')[0],
+            liderId: session.liderId,
+            statusReuniao: 'cancelled',
+            motivoCancelamento: reasonText,
+            isTestData: !!session.isTestData,
+            createdAt: now
+          });
+
+          await sendText(
+            fromPhone,
+            `📌 Registrado! O motivo do cancelamento (*"${reasonText}"*) foi enviado ao seu supervisor.\n\nDesejamos uma abençoada semana e nos falamos na próxima! 🙌`
+          );
+
+          await sessionRef.delete();
+        }
+        break;
+      }
 
       case 'ATTENDANCE': {
         const latestDoc = await sessionRef.get();

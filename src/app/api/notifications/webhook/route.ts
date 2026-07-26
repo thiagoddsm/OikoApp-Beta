@@ -300,10 +300,10 @@ export async function POST(request: Request) {
       });
     } catch (e) { console.error("DEBUG LOG ERROR:", e); }
 
-    // Relaxar a condição: aceitar fromMe === undefined como "não é de mim"
-    // IMPORTANTE: Para Enquetes (responseType === 'poll'), o msgObject.key refere-se à mensagem ORIGINAL (enviada pelo bot). 
-    // Logo, fromMe virá true. Para não bloquear o voto do usuário, ignoramos o fromMe se for poll update.
-    const isFromMe = (msgObject.key?.fromMe === true || msgObject.fromMe === true) && responseType !== 'poll';
+    // IMPORTANTE: Para Enquetes (responseType === 'poll') e Botões (responseType === 'button'),
+    // o objeto da mensagem pode conter fromMe === true referente à mensagem original enviada pelo bot.
+    // Logo, para não ignorar o clique do usuário nos botões, desconsideramos isFromMe para poll e button.
+    const isFromMe = (msgObject.key?.fromMe === true || msgObject.fromMe === true) && responseType !== 'poll' && responseType !== 'button';
     const isGroup = fromRaw.includes('@g.us');
     
     if (!isFromMe && !isGroup) {
@@ -358,6 +358,16 @@ export async function POST(request: Request) {
                 messageText = Array.isArray(payload?.selectedOptions) ? payload.selectedOptions.join(', ') : '';
             } else {
                 messageText = msgContent.conversation || msgContent.extendedTextMessage?.text || msgObject.text || '';
+            }
+
+            // Fallback para respostas de botões do WhatsApp Web onde o payload vem como texto "Sim" / "Não"
+            if (responseType === 'text' && (messageText.trim().toLowerCase() === 'sim' || messageText.trim().toLowerCase() === 'não' || messageText.trim().toLowerCase() === 'nao')) {
+                const sessionData = sessionDoc.data();
+                if (sessionData?.step === 'CHECK_MEETING') {
+                    responseType = 'button';
+                    payload = { buttonId: messageText.trim().toLowerCase() === 'sim' ? 'meeting_yes' : 'meeting_no' };
+                    messageText = payload.buttonId;
+                }
             }
 
             console.log(`[Webhook DEBUG] Encaminhando para GC Bot: messageText="${messageText}", type=${responseType || 'text'}`);

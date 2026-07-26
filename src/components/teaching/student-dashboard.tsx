@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import {
   Calendar, Clock, Book, GraduationCap, CreditCard, User, Loader2,
   PlayCircle, ExternalLink, CheckCircle2, XCircle, AlertTriangle,
-  RefreshCw, ChevronDown, ChevronUp, BarChart2, Minus, BookOpen
+  RefreshCw, ChevronDown, ChevronUp, BarChart2, Minus, BookOpen, Folder, Award
 } from 'lucide-react';
+
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useFirebase } from '@/firebase';
@@ -18,7 +19,6 @@ import { format, parseISO, addWeeks, addMonths, isBefore, startOfDay } from 'dat
 import { ptBR } from 'date-fns/locale';
 import { useMembersData, useCoursesData } from "@/hooks/useDomainData";
 import { CertificateView } from './certificate-view';
-import { Award } from 'lucide-react';
 
 const safeParseISO = (dateStr: string): Date => {
   if (!dateStr || typeof dateStr !== 'string') return new Date(NaN);
@@ -247,6 +247,35 @@ function ClassAttendanceCard({ cls, courseName, userId, today }: ClassAttendance
           </div>
         )}
       </CardHeader>
+
+      {/* Materiais Didáticos Compartilhados */}
+      {cls.materials && cls.materials.length > 0 && (
+        <div className="px-6 pb-3">
+          <div className="p-3 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 rounded-xl space-y-2">
+            <div className="flex items-center gap-2">
+              <Folder className="size-3.5 text-indigo-600 dark:text-indigo-400" />
+              <p className="text-[10px] font-black uppercase text-indigo-700 dark:text-indigo-400">
+                Materiais de Apoio ({cls.materials.length})
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              {cls.materials.map((mat, idx) => (
+                <div key={idx} className="flex items-center justify-between gap-2 p-2 bg-card rounded-lg border text-xs">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold truncate text-xs">{mat.title}</p>
+                    {mat.description && <p className="text-[10px] text-muted-foreground truncate">{mat.description}</p>}
+                  </div>
+                  <Button asChild size="sm" variant="outline" className="h-6 text-[10px] font-bold px-2 shrink-0">
+                    <a href={mat.url} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="size-3 mr-1" /> Acessar
+                    </a>
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Lista de aulas */}
       {sessionStatuses.length > 0 && (
@@ -528,13 +557,22 @@ export function StudentDashboard() {
 
       {/* ── Meus Certificados ──────────────────────────────────────────────── */}
       {(() => {
-        // Encontra os certificados enviados para o aluno (lendo do perfil do usuário atual no Firebase)
         const currentUserProfile = users.find(u => u.id === user.uid);
         if (!currentUserProfile) return null;
-        const certificates = currentUserProfile.journey?.certificates || {};
-        const activeCertificatesCourseIds = Object.keys(certificates).filter(courseId => !!certificates[courseId]);
 
-        if (activeCertificatesCourseIds.length === 0) return null;
+        const certificates = currentUserProfile.journey?.certificates || {};
+        const courseStatus = currentUserProfile.journey?.courseStatus || {};
+
+        // Coleta todos os cursos onde há um PDF salvo OU o curso consta como aprovado/apto
+        const eligibleCourseIds = Array.from(new Set([
+          ...Object.keys(certificates).filter(id => !!certificates[id]),
+          ...Object.keys(courseStatus).filter(id => {
+            const st = (courseStatus[id] || '').toLowerCase();
+            return st === 'approved' || st === 'completed' || st === 'apto';
+          })
+        ]));
+
+        if (eligibleCourseIds.length === 0) return null;
 
         return (
           <div className="space-y-4 mt-8">
@@ -549,11 +587,11 @@ export function StudentDashboard() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {activeCertificatesCourseIds.map(courseId => {
+              {eligibleCourseIds.map(courseId => {
                 const course = courseMap.get(courseId);
                 const pdfUrl = certificates[courseId];
                 if (!course) return null;
-                
+
                 return (
                   <Card key={courseId} className="border-2 border-primary/10 hover:border-primary/20 transition-all">
                     <CardHeader className="pb-3">
@@ -561,7 +599,9 @@ export function StudentDashboard() {
                         {course?.ministryName || 'Ensino'}
                       </p>
                       <CardTitle className="text-base font-black truncate">{course?.name}</CardTitle>
-                      <CardDescription className="text-xs">Certificado em PDF disponível</CardDescription>
+                      <CardDescription className="text-xs">
+                        {pdfUrl ? 'Certificado em PDF disponível' : 'Conclusão registrada com sucesso'}
+                      </CardDescription>
                     </CardHeader>
                     <CardContent className="pt-0">
                       <Button
@@ -569,7 +609,7 @@ export function StudentDashboard() {
                         onClick={() => setSelectedCert({
                           studentName: user.displayName || 'Aluno',
                           courseName: course?.name || 'Curso',
-                          pdfUrl: pdfUrl
+                          pdfUrl: pdfUrl || ''
                         })}
                         className="w-full text-xs font-black uppercase tracking-wider gap-1.5 shadow-sm"
                       >

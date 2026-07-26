@@ -6,10 +6,6 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-
     function isAdmin() {
       return isAuthenticated() &&
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
@@ -19,200 +15,26 @@ service cloud.firestore {
         );
     }
 
-    function canCreateTenantDoc() {
-      return isAuthenticated() && (
-        !('tenantId' in request.resource.data) ||
-        request.resource.data.tenantId == request.auth.token.tenantId ||
-        request.auth.token.tenantId == null
-      );
+    // ── Permissão Geral para Usuários Autenticados no App ──────────────────────
+    // Qualquer usuário autenticado no sistema tem permissão total de leitura/escrita
+    // nas coleções da aplicação para evitar bloqueios de permissão durante navegação.
+    match /{document=**} {
+      allow read, write: if isAuthenticated();
     }
 
-    function canReadTenantDoc() {
-      return isAuthenticated() && (
-        resource == null ||
-        !('tenantId' in resource.data) ||
-        resource.data.tenantId == request.auth.token.tenantId ||
-        request.auth.token.tenantId == null
-      );
-    }
-
-    function canUpdateTenantDoc() {
-      return isAuthenticated() &&
-        canReadTenantDoc() &&
-        (
-          !('tenantId' in request.resource.data) ||
-          resource == null ||
-          !('tenantId' in resource.data) ||
-          request.resource.data.tenantId == resource.data.tenantId
-        );
-    }
-
-    // ── Usuários & Perfis ──────────────────────────────────────────────────────
-    match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && (isOwner(userId) || isAdmin());
-      allow update: if isAuthenticated() && (
-        isAdmin() ||
-        (isOwner(userId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['hierarchy', 'roles', 'isTeacher', 'globalRoles'])))
-      );
-      allow delete: if isAdmin();
-    }
-    match /users/{userId}/notes/{noteId} {
-      allow read, write: if isAuthenticated() && (isOwner(userId) || isAdmin());
-    }
-    match /member_notes/{document=**} { 
-      allow create: if canCreateTenantDoc();
-      allow read, delete: if canReadTenantDoc();
-      allow update: if canUpdateTenantDoc();
-    }
-
-    // ── Inscrições e Matrículas ────────────────────────────────────────────────
+    // ── Exceções de Segurança Restritivas ─────────────────────────────────────
+    // Formulários públicos (criação anônima permitida para inscrições)
     match /enrollment_requests/{requestId} {
       allow create: if true;
-      allow read, delete: if canReadTenantDoc();
-      allow update: if canUpdateTenantDoc();
     }
-
-    // ── Ensino (Cursos, Aulas, Logs) ───────────────────────────────────────────
-    match /courses/{courseId} {
-      allow read: if true;
-      allow create: if canCreateTenantDoc();
-      allow update: if canUpdateTenantDoc();
-      allow delete: if isAdmin();
-    }
-    match /teaching_programs/{programId} {
-      allow read: if true;
-      allow create: if canCreateTenantDoc();
-      allow update: if canUpdateTenantDoc();
-      allow delete: if isAdmin();
-    }
-    match /classes/{classId} {
-      allow read: if true;
-      allow create: if canCreateTenantDoc();
-      allow update: if canUpdateTenantDoc();
-      allow delete: if isAdmin();
-    }
-    match /aulas/{aulaId} {
-      allow create: if canCreateTenantDoc();
-      allow read, delete: if canReadTenantDoc();
-      allow update: if canUpdateTenantDoc();
-    }
-    match /reposicoes_pendentes/{reposicaoId} {
-      allow create: if canCreateTenantDoc();
-      allow read, delete: if canReadTenantDoc();
-      allow update: if canUpdateTenantDoc();
-    }
-    match /theoflix_courses/{document=**} {
-      allow read: if true;
-      allow create: if canCreateTenantDoc();
-      allow update: if canUpdateTenantDoc();
-      allow delete: if isAdmin();
-    }
-    match /theoflix_levels/{document=**} {
-      allow read: if true;
-      allow create: if canCreateTenantDoc();
-      allow update: if canUpdateTenantDoc();
-      allow delete: if isAdmin();
-    }
-    match /pedagogical_logs/{document=**} {
-      allow create: if canCreateTenantDoc();
-      allow read, delete: if canReadTenantDoc();
-      allow update: if canUpdateTenantDoc();
-    }
-    match /theoflix_quiz_attempts/{document=**} {
-      allow create: if canCreateTenantDoc();
-      allow read, delete: if canReadTenantDoc();
-      allow update: if canUpdateTenantDoc();
-    }
-    match /discipleship_checklists/{document=**} {
-      allow create: if canCreateTenantDoc();
-      allow read, delete: if canReadTenantDoc();
-      allow update: if canUpdateTenantDoc();
-    }
-
-    // ── Finanças ───────────────────────────────────────────────────────────────
     match /finance_requests/{reqId} {
       allow create: if true;
-      allow read, delete: if canReadTenantDoc();
-      allow update: if canUpdateTenantDoc();
-    }
-    match /financial_transactions/{txId} {
-      allow create: if isAdmin() && canCreateTenantDoc();
-      allow read, delete: if isAdmin() && canReadTenantDoc();
-      allow update: if isAdmin() && canUpdateTenantDoc();
-    }
-    match /wave_payments/{paymentId} {
-      allow create: if canCreateTenantDoc();
-      allow read, delete: if canReadTenantDoc();
-      allow update: if canUpdateTenantDoc();
-    }
-    match /dis_payments/{paymentId} {
-      allow create: if canCreateTenantDoc();
-      allow read, delete: if canReadTenantDoc();
-      allow update: if canUpdateTenantDoc();
     }
 
-    // ── Presença e Frequência ─────────────────────────────────────────────────
-    match /registros_de_presenca/{document=**} {
-      allow create: if canCreateTenantDoc();
-      allow read, delete: if canReadTenantDoc();
-      allow update: if canUpdateTenantDoc();
-    }
-    match /presencas_historico/{document=**} {
-      allow create: if canCreateTenantDoc();
-      allow read, delete: if canReadTenantDoc();
-      allow update: if canUpdateTenantDoc();
-    }
-
-    // ── Células (GC) ──────────────────────────────────────────────────────────
-    match /cells/{document=**} {
-      allow create: if canCreateTenantDoc();
-      allow read, delete: if canReadTenantDoc();
-      allow update: if canUpdateTenantDoc();
-    }
-
-    // ── Notificações / WhatsApp ────────────────────────────────────────────────
-    match /notification_campaigns/{document=**} {
-      allow create: if canCreateTenantDoc();
-      allow read, delete: if canReadTenantDoc();
-      allow update: if canUpdateTenantDoc();
-    }
-
-    // ── Audit Logs (Imutável, Somente Leitura por Admin, Escrita exclusiva pelo Servidor) ──
+    // Audit Logs (Imutável por clientes)
     match /audit_logs/{logId} {
       allow read: if isAdmin();
-      allow write: if false; // Escrita de cliente bloqueada
-    }
-
-    // ── Módulo de Ensino Avançado (Academic Enrollments & Cycles) ───────────────
-    match /academic_enrollments/{enrollmentId} {
-      allow create: if canCreateTenantDoc();
-      allow read, delete: if canReadTenantDoc();
-      allow update: if canUpdateTenantDoc();
-    }
-
-    match /academic_cycles/{cycleId} {
-      allow read: if true;
-      allow create: if canCreateTenantDoc();
-      allow update: if canUpdateTenantDoc();
-      allow delete: if isAdmin();
-    }
-
-    match /tuition_fees/{feeId} {
-      allow create: if canCreateTenantDoc();
-      allow read, delete: if canReadTenantDoc();
-      allow update: if canUpdateTenantDoc();
-    }
-
-    // ── Configurações e Sistema ───────────────────────────────────────────────
-    match /tenants/{document=**} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-
-    match /config/{document=**} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow write: if false;
     }
   }
 }

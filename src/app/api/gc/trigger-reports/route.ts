@@ -102,7 +102,37 @@ export async function POST(request: Request) {
 
       try {
         if (!force) {
-          // Verificar se já existe relatório enviado nos últimos 6 dias para esta célula
+          // 1. Validar se hoje é o dia da reunião ou o horário +3h já foi atingido
+          const weekDays = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+          const todayIndex = new Date().getDay();
+          const todayName = weekDays[todayIndex];
+
+          const meetingDay = cellData.meetingDay || cellData.diaSemana || '';
+          const meetingTime = cellData.meetingTime || cellData.horario || '19:30';
+
+          if (meetingDay && !meetingDay.toLowerCase().includes(todayName.toLowerCase().substring(0, 3))) {
+            // Não é o dia de reunião desta célula
+            continue;
+          }
+
+          // Checar se já se passaram 3 horas do início da célula
+          const [hStr, mStr] = meetingTime.split(':');
+          const meetingHour = parseInt(hStr || '19', 10);
+          const meetingMinute = parseInt(mStr || '30', 10);
+          
+          const nowHour = new Date().getHours();
+          const nowMinute = new Date().getMinutes();
+          
+          const meetingMinutesTotal = meetingHour * 60 + meetingMinute;
+          const nowMinutesTotal = nowHour * 60 + nowMinute;
+
+          // Exige que tenham se passado pelo menos 180 minutos (3 horas) do horário de início
+          if (nowMinutesTotal < meetingMinutesTotal + 180) {
+            console.log(`[GC Bot] Célula ${cellId} agendada para ${meetingTime}. Aguardando janela de 3 horas pós-célula.`);
+            continue;
+          }
+
+          // 2. Verificar se já existe relatório enviado nos últimos 6 dias para esta célula
           const reportsSnap = await db.collection('reuniao_logs')
             .where('cellId', '==', cellId)
             .where('date', '>=', dateLimitStr)

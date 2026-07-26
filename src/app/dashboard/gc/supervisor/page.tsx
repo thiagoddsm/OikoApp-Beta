@@ -40,6 +40,9 @@ type ReuniaoLog = {
   cellNome: string;
   date: string;
   liderId: string;
+  statusReuniao?: 'postponed' | 'cancelled';
+  novaData?: string;
+  motivoCancelamento?: string;
   metricas: {
     presentes: number;
     totalMembrosAtivos: number;

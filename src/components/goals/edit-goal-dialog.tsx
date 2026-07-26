@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, setDocumentNonBlocking } from '@/firebase';
+import { useTenant } from '@/contexts/tenant-context';
 import { doc } from 'firebase/firestore';
 
 interface EditGoalDialogProps {
@@ -27,6 +28,7 @@ interface EditGoalDialogProps {
 }
 
 export function EditGoalDialog({ open, onOpenChange, kpi, title, year, existingGoal }: EditGoalDialogProps) {
+  const { tenantId } = useTenant();
   const { firestore } = useFirebase();
   const { toast } = useToast();
   const [target, setTarget] = useState('');
@@ -55,18 +57,22 @@ export function EditGoalDialog({ open, onOpenChange, kpi, title, year, existingG
     
     setIsSaving(true);
 
-    if (!firestore) return;
+    if (!firestore || !tenantId) return;
 
     const goalId = `${kpi}_${year}`;
-    const goalRef = doc(firestore, 'goals', goalId);
+    // Salva na subcoleção por tenant para isolamento SaaS
+    const goalRef = doc(firestore, `goals/${tenantId}/items`, goalId);
     
     const goalData = {
       id: goalId,
+      tenantId,
+      kpiId: kpi,
       kpi,
       year,
       target: numericTarget,
       monthlyTargets: existingGoal?.monthlyTargets || Array(12).fill(Math.round(numericTarget / 12)),
       monthlyActuals: existingGoal?.monthlyActuals || Array(12).fill(0),
+      updatedAt: new Date(),
     };
 
     await setDocumentNonBlocking(goalRef, goalData, { merge: true });
