@@ -146,8 +146,14 @@ async function sendMembersListAsPoll(to: string, membersList: { id: string; name
         selectableCount: options.length
       }
     });
+
+    // Delay entre enquetes para garantir ordem de chegada
+    await new Promise(resolve => setTimeout(resolve, 1500));
   }
   
+  // Delay adicional antes do botão de concluir para chegar DEPOIS das enquetes
+  await new Promise(resolve => setTimeout(resolve, 1500));
+
   const buttonId = isCare ? 'care_done' : 'attendance_done';
   const buttonText = isCare ? 'Concluir Seleção' : 'Concluir Chamada';
   await sendButton(
@@ -211,19 +217,10 @@ export async function startGcReportSession(cellId: string, liderPhone: string, i
       }
     }
 
-    // Mensagem de boas-vindas (1º envio obrigatoriamente síncrono)
-    await sendText(
-      liderPhone,
-      `Olá, líder${liderName}! 👋\nQue a paz do Senhor esteja com você! Chegou a hora de registrar as bençãos da reunião do GC *${cellData.nome || 'Célula'}* desta semana.`
-    );
-    
-    // Aguardar 2.5 segundos para o servidor da Evolution/WAME carregar o carimbo de data/hora do texto antes de postar os botões
-    await new Promise(resolve => setTimeout(resolve, 2500));
-
-    // Pergunta inicial com botões (2º envio)
+    // Saudação + pergunta em UMA ÚNICA mensagem de botão para evitar race condition de ordem
     await sendButton(
       liderPhone,
-      '❓ *Aconteceu a reunião do GC esta semana?*',
+      `Olá, líder${liderName}! 👋\nQue a paz do Senhor esteja com você!\n\nChegou a hora de registrar as bençãos da reunião do GC *${cellData.nome || 'Célula'}* desta semana.\n\n❓ *Aconteceu a reunião do GC esta semana?*`,
       [
         { id: 'meeting_yes', text: 'Sim' },
         { id: 'meeting_no', text: 'Não' }
@@ -325,6 +322,8 @@ export async function handleGcReportIncomingMessage(
             fromPhone,
             '📋 *Etapa 1: Chamada*\n\nResponda na enquete/lista abaixo quem esteve *PRESENTE* na reunião.'
           );
+          // Aguardar antes das enquetes para o texto chegar primeiro
+          await new Promise(resolve => setTimeout(resolve, 2000));
           await sendMembersListAsPoll(fromPhone, session.members, false);
         } else if (isNo) {
           await sessionRef.update({
