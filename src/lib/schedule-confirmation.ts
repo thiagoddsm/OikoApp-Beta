@@ -1,158 +1,174 @@
 import { getAdminDb } from '@/lib/firebase-admin';
 import { Timestamp } from 'firebase-admin/firestore';
-import type { Firestore } from 'firebase-admin/firestore';
 
 /**
  * Handles volunteer schedule confirmation via WhatsApp reply.
- * Called from the main webhook when a user sends "SIM" or "NÃO".
+ * Called from the main webhook when a user sends "SIM", "NÃO",
+ * or clicks the interactive buttons "schedule_confirm" / "schedule_decline".
  *
  * Flow:
- * 1. Find user by phone number
- * 2. Find their most recent pending schedule notification
- * 3. Update the confirmation status in saved_schedules
- * 4. Send a confirmation reply to the volunteer
+ * 1. Look up schedule_pending_confirmations/{phone} (O(1), no tenantId needed)
+ * 2. Update saved_schedules/{scheduleId}.confirmations.{userId}
+ * 3. Delete the pending doc
+ * 4. Send confirmation reply to the volunteer
  *
  * Returns true if the message was handled (prevents further bot processing)
  */
 export async function handleScheduleConfirmation(
   fromPhone: string,
-  normalizedText: string, // "SIM" | "NÃO" | "NAO"
-  waConfig: any
+  normalizedText: string,  // "SIM" | "NÃO" | "NAO" | "SCHEDULE_CONFIRM" | "SCHEDULE_DECLINE"
+  waConfig: any,
+  buttonId?: string        // payload?.buttonId se vier de clique em botão
 ): Promise<boolean> {
   const db = getAdminDb();
-  const isConfirmed = normalizedText === 'SIM';
+
+  // Normalizar o número igual ao que foi salvo na confirmação pendente
+  const cleaned = fromPhone.replace(/\D/g, '');
+  let formatted = cleaned;
+  if (cleaned.length === 11) formatted = `55${cleaned}`;
+  else if (!cleaned.startsWith('55')) formatted = `55${cleaned}`;
+
+  // Verificar pelos dois formatos possíveis
+  const phonesToTry = [formatted, cleaned];
+
+  let pendingData: any = null;
+  let pendingDocId: string | null = null;
+
+  for (const phone of phonesToTry) {
+    const pendingDoc = await db.collection('schedule_pending_confirmations').doc(phone).get();
+    if (pendingDoc.exists) {
+      pendingData = pendingDoc.data();
+      pendingDocId = phone;
+      break;
+    }
+  }
+
+  if (!pendingData || !pendingDocId) {
+    return false; // Nenhuma confirmação pendente para este número
+  }
+
+  // Verificar se a confirmação não expirou
+  const expiresAt = pendingData.expiresAt?.toDate?.();
+  if (expiresAt && expiresAt < new Date()) {
+    console.log(`[ScheduleConfirmation] Confirmação expirada para ${fromPhone}`);
+    await db.collection('schedule_pending_confirmations').doc(pendingDocId).delete();
+    return false;
+  }
+
+  // Determinar resposta: botão tem prioridade, depois texto
+  const effectiveId = buttonId || normalizedText.toLowerCase();
+  const isConfirmed =
+    effectiveId === 'schedule_confirm' ||
+    effectiveId === 'sim' ||
+    normalizedText === 'SIM';
+
+  const isDeclined =
+    effectiveId === 'schedule_decline' ||
+    effectiveId === 'não' ||
+    effectiveId === 'nao' ||
+    normalizedText === 'NÃO' ||
+    normalizedText === 'NAO';
+
+  if (!isConfirmed && !isDeclined) {
+    return false; // Resposta não reconhecida — não processar
+  }
+
+  const status = isConfirmed ? 'confirmed' : 'declined';
+  const { scheduleId, volunteerId, areaName, userName } = pendingData;
 
   try {
-    // ── Step 1: Find user by phone ──────────────────────────────────────────
-    const cleanPhone = fromPhone.replace(/\D/g, '');
-    const phonesToTry = [
-      cleanPhone,
-      cleanPhone.startsWith('55') ? cleanPhone.slice(2) : `55${cleanPhone}`,
-    ];
-
-    let userId: string | null = null;
-    let userName = 'Voluntário';
-
-    for (const phone of phonesToTry) {
-      const snap = await db.collection('users')
-        .where('phone', '>=', phone)
-        .where('phone', '<=', phone + '\uf8ff')
-        .limit(3)
-        .get();
-
-      if (!snap.empty) {
-        // Try exact match first
-        const exactMatch = snap.docs.find(d => {
-          const p = String(d.data().phone || '').replace(/\D/g, '');
-          return p === cleanPhone || p === phone;
-        });
-        const doc = exactMatch || snap.docs[0];
-        userId = doc.id;
-        userName = doc.data().name || 'Voluntário';
-        break;
-      }
-    }
-
-    if (!userId) {
-      console.log(`[ScheduleConfirmation] Usuário não encontrado para telefone: ${fromPhone}`);
-      return false; // Let the bot handle it
-    }
-
-    // ── Step 2: Find pending schedule ───────────────────────────────────────
-    // Look for schedules from the last 60 days that include this member
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 60);
-    const cutoffMonth = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, '0')}`;
-
-    const schedulesSnap = await db.collection('saved_schedules')
-      .where('tenantId', '==', await getTenantIdForUser(db, userId))
-      .orderBy('month', 'desc')
-      .limit(10)
-      .get();
-
-    // Find the most recent schedule that contains this member and has a pending notification
-    let targetScheduleId: string | null = null;
-    let areaName = 'sua área';
-
-    for (const schedDoc of schedulesSnap.docs) {
-      const schedData = schedDoc.data();
-      // Check if member is in this schedule
-      const hasMember = schedData.schedule?.some((item: any) =>
-        Array.isArray(item.memberIds) && item.memberIds.includes(userId)
-      );
-
-      if (hasMember) {
-        // Check if there's a pending confirmation or if notificationSentAt exists within last 7 days
-        const confirmations = schedData.confirmations || {};
-        const memberConf = confirmations[userId!];
-        const notifSentAt = schedData.notificationSentAt?.toDate?.();
-        const withinWindow = notifSentAt && (Date.now() - notifSentAt.getTime()) < 7 * 24 * 60 * 60 * 1000;
-
-        if (!memberConf || memberConf.status === 'pending' || withinWindow) {
-          targetScheduleId = schedDoc.id;
-          // Get area name
-          const areaSnap = await db.collection('service_areas').doc(schedData.areaId).get();
-          if (areaSnap.exists) areaName = areaSnap.data()?.name || areaName;
-          break;
-        }
-      }
-    }
-
-    if (!targetScheduleId) {
-      console.log(`[ScheduleConfirmation] Nenhuma escala pendente encontrada para userId=${userId}`);
-      return false; // Not handled — let bot continue
-    }
-
-    // ── Step 3: Update confirmation in Firestore ─────────────────────────────
-    await db.collection('saved_schedules').doc(targetScheduleId).update({
-      [`confirmations.${userId}`]: {
-        status: isConfirmed ? 'confirmed' : 'declined',
+    // Atualizar confirmação na escala salva
+    await db.collection('saved_schedules').doc(scheduleId).update({
+      [`confirmations.${volunteerId}`]: {
+        status,
         phone: fromPhone,
         updatedAt: Timestamp.now(),
       },
     });
 
-    console.log(`[ScheduleConfirmation] Confirmação registrada: userId=${userId}, status=${isConfirmed ? 'confirmed' : 'declined'}, schedule=${targetScheduleId}`);
+    // Remover pendência
+    await db.collection('schedule_pending_confirmations').doc(pendingDocId).delete();
 
-    // ── Step 4: Send confirmation reply ──────────────────────────────────────
-    const firstName = userName.trim().split(' ')[0];
-    const firstName2 = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
-
-    const replyMessage = isConfirmed
-      ? `✅ Ótimo, ${firstName2}! Sua confirmação foi registrada. Contamos com você no ${areaName}! 🙌`
-      : `📋 Entendido, ${firstName2}. Seu impedimento foi registrado. Vou avisar a coordenação de ${areaName}. Se tiver alguma dúvida, entre em contato com seu líder.`;
-
-    try {
-      const apiKey = waConfig?.instanceKey || waConfig?.whatsappApiKey;
-      const serverUrl = waConfig?.serverUrl || 'https://us.api-wa.me';
-
-      if (apiKey) {
-        const { getWhatsAppClient } = await import('@/lib/whatsapp');
-        const whatsapp = await getWhatsAppClient({ server: serverUrl, key: apiKey });
-        await whatsapp.sendMessage({
-          type: 'text',
-          body: {
-            to: `${fromPhone.replace(/\D/g, '')}@s.whatsapp.net`,
-            text: replyMessage,
-          },
-        });
-      }
-    } catch (sendErr: any) {
-      console.error('[ScheduleConfirmation] Erro ao enviar resposta:', sendErr.message);
-    }
-
-    return true; // Message was handled
+    console.log(`[ScheduleConfirmation] ${status} registrado: userId=${volunteerId}, schedule=${scheduleId}`);
   } catch (err: any) {
-    console.error('[ScheduleConfirmation] Erro geral:', err.message);
+    console.error('[ScheduleConfirmation] Erro ao atualizar Firestore:', err.message);
     return false;
   }
+
+  // Enviar resposta ao voluntário
+  const firstName = (userName || 'Voluntário').trim().split(' ')[0];
+  const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
+
+  const replyMessage = isConfirmed
+    ? `✅ Ótimo, ${cap(firstName)}! Sua presença em *${areaName}* está confirmada. Contamos com você! 🙌`
+    : `📋 Entendido, ${cap(firstName)}. Seu impedimento foi registrado. A coordenação de *${areaName}* será avisada. Obrigado por avisar! 🙏`;
+
+  try {
+    const { getWhatsAppClient } = await import('@/lib/whatsapp');
+    const whatsapp = await getWhatsAppClient();
+    await whatsapp.sendMessage({
+      type: 'text',
+      body: {
+        to: formatted,
+        text: replyMessage,
+      },
+    });
+
+    // Se recusou, notificar o coordenador da área (buscar no Firestore)
+    if (!isConfirmed) {
+      try {
+        await notifyAreaCoordinator(db, scheduleId, areaName, userName, whatsapp);
+      } catch (e: any) {
+        console.warn('[ScheduleConfirmation] Falha ao notificar coordenador:', e.message);
+      }
+    }
+  } catch (sendErr: any) {
+    console.error('[ScheduleConfirmation] Erro ao enviar resposta:', sendErr.message);
+  }
+
+  return true;
 }
 
-async function getTenantIdForUser(db: FirebaseFirestore.Firestore, userId: string): Promise<string> {
-  try {
-    const userDoc = await db.collection('users').doc(userId).get();
-    return userDoc.data()?.tenantId || '';
-  } catch {
-    return '';
-  }
+/**
+ * Notifica o líder/coordenador da área quando um voluntário recusa a escala.
+ */
+async function notifyAreaCoordinator(
+  db: FirebaseFirestore.Firestore,
+  scheduleId: string,
+  areaName: string,
+  volunteerName: string,
+  whatsapp: any
+) {
+  // Buscar a escala para obter o areaId
+  const schedDoc = await db.collection('saved_schedules').doc(scheduleId).get();
+  if (!schedDoc.exists) return;
+
+  const areaId = schedDoc.data()?.areaId;
+  if (!areaId) return;
+
+  // Buscar o coordenador da área
+  const areaDoc = await db.collection('service_areas').doc(areaId).get();
+  if (!areaDoc.exists) return;
+
+  const coordinatorId = areaDoc.data()?.coordinatorId || areaDoc.data()?.leaderId;
+  if (!coordinatorId) return;
+
+  const coordDoc = await db.collection('users').doc(coordinatorId).get();
+  if (!coordDoc.exists) return;
+
+  const coordPhone = coordDoc.data()?.phone;
+  if (!coordPhone) return;
+
+  const cleanedCoord = String(coordPhone).replace(/\D/g, '');
+  const formattedCoord = cleanedCoord.startsWith('55') ? cleanedCoord : `55${cleanedCoord}`;
+
+  const firstName = (volunteerName || 'Um voluntário').trim().split(' ')[0];
+
+  await whatsapp.sendMessage({
+    type: 'text',
+    body: {
+      to: formattedCoord,
+      text: `⚠️ *Aviso de impedimento*\n\n${firstName} informou que *não poderá comparecer* ao serviço de *${areaName}*.\n\nVerifique a escala e providencie uma substituição se necessário.`,
+    },
+  });
 }

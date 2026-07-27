@@ -308,23 +308,11 @@ export async function POST(request: Request) {
     
     if (!isFromMe && !isGroup) {
         // ── Confirmação de Escala via WhatsApp ──────────────────────────────
-        // Intercept SIM / NÃO replies before passing to GC Bot
-        const rawTextForConfirm = (msgContent.conversation || msgContent.extendedTextMessage?.text || msgObject.text || '').trim().toUpperCase();
-        if (rawTextForConfirm === 'SIM' || rawTextForConfirm === 'NÃO' || rawTextForConfirm === 'NAO') {
-            try {
-                const configSnap = await db.collection('config').doc('notifications').get();
-                const waConf = configSnap.exists ? configSnap.data() : {};
-                const { handleScheduleConfirmation } = await import('@/lib/schedule-confirmation');
-                const wasHandled = await handleScheduleConfirmation(fromPhone, rawTextForConfirm, waConf);
-                if (wasHandled) {
-                    console.log(`[Webhook] Resposta de escala processada para ${fromPhone}: ${rawTextForConfirm}`);
-                    return NextResponse.json({ success: true });
-                }
-            } catch (confErr: any) {
-                console.error('[Webhook] Erro no handler de confirmação de escala:', confErr.message);
-            }
-        }
-        // ── Fim confirmação de escala ──────────────────────────────────────
+        // NOTA: Este bloco é executado APÓS a verificação de sessão GC (abaixo),
+        // para evitar conflito quando o mesmo usuário está em ambos os fluxos.
+        // A função handleScheduleConfirmation verifica se há pendência no Firestore
+        // antes de processar — se não houver, retorna false e o fluxo continua.
+        // ── Fim confirmação de escala (ver bloco abaixo da sessão GC) ────────
 
         console.log(`[Webhook DEBUG] Checando sessão GC para fromPhone=${fromPhone}...`);
         
@@ -383,6 +371,35 @@ export async function POST(request: Request) {
     } else {
         console.log(`[Webhook DEBUG] Mensagem ignorada pelo Bot GC: isFromMe=${isFromMe}, isGroup=${isGroup}`);
     }
+
+    // ── Confirmação de Escala via WhatsApp ────────────────────────────────────
+    // Executado APÓS verificação de sessão GC para evitar conflito.
+    // Aceita: clique nos botões schedule_confirm/schedule_decline OU texto SIM/NÃO
+    if (!isFromMe && !isGroup) {
+        const rawText = (msgContent.conversation || msgContent.extendedTextMessage?.text || msgObject.text || '').trim().toUpperCase();
+        const btnId = payload?.buttonId || '';
+        const isScheduleButton = btnId === 'schedule_confirm' || btnId === 'schedule_decline';
+        const isScheduleText = rawText === 'SIM' || rawText === 'NÃO' || rawText === 'NAO';
+
+        if (isScheduleButton || isScheduleText) {
+            try {
+                const { handleScheduleConfirmation } = await import('@/lib/schedule-confirmation');
+                const wasHandled = await handleScheduleConfirmation(
+                    fromPhone,
+                    rawText,
+                    null,
+                    btnId || undefined
+                );
+                if (wasHandled) {
+                    console.log(`[Webhook] Confirmação de escala processada para ${fromPhone}: ${btnId || rawText}`);
+                    return NextResponse.json({ success: true });
+                }
+            } catch (confErr: any) {
+                console.error('[Webhook] Erro no handler de confirmação de escala:', confErr.message);
+            }
+        }
+    }
+    // ── Fim confirmação de escala ─────────────────────────────────────────────
 
     // D. Common Text and Interactions
     let messageText = '';

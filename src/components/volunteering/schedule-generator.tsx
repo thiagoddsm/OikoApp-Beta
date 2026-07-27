@@ -323,51 +323,55 @@ export function ScheduleGenerator() {
             .filter(v => v.phone);
 
         if (volunteersToNotify.length > 0) {
-            // Agrupar voluntários por id
             const uniqueVolunteers = Array.from(new Set(volunteersToNotify.map(v => v.id)))
                 .map(id => volunteersToNotify.find(v => v.id === id)!);
 
-            const areaName = areas.find(a => a.id === selectedAreaId)?.name || "Área Desconhecida";
-            const monthName = months[selectedMonth] + " de " + selectedYear;
+            const areaName = areas.find(a => a.id === selectedAreaId)?.name || 'Área Desconhecida';
+            const monthName = months[selectedMonth] + ' de ' + selectedYear;
+            const scheduleId = `${selectedAreaId}_${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}`;
 
             toast({
-                title: "Enviando Notificações...",
-                description: `Enviando lembretes de escala via WhatsApp para ${uniqueVolunteers.length} voluntários.`,
+                title: 'Enviando Notificações...',
+                description: `Enviando confirmação de escala via WhatsApp para ${uniqueVolunteers.length} voluntário(s).`,
             });
 
             for (const volunteer of uniqueVolunteers) {
-                const firstName = volunteer.name
-                    ? (volunteer.name.trim().split(' ')[0].charAt(0).toUpperCase() + volunteer.name.trim().split(' ')[0].slice(1).toLowerCase())
-                    : 'Membro';
-
                 const scheduledItems = skeleton.filter(item => item.volunteerId === volunteer.id);
-                const formattedDates = scheduledItems.map(item => {
-                    const dateParts = item.date.split('/');
-                    const dateObj = new Date(parseInt(dateParts[2]), parseInt(dateParts[1]) - 1, parseInt(dateParts[0]), 12, 0, 0);
-                    const weekDays = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+                const weekDays = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+                const formattedItems = scheduledItems.map(item => {
+                    const [d, m, y] = item.date.split('/');
+                    const dateObj = new Date(parseInt(y), parseInt(m) - 1, parseInt(d), 12, 0, 0);
                     const day = weekDays[dateObj.getDay()];
-                    return `• ${item.date} (${day}) - ${item.eventName}${item.teamName ? ` [Equipe ${item.teamName}]` : ''}`;
-                }).join('\n');
-
-                const personalizedMessage = `Olá, ${firstName}! 🗓️ Segue a sua escala de voluntariado na área de ${areaName} para ${monthName.toLowerCase()}:\n\n${formattedDates}\n\nContamos com você! Em caso de imprevistos, avise sua liderança o quanto antes.`;
+                    return `${item.date} (${day}) - ${item.eventName}${item.teamName ? ` [${item.teamName}]` : ''}`;
+                });
 
                 try {
-                    await fetch('/api/notifications/send', {
+                    // Usa o novo endpoint que envia botão interativo + registra pendência no Firestore
+                    const resp = await fetch('/api/notifications/send-schedule-confirmation', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            channel: 'whatsapp',
-                            audience: 'specific_members',
-                            targets: [{ id: volunteer.id, name: volunteer.name, phone: volunteer.phone }],
-                            message: personalizedMessage,
-                            instanceKey: waConfig?.instanceKey || waConfig?.whatsappApiKey,
-                            serverUrl: waConfig?.serverUrl
+                            volunteerId: volunteer.id,
+                            phone: volunteer.phone,
+                            name: volunteer.name,
+                            scheduleId,
+                            items: formattedItems,
+                            areaName,
                         }),
                     });
+                    if (!resp.ok) {
+                        const err = await resp.json().catch(() => ({}));
+                        console.error('Erro ao enviar confirmação de escala:', volunteer.name, err);
+                    }
                 } catch (error) {
-                    console.error("Erro ao notificar no salvamento:", volunteer.name, error);
+                    console.error('Erro ao notificar no salvamento:', volunteer.name, error);
                 }
             }
+
+            toast({
+                title: '✅ Notificações Enviadas',
+                description: `${uniqueVolunteers.length} voluntário(s) receberão uma mensagem com botão de confirmação.`,
+            });
         }
     }
   };
